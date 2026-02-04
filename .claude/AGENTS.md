@@ -1,0 +1,47 @@
+# Claude Code Agent Entry Point
+
+This repository uses **layered documentation** for AI agent context management.
+
+## Start Here
+
+1. **[AGENTS.md](../AGENTS.md)** - Coding rules, architecture boundaries, and constraints
+2. **[DOCUMENTATION_STRUCTURE.md](../DOCUMENTATION_STRUCTURE.md)** - How docs are organized and how to navigate
+3. **[BOOTSTRAP.md](../.skills/BOOTSTRAP.md)** - How to start your "planning", "coding", "implementing" or "reviewer" task
+
+**BEFORE responding to any request you must:**
+1. Read `.skills/BOOTSTRAP.md` - agent framework instructions
+2. Follow the entry point defined in bootstrap document
+3. Read `DOCUMENTATION_STRUCTURE.md` for project specific context
+
+## Documentation Layers
+
+| Layer | Location | Purpose |
+|-------|----------|---------|
+| Principles | `AGENTS.md`, `README.md` | Stable rules, always loaded |
+| Architecture | `docs/architecture/` | System design, when understanding how things work |
+| Implementation | `docs/implementation/` | Active plans, when building features |
+| History | `docs/implementation/history/` | Past decisions, when investigating |
+| Guides | `docs/guides/` | Reference docs, when doing specific tasks |
+
+## Quick Navigation
+
+- **Multi-agent orchestration?** → Use `/quest` command
+- **Building a feature?** → Use `.skills/implementer/` skill
+- **Reviewing an implementation plan?** → Use `.skills/plan-reviewer/` skill
+- **Reviewing code?** → Use `.skills/code-reviewer/` skill
+- **Understanding the system?** → Start with `docs/architecture/` if present
+
+## Skills
+
+This repository uses **skills** for specialized workflows. Skills are automatically discovered and used based on task context:
+
+- **quest:** Multi-agent orchestration for features (plan → review → build → review → fix)
+- **plan-reviewer:** Review implementation plans and PR specifications for test coverage
+- **code-reviewer:** Review actual code for quality, security, and patterns
+- **implementer:** Step-by-step implementation with traceability
+
+See `.skills/BOOTSTRAP.md` for how to use skills with different AI platforms.
+
+---
+
+This structure reduces context pollution and keeps agents grounded in authoritative sources.

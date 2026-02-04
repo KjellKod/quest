@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[quest-audit] $(date -Iseconds) Write/Edit: $TOOL_INPUT\" >> .quest/audit.log 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
