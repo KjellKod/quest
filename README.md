@@ -2,6 +2,8 @@
 
 **Part of the [Candid Talent Edge](https://candidtalentedge.com) initiative by KjellKod**
 
+> *New here?* Listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) - an AI-generated audio overview of what Quest is all about.
+
 A portable framework for coordinated AI agents with human oversight. Copy this to any repository to enable structured, auditable AI workflows.
 
 ## What is Quest?
