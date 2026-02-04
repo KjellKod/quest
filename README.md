@@ -1,5 +1,7 @@
 # Quest: Multi-Agent Orchestration Blueprint
 
+**Part of the [Candid Talent Edge](https://candidtalentedge.com) initiative by KjellKod**
+
 A portable framework for coordinated AI agents with human oversight. Copy this to any repository to enable structured, auditable AI workflows.
 
 ## What is Quest?
@@ -124,4 +126,4 @@ If you don't have Codex, set in `.ai/allowlist.json`:
 
 ## License
 
-MIT
+Public Domain (Unlicense) - Use however you like, no strings attached. See [LICENSE](LICENSE) for details.
