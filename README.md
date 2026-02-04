@@ -77,6 +77,51 @@ claude
 - **Human gates** — you approve before building
 - **Artifacts saved** — full audit trail in `.quest/`
 
+## How the Orchestrator Works
+
+The Quest Orchestrator (main Claude running `/quest`) coordinates specialized agents. During review phases, it dispatches **both reviewers in parallel**:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      QUEST ORCHESTRATOR                             │
+│                 (Main Claude executing /quest skill)                │
+└─────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  │ Review Phase (Plan or Code)
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │   SINGLE MESSAGE with     │
+                    │   TWO TOOL CALLS          │
+                    └─────────────┬─────────────┘
+                                  │
+              ┌───────────────────┼───────────────────┐
+              │                   │                   │
+              ▼                   │                   ▼
+┌─────────────────────────┐       │       ┌─────────────────────────┐
+│   Tool Call 1:          │       │       │   Tool Call 2:          │
+│   Task tool             │  PARALLEL     │   mcp__codex__codex     │
+│   (Claude subagent)     │   EXECUTION   │   (Codex MCP server)    │
+│                         │       │       │                         │
+│  → plan-reviewer or     │       │       │  → GPT-5.2 reviews      │
+│    code-reviewer agent  │       │       │    same artifacts       │
+└───────────┬─────────────┘       │       └───────────┬─────────────┘
+            │                     │                   │
+            ▼                     │                   ▼
+   review_claude.md               │          review_codex.md
+                                  │
+              └───────────────────┼───────────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │   Runtime collects BOTH   │
+                    │   results, then continues │
+                    └─────────────┬─────────────┘
+                                  │
+                                  ▼
+                          Arbiter synthesizes
+```
+
+**Why parallel?** Both reviewers are independent (write separate files, read same inputs). Claude's API executes multiple tool calls from the same message concurrently.
+
 ## File Structure
 
 ```
