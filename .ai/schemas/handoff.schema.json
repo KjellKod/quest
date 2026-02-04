@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Quest Handoff",
+  "description": "Contract for inter-role communication in the quest orchestration system.",
+  "type": "object",
+  "required": ["role", "status", "artifacts_written", "questions", "next_role", "summary"],
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "quest_agent",
+        "planner_agent",
+        "plan_review_claude",
+        "plan_review_codex",
+        "arbiter_agent",
+        "builder_agent",
+        "code_review_agent",
+        "fixer_agent"
+      ],
+      "description": "The role that produced this handoff."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["complete", "needs_human", "blocked"],
+      "description": "complete: role finished successfully. needs_human: Creator input required. blocked: cannot proceed."
+    },
+    "artifacts_written": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Relative path from repo root to the artifact file."
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["plan", "review", "verdict", "code", "fix", "pr_description", "discussion", "brief"],
+            "description": "Type of artifact."
+          }
+        }
+      },
+      "description": "Files written by this role during execution."
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "question", "blocking"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique question identifier (e.g. q1, q2)."
+          },
+          "question": {
+            "type": "string",
+            "description": "The question for the Creator."
+          },
+          "blocking": {
+            "type": "boolean",
+            "description": "If true, the quest cannot proceed without an answer."
+          }
+        }
+      },
+      "description": "Questions for the Creator. Present when status is needs_human."
+    },
+    "next_role": {
+      "type": ["string", "null"],
+      "enum": [
+        "quest_agent",
+        "planner_agent",
+        "plan_review_claude",
+        "plan_review_codex",
+        "arbiter_agent",
+        "builder_agent",
+        "code_review_agent",
+        "fixer_agent",
+        null
+      ],
+      "description": "The suggested next role, or null if the quest phase is done."
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Brief summary of what this role accomplished."
+    }
+  },
+  "additionalProperties": false
+}

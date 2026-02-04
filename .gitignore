@@ -1,0 +1,10 @@
+# Quest ephemeral state
+.quest/
+
+# OS files
+.DS_Store
+
+# Editor files
+*.swp
+*.swo
+*~

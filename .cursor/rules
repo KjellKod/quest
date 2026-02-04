@@ -1,0 +1,41 @@
+# Cursor Agent Entry Point
+
+This repository uses **layered documentation** for AI agent context management.
+
+## Start Here
+
+1. **AGENTS.md** (root) - Coding rules, architecture boundaries, and constraints
+2. **DOCUMENTATION_STRUCTURE.md** (root) - How docs are organized and how to navigate
+
+## Documentation Layers
+
+| Layer | Location | Purpose |
+|-------|----------|---------|
+| Principles | `AGENTS.md`, `README.md` | Stable rules, always loaded |
+| Architecture | `docs/architecture/` | System design |
+| Implementation | `docs/implementation/` | Active plans |
+| History | `docs/implementation/history/` | Past decisions |
+| Guides | `docs/guides/` | Reference docs |
+
+## Quick Navigation
+
+- **Multi-agent orchestration?** → Use `.skills/quest/` skill
+- **Building a feature?** → Use `.skills/implementer/` skill
+- **Reviewing an implementation plan?** → Use `.skills/plan-reviewer/` skill
+- **Reviewing code?** → Use `.skills/code-reviewer/` skill
+- **Understanding the system?** → Start with `docs/architecture/` if present
+
+## Skills
+
+This repository uses **skills** for specialized workflows. Skills are automatically discovered and used based on task context:
+
+- **quest:** Multi-agent orchestration for features
+- **plan-reviewer:** Review implementation plans and PR specifications for test coverage
+- **code-reviewer:** Review actual code for quality, security, and patterns
+- **implementer:** Step-by-step implementation with traceability
+
+See `.skills/BOOTSTRAP.md` for how to use skills with different AI platforms.
+
+---
+
+This structure reduces context pollution and keeps agents grounded in authoritative sources.

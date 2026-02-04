@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "description": "Creator-managed permissions for quest orchestration. Edit this file to pre-approve or restrict quest agent actions. Changes take effect on next quest run.",
+  "auto_approve_phases": {
+    "plan_creation": true,
+    "plan_review": true,
+    "plan_refinement": true,
+    "implementation": false,
+    "code_review": true,
+    "fix_loop": false
+  },
+  "arbiter": {
+    "tool": "claude",
+    "notes": "Set to 'codex' to use GPT 5.2 as Arbiter instead of Claude. Default: claude."
+  },
+  "review_mode": "auto",
+  "fast_review_thresholds": {
+    "max_files": 5,
+    "max_loc": 200
+  },
+  "codex_context_digest_path": ".ai/context_digest.md",
+  "role_permissions": {
+    "planner_agent": {
+      "file_write": [".quest/**", "docs/implementation/**"],
+      "file_read": ["**"],
+      "bash": ["find", "grep", "wc", "tree", "ls"]
+    },
+    "plan_review_claude": {
+      "file_write": [".quest/**"],
+      "file_read": ["**"],
+      "bash": []
+    },
+    "plan_review_codex": {
+      "file_write": [".quest/**"],
+      "file_read": ["**"],
+      "bash": []
+    },
+    "arbiter_agent": {
+      "file_write": [".quest/**"],
+      "file_read": ["**"],
+      "bash": []
+    },
+    "builder_agent": {
+      "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "scripts/**"],
+      "file_read": ["**"],
+      "bash": ["npm test", "npm run build", "pytest", "python", "pip", "npx", "yarn test", "make test"]
+    },
+    "code_review_agent": {
+      "file_write": [".quest/**"],
+      "file_read": ["**"],
+      "bash": ["git diff", "git log", "git status"]
+    },
+    "fixer_agent": {
+      "file_write": [".quest/**", "src/**", "lib/**", "tests/**"],
+      "file_read": ["**"],
+      "bash": ["npm test", "pytest", "python", "yarn test", "make test"]
+    }
+  },
+  "gates": {
+    "require_approval_before_commit": true,
+    "require_approval_before_push": true,
+    "require_approval_before_delete": true,
+    "max_plan_iterations": 4,
+    "max_fix_iterations": 3
+  }
+}
