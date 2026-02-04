@@ -129,4 +129,4 @@ If you don't have Codex, set in `.ai/allowlist.json`:
 
 ## License
 
-Public Domain (Unlicense) - Use however you like, no strings attached. See [LICENSE](LICENSE) for details.
+Public Domain (Unlicense). No warranty. See [LICENSE](LICENSE).

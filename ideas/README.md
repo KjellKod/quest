@@ -31,4 +31,4 @@ idea | in-progress | implemented | rejected
 
 ## When to Graduate to a Quest
 
-When an idea is ready for implementation, create a quest brief at `.quest/<name>/quest_brief.md` and run `/quest`.
+When an idea is ready for implementation, run `/quest "your idea description"` to generate a new quest run under `.quest/`. Note that `.quest/` is gitignored by design - it holds ephemeral run state, not source-controlled artifacts.
