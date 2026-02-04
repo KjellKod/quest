@@ -65,6 +65,7 @@ Edit `.ai/allowlist.json` to match your project:
 ### 4. Use it
 
 ```
+claude
 /quest "Add a loading skeleton to the user list"
 ```
 
