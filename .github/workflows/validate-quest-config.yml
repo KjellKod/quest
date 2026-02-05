@@ -5,14 +5,20 @@ on:
     branches: [main]
     paths:
       - '.ai/**'
+      - '.skills/**'
+      - '.claude/**'
+      - '.quest-manifest'
       - '.gitignore'
-      - 'scripts/validate-quest-config.sh'
+      - 'scripts/*.sh'
   pull_request:
     branches: [main]
     paths:
       - '.ai/**'
+      - '.skills/**'
+      - '.claude/**'
+      - '.quest-manifest'
       - '.gitignore'
-      - 'scripts/validate-quest-config.sh'
+      - 'scripts/*.sh'
 
 jobs:
   validate:
@@ -40,3 +46,8 @@ jobs:
       - name: Validate allowlist against schema
         run: |
           ajv validate -s .ai/schemas/allowlist.schema.json -d .ai/allowlist.json --spec=draft2020
+
+      - name: Validate manifest completeness
+        run: |
+          chmod +x scripts/validate-manifest.sh
+          ./scripts/validate-manifest.sh
