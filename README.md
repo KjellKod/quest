@@ -119,6 +119,10 @@ Edit `.ai/allowlist.json` to match your project:
 ```bash
 claude
 /quest "Add a loading skeleton to the user list"
+# or 
+/quest "use my specification <path>"
+# or if you have mcp/jira or similar installed, with skills etc to retrieve them
+/quest "lets work with <jira ticket>"
 ```
 
 Quest scales from simple to complex — just describe what you want:
