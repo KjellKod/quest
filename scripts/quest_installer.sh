@@ -681,10 +681,15 @@ install_copy_as_is() {
   for filepath in "${COPY_AS_IS[@]}"; do
     install_copy_as_is_file "$filepath"
   done
+  # Clear progress line
+  printf "                                                                              \r"
 }
 
 install_copy_as_is_file() {
   local filepath="$1"
+
+  # Show progress
+  printf "  Checking: %s\r" "$filepath"
 
   # Fetch upstream content
   local upstream_content
@@ -795,10 +800,15 @@ install_user_customized() {
   for filepath in "${USER_CUSTOMIZED[@]}"; do
     install_user_customized_file "$filepath"
   done
+  # Clear progress line
+  printf "                                                                              \r"
 }
 
 install_user_customized_file() {
   local filepath="$1"
+
+  # Show progress
+  printf "  Checking: %s\r" "$filepath"
 
   # Fetch upstream content
   local upstream_content
@@ -854,10 +864,15 @@ install_merge_carefully() {
   for filepath in "${MERGE_CAREFULLY[@]}"; do
     install_merge_carefully_file "$filepath"
   done
+  # Clear progress line
+  printf "                                                                              \r"
 }
 
 install_merge_carefully_file() {
   local filepath="$1"
+
+  # Show progress
+  printf "  Checking: %s\r" "$filepath"
 
   # Fetch upstream content
   local upstream_content
