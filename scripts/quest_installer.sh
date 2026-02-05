@@ -275,8 +275,10 @@ show_help() {
 ${BOLD}Quest Installer${NC} v${SCRIPT_VERSION}
 
 Installs and updates Quest in any repository.
+Run this script from the root of your target repository.
 
 ${BOLD}Usage:${NC}
+  cd /path/to/your/repo
   $SCRIPT_NAME [OPTIONS]
 
 ${BOLD}Options:${NC}
@@ -534,6 +536,16 @@ detect_repo_state() {
   # Check if in git repo
   if git rev-parse --show-toplevel &>/dev/null; then
     IS_GIT_REPO=true
+
+    # Check if at repository root
+    local git_root
+    git_root=$(git rev-parse --show-toplevel)
+    if [ "$PWD" != "$git_root" ]; then
+      log_error "Please run the installer from the repository root:"
+      log_error "  cd $git_root"
+      log_error "  ./scripts/quest_installer.sh"
+      exit 1
+    fi
   else
     IS_GIT_REPO=false
     log_warn "Not in a git repository. Quest will still be installed but some features may not work."
