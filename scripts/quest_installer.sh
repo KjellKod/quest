@@ -683,8 +683,11 @@ install_copy_as_is() {
   fi
 
   local filepath
+  local count=0
+  local total=${#COPY_AS_IS[@]}
   for filepath in "${COPY_AS_IS[@]}"; do
-    install_copy_as_is_file "$filepath"
+    ((count++))
+    install_copy_as_is_file "$filepath" "$count" "$total"
   done
   # Clear progress line (stderr for immediate flush)
   printf "                                                                              \r" >&2
@@ -692,9 +695,15 @@ install_copy_as_is() {
 
 install_copy_as_is_file() {
   local filepath="$1"
+  local count="${2:-}"
+  local total="${3:-}"
 
   # Show progress (stderr is unbuffered, so progress displays immediately)
-  printf "\r  Checking: %-60s" "$filepath" >&2
+  if [ -n "$count" ] && [ -n "$total" ]; then
+    printf "\r  [%d/%d] Checking: %-50s" "$count" "$total" "$filepath" >&2
+  else
+    printf "\r  Checking: %-60s" "$filepath" >&2
+  fi
 
   # Fetch upstream content
   local upstream_content
@@ -802,8 +811,11 @@ install_user_customized() {
   fi
 
   local filepath
+  local count=0
+  local total=${#USER_CUSTOMIZED[@]}
   for filepath in "${USER_CUSTOMIZED[@]}"; do
-    install_user_customized_file "$filepath"
+    ((count++))
+    install_user_customized_file "$filepath" "$count" "$total"
   done
   # Clear progress line (stderr for immediate flush)
   printf "                                                                              \r" >&2
@@ -811,9 +823,15 @@ install_user_customized() {
 
 install_user_customized_file() {
   local filepath="$1"
+  local count="${2:-}"
+  local total="${3:-}"
 
   # Show progress (stderr is unbuffered, so progress displays immediately)
-  printf "\r  Checking: %-60s" "$filepath" >&2
+  if [ -n "$count" ] && [ -n "$total" ]; then
+    printf "\r  [%d/%d] Checking: %-50s" "$count" "$total" "$filepath" >&2
+  else
+    printf "\r  Checking: %-60s" "$filepath" >&2
+  fi
 
   # Fetch upstream content
   local upstream_content
@@ -866,8 +884,11 @@ install_merge_carefully() {
   fi
 
   local filepath
+  local count=0
+  local total=${#MERGE_CAREFULLY[@]}
   for filepath in "${MERGE_CAREFULLY[@]}"; do
-    install_merge_carefully_file "$filepath"
+    ((count++))
+    install_merge_carefully_file "$filepath" "$count" "$total"
   done
   # Clear progress line (stderr for immediate flush)
   printf "                                                                              \r" >&2
@@ -875,9 +896,15 @@ install_merge_carefully() {
 
 install_merge_carefully_file() {
   local filepath="$1"
+  local count="${2:-}"
+  local total="${3:-}"
 
   # Show progress (stderr is unbuffered, so progress displays immediately)
-  printf "\r  Checking: %-60s" "$filepath" >&2
+  if [ -n "$count" ] && [ -n "$total" ]; then
+    printf "\r  [%d/%d] Checking: %-50s" "$count" "$total" "$filepath" >&2
+  else
+    printf "\r  Checking: %-60s" "$filepath" >&2
+  fi
 
   # Fetch upstream content
   local upstream_content
