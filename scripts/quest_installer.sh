@@ -45,7 +45,7 @@ DRY_RUN_MODIFIED=0
 ###############################################################################
 
 cleanup() {
-  rm -f ".quest-checksums.tmp.$$" 2>/dev/null
+  rm -f ".quest-checksums.tmp.$$" ".quest-temp.$$" 2>/dev/null
 }
 trap cleanup EXIT
 
@@ -955,10 +955,11 @@ install_merge_carefully_file() {
     printf "\r  Checking: %-60s" "$filepath" >&2
   fi
 
-  # Fetch upstream content
-  local upstream_content
-  if ! upstream_content=$(fetch_file "$filepath" 2>/dev/null); then
+  # Fetch upstream content to temp file
+  local temp_file=".quest-temp.$$"
+  if ! fetch_file_to_temp "$filepath" "$temp_file" 2>/dev/null; then
     # File may not exist in upstream (e.g., settings.local.json)
+    rm -f "$temp_file"
     return 0
   fi
 
@@ -968,19 +969,21 @@ install_merge_carefully_file() {
     if $DRY_RUN; then
       log_action "Create: $filepath"
     else
-      printf '%s\n' "$upstream_content" > "$filepath"
+      mv "$temp_file" "$filepath"
       log_success "Created: $filepath"
     fi
+    rm -f "$temp_file"
     return 0
   fi
 
   # Case 2: File exists - check if upstream has changes
   local local_checksum upstream_checksum
   local_checksum=$(get_file_checksum "$filepath")
-  upstream_checksum=$(printf '%s\n' "$upstream_content" | get_content_checksum)
+  upstream_checksum=$(get_file_checksum "$temp_file")
 
   if [ "$local_checksum" = "$upstream_checksum" ]; then
     # No changes
+    rm -f "$temp_file"
     return 0
   fi
 
@@ -991,16 +994,17 @@ install_merge_carefully_file() {
     if $DRY_RUN; then
       log_action "Create: $updated_path (upstream has changes)"
     else
-      printf '%s\n' "$upstream_content" > "$updated_path"
+      mv "$temp_file" "$updated_path"
       log_warn "Created: $updated_path (merge manually)"
     fi
+    rm -f "$temp_file"
     return 0
   fi
 
   # Interactive mode - show diff and offer options
   echo ""
   log_warn "Settings file has upstream changes: $filepath"
-  show_diff "$filepath" "$upstream_content"
+  show_diff "$filepath" "$temp_file"
 
   echo "Options:"
   echo "  [S]kip - Keep local file unchanged"
@@ -1015,7 +1019,7 @@ install_merge_carefully_file() {
       if $DRY_RUN; then
         log_action "Overwrite: $filepath"
       else
-        printf '%s\n' "$upstream_content" > "$filepath"
+        mv "$temp_file" "$filepath"
         log_success "Overwrote: $filepath"
       fi
       ;;
@@ -1024,7 +1028,7 @@ install_merge_carefully_file() {
       if $DRY_RUN; then
         log_action "Create: $updated_path"
       else
-        printf '%s\n' "$upstream_content" > "$updated_path"
+        mv "$temp_file" "$updated_path"
         log_info "Created: $updated_path (merge manually)"
       fi
       ;;
@@ -1032,6 +1036,7 @@ install_merge_carefully_file() {
       log_info "Skipped: $filepath"
       ;;
   esac
+  rm -f "$temp_file"
 }
 
 ###############################################################################
