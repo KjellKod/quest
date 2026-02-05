@@ -6,7 +6,7 @@
 
 A portable framework for coordinated AI agents with human oversight. Copy this to any repository to enable structured, auditable AI workflows.
 
-![Adventurers in our quest](docs/media/quest.png)
+![Adventurers in our quest](docs/media/quest_v0.12.png)
 
 ## What is Quest?
 
