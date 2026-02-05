@@ -12,7 +12,6 @@ set -e
 # Configuration Constants
 ###############################################################################
 
-SCRIPT_VERSION="1.0.0"
 UPSTREAM_REPO="KjellKod/quest"
 UPSTREAM_BRANCH="choices"
 RAW_BASE="https://raw.githubusercontent.com/${UPSTREAM_REPO}"
@@ -32,6 +31,7 @@ IS_GIT_REPO=false
 HAS_QUEST=false
 LOCAL_VERSION=""
 UPSTREAM_SHA=""
+LATEST_RELEASE=""
 
 # Dry-run summary counters
 DRY_RUN_WOULD_CREATE=0
@@ -280,8 +280,9 @@ prompt_file_action() {
 ###############################################################################
 
 show_help() {
+  fetch_latest_release
   cat <<EOF
-${BOLD}Quest Installer${NC} v${SCRIPT_VERSION}
+${BOLD}Quest Installer${NC} (latest release: ${LATEST_RELEASE})
 
 Installs and updates Quest in any repository.
 Run this script from the root of your target repository.
@@ -557,6 +558,18 @@ detect_repo_state() {
   else
     HAS_QUEST=false
     LOCAL_VERSION=""
+  fi
+}
+
+fetch_latest_release() {
+  # Get the latest release tag from GitHub
+  local tags
+  tags=$(git ls-remote --tags "https://github.com/${UPSTREAM_REPO}.git" 2>/dev/null | grep -v '\^{}' | awk '{print $2}' | sed 's|refs/tags/||' | sort -V | tail -1)
+
+  if [ -n "$tags" ]; then
+    LATEST_RELEASE="$tags"
+  else
+    LATEST_RELEASE="unreleased"
   fi
 }
 
@@ -1247,8 +1260,11 @@ run_install() {
     fi
   fi
 
+  # Fetch latest release info for display
+  fetch_latest_release
+
   echo ""
-  echo -e "${BOLD}Quest Installer${NC} v${SCRIPT_VERSION}"
+  echo -e "${BOLD}Quest Installer${NC} (latest release: ${LATEST_RELEASE})"
 
   if $DRY_RUN; then
     echo ""
