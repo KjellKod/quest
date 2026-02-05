@@ -761,6 +761,11 @@ install_copy_as_is_file() {
   fi
 
   # Case 3: File exists and has local modifications
+  if $DRY_RUN; then
+    log_warn "Modified: $filepath (would prompt to overwrite/skip)"
+    return 0
+  fi
+
   if $FORCE_MODE; then
     log_warn "Skipping modified file: $filepath"
     # Keep existing checksum
@@ -779,12 +784,8 @@ install_copy_as_is_file() {
     case "$action" in
       o)
         # Overwrite
-        if $DRY_RUN; then
-          log_action "Overwrite: $filepath"
-        else
-          printf '%s\n' "$upstream_content" > "$filepath"
-          log_success "Overwrote: $filepath"
-        fi
+        printf '%s\n' "$upstream_content" > "$filepath"
+        log_success "Overwrote: $filepath"
         set_updated_checksum "$filepath" "$upstream_checksum"
         return 0
         ;;
