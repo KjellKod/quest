@@ -13,7 +13,7 @@ set -e
 ###############################################################################
 
 UPSTREAM_REPO="KjellKod/quest"
-UPSTREAM_BRANCH="choices"
+UPSTREAM_BRANCH="main"
 RAW_BASE="https://raw.githubusercontent.com/${UPSTREAM_REPO}"
 SCRIPT_NAME="$(basename "$0")"
 
