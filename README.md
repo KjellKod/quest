@@ -6,6 +6,8 @@
 
 A portable framework for coordinated AI agents with human oversight. Copy this to any repository to enable structured, auditable AI workflows.
 
+![Adventurers in our quest](docs/media/quest.png)
+
 ## What is Quest?
 
 Quest is a multi-agent workflow where specialized AI agents (planner, reviewers, builder) work in **isolated contexts** with **human approval gates**. Two different models (Claude + GPT) review independently, an arbiter filters nitpicks, and you approve before anything gets built.
