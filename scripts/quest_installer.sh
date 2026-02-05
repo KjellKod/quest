@@ -43,64 +43,69 @@ cleanup() {
 trap cleanup EXIT
 
 ###############################################################################
-# File Category Arrays
+# File Category Arrays (populated dynamically from .quest-manifest)
 ###############################################################################
 
-# Copy as-is: replace with upstream version (with checksum tracking)
-COPY_AS_IS=(
-  ".ai/quest.md"
-  ".ai/roles/arbiter_agent.md"
-  ".ai/roles/builder_agent.md"
-  ".ai/roles/code_review_agent.md"
-  ".ai/roles/fixer_agent.md"
-  ".ai/roles/plan_review_agent.md"
-  ".ai/roles/planner_agent.md"
-  ".ai/roles/quest_agent.md"
-  ".ai/schemas/allowlist.schema.json"
-  ".ai/schemas/handoff.schema.json"
-  ".ai/templates/plan.md"
-  ".ai/templates/pr_description.md"
-  ".ai/templates/quest_brief.md"
-  ".ai/templates/review.md"
-  ".claude/agents/arbiter.md"
-  ".claude/agents/builder.md"
-  ".claude/agents/code-reviewer.md"
-  ".claude/agents/fixer.md"
-  ".claude/agents/plan-reviewer.md"
-  ".claude/agents/planner.md"
-  ".claude/hooks/enforce-allowlist.sh"
-  ".claude/skills/quest/SKILL.md"
-  ".claude/AGENTS.md"
-  ".skills/BOOTSTRAP.md"
-  ".skills/README.md"
-  ".skills/SKILLS.md"
-  ".skills/code-reviewer/SKILL.md"
-  ".skills/implementer/SKILL.md"
-  ".skills/plan-maker/SKILL.md"
-  ".skills/plan-reviewer/SKILL.md"
-  ".skills/quest/SKILL.md"
-  "scripts/validate-quest-config.sh"
-  "scripts/quest_installer.sh"
-)
+# These arrays are populated by load_manifest()
+COPY_AS_IS=()
+USER_CUSTOMIZED=()
+MERGE_CAREFULLY=()
+CREATE_DIRS=()
 
-# User-customized: never overwrite, use .quest_updated suffix
-USER_CUSTOMIZED=(
-  ".ai/allowlist.json"
-  ".ai/context_digest.md"
-)
+###############################################################################
+# Manifest Loading
+###############################################################################
 
-# Merge carefully: detect existing, offer merge options
-MERGE_CAREFULLY=(
-  ".claude/settings.json"
-  ".claude/settings.local.json"
-)
+# Fetch and parse .quest-manifest from upstream
+load_manifest() {
+  log_info "Fetching file manifest..."
 
-# Directories to create if missing
-CREATE_DIRS=(
-  ".quest"
-  "ideas"
-  "docs/quest-journal"
-)
+  local manifest_content
+  if ! manifest_content=$(fetch_file ".quest-manifest" 2>/dev/null); then
+    log_error "Could not fetch .quest-manifest from upstream"
+    log_error "The Quest repository may be misconfigured"
+    exit 1
+  fi
+
+  local current_section=""
+
+  while IFS= read -r line; do
+    # Skip empty lines and comments
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+
+    # Check for section headers
+    if [[ "$line" =~ ^\[([a-z-]+)\]$ ]]; then
+      current_section="${BASH_REMATCH[1]}"
+      continue
+    fi
+
+    # Trim whitespace
+    line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    [[ -z "$line" ]] && continue
+
+    # Add to appropriate array based on current section
+    case "$current_section" in
+      copy-as-is)
+        COPY_AS_IS+=("$line")
+        ;;
+      user-customized)
+        USER_CUSTOMIZED+=("$line")
+        ;;
+      merge-carefully)
+        MERGE_CAREFULLY+=("$line")
+        ;;
+      directories)
+        CREATE_DIRS+=("$line")
+        ;;
+    esac
+  done <<< "$manifest_content"
+
+  # Always include the installer itself in copy-as-is
+  COPY_AS_IS+=("scripts/quest_installer.sh")
+
+  log_info "Loaded ${#COPY_AS_IS[@]} copy-as-is, ${#USER_CUSTOMIZED[@]} user-customized, ${#MERGE_CAREFULLY[@]} merge-carefully files"
+}
 
 # Files that need executable bit set
 EXECUTABLE_FILES=(
@@ -1132,6 +1137,9 @@ run_install() {
 
   # Fetch upstream version (sets UPSTREAM_SHA)
   fetch_upstream_version
+
+  # Load file manifest from upstream
+  load_manifest
 
   # Load upstream checksums
   load_upstream_checksums || true
