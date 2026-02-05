@@ -36,6 +36,7 @@
 .skills/plan-reviewer/SKILL.md
 .skills/quest/SKILL.md
 scripts/validate-quest-config.sh
+scripts/validate-manifest.sh
 
 [user-customized]
 # These files are NEVER overwritten - upstream changes create .quest_updated suffix
