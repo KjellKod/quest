@@ -16,6 +16,8 @@ Multi-agent workflow for planning, reviewing, building, and fixing features thro
 
 ## Procedure
 
+When starting, say: "Now I understand the Quest." Then proceed directly with the steps below.
+
 Follow these steps in order. After each step that modifies state, update `.quest/<id>/state.json`.
 
 ### Step 0: Resume Check

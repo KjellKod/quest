@@ -316,4 +316,3 @@ If the reviewer requests a full deep dive, expand into:
 ## Automated Test Expectations
 
 **Requirement:** For each Acceptance Criterion, provide at least **one explicit example test case** when feasible. If a criterion cannot be reasonably automated, mark it as **Deferred** and include the reason and what manual validation will cover.
-
