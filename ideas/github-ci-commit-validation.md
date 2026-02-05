@@ -18,4 +18,4 @@ Ensure that quest-related changes maintain consistency:
 - Check that `.quest/` is properly gitignored
 
 ## Status
-idea
+implemented

@@ -1,0 +1,42 @@
+name: Validate Quest Configuration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.ai/**'
+      - '.gitignore'
+      - 'scripts/validate-quest-config.sh'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.ai/**'
+      - '.gitignore'
+      - 'scripts/validate-quest-config.sh'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Install ajv-cli
+        run: npm install -g ajv-cli
+
+      - name: Run validation script
+        run: |
+          chmod +x scripts/validate-quest-config.sh
+          ./scripts/validate-quest-config.sh
+
+      - name: Validate allowlist against schema
+        run: |
+          ajv validate -s .ai/schemas/allowlist.schema.json -d .ai/allowlist.json --spec=draft2020
