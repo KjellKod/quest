@@ -259,8 +259,9 @@ After plan approval, present the plan interactively before proceeding to build.
       Phase: <current phase number or "General">
       Request: <user's change request verbatim>
       ```
-   d. Display: "Re-running plan with your feedback..."
-   e. Return to Step 3, item 1:
+   d. **Update state:** `phase: plan`, `status: in_progress`
+   e. Display: "Re-running plan with your feedback..."
+   f. Return to Step 3, item 1:
       - Planner will be invoked with user_feedback.md included (per Change 1 above)
       - plan_iteration increments as normal
       - Full review cycle (Claude + Codex + Arbiter) runs
