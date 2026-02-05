@@ -461,7 +461,7 @@ load_upstream_checksums() {
 
   local content
   if ! content=$(fetch_file "checksums.txt" 2>/dev/null); then
-    log_warn "Could not fetch checksums.txt - will calculate checksums from content"
+    # This is expected - checksums are calculated on-the-fly
     return 1
   fi
 
@@ -733,7 +733,7 @@ install_copy_as_is_file() {
   local upstream_checksum
   if ! upstream_checksum=$(get_upstream_checksum "$filepath"); then
     # Calculate from fetched content
-    upstream_checksum=$(printf '%s' "$upstream_content" | get_content_checksum)
+    upstream_checksum=$(printf '%s\n' "$upstream_content" | get_content_checksum)
   fi
 
   # Case 1: File does not exist locally
@@ -879,7 +879,7 @@ install_user_customized_file() {
   # Case 2: File exists - check if upstream has changes
   local local_checksum upstream_checksum
   local_checksum=$(get_file_checksum "$filepath")
-  upstream_checksum=$(printf '%s' "$upstream_content" | get_content_checksum)
+  upstream_checksum=$(printf '%s\n' "$upstream_content" | get_content_checksum)
 
   if [ "$local_checksum" = "$upstream_checksum" ]; then
     # No changes
@@ -952,7 +952,7 @@ install_merge_carefully_file() {
   # Case 2: File exists - check if upstream has changes
   local local_checksum upstream_checksum
   local_checksum=$(get_file_checksum "$filepath")
-  upstream_checksum=$(printf '%s' "$upstream_content" | get_content_checksum)
+  upstream_checksum=$(printf '%s\n' "$upstream_content" | get_content_checksum)
 
   if [ "$local_checksum" = "$upstream_checksum" ]; then
     # No changes
