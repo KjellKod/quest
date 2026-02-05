@@ -156,15 +156,23 @@ fi
 # Utility Functions
 ###############################################################################
 
+# Clear any progress line before logging (progress is on stderr)
+clear_progress() {
+  printf "\r%-80s\r" "" >&2
+}
+
 log_info() {
+  clear_progress
   echo -e "${BLUE}[INFO]${NC} $1"
 }
 
 log_success() {
+  clear_progress
   echo -e "${GREEN}[OK]${NC} $1"
 }
 
 log_warn() {
+  clear_progress
   echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
@@ -173,6 +181,7 @@ log_error() {
 }
 
 log_action() {
+  clear_progress
   if $DRY_RUN; then
     echo -e "${YELLOW}[DRY-RUN]${NC} Would: $1"
   else
