@@ -294,6 +294,10 @@ ${BOLD}File Categories:${NC}
   - User-customized: Never overwritten (.quest_updated suffix for upstream changes)
   - Merge carefully: Manual merge offered for settings files
 
+${BOLD}Troubleshooting:${NC}
+  Run with debug output:
+    bash -x $SCRIPT_NAME --check 2>&1 | tee debug.log
+
 ${BOLD}More Info:${NC}
   https://github.com/${UPSTREAM_REPO}
 EOF
