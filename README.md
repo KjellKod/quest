@@ -119,7 +119,7 @@ Edit `.ai/allowlist.json` to match your project:
 ```bash
 claude
 /quest "Add a loading skeleton to the user list"
-# or 
+# or
 /quest "use my specification <path>"
 # or if you have mcp/jira or similar installed, with skills etc to retrieve them
 /quest "lets work with <jira ticket>"
@@ -146,6 +146,137 @@ Quest scales from simple to complex — just describe what you want:
 
 Abort anytime, resume later. State persists in `.quest/<id>/state.json`.
 
+## Writing a Good Quest Brief
+
+Quest enforces **spec → plan → implementation** — the whole point is to prevent skipping straight to coding. Your initial input is the spec. You can start with a rough idea, but the more you clarify upfront, the better the plan and implementation will be.
+
+**If your input is thin**, Quest will ask clarifying questions before planning. You don't need to get it perfect on the first try — but giving Quest more to work with means fewer iterations and better results.
+
+### Input Quality Ladder
+
+| Input level | What you provide | What Quest produces |
+|------------|-----------------|-------------------|
+| **Rough idea** | `"add dark mode"` | Quest asks clarifying questions, then plans. Works, but expect more iteration. |
+| **Idea with context** | `"add dark mode — should persist in localStorage, respect OS preference, toggle in header"` | Planner has clear direction. Fewer review iterations. |
+| **Structured spec** | A doc with intent, constraints, acceptance criteria, and scope boundaries | Planner produces a tight plan on the first pass. Reviewers focus on real issues. Best results. |
+
+### Examples at Each Level
+
+**Rough idea** — Quest will ask you to clarify before planning:
+```bash
+/quest "add user notifications"
+# Quest asks: What triggers notifications? In-app only or email too?
+# Real-time or polling? What should the UI look like?
+```
+
+**Idea with context** — enough for a solid first plan:
+```bash
+/quest "Add in-app notifications: toast component in bottom-right,
+auto-dismiss after 5s, support info/warning/error levels,
+trigger from any API error response"
+```
+
+**Structured spec** — point to a doc, PRD, RFC, or Jira ticket:
+```bash
+# Local spec file
+/quest "implement the feature described in docs/specs/notifications.md"
+
+# Jira ticket (if you have Jira MCP installed)
+/quest "implement PROJ-1234"
+
+# Inline spec with acceptance criteria
+/quest "Add toast notifications:
+- Intent: surface API errors and system events to users
+- Constraints: no external dependencies, must work with existing design system
+- Acceptance criteria:
+  1. Toast appears on API error with message from response
+  2. Auto-dismisses after 5s, manual dismiss via X button
+  3. Three levels: info (blue), warning (yellow), error (red)
+  4. Multiple toasts stack vertically
+  5. Accessible: role=alert, keyboard dismissible"
+```
+
+The sweet spot for most tasks is somewhere between level 2 and 3. You don't need a formal RFC — just **intent** (what and why), **constraints** (boundaries and limits), and **acceptance criteria** (how you'll know it's done).
+
+## Advanced Workflows
+
+Quest's pause/resume and human gates enable workflows beyond simple "describe → build."
+
+### Swap Models Mid-Quest
+
+Start a quest, review the plan, then re-run planning with different model configuration:
+
+```bash
+# Start with default dual-model planning
+/quest "redesign the authentication flow"
+
+# After reviewing the plan, restart planning with only Claude
+/quest auth-redesign_2026-02-04__1430 "re-plan this using only claude, skip codex reviews"
+
+# Or re-plan with GPT-5.2 for a different perspective
+/quest auth-redesign_2026-02-04__1430 "re-plan this using gpt-5.2"
+
+# Or merge the best of multiple plans — GPT as planner and arbiter
+/quest auth-redesign_2026-02-04__1430 "Look at the previous plans, find the best way
+forward and merge in must-haves from the losing plan into our new plan.
+Use gpt as planner and arbiter" .quest/plan-a/phase_01_plan/plan.md .quest/plan-b/phase_01_plan/plan.md
+```
+
+### Compare Multiple Plans
+
+Generate competing plans and pick the best one:
+
+```bash
+# Plan A: default approach
+/quest "migrate database from Postgres to SQLite"
+# Review the plan, note the quest ID (e.g., db-migrate_2026-02-04__1430)
+
+# Plan B: start a fresh quest with a different constraint
+/quest "migrate database from Postgres to SQLite —
+prioritize zero-downtime, use a dual-write pattern during transition"
+
+# Plan C: different model mix
+/quest "migrate database from Postgres to SQLite —
+plan with emphasis on minimal code changes, feature-flag the cutover"
+
+# Compare plans side by side
+# Pick the best, resume that quest into build phase
+/quest db-migrate_2026-02-04__1430
+```
+
+### Phased Execution for Large Work
+
+For big features, break the work into phases with a dedicated plan and PR per phase:
+
+```bash
+# Step 1: Create a high-level plan with phases
+/quest "Build a real-time collaboration system.
+Create a high-level plan with 3-4 phases.
+Phase 1: WebSocket infrastructure
+Phase 2: Presence and cursor tracking
+Phase 3: Conflict resolution (OT or CRDT)
+Phase 4: UI integration
+Don't implement yet — just plan the phases."
+
+# Step 2: Review the high-level plan, then quest each phase individually
+/quest "Implement Phase 1 from the collaboration system plan
+in .quest/collab-system_2026-02-04__1430/phase_01_plan/plan.md —
+WebSocket infrastructure only. Create a PR when done."
+
+# Step 3: After Phase 1 PR is merged, continue
+/quest "Implement Phase 2: presence and cursor tracking.
+Build on the WebSocket infrastructure from Phase 1."
+
+# Each phase gets: detailed plan → review → build → code review → PR
+# You validate and merge each phase before moving to the next
+```
+
+This pattern works well because:
+- Each phase has **focused context** (no accumulated drift)
+- You can **adjust direction** between phases based on what you learned
+- Each PR is **reviewable** in isolation
+- You can **switch models or strategies** between phases
+
 ## Key Features
 
 - **Clean context** — each agent starts fresh (no drift)
@@ -154,6 +285,7 @@ Abort anytime, resume later. State persists in `.quest/<id>/state.json`.
 - **Human gates** — you approve before building
 - **Artifacts saved** — full audit trail in `.quest/`
 - **Scales up** — step-by-step approach shines on large tasks (context stays manageable)
+- **Clarifying intake** — Quest asks smart questions when your input is thin, helping you build a better brief
 
 ## How the Orchestrator Works
 

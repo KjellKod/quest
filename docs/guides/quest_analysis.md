@@ -8,10 +8,12 @@
 
 ## Quick Start: How Flexible Is It?
 
-Quest scales from simple to complex:
+Quest scales on two dimensions: **task size** and **input quality**. Both matter.
+
+### Task Size
 
 ```bash
-# Simple: one-liner feature request
+# Small: one-liner feature request
 /quest "Add a loading spinner to the save button"
 
 # Medium: multi-file change with clear scope
@@ -21,7 +23,29 @@ Quest scales from simple to complex:
 /quest "Add weekly update checking with opt-out config and graceful network handling"
 ```
 
-**No boilerplate required.** You describe what you want in natural language. The planner figures out the files, the reviewers check the approach, and you approve before anything gets built.
+### Input Quality
+
+Your input is the spec. Better input = better plan = better code. Quest enforces **spec → plan → implementation** because skipping planning and jumping straight to coding is exactly what it's designed to prevent.
+
+```bash
+# Rough idea — Quest asks clarifying questions, then plans
+/quest "add user notifications"
+
+# Idea with context — enough for a solid first plan
+/quest "Add in-app toast notifications: bottom-right,
+auto-dismiss 5s, info/warning/error levels, trigger on API errors"
+
+# Structured spec — tight plan on the first pass
+/quest "implement docs/specs/notifications.md"
+```
+
+| Input level | What happens |
+|------------|-------------|
+| **Rough idea** (a sentence) | Quest asks clarifying questions to fill gaps, then plans. Expect more review iterations. |
+| **Idea with context** (paragraph) | Planner has clear direction. Fewer iterations. Good default for most work. |
+| **Clear spec** (doc with intent, constraints, ACs) | Plan lands on first pass. Reviewers focus on real issues. Best results. |
+
+**You don't need a formal RFC.** The sweet spot is intent (what and why), constraints (boundaries), and acceptance criteria (how you'll know it's done). If your input is thin, Quest helps — it asks smart questions before planning rather than guessing.
 
 ### Pause, Resume, and Direct
 

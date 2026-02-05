@@ -42,13 +42,33 @@ If the user provides a quest ID (matches pattern `*_YYYY-MM-DD__HHMM`):
 If no quest ID provided:
 
 1. Parse the user's instruction
-2. Suggest a slug (lowercase, hyphenated, 2-5 words)
-3. Ask user to confirm or override the slug
-4. Create quest folder: `.quest/<slug>_YYYY-MM-DD__HHMM/`
-5. Create subfolders: `phase_01_plan/`, `phase_02_implementation/`, `phase_03_review/`, `logs/`
-6. Write quest brief to `.quest/<id>/quest_brief.md` using the user's instruction
-7. Copy `.ai/allowlist.json` to `.quest/<id>/logs/allowlist_snapshot.json`
-8. Initialize state.json:
+
+2. **Assess input quality.** Check whether the input provides enough context for a good plan:
+
+   **Rich input** (skip to step 3) — the input includes at least TWO of:
+   - Clear intent (what and why)
+   - Constraints or scope boundaries
+   - Acceptance criteria or definition of done
+   - A referenced document, URL, spec, or ticket
+
+   **Thin input** (ask clarifying questions) — the input is a short phrase or sentence without context. Ask up to 3 targeted questions to fill gaps. Choose from:
+   - **Intent:** "What problem does this solve? What's the user-facing goal?"
+   - **Scope:** "Which parts of the codebase should this touch? Anything explicitly out of scope?"
+   - **Constraints:** "Any technical constraints? (e.g., no new dependencies, must work with existing X, performance target)"
+   - **Acceptance criteria:** "How will you know this is done? What should a reviewer check?"
+   - **Context:** "Is there a spec, doc, ticket, or existing discussion that describes this further?"
+
+   Pick the 2-3 most relevant questions based on what's missing. Don't ask all of them — use judgment. For example, `"add dark mode"` is missing intent (cosmetic preference? accessibility?), constraints (CSS variables? existing design system?), and scope (all pages? settings toggle?).
+
+   Incorporate the user's answers into the quest brief. If the user says "just go with it" or similar, proceed with what you have — don't block on perfection.
+
+3. Suggest a slug (lowercase, hyphenated, 2-5 words)
+4. Ask user to confirm or override the slug
+5. Create quest folder: `.quest/<slug>_YYYY-MM-DD__HHMM/`
+6. Create subfolders: `phase_01_plan/`, `phase_02_implementation/`, `phase_03_review/`, `logs/`
+7. Write quest brief to `.quest/<id>/quest_brief.md` using the user's instruction (and any clarifying answers from step 2)
+8. Copy `.ai/allowlist.json` to `.quest/<id>/logs/allowlist_snapshot.json`
+9. Initialize state.json:
    ```json
    {
      "quest_id": "<id>",

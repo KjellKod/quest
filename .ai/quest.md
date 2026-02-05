@@ -16,6 +16,9 @@ Use the `/quest` command in Claude Code:
 # New quest — describe what you want
 /quest "Add a loading skeleton to the candidate list"
 
+# Point to a spec, PRD, or RFC
+/quest "implement docs/specs/feature-x.md"
+
 # Continue an existing quest (auto-detects next phase)
 /quest feature-x_2026-02-02__1831
 
@@ -28,6 +31,8 @@ Use the `/quest` command in Claude Code:
 ```
 
 The Quest Agent interprets your intent, matches brief references, and routes to the right phase. If unclear, it asks you — reply in plain English.
+
+**Input quality matters.** Your quest input is the spec. A rough idea works (Quest asks clarifying questions), but providing intent, constraints, and acceptance criteria upfront produces tighter plans with fewer iterations. See the README for examples at each level.
 
 ## Roles
 
