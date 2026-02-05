@@ -1121,6 +1121,18 @@ check_self_update() {
 
 print_next_steps() {
   echo ""
+
+  if $DRY_RUN; then
+    echo -e "${BOLD}=== Dry Run Complete ===${NC}"
+    echo ""
+    echo "No files were modified. This was a preview of what would happen."
+    echo ""
+    echo "To perform the actual installation, run without --check:"
+    echo "  ./scripts/quest_installer.sh"
+    echo ""
+    return
+  fi
+
   echo -e "${BOLD}=== Installation Complete ===${NC}"
   echo ""
 
