@@ -252,6 +252,60 @@ mcp__codex__codex(prompt: "...")
   → Completely separate model (GPT 5.2)
 ```
 
+### Parallel Review Execution
+
+During review phases, the orchestrator dispatches **both reviewers in a single message** to achieve parallel execution:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      QUEST ORCHESTRATOR                             │
+│                 (Main Claude executing /quest skill)                │
+└─────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  │ Review Phase
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │   SINGLE MESSAGE with     │
+                    │   TWO TOOL CALLS          │
+                    └─────────────┬─────────────┘
+                                  │
+              ┌───────────────────┼───────────────────┐
+              │                   │                   │
+              ▼                   │                   ▼
+┌─────────────────────────┐       │       ┌─────────────────────────┐
+│   Tool Call 1:          │       │       │   Tool Call 2:          │
+│   Task tool             │  PARALLEL     │   mcp__codex__codex     │
+│   (Claude subagent)     │   EXECUTION   │   (Codex MCP server)    │
+│                         │       │       │                         │
+│  → plan-reviewer or     │       │       │  → GPT-5.2 reviews      │
+│    code-reviewer agent  │       │       │    same artifacts       │
+└───────────┬─────────────┘       │       └───────────┬─────────────┘
+            │                     │                   │
+            ▼                     │                   ▼
+   review_claude.md               │          review_codex.md
+                                  │
+              └───────────────────┼───────────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │   Runtime collects BOTH   │
+                    │   results, then continues │
+                    └─────────────┴─────────────┘
+                                  │
+                                  ▼
+                          Arbiter synthesizes
+```
+
+**Key points:**
+- Both tools appear in the **same Claude response message**
+- Claude's API executes multiple tool calls from one message **concurrently**
+- The runtime waits for both to complete before returning to the model
+- Each reviewer writes to a separate file (idempotent, no conflicts)
+
+**Why this works:**
+- Task tool calls spawn subagents
+- MCP tool calls invoke external servers
+- Both are `tool_use` blocks at the API level — no serialization between them
+
 ### Human as Gatekeeper
 
 The allowlist (`.ai/allowlist.json`) controls gates:

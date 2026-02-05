@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Quest Allowlist Configuration",
+  "description": "Creator-managed permissions for quest orchestration.",
+  "type": "object",
+  "required": ["version", "auto_approve_phases", "arbiter", "review_mode", "role_permissions", "gates"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "description": { "type": "string" },
+    "auto_approve_phases": {
+      "type": "object",
+      "properties": {
+        "plan_creation": { "type": "boolean" },
+        "plan_review": { "type": "boolean" },
+        "plan_refinement": { "type": "boolean" },
+        "implementation": { "type": "boolean" },
+        "code_review": { "type": "boolean" },
+        "fix_loop": { "type": "boolean" }
+      }
+    },
+    "arbiter": {
+      "type": "object",
+      "properties": {
+        "tool": { "type": "string", "enum": ["claude", "codex"] },
+        "notes": { "type": "string" }
+      }
+    },
+    "review_mode": { "type": "string", "enum": ["auto", "manual", "fast", "full"] },
+    "fast_review_thresholds": {
+      "type": "object",
+      "properties": {
+        "max_files": { "type": "integer", "minimum": 1 },
+        "max_loc": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "codex_context_digest_path": { "type": "string" },
+    "role_permissions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "file_write": { "type": "array", "items": { "type": "string" } },
+          "file_read": { "type": "array", "items": { "type": "string" } },
+          "bash": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "properties": {
+        "require_approval_before_commit": { "type": "boolean" },
+        "require_approval_before_push": { "type": "boolean" },
+        "require_approval_before_delete": { "type": "boolean" },
+        "max_plan_iterations": { "type": "integer", "minimum": 1 },
+        "max_fix_iterations": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

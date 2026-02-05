@@ -27,7 +27,10 @@ If the user provides a quest ID (matches pattern `*_YYYY-MM-DD__HHMM`):
 3. If the user also provided an instruction, route it (Step 2)
 4. If no instruction, auto-resume based on state:
    - `phase: plan` + no arbiter verdict → continue plan phase
-   - `phase: plan` + arbiter approved → ask to proceed to build
+   - `phase: plan` + arbiter approved → proceed to Step 3.5 (Interactive Presentation)
+   - `phase: plan_reviewed` → proceed to Step 3.5 (Interactive Presentation)
+   - `phase: presenting` → proceed to Step 3.5 (Interactive Presentation)
+   - `phase: presentation_complete` → proceed to Step 4 gate check (ask to proceed with build)
    - `phase: building` → check for builder output, route to review
    - `phase: reviewing` → check if fixes needed
    - `phase: complete` → show summary
@@ -68,7 +71,10 @@ Determine the action based on instruction + current state:
 | "review" | has implementation | → Review Phase |
 | "fix" | has review issues | → Fix Phase |
 | no instruction | pending plan | → Plan Phase |
-| no instruction | plan approved | → Ask: proceed to build? |
+| no instruction | plan_reviewed | → Step 3.5 (Interactive Presentation) |
+| no instruction | presenting | → Step 3.5 (Interactive Presentation) |
+| no instruction | presentation_complete | → Step 4 (Build Phase) |
+| no instruction | plan approved (arbiter verdict exists, phase is still `plan`) | → Step 3.5 (Interactive Presentation) |
 | no instruction | built | → Review Phase |
 
 ### Step 3: Plan Phase
@@ -87,6 +93,7 @@ gates.max_plan_iterations (default: 4)
 
 2. **Invoke Planner** (Task tool with `planner` agent):
    - Prompt: Include quest brief, and if iteration > 1, include arbiter verdict
+   - **If `.quest/<id>/phase_01_plan/user_feedback.md` exists, include it in the planner prompt as additional context for the revision**
    - Wait for response
    - Verify `.quest/<id>/phase_01_plan/plan.md` exists
    - If not written, extract from response and write it
@@ -162,15 +169,103 @@ gates.max_plan_iterations (default: 4)
    - Parse verdict for NEXT field
 
 6. **Check verdict:**
-   - If `NEXT: builder` → Plan approved! Update state: `phase: plan_reviewed`, proceed to Step 4
+   - If `NEXT: builder` → Plan approved! Update state: `phase: plan_reviewed`, proceed to **Step 3.5** (Interactive Presentation)
    - If `NEXT: planner` → Check iteration count
      - If `plan_iteration >= max_plan_iterations`: Warn user, ask to proceed anyway or review manually
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
      - Otherwise: Loop back to step 1
 
-7. **Show plan summary** after approval:
-   - Display plan.md (first 60 lines)
-   - Display arbiter verdict
+### Step 3.5: Interactive Plan Presentation
+
+After plan approval, present the plan interactively before proceeding to build.
+
+**On entry:** Update state: `phase: presenting`
+
+**1. Show Brief Summary:**
+   Extract a 1-3 sentence summary using this precedence:
+   - **Primary:** Extract from the plan's Overview section (the "Problem" and "Impact" lines)
+   - **Fallback 1:** If no Overview section exists, use the first non-heading paragraph of the plan (skip YAML frontmatter, skip lines starting with `#`)
+   - **Fallback 2:** If no suitable paragraph found, display: "See plan for details:"
+
+   Then display:
+   - "Plan approved! Here's a brief summary:"
+   - The extracted summary (or fallback text)
+   - "Full plan available at: .quest/<id>/phase_01_plan/plan.md"
+   - Arbiter verdict summary (NEXT line only)
+   - Ask: "Would you like to see the detailed phase-by-phase walkthrough? (yes/no)"
+
+**2. Handle Response:**
+   - If user declines ("no", "n", "nope", "skip", "proceed", etc.) -> Update state: `phase: presentation_complete`, then proceed to Step 4 (Build Phase)
+   - If user accepts ("yes", "y", "yeah", "sure", "detailed", etc.) -> Continue to phase extraction
+
+**3. Extract Phases from Plan:**
+   Parse plan.md to identify phases using these patterns (in order of precedence):
+
+   a. **Explicit phase headers** - Look for:
+      - `### Phase 1:` or `### Phase 1 -` (h3 with "Phase N")
+      - `## Phase 1:` or `## Phase 1 -` (h2 with "Phase N")
+      - `**Phase 1:**` or `**Phase 1 -**` (bold with "Phase N")
+
+   b. **Phases section with list** - Look for:
+      - `## Phases` header followed by numbered or bulleted list items
+      - Each list item becomes a phase
+
+   c. **Numbered change sections** - Look for:
+      - `#### Change 1:` or `### Change 1:`
+      - Treat each change as a phase
+
+   d. **Fallback (single-phase)** - If none of the above patterns found:
+      - Treat entire Implementation section as a single phase
+      - Display with title "Implementation Overview"
+
+**4. Extract Per-Phase Acceptance Criteria:**
+   For each identified phase, extract acceptance criteria using these patterns:
+
+   a. **Per-phase AC subheading** - Look within each phase section for:
+      - `**Acceptance Criteria:**` or `#### Acceptance Criteria`
+      - Extract the list items following this heading
+
+   b. **AC references** - Look for parenthetical references like:
+      - `(AC1)`, `(AC2)`, `(Covers AC 3)`, `(Addresses acceptance criterion 1)`
+      - Map these to the global Acceptance Criteria section and display those specific items
+
+   c. **Fallback (global ACs)** - If phase has no explicit ACs:
+      - Display global acceptance criteria from the plan's main `## Acceptance Criteria` section
+      - Prefix with: "This phase contributes to the following acceptance criteria:"
+
+**5. Present Each Phase:**
+   For each phase:
+   a. Display phase title (e.g., "Phase 1: Add Presentation Logic")
+   b. Display phase description/goal (first paragraph of phase section)
+   c. Display key implementation details:
+      - Files to change (look for file paths or "Files:" subsection)
+      - Functions to add/modify (look for function names or "Key Functions:" subsection)
+   d. Display acceptance criteria for this phase (from step 4)
+   e. Ask: "Questions about this phase? Or changes you'd like to request? (continue/question/change)"
+
+**6. Handle Phase Response:**
+   - If "continue" (or "c", "next", "ok", "looks good", etc.) -> Move to next phase, or if last phase: update state `phase: presentation_complete` and proceed to Step 4
+   - If "question" (or "q", "?", user asks a question directly) -> Answer the question using plan context, then re-ask: "Any other questions, or ready to continue? (continue/question/change)"
+   - If "change" (or "modify", "revise", "update", user requests a change directly) -> Proceed to Change Handling
+
+**7. Change Handling:**
+   When user requests changes:
+   a. Prompt user: "Please describe the changes you'd like:"
+   b. Record the user's response
+   c. Create or append to `.quest/<id>/phase_01_plan/user_feedback.md`:
+      ```
+      ## Change Request (Iteration <plan_iteration + 1>)
+      Date: <timestamp>
+      Phase: <current phase number or "General">
+      Request: <user's change request verbatim>
+      ```
+   d. **Update state:** `phase: plan`, `status: in_progress`
+   e. Display: "Re-running plan with your feedback..."
+   f. Return to Step 3, item 1:
+      - Planner will be invoked with user_feedback.md included (per Change 1 above)
+      - plan_iteration increments as normal
+      - Full review cycle (Claude + Codex + Arbiter) runs
+      - After approval, Step 3.5 presentation starts fresh from step 1
 
 ### Step 4: Build Phase
 
@@ -299,13 +394,22 @@ gates.max_plan_iterations (default: 4)
 
 1. **Update state:** `phase: complete`, `status: complete`
 
-2. **Show summary:**
+2. **Create quest journal entry:**
+   - Create `docs/quest-journal/` directory if it doesn't exist
+   - Write to `docs/quest-journal/<slug>_<YYYY-MM-DD>.md`
+   - Include: quest ID, completion date, summary, files changed
+   - If quest originated from an idea file:
+     - Quote the original idea content under "This is where it all began..."
+     - Update the idea file's `## Status` to `implemented`
+
+3. **Show summary:**
    - Quest ID
    - Files changed (from builder/fixer handoffs)
    - Total iterations (plan + fix)
    - Location of artifacts
+   - Location of journal entry
 
-3. **Next steps suggestion:**
+4. **Next steps suggestion:**
    ```
    Review changes: git diff
    Commit: git add -p && git commit
@@ -333,7 +437,7 @@ If any agent returns `STATUS: needs_human`:
 {
   "quest_id": "feature-x_2026-02-02__1430",
   "slug": "feature-x",
-  "phase": "plan | plan_reviewed | building | reviewing | fixing | complete",
+  "phase": "plan | plan_reviewed | presenting | presentation_complete | building | reviewing | fixing | complete",
   "status": "pending | in_progress | complete | blocked",
   "plan_iteration": 2,
   "fix_iteration": 0,
