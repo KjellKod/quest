@@ -14,7 +14,7 @@ set -e
 
 SCRIPT_VERSION="1.0.0"
 UPSTREAM_REPO="KjellKod/quest"
-UPSTREAM_BRANCH="main"
+UPSTREAM_BRANCH="choices"
 RAW_BASE="https://raw.githubusercontent.com/${UPSTREAM_REPO}"
 SCRIPT_NAME="$(basename "$0")"
 
@@ -686,15 +686,15 @@ install_copy_as_is() {
   for filepath in "${COPY_AS_IS[@]}"; do
     install_copy_as_is_file "$filepath"
   done
-  # Clear progress line
-  printf "                                                                              \r"
+  # Clear progress line (stderr for immediate flush)
+  printf "                                                                              \r" >&2
 }
 
 install_copy_as_is_file() {
   local filepath="$1"
 
-  # Show progress
-  printf "\r  Checking: %-60s" "$filepath"
+  # Show progress (stderr is unbuffered, so progress displays immediately)
+  printf "\r  Checking: %-60s" "$filepath" >&2
 
   # Fetch upstream content
   local upstream_content
@@ -805,15 +805,15 @@ install_user_customized() {
   for filepath in "${USER_CUSTOMIZED[@]}"; do
     install_user_customized_file "$filepath"
   done
-  # Clear progress line
-  printf "                                                                              \r"
+  # Clear progress line (stderr for immediate flush)
+  printf "                                                                              \r" >&2
 }
 
 install_user_customized_file() {
   local filepath="$1"
 
-  # Show progress
-  printf "\r  Checking: %-60s" "$filepath"
+  # Show progress (stderr is unbuffered, so progress displays immediately)
+  printf "\r  Checking: %-60s" "$filepath" >&2
 
   # Fetch upstream content
   local upstream_content
@@ -869,15 +869,15 @@ install_merge_carefully() {
   for filepath in "${MERGE_CAREFULLY[@]}"; do
     install_merge_carefully_file "$filepath"
   done
-  # Clear progress line
-  printf "                                                                              \r"
+  # Clear progress line (stderr for immediate flush)
+  printf "                                                                              \r" >&2
 }
 
 install_merge_carefully_file() {
   local filepath="$1"
 
-  # Show progress
-  printf "\r  Checking: %-60s" "$filepath"
+  # Show progress (stderr is unbuffered, so progress displays immediately)
+  printf "\r  Checking: %-60s" "$filepath" >&2
 
   # Fetch upstream content
   local upstream_content
