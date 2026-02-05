@@ -28,6 +28,8 @@ Quest is a multi-agent workflow where specialized AI agents (planner, reviewers,
                                    ▲
                                 GATE: human approval
 ```
+## Quick Start 
+Almost there [quick start instructions](https://github.com/KjellKod/quest?tab=readme-ov-file#quick-start)
 
 ## Prerequisites
 
