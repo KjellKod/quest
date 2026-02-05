@@ -2,17 +2,89 @@
 # Quest configuration validation script
 # Run locally or as pre-commit hook
 # Exit 0 = success, non-zero = failure
-#
-# Usage:
-#   ./scripts/validate-quest-config.sh
-#
-# Pre-commit hook installation:
-#   cp scripts/validate-quest-config.sh .git/hooks/pre-commit
-#   chmod +x .git/hooks/pre-commit
 
 set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+SCRIPT_NAME="$(basename "$0")"
+
+# --help: show usage
+show_help() {
+  cat <<EOF
+Usage: $SCRIPT_NAME [OPTIONS]
+
+Validates quest configuration files (.ai/ directory).
+
+Options:
+  --install   Install as pre-commit hook (symlink)
+  --uninstall Remove pre-commit hook
+  --help      Show this help message
+
+When run without options, validates:
+  - .quest/ is in .gitignore
+  - .ai/allowlist.json is valid JSON
+  - .ai/allowlist.json matches schema (if ajv installed)
+  - .ai/roles/*.md have required sections
+EOF
+  exit 0
+}
+
+# --install: symlink script as pre-commit hook
+install_hook() {
+  local hook_path="$REPO_ROOT/.git/hooks/pre-commit"
+  local script_path="$REPO_ROOT/scripts/validate-quest-config.sh"
+
+  if [ -e "$hook_path" ]; then
+    if [ -L "$hook_path" ]; then
+      echo "Replacing existing pre-commit symlink..."
+      rm "$hook_path"
+    else
+      echo "Error: $hook_path already exists and is not a symlink."
+      echo "Back it up and remove it first, or manually integrate the validation."
+      exit 1
+    fi
+  fi
+
+  ln -s "../../scripts/validate-quest-config.sh" "$hook_path"
+  echo "Installed pre-commit hook: $hook_path -> $script_path"
+  exit 0
+}
+
+# --uninstall: remove pre-commit hook if it's our symlink
+uninstall_hook() {
+  local hook_path="$REPO_ROOT/.git/hooks/pre-commit"
+
+  if [ ! -e "$hook_path" ]; then
+    echo "No pre-commit hook installed."
+    exit 0
+  fi
+
+  if [ -L "$hook_path" ]; then
+    local target
+    target=$(readlink "$hook_path")
+    if [[ "$target" == *"validate-quest-config.sh" ]]; then
+      rm "$hook_path"
+      echo "Removed pre-commit hook."
+      exit 0
+    fi
+  fi
+
+  echo "Error: pre-commit hook exists but is not our symlink. Remove manually."
+  exit 1
+}
+
+# Parse arguments
+case "${1:-}" in
+  --help|-h)
+    show_help
+    ;;
+  --install)
+    install_hook
+    ;;
+  --uninstall)
+    uninstall_hook
+    ;;
+esac
 ERRORS=0
 
 # Colors for output (disabled if not a terminal)
