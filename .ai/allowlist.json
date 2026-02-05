@@ -43,7 +43,7 @@
     "builder_agent": {
       "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "scripts/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
       "file_read": ["**"],
-      "bash": ["npm test", "npm run build", "pytest", "python", "pip", "npx", "yarn test", "make test"]
+      "bash": ["npm test", "npm run build", "pytest", "python", "pip", "npx", "yarn test", "make test", "shasum", "sha256sum"]
     },
     "code_review_agent": {
       "file_write": [".quest/**"],
@@ -53,7 +53,7 @@
     "fixer_agent": {
       "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
       "file_read": ["**"],
-      "bash": ["npm test", "pytest", "python", "yarn test", "make test"]
+      "bash": ["npm test", "pytest", "python", "yarn test", "make test", "shasum", "sha256sum"]
     }
   },
   "gates": {

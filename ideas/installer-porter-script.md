@@ -164,4 +164,4 @@ For `.ai/allowlist.json` and `.ai/context_digest.md`:
 `candid_talent_edge` — has legacy Quest files, perfect for testing the update flow.
 
 ## Status
-idea
+implemented
