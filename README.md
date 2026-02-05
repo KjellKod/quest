@@ -2,7 +2,7 @@
 
 **Part of the [Candid Talent Edge](https://candidtalentedge.com) initiative by KjellKod**
 
-> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov) or listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) - an AI-generated audio critique.
+> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool.
 
 A portable framework for coordinated AI agents with human oversight. Copy this to any repository to enable structured, auditable AI workflows.
 
@@ -114,10 +114,31 @@ Edit `.ai/allowlist.json` to match your project:
 
 ### Use it
 
-```
+```bash
 claude
 /quest "Add a loading skeleton to the user list"
 ```
+
+Quest scales from simple to complex — just describe what you want:
+
+```bash
+# Quick feature
+/quest "Add a loading spinner to the save button"
+
+# Multi-file change
+/quest "Implement user preferences with localStorage"
+
+# Large refactor
+/quest "Add weekly update checking with opt-out config"
+
+# Resume where you left off
+/quest feature-x_2026-02-04__1430
+
+# Resume with new direction
+/quest feature-x_2026-02-04__1430 "only use claude, skip codex"
+```
+
+Abort anytime, resume later. State persists in `.quest/<id>/state.json`.
 
 ## Key Features
 
@@ -126,6 +147,7 @@ claude
 - **Arbiter** — filters nitpicks, decides "good enough", prevents spin
 - **Human gates** — you approve before building
 - **Artifacts saved** — full audit trail in `.quest/`
+- **Scales up** — step-by-step approach shines on large tasks (context stays manageable)
 
 ## How the Orchestrator Works
 

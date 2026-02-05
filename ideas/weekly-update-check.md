@@ -121,4 +121,4 @@ Or keep it simple with no configuration (always check weekly, always notify).
 3. **Gitignore `.quest-last-check`**: Yes - it's local state per machine
 
 ## Status
-idea
+implemented

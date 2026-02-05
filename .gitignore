@@ -1,5 +1,6 @@
 # Quest ephemeral state
 .quest/
+.quest-last-check
 
 # OS files
 .DS_Store
