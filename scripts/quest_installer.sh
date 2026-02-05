@@ -33,6 +33,13 @@ HAS_QUEST=false
 LOCAL_VERSION=""
 UPSTREAM_SHA=""
 
+# Dry-run summary counters
+DRY_RUN_WOULD_CREATE=0
+DRY_RUN_WOULD_UPDATE=0
+DRY_RUN_WOULD_SKIP=0
+DRY_RUN_UP_TO_DATE=0
+DRY_RUN_MODIFIED=0
+
 ###############################################################################
 # Cleanup Trap
 ###############################################################################
@@ -730,6 +737,7 @@ install_copy_as_is_file() {
     ensure_parent_dir "$filepath"
     if $DRY_RUN; then
       log_action "Create: $filepath"
+      ((DRY_RUN_WOULD_CREATE++))
     else
       printf '%s\n' "$upstream_content" > "$filepath"
       log_success "Created: $filepath"
@@ -745,6 +753,7 @@ install_copy_as_is_file() {
   if [ "$local_checksum" = "$upstream_checksum" ]; then
     # Already up to date - just ensure checksum is stored
     set_updated_checksum "$filepath" "$upstream_checksum"
+    $DRY_RUN && ((DRY_RUN_UP_TO_DATE++))
     return 0
   fi
 
@@ -752,6 +761,7 @@ install_copy_as_is_file() {
   if is_file_pristine "$filepath"; then
     if $DRY_RUN; then
       log_action "Update: $filepath"
+      ((DRY_RUN_WOULD_UPDATE++))
     else
       printf '%s\n' "$upstream_content" > "$filepath"
       log_success "Updated: $filepath"
@@ -763,6 +773,7 @@ install_copy_as_is_file() {
   # Case 3: File exists and has local modifications
   if $DRY_RUN; then
     log_warn "Modified: $filepath (would prompt to overwrite/skip)"
+    ((DRY_RUN_MODIFIED++))
     return 0
   fi
 
@@ -1124,6 +1135,14 @@ print_next_steps() {
 
   if $DRY_RUN; then
     echo -e "${BOLD}=== Dry Run Complete ===${NC}"
+    echo ""
+    echo "Summary:"
+    echo "  Files to create:  $DRY_RUN_WOULD_CREATE"
+    echo "  Files to update:  $DRY_RUN_WOULD_UPDATE"
+    echo "  Files up-to-date: $DRY_RUN_UP_TO_DATE"
+    if [ "$DRY_RUN_MODIFIED" -gt 0 ]; then
+      echo -e "  ${YELLOW}Files modified:     $DRY_RUN_MODIFIED (would prompt)${NC}"
+    fi
     echo ""
     echo "No files were modified. This was a preview of what would happen."
     echo ""
