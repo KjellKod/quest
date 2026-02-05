@@ -3,6 +3,12 @@
 ## What
 A script that copies the Quest blueprint into an existing repository, handling conflicts and customization.
 
+## Source Repository
+
+**This repo (`quest`) is the source of truth.** The installer fetches Quest files from here.
+
+Historical note: Quest was born in `candid_talent_edge`, but that repo's Quest files are now outdated. `candid_talent_edge` is now just another adopter repo that can use this installer to update its legacy Quest files.
+
 ## Why
 Currently, adopting Quest requires manually copying folders and editing configuration. An installer script would:
 - Reduce onboarding friction
@@ -108,6 +114,12 @@ Start with option 1; graduate to npx if adoption grows.
 
 ## v2 — Update / Fetch Latest
 
+> **Implementation Note:** v1 and v2 should be **separate quests**.
+> - v1 (fresh install) is independently valuable and should ship first
+> - v2 (updates) depends on v1 being completed and battle-tested
+> - Feedback from v1 usage will inform v2 design
+> - Test candidate: `candid_talent_edge` (has legacy Quest files to update)
+
 ### What
 Allow users who have already installed Quest to pull updates when the blueprint evolves.
 
@@ -171,3 +183,7 @@ For `.ai/allowlist.json` and `.ai/context_digest.md`:
 
 ## Status
 idea
+
+**Planned as two separate quests:**
+1. **Quest 1 (v1):** Fresh install capability — ready to implement
+2. **Quest 2 (v2):** Update/fetch latest — implement after v1 is tested
