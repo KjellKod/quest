@@ -533,19 +533,9 @@ is_file_pristine() {
 ###############################################################################
 
 detect_repo_state() {
-  # Check if in git repo
+  # Check if in git repo (we've already cd'd to root if needed)
   if git rev-parse --show-toplevel &>/dev/null; then
     IS_GIT_REPO=true
-
-    # Check if at repository root
-    local git_root
-    git_root=$(git rev-parse --show-toplevel)
-    if [ "$PWD" != "$git_root" ]; then
-      log_error "Please run the installer from the repository root:"
-      log_error "  cd $git_root"
-      log_error "  ./scripts/quest_installer.sh"
-      exit 1
-    fi
   else
     IS_GIT_REPO=false
     log_warn "Not in a git repository. Quest will still be installed but some features may not work."
@@ -1233,6 +1223,19 @@ print_next_steps() {
 ###############################################################################
 
 run_install() {
+  # Auto-cd to repository root if in a subdirectory
+  if git rev-parse --show-toplevel &>/dev/null; then
+    local git_root
+    git_root=$(git rev-parse --show-toplevel)
+    if [ "$PWD" != "$git_root" ]; then
+      cd "$git_root" || {
+        log_error "Could not change to repository root: $git_root"
+        exit 1
+      }
+      log_info "Changed to repository root: $git_root"
+    fi
+  fi
+
   echo ""
   echo -e "${BOLD}Quest Installer${NC} v${SCRIPT_VERSION}"
 
@@ -1247,7 +1250,7 @@ run_install() {
   # Check prerequisites
   check_prerequisites
 
-  # Detect current state
+  # Detect current state (git repo, Quest installed, etc.)
   detect_repo_state
 
   # Fetch upstream version (sets UPSTREAM_SHA)
