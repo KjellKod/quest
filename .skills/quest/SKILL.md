@@ -417,6 +417,64 @@ After plan approval, present the plan interactively before proceeding to build.
    Commit: git add -p && git commit
    ```
 
+5. **Check for Quest updates:**
+   After the quest completes, check if a Quest update is available (if enough time has passed since the last check).
+
+   **Configuration:**
+   - Read `update_check` from `.ai/allowlist.json`:
+     - `enabled` (default: true) - set to false to disable update checks
+     - `interval_days` (default: 7) - minimum days between checks
+
+   **Logic:**
+   ```bash
+   # Check for Quest updates (after completion)
+   ALLOWLIST_FILE=".ai/allowlist.json"
+   LAST_CHECK_FILE=".quest-last-check"
+   NOW=$(date +%s)
+
+   # Read config (default enabled=true, interval=7)
+   UPDATE_ENABLED=$(jq -r '.update_check.enabled // true' "$ALLOWLIST_FILE" 2>/dev/null)
+   INTERVAL_DAYS=$(jq -r '.update_check.interval_days // 7' "$ALLOWLIST_FILE" 2>/dev/null)
+
+   if [ "$UPDATE_ENABLED" != "false" ]; then
+     INTERVAL_SECONDS=$((INTERVAL_DAYS * 24 * 60 * 60))
+     SHOULD_CHECK=true
+
+     if [ -f "$LAST_CHECK_FILE" ]; then
+       LAST_CHECK=$(cat "$LAST_CHECK_FILE")
+       if [ $((NOW - LAST_CHECK)) -lt $INTERVAL_SECONDS ]; then
+         SHOULD_CHECK=false
+       fi
+     fi
+
+     if $SHOULD_CHECK; then
+       if [ -f "scripts/quest_installer.sh" ] && [ -f ".quest-version" ]; then
+         LOCAL_SHA=$(cat .quest-version 2>/dev/null || echo "")
+         UPSTREAM_SHA=$(git ls-remote "https://github.com/KjellKod/quest.git" "refs/heads/main" 2>/dev/null | cut -f1)
+
+         if [ -n "$LOCAL_SHA" ] && [ -n "$UPSTREAM_SHA" ] && [ "$LOCAL_SHA" != "$UPSTREAM_SHA" ]; then
+           echo ""
+           echo -n "Quest update available. Update now? [Y/n] "
+           read -r response
+           if [ "$response" != "n" ] && [ "$response" != "N" ]; then
+             ./scripts/quest_installer.sh
+           fi
+         fi
+         echo "$NOW" > "$LAST_CHECK_FILE"
+       fi
+     fi
+   fi
+   ```
+
+   **Behavior:**
+   - If `update_check.enabled` is `false`, skip entirely
+   - If `.quest-last-check` exists and is recent (within `interval_days`), skip (no network call)
+   - Compare local `.quest-version` SHA with upstream via `git ls-remote`
+   - If different, prompt: "Quest update available. Update now? [Y/n]"
+   - If user accepts (Y or Enter), run the installer
+   - Update `.quest-last-check` with current timestamp (regardless of update availability)
+   - Network errors are silently ignored (graceful degradation)
+
 ---
 
 ## Q&A Loop Pattern

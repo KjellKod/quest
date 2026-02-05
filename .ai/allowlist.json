@@ -19,6 +19,10 @@
     "max_loc": 200
   },
   "codex_context_digest_path": ".ai/context_digest.md",
+  "update_check": {
+    "enabled": true,
+    "interval_days": 7
+  },
   "role_permissions": {
     "planner_agent": {
       "file_write": [".quest/**", "docs/implementation/**"],
