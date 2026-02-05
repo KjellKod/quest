@@ -117,23 +117,20 @@ This is gitignored (ephemeral), but available for debugging and learning.
 
 ### 1. Not a Marketplace Fit
 
-Quest is **not** a simple plugin. It's an orchestration framework that requires:
-- Understanding the multi-agent concept
-- Customizing `allowlist.json` for your project
-- Potentially editing `AGENTS.md` coding rules
-- Learning the `/quest` command syntax
+Quest is **not** a simple plugin. It's an orchestration framework with 7 agents, 5 skills, and structured phases. Marketplaces (VS Code extensions, npm packages) are designed for self-contained tools with UI-based setup. Quest's distribution model (installer script + copy folders) is the right fit for what it is.
 
-Marketplaces (VS Code extensions, npm packages) are designed for self-contained tools with minimal configuration. Quest requires commitment.
+### 2. Zero Config, But There's Depth
 
-### 2. Learning Curve
+**Getting started is dead simple:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/KjellKod/quest/main/scripts/quest_installer.sh | bash
+claude
+/quest "Add a logout button"
+```
 
-To use Quest effectively, you need to understand:
-- The phase flow (plan → review → arbiter → build → review → fix)
-- How to write good quest briefs
-- What the different agents do
-- How to customize permissions
+That's it. No customization required. The `allowlist.json` ships with sensible defaults.
 
-This isn't "install and go" — it's "adopt and adapt."
+**But there's depth if you want it.** You *can* customize permissions, review modes, iteration limits, and agent behavior. Most users won't need to. The defaults work.
 
 ### 3. Dependency on External Tools
 
@@ -221,9 +218,8 @@ For a multi-day refactor, it's invaluable.
 
 ## What Could Be Better
 
-1. **Quickstart mode**: A minimal "just try it" path that works without full customization
-2. **Interactive setup**: `quest_installer.sh --interactive` that walks through configuration
-3. **Example projects**: A directory showing Quest in action on small, complete codebases
+1. **Interactive setup** (optional): `quest_installer.sh --interactive` could walk through configuration for users who want guidance
+2. **Example projects**: A directory showing Quest in action on small, complete codebases
 
 ---
 
