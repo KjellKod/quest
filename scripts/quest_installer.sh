@@ -130,12 +130,12 @@ UPDATED_CHECKSUM_VALUES=()
 ###############################################################################
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
-  RED='\033[0;31m'
-  GREEN='\033[0;32m'
-  YELLOW='\033[0;33m'
-  BLUE='\033[0;34m'
-  BOLD='\033[1m'
-  NC='\033[0m'
+  RED=$'\033[0;31m'
+  GREEN=$'\033[0;32m'
+  YELLOW=$'\033[0;33m'
+  BLUE=$'\033[0;34m'
+  BOLD=$'\033[1m'
+  NC=$'\033[0m'
 else
   RED='' GREEN='' YELLOW='' BLUE='' BOLD='' NC=''
 fi
