@@ -647,7 +647,11 @@ show_diff() {
 ###############################################################################
 
 create_directories() {
-  log_info "Creating directories..."
+  if $DRY_RUN; then
+    log_info "Checking directories..."
+  else
+    log_info "Creating directories..."
+  fi
 
   local dir
   for dir in "${CREATE_DIRS[@]}"; do
@@ -667,7 +671,11 @@ create_directories() {
 ###############################################################################
 
 install_copy_as_is() {
-  log_info "Installing copy-as-is files..."
+  if $DRY_RUN; then
+    log_info "Checking copy-as-is files..."
+  else
+    log_info "Installing copy-as-is files..."
+  fi
 
   local filepath
   for filepath in "${COPY_AS_IS[@]}"; do
@@ -777,7 +785,11 @@ install_copy_as_is_file() {
 ###############################################################################
 
 install_user_customized() {
-  log_info "Installing user-customized files..."
+  if $DRY_RUN; then
+    log_info "Checking user-customized files..."
+  else
+    log_info "Installing user-customized files..."
+  fi
 
   local filepath
   for filepath in "${USER_CUSTOMIZED[@]}"; do
@@ -832,7 +844,11 @@ install_user_customized_file() {
 ###############################################################################
 
 install_merge_carefully() {
-  log_info "Installing settings files..."
+  if $DRY_RUN; then
+    log_info "Checking settings files..."
+  else
+    log_info "Installing settings files..."
+  fi
 
   local filepath
   for filepath in "${MERGE_CAREFULLY[@]}"; do
@@ -1084,6 +1100,13 @@ print_next_steps() {
 run_install() {
   echo ""
   echo -e "${BOLD}Quest Installer${NC} v${SCRIPT_VERSION}"
+
+  if $DRY_RUN; then
+    echo ""
+    echo -e "${YELLOW}══════════════════════════════════════════════════════════${NC}"
+    echo -e "${YELLOW}  DRY RUN MODE - No files will be created or modified${NC}"
+    echo -e "${YELLOW}══════════════════════════════════════════════════════════${NC}"
+  fi
   echo ""
 
   # Check prerequisites
