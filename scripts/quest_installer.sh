@@ -223,6 +223,12 @@ prompt_yn() {
 prompt_file_action() {
   local filepath="$1"
 
+  if $DRY_RUN; then
+    # In dry-run mode, don't prompt - just indicate it would ask
+    echo "s"
+    return
+  fi
+
   if $FORCE_MODE; then
     # In force mode, skip modified files
     echo "s"
