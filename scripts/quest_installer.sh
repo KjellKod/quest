@@ -689,7 +689,7 @@ install_copy_as_is_file() {
   local filepath="$1"
 
   # Show progress
-  printf "  Checking: %s\r" "$filepath"
+  printf "\r  Checking: %-60s" "$filepath"
 
   # Fetch upstream content
   local upstream_content
@@ -808,7 +808,7 @@ install_user_customized_file() {
   local filepath="$1"
 
   # Show progress
-  printf "  Checking: %s\r" "$filepath"
+  printf "\r  Checking: %-60s" "$filepath"
 
   # Fetch upstream content
   local upstream_content
@@ -872,7 +872,7 @@ install_merge_carefully_file() {
   local filepath="$1"
 
   # Show progress
-  printf "  Checking: %s\r" "$filepath"
+  printf "\r  Checking: %-60s" "$filepath"
 
   # Fetch upstream content
   local upstream_content
