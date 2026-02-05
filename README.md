@@ -27,9 +27,57 @@ Quest is a multi-agent workflow where specialized AI agents (planner, reviewers,
                                 GATE: human approval
 ```
 
+## Prerequisites
+
+### Required: Claude Code CLI
+
+Install Claude Code (Anthropic's official CLI):
+
+```bash
+# Install via npm
+npm install -g @anthropic-ai/claude-code
+
+# Or download from:
+# https://docs.anthropic.com/en/docs/claude-code
+```
+
+### Optional: Codex MCP (for dual-model reviews)
+
+Quest uses GPT 5.2 via Codex as a second reviewer. If you want dual-model reviews:
+
+```bash
+# Add Codex MCP server to Claude Code
+claude mcp add codex -- npx -y @anthropic/codex-mcp-server
+
+# Requires OpenAI API key configured
+# https://platform.openai.com/docs/quickstart
+```
+
+If you skip this, Quest will use Claude for all roles (still works, just single-model).
+
 ## Quick Start
 
-### 1. Copy to your repository
+### Option A: Use the Installer (Recommended)
+
+```bash
+# Download the installer
+curl -fsSL https://raw.githubusercontent.com/KjellKod/quest/main/scripts/quest_installer.sh -o quest_installer.sh
+chmod +x quest_installer.sh
+
+# Preview what will be installed
+./quest_installer.sh --check
+
+# Install Quest
+./quest_installer.sh
+```
+
+The installer:
+- Handles fresh installs AND updates
+- Tracks file checksums to detect your modifications
+- Never overwrites your customizations (uses `.quest_updated` suffix)
+- Supports `--force` for CI/automation
+
+### Option B: Manual Copy
 
 Copy these folders to your repository root:
 - `.ai/` - Source of truth (permissions, roles, templates)
@@ -41,7 +89,7 @@ Copy these folders to your repository root:
 - `AGENTS.md` - Coding rules (customize for your project)
 - `DOCUMENTATION_STRUCTURE.md` - Navigation guide
 
-### 2. Customize allowlist
+### Customize allowlist
 
 Edit `.ai/allowlist.json` to match your project:
 
@@ -56,13 +104,13 @@ Edit `.ai/allowlist.json` to match your project:
 }
 ```
 
-### 3. Add to .gitignore
+### Add to .gitignore
 
 ```
 .quest/
 ```
 
-### 4. Use it
+### Use it
 
 ```
 claude
@@ -155,22 +203,37 @@ your-repo/
 - **[AGENTS.md](AGENTS.md)** - Coding rules to customize
 - **[.ai/quest.md](.ai/quest.md)** - Quick reference
 
-## Optional: Codex MCP Setup
+## The Quest Party: Agent Roles
 
-If you want to use GPT 5.2 via Codex for reviews and arbiter:
+### Planner
+Creates the implementation plan from your quest brief. Explores the codebase, identifies files to change, and writes a detailed plan with acceptance criteria.
 
-```bash
-claude mcp add codex -- npx -y @anthropic/codex-mcp-server
-```
+### Reviewers (Claude + Codex)
+Two independent reviewers examine plans and code:
+- **Claude reviewer**: Uses Claude's understanding of the codebase
+- **Codex reviewer**: Uses GPT 5.2 for a different perspective
 
-If you don't have Codex, set in `.ai/allowlist.json`:
-```json
-{
-  "arbiter": {
-    "tool": "claude"
-  }
-}
-```
+Having two different model families catches different blind spots.
+
+### Arbiter
+Synthesizes both reviews, filters nitpicks, and decides: **approve** (proceed) or **iterate** (revise). Prevents endless review cycles by focusing on what matters.
+
+### Builder
+Implements the approved plan. Writes code, runs tests, and produces a PR description. Works only after you approve the plan.
+
+### Fixer
+**The cleanup specialist.** When code reviewers find issues after the builder finishes:
+
+1. Fixer receives the review feedback
+2. Makes targeted fixes to address the issues
+3. Re-runs tests to verify
+4. Code is re-reviewed
+
+The fix loop continues until reviewers approve (or max iterations reached). This keeps the builder's original work intact while addressing review feedback.
+
+**Key difference from Builder:**
+- **Builder**: Implements the full plan from scratch
+- **Fixer**: Makes surgical fixes to existing implementation based on review feedback
 
 ## License
 

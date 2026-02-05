@@ -4,9 +4,72 @@ How to add the `/quest` multi-agent orchestration system to your repository.
 
 ## Prerequisites
 
-- Claude Code CLI installed and authenticated
-- (Optional) Codex CLI if using GPT 5.2 for reviews/arbiter
-- jq for JSON processing
+### Required: Claude Code CLI
+
+Claude Code is Anthropic's official CLI for Claude. Install it:
+
+```bash
+# Install via npm
+npm install -g @anthropic-ai/claude-code
+
+# Authenticate
+claude auth
+```
+
+**Documentation:** https://docs.anthropic.com/en/docs/claude-code
+
+### Optional: Codex MCP (for dual-model reviews)
+
+Quest can use GPT 5.2 via OpenAI's Codex as a second reviewer. This gives you two different model families reviewing your code (different blind spots).
+
+```bash
+# Add Codex MCP server to Claude Code
+claude mcp add codex -- npx -y @anthropic/codex-mcp-server
+```
+
+**Requires:** OpenAI API key configured in your environment.
+**Documentation:** https://platform.openai.com/docs/quickstart
+
+If you skip this, Quest uses Claude for all roles (still works, just single-model).
+
+### Optional: jq (for validation)
+
+```bash
+# macOS
+brew install jq
+
+# Ubuntu/Debian
+sudo apt install jq
+```
+
+Used by the validation script for JSON checks. Falls back to basic validation if missing.
+
+## Installation
+
+### Option A: Use the Installer (Recommended)
+
+```bash
+# Download the installer
+curl -fsSL https://raw.githubusercontent.com/KjellKod/quest/main/scripts/quest_installer.sh -o quest_installer.sh
+chmod +x quest_installer.sh
+
+# Preview what will be installed (dry-run)
+./quest_installer.sh --check
+
+# Install Quest
+./quest_installer.sh
+
+# For CI/automation (non-interactive)
+./quest_installer.sh --force
+```
+
+The installer:
+- Handles fresh installs AND updates
+- Tracks file checksums to detect your modifications
+- Never overwrites customizations (uses `.quest_updated` suffix)
+- Self-updates when a newer version is available
+
+### Option B: Manual Copy
 
 ## What to Copy
 
