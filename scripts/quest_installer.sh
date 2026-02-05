@@ -597,6 +597,21 @@ fetch_file() {
   curl -fsSL "$url"
 }
 
+# Fetch file to a temp file (preserves trailing newlines for accurate checksums)
+fetch_file_to_temp() {
+  local remote_path="$1"
+  local temp_file="$2"
+
+  if [ -z "$UPSTREAM_SHA" ]; then
+    log_error "Internal error: UPSTREAM_SHA not set"
+    return 1
+  fi
+
+  local url="${RAW_BASE}/${UPSTREAM_SHA}/${remote_path}"
+
+  curl -fsSL "$url" -o "$temp_file"
+}
+
 # Create parent directories for a file path
 ensure_parent_dir() {
   local filepath="$1"
@@ -642,7 +657,7 @@ set_executable() {
 # Show diff between local and upstream file
 show_diff() {
   local filepath="$1"
-  local upstream_content="$2"
+  local upstream_file="$2"  # Can be temp file path or content string
 
   echo ""
   echo -e "${BOLD}--- Local: $filepath${NC}"
@@ -650,12 +665,8 @@ show_diff() {
   echo ""
 
   if command -v diff &>/dev/null; then
-    # Create temp file for upstream content
-    local tmp_file
-    tmp_file=$(mktemp)
-    printf '%s\n' "$upstream_content" > "$tmp_file"
-    diff -u "$filepath" "$tmp_file" || true
-    rm -f "$tmp_file"
+    # upstream_file is already a temp file path
+    diff -u "$filepath" "$upstream_file" || true
   else
     echo "(diff not available - showing upstream content)"
     printf '%s\n' "$upstream_content"
@@ -693,6 +704,8 @@ create_directories() {
 ###############################################################################
 
 install_copy_as_is() {
+  # Clear any previous progress line
+  printf "\r%-80s\r" "" >&2
   if $DRY_RUN; then
     log_info "Checking copy-as-is files..."
   else
@@ -722,19 +735,17 @@ install_copy_as_is_file() {
     printf "\r  Checking: %-60s" "$filepath" >&2
   fi
 
-  # Fetch upstream content
-  local upstream_content
-  if ! upstream_content=$(fetch_file "$filepath" 2>/dev/null); then
+  # Fetch upstream content to temp file (preserves trailing newlines)
+  local temp_file=".quest-temp.$$"
+  if ! fetch_file_to_temp "$filepath" "$temp_file" 2>/dev/null; then
     log_warn "Could not fetch: $filepath (may not exist in upstream yet)"
+    rm -f "$temp_file"
     return 0  # Continue with other files
   fi
 
-  # Get upstream checksum (from manifest or calculate)
+  # Calculate upstream checksum from temp file (accurate, preserves newlines)
   local upstream_checksum
-  if ! upstream_checksum=$(get_upstream_checksum "$filepath"); then
-    # Calculate from fetched content
-    upstream_checksum=$(printf '%s\n' "$upstream_content" | get_content_checksum)
-  fi
+  upstream_checksum=$(get_file_checksum "$temp_file")
 
   # Case 1: File does not exist locally
   if [ ! -f "$filepath" ]; then
@@ -743,18 +754,20 @@ install_copy_as_is_file() {
       log_action "Create: $filepath"
       ((DRY_RUN_WOULD_CREATE++))
     else
-      printf '%s\n' "$upstream_content" > "$filepath"
+      mv "$temp_file" "$filepath"
       log_success "Created: $filepath"
     fi
+    rm -f "$temp_file"
     set_updated_checksum "$filepath" "$upstream_checksum"
     return 0
   fi
 
-  # File exists - check if it matches upstream (optimization from arbiter)
+  # File exists - check if it matches upstream
   local local_checksum
   local_checksum=$(get_file_checksum "$filepath")
 
   if [ "$local_checksum" = "$upstream_checksum" ]; then
+    rm -f "$temp_file"
     # Already up to date - just ensure checksum is stored
     set_updated_checksum "$filepath" "$upstream_checksum"
     $DRY_RUN && ((DRY_RUN_UP_TO_DATE++))
@@ -767,15 +780,17 @@ install_copy_as_is_file() {
       log_action "Update: $filepath"
       ((DRY_RUN_WOULD_UPDATE++))
     else
-      printf '%s\n' "$upstream_content" > "$filepath"
+      mv "$temp_file" "$filepath"
       log_success "Updated: $filepath"
     fi
+    rm -f "$temp_file"
     set_updated_checksum "$filepath" "$upstream_checksum"
     return 0
   fi
 
   # Case 3: File exists and has local modifications
   if $DRY_RUN; then
+    rm -f "$temp_file"
     # Clear progress line before warning
     printf "\r%-80s\r" "" >&2
     log_warn "Modified: $filepath (would prompt to overwrite/skip)"
@@ -784,6 +799,7 @@ install_copy_as_is_file() {
   fi
 
   if $FORCE_MODE; then
+    rm -f "$temp_file"
     log_warn "Skipping modified file: $filepath"
     # Keep existing checksum
     local existing
@@ -801,13 +817,14 @@ install_copy_as_is_file() {
     case "$action" in
       o)
         # Overwrite
-        printf '%s\n' "$upstream_content" > "$filepath"
+        mv "$temp_file" "$filepath"
         log_success "Overwrote: $filepath"
         set_updated_checksum "$filepath" "$upstream_checksum"
         return 0
         ;;
       s)
         # Skip
+        rm -f "$temp_file"
         log_info "Skipped: $filepath"
         local existing
         if existing=$(get_stored_checksum "$filepath"); then
@@ -817,7 +834,7 @@ install_copy_as_is_file() {
         ;;
       d)
         # Show diff and re-prompt
-        show_diff "$filepath" "$upstream_content"
+        show_diff "$filepath" "$temp_file"
         ;;
     esac
   done
@@ -828,6 +845,8 @@ install_copy_as_is_file() {
 ###############################################################################
 
 install_user_customized() {
+  # Clear any previous progress line
+  printf "\r%-80s\r" "" >&2
   if $DRY_RUN; then
     log_info "Checking user-customized files..."
   else
@@ -857,10 +876,11 @@ install_user_customized_file() {
     printf "\r  Checking: %-60s" "$filepath" >&2
   fi
 
-  # Fetch upstream content
-  local upstream_content
-  if ! upstream_content=$(fetch_file "$filepath" 2>/dev/null); then
+  # Fetch upstream content to temp file
+  local temp_file=".quest-temp.$$"
+  if ! fetch_file_to_temp "$filepath" "$temp_file" 2>/dev/null; then
     log_warn "Could not fetch: $filepath (may not exist in upstream yet)"
+    rm -f "$temp_file"
     return 0  # Continue with other files
   fi
 
@@ -870,19 +890,21 @@ install_user_customized_file() {
     if $DRY_RUN; then
       log_action "Create: $filepath (customize after install)"
     else
-      printf '%s\n' "$upstream_content" > "$filepath"
+      mv "$temp_file" "$filepath"
       log_success "Created: $filepath (customize as needed)"
     fi
+    rm -f "$temp_file"
     return 0
   fi
 
   # Case 2: File exists - check if upstream has changes
   local local_checksum upstream_checksum
   local_checksum=$(get_file_checksum "$filepath")
-  upstream_checksum=$(printf '%s\n' "$upstream_content" | get_content_checksum)
+  upstream_checksum=$(get_file_checksum "$temp_file")
 
   if [ "$local_checksum" = "$upstream_checksum" ]; then
     # No changes
+    rm -f "$temp_file"
     return 0
   fi
 
@@ -891,9 +913,10 @@ install_user_customized_file() {
   if $DRY_RUN; then
     log_action "Create: $updated_path (upstream has changes)"
   else
-    printf '%s\n' "$upstream_content" > "$updated_path"
+    mv "$temp_file" "$updated_path"
     log_warn "Created: $updated_path (review and merge manually)"
   fi
+  rm -f "$temp_file"
 }
 
 ###############################################################################
@@ -901,6 +924,8 @@ install_user_customized_file() {
 ###############################################################################
 
 install_merge_carefully() {
+  # Clear any previous progress line
+  printf "\r%-80s\r" "" >&2
   if $DRY_RUN; then
     log_info "Checking settings files..."
   else
@@ -1014,6 +1039,8 @@ install_merge_carefully_file() {
 ###############################################################################
 
 set_executable_bits() {
+  # Clear any previous progress line
+  printf "\r%-80s\r" "" >&2
   log_info "Setting executable permissions..."
 
   local filepath
