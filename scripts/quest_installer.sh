@@ -729,7 +729,7 @@ install_copy_as_is_file() {
   local upstream_checksum
   if ! upstream_checksum=$(get_upstream_checksum "$filepath"); then
     # Calculate from fetched content
-    upstream_checksum=$(echo "$upstream_content" | get_content_checksum)
+    upstream_checksum=$(printf '%s' "$upstream_content" | get_content_checksum)
   fi
 
   # Case 1: File does not exist locally
@@ -772,6 +772,8 @@ install_copy_as_is_file() {
 
   # Case 3: File exists and has local modifications
   if $DRY_RUN; then
+    # Clear progress line before warning
+    printf "\r%-80s\r" "" >&2
     log_warn "Modified: $filepath (would prompt to overwrite/skip)"
     ((DRY_RUN_MODIFIED++))
     return 0
@@ -873,7 +875,7 @@ install_user_customized_file() {
   # Case 2: File exists - check if upstream has changes
   local local_checksum upstream_checksum
   local_checksum=$(get_file_checksum "$filepath")
-  upstream_checksum=$(echo "$upstream_content" | get_content_checksum)
+  upstream_checksum=$(printf '%s' "$upstream_content" | get_content_checksum)
 
   if [ "$local_checksum" = "$upstream_checksum" ]; then
     # No changes
@@ -946,7 +948,7 @@ install_merge_carefully_file() {
   # Case 2: File exists - check if upstream has changes
   local local_checksum upstream_checksum
   local_checksum=$(get_file_checksum "$filepath")
-  upstream_checksum=$(echo "$upstream_content" | get_content_checksum)
+  upstream_checksum=$(printf '%s' "$upstream_content" | get_content_checksum)
 
   if [ "$local_checksum" = "$upstream_checksum" ]; then
     # No changes
