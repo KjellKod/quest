@@ -20,6 +20,15 @@ When starting, say: "Now I understand the Quest." Then proceed directly with the
 
 Follow these steps in order. After each step that modifies state, update `.quest/<id>/state.json`.
 
+### Defaults (Opinionated)
+
+Quest is opinionated: default to **thorough**, but be **progressive** and avoid wasted repo exploration.
+
+- **Intake before exploration:** Do not start repo exploration until the quest brief is stable (Step 1 complete), unless the user explicitly asks you to “just run with it”.
+- **Progressive exploration:** Start from the context digest + allowlist + plan. Only deep-dive into the repo when the plan/implementation needs it.
+- **Timebox structure discovery:** Avoid full repo inventories. Do a quick top-level scan + targeted `rg` searches instead of browsing directory-by-directory.
+- **If the user wants speed:** Offer to proceed with minimal questions + explicit assumptions (fast intake).
+
 ### Step 0: Resume Check
 
 If the user provides a quest ID (matches pattern `*_YYYY-MM-DD__HHMM`):
@@ -43,7 +52,7 @@ If no quest ID provided:
 
 1. Parse the user's instruction
 
-2. **Assess input quality.** Check whether the input provides enough context for a good plan:
+2. **Assess input quality.** Decide whether to ask questions *before* creating the quest folder and planning. Use this rubric:
 
    **Rich input** (skip to step 3) — the input includes at least TWO of:
    - Clear intent (what and why)
@@ -51,16 +60,24 @@ If no quest ID provided:
    - Acceptance criteria or definition of done
    - A referenced document, URL, spec, or ticket
 
-   **Thin input** (ask clarifying questions) — the input is a short phrase or sentence without context. Ask up to 3 targeted questions to fill gaps. Choose from:
+   For rich input, ask **at most ONE** optional “last call” question *only if it would materially reduce rework*:
+   - First, restate your understanding in one sentence (what + where + done-ness).
+   - Then ask: "Anything else to add (constraints, examples, edge cases, or a link to a spec)? If not, I'll proceed."
+
+   **Thin input** (ask clarifying questions) — the input is a short phrase/sentence with no scope/AC/context (common signals: < ~15 words, no file paths, no target area, no “done” definition).
+
+   For thin input, you MUST ask clarifying questions before proceeding. Ask **2 questions by default** (max 3) to fill the highest-impact gaps. Choose from:
    - **Intent:** "What problem does this solve? What's the user-facing goal?"
    - **Scope:** "Which parts of the codebase should this touch? Anything explicitly out of scope?"
    - **Constraints:** "Any technical constraints? (e.g., no new dependencies, must work with existing X, performance target)"
    - **Acceptance criteria:** "How will you know this is done? What should a reviewer check?"
    - **Context:** "Is there a spec, doc, ticket, or existing discussion that describes this further?"
 
-   Pick the 2-3 most relevant questions based on what's missing. Don't ask all of them — use judgment. For example, `"add dark mode"` is missing intent (cosmetic preference? accessibility?), constraints (CSS variables? existing design system?), and scope (all pages? settings toggle?).
+   Picking rule:
+   - Prefer **Acceptance criteria + Scope** first (they unblock planning fastest).
+   - Ask a **third** only if there’s meaningful risk of building the wrong thing without it (e.g., unclear intent, strong constraints, or known tricky edge cases).
 
-   Incorporate the user's answers into the quest brief. If the user says "just go with it" or similar, proceed with what you have — don't block on perfection.
+   Incorporate the user's answers into the quest brief. If the user says "just go with it" (or equivalent), proceed with explicit assumptions — don’t block on perfection.
 
 3. Suggest a slug (lowercase, hyphenated, 2-5 words)
 4. Ask user to confirm or override the slug
@@ -137,13 +154,13 @@ gates.max_plan_iterations (default: 4)
 
      **Full mode** (default for plan review):
      ```
-     mcp__codex__codex(
+       mcp__codex__codex(
        model: "gpt-5.2",
        prompt: "You are the Plan Review Agent (Codex).
 
        Read your instructions: .ai/roles/plan_review_agent.md
        Read context digest: <codex_context_digest_path>
-       (Optional, full mode only) Read: .skills/BOOTSTRAP.md, AGENTS.md
+       (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
        Quest brief: .quest/<id>/quest_brief.md
        Plan to review: .quest/<id>/phase_01_plan/plan.md
@@ -340,13 +357,13 @@ After plan approval, present the plan interactively before proceeding to build.
 
      **Full mode**:
      ```
-     mcp__codex__codex(
+       mcp__codex__codex(
        model: "gpt-5.2",
        prompt: "You are the Code Review Agent (Codex).
 
        Read your instructions: .ai/roles/code_review_agent.md
        Read context digest: <codex_context_digest_path>
-       (Optional, full mode only) Read: .skills/BOOTSTRAP.md, AGENTS.md
+       (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
        Quest: .quest/<id>/quest_brief.md
        Plan: .quest/<id>/phase_01_plan/plan.md
@@ -539,7 +556,7 @@ You are the <ROLE>.
 
 Read your instructions: .ai/roles/<role>_agent.md
 Read context digest: .ai/context_digest.md
-Optional (full mode only): .skills/BOOTSTRAP.md, AGENTS.md
+Optional (full mode only, if needed): .skills/BOOTSTRAP.md, AGENTS.md
 
 Quest brief: .quest/<id>/quest_brief.md
 <other relevant files as paths>
@@ -560,7 +577,7 @@ SUMMARY: <one line>
 **Why short prompts?**
 - Codex has file access — it can read what it needs
 - Large inline prompts cause timeouts and context issues
-- Agents should explore the codebase themselves (clean context)
+- Agents should do **targeted** exploration guided by the quest brief/plan (avoid full-repo inventory)
 - Matches how Claude subagents work (they read files too)
 - The digest captures stable context and reduces repeated reads
 
