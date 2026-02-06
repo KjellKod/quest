@@ -4,7 +4,11 @@
 
 > *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool.
 
-A portable framework for coordinated AI agents with human oversight. Copy this to any repository to enable structured, auditable AI workflows.
+Quest is a portable framework for running coordinated AI agents with human oversight.
+
+Copy it into any repository to enable structured, auditable AI workflows, or tear it apart and study it. It’s built for learning, experimentation, and fun.
+
+Quest is very useful, but it is not currently intended to be a long term maintained project. Still, I’d genuinely love to hear what you discover and what you think of it. Submit an issue with your thoughts, or fork the repo and point me to something cool you built. No guarantees on bug fixes or support, but I’m very interested in what comes out of it.
 
 ![Adventurers in our quest](docs/media/quest_v0.12.png)
 
