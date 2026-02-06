@@ -60,11 +60,11 @@ If no quest ID provided:
    - Acceptance criteria or definition of done
    - A referenced document, URL, spec, or ticket
 
-   For rich input, ask **at most ONE** optional “last call” question *only if it would materially reduce rework*:
+   For rich input, ask **at most ONE** optional "last call" question *only if it would materially reduce rework*:
    - First, restate your understanding in one sentence (what + where + done-ness).
    - Then ask: "Anything else to add (constraints, examples, edge cases, or a link to a spec)? If not, I'll proceed."
 
-   **Thin input** (ask clarifying questions) — the input is a short phrase/sentence with no scope/AC/context (common signals: < ~15 words, no file paths, no target area, no “done” definition).
+   **Thin input** (ask clarifying questions) — the input is a short phrase/sentence with no scope/AC/context (common signals: < ~15 words, no file paths, no target area, no "done" definition).
 
    For thin input, you MUST ask clarifying questions before proceeding. Ask **2 questions by default** (max 3) to fill the highest-impact gaps. Choose from:
    - **Intent:** "What problem does this solve? What's the user-facing goal?"
@@ -75,9 +75,9 @@ If no quest ID provided:
 
    Picking rule:
    - Prefer **Acceptance criteria + Scope** first (they unblock planning fastest).
-   - Ask a **third** only if there’s meaningful risk of building the wrong thing without it (e.g., unclear intent, strong constraints, or known tricky edge cases).
+   - Ask a **third** only if there's meaningful risk of building the wrong thing without it (e.g., unclear intent, strong constraints, or known tricky edge cases).
 
-   Incorporate the user's answers into the quest brief. If the user says "just go with it" (or equivalent), proceed with explicit assumptions — don’t block on perfection.
+   Incorporate the user's answers into the quest brief. If the user says "just go with it" (or equivalent), proceed with explicit assumptions — don't block on perfection.
 
 3. Suggest a slug (lowercase, hyphenated, 2-5 words)
 4. Ask user to confirm or override the slug
