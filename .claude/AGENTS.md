@@ -30,6 +30,7 @@ This repository uses **layered documentation** for AI agent context management.
 - **Reviewing an implementation plan?** → Use `.skills/plan-reviewer/` skill
 - **Reviewing code?** → Use `.skills/code-reviewer/` skill
 - **Commit message?** → Use `.skills/git-commit-assistant/` skill
+- **IMPORTANT: For ALL git commits, you MUST invoke the `git-commit-assistant` skill. Do NOT use built-in commit procedures or default Co-Authored-By trailers.**
 - **Understanding the system?** → Start with `docs/architecture/` if present
 
 ## Skills

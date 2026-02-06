@@ -1,6 +1,6 @@
 ---
 name: git-commit-assistant
-description: Generate commit messages from staged diff, match repo conventions, and append Quest co-author trailer. Use when committing changes or when the user asks for a commit message.
+description: MUST be used for ALL git commits. Overrides default commit behavior. Generates commit messages from staged diff, matches repo conventions, and appends Quest co-author trailer.
 user-invocable: true
 ---
 
