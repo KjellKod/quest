@@ -92,5 +92,5 @@ Target the main sources of exploration latency:
 5. Planner iterations reuse cached `repo_overview.md` and avoid repeating broad repo scans.
 
 ## Status
-idea
+implemented
 

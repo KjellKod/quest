@@ -150,23 +150,39 @@ Abort anytime, resume later. State persists in `.quest/<id>/state.json`.
 
 Quest enforces **spec → plan → implementation** — the whole point is to prevent skipping straight to coding. Your initial input is the spec. You can start with a rough idea, but the more you clarify upfront, the better the plan and implementation will be.
 
-**If your input is thin**, Quest will ask clarifying questions before planning. You don't need to get it perfect on the first try — but giving Quest more to work with means fewer iterations and better results.
+**If your input is thin**, Quest automatically detects this and enters a **structured questioning phase** before planning begins. You don't need to get it perfect on the first try — Quest will ask the right questions to fill the gaps.
+
+### How Questioning Works
+
+When Quest determines your input needs more detail, it asks **targeted, numbered questions** (Q1, Q2, Q3...) in batches of 1-3 at a time. After each batch of answers, Quest decides whether to ask more, rephrase, or move on to planning.
+
+- **Hard cap of 10 questions** — Quest never asks more than 10, and usually needs far fewer
+- **Checkpoint around Q5-Q7** — Quest offers to start planning if it has enough context
+- **"Just go with it"** — say this at any point to skip remaining questions and proceed with explicit assumptions
+- **Detailed input skips questioning entirely** — if your input already has clear deliverables, scope, and acceptance criteria, Quest goes straight to planning
+
+The questioning phase produces a structured summary (requirements, constraints, assumptions, unknowns) that becomes the foundation for the plan. For a deeper look at how Quest evaluates your input and routes between questioning and planning, see the [Input Routing Guide](docs/guides/quest_input_routing.md).
 
 ### Input Quality Ladder
 
 | Input level | What you provide | What Quest produces |
 |------------|-----------------|-------------------|
-| **Rough idea** | `"add dark mode"` | Quest asks clarifying questions, then plans. Works, but expect more iteration. |
+| **Rough idea** | `"add dark mode"` | Quest enters questioning phase (Q1, Q2...), then plans. Works, but expect more iteration. |
 | **Idea with context** | `"add dark mode — should persist in localStorage, respect OS preference, toggle in header"` | Planner has clear direction. Fewer review iterations. |
 | **Structured spec** | A doc with intent, constraints, acceptance criteria, and scope boundaries | Planner produces a tight plan on the first pass. Reviewers focus on real issues. Best results. |
 
 ### Examples at Each Level
 
-**Rough idea** — Quest will ask you to clarify before planning:
+**Rough idea** — Quest enters the questioning phase before planning:
 ```bash
 /quest "add user notifications"
-# Quest asks: What triggers notifications? In-app only or email too?
-# Real-time or polling? What should the UI look like?
+# Quest detects thin input, starts questioning:
+#   Q1: What triggers a notification? (API events, user actions, scheduled?)
+#   Q2: In-app only, or also email/push?
+#   Q3: What does "done" look like — what should a reviewer check?
+# After your answers:
+#   Decision: STOP — enough context to produce an actionable plan.
+# Quest produces a requirements summary, then proceeds to planning.
 ```
 
 **Idea with context** — enough for a solid first plan:
@@ -285,7 +301,7 @@ This pattern works well because:
 - **Human gates** — you approve before building
 - **Artifacts saved** — full audit trail in `.quest/`
 - **Scales up** — step-by-step approach shines on large tasks (context stays manageable)
-- **Clarifying intake** — Quest asks smart questions when your input is thin, helping you build a better brief
+- **Smart intake** — Quest evaluates your input and asks structured, numbered questions when it needs more detail (max 10, usually fewer). Say "just go with it" to skip ahead anytime
 
 ## How the Orchestrator Works
 
@@ -363,6 +379,7 @@ your-repo/
 
 - **[Quest Setup Guide](docs/guides/quest_setup.md)** - Detailed setup instructions
 - **[Quest Presentation](docs/guides/quest_presentation.md)** - How it works (with diagrams)
+- **[Input Routing Guide](docs/guides/quest_input_routing.md)** - How Quest evaluates your input and routes between questioning and planning
 - **[AGENTS.md](AGENTS.md)** - Coding rules to customize
 - **[.ai/quest.md](.ai/quest.md)** - Quick reference
 
