@@ -25,6 +25,8 @@
 .claude/agents/plan-reviewer.md
 .claude/agents/planner.md
 .claude/hooks/enforce-allowlist.sh
+.claude/skills/git-commit-assistant/SKILL.md
+.claude/skills/pr-assistant/SKILL.md
 .claude/skills/quest/SKILL.md
 .claude/AGENTS.md
 .skills/BOOTSTRAP.md
@@ -32,6 +34,7 @@
 .skills/SKILLS.md
 .skills/code-reviewer/SKILL.md
 .skills/git-commit-assistant/SKILL.md
+.skills/pr-assistant/SKILL.md
 .skills/implementer/SKILL.md
 .skills/plan-maker/SKILL.md
 .skills/plan-reviewer/SKILL.md

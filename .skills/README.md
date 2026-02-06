@@ -45,6 +45,11 @@ Skills are modular, self-contained packages that extend AI capabilities with spe
 
 **Use when:** The user asks for a commit message, help with git commit, or when reviewing staged changes for commit.
 
+### pr-assistant
+**Purpose:** Create and update GitHub pull requests in draft mode. Generates PR title and description from all branch commits, shows for approval before executing.
+
+**Use when:** The user asks to create a PR, update a PR description, or open a pull request.
+
 ## How to Use Skills
 
 ### Automatic Discovery

@@ -54,6 +54,13 @@ This directory contains specialized skills for AI agents working in this reposit
 
 **Location:** `.skills/git-commit-assistant/SKILL.md`
 
+### pr-assistant
+**Purpose:** Create and update GitHub pull requests in draft mode. Generates PR title and description from all branch commits, shows for approval before executing.
+
+**Use when:** The user asks to create a PR, update a PR description, or open a pull request.
+
+**Location:** `.skills/pr-assistant/SKILL.md`
+
 ## How Skills Work
 
 Skills use a three-level loading system:
