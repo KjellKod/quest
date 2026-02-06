@@ -86,6 +86,12 @@ Never omit the trailer.
 
 ---
 
+## Approval
+
+Always show the intended commit message to the user and wait for explicit approval before executing `git commit`. Do not commit automatically. Present the message as a plain text block and ask the user to confirm.
+
+---
+
 ## Output
 
 Output only the final commit message. Do not use markdown. Do not use emojis.
