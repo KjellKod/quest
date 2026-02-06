@@ -29,6 +29,8 @@ This repository uses **layered documentation** for AI agent context management.
 - **Building a feature?** → Use `.skills/implementer/` skill
 - **Reviewing an implementation plan?** → Use `.skills/plan-reviewer/` skill
 - **Reviewing code?** → Use `.skills/code-reviewer/` skill
+- **Commit message?** → Use `.skills/git-commit-assistant/` skill
+- **Create or update a PR?** → Use `.skills/pr-assistant/` skill
 - **Understanding the system?** → Start with `docs/architecture/` if present
 
 ## Skills
@@ -39,6 +41,8 @@ This repository uses **skills** for specialized workflows. Skills are automatica
 - **plan-reviewer:** Review implementation plans and PR specifications for test coverage
 - **code-reviewer:** Review actual code for quality, security, and patterns
 - **implementer:** Step-by-step implementation with traceability
+- **git-commit-assistant:** Generate commit messages from staged diff, match repo conventions, append Quest co-author trailer
+- **pr-assistant:** Create and update GitHub PRs in draft mode, generate title/description from branch commits
 
 See `.skills/BOOTSTRAP.md` for how to use skills with different AI platforms.
 

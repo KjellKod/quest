@@ -1,0 +1,8 @@
+{
+    "workbench.editor.enablePreview": false,
+    "workbench.activityBar.orientation": "vertical",
+    "workbench.activityBar.location": "default",
+    "claudeCode.environmentVariables": [
+
+    ]
+}
