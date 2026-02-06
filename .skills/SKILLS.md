@@ -47,6 +47,13 @@ This directory contains specialized skills for AI agents working in this reposit
 
 **Location:** `.skills/implementer/SKILL.md`
 
+### git-commit-assistant
+**Purpose:** Generate commit messages from staged changes by matching repo conventions (Conventional Commits or plain English), leading with intent, and appending the Quest co-author trailer.
+
+**Use when:** The user asks for a commit message, help with git commit, or when reviewing staged changes for commit.
+
+**Location:** `.skills/git-commit-assistant/SKILL.md`
+
 ## How Skills Work
 
 Skills use a three-level loading system:

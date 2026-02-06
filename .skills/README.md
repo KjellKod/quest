@@ -40,6 +40,11 @@ Skills are modular, self-contained packages that extend AI capabilities with spe
 
 **Use when:** The plan/spec is already agreed and you want disciplined execution with traceability and a lightweight decision log.
 
+### git-commit-assistant
+**Purpose:** Generate commit messages from staged changes by matching repo conventions (Conventional Commits or plain English), leading with intent, and appending the Quest co-author trailer.
+
+**Use when:** The user asks for a commit message, help with git commit, or when reviewing staged changes for commit.
+
 ## How to Use Skills
 
 ### Automatic Discovery

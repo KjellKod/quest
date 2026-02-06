@@ -348,7 +348,8 @@ your-repo/
 │   ├── plan-maker/SKILL.md       # Planning methodology
 │   ├── plan-reviewer/SKILL.md    # Plan review checklist
 │   ├── code-reviewer/SKILL.md    # Code review checklist
-│   └── implementer/SKILL.md      # Implementation methodology
+│   ├── implementer/SKILL.md      # Implementation methodology
+│   └── git-commit-assistant/SKILL.md  # Commit message from staged diff + trailer
 ├── .claude/                      # Claude Code integration
 │   ├── agents/                   # Thin wrappers → .ai/roles/
 │   ├── hooks/                    # Permission enforcement
