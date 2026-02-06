@@ -11,8 +11,9 @@ Generate a single commit message from the current staged diff. Output only the f
 
 ## Before Writing
 
-1. Run `git diff --cached` to see what actually changed.
-2. Run `git log --oneline` (or `git log --oneline -20`) to see existing commit style and conventions.
+1. Run `scripts/validate-manifest.sh` to check that all Quest files are listed in `.quest-manifest`. If validation fails, **stop and fix the manifest before proceeding**. Do not generate a commit message until validation passes.
+2. Run `git diff --cached` to see what actually changed.
+3. Run `git log --oneline` (or `git log --oneline -20`) to see existing commit style and conventions.
 
 ---
 

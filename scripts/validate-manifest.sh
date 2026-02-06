@@ -42,6 +42,7 @@ EXPECTED_PATTERNS=(
   ".ai/templates/*.md"
   ".skills/*.md"
   ".skills/*/*.md"
+  ".skills/*/*/*.md"
   ".claude/*.md"
   ".claude/agents/*.md"
   ".claude/hooks/*.sh"

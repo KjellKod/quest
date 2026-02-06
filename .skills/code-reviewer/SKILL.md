@@ -56,6 +56,10 @@ Rule: Avoid comment-only “style polish” and trivial corrections. Prefer high
 
 ## Review Process
 
+### Step 0: Manifest Validation
+
+Before reviewing code, run `scripts/validate-manifest.sh` to check that all Quest files are listed in `.quest-manifest`. If validation fails, flag it as a **Must fix** — new or renamed files must be added to the manifest before merge.
+
 ### Step 1: Architecture Boundaries and Standards
 
 Enforce boundaries and conventions defined in:
