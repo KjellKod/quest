@@ -161,6 +161,7 @@ Quest enforces **spec → plan → implementation** — the whole point is to pr
 When Quest determines your input needs more detail, it asks **targeted, numbered questions** (Q1, Q2, Q3...) in batches of 1-3 at a time. After each batch of answers, Quest decides whether to ask more, rephrase, or move on to planning.
 
 - **Hard cap of 10 questions** — Quest never asks more than 10, and usually needs far fewer
+- **Flexible approach** - Quest is on top of Claude so at **any time** you can modify things. Did you want to add more details, have it ask more questions? Ask and Quest/Claude provides. 
 - **Checkpoint around Q5-Q7** — Quest offers to start planning if it has enough context
 - **"Just go with it"** — say this at any point to skip remaining questions and proceed with explicit assumptions
 - **Detailed input skips questioning entirely** — if your input already has clear deliverables, scope, and acceptance criteria, Quest goes straight to planning
@@ -240,6 +241,11 @@ Start a quest, review the plan, then re-run planning with different model config
 /quest auth-redesign_2026-02-04__1430 "Look at the previous plans, find the best way
 forward and merge in must-haves from the losing plan into our new plan.
 Use gpt as planner and arbiter" .quest/plan-a/phase_01_plan/plan.md .quest/plan-b/phase_01_plan/plan.md
+
+# did the brief provide multiple alternatives and you got to choose? Maybe do all three
+[ongoing quest/before implementation]
+"For the planning, I want to do all 3 suggestions, create 3 different slugs for them and let gpt-5.2 be the planner for all three"
+
 ```
 
 ### Compare Multiple Plans
