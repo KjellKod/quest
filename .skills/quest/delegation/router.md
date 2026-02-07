@@ -97,7 +97,7 @@ Produce this JSON structure as your routing decision:
 - `risk_level` assesses inherent task risk independent of information completeness. Domains like migrations, security, payments, and data loss scenarios are typically `high`. High risk should bias toward `questioner`.
 - `missing_information` is ALWAYS an array. Use an empty array `[]` when routing to `workflow` with no gaps. Never omit this field or set it to null.
 
-Record this classification inline in the quest brief.
+The classification MUST be recorded in the quest brief during Quest Folder Creation (see SKILL.md). The brief must contain the full JSON block — not a summary, not a paraphrase, the actual JSON. This is how risk visibility is preserved for the user and for downstream agents (planner, reviewers).
 
 ## Re-run Behavior
 

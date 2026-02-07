@@ -46,17 +46,31 @@ Based on the router decision:
 6. If route is still "questioner": allow one more short questioning pass (10-question total cap still applies), then proceed to workflow regardless
 
 **If route = "workflow":**
-1. Create quest folder (see Quest Folder Creation below)
-2. Record the router classification inline in the quest brief
+1. Present the routing classification to the user (see Risk Visibility below)
+2. Create quest folder (see Quest Folder Creation below)
 3. Read `delegation/workflow.md`
 4. Begin at workflow Step 1 (Precondition Check)
+
+### Risk Visibility
+
+Before creating the quest folder, present the routing classification to the user:
+
+1. Display the risk level and confidence:
+   - If `risk_level` is "high": **"Risk: HIGH — <reason>"**
+   - If `risk_level` is "medium": **"Risk: MEDIUM — <reason>"**
+   - If `risk_level` is "low": "Risk: low — <reason>"
+2. If the quest went through the questioner path, note this: "Questioning phase completed — gaps addressed before planning."
+3. Wait for user acknowledgment before proceeding (for high risk only). For medium and low, display and continue.
 
 ### Quest Folder Creation
 
 1. Suggest a slug (lowercase, hyphenated, 2-5 words) and confirm with the user
 2. Create `.quest/<slug>_YYYY-MM-DD__HHMM/` with subfolders:
    `phase_01_plan/`, `phase_02_implementation/`, `phase_03_review/`, `logs/`
-3. Write quest brief to `.quest/<id>/quest_brief.md` (user input + any questioner summary)
+3. Write quest brief to `.quest/<id>/quest_brief.md` including:
+   - User input (original prompt)
+   - Questioner summary (if questioning occurred)
+   - **Router classification JSON** (the final routing decision that sent the quest to workflow). This is the classification produced by the most recent router evaluation — if the router ran twice (once before questioning, once after), record the second (final) classification.
 4. Copy `.ai/allowlist.json` to `.quest/<id>/logs/allowlist_snapshot.json`
 5. Initialize `state.json`:
    ```json
