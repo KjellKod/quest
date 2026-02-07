@@ -10,7 +10,7 @@ Copy it into any repository to enable structured, auditable AI workflows, or tea
 
 Quest is very useful, but it is not currently intended to be a long term maintained project. Still, I’d genuinely love to hear what you discover and what you think of it. Submit an issue with your thoughts, or fork the repo and point me to something cool you built. No guarantees on bug fixes or support, but I’m very interested in what comes out of it.
 
-![Adventurers in our quest](docs/media/quest_v0.12.png)
+![Adventurers in our quest](docs/media/quest_v0.14.png)
 
 ## What is Quest?
 
