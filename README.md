@@ -223,6 +223,16 @@ The sweet spot for most tasks is somewhere between level 2 and 3. You don't need
 
 Quest's pause/resume and human gates enable workflows beyond simple "describe → build."
 
+### Do you have something else in mind, Quest/Claude is super charged
+Consider you have just recieved the brief, you have three alternatives to choose from. You can't decide which. 
+
+```bash
+
+[ongoing quest/before implementation]
+"For the planning, I want to do all 3 suggestions, create 3 different slugs for them and let gpt-5.2 be the planner for all three"
+
+```
+
 ### Swap Models Mid-Quest
 
 Start a quest, review the plan, then re-run planning with different model configuration:
@@ -241,10 +251,6 @@ Start a quest, review the plan, then re-run planning with different model config
 /quest auth-redesign_2026-02-04__1430 "Look at the previous plans, find the best way
 forward and merge in must-haves from the losing plan into our new plan.
 Use gpt as planner and arbiter" .quest/plan-a/phase_01_plan/plan.md .quest/plan-b/phase_01_plan/plan.md
-
-# did the brief provide multiple alternatives and you got to choose? Maybe do all three
-[ongoing quest/before implementation]
-"For the planning, I want to do all 3 suggestions, create 3 different slugs for them and let gpt-5.2 be the planner for all three"
 
 ```
 
