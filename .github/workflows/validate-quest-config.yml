@@ -1,4 +1,4 @@
-name: Validate Quest Configuration
+name: Validate_Quest_Configuration
 
 on:
   push:
@@ -22,7 +22,7 @@ on:
 
 jobs:
   validate:
-    name: Validate Quest Configuration
+    name: Validate_Quest_Configuration
     runs-on: ubuntu-latest    
     steps:
       - name: Checkout repository
