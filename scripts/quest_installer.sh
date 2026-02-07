@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Quest Installer Script
 # Installs and updates Quest in any repository
-# Usage: quest_installer.sh [--check|--force|--help]
+# Usage: quest_installer.sh [--branch <name>] [--check|--force|--help]
 #
 # Copyright (c) 2026 Quest Authors
 # License: MIT
@@ -282,7 +282,7 @@ prompt_file_action() {
 show_help() {
   fetch_latest_release
   cat <<EOF
-${BOLD}Quest Installer${NC} (latest release: ${LATEST_RELEASE})
+${BOLD}Quest Installer${NC} (latest release: ${LATEST_RELEASE}, branch: ${UPSTREAM_BRANCH})
 
 Installs and updates Quest in any repository.
 Run this script from the root of your target repository.
@@ -292,14 +292,16 @@ ${BOLD}Usage:${NC}
   $SCRIPT_NAME [OPTIONS]
 
 ${BOLD}Options:${NC}
-  --check     Dry-run mode: show what would change without modifying files
-  --force     Non-interactive mode: accept safe defaults, skip modified files
-  --help      Show this help message
+  --branch <name>  Use a specific upstream branch (default: main)
+  --check          Dry-run mode: show what would change without modifying files
+  --force          Non-interactive mode: accept safe defaults, skip modified files
+  --help           Show this help message
 
 ${BOLD}Examples:${NC}
-  $SCRIPT_NAME              # Interactive install/update
-  $SCRIPT_NAME --check      # Preview changes
-  $SCRIPT_NAME --force      # CI/automation mode
+  $SCRIPT_NAME                          # Interactive install/update from main
+  $SCRIPT_NAME --branch feature/xyz     # Install from a specific branch
+  $SCRIPT_NAME --check                  # Preview changes
+  $SCRIPT_NAME --force                  # CI/automation mode
 
 ${BOLD}File Categories:${NC}
   - Copy as-is:      Replaced with upstream (if unmodified)
@@ -1266,6 +1268,10 @@ run_install() {
   echo ""
   echo -e "${BOLD}Quest Installer${NC} (latest release: ${LATEST_RELEASE})"
 
+  if [ "$UPSTREAM_BRANCH" != "main" ]; then
+    log_info "Using upstream branch: ${UPSTREAM_BRANCH}"
+  fi
+
   if $DRY_RUN; then
     echo ""
     echo -e "${YELLOW}══════════════════════════════════════════════════════════${NC}"
@@ -1368,6 +1374,14 @@ parse_args() {
       --force)
         FORCE_MODE=true
         shift
+        ;;
+      --branch)
+        if [ -z "${2:-}" ]; then
+          log_error "--branch requires a branch name"
+          exit 1
+        fi
+        UPSTREAM_BRANCH="$2"
+        shift 2
         ;;
       --skip-self-update)
         SKIP_SELF_UPDATE=true

@@ -39,6 +39,9 @@
 .skills/plan-maker/SKILL.md
 .skills/plan-reviewer/SKILL.md
 .skills/quest/SKILL.md
+.skills/quest/delegation/questioner.md
+.skills/quest/delegation/router.md
+.skills/quest/delegation/workflow.md
 scripts/validate-quest-config.sh
 scripts/validate-manifest.sh
 

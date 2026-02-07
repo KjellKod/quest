@@ -4,7 +4,11 @@
 
 > *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool.
 
-A portable framework for coordinated AI agents with human oversight. Copy this to any repository to enable structured, auditable AI workflows.
+Quest is a portable framework for running coordinated AI agents with human oversight.
+
+Copy it into any repository to enable structured, auditable AI workflows, or tear it apart and study it. It’s built for learning, experimentation, and fun.
+
+Quest is very useful, but it is not currently intended to be a long term maintained project. Still, I’d genuinely love to hear what you discover and what you think of it. Submit an issue with your thoughts, or fork the repo and point me to something cool you built. No guarantees on bug fixes or support, but I’m very interested in what comes out of it.
 
 ![Adventurers in our quest](docs/media/quest_v0.12.png)
 
@@ -150,23 +154,40 @@ Abort anytime, resume later. State persists in `.quest/<id>/state.json`.
 
 Quest enforces **spec → plan → implementation** — the whole point is to prevent skipping straight to coding. Your initial input is the spec. You can start with a rough idea, but the more you clarify upfront, the better the plan and implementation will be.
 
-**If your input is thin**, Quest will ask clarifying questions before planning. You don't need to get it perfect on the first try — but giving Quest more to work with means fewer iterations and better results.
+**If your input is thin**, Quest automatically detects this and enters a **structured questioning phase** before planning begins. You don't need to get it perfect on the first try — Quest will ask the right questions to fill the gaps.
+
+### How Questioning Works
+
+When Quest determines your input needs more detail, it asks **targeted, numbered questions** (Q1, Q2, Q3...) in batches of 1-3 at a time. After each batch of answers, Quest decides whether to ask more, rephrase, or move on to planning.
+
+- **Hard cap of 10 questions** — Quest never asks more than 10, and usually needs far fewer
+- **Flexible approach** - Quest is on top of Claude so at **any time** you can modify things. Did you want to add more details, have it ask more questions? Ask and Quest/Claude provides. 
+- **Checkpoint around Q5-Q7** — Quest offers to start planning if it has enough context
+- **"Just go with it"** — say this at any point to skip remaining questions and proceed with explicit assumptions
+- **Detailed input skips questioning entirely** — if your input already has clear deliverables, scope, and acceptance criteria, Quest goes straight to planning
+
+The questioning phase produces a structured summary (requirements, constraints, assumptions, unknowns) that becomes the foundation for the plan. For a deeper look at how Quest evaluates your input and routes between questioning and planning, see the [Input Routing Guide](docs/guides/quest_input_routing.md).
 
 ### Input Quality Ladder
 
 | Input level | What you provide | What Quest produces |
 |------------|-----------------|-------------------|
-| **Rough idea** | `"add dark mode"` | Quest asks clarifying questions, then plans. Works, but expect more iteration. |
+| **Rough idea** | `"add dark mode"` | Quest enters questioning phase (Q1, Q2...), then plans. Works, but expect more iteration. |
 | **Idea with context** | `"add dark mode — should persist in localStorage, respect OS preference, toggle in header"` | Planner has clear direction. Fewer review iterations. |
 | **Structured spec** | A doc with intent, constraints, acceptance criteria, and scope boundaries | Planner produces a tight plan on the first pass. Reviewers focus on real issues. Best results. |
 
 ### Examples at Each Level
 
-**Rough idea** — Quest will ask you to clarify before planning:
+**Rough idea** — Quest enters the questioning phase before planning:
 ```bash
 /quest "add user notifications"
-# Quest asks: What triggers notifications? In-app only or email too?
-# Real-time or polling? What should the UI look like?
+# Quest detects thin input, starts questioning:
+#   Q1: What triggers a notification? (API events, user actions, scheduled?)
+#   Q2: In-app only, or also email/push?
+#   Q3: What does "done" look like — what should a reviewer check?
+# After your answers:
+#   Decision: STOP — enough context to produce an actionable plan.
+# Quest produces a requirements summary, then proceeds to planning.
 ```
 
 **Idea with context** — enough for a solid first plan:
@@ -202,6 +223,17 @@ The sweet spot for most tasks is somewhere between level 2 and 3. You don't need
 
 Quest's pause/resume and human gates enable workflows beyond simple "describe → build."
 
+### Do you have something else in mind, Quest/Claude is super charged
+
+Consider you have just recieved the brief, you have three alternatives to choose from. You can't decide which. 
+
+```bash
+
+[ongoing quest/before implementation]
+"For the planning, I want to do all 3 suggestions, create 3 different slugs for them and let gpt-5.2 be the planner for all three"
+
+```
+
 ### Swap Models Mid-Quest
 
 Start a quest, review the plan, then re-run planning with different model configuration:
@@ -216,10 +248,11 @@ Start a quest, review the plan, then re-run planning with different model config
 # Or re-plan with GPT-5.2 for a different perspective
 /quest auth-redesign_2026-02-04__1430 "re-plan this using gpt-5.2"
 
-# Or merge the best of multiple plans — GPT as planner and arbiter
+# Or merge the best of multiple plans — GPT as planner and arbiter  
 /quest auth-redesign_2026-02-04__1430 "Look at the previous plans, find the best way
 forward and merge in must-haves from the losing plan into our new plan.
 Use gpt as planner and arbiter" .quest/plan-a/phase_01_plan/plan.md .quest/plan-b/phase_01_plan/plan.md
+
 ```
 
 ### Compare Multiple Plans
@@ -285,7 +318,7 @@ This pattern works well because:
 - **Human gates** — you approve before building
 - **Artifacts saved** — full audit trail in `.quest/`
 - **Scales up** — step-by-step approach shines on large tasks (context stays manageable)
-- **Clarifying intake** — Quest asks smart questions when your input is thin, helping you build a better brief
+- **Smart intake** — Quest evaluates your input and asks structured, numbered questions when it needs more detail (max 10, usually fewer). Say "just go with it" to skip ahead anytime
 
 ## How the Orchestrator Works
 
@@ -363,6 +396,7 @@ your-repo/
 
 - **[Quest Setup Guide](docs/guides/quest_setup.md)** - Detailed setup instructions
 - **[Quest Presentation](docs/guides/quest_presentation.md)** - How it works (with diagrams)
+- **[Input Routing Guide](docs/guides/quest_input_routing.md)** - How Quest evaluates your input and routes between questioning and planning
 - **[AGENTS.md](AGENTS.md)** - Coding rules to customize
 - **[.ai/quest.md](.ai/quest.md)** - Quick reference
 
