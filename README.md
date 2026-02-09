@@ -1,4 +1,5 @@
-# Quest: Multi-Agent Orchestration Blueprint
+# Quest: Stop blaming the model. Fix the process.
+## A Multi-Agent Orchestration Blueprint
 
 **Part of the [Candid Talent Edge](https://candidtalentedge.com) initiative by KjellKod**
 
