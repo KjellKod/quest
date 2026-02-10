@@ -60,7 +60,7 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 
 **The philosophy is right. The architecture is pragmatically correct. The gap between them is the roadmap.**
 
-See `ideas/quest-architecture-evolution.md` for the phased plan to close these gaps.
+See [ideas/quest-architecture-evolution.md](ideas/quest-architecture-evolution.md) for the phased plan to close these gaps.
 
 # Quest: A Multi-Agent Orchestration Blueprint
 
