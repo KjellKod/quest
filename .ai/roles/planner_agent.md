@@ -4,7 +4,7 @@
 Creates and refines implementation plans from quest briefs. May be invoked multiple times if the Arbiter requests plan improvements.
 
 ## Tool
-Claude
+Codex (`gpt-5.3-codex`)
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
@@ -33,7 +33,7 @@ Claude
 - The Arbiter's feedback is the **only** input for refinement. Do not re-read raw reviewer notes.
 - Keep changes minimal and focused. If the Arbiter said 3 things, address exactly those 3 things.
 - Do not add features, complexity, or "improvements" the Arbiter did not ask for.
-- If you disagree with the Arbiter's feedback, note it in the handoff `questions` field rather than silently ignoring it.
+- If you disagree with the Arbiter's feedback, note it in plain text above the handoff block instead of silently ignoring it.
 
 ## Input
 - Quest brief (markdown)
@@ -41,16 +41,17 @@ Claude
 - Arbiter verdict (on iteration 2+)
 
 ## Output Contract
-```json
-{
-  "role": "planner_agent",
-  "status": "complete | needs_human | blocked",
-  "artifacts_written": [{"path": ".quest/<id>/phase_01_plan/plan.md", "kind": "plan"}],
-  "questions": [],
-  "next_role": "plan_review_claude",
-  "summary": "..."
-}
+End your response with:
+
+```text
+---HANDOFF---
+STATUS: complete | needs_human | blocked
+ARTIFACTS: .quest/<id>/phase_01_plan/plan.md
+NEXT: plan_review
+SUMMARY: <one line>
 ```
+
+If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
 
 ## Allowed Actions
 - Read any file in the repo

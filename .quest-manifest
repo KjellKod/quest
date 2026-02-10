@@ -25,6 +25,7 @@
 .claude/agents/plan-reviewer.md
 .claude/agents/planner.md
 .claude/hooks/enforce-allowlist.sh
+.claude/hooks/session-start.sh
 .claude/skills/git-commit-assistant/SKILL.md
 .claude/skills/pr-assistant/SKILL.md
 .claude/skills/quest/SKILL.md
@@ -44,6 +45,7 @@
 .skills/quest/delegation/workflow.md
 scripts/validate-quest-config.sh
 scripts/validate-manifest.sh
+scripts/validate-handoff-contracts.sh
 
 [user-customized]
 # These files are NEVER overwritten - upstream changes create .quest_updated suffix

@@ -52,3 +52,8 @@ jobs:
         run: |
           chmod +x scripts/validate-manifest.sh
           ./scripts/validate-manifest.sh
+
+      - name: Validate handoff contracts
+        run: |
+          chmod +x scripts/validate-handoff-contracts.sh
+          ./scripts/validate-handoff-contracts.sh
