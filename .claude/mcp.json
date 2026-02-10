@@ -2,7 +2,7 @@
   "mcpServers": {
     "codex": {
       "command": "codex",
-      "args": ["-m", "gpt-5.2", "mcp-server"]
+      "args": ["-m", "gpt-5.3-codex", "mcp-server"]
     }
   }
 }
