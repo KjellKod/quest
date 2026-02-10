@@ -11,7 +11,7 @@
   },
   "arbiter": {
     "tool": "claude",
-    "notes": "Set to 'codex' to use GPT 5.2 as Arbiter instead of Claude. Default: claude."
+    "notes": "Set to 'codex' to use gpt-5.3-codex as Arbiter instead of Claude. Default: claude."
   },
   "review_mode": "auto",
   "fast_review_thresholds": {

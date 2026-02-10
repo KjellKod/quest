@@ -114,7 +114,7 @@ gates.max_plan_iterations (default: 4)
      **Full mode** (default for plan review):
      ```
        mcp__codex__codex(
-       model: "gpt-5.2",
+       model: "gpt-5.3-codex",
        prompt: "You are the Plan Review Agent (Codex).
 
        Read your instructions: .ai/roles/plan_review_agent.md
@@ -132,7 +132,7 @@ gates.max_plan_iterations (default: 4)
      **Fast mode** (only if `review_mode: fast`):
      ```
      mcp__codex__codex(
-       model: "gpt-5.2",
+       model: "gpt-5.3-codex",
        prompt: "You are the Plan Review Agent (Codex).
 
        Read context digest: <codex_context_digest_path>
@@ -329,7 +329,7 @@ After plan approval, present the plan interactively before proceeding to build.
      **Full mode**:
      ```
        mcp__codex__codex(
-       model: "gpt-5.2",
+       model: "gpt-5.3-codex",
        prompt: "You are the Code Review Agent (Codex).
 
        Read your instructions: .ai/roles/code_review_agent.md
@@ -352,7 +352,7 @@ After plan approval, present the plan interactively before proceeding to build.
      **Fast mode**:
      ```
      mcp__codex__codex(
-       model: "gpt-5.2",
+       model: "gpt-5.3-codex",
        prompt: "You are the Code Review Agent (Codex).
 
        Read context digest: <codex_context_digest_path>
@@ -582,7 +582,7 @@ Codex MCP calls are slower than direct Claude tool use because Codex must:
 **Example minimal prompt:**
 ```
 mcp__codex__codex(
-  model: "gpt-5.2",
+  model: "gpt-5.3-codex",
   prompt: "Review .quest/<id>/phase_01_plan/plan.md
 
   List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_codex.md

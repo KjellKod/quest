@@ -41,13 +41,13 @@ The Quest Agent interprets your intent, matches brief references, and routes to 
 | Quest Agent | (Claude Code itself) | Claude | Orchestration, gating |
 | Planner | `.ai/roles/planner_agent.md` | Claude | Write and refine plan artifacts |
 | Plan Reviewer (Claude) | `.ai/roles/plan_review_agent.md` | Claude | Review plans (read-only) |
-| Plan Reviewer (Codex) | `.ai/roles/plan_review_agent.md` | Codex (GPT 5.2) | Review plans (read-only) |
-| Arbiter | `.ai/roles/arbiter_agent.md` | Codex (GPT 5.2)* | Synthesize reviews, approve or iterate |
+| Plan Reviewer (Codex) | `.ai/roles/plan_review_agent.md` | Codex (`gpt-5.3-codex`) | Review plans (read-only) |
+| Arbiter | `.ai/roles/arbiter_agent.md` | Codex (`gpt-5.3-codex`)* | Synthesize reviews, approve or iterate |
 | Builder | `.ai/roles/builder_agent.md` | Claude | Implement changes |
-| Code Reviewer | `.ai/roles/code_review_agent.md` | Codex (GPT 5.2) | Review code (read-only) |
+| Code Reviewer | `.ai/roles/code_review_agent.md` | Codex (`gpt-5.3-codex`) | Review code (read-only) |
 | Fixer | `.ai/roles/fixer_agent.md` | Claude | Fix review issues |
 
-*Arbiter default is GPT 5.2. Set `arbiter.tool` to `"claude"` in allowlist to use Claude Opus.
+*Arbiter default is `gpt-5.3-codex`. Set `arbiter.tool` to `"claude"` in allowlist to use Claude Opus.
 
 ## Plan Phase Flow
 
@@ -70,7 +70,7 @@ Intake -> Plan -> [Dual Review + Arbiter Loop] -> [Gate] -> Implement -> Code Re
 
 The Creator controls quest permissions via `.ai/allowlist.json`:
 - `auto_approve_phases` — which phases need human approval
-- `arbiter.tool` — switch Arbiter between codex (GPT 5.2) and claude (Opus)
+- `arbiter.tool` — switch Arbiter between codex (`gpt-5.3-codex`) and claude (Opus)
 - `review_mode` — `auto` (default), `fast`, or `full` for Codex reviews
 - `fast_review_thresholds` — file/LOC thresholds for auto fast mode
 - `codex_context_digest_path` — short context file used by Codex
