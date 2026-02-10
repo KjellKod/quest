@@ -13,6 +13,22 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 - **Timebox structure discovery:** Avoid full repo inventories. Do a quick top-level scan + targeted `rg` searches instead of browsing directory-by-directory.
 - **If the user wants speed:** Offer to proceed with minimal questions + explicit assumptions (fast intake).
 
+### Context Retention Rule
+
+After every subagent invocation (Task tool or mcp__codex__codex), the orchestrator retains ONLY:
+1. The **artifact path(s)** from the ARTIFACTS line of the handoff
+2. The **one-line SUMMARY** from the SUMMARY line of the handoff
+3. The **STATUS** and **NEXT** values for routing decisions
+
+Everything else from the subagent response (plan text, review content, build output, fix details) is not carried forward in the orchestrator's working context. The orchestrator does not retain, summarize, or re-process subagent output beyond these handoff fields.
+
+**Bounded exceptions** (content is used immediately and not carried forward):
+1. **Step 3.5 (Interactive Plan Presentation):** The orchestrator loads plan content for human interaction. This is bounded and deliberate.
+2. **Q&A loop (`needs_human`):** The orchestrator extracts questions from the subagent response text (before `---HANDOFF---`) to present to the user. The question text is used for the human exchange and not retained after re-invocation.
+3. **Artifact recovery:** If an expected artifact file (e.g., `plan.md`) is not written by a subagent, the orchestrator extracts it from the response and writes it to disk. The response content is discarded immediately after writing.
+
+**Why this works:** Every subagent reads files itself. The orchestrator's job is routing and state management, not content relay.
+
 ### Step 0: Resume Check
 
 If the user provides a quest ID (matches pattern `*_YYYY-MM-DD__HHMM`):
@@ -70,8 +86,10 @@ gates.max_plan_iterations (default: 4)
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
 2. **Invoke Planner** (Task tool with `planner` agent):
-   - Prompt: Include quest brief, and if iteration > 1, include arbiter verdict
-   - **If `.quest/<id>/phase_01_plan/user_feedback.md` exists, include it in the planner prompt as additional context for the revision**
+   - Prompt: Reference the quest brief path and, if iteration > 1, the arbiter verdict path. Do NOT read or embed the content of these files; the planner agent reads them itself.
+     - Quest brief: `.quest/<id>/quest_brief.md`
+     - Arbiter verdict (iteration 2+): `.quest/<id>/phase_01_plan/arbiter_verdict.md`
+   - **If `.quest/<id>/phase_01_plan/user_feedback.md` exists, reference its path in the planner prompt (do not embed content)**
    - Wait for response
    - Verify `.quest/<id>/phase_01_plan/plan.md` exists
    - If not written, extract from response and write it
@@ -85,7 +103,9 @@ gates.max_plan_iterations (default: 4)
 4. **Invoke BOTH Plan Reviewers IN PARALLEL** (same message, two tool calls):
 
    **Claude reviewer** (Task tool with `plan-reviewer` agent):
-   - Prompt: Include quest brief + plan path
+   - Prompt: Reference file paths only, do not embed content:
+     - Quest brief: `.quest/<id>/quest_brief.md`
+     - Plan: `.quest/<id>/phase_01_plan/plan.md`
    - Writes to `.quest/<id>/phase_01_plan/review_claude.md`
 
    **Codex reviewer** (mcp__codex__codex) — call in the SAME message:
@@ -143,7 +163,14 @@ gates.max_plan_iterations (default: 4)
      Write verdict to: .quest/<id>/phase_01_plan/arbiter_verdict.md
      NEXT must be: builder (approve) or planner (iterate)
      ```
-   - If "claude": use Task tool with `arbiter` agent
+   - If "claude": use Task tool with `arbiter` agent:
+     - Prompt: Reference file paths only, do not embed content:
+       - Instructions: `.ai/roles/arbiter_agent.md`
+       - Quest brief: `.quest/<id>/quest_brief.md`
+       - Plan: `.quest/<id>/phase_01_plan/plan.md`
+       - Claude review: `.quest/<id>/phase_01_plan/review_claude.md`
+       - Codex review: `.quest/<id>/phase_01_plan/review_codex.md`
+       - Output: `.quest/<id>/phase_01_plan/arbiter_verdict.md`
    - Parse verdict for NEXT field
 
 6. **Check verdict:**
@@ -240,7 +267,7 @@ After plan approval, present the plan interactively before proceeding to build.
    d. **Update state:** `phase: plan`, `status: in_progress`
    e. Display: "Re-running plan with your feedback..."
    f. Return to Step 3, item 1:
-      - Planner will be invoked with user_feedback.md included (per Change 1 above)
+      - Planner will be invoked with user_feedback.md referenced (per Step 3, item 2 -- Planner invocation above)
       - plan_iteration increments as normal
       - Full review cycle (Claude + Codex + Arbiter) runs
       - After approval, Step 3.5 presentation starts fresh from step 1
@@ -257,7 +284,9 @@ After plan approval, present the plan interactively before proceeding to build.
 1. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
 2. **Invoke Builder** (Task tool with `builder` agent):
-   - Prompt: Include approved plan + quest brief
+   - Prompt: Reference file paths only, do not embed content:
+     - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
+     - Quest brief: `.quest/<id>/quest_brief.md`
    - Wait for response
    - Verify artifacts written
 
@@ -276,8 +305,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - `codex_context_digest_path` (default: `.ai/context_digest.md`)
 
 3. **Build a change summary for Codex:**
-   - Prefer builder handoff file list (if available in the last response).
-   - If missing, compute:
+   - Compute from git (the canonical source for what changed):
      - File list: `git diff --name-only`
      - Diff stats: `git diff --stat`
      - LOC totals: `git diff --numstat` and sum added + deleted.
@@ -288,7 +316,11 @@ After plan approval, present the plan interactively before proceeding to build.
 4. **Invoke BOTH Code Reviewers IN PARALLEL** (same message, two tool calls):
 
    **Claude reviewer** (Task tool with `code-reviewer` agent):
-   - Prompt: Include quest brief, plan, and instruction to use git diff
+   - Prompt: Reference file paths only, do not embed content:
+     - Quest brief: `.quest/<id>/quest_brief.md`
+     - Plan: `.quest/<id>/phase_01_plan/plan.md`
+     - Changed files: <file list from step 3>
+     - Instruction: Use `git diff` to review actual changes
    - Writes to `.quest/<id>/phase_03_review/review_claude.md`
 
    **Codex reviewer** (mcp__codex__codex) — call in the SAME message:
@@ -338,6 +370,7 @@ After plan approval, present the plan interactively before proceeding to build.
        NEXT: fixer (if issues) or null (if clean)"
      )
      ```
+   - **Note:** The `<file list>` and `<git diff --stat>` values embedded in these Codex prompts are intentional small metadata (summary statistics and file names, typically a few lines). This is operational data for scoping the review, not subagent artifact content, and does not conflict with the Context Retention Rule.
    - Wait for BOTH responses, verify both review files written
 
 5. **Check verdicts:**
@@ -357,7 +390,12 @@ After plan approval, present the plan interactively before proceeding to build.
 1. **Update state:** `fix_iteration += 1`, `last_role: fixer_agent`
 
 2. **Invoke Fixer** (Task tool with `fixer` agent):
-   - Prompt: Include code review + changed files
+   - Prompt: Reference file paths only, do not embed content:
+     - Code review (Claude): `.quest/<id>/phase_03_review/review_claude.md`
+     - Code review (Codex): `.quest/<id>/phase_03_review/review_codex.md`
+     - Changed files: <file list from git diff>
+     - Quest brief: `.quest/<id>/quest_brief.md`
+     - Plan: `.quest/<id>/phase_01_plan/plan.md`
    - Wait for response
 
 3. **Re-invoke BOTH Code Reviewers** (same as Step 5)
@@ -382,8 +420,8 @@ After plan approval, present the plan interactively before proceeding to build.
 
 3. **Show summary:**
    - Quest ID
-   - Files changed (from builder/fixer handoffs)
-   - Total iterations (plan + fix)
+   - Files changed (from `git diff --name-only` and `state.json` artifact paths)
+   - Total iterations (plan + fix, from `state.json`)
    - Location of artifacts
    - Location of journal entry
 
@@ -457,10 +495,10 @@ After plan approval, present the plan interactively before proceeding to build.
 
 If any agent returns `STATUS: needs_human`:
 
-1. Extract questions from the response (text before `---HANDOFF---`)
+1. Extract questions from the response (text before `---HANDOFF---`) -- this is an intentional, bounded content read for human interaction, similar to Step 3.5
 2. Present questions to user
 3. Collect answers
-4. Re-invoke the same agent with answers appended to context
+4. Re-invoke the same agent with answers appended to context, referencing the same artifact paths
 5. Repeat until agent returns `complete` or `blocked`
 
 ---
@@ -519,6 +557,7 @@ SUMMARY: <one line>
 - Agents should do **targeted** exploration guided by the quest brief/plan (avoid full-repo inventory)
 - Matches how Claude subagents work (they read files too)
 - The digest captures stable context and reduces repeated reads
+- This pattern applies equally to Claude Task tool invocations — the orchestrator references paths, never embeds artifact content
 
 ---
 
