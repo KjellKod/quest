@@ -62,6 +62,13 @@ Before creating the quest folder, present the routing classification to the user
 2. If the quest went through the questioner path, note this: "Questioning phase completed — gaps addressed before planning."
 3. Wait for user acknowledgment before proceeding (for high risk only). For medium and low, display and continue.
 
+### Quest Folder Structure
+
+`.quest/` contains:
+- Active quest directories (created per-run)
+- `archive/` — completed quests moved here after journaling (see Step 7 in workflow.md)
+- `audit.log` — persistent log across all quest runs
+
 ### Quest Folder Creation
 
 1. Suggest a slug (lowercase, hyphenated, 2-5 words) and confirm with the user
