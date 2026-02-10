@@ -83,16 +83,16 @@ Quest is a multi-agent workflow where specialized AI agents (planner, reviewers,
 **One sentence:** *"Structured AI teamwork with checks and balances."*
 
 ```
-┌─────────────── PLAN PHASE ───────────────┐    ┌─────────── BUILD PHASE ───────────┐
-│                                          │    │                                   │
-│  You → Planner → Reviewers → Arbiter  ───┼────→  Builder → Reviewers ──┬──→ Done  │
-│            ▲      (Claude)      │        │    │              (Claude)  │          │
-│            │      (Codex)       │        │    │              (Codex)   │          │
-│            └───── iterate ──────┘        │    │                 │      │          │
-│                                          │    │                 ▼      │          │
-│                                          │    │              Fixer ────┘          │
-│                                          │    │           (if issues)             │
-└──────────────────────────────────────────┘    └───────────────────────────────────┘
+┌─────────────── PLAN PHASE ───────────────┐    ┌─────────── BUILD PHASE ─────────────┐
+│                                          │    │                                     │
+│  You → Planner → Reviewers → Arbiter  ───┼────→  Builder → Reviewers → Arbiter ──→ Done 
+│            ▲      (Claude)      │        │    │              (Claude)  │            │ ▲
+│            │      (Codex)       │        │    │              (Codex)   │            │ GATE: human approval
+│            └───── iterate ──────┘        │    │                 │      │            │
+│                                          │    │                 ▼      │            │
+│                                          │    │              Fixer ────┘            │
+│                                          │    │           (if issues)               │
+└──────────────────────────────────────────┘    └─────────────────────────────────────┘
                                    ▲
                                 GATE: human approval
 ```
@@ -408,7 +408,7 @@ The Quest Orchestrator (main Claude running `/quest`) coordinates specialized ag
                                   │
                     ┌─────────────┴─────────────┐
                     │   SINGLE MESSAGE with     │
-                    │   TWO TOOL CALLS          │
+                    │   TWO...MANY TOOL CALLS   │
                     └─────────────┬─────────────┘
                                   │
               ┌───────────────────┼───────────────────┐
