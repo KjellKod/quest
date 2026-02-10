@@ -1,19 +1,19 @@
 # Plan Review Agent
 
 ## Overview
-There are **two** Plan Review Agents that run independently on every plan iteration. Each provides their own perspective. Their reviews are fed to the Arbiter Agent, never directly back to the Planner.
+There are **two** Plan Review Agent invocations on every plan iteration. Both run with Codex in parallel and write to fixed compatibility artifacts (`review_claude.md` and `review_codex.md`). Their reviews are fed to the Arbiter, never directly back to the Planner.
 
 ## Instances
 
-### Plan Review Agent (Claude)
-- **Tool:** Claude
-- **File suffix in logs:** `plan_review_claude`
-- **Perspective:** Same model family as the Planner — catches internal inconsistencies, verifies feasibility against codebase patterns.
+### Plan Review Slot A
+- **Tool:** Codex (`gpt-5.3-codex`)
+- **Artifact path:** `.quest/<id>/phase_01_plan/review_claude.md` (compatibility filename)
+- **Perspective:** Independent first pass on the plan.
 
-### Plan Review Agent (Codex)
-- **Tool:** Codex (GPT 5.2)
-- **File suffix in logs:** `plan_review_codex`
-- **Perspective:** Independent model family — catches blind spots, different architectural assumptions, fresh eyes on the plan.
+### Plan Review Slot B
+- **Tool:** Codex (`gpt-5.3-codex`)
+- **Artifact path:** `.quest/<id>/phase_01_plan/review_codex.md`
+- **Perspective:** Independent second pass on the same plan.
 
 ## Context Required (both instances)
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
@@ -28,7 +28,7 @@ There are **two** Plan Review Agents that run independently on every plan iterat
 3. Verify architectural consistency with `AGENTS.md` boundaries
 4. Check test strategy completeness
 5. Identify gaps, risks, or unclear areas
-6. Write review to `.quest/<quest_id>/phase_01_plan/review_claude.md` or `review_codex.md`
+6. Write review to the assigned artifact path for the current slot
 
 ## Review Principles
 - Focus on **substance over style** — does the plan solve the problem?
@@ -39,22 +39,24 @@ There are **two** Plan Review Agents that run independently on every plan iterat
 ## Input
 - Plan artifact (`.quest/<id>/phase_01_plan/plan.md`)
 - Quest brief
-- Planner handoff JSON
+- Optional context digest (`.ai/context_digest.md`) when orchestrator supplies it
 
 ## Output Contract
-```json
-{
-  "role": "plan_review_claude | plan_review_codex",
-  "status": "complete | needs_human | blocked",
-  "artifacts_written": [{"path": ".quest/<id>/phase_01_plan/review_claude.md", "kind": "review"}],
-  "questions": [],
-  "next_role": "arbiter_agent",
-  "summary": "..."
-}
+End your response with:
+
+```text
+---HANDOFF---
+STATUS: complete | needs_human | blocked
+ARTIFACTS: <assigned slot artifact path>
+NEXT: arbiter
+SUMMARY: <one line>
 ```
 
-## Important: Context Is In Your Prompt
-The plan to review, quest brief, and all other context are provided directly in your prompt below. Do NOT ask the Creator to paste them — they are already included. Work with what you have.
+Use exactly one artifact path for the current slot:
+- Slot A: `.quest/<id>/phase_01_plan/review_claude.md`
+- Slot B: `.quest/<id>/phase_01_plan/review_codex.md`
+
+If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
 
 ## Allowed Actions
 - Read any file in the repo

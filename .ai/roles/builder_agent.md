@@ -4,7 +4,7 @@
 Implements the approved plan. Writes code, runs tests, produces a PR description.
 
 ## Tool
-Claude
+Codex (`gpt-5.3-codex`)
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
@@ -26,19 +26,17 @@ Claude
 - Plan review notes (if any)
 
 ## Output Contract
-```json
-{
-  "role": "builder_agent",
-  "status": "complete | needs_human | blocked",
-  "artifacts_written": [
-    {"path": ".quest/<id>/phase_02_implementation/pr_description.md", "kind": "pr_description"},
-    {"path": "api/some_file.py", "kind": "code"}
-  ],
-  "questions": [],
-  "next_role": "code_review_agent",
-  "summary": "..."
-}
+End your response with:
+
+```text
+---HANDOFF---
+STATUS: complete | needs_human | blocked
+ARTIFACTS: .quest/<id>/phase_02_implementation/pr_description.md, .quest/<id>/phase_02_implementation/builder_feedback_discussion.md[, <changed code/test files>]
+NEXT: code_review
+SUMMARY: <one line>
 ```
+
+If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
 
 ## Allowed Actions
 - Read any file in the repo

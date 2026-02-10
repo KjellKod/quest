@@ -15,7 +15,7 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 
 ### Context Retention Rule
 
-After every subagent invocation (Task tool or mcp__codex__codex), the orchestrator retains ONLY:
+After every subagent invocation (`mcp__codex__codex`), the orchestrator retains ONLY:
 1. The **artifact path(s)** from the ARTIFACTS line of the handoff
 2. The **one-line SUMMARY** from the SUMMARY line of the handoff
 3. The **STATUS** and **NEXT** values for routing decisions
@@ -85,11 +85,15 @@ gates.max_plan_iterations (default: 4)
 
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
-2. **Invoke Planner** (Task tool with `planner` agent):
-   - Prompt: Reference the quest brief path and, if iteration > 1, the arbiter verdict path. Do NOT read or embed the content of these files; the planner agent reads them itself.
+2. **Invoke Planner** (`mcp__codex__codex(model: "gpt-5.3-codex")`):
+   - Prompt: Reference file paths only, do not embed artifact content:
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Arbiter verdict (iteration 2+): `.quest/<id>/phase_01_plan/arbiter_verdict.md`
-   - **If `.quest/<id>/phase_01_plan/user_feedback.md` exists, reference its path in the planner prompt (do not embed content)**
+     - User feedback (if present): `.quest/<id>/phase_01_plan/user_feedback.md`
+   - Require the prompt to include:
+     - Write plan to: `.quest/<id>/phase_01_plan/plan.md`
+     - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
+     - `NEXT: plan_review`
    - Wait for response
    - Verify `.quest/<id>/phase_01_plan/plan.md` exists
    - If not written, extract from response and write it
@@ -100,56 +104,54 @@ gates.max_plan_iterations (default: 4)
    - `codex_context_digest_path` (default: `.ai/context_digest.md`)
    - For plan review: treat `auto` as `full`. Use `fast` only if explicitly set.
 
-4. **Invoke BOTH Plan Reviewers IN PARALLEL** (same message, two tool calls):
+4. **Invoke BOTH Plan Reviewers IN PARALLEL** (same message, two Codex tool calls):
 
-   **Claude reviewer** (Task tool with `plan-reviewer` agent):
-   - Prompt: Reference file paths only, do not embed content:
-     - Quest brief: `.quest/<id>/quest_brief.md`
-     - Plan: `.quest/<id>/phase_01_plan/plan.md`
-   - Writes to `.quest/<id>/phase_01_plan/review_claude.md`
+   Run the same review prompt twice with different output paths:
+   - Slot A output: `.quest/<id>/phase_01_plan/review_claude.md` (compatibility filename)
+   - Slot B output: `.quest/<id>/phase_01_plan/review_codex.md`
 
-   **Codex reviewer** (mcp__codex__codex) — call in the SAME message:
-   - Use the digest path and **mode-specific** prompt:
+   Use the digest path and **mode-specific** prompt for each slot:
 
-     **Full mode** (default for plan review):
-     ```
-       mcp__codex__codex(
-       model: "gpt-5.3-codex",
-       prompt: "You are the Plan Review Agent (Codex).
+   **Full mode** (default for plan review):
+   ```
+   mcp__codex__codex(
+     model: "gpt-5.3-codex",
+     prompt: "You are the Plan Review Agent (Codex).
 
-       Read your instructions: .ai/roles/plan_review_agent.md
-       Read context digest: <codex_context_digest_path>
-       (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
+     Read your instructions: .ai/roles/plan_review_agent.md
+     Read context digest: <codex_context_digest_path>
+     (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
-       Quest brief: .quest/<id>/quest_brief.md
-       Plan to review: .quest/<id>/phase_01_plan/plan.md
+     Quest brief: .quest/<id>/quest_brief.md
+     Plan to review: .quest/<id>/phase_01_plan/plan.md
 
-       Write your review to: .quest/<id>/phase_01_plan/review_codex.md
+     Write your review to: <slot output path>
 
-       When done, output: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY"
-     )
-     ```
-     **Fast mode** (only if `review_mode: fast`):
-     ```
-     mcp__codex__codex(
-       model: "gpt-5.3-codex",
-       prompt: "You are the Plan Review Agent (Codex).
+     End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
+     NEXT: arbiter"
+   )
+   ```
+   **Fast mode** (only if `review_mode: fast`):
+   ```
+   mcp__codex__codex(
+     model: "gpt-5.3-codex",
+     prompt: "You are the Plan Review Agent (Codex).
 
-       Read context digest: <codex_context_digest_path>
-       Quest brief: .quest/<id>/quest_brief.md
-       Plan to review: .quest/<id>/phase_01_plan/plan.md
+     Read context digest: <codex_context_digest_path>
+     Quest brief: .quest/<id>/quest_brief.md
+     Plan to review: .quest/<id>/phase_01_plan/plan.md
 
-       List up to 5 issues, highest severity first.
-       Write your review to: .quest/<id>/phase_01_plan/review_codex.md
+     List up to 5 issues, highest severity first.
+     Write your review to: <slot output path>
 
-       When done, output: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY"
-     )
-     ```
+     End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
+     NEXT: arbiter"
+   )
+   ```
    - Wait for BOTH responses, verify both review files written
 
-5. **Invoke Arbiter:**
-   - Check `.ai/allowlist.json` → `arbiter.tool` (default: "codex")
-   - If "codex": use mcp__codex__codex with SHORT prompt:
+5. **Invoke Arbiter** (`mcp__codex__codex(model: "gpt-5.3-codex")`):
+   - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
 
@@ -157,20 +159,13 @@ gates.max_plan_iterations (default: 4)
 
      Quest brief: .quest/<id>/quest_brief.md
      Plan: .quest/<id>/phase_01_plan/plan.md
-     Claude review: .quest/<id>/phase_01_plan/review_claude.md
-     Codex review: .quest/<id>/phase_01_plan/review_codex.md
+     Review A: .quest/<id>/phase_01_plan/review_claude.md
+     Review B: .quest/<id>/phase_01_plan/review_codex.md
 
      Write verdict to: .quest/<id>/phase_01_plan/arbiter_verdict.md
-     NEXT must be: builder (approve) or planner (iterate)
+     End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
+     NEXT: builder (approve) or planner (iterate)
      ```
-   - If "claude": use Task tool with `arbiter` agent:
-     - Prompt: Reference file paths only, do not embed content:
-       - Instructions: `.ai/roles/arbiter_agent.md`
-       - Quest brief: `.quest/<id>/quest_brief.md`
-       - Plan: `.quest/<id>/phase_01_plan/plan.md`
-       - Claude review: `.quest/<id>/phase_01_plan/review_claude.md`
-       - Codex review: `.quest/<id>/phase_01_plan/review_codex.md`
-       - Output: `.quest/<id>/phase_01_plan/arbiter_verdict.md`
    - Parse verdict for NEXT field
 
 6. **Check verdict:**
@@ -269,7 +264,7 @@ After plan approval, present the plan interactively before proceeding to build.
    f. Return to Step 3, item 1:
       - Planner will be invoked with user_feedback.md referenced (per Step 3, item 2 -- Planner invocation above)
       - plan_iteration increments as normal
-      - Full review cycle (Claude + Codex + Arbiter) runs
+      - Full review cycle (Codex slot A + Codex slot B + Arbiter) runs
       - After approval, Step 3.5 presentation starts fresh from step 1
 
 ### Step 4: Build Phase
@@ -283,10 +278,14 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
-2. **Invoke Builder** (Task tool with `builder` agent):
+2. **Invoke Builder** (`mcp__codex__codex(model: "gpt-5.3-codex")`):
    - Prompt: Reference file paths only, do not embed content:
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
      - Quest brief: `.quest/<id>/quest_brief.md`
+   - Require the prompt to include:
+     - Write output artifacts under: `.quest/<id>/phase_02_implementation/`
+     - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
+     - `NEXT: code_review`
    - Wait for response
    - Verify artifacts written
 
@@ -313,64 +312,59 @@ After plan approval, present the plan interactively before proceeding to build.
      - If file_count ≤ max_files AND loc_total ≤ max_loc → **fast**
      - Otherwise → **full**
 
-4. **Invoke BOTH Code Reviewers IN PARALLEL** (same message, two tool calls):
+4. **Invoke BOTH Code Reviewers IN PARALLEL** (same message, two Codex tool calls):
 
-   **Claude reviewer** (Task tool with `code-reviewer` agent):
-   - Prompt: Reference file paths only, do not embed content:
-     - Quest brief: `.quest/<id>/quest_brief.md`
-     - Plan: `.quest/<id>/phase_01_plan/plan.md`
-     - Changed files: <file list from step 3>
-     - Instruction: Use `git diff` to review actual changes
-   - Writes to `.quest/<id>/phase_03_review/review_claude.md`
+   Run the same review prompt twice with different output paths:
+   - Slot A output: `.quest/<id>/phase_03_review/review_claude.md` (compatibility filename)
+   - Slot B output: `.quest/<id>/phase_03_review/review_codex.md`
 
-   **Codex reviewer** (mcp__codex__codex) — call in the SAME message:
-   - Use the digest path and **mode-specific** prompt:
+   Use the digest path and **mode-specific** prompt for each slot:
 
-     **Full mode**:
-     ```
-       mcp__codex__codex(
-       model: "gpt-5.3-codex",
-       prompt: "You are the Code Review Agent (Codex).
+   **Full mode**:
+   ```
+   mcp__codex__codex(
+     model: "gpt-5.3-codex",
+     prompt: "You are the Code Review Agent (Codex).
 
-       Read your instructions: .ai/roles/code_review_agent.md
-       Read context digest: <codex_context_digest_path>
-       (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
+     Read your instructions: .ai/roles/code_review_agent.md
+     Read context digest: <codex_context_digest_path>
+     (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
-       Quest: .quest/<id>/quest_brief.md
-       Plan: .quest/<id>/phase_01_plan/plan.md
+     Quest: .quest/<id>/quest_brief.md
+     Plan: .quest/<id>/phase_01_plan/plan.md
 
-       Changed files: <file list>
-       Diff summary: <git diff --stat>
+     Changed files: <file list>
+     Diff summary: <git diff --stat>
 
-       Review ONLY the files listed above. Use git diff for details.
-       Write review to: .quest/<id>/phase_03_review/review_codex.md
+     Review ONLY the files listed above. Use git diff for details.
+     Write review to: <slot output path>
 
-       End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
-       NEXT: fixer (if issues) or null (if clean)"
-     )
-     ```
-     **Fast mode**:
-     ```
-     mcp__codex__codex(
-       model: "gpt-5.3-codex",
-       prompt: "You are the Code Review Agent (Codex).
+     End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
+     NEXT: fixer (if issues) or null (if clean)"
+   )
+   ```
+   **Fast mode**:
+   ```
+   mcp__codex__codex(
+     model: "gpt-5.3-codex",
+     prompt: "You are the Code Review Agent (Codex).
 
-       Read context digest: <codex_context_digest_path>
-       Quest: .quest/<id>/quest_brief.md
-       Plan: .quest/<id>/phase_01_plan/plan.md
+     Read context digest: <codex_context_digest_path>
+     Quest: .quest/<id>/quest_brief.md
+     Plan: .quest/<id>/phase_01_plan/plan.md
 
-       Changed files: <file list>
-       Diff summary: <git diff --stat>
+     Changed files: <file list>
+     Diff summary: <git diff --stat>
 
-       Review ONLY the files listed above.
-       List up to 5 issues, highest severity first.
-       Write review to: .quest/<id>/phase_03_review/review_codex.md
+     Review ONLY the files listed above.
+     List up to 5 issues, highest severity first.
+     Write review to: <slot output path>
 
-       End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
-       NEXT: fixer (if issues) or null (if clean)"
-     )
-     ```
-   - **Note:** The `<file list>` and `<git diff --stat>` values embedded in these Codex prompts are intentional small metadata (summary statistics and file names, typically a few lines). This is operational data for scoping the review, not subagent artifact content, and does not conflict with the Context Retention Rule.
+     End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
+     NEXT: fixer (if issues) or null (if clean)"
+   )
+   ```
+   - **Note:** The `<file list>` and `<git diff --stat>` values embedded in these prompts are intentional small metadata (summary statistics and file names, typically a few lines). This is operational data for scoping the review, not subagent artifact content, and does not conflict with the Context Retention Rule.
    - Wait for BOTH responses, verify both review files written
 
 5. **Check verdicts:**
@@ -389,13 +383,17 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `fix_iteration += 1`, `last_role: fixer_agent`
 
-2. **Invoke Fixer** (Task tool with `fixer` agent):
+2. **Invoke Fixer** (`mcp__codex__codex(model: "gpt-5.3-codex")`):
    - Prompt: Reference file paths only, do not embed content:
-     - Code review (Claude): `.quest/<id>/phase_03_review/review_claude.md`
-     - Code review (Codex): `.quest/<id>/phase_03_review/review_codex.md`
+     - Code review A: `.quest/<id>/phase_03_review/review_claude.md`
+     - Code review B: `.quest/<id>/phase_03_review/review_codex.md`
      - Changed files: <file list from git diff>
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Plan: `.quest/<id>/phase_01_plan/plan.md`
+   - Require the prompt to include:
+     - Write feedback to: `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md`
+     - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
+     - `NEXT: code_review`
    - Wait for response
 
 3. **Re-invoke BOTH Code Reviewers** (same as Step 5)
@@ -555,15 +553,13 @@ SUMMARY: <one line>
 - Codex has file access — it can read what it needs
 - Large inline prompts cause timeouts and context issues
 - Agents should do **targeted** exploration guided by the quest brief/plan (avoid full-repo inventory)
-- Matches how Claude subagents work (they read files too)
 - The digest captures stable context and reduces repeated reads
-- This pattern applies equally to Claude Task tool invocations — the orchestrator references paths, never embeds artifact content
 
 ---
 
 ## Performance: Codex MCP Latency
 
-Codex MCP calls are slower than direct Claude tool use because Codex must:
+Codex MCP calls can be slower when each run must:
 1. Read multiple files (role instructions, digest, quest brief, plan)
 2. Analyze the content
 3. Write output file
@@ -587,7 +583,7 @@ mcp__codex__codex(
 
   List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_codex.md
 
-  End with: ---HANDOFF--- STATUS: complete NEXT: arbiter SUMMARY: <one line>"
+  End with: ---HANDOFF--- STATUS: complete ARTIFACTS: .quest/<id>/phase_01_plan/review_codex.md NEXT: arbiter SUMMARY: <one line>"
 )
 ```
 
@@ -598,7 +594,7 @@ mcp__codex__codex(
 ## Error Handling
 
 - If an agent fails to produce a handoff: Extract any artifacts from the response, log the error, ask user how to proceed
-- If Codex MCP fails: Fall back to Task tool with Claude agent
+- If Codex MCP fails: mark the step `blocked`, surface the failure, and ask user whether to retry
 - If max iterations reached: Stop, show current state, ask user for guidance
 - If artifact file missing after agent run: Try to extract from response text and write it
 

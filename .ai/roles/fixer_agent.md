@@ -4,14 +4,16 @@
 Fixes issues identified by the Code Review Agent. Applies targeted fixes and re-runs tests.
 
 ## Tool
-Claude
+Codex (`gpt-5.3-codex`)
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
 - `.skills/implementer/SKILL.md` (implementation skill, fix mode)
-- Code review artifact (issues to fix)
-- Builder handoff (context of what was changed)
+- Code review artifacts (issues to fix):
+  - `.quest/<id>/phase_03_review/review_claude.md`
+  - `.quest/<id>/phase_03_review/review_codex.md`
+- Changed files from `git diff --name-only`
 
 ## Responsibilities
 1. Read the code review notes
@@ -21,26 +23,25 @@ Claude
 5. Do NOT make unrelated changes — fix only what the review identified
 
 ## Input
-- Code review (`.quest/<id>/phase_03_review/review.md`)
-- Builder handoff JSON
-- Changed files
+- Code review (`.quest/<id>/phase_03_review/review_claude.md`)
+- Code review (`.quest/<id>/phase_03_review/review_codex.md`)
+- Changed files (`git diff --name-only`)
+- Quest brief and approved plan
 
 ## Output Contract
-```json
-{
-  "role": "fixer_agent",
-  "status": "complete | needs_human | blocked",
-  "artifacts_written": [
-    {"path": ".quest/<id>/phase_03_review/review_fix_feedback_discussion.md", "kind": "discussion"},
-    {"path": "api/some_file.py", "kind": "fix"}
-  ],
-  "questions": [],
-  "next_role": "code_review_agent",
-  "summary": "..."
-}
+End your response with:
+
+```text
+---HANDOFF---
+STATUS: complete | needs_human | blocked
+ARTIFACTS: .quest/<id>/phase_03_review/review_fix_feedback_discussion.md[, <changed code/test files>]
+NEXT: code_review
+SUMMARY: <one line>
 ```
 
-The fixer always hands back to `code_review_agent` for re-review. The orchestrator enforces `max_fix_iterations`.
+If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
+
+The fixer always hands back to `code_review` for re-review. The orchestrator enforces `max_fix_iterations`.
 
 ## Allowed Actions
 - Read any file in the repo
