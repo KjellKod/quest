@@ -1,4 +1,9 @@
 {
+  "sandbox": {
+    "network": {
+      "allowedDomains": ["api.openai.com"]
+    }
+  },
   "hooks": {
     "SessionStart": [
       {
