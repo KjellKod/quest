@@ -40,6 +40,28 @@ We are not replacing human judgment.
 We are amplifying it by removing avoidable toil and preventing avoidable mistakes.
 
 
+### Where We Are vs Where We're Going
+
+The philosophy above is our north star. We are not there yet. Here is where we stand:
+
+**What Quest delivers today:**
+- A prompt-orchestrated pipeline built within Claude Code's skill system
+- Clear phase boundaries (plan → review → build → review → fix)
+- Explicit, auditable artifacts in `.quest/<id>/`
+- Dual-model verification (Claude + Codex reviewing independently)
+- Human gates at phase boundaries
+- Resumable state via `state.json`
+- A thin orchestrator that passes paths, not content (Context Retention Rule)
+
+**What Quest does not yet deliver:**
+- System-enforced correctness (state transitions are checked by prompts, not scripts)
+- Clean skill/role separation (some roles duplicate what skills already say)
+- A structured exploration/research capability (no `/explore` skill yet)
+
+**The philosophy is right. The architecture is pragmatically correct. The gap between them is the roadmap.**
+
+See `ideas/quest-architecture-evolution.md` for the phased plan to close these gaps.
+
 # Quest: A Multi-Agent Orchestration Blueprint
 
 **Part of the [Candid Talent Edge](https://candidtalentedge.com) initiative by KjellKod**

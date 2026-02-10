@@ -38,7 +38,9 @@ Quest's philosophy demands discipline, process, and constraints enforced by the 
 
 ---
 
-### Phase 2: Thin orchestrator (pass paths, not content)
+### Phase 2: Thin orchestrator (pass paths, not content) — DONE
+
+**Status:** Completed via quest `thin-orchestrator_2026-02-09__1845`. Commit: `ebfaf43`.
 
 **Problem:** The Quest orchestrator accumulates context from every phase. After plan + two reviews + arbiter + build + two code reviews + fix iterations, the main session is bloated. This violates the philosophy: "Clean context and focus are mandatory."
 
@@ -168,4 +170,10 @@ Phases 1 and 2 can start immediately, in parallel.
 
 ## Status
 
-idea
+| Phase | Status |
+|-------|--------|
+| Phase 1: `/explore` skill | Not started |
+| Phase 2: Thin orchestrator | **Done** (`thin-orchestrator_2026-02-09__1845`) |
+| Phase 3: State validation | Not started |
+| Phase 4: Role simplification | Not started |
+| Phase 5: Infrastructure | Backlog |
