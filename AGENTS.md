@@ -1,3 +1,12 @@
+---
+title: Coding Rules & Architecture Boundaries
+purpose: Defines coding conventions, architecture boundaries, and project rules that AI agents must follow before making changes.
+audience: AI agents and contributors
+scope: Repo-wide coding standards and constraints
+status: active
+owner: maintainers
+---
+
 # Coding Rules & Architecture Boundaries
 
 This document defines the coding conventions and architecture boundaries for this project. AI agents MUST read this before making changes.

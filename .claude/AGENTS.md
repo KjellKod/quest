@@ -1,3 +1,12 @@
+---
+title: Claude Code Agent Entry Point
+purpose: Entry point for Claude Code AI agents, directing them to read AGENTS.md, DOCUMENTATION_STRUCTURE.md, and BOOTSTRAP.md before starting work.
+audience: Claude Code AI agents
+scope: Claude-specific agent bootstrapping
+status: active
+owner: maintainers
+---
+
 # Claude Code Agent Entry Point
 
 This repository uses **layered documentation** for AI agent context management.
@@ -47,6 +56,17 @@ This repository uses **skills** for specialized workflows. Skills are automatica
 - **pr-assistant:** Create and update GitHub PRs in draft mode, generate title/description from branch commits
 
 See `.skills/BOOTSTRAP.md` for how to use skills with different AI platforms.
+
+## Agentic Markdown Convention
+
+All markdown files that serve an agentic purpose (read by AI agents for instructions, rules, or workflow guidance) SHOULD include YAML front matter headers. This applies to files such as:
+
+- `AGENTS.md` -- project rules and boundaries
+- `.skills/*/SKILL.md` -- skill definitions (use `name` and `description` fields)
+- `.skills/BOOTSTRAP.md` -- agent bootstrapping guide
+- `DOCUMENTATION_STRUCTURE.md` -- documentation navigation
+
+Use the schema documented in `DOCUMENTATION_STRUCTURE.md` for project-level documents (`title`, `purpose`, `audience`, `scope`, `status`, `owner`) and the minimal schema (`name`, `description`) for skill definitions.
 
 ---
 
