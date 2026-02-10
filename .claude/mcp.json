@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "codex": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/codex-mcp-server"]
+      "command": "codex",
+      "args": ["-m", "gpt-5.2", "mcp-server"]
     }
   }
 }
