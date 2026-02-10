@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "codex": {
+      "command": "codex",
+      "args": ["-m", "gpt-5.3-codex", "mcp-server"]
+    }
+  }
+}
