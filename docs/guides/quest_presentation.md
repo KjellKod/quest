@@ -12,10 +12,10 @@ A presentation on coordinated AI agents with human oversight.
 
 ```
 ┌─────────────── PLAN PHASE ───────────────┐    ┌─────────── BUILD PHASE ───────────┐
-│                                          │    │                                   │
-│  You → Planner → Reviewers → Arbiter  ───┼────→  Builder → Reviewers ──┬──→ Done  │
+│                                          │    │                       Arbiter     │
+│  You → Planner → Reviewers → Arbiter  ───┼────→  Builder → Reviewers ──│──────────│──→ Done
 │            ▲      (Claude)      │        │    │              (Claude)  │          │
-│            │      (Codex)       │        │    │              (Codex)   │          │
+│            │      (Codex)       │        │    │              (Codex)   │          │   
 │            └───── iterate ──────┘        │    │                 │      │          │
 │                                          │    │                 ▼      │          │
 │                                          │    │              Fixer ────┘          │
@@ -28,6 +28,9 @@ A presentation on coordinated AI agents with human oversight.
 ---
 
 ## How It Works
+This is the default setup, without any code changes, just asking Claude, it'll spin up more reviewers, or do dual-implementations etc. It's easy to change the default. 
+
+The point is: we don't trust the individual contributor, we trust the process of checks and balances.
 
 ```
                         YOU
@@ -53,7 +56,7 @@ A presentation on coordinated AI agents with human oversight.
          └──────────────┬─────────────┘
                         ▼
                    ┌─────────┐
-                   │ Arbiter │──▶ iterate? ──┐
+                   │ Arbiter │──▶ iterate? ──┐ ──▶ [Back to Planner]
                    │ (Claude)│               │
                    └────┬────┘               │
                         │ approve            │
@@ -80,6 +83,13 @@ A presentation on coordinated AI agents with human oversight.
     └────┬─────┘                 └────┬─────┘
          └──────────────┬─────────────┘
                         │
+                        ▼
+                   ┌─────────┐
+                   │ Arbiter │
+                   │ (Claude)│               
+                   └────┬────┘               
+                        │
+                        │
               issues? ──┴── clean?
                  │            │
                  ▼            ▼
@@ -99,7 +109,7 @@ A presentation on coordinated AI agents with human oversight.
                  │       │  DONE  │
                  │       └────────┘
                  │
-                 └───▶ Code Review (loop)
+                 └───▶ Code Review (loop) ──▶ [Back Arbiter]
 ```
 
 ### Key Points
