@@ -416,14 +416,20 @@ After plan approval, present the plan interactively before proceeding to build.
      - Quote the original idea content under "This is where it all began..."
      - Update the idea file's `## Status` to `implemented`
 
-3. **Show summary:**
+3. **Archive the quest working directory:**
+   - Create `.quest/archive/` if it doesn't exist
+   - Move `.quest/<id>/` to `.quest/archive/<id>/`
+   - The journal entry in `docs/quest-journal/` is the permanent record; the archive preserves raw artifacts for reference
+   - `.quest/` root should only contain active quests, `archive/`, and `audit.log`
+
+4. **Show summary:**
    - Quest ID
    - Files changed (from `git diff --name-only` and `state.json` artifact paths)
    - Total iterations (plan + fix, from `state.json`)
-   - Location of artifacts
+   - Location of artifacts (now in `.quest/archive/<id>/`)
    - Location of journal entry
 
-4. **Next steps suggestion:**
+5. **Next steps suggestion:**
    ```
    Review changes: git diff
    Commit: git add -p && git commit
