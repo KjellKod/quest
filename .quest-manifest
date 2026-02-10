@@ -25,6 +25,7 @@
 .claude/agents/plan-reviewer.md
 .claude/agents/planner.md
 .claude/hooks/enforce-allowlist.sh
+.claude/hooks/session-start.sh
 .claude/skills/git-commit-assistant/SKILL.md
 .claude/skills/pr-assistant/SKILL.md
 .claude/skills/quest/SKILL.md
