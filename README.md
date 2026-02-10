@@ -66,7 +66,7 @@ See [ideas/quest-architecture-evolution.md](ideas/quest-architecture-evolution.m
 
 **Part of the [Candid Talent Edge](https://candidtalentedge.com) initiative by KjellKod**
 
-> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool.
+> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool. Take a [look at how a disciplined approach](docs/guides/quest_presentation.md) to software engineering is directly applicable to an agentic orchestration setup. 
 
 Quest is a portable framework for running coordinated AI agents with human oversight.
 
