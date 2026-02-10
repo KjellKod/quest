@@ -44,6 +44,7 @@
 .skills/quest/delegation/workflow.md
 scripts/validate-quest-config.sh
 scripts/validate-manifest.sh
+scripts/validate-handoff-contracts.sh
 
 [user-customized]
 # These files are NEVER overwritten - upstream changes create .quest_updated suffix
