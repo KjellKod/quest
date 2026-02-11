@@ -3,27 +3,12 @@ name: Validate_Quest_Configuration
 on:
   push:
     branches: [main]
-    paths:
-      - '.ai/**'
-      - '.skills/**'
-      - '.claude/**'
-      - '.quest-manifest'
-      - '.gitignore'
-      - 'scripts/*.sh'
   pull_request:
     branches: [main]
-    paths:
-      - '.ai/**'
-      - '.skills/**'
-      - '.claude/**'
-      - '.quest-manifest'
-      - '.gitignore'
-      - 'scripts/*.sh'
 
 jobs:
   validate:
-    name: Validate_Quest_Configuration
-    runs-on: ubuntu-latest    
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
