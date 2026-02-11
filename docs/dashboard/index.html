@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quest Dashboard</title>
+  <style>
+    :root {
+      /* ── Palette: derived from the hero's slate tones ── */
+      --slate-950: #0c1220;
+      --slate-900: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-600: #475569;
+      --slate-500: #64748b;
+      --slate-400: #94a3b8;
+      --slate-300: #cbd5e1;
+      --slate-200: #e2e8f0;
+      --slate-100: #f1f5f9;
+      --slate-50:  #f8fafc;
+
+      --ink: var(--slate-900);
+      --ink-secondary: var(--slate-600);
+      --muted: var(--slate-400);
+      --surface: #ffffff;
+      --bg: var(--slate-50);
+      --stroke: var(--slate-200);
+
+      /* Accent: the compass needle — gold, used only where it matters */
+      --accent: #b4975a;
+      --accent-muted: rgba(180, 151, 90, .10);
+
+      /* Status: quiet indicators, same slate family */
+      --status-active: #94783a;
+      --status-complete: #5a8a74;
+      --status-abandoned: #8b6f6f;
+      --status-blocked: #8b5a5a;
+
+      /* Phase: all within the slate range, barely distinguishable */
+      --phase-plan: var(--slate-500);
+      --phase-build: var(--slate-500);
+      --phase-review: var(--slate-500);
+      --phase-present: var(--slate-500);
+      --phase-fix: var(--slate-500);
+      --phase-complete: var(--status-complete);
+
+      --shadow-sm: 0 1px 3px rgba(15,23,42,.04);
+      --shadow-md: 0 4px 12px rgba(15,23,42,.06);
+      --shadow-lg: 0 16px 40px rgba(15,23,42,.10);
+
+      /* Hero: a single confident direction — deep night, one warm glow
+         on the horizon. The journey from unknown to clarity. */
+      --hero-gradient:
+        radial-gradient(ellipse 60% 60% at 85% 85%, rgba(180,151,90,.06) 0%, transparent 70%),
+        linear-gradient(155deg, var(--slate-950) 0%, #101828 55%, #162033 100%);
+
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-display: "Avenir Next", "Segoe UI", var(--font);
+      --font-mono: "SF Mono", Menlo, monospace;
+      --radius: 10px;
+      --radius-lg: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 1060px;
+      margin: 0 auto;
+      padding: 28px 24px 60px;
+    }
+
+    /* ── Hero ──────────────────────────────────────── */
+
+    .hero {
+      background: var(--hero-gradient);
+      border-radius: var(--radius-lg);
+      color: var(--slate-100);
+      padding: 36px 32px 30px;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* No ::before — one gradient, one intent, no competing light sources */
+
+    .hero h1 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: clamp(1.65rem, 3vw, 2.3rem);
+      font-weight: 700;
+      letter-spacing: -.015em;
+      position: relative;
+    }
+
+    .hero .subtitle {
+      margin: 8px 0 0;
+      color: var(--slate-400);
+      font-size: .88rem;
+      max-width: 52ch;
+      position: relative;
+    }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 24px;
+      position: relative;
+    }
+
+    .kpi {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 8px;
+      padding: 14px 14px 12px;
+    }
+
+    .kpi .label {
+      font-size: .68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--slate-500);
+    }
+
+    .kpi .value {
+      margin-top: 4px;
+      font-size: clamp(1.3rem, 2.2vw, 1.7rem);
+      font-family: var(--font-display);
+      font-weight: 700;
+      color: var(--slate-200);
+    }
+
+    .kpi.kpi-active .value { color: var(--accent); }
+    .kpi.kpi-complete .value, .kpi.kpi-blocked .value { color: var(--slate-300); }
+
+    /* ── Panels ───────────────────────────────────── */
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius-lg);
+      padding: 22px 24px;
+      margin-top: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .section {
+      margin-top: 24px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .section h2, .panel h2 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: -.01em;
+      color: var(--slate-800);
+    }
+
+    .section small, .panel small {
+      color: var(--muted);
+      font-size: .8rem;
+    }
+
+    /* ── Warning Panel ────────────────────────────── */
+
+    .warning-panel {
+      margin-top: 14px;
+      background: rgba(180,151,90,.06);
+      border: 1px solid rgba(180,151,90,.18);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      color: var(--slate-700);
+    }
+
+    .warning-panel h2 {
+      margin: 0 0 6px;
+      font-size: .85rem;
+      color: var(--status-active);
+    }
+
+    .warning-panel ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: .85rem;
+      color: var(--slate-600);
+    }
+
+    /* ── Card Grid ────────────────────────────────── */
+
+    .card-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    }
+
+    .quest-card {
+      background: var(--surface);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 190px;
+      transition: box-shadow .2s ease, transform .2s ease;
+    }
+
+    .quest-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    .quest-card header {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .quest-card h3 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: .98rem;
+      font-weight: 600;
+      line-height: 1.32;
+      color: var(--ink);
+    }
+
+    .meta {
+      margin: 0;
+      color: var(--muted);
+      font-size: .78rem;
+    }
+
+    /* ── Status & Phase indicators ────────────────── */
+
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+      padding: 3px 0;
+      color: var(--slate-500);
+      border: none;
+      background: none;
+      border-radius: 999px;
+    }
+
+    .badge::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .badge--active::before   { background: var(--accent); }
+    .badge--completed::before { background: var(--status-complete); }
+    .badge--abandoned::before { background: var(--status-abandoned); }
+
+    .badge--active   { color: var(--status-active); }
+    .badge--completed { color: var(--status-complete); }
+    .badge--abandoned { color: var(--status-abandoned); }
+
+    .phase-label {
+      font-size: .72rem;
+      font-weight: 500;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+      color: var(--slate-400);
+      padding-left: 6px;
+      border-left: 1.5px solid var(--slate-200);
+    }
+
+    /* Phase labels stay in the slate family — no color noise */
+    .phase-label.phase-complete { color: var(--status-complete); }
+
+    /* ── Pitch & Links ────────────────────────────── */
+
+    .pitch {
+      margin: 0;
+      color: var(--ink-secondary);
+      font-size: .88rem;
+      line-height: 1.52;
+      flex: 1;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .journal-link {
+      margin-top: auto;
+      width: fit-content;
+      text-decoration: none;
+      color: var(--slate-400);
+      font-weight: 500;
+      font-size: .8rem;
+      letter-spacing: .02em;
+      padding: 4px 0 2px;
+      border-bottom: 1px solid transparent;
+      transition: color .2s ease, border-color .2s ease;
+    }
+
+    .journal-link:hover,
+    .journal-link:focus-visible {
+      color: var(--accent);
+      border-bottom-color: rgba(180,151,90,.4);
+    }
+
+    .empty-state {
+      padding: 32px 20px;
+      border-radius: var(--radius);
+      border: 1.5px dashed var(--slate-200);
+      background: var(--slate-100);
+      color: var(--slate-400);
+      font-style: italic;
+      font-size: .9rem;
+      text-align: center;
+    }
+
+    /* ── Chart ────────────────────────────────────── */
+
+    .chart-panel {
+      padding-bottom: 18px;
+    }
+
+    .chart-panel svg {
+      display: block;
+      width: 100%;
+      max-width: 640px;
+      height: auto;
+    }
+
+    /* ── Footer ───────────────────────────────────── */
+
+    .footer {
+      margin-top: 32px;
+      text-align: center;
+      color: var(--slate-400);
+      font-size: .75rem;
+      letter-spacing: .01em;
+    }
+
+    /* ── Responsive ───────────────────────────────── */
+
+    @media (max-width: 780px) {
+      .page { padding: 16px 14px 36px; }
+      .hero { padding: 24px 20px 22px; border-radius: var(--radius); }
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+      .panel { padding: 16px; }
+      .section { margin-top: 18px; }
+      .card-grid { grid-template-columns: 1fr; }
+      .quest-card { min-height: 0; }
+    }
+
+    @media (max-width: 480px) {
+      .kpis { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero" aria-labelledby="dashboard-title">
+      <h1 id="dashboard-title">Quest Dashboard</h1>
+      <p class="subtitle">Executive summary of active and completed quests generated from repository artifacts.</p>
+      <div class="kpis" role="list" aria-label="Dashboard metrics">
+        <article class="kpi kpi-active" role="listitem">
+          <div class="label">Active</div>
+          <div class="value">0</div>
+        </article>
+        <article class="kpi kpi-complete" role="listitem">
+          <div class="label">Completed</div>
+          <div class="value">12</div>
+        </article>
+        <article class="kpi kpi-blocked" role="listitem">
+          <div class="label">Blocked</div>
+          <div class="value">0</div>
+        </article>
+        <article class="kpi" role="listitem">
+          <div class="label">Generated</div>
+          <div class="value">2026-02-11 00:16 UTC</div>
+        </article>
+      </div>
+    </section>
+
+    
+    
+    <section class="panel chart-panel">
+      <div class="section-header">
+        <h2>Quest Activity</h2>
+        <small>Started vs completed by week</small>
+      </div>
+      <svg viewBox="0 0 600 170" xmlns="http://www.w3.org/2000/svg" style="font-family:inherit;" role="img" aria-label="Quest activity chart">
+    <line x1="28" y1="20" x2="584" y2="20" stroke="#e2e8f0" stroke-width=".5"/>
+    <line x1="28" y1="47" x2="584" y2="47" stroke="#e2e8f0" stroke-width=".5"/>
+    <line x1="28" y1="74" x2="584" y2="74" stroke="#e2e8f0" stroke-width=".5"/>
+    <line x1="28" y1="101" x2="584" y2="101" stroke="#e2e8f0" stroke-width=".5"/>
+    <line x1="28" y1="128" x2="584" y2="128" stroke="#e2e8f0" stroke-width=".5"/>
+    <line x1="28" y1="128" x2="584" y2="128" stroke="#cbd5e1" stroke-width="1"/>
+    <rect x="69.7" y="20.0" width="89.0" height="108.0" rx="2.5" fill="#b4975a" opacity=".78"/>
+    <text x="114.2" y="16.0" text-anchor="middle" fill="#7d6a3e" font-size="9.5" font-weight="600">8</text>
+    <rect x="175.3" y="20.0" width="89.0" height="108.0" rx="2.5" fill="#94a3b8" opacity=".78"/>
+    <text x="219.8" y="16.0" text-anchor="middle" fill="#64748b" font-size="9.5" font-weight="600">8</text>
+    <text x="167.0" y="143" text-anchor="middle" fill="#94a3b8" font-size="9.5">W06</text>
+    <rect x="347.7" y="74.0" width="89.0" height="54.0" rx="2.5" fill="#b4975a" opacity=".78"/>
+    <text x="392.2" y="70.0" text-anchor="middle" fill="#7d6a3e" font-size="9.5" font-weight="600">4</text>
+    <rect x="453.3" y="74.0" width="89.0" height="54.0" rx="2.5" fill="#94a3b8" opacity=".78"/>
+    <text x="497.8" y="70.0" text-anchor="middle" fill="#64748b" font-size="9.5" font-weight="600">4</text>
+    <text x="445.0" y="143" text-anchor="middle" fill="#94a3b8" font-size="9.5">W07</text>
+    <rect x="28" y="154" width="9" height="9" rx="2" fill="#b4975a" opacity=".78"/>
+    <text x="41" y="162" fill="#94a3b8" font-size="9.5">Started</text>
+    <rect x="96" y="154" width="9" height="9" rx="2" fill="#94a3b8" opacity=".78"/>
+    <text x="109" y="162" fill="#94a3b8" font-size="9.5">Completed</text>
+    </svg>
+    </section>
+
+    <section class="section" aria-labelledby="active-quests-heading">
+      <div class="section-header">
+        <h2 id="active-quests-heading">Active Quests</h2>
+        <small>Sorted by last updated</small>
+      </div>
+      <div class="card-grid">
+        <article class="empty-state">No active quests found.</article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="completed-quests-heading">
+      <div class="section-header">
+        <h2 id="completed-quests-heading">Completed Quests</h2>
+        <small>Includes completed and abandoned</small>
+      </div>
+      <div class="card-grid">
+        <article class="quest-card completed-card"><header><div><h3>Quest Dashboard</h3><p class="meta">Last Updated: 2026-02-10</p></div></header><div class="badge-row"><span class="badge badge--completed">Completed</span></div><p class="pitch">Built a static Quest Dashboard — an executive-board-quality web page that displays all quest statuses at a glance. The dashboard reads active quests from .quest//state.json and completed quests from docs/quest-journal/.md, extracting elevator pitches, statuses, phases, and dates. A Python build script (scripts/build_quest_dashboard.py) generates a single responsive HTML page at docs/dashboard/index.html, suitable for GitHub Pages deployment.</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/quest-dashboard_2026-02-10.md">Open Journal &#8594;</a></article>
+<article class="quest-card completed-card"><header><div><h3>handoff-contract-fix</h3><p class="meta">Last Updated: 2026-02-09</p></div></header><div class="badge-row"><span class="badge badge--completed">Completed</span></div><p class="pitch">Fixed handoff contract inconsistencies across Quest role files and workflow. Standardized all 6 role files on ---HANDOFF--- text format with STATUS/ARTIFACTS/NEXT/SUMMARY fields, removed &quot;Context Is In Your Prompt&quot; contradictions, and made workflow prompts explicitly request handoff format.</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/handoff-contract-fix_2026-02-09.md">Open Journal &#8594;</a></article>
+<article class="quest-card completed-card"><header><div><h3>skill-strategy</h3><p class="meta">Last Updated: 2026-02-09</p></div></header><div class="badge-row"><span class="badge badge--completed">Completed</span></div><p class="pitch">Analyzed how Quest should organize, manage, and distribute skills. Researched community best practices (Agent Skills standard, plugin marketplaces, distribution patterns). Produced strategic recommendations.</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/skill-strategy_2026-02-09.md">Open Journal &#8594;</a></article>
+<article class="quest-card completed-card"><header><div><h3>thin-orchestrator</h3><p class="meta">Last Updated: 2026-02-09</p></div></header><div class="badge-row"><span class="badge badge--completed">Completed</span></div><p class="pitch">Implemented Phase 2 of the Quest architecture evolution: the &quot;thin orchestrator&quot; principle. The Quest orchestrator now passes file paths to subagents instead of embedding content, reducing context growth from O(ncontent_size) to O(none_line).</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/thin-orchestrator_2026-02-09.md">Open Journal &#8594;</a></article>
+<article class="quest-card completed-card"><header><div><h3>Caching Strategy Exploration</h3><p class="meta">Last Updated: 2026-02-06</p></div></header><div class="badge-row"><span class="badge badge--completed">Completed</span></div><p class="pitch">Comprehensive research exploration mapping 11 distinct caching strategies applicable to the Quest AI agent system. The quest produced two educational research documents and a quest index README — no code changes, as the research itself was the deliverable.</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/caching-strategy-exploration_2026-02-06.md">Open Journal &#8594;</a></article>
+<article class="quest-card completed-card"><header><div><h3>Delegation-Based Intake Gate</h3><p class="meta">Last Updated: 2026-02-06</p></div></header><div class="badge-row"><span class="badge badge--completed">Completed</span></div><p class="pitch">Decomposed the monolithic .skills/quest/SKILL.md (635 lines) into a slim routing entry point (73 lines) plus three delegation files under .skills/quest/delegation/. The delegation pattern structurally enforces intake quality — vague input routes to a dedicated questioning phase before planning begins, while detailed input goes directly to the workflow.</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/quest-delegation-gate_2026-02-06.md">Open Journal &#8594;</a></article>
+<article class="quest-card abandoned-card"><header><div><h3>quest-council-mode</h3><p class="meta">Last Updated: 2026-02-05</p></div></header><div class="badge-row"><span class="badge badge--abandoned">Abandoned (plan approved, never built)</span></div><p class="pitch">Planned a dual-planning-track feature for /quest where users could choose between &quot;Quest&quot; (fast, single plan) and &quot;Quest Council&quot; (rigorous, two competing plans merged by arbiter). Plan was approved after 2 iterations but was never built.</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/quest-council-mode_2026-02-05.md">Open Journal &#8594;</a></article>
+<article class="quest-card completed-card"><header><div><h3>Weekly Update Check</h3><p class="meta">Last Updated: 2026-02-05</p></div></header><div class="badge-row"><span class="badge badge--completed">Completed</span></div><p class="pitch">Implemented automatic weekly update checking for Quest. After a quest completes, the system checks if updates are available (respecting a configurable interval) and prompts the user to update if a newer version exists upstream.</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/weekly-update-check_2026-02-05.md">Open Journal &#8594;</a></article>
+<article class="quest-card completed-card"><header><div><h3>CI Quest Validation</h3><p class="meta">Last Updated: 2026-02-04</p></div></header><div class="badge-row"><span class="badge badge--completed">Completed</span></div><p class="pitch">Implemented GitHub Actions CI and local pre-commit hooks that validate quest-related artifacts to prevent broken configurations from being committed.</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/ci-quest-validation_2026-02-04.md">Open Journal &#8594;</a></article>
+<article class="quest-card completed-card"><header><div><h3>Installer Script</h3><p class="meta">Last Updated: 2026-02-04</p></div></header><div class="badge-row"><span class="badge badge--completed">Completed</span></div><p class="pitch">Created a single unified installer script (scripts/quest_installer.sh) that installs and updates Quest in any repository.</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/installer-script_2026-02-04.md">Open Journal &#8594;</a></article>
+<article class="quest-card completed-card"><header><div><h3>interactive-plan-presentation</h3><p class="meta">Last Updated: 2026-02-04</p></div></header><div class="badge-row"><span class="badge badge--completed">Complete</span></div><p class="pitch">Enhanced the quest orchestration to present plans interactively rather than dumping the full plan at once. Users now see a brief summary first, then can opt into a phase-by-phase walkthrough with the ability to request changes at each step.</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/interactive-plan-presentation_2026-02-04.md">Open Journal &#8594;</a></article>
+<article class="quest-card completed-card"><header><div><h3>validate-and-launch</h3><p class="meta">Last Updated: 2026-02-04</p></div></header><div class="badge-row"><span class="badge badge--completed">Complete</span></div><p class="pitch">First-ever quest run on the extracted repository. Validated that the Quest blueprint was correctly extracted from the source repo, created the ideas/ directory for tracking future work, and updated the README with public domain messaging.</p><a class="journal-link" href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/validate-and-launch_2026-02-04.md">Open Journal &#8594;</a></article>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Generated 2026-02-11 00:16 UTC
+    </footer>
+  </main>
+</body>
+</html>

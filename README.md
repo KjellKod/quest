@@ -99,6 +99,19 @@ Quest is a multi-agent workflow where specialized AI agents (planner, reviewers,
 ## Quick Start 
 Almost there [quick start instructions](https://github.com/KjellKod/quest?tab=readme-ov-file#quick-start)
 
+## Quest Dashboard
+
+Build the static quest dashboard:
+
+```bash
+python3 scripts/build_quest_dashboard.py
+```
+
+Output artifact:
+- `docs/dashboard/index.html`
+
+The generated page is static and can be committed for GitHub Pages publishing.
+
 ## Prerequisites
 
 ### Required: Claude Code CLI
