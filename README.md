@@ -96,7 +96,10 @@ Quest is a multi-agent workflow where specialized AI agents (planner, reviewers,
                                    ▲
                                 GATE: human approval
 ```
-## Quick Start 
+
+**Where you spend your time:** The beginning and the end. During planning, you review the plan, the arbiter's trade-off discussions, and occasionally override decisions. During hardening, you validate the MVP against reality — because you don't fully understand a feature until you see it built. Most follow-up quests and v2 ideas come from this post-build validation, not from planning.
+
+## Quick Start
 Almost there [quick start instructions](https://github.com/KjellKod/quest?tab=readme-ov-file#quick-start)
 
 ## Prerequisites
