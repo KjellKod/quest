@@ -16,6 +16,7 @@ Future work items not yet ready for a full quest. When an idea is ready, run `/q
 | | [github-ci-pr-validation](github-ci-pr-validation.md) | CI workflow to validate quest plan structure on pull requests. |
 | | [quest-readme-auto-update](quest-readme-auto-update.md) | Auto-update `.quest/README.md` index when a quest completes. |
 | | [memory_bank_model](memory_bank_model.md) | Curated repo docs as the AI's authoritative mental model instead of scanning files. |
+| | [quest-completion-gate](quest-completion-gate.md) | When is a quest really done? Weigh trade-offs: close at review approval, close at PR merge, or soft close with hardening breadcrumbs. |
 | done | ~~quest-intake-gate~~ | Delegation-based intake gate with question-first routing for vague input. See [journal](../docs/quest-journal/quest-delegation-gate_2026-02-06.md). |
 | done | ~~handoff-fix-plan~~ | Standardize `---HANDOFF---` contracts across all role files. See [journal](../docs/quest-journal/handoff-contract-fix_2026-02-09.md). |
 | done | ~~quest-philosophy-small-core~~ | Thin orchestrator philosophy, handoff contracts, delegation workflow. See [journal](../docs/quest-journal/thin-orchestrator_2026-02-09.md). |
