@@ -1,13 +1,30 @@
 # Ideas
 
-This directory tracks future work items that are not yet ready for a full quest.
+Future work items not yet ready for a full quest. When an idea is ready, run `/quest` to turn it into a quest run.
 
-## What Goes Here
+## Index
 
-- Feature concepts
-- Improvement suggestions
-- Integration ideas
-- Workflow enhancements
+| Status | Idea | Elevator pitch |
+|--------|------|---------------|
+| | [quest-architecture-evolution](quest-architecture-evolution.md) | 5-phase roadmap to close the gap between Quest's philosophy and implementation. Phase 2 done, 3-5 remain. |
+| | [quest-step-numbering-cleanup](quest-step-numbering-cleanup.md) | Fix step numbering overlap between SKILL.md and workflow.md after the delegation refactor. |
+| | [quest-council_v1](quest-council_v1.md) | Dual-plan "council" mode: generate two competing plans, compare, merge the best parts. |
+| | [quest-council_v1_alternative](quest-council_v1_alternative.md) | Alternative council design with detailed arbiter comparison workflow. |
+| | [gpt52-default-planner](gpt52-default-planner.md) | Make GPT the default planner to diversify model perspective earlier in the pipeline. |
+| | [codex-quest-skill](codex-quest-skill.md) | GPT-only quest runner via Codex CLI — run quests without Claude Code. |
+| | [parallel-reviewer-orchestration](parallel-reviewer-orchestration.md) | Ensure Claude and Codex reviewers run in parallel during review phases. |
+| | [github-ci-pr-validation](github-ci-pr-validation.md) | CI workflow to validate quest plan structure on pull requests. |
+| | [quest-readme-auto-update](quest-readme-auto-update.md) | Auto-update `.quest/README.md` index when a quest completes. |
+| | [memory_bank_model](memory_bank_model.md) | Curated repo docs as the AI's authoritative mental model instead of scanning files. |
+| | [quest-completion-gate](quest-completion-gate.md) | When is a quest really done? Weigh trade-offs: close at review approval, close at PR merge, or soft close with hardening breadcrumbs. |
+| done | ~~quest-intake-gate~~ | Delegation-based intake gate with question-first routing for vague input. See [journal](../docs/quest-journal/quest-delegation-gate_2026-02-06.md). |
+| done | ~~handoff-fix-plan~~ | Standardize `---HANDOFF---` contracts across all role files. See [journal](../docs/quest-journal/handoff-contract-fix_2026-02-09.md). |
+| done | ~~quest-philosophy-small-core~~ | Thin orchestrator philosophy, handoff contracts, delegation workflow. See [journal](../docs/quest-journal/thin-orchestrator_2026-02-09.md). |
+| dropped | ~~default-quest-planner~~ | Brainstorm about configurable planner models. Superseded by gpt52-default-planner idea. |
+| dropped | ~~fixer~~ | One-line question about fixer routing. Never developed. |
+| dropped | ~~update_details~~ | UX brainstorm about update check UI. Never developed. |
+
+**Legend:** blank = not started, done = implemented (file removed), dropped = discarded (file removed)
 
 ## Format
 
@@ -17,7 +34,7 @@ Each idea is a brief markdown file with:
 # Idea Title
 
 ## What
-Brief description of the idea.
+Brief description.
 
 ## Why
 Why this would be useful.
@@ -31,4 +48,4 @@ idea | in-progress | implemented | rejected
 
 ## When to Graduate to a Quest
 
-When an idea is ready for implementation, run `/quest "your idea description"` to generate a new quest run under `.quest/`. Note that `.quest/` is gitignored by design - it holds ephemeral run state, not source-controlled artifacts.
+Run `/quest "your idea description"` to turn an idea into a quest run under `.quest/`.

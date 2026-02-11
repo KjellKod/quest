@@ -342,6 +342,12 @@ The allowlist (`.ai/allowlist.json`) controls gates:
 - When to approve fixes
 - When to commit and push
 
+### Where You Spend Your Time
+
+The human workflow is front-loaded and back-loaded. Planning is where you invest attention: reviewing the plan, reading the arbiter's reasoning, sometimes disagreeing. The middle (build, review, fix loops) runs largely on its own. Then after completion, you harden. The quest delivered an MVP that fulfills the plan — but seeing the feature built reveals implications that planning couldn't. Manual validation at this stage is where real understanding happens: you see how the plan was realized, spot hardening opportunities, and often kick off small adjustments or a v2 quest.
+
+Not all code is equal. Critical paths, security boundaries, and architectural decisions warrant manual review even after agents approve. The system handles volume; you handle judgment. This works when you and Quest drive with intention: good test coverage and quality as a first-class constraint, not an afterthought.
+
 ### Permission Enforcement
 
 Hook script enforces per-role permissions:
