@@ -97,7 +97,7 @@ Quest is a multi-agent workflow where specialized AI agents (planner, reviewers,
                                 GATE: human approval
 ```
 
-**Where you spend your time:** The beginning and the end. During planning, you review the plan, the arbiter's trade-off discussions, and occasionally override decisions. During hardening, you validate the MVP against reality — because you don't fully understand a feature until you see it built. Most follow-up quests and v2 ideas come from this post-build validation, not from planning.
+**Where you spend your time:** The beginning and the end. During planning, you review the plan, the arbiter's trade-off discussions, and occasionally override decisions. During hardening, you validate the MVP against reality — because you don't fully understand a feature until you see it built. Most follow-up quests and v2 ideas come from this post-build validation, not from planning. Critical code paths deserve human eyes regardless — you don't need to review every line, but you choose where to look. This works when you and Quest drive with intention: good test coverage and quality as a first-class constraint, not an afterthought.
 
 ## Quick Start
 Almost there [quick start instructions](https://github.com/KjellKod/quest?tab=readme-ov-file#quick-start)
