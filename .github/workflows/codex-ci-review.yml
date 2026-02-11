@@ -1,0 +1,115 @@
+name: Codex CI Code Review
+
+on:
+  pull_request:
+    types: [ready_for_review]
+
+concurrency:
+  group: codex-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  codex-review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    outputs:
+      review: ${{ steps.codex-review.outputs.final-message }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Codex CI review
+        id: codex-review
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: |
+            You are a CI code reviewer for the Quest framework repository.
+
+            ## Instructions
+
+            1. Read `.skills/ci-code-reviewer/SKILL.md` completely and follow it as your review protocol.
+            2. Read `AGENTS.md` for architecture boundaries and coding conventions.
+            3. Read `.ai/context_digest.md` for review priorities.
+
+            ## PR Context
+
+            - PR #: ${{ github.event.pull_request.number }}
+            - Title: ${{ github.event.pull_request.title }}
+            - Author: ${{ github.event.pull_request.user.login }}
+            - Base branch: ${{ github.event.pull_request.base.ref }}
+            - Head branch: ${{ github.event.pull_request.head.ref }}
+            - Base SHA: ${{ github.event.pull_request.base.sha }}
+            - Head SHA: ${{ github.event.pull_request.head.sha }}
+
+            ## PR Description
+
+            ```
+            ${{ github.event.pull_request.body }}
+            ```
+
+            ## Commands You Should Run
+
+            - Changed files:
+              `git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}`
+            - Summary:
+              `git diff --stat ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}`
+            - Full diff:
+              `git diff ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}`
+
+            ## Your Task
+
+            Follow `.skills/ci-code-reviewer/SKILL.md` step by step:
+            1. Validate PR description quality and implementation alignment.
+            2. Review changes for correctness, architecture boundaries, security hygiene, and test coverage.
+            3. Output findings in the skill's structured format.
+
+            Write your complete review output to stdout as your final message.
+          effort: high
+          sandbox: read-only
+          safety-strategy: drop-sudo
+
+  post-review:
+    runs-on: ubuntu-latest
+    needs: codex-review
+    if: needs.codex-review.outputs.review != ''
+    permissions:
+      # issues:write is required for issues.createComment on PRs
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Post review comment on PR
+        uses: actions/github-script@v7
+        env:
+          REVIEW_BODY: ${{ needs.codex-review.outputs.review }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const review = process.env.REVIEW_BODY || '';
+
+            const maxLen = 60000;
+            const bodyText = review.length > maxLen
+              ? review.substring(0, maxLen) + '\n\n---\n*Review truncated due to length.*'
+              : review;
+
+            const commentBody = [
+              '## Codex CI Code Review',
+              '',
+              bodyText,
+              '',
+              '---',
+              '*Automated review by OpenAI Codex via GitHub Actions*',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: commentBody,
+            });
