@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quest Portfolio Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-glow page-glow-left" aria-hidden="true"></div>
+    <div class="page-glow page-glow-right" aria-hidden="true"></div>
+
+    <div class="layout">
+      <header class="hero">
+        <p class="eyebrow">Quest Intelligence</p>
+        <h1>Quest Portfolio Dashboard</h1>
+        <p class="hero-subtitle">
+          Board-level visibility into quest outcomes, execution momentum, and strategic throughput.
+        </p>
+        <div class="meta-row">
+          <span class="meta-label">Data generated:</span>
+          <span id="generatedAt" class="meta-value">Loading...</span>
+        </div>
+      </header>
+
+      <div id="stateBanner" class="state-banner is-loading">Loading dashboard data...</div>
+
+      <main id="dashboardMain" class="dashboard hidden" aria-live="polite">
+        <section class="kpi-grid" aria-label="Portfolio KPI summary">
+          <article class="kpi-card">
+            <p class="kpi-label">Total Quests</p>
+            <p id="kpi-total" class="kpi-value">0</p>
+          </article>
+          <article class="kpi-card">
+            <p class="kpi-label">Finished</p>
+            <p id="kpi-finished" class="kpi-value status-finished">0</p>
+          </article>
+          <article class="kpi-card">
+            <p class="kpi-label">In Progress</p>
+            <p id="kpi-in-progress" class="kpi-value status-in-progress">0</p>
+          </article>
+          <article class="kpi-card">
+            <p class="kpi-label">Blocked</p>
+            <p id="kpi-blocked" class="kpi-value status-blocked">0</p>
+          </article>
+          <article class="kpi-card">
+            <p class="kpi-label">Abandoned</p>
+            <p id="kpi-abandoned" class="kpi-value status-abandoned">0</p>
+          </article>
+        </section>
+
+        <section id="chartsSection" class="panel-grid" aria-label="Portfolio charting">
+          <article class="panel">
+            <h2>Status Distribution</h2>
+            <p class="panel-subtitle">Current normalized state across all quests</p>
+            <div class="chart-wrap">
+              <canvas id="statusChart" role="img" aria-label="Quest status distribution chart"></canvas>
+            </div>
+          </article>
+
+          <article class="panel">
+            <h2>Final Status Over Time</h2>
+            <p class="panel-subtitle">Monthly trend using each quest's final/current status</p>
+            <div class="chart-wrap">
+              <canvas id="trendChart" role="img" aria-label="Quest monthly trend chart"></canvas>
+            </div>
+          </article>
+        </section>
+
+        <section class="quests-section" aria-label="Quest details">
+          <div class="quests-header">
+            <h2>Quest Portfolio</h2>
+            <p id="questCountLabel" class="panel-subtitle"></p>
+          </div>
+          <div id="questGrid" class="quest-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

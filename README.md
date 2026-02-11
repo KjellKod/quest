@@ -76,6 +76,13 @@ Quest is very useful, but it is not currently intended to be a long term maintai
 
 ![Adventurers in our quest](docs/media/quest_v0.14.png)
 
+## Dashboard
+
+Track portfolio status in the static executive dashboard:
+
+- [Quest Dashboard](docs/dashboard/index.html)
+- [Dashboard deployment + regeneration guide](docs/dashboard/README.md)
+
 ## What is Quest?
 
 Quest is a multi-agent workflow where specialized AI agents (planner, reviewers, builder) work in **isolated contexts** with **human approval gates**. Two different models (Claude + GPT) review independently, an arbiter filters nitpicks, and you approve before anything gets built.
