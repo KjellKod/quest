@@ -17,3 +17,4 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 | 2026-02-09 | [skill-strategy](skill-strategy_2026-02-09.md) | Research-only. Analyzed skill organization, distribution, and community patterns. |
 | 2026-02-09 | [handoff-contract-fix](handoff-contract-fix_2026-02-09.md) | Standardized `---HANDOFF---` contracts across all 6 role files and workflow prompts. |
 | 2026-02-09 | [thin-orchestrator](thin-orchestrator_2026-02-09.md) | Phase 2 of architecture evolution. Orchestrator passes paths, not content. Context stays lean. |
+| 2026-02-11 | [codex-ci-review](codex-ci-review_2026-02-11.md) | Automated Codex CI code review workflow for PRs transitioning to ready-for-review. |
