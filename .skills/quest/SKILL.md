@@ -71,7 +71,7 @@ Before creating the quest folder, present the routing classification to the user
 
 ### Quest Folder Creation
 
-1. Suggest a slug (lowercase, hyphenated, 2-5 words) and confirm with the user
+1. Generate a slug (lowercase, hyphenated, 2-5 words) and inform the user
 2. Create `.quest/<slug>_YYYY-MM-DD__HHMM/` with subfolders:
    `phase_01_plan/`, `phase_02_implementation/`, `phase_03_review/`, `logs/`
 3. Write quest brief to `.quest/<id>/quest_brief.md` including:

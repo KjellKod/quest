@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quest Dashboard</title>
+  <style>
+    /* Design tokens from PR #21 */
+    :root {
+      --bg-0: #05070f;
+      --bg-1: #0a0f1d;
+      --surface-0: rgba(17, 24, 39, 0.78);
+      --surface-1: rgba(15, 23, 42, 0.84);
+      --line: rgba(148, 163, 184, 0.22);
+      --text-0: #f8fafc;
+      --text-1: #cbd5e1;
+      --text-2: #94a3b8;
+      --status-finished: #34d399;
+      --status-in-progress: #60a5fa;
+      --status-blocked: #f59e0b;
+      --status-abandoned: #f87171;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --shadow-lg: 0 25px 60px rgba(2, 6, 23, 0.45);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(ellipse at top, var(--bg-1), var(--bg-0));
+      color: var(--text-0);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* Hero section */
+    .hero {
+      background: var(--surface-0);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 3rem 2rem;
+      margin-bottom: 3rem;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .hero h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text-0);
+    }
+
+    .hero-subtitle {
+      font-size: 1.125rem;
+      color: var(--text-2);
+      margin-bottom: 2rem;
+    }
+
+    .kpi-row {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .kpi-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .kpi-label {
+      font-size: 0.875rem;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+
+    .kpi-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-0);
+    }
+
+    .kpi-value--finished {
+      color: var(--status-finished);
+    }
+
+    .kpi-value--in-progress {
+      color: var(--status-in-progress);
+    }
+
+    .kpi-value--abandoned {
+      color: var(--status-abandoned);
+    }
+
+    /* Section headings */
+    .section {
+      margin-bottom: 3rem;
+    }
+
+    .section-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+      font-size: 1.875rem;
+      font-weight: 700;
+      color: var(--text-0);
+      margin-bottom: 0.25rem;
+    }
+
+    .section-subtitle {
+      font-size: 1rem;
+      color: var(--text-2);
+    }
+
+    /* Quest cards grid */
+    .quest-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .quest-card {
+      background: var(--surface-1);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .quest-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .quest-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .quest-card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-0);
+      flex: 1;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .badge--finished {
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--status-finished);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+
+    .badge--in-progress {
+      background: rgba(96, 165, 250, 0.15);
+      color: var(--status-in-progress);
+      border: 1px solid rgba(96, 165, 250, 0.3);
+    }
+
+    .badge--blocked {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--status-blocked);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .badge--abandoned {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--status-abandoned);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+    }
+
+    .quest-pitch {
+      font-size: 0.9375rem;
+      color: var(--text-1);
+      margin-bottom: 1rem;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .journal-link {
+      color: var(--status-in-progress);
+      text-decoration: none;
+      font-weight: 500;
+      margin-bottom: 1rem;
+      display: inline-block;
+    }
+
+    .journal-link:hover {
+      text-decoration: underline;
+    }
+
+    .quest-meta {
+      border-top: 1px solid var(--line);
+      padding-top: 0.75rem;
+      margin-top: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-2);
+    }
+
+    .meta-item {
+      display: inline-block;
+    }
+
+    .meta-link {
+      color: var(--text-2);
+      text-decoration: none;
+    }
+
+    .meta-link:hover {
+      color: var(--status-in-progress);
+      text-decoration: underline;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-2);
+      font-style: italic;
+    }
+
+    /* Warnings */
+    .warnings {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .warnings-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--status-blocked);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+
+    .warnings-list {
+      list-style: none;
+      font-size: 0.875rem;
+      color: var(--text-1);
+    }
+
+    .warnings-list li {
+      margin-bottom: 0.25rem;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--text-2);
+      font-size: 0.875rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero h1 {
+        font-size: 2rem;
+      }
+
+      .kpi-row {
+        gap: 1.5rem;
+      }
+
+      .section-title {
+        font-size: 1.5rem;
+      }
+
+      .quest-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <h1>Quest Dashboard</h1>
+      <div class="hero-subtitle">Quest status and progress tracking</div>
+      <div class="kpi-row">
+        <div class="kpi-item">
+          <div class="kpi-label">Finished</div>
+          <div class="kpi-value kpi-value--finished">13</div>
+        </div>
+        <div class="kpi-item">
+          <div class="kpi-label">In Progress</div>
+          <div class="kpi-value kpi-value--in-progress">0</div>
+        </div>
+        <div class="kpi-item">
+          <div class="kpi-label">Abandoned</div>
+          <div class="kpi-value kpi-value--abandoned">2</div>
+        </div>
+      </div>
+    </div>
+    <section class="section" id="finished-quests">
+      <div class="section-header">
+        <h2 class="section-title">Finished</h2>
+        <div class="section-subtitle">13 completed quests</div>
+      </div>
+      <div class="quest-grid">
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Harden URL Rendering</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Fixed HTML attribute injection (XSS) vulnerability in the Quest Dashboard&#x27;s URL rendering. Added `_sanitize_url()` function that validates scheme (HTTPS-only), validates GitHub URL pattern via regex, and applies HTML attribute escaping before any URL is interpolated into `href=&quot;...&quot;` attributes. Also escaped fallback relative paths, removed stderr side effect from loaders, and unified the `github_url` missing-value convention.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/harden-url-rendering_2026-02-12.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">harden-url-rendering_2026-02-12__1522</span>
+        <span class="meta-item">Feb 12, 2026</span>
+        <span class="meta-item">plan 1 / fix 1</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Quest: Dashboard V2</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Built the Quest Dashboard: a self-contained Python package that generates a static HTML dashboard from quest journal entries and active quest state files. Three status sections (Finished, In Progress, Abandoned) with dark navy theme, elevator pitch cards, journal/PR links, and muted metadata. Single-file HTML output with no external dependencies.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/dashboard-v2_2026-02-12.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">dashboard-v2_2026-02-12__0940</span>
+        <span class="meta-item">Feb 12, 2026</span>
+        <span class="meta-item">plan 1 / fix 1</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">codex-ci-review</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Ported the Codex CI code review workflow from candid_talent_edge (PR #164) to the Quest framework repository. Added a GitHub Actions workflow that triggers OpenAI Codex as an automated code reviewer when a PR transitions from draft to ready-for-review, a Quest-adapted CI code reviewer skill, and registered the new skill in the catalog and manifest.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/codex-ci-review_2026-02-11.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">codex-ci-review_2026-02-11__1314</span>
+        <span class="meta-item">Feb 11, 2026</span>
+        <span class="meta-item">plan 1 / fix 0</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">thin-orchestrator</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Implemented Phase 2 of the Quest architecture evolution: the &quot;thin orchestrator&quot; principle. The Quest orchestrator now passes file paths to subagents instead of embedding content, reducing context growth from O(n*content_size) to O(n*one_line).</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/thin-orchestrator_2026-02-09.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">thin-orchestrator_2026-02-09__1845</span>
+        <span class="meta-item">Feb 09, 2026</span>
+        <span class="meta-item">plan 1 / fix 1</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">skill-strategy</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Analyzed how Quest should organize, manage, and distribute skills. Researched community best practices (Agent Skills standard, plugin marketplaces, distribution patterns). Produced strategic recommendations.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/skill-strategy_2026-02-09.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">skill-strategy_2026-02-09__1200</span>
+        <span class="meta-item">Feb 09, 2026</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">handoff-contract-fix</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Fixed handoff contract inconsistencies across Quest role files and workflow. Standardized all 6 role files on `---HANDOFF---` text format with STATUS/ARTIFACTS/NEXT/SUMMARY fields, removed &quot;Context Is In Your Prompt&quot; contradictions, and made workflow prompts explicitly request handoff format.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/handoff-contract-fix_2026-02-09.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">handoff-contract-fix_2026-02-09__2228</span>
+        <span class="meta-item">Feb 09, 2026</span>
+        <span class="meta-item">plan 3 / fix 1</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Delegation-Based Intake Gate</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Decomposed the monolithic `.skills/quest/SKILL.md` (635 lines) into a slim routing entry point (73 lines) plus three delegation files under `.skills/quest/delegation/`. The delegation pattern structurally enforces intake quality — vague input routes to a dedicated questioning phase before planning begins, while detailed input goes directly to the workflow.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/quest-delegation-gate_2026-02-06.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">quest-delegation-gate_2026-02-05__2125</span>
+        <span class="meta-item">Feb 06, 2026</span>
+        <span class="meta-item">plan 1 / fix 1</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Caching Strategy Exploration</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Comprehensive research exploration mapping 11 distinct caching strategies applicable to the Quest AI agent system. The quest produced two educational research documents and a quest index README — no code changes, as the research itself was the deliverable.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/caching-strategy-exploration_2026-02-06.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">caching-strategy-exploration_2026-02-06__1305</span>
+        <span class="meta-item">Feb 06, 2026</span>
+        <span class="meta-item">plan 1 / fix 1</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Weekly Update Check</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Implemented automatic weekly update checking for Quest. After a quest completes, the system checks if updates are available (respecting a configurable interval) and prompts the user to update if a newer version exists upstream.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/weekly-update-check_2026-02-05.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">weekly-update-check_2026-02-04__2349</span>
+        <span class="meta-item">Feb 05, 2026</span>
+        <span class="meta-item">plan 2 / fix 0</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">validate-and-launch</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">First-ever quest run on the extracted repository. Validated that the Quest blueprint was correctly extracted from the source repo, created the `ideas/` directory for tracking future work, and updated the README with public domain messaging.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/validate-and-launch_2026-02-04.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">validate-and-launch_2026-02-04__1045</span>
+        <span class="meta-item">Feb 04, 2026</span>
+        <span class="meta-item">plan 1 / fix 1</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">interactive-plan-presentation</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Enhanced the quest orchestration to present plans interactively rather than dumping the full plan at once. Users now see a brief summary first, then can opt into a phase-by-phase walkthrough with the ability to request changes at each step.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/interactive-plan-presentation_2026-02-04.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">interactive-plan-presentation_2026-02-04__1516</span>
+        <span class="meta-item">Feb 04, 2026</span>
+        <span class="meta-item">plan 2 / fix 3</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Installer Script</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Created a single unified installer script (`scripts/quest_installer.sh`) that installs and updates Quest in any repository.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/installer-script_2026-02-04.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">installer-script_2026-02-04__1841</span>
+        <span class="meta-item">Feb 04, 2026</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">CI Quest Validation</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Implemented GitHub Actions CI and local pre-commit hooks that validate quest-related artifacts to prevent broken configurations from being committed.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/ci-quest-validation_2026-02-04.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">ci-quest-validation_2026-02-04__1532</span>
+        <span class="meta-item">Feb 04, 2026</span>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="section" id="in-progress-quests">
+      <div class="section-header">
+        <h2 class="section-title">In Progress</h2>
+        <div class="section-subtitle">0 active quests</div>
+      </div>
+      <div class="empty-state">No quests in this category</div>
+    </section>
+    <section class="section" id="abandoned-quests">
+      <div class="section-header">
+        <h2 class="section-title">Abandoned</h2>
+        <div class="section-subtitle">2 abandoned quests</div>
+      </div>
+      <div class="quest-grid">
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Quest: Dashboard Final Implementation</h3>
+            <span class="badge badge--abandoned">Abandoned</span>
+          </div>
+          <p class="quest-pitch">First attempt at building the Quest Dashboard. Plan was approved by arbiter after one iteration, but the build phase was interrupted when models were switched from Sonnet to Opus. Rather than resuming, a new quest (dashboard-v2) was created using this quest&#x27;s approved plan as input. Dashboard-v2 completed successfully.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/dashboard-final-implementation_2026-02-12.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">dashboard-final-implementation_2026-02-12__0913</span>
+        <span class="meta-item">Feb 12, 2026</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">quest-council-mode</h3>
+            <span class="badge badge--abandoned">Abandoned</span>
+          </div>
+          <p class="quest-pitch">Planned a dual-planning-track feature for `/quest` where users could choose between &quot;Quest&quot; (fast, single plan) and &quot;Quest Council&quot; (rigorous, two competing plans merged by arbiter). Plan was approved after 2 iterations but was never built.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/quest-council-mode_2026-02-05.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">quest-council-mode_2026-02-05__1636</span>
+        <span class="meta-item">Feb 05, 2026</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Generated on 2026-02-12 22:58:19 UTC
+    </footer>
+  </div>
+</body>
+</html>

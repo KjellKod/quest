@@ -1,0 +1,11 @@
+[project]
+name = "quest-dashboard"
+version = "0.1.0"
+description = "Static HTML dashboard generator for Quest"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
