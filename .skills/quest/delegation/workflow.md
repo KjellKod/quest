@@ -412,7 +412,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Create `docs/quest-journal/` directory if it doesn't exist
    - Write to `docs/quest-journal/<slug>_<YYYY-MM-DD>.md`
    - Include: quest ID, completion date, summary, files changed
-   - Append a row to `docs/quest-journal/README.md` index table (date, quest link, one-line outcome)
+   - Insert a row at the top of `docs/quest-journal/README.md` index table (after the header row) with date, quest link, and one-line outcome. The table is in reverse chronological order (newest first).
    - If quest originated from an idea file:
      - Quote the original idea content under "This is where it all began..."
      - Update the idea file's `## Status` to `implemented`
