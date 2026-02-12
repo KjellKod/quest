@@ -173,7 +173,6 @@ This document captures real-world user feedback about the Quest workflow to iden
 **Impact:** MEDIUM-HIGH - Could improve review quality and catch more issues
 
 ---
-
 ## Summary of Themes
 
 | Theme | Priority | Description |
