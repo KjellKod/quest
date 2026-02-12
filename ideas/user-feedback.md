@@ -100,6 +100,80 @@ This document captures real-world user feedback about the Quest workflow to iden
 
 ---
 
+### 6. Default Full Permission Mode for Quest Workflow
+
+**What users want:**
+- Quest should run in "full permission mode" by default
+- No prompts for routine operations: creating slugs, directories, reading directories
+- Should still ask for critical decisions like plan review
+- All "natural steps" in the workflow should proceed automatically without permission requests
+
+**Current state:**
+- Quest asks for permission on many routine operations
+- Creates friction and slows down the workflow
+- Interrupts the flow for non-critical decisions
+
+**Implementation questions:**
+- Can this be done programmatically within the quest system?
+- Or does it require users to start Claude in a specific mode/configuration?
+- Need to determine what can be automated vs. what requires user configuration or documentation
+
+**User quote:**
+> "By default, it is in full permission mode. It doesn't ask if it can create a slug, if they can create directories, if you can read directories. It should just be able to do all of these things. [...] In this higher mode, it does need to ask, like, review the plan, I think. But everything, all the natural steps, I think, should be as they are."
+
+**Impact:** HIGH - Reduces friction and improves workflow speed significantly
+
+---
+
+### 7. Exploration: Parallel Implementation Agents (RESEARCH)
+
+**Research question:**
+- Is it possible to run two implementation agents on the same branch simultaneously?
+- Would they collaborate effectively and work faster?
+- Or would they create conflicts and interfere with each other's work?
+
+**Potential benefits:**
+- Could speed up large builds by parallelizing work
+- Multiple agents could tackle different files or phases
+
+**Potential risks:**
+- Git conflicts and merge issues
+- Coordination overhead
+- Agents working at cross-purposes
+
+**Status:** Purely exploratory idea, needs investigation and prototyping
+
+**Impact:** UNKNOWN - Requires feasibility research and experimentation
+
+---
+
+### 8. Exploration: Multiple Review Agents with Different Perspectives (RESEARCH)
+
+**What users want to explore:**
+- Add more review agents beyond the current setup
+- Each reviewer focuses on a different perspective: security, performance, architecture, maintainability, etc.
+- Arbiter would synthesize and reconcile feedback from multiple reviewers
+- Could surface a wider range of issues and provide more comprehensive reviews
+
+**Implementation questions:**
+- Can this be done now just by prompting Claude differently in the review phase?
+- Or does it require changes to the quest orchestration code?
+- Should users be prompted to select which review perspectives they want?
+- Or should there be sensible defaults with configuration file overrides?
+
+**Design options:**
+- **Prompt-based**: User selects review angles at review time
+- **Default with config**: Pre-configured perspectives (e.g., security, performance, maintainability) that users can customize in a config file
+
+**User quote:**
+> "Can we add more review agents, and can the arbiter then work with more review agents and the collector feedback and so on? [...] We could have different angles on the review agents. Say security is one, for example, or we can even prompt the user if they should have different angles and viewpoints. Or another option is that we have a default that is to have different viewpoints, and we have to tell the user that this is a default. You can change it in the X, Y, C file."
+
+**Status:** Exploratory idea, needs design and feasibility analysis
+
+**Impact:** MEDIUM-HIGH - Could improve review quality and catch more issues
+
+---
+
 ## Summary of Themes
 
 | Theme | Priority | Description |
@@ -108,6 +182,9 @@ This document captures real-world user feedback about the Quest workflow to iden
 | **Smart Pausing** | HIGH | Agent should recommend breaking large/risky builds into multiple quests |
 | **Status Clarity** | MEDIUM | Better phase transition signals and resumption context |
 | **Plan Navigation** | MEDIUM-HIGH | Quick summaries and guided navigation for plan review |
+| **Permission Mode** | HIGH | Default full permission mode to reduce friction on routine operations |
+| **Parallel Agents** | RESEARCH | Can multiple implementation agents work simultaneously on same branch? |
+| **Multi-Perspective Review** | RESEARCH | Multiple review agents with different focuses (security, performance, etc.) |
 
 ---
 
