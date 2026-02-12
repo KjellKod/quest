@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import re
 import subprocess
-import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -74,6 +73,7 @@ def load_dashboard_data(
     # Detect GitHub URL if not provided
     if github_url is None:
         github_url = detect_github_url(repo_root)
+    github_url = github_url or ""
 
     return DashboardData(
         finished_quests=finished,
@@ -338,7 +338,9 @@ def _extract_summary_pitch(content: str) -> str | None:
     Returns the first paragraph under the ## Summary heading.
     """
     # Find ## Summary section
-    match = re.search(r"^##\s+Summary\s*$(.+?)(?=^##|\Z)", content, re.MULTILINE | re.DOTALL)
+    match = re.search(
+        r"^##\s+Summary\s*$(.+?)(?=^##|\Z)", content, re.MULTILINE | re.DOTALL
+    )
     if not match:
         return None
 
@@ -365,7 +367,9 @@ def _extract_first_paragraph(content: str) -> str:
             continue
 
         # Skip metadata lines: **Key:** value (key followed by colon inside or outside bold)
-        if re.match(r"\*\*[^*]+:\s*\*\*", stripped) or re.match(r"\*\*[^*]+\*\*\s*:", stripped):
+        if re.match(r"\*\*[^*]+:\s*\*\*", stripped) or re.match(
+            r"\*\*[^*]+\*\*\s*:", stripped
+        ):
             if paragraph_lines:
                 break
             continue
@@ -539,7 +543,6 @@ def _parse_active_quest(state_path: Path) -> tuple[ActiveQuest, list[str]]:
     else:
         msg = f"Missing quest_brief.md for quest {quest_id} ({quest_dir.name})"
         warnings.append(msg)
-        print(f"Warning: {msg}", file=sys.stderr)
         title = slug
         elevator_pitch = ""
 

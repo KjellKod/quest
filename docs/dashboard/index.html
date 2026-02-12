@@ -317,7 +317,7 @@
       <div class="kpi-row">
         <div class="kpi-item">
           <div class="kpi-label">Finished</div>
-          <div class="kpi-value kpi-value--finished">11</div>
+          <div class="kpi-value kpi-value--finished">13</div>
         </div>
         <div class="kpi-item">
           <div class="kpi-label">In Progress</div>
@@ -332,9 +332,22 @@
     <section class="section" id="finished-quests">
       <div class="section-header">
         <h2 class="section-title">Finished</h2>
-        <div class="section-subtitle">11 completed quests</div>
+        <div class="section-subtitle">13 completed quests</div>
       </div>
       <div class="quest-grid">
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Harden URL Rendering</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Fixed HTML attribute injection (XSS) vulnerability in the Quest Dashboard&#x27;s URL rendering. Added `_sanitize_url()` function that validates scheme (HTTPS-only), validates GitHub URL pattern via regex, and applies HTML attribute escaping before any URL is interpolated into `href=&quot;...&quot;` attributes. Also escaped fallback relative paths, removed stderr side effect from loaders, and unified the `github_url` missing-value convention.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/harden-url-rendering_2026-02-12.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">harden-url-rendering_2026-02-12__1522</span>
+        <span class="meta-item">Feb 12, 2026</span>
+        <span class="meta-item">plan 1 / fix 1</span>
+          </div>
+        </article>
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">Quest: Dashboard V2</h3>
@@ -346,6 +359,19 @@
         <span class="meta-item">dashboard-v2_2026-02-12__0940</span>
         <span class="meta-item">Feb 12, 2026</span>
         <span class="meta-item">plan 1 / fix 1</span>
+          </div>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">codex-ci-review</h3>
+            <span class="badge badge--finished">Completed</span>
+          </div>
+          <p class="quest-pitch">Ported the Codex CI code review workflow from candid_talent_edge (PR #164) to the Quest framework repository. Added a GitHub Actions workflow that triggers OpenAI Codex as an automated code reviewer when a PR transitions from draft to ready-for-review, a Quest-adapted CI code reviewer skill, and registered the new skill in the catalog and manifest.</p>
+          <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/codex-ci-review_2026-02-11.md" class="journal-link">View Journal &rarr;</a>
+          <div class="quest-meta">
+        <span class="meta-item">codex-ci-review_2026-02-11__1314</span>
+        <span class="meta-item">Feb 11, 2026</span>
+        <span class="meta-item">plan 1 / fix 0</span>
           </div>
         </article>
         <article class="quest-card">
@@ -495,7 +521,7 @@
             <h3 class="quest-card-title">Quest: Dashboard Final Implementation</h3>
             <span class="badge badge--abandoned">Abandoned</span>
           </div>
-          <p class="quest-pitch">First attempt at building the Quest Dashboard. Plan was approved by arbiter after one iteration, but the build phase was interrupted when models were switched from Sonnet to Opus. Rather than resuming, a new quest (dashboard-v2) was created using this quest&#39;s approved plan as input. Dashboard-v2 completed successfully.</p>
+          <p class="quest-pitch">First attempt at building the Quest Dashboard. Plan was approved by arbiter after one iteration, but the build phase was interrupted when models were switched from Sonnet to Opus. Rather than resuming, a new quest (dashboard-v2) was created using this quest&#x27;s approved plan as input. Dashboard-v2 completed successfully.</p>
           <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/dashboard-final-implementation_2026-02-12.md" class="journal-link">View Journal &rarr;</a>
           <div class="quest-meta">
         <span class="meta-item">dashboard-final-implementation_2026-02-12__0913</span>
@@ -518,7 +544,7 @@
     </section>
 
     <footer class="footer">
-      Generated on 2026-02-12 19:29:06 UTC
+      Generated on 2026-02-12 22:58:19 UTC
     </footer>
   </div>
 </body>

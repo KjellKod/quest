@@ -3,8 +3,6 @@
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-import pytest
-
 from quest_dashboard.models import ActiveQuest, DashboardData, JournalEntry
 from quest_dashboard.render import render_dashboard
 
@@ -40,7 +38,10 @@ def test_finished_card_has_journal_link(tmp_path):
 
     # Check for View Journal link
     assert "View Journal &rarr;" in html
-    assert "https://github.com/owner/repo/blob/main/docs/quest-journal/test-quest.md" in html
+    assert (
+        "https://github.com/owner/repo/blob/main/docs/quest-journal/test-quest.md"
+        in html
+    )
 
 
 def test_active_card_has_no_journal_link(tmp_path):
@@ -71,7 +72,7 @@ def test_active_card_has_no_journal_link(tmp_path):
     # Active section should not have View Journal link
     # Extract just the in-progress section
     in_progress_start = html.find('id="in-progress-quests"')
-    in_progress_end = html.find('</section>', in_progress_start)
+    in_progress_end = html.find("</section>", in_progress_start)
     in_progress_section = html[in_progress_start:in_progress_end]
 
     assert "View Journal" not in in_progress_section
@@ -201,8 +202,8 @@ def test_html_is_self_contained(tmp_path):
 
     # Check for external references
     assert '<link rel="stylesheet"' not in html
-    assert '<script src=' not in html
-    assert 'url(http' not in html.lower()
+    assert "<script src=" not in html
+    assert "url(http" not in html.lower()
 
     # Should have inline style tag
     assert "<style>" in html
@@ -298,7 +299,7 @@ def test_kpi_counts_correct(tmp_path):
 
     # Extract hero section
     hero_start = html.find('<div class="hero">')
-    hero_end = html.find('</div>', hero_start) + 6
+    hero_end = html.find("</div>", hero_start) + 6
     hero_section = html[hero_start:hero_end]
 
     # Check KPI values (they appear in specific order with specific classes)
@@ -372,3 +373,159 @@ def test_quest_id_displayed_in_metadata(tmp_path):
     assert "my-quest-id-001" in html
     # slug should NOT appear in metadata (it may appear elsewhere, but not in meta-item)
     assert 'class="meta-item">my-quest-slug<' not in html
+
+
+def test_github_url_with_double_quote_injection(tmp_path):
+    """XSS regression: github_url with double-quote injection must not break href attribute."""
+    entry = JournalEntry(
+        quest_id="xss-001",
+        slug="xss-test",
+        title="XSS Test",
+        elevator_pitch="Test.",
+        status="Completed",
+        completed_date=date(2026, 2, 10),
+        journal_path=Path("docs/quest-journal/xss-test.md"),
+        pr_number=42,
+    )
+
+    data = DashboardData(
+        finished_quests=[entry],
+        active_quests=[],
+        abandoned_quests=[],
+        github_repo_url='" onmouseover="alert(1)',
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    html = render_dashboard(data, output_path, repo_root)
+
+    # The malicious URL is not a valid GitHub URL, so it should be rejected.
+    # The raw injected string must not appear in any href attribute.
+    assert '" onmouseover="alert(1)' not in html
+
+
+def test_github_url_with_javascript_scheme(tmp_path):
+    """XSS regression: javascript: scheme github_url must be rejected."""
+    entry = JournalEntry(
+        quest_id="xss-002",
+        slug="xss-js",
+        title="XSS JS Test",
+        elevator_pitch="Test.",
+        status="Completed",
+        completed_date=date(2026, 2, 10),
+        journal_path=Path("docs/quest-journal/xss-js.md"),
+        pr_number=43,
+    )
+
+    data = DashboardData(
+        finished_quests=[entry],
+        active_quests=[],
+        abandoned_quests=[],
+        github_repo_url="javascript:alert(1)",
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    html = render_dashboard(data, output_path, repo_root)
+
+    # javascript: must never appear in any href
+    assert "javascript:" not in html
+    # Journal link should fall back to relative path
+    assert "../../docs/quest-journal/xss-js.md" in html
+    # PR link should fall back to #
+    assert 'href="#"' in html
+
+
+def test_github_url_with_single_quote_injection(tmp_path):
+    """XSS regression: github_url with single-quote injection must not break href attribute."""
+    entry = JournalEntry(
+        quest_id="xss-003",
+        slug="xss-sq",
+        title="XSS SQ Test",
+        elevator_pitch="Test.",
+        status="Completed",
+        completed_date=date(2026, 2, 10),
+        journal_path=Path("docs/quest-journal/xss-sq.md"),
+        pr_number=44,
+    )
+
+    data = DashboardData(
+        finished_quests=[entry],
+        active_quests=[],
+        abandoned_quests=[],
+        github_repo_url="' onmouseover='alert(1)",
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    html = render_dashboard(data, output_path, repo_root)
+
+    # The malicious URL is not a valid GitHub URL, so it should be rejected.
+    assert "' onmouseover='alert(1)" not in html
+
+
+def test_valid_github_url_renders_correctly(tmp_path):
+    """Test that a valid github_url produces correct journal and PR links."""
+    entry = JournalEntry(
+        quest_id="valid-001",
+        slug="valid-quest",
+        title="Valid Quest",
+        elevator_pitch="Test.",
+        status="Completed",
+        completed_date=date(2026, 2, 10),
+        journal_path=Path("docs/quest-journal/valid-quest.md"),
+        pr_number=50,
+    )
+
+    data = DashboardData(
+        finished_quests=[entry],
+        active_quests=[],
+        abandoned_quests=[],
+        github_repo_url="https://github.com/owner/repo",
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    html = render_dashboard(data, output_path, repo_root)
+
+    # Valid URLs should be preserved
+    assert (
+        "https://github.com/owner/repo/blob/main/docs/quest-journal/valid-quest.md"
+        in html
+    )
+    assert "https://github.com/owner/repo/pull/50" in html
+
+
+def test_fallback_journal_link_with_malicious_filename(tmp_path):
+    """XSS regression: journal filename with quotes must be escaped in fallback relative link."""
+    entry = JournalEntry(
+        quest_id="xss-fallback-001",
+        slug="xss-fallback",
+        title="XSS Fallback Test",
+        elevator_pitch="Test.",
+        status="Completed",
+        completed_date=date(2026, 2, 10),
+        journal_path=Path('docs/quest-journal/evil" onclick="alert(1).md'),
+    )
+
+    data = DashboardData(
+        finished_quests=[entry],
+        active_quests=[],
+        abandoned_quests=[],
+        github_repo_url="",  # Empty URL triggers fallback to relative path
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    html = render_dashboard(data, output_path, repo_root)
+
+    # The raw double-quote must NOT appear unescaped in the href attribute.
+    # It should be escaped to &quot; so it cannot break out of href="...".
+    assert 'evil" onclick="alert(1)' not in html
+    # The escaped version should be present instead
+    assert "evil&quot; onclick=&quot;alert(1).md" in html

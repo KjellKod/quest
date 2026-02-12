@@ -8,16 +8,16 @@ This module generates a self-contained HTML file with:
 
 from __future__ import annotations
 
+import html
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 
 from .models import ActiveQuest, DashboardData, JournalEntry
 
 
-def render_dashboard(
-    data: DashboardData, output_path: Path, repo_root: Path
-) -> str:
+def render_dashboard(data: DashboardData, output_path: Path, repo_root: Path) -> str:
     """Render the complete dashboard HTML.
 
     Args:
@@ -30,9 +30,13 @@ def render_dashboard(
     """
     css = _render_css()
     hero = _render_hero(data)
-    finished_section = _render_finished_section(data.finished_quests, data.github_repo_url, output_path, repo_root)
+    finished_section = _render_finished_section(
+        data.finished_quests, data.github_repo_url, output_path, repo_root
+    )
     active_section = _render_active_section(data.active_quests)
-    abandoned_section = _render_abandoned_section(data.abandoned_quests, data.github_repo_url, output_path, repo_root)
+    abandoned_section = _render_abandoned_section(
+        data.abandoned_quests, data.github_repo_url, output_path, repo_root
+    )
     warnings_html = _render_warnings(data.warnings)
     footer = _render_footer(data.generated_at)
 
@@ -448,7 +452,9 @@ def _render_journal_section(
             _render_journal_card(q, badge_class, github_url, output_path, repo_root)
             for q in quests
         ]
-        cards_html = f'      <div class="quest-grid">\n' + "\n".join(cards) + "\n      </div>"
+        cards_html = (
+            f'      <div class="quest-grid">\n' + "\n".join(cards) + "\n      </div>"
+        )
 
     return f"""    <section class="section" id="{section_id}">
       <div class="section-header">
@@ -472,7 +478,7 @@ def _render_journal_card(
     )
 
     # Format metadata items -- AC #6: show quest_id in muted metadata
-    meta_items = [f'<span class="meta-item">{_escape_html(entry.quest_id)}</span>']
+    meta_items = [f'<span class="meta-item">{html.escape(entry.quest_id)}</span>']
     meta_items.append(
         f'<span class="meta-item">{entry.completed_date.strftime("%b %d, %Y")}</span>'
     )
@@ -486,16 +492,18 @@ def _render_journal_card(
     # Add PR link if available
     if entry.pr_number:
         pr_link = _compute_pr_link(entry.pr_number, github_url)
-        meta_items.append(f'<a href="{pr_link}" class="meta-link">PR #{entry.pr_number}</a>')
+        meta_items.append(
+            f'<a href="{pr_link}" class="meta-link">PR #{entry.pr_number}</a>'
+        )
 
     meta_html = "\n        ".join(meta_items)
 
     return f"""        <article class="quest-card">
           <div class="quest-card-header">
-            <h3 class="quest-card-title">{_escape_html(entry.title)}</h3>
-            <span class="badge badge--{badge_class}">{_escape_html(entry.status)}</span>
+            <h3 class="quest-card-title">{html.escape(entry.title)}</h3>
+            <span class="badge badge--{badge_class}">{html.escape(entry.status)}</span>
           </div>
-          <p class="quest-pitch">{_escape_html(entry.elevator_pitch)}</p>
+          <p class="quest-pitch">{html.escape(entry.elevator_pitch)}</p>
           <a href="{journal_link}" class="journal-link">View Journal &rarr;</a>
           <div class="quest-meta">
         {meta_html}
@@ -509,7 +517,9 @@ def _render_active_section(quests: list[ActiveQuest]) -> str:
         cards_html = '      <div class="empty-state">No quests in this category</div>'
     else:
         cards = [_render_active_card(q) for q in quests]
-        cards_html = f'      <div class="quest-grid">\n' + "\n".join(cards) + "\n      </div>"
+        cards_html = (
+            f'      <div class="quest-grid">\n' + "\n".join(cards) + "\n      </div>"
+        )
 
     return f"""    <section class="section" id="in-progress-quests">
       <div class="section-header">
@@ -530,8 +540,8 @@ def _render_active_card(quest: ActiveQuest) -> str:
         badge_class = "in-progress"
 
     # Format metadata items -- AC #6: show quest_id in muted metadata
-    meta_items = [f'<span class="meta-item">{_escape_html(quest.quest_id)}</span>']
-    meta_items.append(f'<span class="meta-item">{_escape_html(quest.phase)}</span>')
+    meta_items = [f'<span class="meta-item">{html.escape(quest.quest_id)}</span>']
+    meta_items.append(f'<span class="meta-item">{html.escape(quest.phase)}</span>')
     meta_items.append(
         f'<span class="meta-item">{quest.updated_at.strftime("%b %d, %Y")}</span>'
     )
@@ -546,10 +556,10 @@ def _render_active_card(quest: ActiveQuest) -> str:
 
     return f"""        <article class="quest-card">
           <div class="quest-card-header">
-            <h3 class="quest-card-title">{_escape_html(quest.title)}</h3>
-            <span class="badge badge--{badge_class}">{_escape_html(quest.status)}</span>
+            <h3 class="quest-card-title">{html.escape(quest.title)}</h3>
+            <span class="badge badge--{badge_class}">{html.escape(quest.status)}</span>
           </div>
-          <p class="quest-pitch">{_escape_html(quest.elevator_pitch)}</p>
+          <p class="quest-pitch">{html.escape(quest.elevator_pitch)}</p>
           <div class="quest-meta">
         {meta_html}
           </div>
@@ -561,7 +571,7 @@ def _render_warnings(warnings: list[str]) -> str:
     if not warnings:
         return ""
 
-    warnings_items = "\n".join(f"      <li>{_escape_html(w)}</li>" for w in warnings)
+    warnings_items = "\n".join(f"      <li>{html.escape(w)}</li>" for w in warnings)
 
     return f"""    <div class="warnings">
       <div class="warnings-title">Build Warnings</div>
@@ -577,6 +587,33 @@ def _render_footer(generated_at: datetime) -> str:
     return f"""    <footer class="footer">
       Generated on {timestamp}
     </footer>"""
+
+
+def _sanitize_url(url: str) -> str:
+    """Validate and escape a URL for safe use in an HTML href attribute.
+
+    Args:
+        url: Raw URL string.
+
+    Returns:
+        Sanitized URL string safe for attribute interpolation, or "" if invalid.
+    """
+    url = url.strip()
+    if not url:
+        return ""
+
+    # Reject non-HTTPS schemes (blocks javascript:, data:, vbscript:, http://, etc.)
+    if not url.startswith("https://"):
+        return ""
+
+    # Validate GitHub URL pattern: https://github.com/<owner>/<repo> with optional path
+    if not re.match(
+        r"^https://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+(/.*)?$", url
+    ):
+        return ""
+
+    # HTML attribute escaping
+    return html.escape(url)
 
 
 def _compute_journal_link(
@@ -597,8 +634,11 @@ def _compute_journal_link(
         URL or relative path to journal file
     """
     if github_url:
-        # Use GitHub blob URL
-        return f"{github_url}/blob/main/{journal_path.as_posix()}"
+        # Use GitHub blob URL, validated and escaped
+        sanitized = _sanitize_url(f"{github_url}/blob/main/{journal_path.as_posix()}")
+        if sanitized:
+            return sanitized
+        # If sanitization fails, fall through to relative-path fallback
 
     # Fallback to relative path from output location to repo root
     try:
@@ -606,11 +646,11 @@ def _compute_journal_link(
         repo_resolved = repo_root.resolve()
         rel_to_root = Path(os.path.relpath(repo_resolved, output_dir))
         rel_path = rel_to_root / journal_path
-        return rel_path.as_posix()
+        return html.escape(rel_path.as_posix())
     except ValueError:
         # On Windows, relpath fails across drives; fall back to ../../
         rel_path = Path("../..") / journal_path
-        return rel_path.as_posix()
+        return html.escape(rel_path.as_posix())
 
 
 def _compute_pr_link(pr_number: int, github_url: str) -> str:
@@ -624,23 +664,9 @@ def _compute_pr_link(pr_number: int, github_url: str) -> str:
         URL to PR (or # if github_url is empty)
     """
     if github_url:
-        return f"{github_url}/pull/{pr_number}"
+        sanitized = _sanitize_url(f"{github_url}/pull/{pr_number}")
+        if sanitized:
+            return sanitized
     return "#"
 
 
-def _escape_html(text: str) -> str:
-    """Escape HTML special characters.
-
-    Args:
-        text: Text to escape
-
-    Returns:
-        Escaped text safe for HTML
-    """
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-        .replace("'", "&#39;")
-    )

@@ -11,11 +11,14 @@ import argparse
 import sys
 from pathlib import Path
 
-# Add scripts/ to path so quest_dashboard package is importable
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from quest_dashboard.loaders import load_dashboard_data
-from quest_dashboard.render import render_dashboard
+# Prefer installed package; fall back to sys.path for direct script execution
+try:
+    from quest_dashboard.loaders import load_dashboard_data
+    from quest_dashboard.render import render_dashboard
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from quest_dashboard.loaders import load_dashboard_data
+    from quest_dashboard.render import render_dashboard
 
 
 def parse_args(argv=None):
@@ -80,6 +83,7 @@ def main(argv=None):
     print(f"  Finished: {len(data.finished_quests)}")
     print(f"  In Progress: {len(data.active_quests)}")
     print(f"  Abandoned: {len(data.abandoned_quests)}")
+    print(f"\n  Open in browser: open {output_path}")
 
     # Print warnings to stderr
     for warning in data.warnings:

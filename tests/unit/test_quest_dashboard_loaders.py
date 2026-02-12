@@ -4,8 +4,6 @@ import json
 from datetime import date, datetime
 from pathlib import Path
 
-import pytest
-
 from quest_dashboard.loaders import (
     _extract_iterations,
     _extract_metadata,
@@ -53,7 +51,10 @@ More content here.
     assert entry.title == "Test Quest"
     assert entry.status == "Completed"
     assert entry.completed_date == date(2026, 2, 10)
-    assert entry.elevator_pitch == "This is the elevator pitch from the summary section. It should be extracted correctly."
+    assert (
+        entry.elevator_pitch
+        == "This is the elevator pitch from the summary section. It should be extracted correctly."
+    )
     assert entry.pr_number == 24
     assert entry.plan_iterations == 2
     assert entry.fix_iterations == 1
@@ -82,7 +83,10 @@ More content.
 
     entry = _parse_journal_entry(journal_path, tmp_path)
 
-    assert entry.elevator_pitch == "This is the correct elevator pitch from the Summary section."
+    assert (
+        entry.elevator_pitch
+        == "This is the correct elevator pitch from the Summary section."
+    )
     assert "first paragraph after the title" not in entry.elevator_pitch
 
 
@@ -158,7 +162,9 @@ def test_active_quest_skips_archive(tmp_path):
     (archive_dir / "state.json").write_text(json.dumps(state), encoding="utf-8")
 
     # Create quest_brief.md in archive
-    (archive_dir / "quest_brief.md").write_text("# Quest Brief: Archived", encoding="utf-8")
+    (archive_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Archived", encoding="utf-8"
+    )
 
     quests, warnings = load_active_quests(quest_dir)
 
@@ -194,7 +200,10 @@ Some requirements here.
 
     quest, quest_warnings = _parse_active_quest(quest_dir / "state.json")
 
-    assert quest.elevator_pitch == "This is the elevator pitch from the original prompt section."
+    assert (
+        quest.elevator_pitch
+        == "This is the elevator pitch from the original prompt section."
+    )
     assert len(quest_warnings) == 0
 
 
@@ -261,7 +270,9 @@ def test_active_quests_sorted_by_phase_then_date(tmp_path):
             "updated_at": updated_at,
         }
         (quest_path / "state.json").write_text(json.dumps(state), encoding="utf-8")
-        (quest_path / "quest_brief.md").write_text(f"# Quest Brief: {slug}", encoding="utf-8")
+        (quest_path / "quest_brief.md").write_text(
+            f"# Quest Brief: {slug}", encoding="utf-8"
+        )
 
     quests, warnings = load_active_quests(quest_dir)
 
@@ -402,3 +413,41 @@ This quest is already completed.
     # Only the genuinely new quest should be in active
     assert len(data.active_quests) == 1
     assert data.active_quests[0].quest_id == "new-quest-002"
+
+
+def test_missing_quest_brief_no_stderr(tmp_path, capsys):
+    """Test that missing quest_brief.md does not write to stderr."""
+    quest_dir = tmp_path / ".quest" / "no-brief"
+    quest_dir.mkdir(parents=True)
+
+    state = {
+        "quest_id": "no-brief",
+        "slug": "no-brief",
+        "status": "in_progress",
+        "phase": "building",
+        "updated_at": "2026-02-12T10:00:00Z",
+    }
+    (quest_dir / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    # Intentionally NOT creating quest_brief.md
+
+    _parse_active_quest(quest_dir / "state.json")
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+
+
+def test_load_dashboard_data_normalizes_none_github_url(tmp_path):
+    """Test that load_dashboard_data normalizes github_url=None to empty string."""
+    # Create minimal directory structure so load_dashboard_data does not error
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    quest_dir = tmp_path / ".quest"
+    quest_dir.mkdir(parents=True)
+
+    from unittest.mock import patch
+
+    with patch("quest_dashboard.loaders.detect_github_url", return_value=""):
+        data = load_dashboard_data(tmp_path, github_url=None)
+
+    assert data.github_repo_url == ""
+    assert isinstance(data.github_repo_url, str)

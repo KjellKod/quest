@@ -53,7 +53,7 @@ def test_build_dashboard_produces_valid_html(tmp_path):
 
     # No external dependencies
     assert '<link rel="stylesheet"' not in html
-    assert '<script src=' not in html
+    assert "<script src=" not in html
 
     # KPI section present
     assert "Finished" in html
