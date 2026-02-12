@@ -40,11 +40,36 @@ Use this format:
 - 1-3 bullet points explaining what this PR does and why.
 
 ## Changes
-- List key changes grouped logically (added, modified, removed).
+- **<Category>**:
+  - Description of change
+  - Description of change
+- **<Category>**:
+  - Description of change
 
 ## Test Plan
 - [ ] Checklist of how to verify the changes.
 ```
+
+### Changes section formatting
+
+Group changes by domain or concern, not by git operation (add/modify/remove).
+Choose category names that reflect what area of the system is affected.
+
+Common categories (use what fits, invent others as needed):
+- **Behavior** — user-facing or system behavior changes
+- **Skills** — skill definitions and skill catalog
+- **Config** — configuration, schemas, allowlist
+- **Manifest** — `.quest-manifest` updates
+- **Documentation** — docs, journal entries, guides
+- **CI/Workflows** — GitHub Actions, automation
+- **Tests** — test additions or changes
+- **Security** — security hardening, permissions
+
+Rules:
+- Each category gets a bold header with nested bullet descriptions.
+- Keep descriptions concise — one line per change, focus on what and why.
+- Omit categories with no changes. Only include what is relevant.
+- If the PR is very small (1-2 files), a flat bullet list is fine — do not force categories.
 
 ### Draft mode (required)
 

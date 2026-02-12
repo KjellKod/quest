@@ -40,6 +40,13 @@ This directory contains specialized skills for AI agents working in this reposit
 
 **Location:** `.skills/code-reviewer/SKILL.md`
 
+### ci-code-reviewer
+**Purpose:** Automated CI code review for GitHub PRs using OpenAI Codex. Validates PR descriptions, enforces Quest architecture boundaries, checks quality, and maps test coverage to acceptance criteria.
+
+**Use when:** Running automated code review in GitHub Actions when a PR transitions from draft to ready-for-review.
+
+**Location:** `.skills/ci-code-reviewer/SKILL.md`
+
 ### implementer
 **Purpose:** Implement an approved implementation plan step by step, producing small reviewable changes and mapping code/tests to acceptance criteria.
 
