@@ -12,6 +12,7 @@ jobs:
   codex-review:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
+    environment: codex-ci-review
     permissions:
       contents: read
     outputs:
@@ -26,6 +27,8 @@ jobs:
       - name: Run Codex CI review
         id: codex-review
         uses: openai/codex-action@v1
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt: |
@@ -49,9 +52,8 @@ jobs:
 
             ## PR Description
 
-            ```
-            ${{ github.event.pull_request.body }}
-            ```
+            The PR description is available in the environment variable PR_BODY.
+            Read it with: `echo "$PR_BODY"`
 
             ## Commands You Should Run
 
