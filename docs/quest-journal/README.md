@@ -17,3 +17,5 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 | 2026-02-09 | [skill-strategy](skill-strategy_2026-02-09.md) | Research-only. Analyzed skill organization, distribution, and community patterns. |
 | 2026-02-09 | [handoff-contract-fix](handoff-contract-fix_2026-02-09.md) | Standardized `---HANDOFF---` contracts across all 6 role files and workflow prompts. |
 | 2026-02-09 | [thin-orchestrator](thin-orchestrator_2026-02-09.md) | Phase 2 of architecture evolution. Orchestrator passes paths, not content. Context stays lean. |
+| 2026-02-12 | [dashboard-final-implementation](dashboard-final-implementation_2026-02-12.md) | **Abandoned.** First dashboard attempt — plan approved, build interrupted by model switch. Superseded by dashboard-v2. |
+| 2026-02-12 | [dashboard-v2](dashboard-v2_2026-02-12.md) | Quest Dashboard: self-contained Python package generating static HTML dashboard with dark navy theme, three status sections, 29 tests. |

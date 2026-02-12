@@ -13,6 +13,15 @@
     "tool": "claude",
     "notes": "Set to 'codex' to use gpt-5.3-codex as Arbiter instead of Claude. Default: claude."
   },
+  "model_overrides": {
+    "planner": "opus",
+    "plan_reviewer_a": "opus",
+    "plan_reviewer_b": "gpt-5.2",
+    "builder": "opus",
+    "code_reviewer_a": "opus",
+    "code_reviewer_b": "gpt-5.2",
+    "arbiter": "opus"
+  },
   "review_mode": "auto",
   "fast_review_thresholds": {
     "max_files": 5,
@@ -27,22 +36,22 @@
     "planner_agent": {
       "file_write": [".quest/**", "docs/implementation/**"],
       "file_read": ["**"],
-      "bash": ["find", "grep", "wc", "tree", "ls"]
+      "bash": ["find", "grep", "wc", "tree", "ls", "gh pr view.*"]
     },
     "plan_review_claude": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
-      "bash": []
+      "bash": ["gh pr view.*"]
     },
     "plan_review_codex": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
-      "bash": []
+      "bash": ["gh pr view.*"]
     },
     "arbiter_agent": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
-      "bash": []
+      "bash": ["gh pr view.*"]
     },
     "builder_agent": {
       "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "scripts/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
@@ -52,7 +61,7 @@
     "code_review_agent": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
-      "bash": ["git diff", "git log", "git status"]
+      "bash": ["git diff", "git log", "git status", "gh pr view.*"]
     },
     "fixer_agent": {
       "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
