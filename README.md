@@ -60,13 +60,13 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 
 **The philosophy is right. The architecture is pragmatically correct. The gap between them is the roadmap.**
 
-See `ideas/quest-architecture-evolution.md` for the phased plan to close these gaps.
+See [ideas/quest-architecture-evolution.md](ideas/quest-architecture-evolution.md) for the phased plan to close these gaps.
 
 # Quest: A Multi-Agent Orchestration Blueprint
 
 **Part of the [Candid Talent Edge](https://candidtalentedge.com) initiative by KjellKod**
 
-> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool.
+> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool. Take a [look at how a disciplined approach](docs/guides/quest_presentation.md) to software engineering is directly applicable to an agentic orchestration setup. 
 
 Quest is a portable framework for running coordinated AI agents with human oversight.
 
@@ -83,20 +83,23 @@ Quest is a multi-agent workflow where specialized AI agents (planner, reviewers,
 **One sentence:** *"Structured AI teamwork with checks and balances."*
 
 ```
-┌─────────────── PLAN PHASE ───────────────┐    ┌─────────── BUILD PHASE ───────────┐
-│                                          │    │                                   │
-│  You → Planner → Reviewers → Arbiter  ───┼────→  Builder → Reviewers ──┬──→ Done  │
-│            ▲      (Claude)      │        │    │              (Claude)  │          │
-│            │      (Codex)       │        │    │              (Codex)   │          │
-│            └───── iterate ──────┘        │    │                 │      │          │
-│                                          │    │                 ▼      │          │
-│                                          │    │              Fixer ────┘          │
-│                                          │    │           (if issues)             │
-└──────────────────────────────────────────┘    └───────────────────────────────────┘
+┌─────────────── PLAN PHASE ───────────────┐    ┌─────────── BUILD PHASE ─────────────┐
+│                                          │    │                                     │
+│  You → Planner → Reviewers → Arbiter  ───┼────→  Builder → Reviewers → Arbiter ──→ Done 
+│            ▲      (Claude)      │        │    │              (Claude)  │            │ ▲
+│            │      (Codex)       │        │    │              (Codex)   │            │ GATE: human approval
+│            └───── iterate ──────┘        │    │                 │      │            │
+│                                          │    │                 ▼      │            │
+│                                          │    │              Fixer ────┘            │
+│                                          │    │           (if issues)               │
+└──────────────────────────────────────────┘    └─────────────────────────────────────┘
                                    ▲
                                 GATE: human approval
 ```
-## Quick Start 
+
+**Where you spend your time:** The beginning and the end. During planning, you review the plan, the arbiter's trade-off discussions, and occasionally override decisions. During hardening, you validate the MVP against reality — because you don't fully understand a feature until you see it built. Most follow-up quests and v2 ideas come from this post-build validation, not from planning. Critical code paths deserve human eyes regardless — you don't need to review every line, but you choose where to look. This works when you and Quest drive with intention: good test coverage and quality as a first-class constraint, not an afterthought.
+
+## Quick Start
 Almost there [quick start instructions](https://github.com/KjellKod/quest?tab=readme-ov-file#quick-start)
 
 ## Prerequisites
@@ -408,7 +411,7 @@ The Quest Orchestrator (main Claude running `/quest`) coordinates specialized ag
                                   │
                     ┌─────────────┴─────────────┐
                     │   SINGLE MESSAGE with     │
-                    │   TWO TOOL CALLS          │
+                    │   TWO...MANY TOOL CALLS   │
                     └─────────────┬─────────────┘
                                   │
               ┌───────────────────┼───────────────────┐
