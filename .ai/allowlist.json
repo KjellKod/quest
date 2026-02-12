@@ -16,10 +16,10 @@
   "model_overrides": {
     "planner": "opus",
     "plan_reviewer_a": "opus",
-    "plan_reviewer_b": "gpt-5.2",
+    "plan_reviewer_b": "gpt-5.3-codex",
     "builder": "opus",
     "code_reviewer_a": "opus",
-    "code_reviewer_b": "gpt-5.2",
+    "code_reviewer_b": "gpt-5.3-codex",
     "arbiter": "opus"
   },
   "review_mode": "auto",
