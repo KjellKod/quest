@@ -6,6 +6,7 @@ Future work items not yet ready for a full quest. When an idea is ready, run `/q
 
 | Status | Idea | Elevator pitch |
 |--------|------|---------------|
+| | [user-feedback](user-feedback.md) | Real-world user feedback on Quest UX: cost transparency, smart pausing, status clarity, plan navigation. |
 | | [quest-architecture-evolution](quest-architecture-evolution.md) | 5-phase roadmap to close the gap between Quest's philosophy and implementation. Phase 2 done, 3-5 remain. |
 | | [quest-step-numbering-cleanup](quest-step-numbering-cleanup.md) | Fix step numbering overlap between SKILL.md and workflow.md after the delegation refactor. |
 | | [quest-council_v1](quest-council_v1.md) | Dual-plan "council" mode: generate two competing plans, compare, merge the best parts. |
