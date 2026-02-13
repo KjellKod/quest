@@ -15,6 +15,7 @@ Future work items not yet ready for a full quest. When an idea is ready, run `/q
 | | [codex-quest-skill](codex-quest-skill.md) | GPT-only quest runner via Codex CLI — run quests without Claude Code. |
 | | [parallel-reviewer-orchestration](parallel-reviewer-orchestration.md) | Ensure Claude and Codex reviewers run in parallel during review phases. |
 | | [github-ci-pr-validation](github-ci-pr-validation.md) | CI workflow to validate quest plan structure on pull requests. |
+| | [quest-abandon-flow](quest-abandon-flow.md) | `/quest abandon <id>` command — formal abandon with journal entry, state update, and archive cleanup. |
 | | [quest-readme-auto-update](quest-readme-auto-update.md) | Auto-update `.quest/README.md` index when a quest completes. |
 | | [memory_bank_model](memory_bank_model.md) | Curated repo docs as the AI's authoritative mental model instead of scanning files. |
 | | [quest-completion-gate](quest-completion-gate.md) | When is a quest really done? Weigh trade-offs: close at review approval, close at PR merge, or soft close with hardening breadcrumbs. |
