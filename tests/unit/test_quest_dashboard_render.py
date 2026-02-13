@@ -876,7 +876,7 @@ def test_hero_has_timestamp(tmp_path):
 
 
 def test_kpi_row_blocked_count(tmp_path):
-    """Blocked KPI shows correct count; In Progress = active - blocked."""
+    """Blocked KPI shows correct count; unknown-status quests excluded from In Progress."""
     active_quests = [
         ActiveQuest(
             quest_id=f"active-{i}",
@@ -899,6 +899,16 @@ def test_kpi_row_blocked_count(tmp_path):
             updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
         )
         for i in range(2)
+    ] + [
+        ActiveQuest(
+            quest_id="mystery-001",
+            slug="mystery",
+            title="Mystery Quest",
+            elevator_pitch="Unknown status.",
+            status="SomethingWeird",
+            phase="Unknown",
+            updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
+        ),
     ]
 
     data = DashboardData(
@@ -914,8 +924,10 @@ def test_kpi_row_blocked_count(tmp_path):
 
     # Blocked KPI shows 2
     assert 'kpi-value kpi-value--blocked">2<' in result
-    # In Progress KPI shows 3 (5 active - 2 blocked)
+    # In Progress KPI shows 3 (not 4) -- unknown-status quest excluded
     assert 'kpi-value kpi-value--in-progress">3<' in result
+    # Total includes all 6 active quests (including the unknown one)
+    assert 'kpi-value">6<' in result
 
 
 def test_charts_side_by_side_in_panel_grid(tmp_path):
@@ -1063,3 +1075,55 @@ def test_unknown_status_badge(tmp_path):
 
     assert "badge--unknown" in result
     assert "UNKNOWN" in result
+
+
+def test_doughnut_chart_counts_unknown_separately(tmp_path):
+    """Doughnut chart counts unknown-status quests in Unknown, not In Progress.
+
+    Regression test for bug where unknown_count was hardcoded to 0 and
+    unknowns were silently merged into in_progress_count.
+    """
+    active_quests = [
+        ActiveQuest(
+            quest_id="normal-001",
+            slug="normal",
+            title="Normal Quest",
+            elevator_pitch="Normal.",
+            status="In Progress",
+            phase="Building",
+            updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
+        ),
+        ActiveQuest(
+            quest_id="blocked-001",
+            slug="blocked",
+            title="Blocked Quest",
+            elevator_pitch="Blocked.",
+            status="Blocked",
+            phase="Building",
+            updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
+        ),
+        ActiveQuest(
+            quest_id="mystery-001",
+            slug="mystery",
+            title="Mystery Quest",
+            elevator_pitch="Mystery.",
+            status="SomethingWeird",
+            phase="Unknown",
+            updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
+        ),
+    ]
+
+    data = DashboardData(
+        finished_quests=[],
+        active_quests=active_quests,
+        abandoned_quests=[],
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    result = render_dashboard(data, output_path, repo_root)
+
+    # Doughnut data array: [in_progress, blocked, abandoned, finished, unknown]
+    # Expected: [1, 1, 0, 0, 1] -- not [2, 1, 0, 0, 0]
+    assert "data: [1, 1, 0, 0, 1]" in result

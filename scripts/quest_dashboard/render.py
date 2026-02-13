@@ -54,9 +54,7 @@ def render_dashboard(data: DashboardData, output_path: Path, repo_root: Path) ->
     hero = _render_hero(data)
     kpi_row = _render_kpi_row(data)
     charts_section = _render_charts_section()
-    portfolio_section = _render_portfolio_section(
-        data, data.github_repo_url, output_path, repo_root
-    )
+    portfolio_section = _render_portfolio_section(data, data.github_repo_url)
     warnings_html = _render_warnings(data.warnings)
     footer = _render_footer(data.generated_at)
     chart_config = _render_chart_config(data, chart_js_loaded)
@@ -564,12 +562,16 @@ def _render_kpi_row(data: DashboardData) -> str:
     """Render the 5 KPI cards row below the hero.
 
     Cards: Total Quests, Finished, In Progress, Blocked, Abandoned.
-    In Progress = active_count - blocked_count (no double-counting).
+    Uses _classify_status() so counts agree with the doughnut chart.
     """
-    blocked_count = sum(
-        1 for q in data.active_quests if "block" in q.status.lower()
-    )
-    in_progress_count = len(data.active_quests) - blocked_count
+    blocked_count = 0
+    in_progress_count = 0
+    for q in data.active_quests:
+        cls = _classify_status(q.status)
+        if cls == "blocked":
+            blocked_count += 1
+        elif cls != "unknown":
+            in_progress_count += 1
     finished_count = len(data.finished_quests)
     abandoned_count = len(data.abandoned_quests)
     total = finished_count + len(data.active_quests) + abandoned_count
@@ -714,11 +716,17 @@ def _render_chart_config(data: DashboardData, chart_js_available: bool) -> str:
 
     finished_count = len(data.finished_quests)
     abandoned_count = len(data.abandoned_quests)
-    blocked_count = sum(
-        1 for q in data.active_quests if "block" in q.status.lower()
-    )
-    in_progress_count = len(data.active_quests) - blocked_count
-    unknown_count = 0  # No unknown quests from current data model
+    blocked_count = 0
+    in_progress_count = 0
+    unknown_count = 0
+    for q in data.active_quests:
+        cls = _classify_status(q.status)
+        if cls == "blocked":
+            blocked_count += 1
+        elif cls == "unknown":
+            unknown_count += 1
+        else:
+            in_progress_count += 1
 
     # Compute monthly buckets for time-progression chart
     buckets = _compute_monthly_buckets(data)
@@ -851,8 +859,6 @@ document.addEventListener('DOMContentLoaded', function() {{
 def _render_portfolio_section(
     data: DashboardData,
     github_url: str,
-    output_path: Path,
-    repo_root: Path,
 ) -> str:
     """Render the unified Quest Portfolio section with all quests."""
     # Merge all quests into a single list with sort keys
