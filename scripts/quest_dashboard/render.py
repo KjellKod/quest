@@ -1,11 +1,12 @@
 """HTML rendering for the Quest Dashboard.
 
 This module generates a self-contained HTML file with:
-- Inline CSS (dark navy theme from PR #21)
-- Ambient glow effects and gradient enhancements
-- Interactive charts (doughnut + time-progression) via inlined Chart.js
-- Three status sections: Finished, In Progress, Abandoned
-- Quest cards with title, elevator pitch, journal links, and metadata
+- Inline CSS (dark navy theme matching PR #21 executive design)
+- Ambient glow effects (2 orbs: sky-blue left, teal right)
+- Interactive charts (doughnut + line chart) via inlined Chart.js
+- 5 KPI cards (Total, Finished, In Progress, Blocked, Abandoned)
+- Unified Quest Portfolio section with all quests sorted by date
+- Quest cards with full pitch, labeled metadata, and status badges
 """
 
 from __future__ import annotations
@@ -13,11 +14,11 @@ from __future__ import annotations
 import html
 import json
 import logging
-import os
 import re
 from collections import OrderedDict
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
+from typing import Union
 
 from .models import ActiveQuest, DashboardData, JournalEntry
 
@@ -26,6 +27,14 @@ logger = logging.getLogger(__name__)
 # Path to the vendored Chart.js file
 _VENDOR_DIR = Path(__file__).parent / "vendor"
 _CHARTJS_PATH = _VENDOR_DIR / "chart.min.js"
+
+# Badge text mapping: internal status -> display badge text
+_BADGE_TEXT = {
+    "completed": "FINISHED",
+    "abandoned": "ABANDONED",
+    "in progress": "IN PROGRESS",
+    "blocked": "BLOCKED",
+}
 
 
 def render_dashboard(data: DashboardData, output_path: Path, repo_root: Path) -> str:
@@ -43,13 +52,10 @@ def render_dashboard(data: DashboardData, output_path: Path, repo_root: Path) ->
     chart_js_lib, chart_js_loaded = _render_chart_js()
     glows = _render_glows()
     hero = _render_hero(data)
+    kpi_row = _render_kpi_row(data)
     charts_section = _render_charts_section()
-    finished_section = _render_finished_section(
-        data.finished_quests, data.github_repo_url, output_path, repo_root
-    )
-    active_section = _render_active_section(data.active_quests)
-    abandoned_section = _render_abandoned_section(
-        data.abandoned_quests, data.github_repo_url, output_path, repo_root
+    portfolio_section = _render_portfolio_section(
+        data, data.github_repo_url, output_path, repo_root
     )
     warnings_html = _render_warnings(data.warnings)
     footer = _render_footer(data.generated_at)
@@ -60,7 +66,7 @@ def render_dashboard(data: DashboardData, output_path: Path, repo_root: Path) ->
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Quest Dashboard</title>
+  <title>Quest Portfolio Dashboard</title>
   <style>
 {css}
   </style>
@@ -70,10 +76,9 @@ def render_dashboard(data: DashboardData, output_path: Path, repo_root: Path) ->
 {glows}
   <div class="container">
 {hero}
+{kpi_row}
 {charts_section}
-{finished_section}
-{active_section}
-{abandoned_section}
+{portfolio_section}
 {warnings_html}
 {footer}
   </div>
@@ -91,6 +96,7 @@ def _render_css() -> str:
       --bg-1: #0a0f1d;
       --surface-0: rgba(17, 24, 39, 0.78);
       --surface-1: rgba(15, 23, 42, 0.84);
+      --surface-2: rgba(30, 41, 59, 0.75);
       --line: rgba(148, 163, 184, 0.22);
       --text-0: #f8fafc;
       --text-1: #cbd5e1;
@@ -99,6 +105,7 @@ def _render_css() -> str:
       --status-in-progress: #60a5fa;
       --status-blocked: #f59e0b;
       --status-abandoned: #f87171;
+      --status-unknown: #a78bfa;
       --radius-lg: 22px;
       --radius-md: 16px;
       --shadow-lg: 0 25px 60px rgba(2, 6, 23, 0.45);
@@ -112,7 +119,10 @@ def _render_css() -> str:
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: radial-gradient(ellipse at top, var(--bg-1), var(--bg-0));
+      background:
+        radial-gradient(1200px circle at 8% -5%, rgba(56, 189, 248, 0.18), transparent 42%),
+        radial-gradient(1000px circle at 92% 12%, rgba(45, 212, 191, 0.12), transparent 38%),
+        linear-gradient(155deg, var(--bg-0) 0%, var(--bg-1) 68%, #0f172a 100%);
       color: var(--text-0);
       line-height: 1.6;
       min-height: 100vh;
@@ -126,15 +136,47 @@ def _render_css() -> str:
       margin: 0 auto;
     }
 
+    /* Page glow effects */
+    .page-glow {
+      position: fixed;
+      border-radius: 50%;
+      width: 480px;
+      height: 480px;
+      filter: blur(95px);
+      opacity: 0.38;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .page-glow-left {
+      top: -220px;
+      left: -160px;
+      background: #0ea5e9;
+    }
+
+    .page-glow-right {
+      top: 120px;
+      right: -180px;
+      background: #14b8a6;
+    }
+
     /* Hero section */
     .hero {
-      background: var(--surface-0);
+      background: linear-gradient(140deg, rgba(15,23,42,0.9), rgba(30,41,59,0.74));
       backdrop-filter: blur(12px);
       border: 1px solid var(--line);
       border-radius: var(--radius-lg);
       padding: 3rem 2rem;
-      margin-bottom: 3rem;
+      margin-bottom: 2rem;
       box-shadow: var(--shadow-lg);
+    }
+
+    .eyebrow {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #67e8f9;
+      margin-bottom: 0.5rem;
     }
 
     .hero h1 {
@@ -147,18 +189,43 @@ def _render_css() -> str:
     .hero-subtitle {
       font-size: 1.125rem;
       color: var(--text-2);
+      margin-bottom: 1.5rem;
+    }
+
+    .meta-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .meta-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-2);
+      font-weight: 600;
+    }
+
+    .meta-value {
+      font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85rem;
+      color: var(--text-1);
+    }
+
+    /* KPI cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1rem;
       margin-bottom: 2rem;
     }
 
-    .kpi-row {
-      display: flex;
-      gap: 2rem;
-      flex-wrap: wrap;
-    }
-
-    .kpi-item {
-      display: flex;
-      flex-direction: column;
+    .kpi-card {
+      background: var(--surface-0);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      text-align: center;
     }
 
     .kpi-label {
@@ -171,7 +238,7 @@ def _render_css() -> str:
 
     .kpi-value {
       font-size: 2rem;
-      font-weight: 700;
+      font-weight: 800;
       color: var(--text-0);
     }
 
@@ -183,32 +250,71 @@ def _render_css() -> str:
       color: var(--status-in-progress);
     }
 
+    .kpi-value--blocked {
+      color: var(--status-blocked);
+    }
+
     .kpi-value--abandoned {
       color: var(--status-abandoned);
     }
 
-    /* Section headings */
-    .section {
-      margin-bottom: 3rem;
+    /* Chart panels */
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2rem;
     }
 
-    .section-header {
-      margin-bottom: 1.5rem;
-      border-bottom: 2px solid transparent;
-      border-image: linear-gradient(to right, var(--status-finished), transparent) 1;
-      padding-bottom: 0.75rem;
+    .panel {
+      background: var(--surface-0);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-lg);
+      min-height: 340px;
     }
 
-    .section-title {
-      font-size: 1.875rem;
+    .panel h2 {
+      font-size: 1.18rem;
       font-weight: 700;
       color: var(--text-0);
       margin-bottom: 0.25rem;
     }
 
-    .section-subtitle {
-      font-size: 1rem;
+    .panel-subtitle {
+      font-size: 0.88rem;
       color: var(--text-2);
+      margin-bottom: 1rem;
+    }
+
+    .chart-wrap {
+      height: 255px;
+      position: relative;
+    }
+
+    /* Quest Portfolio section */
+    .quests-section {
+      background: var(--surface-0);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .quests-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+      margin-bottom: 1.5rem;
+    }
+
+    .quests-header h2 {
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: var(--text-0);
     }
 
     /* Quest cards grid */
@@ -219,18 +325,20 @@ def _render_css() -> str:
     }
 
     .quest-card {
-      background: linear-gradient(135deg, var(--surface-1), rgba(15, 23, 42, 0.6));
+      background: var(--surface-2);
       border: 1px solid var(--line);
-      border-radius: var(--radius-md);
+      border-radius: 14px;
       padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      min-height: 210px;
+      display: grid;
+      gap: 10px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     }
 
     .quest-card:hover {
-      transform: translateY(-2px);
+      transform: translateY(-3px);
       box-shadow: var(--shadow-lg);
+      border-color: rgba(148,163,184, 0.5);
     }
 
     .quest-card-header {
@@ -238,7 +346,6 @@ def _render_css() -> str:
       justify-content: space-between;
       align-items: flex-start;
       gap: 1rem;
-      margin-bottom: 1rem;
     }
 
     .quest-card-title {
@@ -282,50 +389,39 @@ def _render_css() -> str:
       border: 1px solid rgba(248, 113, 113, 0.3);
     }
 
+    .badge--unknown {
+      background: rgba(167, 139, 250, 0.15);
+      color: var(--status-unknown);
+      border: 1px solid rgba(167, 139, 250, 0.3);
+    }
+
     .quest-pitch {
-      font-size: 0.9375rem;
+      font-size: 0.92rem;
       color: var(--text-1);
-      margin-bottom: 1rem;
-      line-height: 1.5;
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .journal-link {
-      color: var(--status-in-progress);
-      text-decoration: none;
-      font-weight: 500;
-      margin-bottom: 1rem;
-      display: inline-block;
-    }
-
-    .journal-link:hover {
-      text-decoration: underline;
+      line-height: 1.58;
     }
 
     .quest-meta {
       border-top: 1px solid var(--line);
       padding-top: 0.75rem;
       margin-top: auto;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      font-size: 0.8125rem;
+      display: grid;
+      gap: 5px;
+      font-size: 0.83rem;
       color: var(--text-2);
     }
 
-    .meta-item {
-      display: inline-block;
+    .quest-meta b {
+      color: #e2e8f0;
+      font-weight: 600;
     }
 
-    .meta-link {
+    .quest-meta a {
       color: var(--text-2);
       text-decoration: none;
     }
 
-    .meta-link:hover {
+    .quest-meta a:hover {
       color: var(--status-in-progress);
       text-decoration: underline;
     }
@@ -374,179 +470,75 @@ def _render_css() -> str:
       font-size: 0.875rem;
     }
 
-    /* Glow effects */
-    .glow {
-      position: fixed;
-      border-radius: 50%;
-      filter: blur(120px);
-      opacity: 0.15;
-      pointer-events: none;
-      z-index: -1;
+    /* Responsive: 3 breakpoints */
+    @media (max-width: 1120px) {
+      .kpi-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .quest-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
 
-    .glow--green {
-      width: 400px;
-      height: 400px;
-      top: -100px;
-      right: -100px;
-      background: var(--status-finished);
-    }
+    @media (max-width: 780px) {
+      body {
+        padding: 1rem 0.5rem;
+      }
 
-    .glow--blue {
-      width: 350px;
-      height: 350px;
-      bottom: -80px;
-      left: -80px;
-      background: var(--status-in-progress);
-    }
+      .hero {
+        padding: 2rem 1.25rem;
+      }
 
-    .glow--amber {
-      width: 300px;
-      height: 300px;
-      top: 40%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--status-abandoned);
-      opacity: 0.1;
-    }
-
-    /* Chart containers */
-    .chart-container {
-      max-width: 400px;
-      margin: 1.5rem auto 0;
-    }
-
-    .charts-section {
-      background: var(--surface-0);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      padding: 2rem;
-      margin-bottom: 3rem;
-      box-shadow: var(--shadow-lg);
-    }
-
-    .charts-section h2 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--text-0);
-      margin-bottom: 1rem;
-    }
-
-    .charts-grid {
-      display: flex;
-      gap: 2rem;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .chart-panel {
-      flex: 1;
-      min-width: 280px;
-      max-width: 500px;
-    }
-
-    .chart-panel h3 {
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--text-1);
-      text-align: center;
-      margin-bottom: 0.5rem;
-    }
-
-    /* Hero chart layout */
-    .hero-content {
-      display: flex;
-      gap: 2rem;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .hero-kpis {
-      flex: 1;
-      min-width: 200px;
-    }
-
-    .hero-chart {
-      flex: 0 0 200px;
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
       .hero h1 {
         font-size: 2rem;
       }
 
-      .kpi-row {
-        gap: 1.5rem;
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
 
-      .section-title {
-        font-size: 1.5rem;
+      .panel-grid {
+        grid-template-columns: 1fr;
       }
 
       .quest-grid {
         grid-template-columns: 1fr;
       }
+    }
 
-      .hero-content {
-        flex-direction: column;
+    @media (max-width: 460px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
       }
 
-      .hero-chart {
-        flex: 0 0 auto;
-        width: 100%;
-        max-width: 200px;
-        margin: 0 auto;
+      .quests-header {
+        flex-direction: column;
+        align-items: flex-start;
       }
     }"""
 
 
 def _render_hero(data: DashboardData) -> str:
-    """Render the hero section with title and KPIs."""
-    finished_count = len(data.finished_quests)
-    active_count = len(data.active_quests)
-    abandoned_count = len(data.abandoned_quests)
+    """Render the hero section with QUEST INTELLIGENCE branding."""
+    timestamp = data.generated_at.strftime("%b %d, %Y, %I:%M %p UTC")
 
     return f"""    <div class="hero">
-      <h1>Quest Dashboard</h1>
-      <div class="hero-subtitle">Quest status and progress tracking</div>
-      <div class="hero-content">
-        <div class="hero-kpis">
-          <div class="kpi-row">
-            <div class="kpi-item">
-              <div class="kpi-label">Finished</div>
-              <div class="kpi-value kpi-value--finished">{finished_count}</div>
-            </div>
-            <div class="kpi-item">
-              <div class="kpi-label">In Progress</div>
-              <div class="kpi-value kpi-value--in-progress">{active_count}</div>
-            </div>
-            <div class="kpi-item">
-              <div class="kpi-label">Abandoned</div>
-              <div class="kpi-value kpi-value--abandoned">{abandoned_count}</div>
-            </div>
-          </div>
-        </div>
-        <div class="hero-chart">
-          <div class="chart-container">
-            <canvas id="chart-status-doughnut"></canvas>
-            <noscript>Chart requires JavaScript</noscript>
-          </div>
-        </div>
-      </div>
+      <p class="eyebrow">QUEST INTELLIGENCE</p>
+      <h1>Quest Portfolio Dashboard</h1>
+      <div class="hero-subtitle">Board-level visibility into quest outcomes, execution momentum, and strategic throughput.</div>
+      <div class="meta-row"><span class="meta-label">DATA GENERATED:</span> <span class="meta-value">{timestamp}</span></div>
     </div>"""
 
 
 def _render_glows() -> str:
     """Emit fixed-position decorative glow divs.
 
-    These go outside .container in the body, providing ambient color
-    effects behind the dashboard content.
+    Two glow orbs: sky-blue left and teal right, providing ambient
+    color effects behind the dashboard content.
     """
-    return """  <div class="glow glow--green" aria-hidden="true"></div>
-  <div class="glow glow--blue" aria-hidden="true"></div>
-  <div class="glow glow--amber" aria-hidden="true"></div>"""
+    return """  <div class="page-glow page-glow-left" aria-hidden="true"></div>
+  <div class="page-glow page-glow-right" aria-hidden="true"></div>"""
 
 
 def _render_chart_js() -> tuple[str, bool]:
@@ -568,39 +560,105 @@ def _render_chart_js() -> tuple[str, bool]:
     return f"  <script>\n{chart_js_source}\n  </script>", True
 
 
+def _render_kpi_row(data: DashboardData) -> str:
+    """Render the 5 KPI cards row below the hero.
+
+    Cards: Total Quests, Finished, In Progress, Blocked, Abandoned.
+    In Progress = active_count - blocked_count (no double-counting).
+    """
+    blocked_count = sum(
+        1 for q in data.active_quests if "block" in q.status.lower()
+    )
+    in_progress_count = len(data.active_quests) - blocked_count
+    finished_count = len(data.finished_quests)
+    abandoned_count = len(data.abandoned_quests)
+    total = finished_count + len(data.active_quests) + abandoned_count
+
+    return f"""    <div class="kpi-grid">
+      <article class="kpi-card">
+        <p class="kpi-label">Total Quests</p>
+        <p class="kpi-value">{total}</p>
+      </article>
+      <article class="kpi-card">
+        <p class="kpi-label">Finished</p>
+        <p class="kpi-value kpi-value--finished">{finished_count}</p>
+      </article>
+      <article class="kpi-card">
+        <p class="kpi-label">In Progress</p>
+        <p class="kpi-value kpi-value--in-progress">{in_progress_count}</p>
+      </article>
+      <article class="kpi-card">
+        <p class="kpi-label">Blocked</p>
+        <p class="kpi-value kpi-value--blocked">{blocked_count}</p>
+      </article>
+      <article class="kpi-card">
+        <p class="kpi-label">Abandoned</p>
+        <p class="kpi-value kpi-value--abandoned">{abandoned_count}</p>
+      </article>
+    </div>"""
+
+
 def _render_charts_section() -> str:
-    """Emit the time-progression chart section between hero and finished quests."""
-    return """    <section class="charts-section">
-      <h2>Quest Activity Over Time</h2>
-      <div class="chart-panel">
-        <canvas id="chart-time-progression"></canvas>
-        <noscript>Chart requires JavaScript</noscript>
+    """Emit the side-by-side chart panels (doughnut + line chart)."""
+    return """    <div class="panel-grid">
+      <div class="panel">
+        <h2>Status Distribution</h2>
+        <p class="panel-subtitle">Current normalized state across all quests</p>
+        <div class="chart-wrap">
+          <canvas id="chart-status-doughnut"></canvas>
+          <noscript>Chart requires JavaScript</noscript>
+        </div>
       </div>
-    </section>"""
+      <div class="panel">
+        <h2>Final Status Over Time</h2>
+        <p class="panel-subtitle">Monthly trend using each quest's final/current status</p>
+        <div class="chart-wrap">
+          <canvas id="chart-time-progression"></canvas>
+          <noscript>Chart requires JavaScript</noscript>
+        </div>
+      </div>
+    </div>"""
 
 
 def _compute_monthly_buckets(data: DashboardData) -> OrderedDict[str, dict[str, int]]:
-    """Group finished and abandoned quests by month for the time-progression chart.
+    """Group all quests by month for the time-progression chart.
 
-    Active quests are excluded -- this chart tracks completions and
-    abandonments over time.
+    Tracks all 5 statuses: finished, abandoned, in_progress, blocked, unknown.
 
     Returns:
         OrderedDict keyed by 'YYYY-MM' strings (sorted chronologically),
-        each value is ``{"finished": int, "abandoned": int}``.
+        each value is ``{"finished": int, "abandoned": int, "in_progress": int,
+        "blocked": int, "unknown": int}``.
         Gaps between min and max months are filled with zeros.
     """
+    empty_bucket = {
+        "finished": 0,
+        "abandoned": 0,
+        "in_progress": 0,
+        "blocked": 0,
+        "unknown": 0,
+    }
     raw: dict[str, dict[str, int]] = {}
 
     for quest in data.finished_quests:
         key = quest.completed_date.strftime("%Y-%m")
-        raw.setdefault(key, {"finished": 0, "abandoned": 0})
+        raw.setdefault(key, dict(empty_bucket))
         raw[key]["finished"] += 1
 
     for quest in data.abandoned_quests:
         key = quest.completed_date.strftime("%Y-%m")
-        raw.setdefault(key, {"finished": 0, "abandoned": 0})
+        raw.setdefault(key, dict(empty_bucket))
         raw[key]["abandoned"] += 1
+
+    for quest in data.active_quests:
+        key = quest.updated_at.strftime("%Y-%m")
+        raw.setdefault(key, dict(empty_bucket))
+        if "block" in quest.status.lower():
+            raw[key]["blocked"] += 1
+        elif _classify_status(quest.status) == "unknown":
+            raw[key]["unknown"] += 1
+        else:
+            raw[key]["in_progress"] += 1
 
     if not raw:
         return OrderedDict()
@@ -614,13 +672,30 @@ def _compute_monthly_buckets(data: DashboardData) -> OrderedDict[str, dict[str, 
     year, month = min_year, min_month
     while (year, month) <= (max_year, max_month):
         key = f"{year:04d}-{month:02d}"
-        result[key] = raw.get(key, {"finished": 0, "abandoned": 0})
+        result[key] = raw.get(key, dict(empty_bucket))
         month += 1
         if month > 12:
             month = 1
             year += 1
 
     return result
+
+
+def _classify_status(status: str) -> str:
+    """Classify a quest status string into a known category.
+
+    Returns one of: 'finished', 'in_progress', 'blocked', 'abandoned', 'unknown'.
+    """
+    lower = status.lower()
+    if lower in ("completed", "finished"):
+        return "finished"
+    if "block" in lower:
+        return "blocked"
+    if lower in ("abandoned",):
+        return "abandoned"
+    if lower in ("in progress", "in_progress"):
+        return "in_progress"
+    return "unknown"
 
 
 def _render_chart_config(data: DashboardData, chart_js_available: bool) -> str:
@@ -638,45 +713,61 @@ def _render_chart_config(data: DashboardData, chart_js_available: bool) -> str:
         return ""
 
     finished_count = len(data.finished_quests)
-    active_count = len(data.active_quests)
     abandoned_count = len(data.abandoned_quests)
+    blocked_count = sum(
+        1 for q in data.active_quests if "block" in q.status.lower()
+    )
+    in_progress_count = len(data.active_quests) - blocked_count
+    unknown_count = 0  # No unknown quests from current data model
 
     # Compute monthly buckets for time-progression chart
     buckets = _compute_monthly_buckets(data)
     labels = list(buckets.keys())
     finished_series = [b["finished"] for b in buckets.values()]
     abandoned_series = [b["abandoned"] for b in buckets.values()]
+    in_progress_series = [b["in_progress"] for b in buckets.values()]
+    blocked_series = [b["blocked"] for b in buckets.values()]
+    unknown_series = [b["unknown"] for b in buckets.values()]
 
     return f"""  <script>
 document.addEventListener('DOMContentLoaded', function() {{
-  // Doughnut chart: status distribution
+  // Doughnut chart: status distribution (all 5 statuses)
   var doughnutCtx = document.getElementById('chart-status-doughnut');
   if (doughnutCtx) {{
     new Chart(doughnutCtx, {{
       type: 'doughnut',
       data: {{
-        labels: ['Finished', 'In Progress', 'Abandoned'],
+        labels: ['In Progress', 'Blocked', 'Abandoned', 'Finished', 'Unknown'],
         datasets: [{{
-          data: [{finished_count}, {active_count}, {abandoned_count}],
+          data: [{in_progress_count}, {blocked_count}, {abandoned_count}, {finished_count}, {unknown_count}],
           backgroundColor: [
-            getComputedStyle(document.documentElement).getPropertyValue('--status-finished').trim(),
             getComputedStyle(document.documentElement).getPropertyValue('--status-in-progress').trim(),
-            getComputedStyle(document.documentElement).getPropertyValue('--status-abandoned').trim()
+            getComputedStyle(document.documentElement).getPropertyValue('--status-blocked').trim(),
+            getComputedStyle(document.documentElement).getPropertyValue('--status-abandoned').trim(),
+            getComputedStyle(document.documentElement).getPropertyValue('--status-finished').trim(),
+            getComputedStyle(document.documentElement).getPropertyValue('--status-unknown').trim()
           ],
-          borderWidth: 0
+          borderWidth: 1,
+          borderColor: 'rgba(15,23,42,0.85)',
+          hoverOffset: 8
         }}]
       }},
       options: {{
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {{
-          legend: {{ display: false }}
+          legend: {{
+            display: true,
+            position: 'bottom',
+            labels: {{ color: '#cbd5e1', boxWidth: 14, padding: 16 }}
+          }}
         }},
         cutout: '65%'
       }}
     }});
   }}
 
-  // Time-progression chart: stacked area
+  // Time-progression chart: line chart (all 5 statuses)
   var timeCtx = document.getElementById('chart-time-progression');
   if (timeCtx) {{
     new Chart(timeCtx, {{
@@ -688,29 +779,58 @@ document.addEventListener('DOMContentLoaded', function() {{
             label: 'Finished',
             data: {json.dumps(finished_series)},
             borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-finished').trim(),
-            backgroundColor: 'rgba(52, 211, 153, 0.2)',
-            fill: true,
-            tension: 0.3
+            fill: false,
+            tension: 0.25,
+            borderWidth: 2,
+            pointRadius: 3
+          }},
+          {{
+            label: 'In Progress',
+            data: {json.dumps(in_progress_series)},
+            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-in-progress').trim(),
+            fill: false,
+            tension: 0.25,
+            borderWidth: 2,
+            pointRadius: 3
+          }},
+          {{
+            label: 'Blocked',
+            data: {json.dumps(blocked_series)},
+            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-blocked').trim(),
+            fill: false,
+            tension: 0.25,
+            borderWidth: 2,
+            pointRadius: 3
           }},
           {{
             label: 'Abandoned',
             data: {json.dumps(abandoned_series)},
             borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-abandoned').trim(),
-            backgroundColor: 'rgba(248, 113, 113, 0.2)',
-            fill: true,
-            tension: 0.3
+            fill: false,
+            tension: 0.25,
+            borderWidth: 2,
+            pointRadius: 3
+          }},
+          {{
+            label: 'Unknown',
+            data: {json.dumps(unknown_series)},
+            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-unknown').trim(),
+            fill: false,
+            tension: 0.25,
+            borderWidth: 2,
+            pointRadius: 3
           }}
         ]
       }},
       options: {{
         responsive: true,
+        maintainAspectRatio: false,
         scales: {{
           x: {{
             ticks: {{ color: '#94a3b8' }},
             grid: {{ color: 'rgba(148, 163, 184, 0.1)' }}
           }},
           y: {{
-            stacked: true,
             beginAtZero: true,
             ticks: {{ color: '#94a3b8', stepSize: 1 }},
             grid: {{ color: 'rgba(148, 163, 184, 0.1)' }}
@@ -718,7 +838,7 @@ document.addEventListener('DOMContentLoaded', function() {{
         }},
         plugins: {{
           legend: {{
-            labels: {{ color: '#cbd5e1' }}
+            labels: {{ color: '#cbd5e1', padding: 12, boxWidth: 12 }}
           }}
         }}
       }}
@@ -728,173 +848,109 @@ document.addEventListener('DOMContentLoaded', function() {{
   </script>"""
 
 
-def _render_finished_section(
-    quests: list[JournalEntry],
+def _render_portfolio_section(
+    data: DashboardData,
     github_url: str,
     output_path: Path,
     repo_root: Path,
 ) -> str:
-    """Render the Finished quests section."""
-    return _render_journal_section(
-        title="Finished",
-        subtitle=f"{len(quests)} completed quest{'s' if len(quests) != 1 else ''}",
-        section_id="finished-quests",
-        quests=quests,
-        badge_class="finished",
-        github_url=github_url,
-        output_path=output_path,
-        repo_root=repo_root,
-    )
+    """Render the unified Quest Portfolio section with all quests."""
+    # Merge all quests into a single list with sort keys
+    all_quests: list[tuple[date, Union[JournalEntry, ActiveQuest]]] = []
 
+    for q in data.finished_quests:
+        all_quests.append((q.completed_date, q))
 
-def _render_abandoned_section(
-    quests: list[JournalEntry],
-    github_url: str,
-    output_path: Path,
-    repo_root: Path,
-) -> str:
-    """Render the Abandoned quests section."""
-    return _render_journal_section(
-        title="Abandoned",
-        subtitle=f"{len(quests)} abandoned quest{'s' if len(quests) != 1 else ''}",
-        section_id="abandoned-quests",
-        quests=quests,
-        badge_class="abandoned",
-        github_url=github_url,
-        output_path=output_path,
-        repo_root=repo_root,
-    )
+    for q in data.abandoned_quests:
+        all_quests.append((q.completed_date, q))
 
+    for q in data.active_quests:
+        all_quests.append((q.updated_at.date(), q))
 
-def _render_journal_section(
-    title: str,
-    subtitle: str,
-    section_id: str,
-    quests: list[JournalEntry],
-    badge_class: str,
-    github_url: str,
-    output_path: Path,
-    repo_root: Path,
-) -> str:
-    """Render a section for journal-based quests (finished or abandoned)."""
-    if not quests:
+    # Sort descending by date (most recent first)
+    all_quests.sort(key=lambda x: x[0], reverse=True)
+
+    total = len(all_quests)
+
+    if not all_quests:
         cards_html = '      <div class="empty-state">No quests in this category</div>'
     else:
         cards = [
-            _render_journal_card(q, badge_class, github_url, output_path, repo_root)
-            for q in quests
+            _render_quest_card(quest, github_url)
+            for _, quest in all_quests
         ]
         cards_html = (
             f'      <div class="quest-grid">\n' + "\n".join(cards) + "\n      </div>"
         )
 
-    return f"""    <section class="section" id="{section_id}">
-      <div class="section-header">
-        <h2 class="section-title">{title}</h2>
-        <div class="section-subtitle">{subtitle}</div>
+    return f"""    <section class="quests-section" id="quest-portfolio">
+      <div class="quests-header">
+        <h2>Quest Portfolio</h2>
+        <p class="panel-subtitle">{total} quests represented</p>
       </div>
 {cards_html}
     </section>"""
 
 
-def _render_journal_card(
-    entry: JournalEntry,
-    badge_class: str,
+def _render_quest_card(
+    quest: Union[JournalEntry, ActiveQuest],
     github_url: str,
-    output_path: Path,
-    repo_root: Path,
 ) -> str:
-    """Render a single quest card for a journal entry."""
-    journal_link = _compute_journal_link(
-        entry.journal_path, github_url, output_path, repo_root
-    )
+    """Render a single quest card for any quest type.
 
-    # Format metadata items -- AC #6: show quest_id in muted metadata
-    meta_items = [f'<span class="meta-item">{html.escape(entry.quest_id)}</span>']
-    meta_items.append(
-        f'<span class="meta-item">{entry.completed_date.strftime("%b %d, %Y")}</span>'
-    )
+    Handles both JournalEntry (finished/abandoned) and ActiveQuest (in-progress/blocked).
+    """
+    # Determine badge class and text
+    status_lower = quest.status.lower()
+    badge_text = _BADGE_TEXT.get(status_lower, "UNKNOWN")
 
-    # Add iterations if available
-    if entry.plan_iterations is not None or entry.fix_iterations is not None:
-        plan = entry.plan_iterations or 0
-        fix = entry.fix_iterations or 0
-        meta_items.append(f'<span class="meta-item">plan {plan} / fix {fix}</span>')
-
-    # Add PR link if available
-    if entry.pr_number:
-        pr_link = _compute_pr_link(entry.pr_number, github_url)
-        meta_items.append(
-            f'<a href="{pr_link}" class="meta-link">PR #{entry.pr_number}</a>'
-        )
-
-    meta_html = "\n        ".join(meta_items)
-
-    return f"""        <article class="quest-card">
-          <div class="quest-card-header">
-            <h3 class="quest-card-title">{html.escape(entry.title)}</h3>
-            <span class="badge badge--{badge_class}">{html.escape(entry.status)}</span>
-          </div>
-          <p class="quest-pitch">{html.escape(entry.elevator_pitch)}</p>
-          <a href="{journal_link}" class="journal-link">View Journal &rarr;</a>
-          <div class="quest-meta">
-        {meta_html}
-          </div>
-        </article>"""
-
-
-def _render_active_section(quests: list[ActiveQuest]) -> str:
-    """Render the In Progress quests section."""
-    if not quests:
-        cards_html = '      <div class="empty-state">No quests in this category</div>'
-    else:
-        cards = [_render_active_card(q) for q in quests]
-        cards_html = (
-            f'      <div class="quest-grid">\n' + "\n".join(cards) + "\n      </div>"
-        )
-
-    return f"""    <section class="section" id="in-progress-quests">
-      <div class="section-header">
-        <h2 class="section-title">In Progress</h2>
-        <div class="section-subtitle">{len(quests)} active quest{'s' if len(quests) != 1 else ''}</div>
-      </div>
-{cards_html}
-    </section>"""
-
-
-def _render_active_card(quest: ActiveQuest) -> str:
-    """Render a single quest card for an active quest."""
-    # Determine badge class from status
-    status_lower = quest.status.lower().replace(" ", "-")
-    if "block" in status_lower:
+    if status_lower in ("completed", "finished"):
+        badge_class = "finished"
+    elif "block" in status_lower:
         badge_class = "blocked"
-    else:
+    elif status_lower == "abandoned":
+        badge_class = "abandoned"
+    elif status_lower in ("in progress", "in_progress"):
         badge_class = "in-progress"
+    else:
+        badge_class = "unknown"
 
-    # Format metadata items -- AC #6: show quest_id in muted metadata
-    meta_items = [f'<span class="meta-item">{html.escape(quest.quest_id)}</span>']
-    meta_items.append(f'<span class="meta-item">{html.escape(quest.phase)}</span>')
-    meta_items.append(
-        f'<span class="meta-item">{quest.updated_at.strftime("%b %d, %Y")}</span>'
-    )
+    # Build metadata spans
+    meta_items = [f'<span><b>Quest ID:</b> {html.escape(quest.quest_id)}</span>']
+
+    if isinstance(quest, JournalEntry):
+        meta_items.append(
+            f'<span><b>Completion Date:</b> {quest.completed_date.strftime("%b %d, %Y")}</span>'
+        )
+    else:
+        meta_items.append(
+            f'<span><b>Updated:</b> {quest.updated_at.strftime("%b %d, %Y")}</span>'
+        )
 
     # Add iterations if available
     if quest.plan_iterations is not None or quest.fix_iterations is not None:
         plan = quest.plan_iterations or 0
         fix = quest.fix_iterations or 0
-        meta_items.append(f'<span class="meta-item">plan {plan} / fix {fix}</span>')
+        meta_items.append(f'<span><b>Iterations:</b> plan {plan} / fix {fix}</span>')
 
-    meta_html = "\n        ".join(meta_items)
+    # Add PR link if available (JournalEntry only)
+    if isinstance(quest, JournalEntry) and quest.pr_number:
+        pr_link = _compute_pr_link(quest.pr_number, github_url)
+        meta_items.append(
+            f'<span><b>PR:</b> <a href="{pr_link}">#{quest.pr_number}</a></span>'
+        )
+
+    meta_html = "\n            ".join(meta_items)
 
     return f"""        <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">{html.escape(quest.title)}</h3>
-            <span class="badge badge--{badge_class}">{html.escape(quest.status)}</span>
+            <span class="badge badge--{badge_class}">{badge_text}</span>
           </div>
           <p class="quest-pitch">{html.escape(quest.elevator_pitch)}</p>
-          <div class="quest-meta">
-        {meta_html}
-          </div>
+          <p class="quest-meta">
+            {meta_html}
+          </p>
         </article>"""
 
 
@@ -948,43 +1004,6 @@ def _sanitize_url(url: str) -> str:
     return html.escape(url)
 
 
-def _compute_journal_link(
-    journal_path: Path, github_url: str, output_path: Path, repo_root: Path
-) -> str:
-    """Compute the link to a journal file.
-
-    Prefers GitHub blob URL if github_url is available.
-    Falls back to relative path from output location.
-
-    Args:
-        journal_path: Path to journal file (relative to repo root)
-        github_url: GitHub repository URL or empty string
-        output_path: Where the dashboard HTML will be written
-        repo_root: Repository root
-
-    Returns:
-        URL or relative path to journal file
-    """
-    if github_url:
-        # Use GitHub blob URL, validated and escaped
-        sanitized = _sanitize_url(f"{github_url}/blob/main/{journal_path.as_posix()}")
-        if sanitized:
-            return sanitized
-        # If sanitization fails, fall through to relative-path fallback
-
-    # Fallback to relative path from output location to repo root
-    try:
-        output_dir = output_path.parent.resolve()
-        repo_resolved = repo_root.resolve()
-        rel_to_root = Path(os.path.relpath(repo_resolved, output_dir))
-        rel_path = rel_to_root / journal_path
-        return html.escape(rel_path.as_posix())
-    except ValueError:
-        # On Windows, relpath fails across drives; fall back to ../../
-        rel_path = Path("../..") / journal_path
-        return html.escape(rel_path.as_posix())
-
-
 def _compute_pr_link(pr_number: int, github_url: str) -> str:
     """Compute the link to a pull request.
 
@@ -1000,5 +1019,3 @@ def _compute_pr_link(pr_number: int, github_url: str) -> str:
         if sanitized:
             return sanitized
     return "#"
-
-

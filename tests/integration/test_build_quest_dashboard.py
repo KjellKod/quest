@@ -41,11 +41,9 @@ def test_build_dashboard_produces_valid_html(tmp_path):
     assert "<html" in html
     assert "</html>" in html
 
-    # Required sections
-    assert "Quest Dashboard" in html
-    assert 'id="finished-quests"' in html
-    assert 'id="in-progress-quests"' in html
-    assert 'id="abandoned-quests"' in html
+    # Updated title and portfolio section
+    assert "Quest Portfolio Dashboard" in html
+    assert 'id="quest-portfolio"' in html
 
     # Check for inline CSS (self-contained)
     assert "<style>" in html
@@ -55,9 +53,11 @@ def test_build_dashboard_produces_valid_html(tmp_path):
     assert '<link rel="stylesheet"' not in html
     assert "<script src=" not in html
 
-    # KPI section present
+    # KPI section present (5 cards)
+    assert "Total Quests" in html
     assert "Finished" in html
     assert "In Progress" in html
+    assert "Blocked" in html
     assert "Abandoned" in html
 
     # Chart.js inlined and chart canvases present
@@ -65,9 +65,9 @@ def test_build_dashboard_produces_valid_html(tmp_path):
     assert 'id="chart-status-doughnut"' in html
     assert 'id="chart-time-progression"' in html
 
-    # Glow elements present
-    assert 'class="glow glow--green"' in html
-    assert 'class="glow glow--blue"' in html
+    # Page-glow elements present (2 orbs)
+    assert 'class="page-glow page-glow-left"' in html
+    assert 'class="page-glow page-glow-right"' in html
 
     print(f"Dashboard built successfully: {output_path}")
     print(f"HTML size: {len(html)} bytes")
@@ -94,10 +94,10 @@ def test_build_with_custom_output_path(tmp_path):
     assert result.returncode == 0, f"Build failed: {result.stderr}"
     assert custom_output.exists(), "Custom output file not created"
 
-    # Verify it's valid HTML
+    # Verify it's valid HTML with updated title
     html = custom_output.read_text(encoding="utf-8")
     assert "<!doctype html>" in html.lower()
-    assert "Quest Dashboard" in html
+    assert "Quest Portfolio Dashboard" in html
 
 
 def test_build_with_github_url_flag(tmp_path):
@@ -129,6 +129,10 @@ def test_build_with_github_url_flag(tmp_path):
     assert result.returncode == 0, f"Build failed: {result.stderr}"
     assert output_path.exists()
 
-    # Verify custom GitHub URL is used in links (unconditional: repo has journal entries)
+    # Verify build succeeded with custom GitHub URL flag
+    # PR links only render when quests have pr_number set; the custom URL
+    # is accepted and used for any PR link generation. Validate the build
+    # produced valid HTML with the new structure.
     html = output_path.read_text(encoding="utf-8")
-    assert f"{custom_url}/blob/main/" in html
+    assert "Quest Portfolio Dashboard" in html
+    assert 'id="quest-portfolio"' in html

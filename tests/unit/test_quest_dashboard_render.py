@@ -10,8 +10,8 @@ from quest_dashboard.render import _compute_monthly_buckets, render_dashboard
 UTC = timezone.utc
 
 
-def test_finished_card_has_journal_link(tmp_path):
-    """Test that finished quest cards contain a View Journal link."""
+def test_card_shows_full_pitch_and_labeled_metadata(tmp_path):
+    """Test that quest cards show full pitch text and labeled metadata (no journal link)."""
     entry = JournalEntry(
         quest_id="test-001",
         slug="test-quest",
@@ -35,18 +35,23 @@ def test_finished_card_has_journal_link(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
-    # Check for View Journal link
-    assert "View Journal &rarr;" in html
-    assert (
-        "https://github.com/owner/repo/blob/main/docs/quest-journal/test-quest.md"
-        in html
-    )
+    # Full pitch text present (no truncation)
+    assert "This is a test quest." in result
+
+    # No "View Journal" link
+    assert "View Journal" not in result
+
+    # Labeled metadata present
+    assert "<b>Quest ID:</b>" in result
+    assert "<b>Completion Date:</b>" in result
+    assert "<b>Iterations:</b>" in result
+    assert "<b>PR:</b>" in result
 
 
-def test_active_card_has_no_journal_link(tmp_path):
-    """Test that active quest cards do not contain View Journal link."""
+def test_active_card_shows_updated_date_label(tmp_path):
+    """Test that active quest cards show Updated: label (not Completion Date)."""
     quest = ActiveQuest(
         quest_id="active-001",
         slug="active-quest",
@@ -68,19 +73,17 @@ def test_active_card_has_no_journal_link(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
-    # Active section should not have View Journal link
-    # Extract just the in-progress section
-    in_progress_start = html.find('id="in-progress-quests"')
-    in_progress_end = html.find("</section>", in_progress_start)
-    in_progress_section = html[in_progress_start:in_progress_end]
+    # No "View Journal" link
+    assert "View Journal" not in result
 
-    assert "View Journal" not in in_progress_section
+    # Active cards show "Updated:" label
+    assert "<b>Updated:</b>" in result
 
 
 def test_card_metadata_uses_muted_class(tmp_path):
-    """Test that quest metadata is wrapped in quest-meta class."""
+    """Test that quest metadata is wrapped in quest-meta class with bold labels."""
     entry = JournalEntry(
         quest_id="test-001",
         slug="test-quest",
@@ -100,14 +103,15 @@ def test_card_metadata_uses_muted_class(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
-    # Check for quest-meta class
-    assert 'class="quest-meta"' in html
+    # Check for quest-meta class with bold labels
+    assert 'class="quest-meta"' in result
+    assert "<b>Quest ID:</b>" in result
 
 
-def test_sections_rendered_in_order(tmp_path):
-    """Test that sections appear in order: Finished, In Progress, Abandoned."""
+def test_portfolio_section_contains_all_quests(tmp_path):
+    """Test that all quests appear in a single Quest Portfolio section, sorted by date."""
     finished_entry = JournalEntry(
         quest_id="finished-001",
         slug="finished-quest",
@@ -147,15 +151,24 @@ def test_sections_rendered_in_order(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
-    # Find positions of section IDs
-    finished_pos = html.index('id="finished-quests"')
-    in_progress_pos = html.index('id="in-progress-quests"')
-    abandoned_pos = html.index('id="abandoned-quests"')
+    # Single Quest Portfolio section contains all quests
+    assert 'id="quest-portfolio"' in result
+    assert "Finished Quest" in result
+    assert "Active Quest" in result
+    assert "Abandoned Quest" in result
 
-    # Verify order
-    assert finished_pos < in_progress_pos < abandoned_pos
+    # No separate section IDs
+    assert 'id="finished-quests"' not in result
+    assert 'id="in-progress-quests"' not in result
+    assert 'id="abandoned-quests"' not in result
+
+    # Sorted by date descending: Active (Feb 12) > Finished (Feb 10) > Abandoned (Jan 15)
+    active_pos = result.index("Active Quest")
+    finished_pos = result.index("Finished Quest")
+    abandoned_pos = result.index("Abandoned Quest")
+    assert active_pos < finished_pos < abandoned_pos
 
 
 def test_pr_link_rendered_when_present(tmp_path):
@@ -181,11 +194,12 @@ def test_pr_link_rendered_when_present(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
-    # Check for PR link
-    assert "PR #24" in html
-    assert "https://github.com/owner/repo/pull/24" in html
+    # Check for PR link in labeled metadata
+    assert "<b>PR:</b>" in result
+    assert "#24" in result
+    assert "https://github.com/owner/repo/pull/24" in result
 
 
 def test_html_is_self_contained(tmp_path):
@@ -199,19 +213,19 @@ def test_html_is_self_contained(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
     # Check for external references
-    assert '<link rel="stylesheet"' not in html
-    assert "<script src=" not in html
-    assert "url(http" not in html.lower()
+    assert '<link rel="stylesheet"' not in result
+    assert "<script src=" not in result
+    assert "url(http" not in result.lower()
 
     # Should have inline style tag
-    assert "<style>" in html
+    assert "<style>" in result
 
 
 def test_empty_sections_show_message(tmp_path):
-    """Test that empty sections show 'No quests in this category' message."""
+    """Test that empty portfolio shows 'No quests in this category' message."""
     data = DashboardData(
         finished_quests=[],
         active_quests=[],
@@ -221,10 +235,10 @@ def test_empty_sections_show_message(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
-    # Check for empty state messages
-    assert html.count("No quests in this category") == 3
+    # Single portfolio section with empty state
+    assert result.count("No quests in this category") == 1
 
 
 def test_warnings_section_rendered(tmp_path):
@@ -239,15 +253,15 @@ def test_warnings_section_rendered(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
-    assert "Build Warnings" in html
-    assert "Warning 1: Something went wrong" in html
-    assert "Warning 2: Another issue" in html
+    assert "Build Warnings" in result
+    assert "Warning 1: Something went wrong" in result
+    assert "Warning 2: Another issue" in result
 
 
 def test_kpi_counts_correct(tmp_path):
-    """Test that KPI counts in hero section are correct."""
+    """Test that 5 KPI cards show correct counts including blocked separation."""
     finished_entries = [
         JournalEntry(
             quest_id=f"finished-{i}",
@@ -296,21 +310,21 @@ def test_kpi_counts_correct(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
-    # Extract hero section
-    hero_start = html.find('<div class="hero">')
-    hero_end = html.find("</div>", hero_start) + 6
-    hero_section = html[hero_start:hero_end]
+    # 5 KPI cards present
+    assert result.count('class="kpi-card"') == 5
 
-    # Check KPI values (they appear in specific order with specific classes)
-    assert 'kpi-value kpi-value--finished">5<' in html
-    assert 'kpi-value kpi-value--in-progress">3<' in html
-    assert 'kpi-value kpi-value--abandoned">2<' in html
+    # Correct counts: Total=10, Finished=5, In Progress=3, Blocked=0, Abandoned=2
+    assert 'kpi-value">10<' in result  # Total (no color class)
+    assert 'kpi-value kpi-value--finished">5<' in result
+    assert 'kpi-value kpi-value--in-progress">3<' in result
+    assert 'kpi-value kpi-value--blocked">0<' in result
+    assert 'kpi-value kpi-value--abandoned">2<' in result
 
 
-def test_fallback_journal_link_relative_to_output(tmp_path):
-    """Test that fallback journal links compute correct relative path from output location."""
+def test_labeled_metadata_format(tmp_path):
+    """Test that card metadata uses labeled key-value format (replaces journal link test)."""
     entry = JournalEntry(
         quest_id="test-001",
         slug="test-quest",
@@ -319,36 +333,29 @@ def test_fallback_journal_link_relative_to_output(tmp_path):
         status="Completed",
         completed_date=date(2026, 2, 10),
         journal_path=Path("docs/quest-journal/test-quest.md"),
+        plan_iterations=2,
+        fix_iterations=1,
     )
 
     data = DashboardData(
         finished_quests=[entry],
         active_quests=[],
         abandoned_quests=[],
-        github_repo_url="",  # No GitHub URL -- triggers fallback
     )
 
-    # Default output location: docs/dashboard/index.html
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
-    # The relative path from docs/dashboard/ to docs/quest-journal/test-quest.md
-    # should be ../../docs/quest-journal/test-quest.md (go up to repo root, then down)
-    assert "../../docs/quest-journal/test-quest.md" in html
-
-    # Now test with a custom output location
-    custom_output = tmp_path / "build" / "output" / "dashboard.html"
-    html_custom = render_dashboard(data, custom_output, repo_root)
-
-    # The relative path from build/output/ to docs/quest-journal/test-quest.md
-    # should be ../../docs/quest-journal/test-quest.md
-    assert "../../docs/quest-journal/test-quest.md" in html_custom
+    # Labeled metadata format
+    assert "<b>Quest ID:</b> test-001" in result
+    assert "<b>Completion Date:</b> Feb 10, 2026" in result
+    assert "<b>Iterations:</b> plan 2 / fix 1" in result
 
 
 def test_quest_id_displayed_in_metadata(tmp_path):
-    """Test that quest_id (not slug) is displayed in card metadata (AC #6)."""
+    """Test that quest_id (not slug) is displayed in labeled card metadata."""
     entry = JournalEntry(
         quest_id="my-quest-id-001",
         slug="my-quest-slug",
@@ -368,12 +375,12 @@ def test_quest_id_displayed_in_metadata(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
-    # quest_id should appear in metadata, not slug
-    assert "my-quest-id-001" in html
-    # slug should NOT appear in metadata (it may appear elsewhere, but not in meta-item)
-    assert 'class="meta-item">my-quest-slug<' not in html
+    # quest_id should appear in labeled metadata
+    assert "<b>Quest ID:</b> my-quest-id-001" in result
+    # slug should NOT appear in metadata
+    assert "my-quest-slug" not in result
 
 
 def test_github_url_with_double_quote_injection(tmp_path):
@@ -399,11 +406,10 @@ def test_github_url_with_double_quote_injection(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
     # The malicious URL is not a valid GitHub URL, so it should be rejected.
-    # The raw injected string must not appear in any href attribute.
-    assert '" onmouseover="alert(1)' not in html
+    assert '" onmouseover="alert(1)' not in result
 
 
 def test_github_url_with_javascript_scheme(tmp_path):
@@ -429,14 +435,12 @@ def test_github_url_with_javascript_scheme(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
     # javascript: must never appear in any href
-    assert "javascript:" not in html
-    # Journal link should fall back to relative path
-    assert "../../docs/quest-journal/xss-js.md" in html
+    assert "javascript:" not in result
     # PR link should fall back to #
-    assert 'href="#"' in html
+    assert 'href="#"' in result
 
 
 def test_github_url_with_single_quote_injection(tmp_path):
@@ -462,14 +466,14 @@ def test_github_url_with_single_quote_injection(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
     # The malicious URL is not a valid GitHub URL, so it should be rejected.
-    assert "' onmouseover='alert(1)" not in html
+    assert "' onmouseover='alert(1)" not in result
 
 
 def test_valid_github_url_renders_correctly(tmp_path):
-    """Test that a valid github_url produces correct journal and PR links."""
+    """Test that a valid github_url produces correct PR links."""
     entry = JournalEntry(
         quest_id="valid-001",
         slug="valid-quest",
@@ -491,54 +495,19 @@ def test_valid_github_url_renders_correctly(tmp_path):
     output_path = tmp_path / "docs" / "dashboard" / "index.html"
     repo_root = tmp_path
 
-    html = render_dashboard(data, output_path, repo_root)
+    result = render_dashboard(data, output_path, repo_root)
 
-    # Valid URLs should be preserved
-    assert (
-        "https://github.com/owner/repo/blob/main/docs/quest-journal/valid-quest.md"
-        in html
-    )
-    assert "https://github.com/owner/repo/pull/50" in html
-
-
-def test_fallback_journal_link_with_malicious_filename(tmp_path):
-    """XSS regression: journal filename with quotes must be escaped in fallback relative link."""
-    entry = JournalEntry(
-        quest_id="xss-fallback-001",
-        slug="xss-fallback",
-        title="XSS Fallback Test",
-        elevator_pitch="Test.",
-        status="Completed",
-        completed_date=date(2026, 2, 10),
-        journal_path=Path('docs/quest-journal/evil" onclick="alert(1).md'),
-    )
-
-    data = DashboardData(
-        finished_quests=[entry],
-        active_quests=[],
-        abandoned_quests=[],
-        github_repo_url="",  # Empty URL triggers fallback to relative path
-    )
-
-    output_path = tmp_path / "docs" / "dashboard" / "index.html"
-    repo_root = tmp_path
-
-    html = render_dashboard(data, output_path, repo_root)
-
-    # The raw double-quote must NOT appear unescaped in the href attribute.
-    # It should be escaped to &quot; so it cannot break out of href="...".
-    assert 'evil" onclick="alert(1)' not in html
-    # The escaped version should be present instead
-    assert "evil&quot; onclick=&quot;alert(1).md" in html
+    # PR link present
+    assert "https://github.com/owner/repo/pull/50" in result
 
 
 # ---------------------------------------------------------------------------
-# New tests: Glows, Charts, Gradients, Self-containment (AC-1 through AC-7)
+# Tests: Glows, Charts, Gradients, Self-containment, Portfolio
 # ---------------------------------------------------------------------------
 
 
 def test_glow_elements_rendered(tmp_path):
-    """AC-1: Glow divs with correct classes and attributes are present outside .container."""
+    """Glow divs with page-glow classes (2 orbs) are present outside .container."""
     data = DashboardData(
         finished_quests=[],
         active_quests=[],
@@ -550,22 +519,25 @@ def test_glow_elements_rendered(tmp_path):
 
     result = render_dashboard(data, output_path, repo_root)
 
-    # Glow elements present with correct classes
-    assert 'class="glow glow--green"' in result
-    assert 'class="glow glow--blue"' in result
+    # 2 page-glow elements with correct classes
+    assert 'class="page-glow page-glow-left"' in result
+    assert 'class="page-glow page-glow-right"' in result
+
+    # Only 2 glow orbs (not 3)
+    assert result.count("page-glow page-glow-") == 2
 
     # Glow divs must appear OUTSIDE .container (before it in <body>)
     container_pos = result.index('class="container"')
-    green_pos = result.index('class="glow glow--green"')
-    blue_pos = result.index('class="glow glow--blue"')
-    assert green_pos < container_pos
-    assert blue_pos < container_pos
+    left_pos = result.index('class="page-glow page-glow-left"')
+    right_pos = result.index('class="page-glow page-glow-right"')
+    assert left_pos < container_pos
+    assert right_pos < container_pos
 
-    # CSS must define pointer-events: none for .glow
+    # CSS must define pointer-events: none for .page-glow
     assert "pointer-events: none" in result
 
     # Glow z-index must be below content (z-index: -1)
-    glow_css_pos = result.index(".glow {")
+    glow_css_pos = result.index(".page-glow {")
     glow_css_end = result.index("}", glow_css_pos)
     glow_css = result[glow_css_pos:glow_css_end]
     assert "z-index: -1" in glow_css
@@ -578,8 +550,8 @@ def test_glow_elements_rendered(tmp_path):
     assert "z-index: 1" in container_css
 
 
-def test_doughnut_chart_in_hero(tmp_path):
-    """AC-2: Canvas element with id chart-status-doughnut is inside the hero section."""
+def test_doughnut_chart_not_in_hero(tmp_path):
+    """Doughnut chart canvas is NOT in the hero; it IS in the panel-grid."""
     data = DashboardData(
         finished_quests=[],
         active_quests=[],
@@ -593,16 +565,23 @@ def test_doughnut_chart_in_hero(tmp_path):
 
     # Find the hero section boundaries
     hero_start = result.index('class="hero"')
-    # Find the end of the hero div -- look for the charts-section that follows
-    charts_section_pos = result.index('class="charts-section"')
-    hero_section = result[hero_start:charts_section_pos]
+    hero_end = result.index("</div>", hero_start)
+    # Find the end more precisely by looking for the kpi-grid that follows
+    kpi_grid_pos = result.index('class="kpi-grid"')
+    hero_section = result[hero_start:kpi_grid_pos]
 
-    # Doughnut canvas must be inside the hero
-    assert 'id="chart-status-doughnut"' in hero_section
+    # Doughnut canvas must NOT be inside the hero
+    assert 'id="chart-status-doughnut"' not in hero_section
+
+    # Doughnut canvas must be inside the panel-grid
+    panel_grid_start = result.index('class="panel-grid"')
+    panel_grid_end = result.index("</div>\n    </div>", panel_grid_start) + 20
+    panel_section = result[panel_grid_start:panel_grid_end]
+    assert 'id="chart-status-doughnut"' in panel_section
 
 
 def test_time_progression_chart_present(tmp_path):
-    """AC-3: Canvas element with id chart-time-progression is present."""
+    """Canvas element with id chart-time-progression is present."""
     data = DashboardData(
         finished_quests=[],
         active_quests=[],
@@ -618,7 +597,7 @@ def test_time_progression_chart_present(tmp_path):
 
 
 def test_chartjs_inlined_not_external(tmp_path):
-    """AC-5: Chart.js is inlined as a <script> block, not loaded via src attribute."""
+    """Chart.js is inlined as a <script> block, not loaded via src attribute."""
     data = DashboardData(
         finished_quests=[],
         active_quests=[],
@@ -638,8 +617,8 @@ def test_chartjs_inlined_not_external(tmp_path):
     assert "<script src=" not in result
 
 
-def test_gradient_on_quest_cards(tmp_path):
-    """AC-4: Quest cards have a gradient overlay via CSS."""
+def test_quest_card_uses_surface_2(tmp_path):
+    """Quest cards use --surface-2 background (not linear-gradient)."""
     data = DashboardData(
         finished_quests=[],
         active_quests=[],
@@ -651,17 +630,17 @@ def test_gradient_on_quest_cards(tmp_path):
 
     result = render_dashboard(data, output_path, repo_root)
 
-    # CSS should contain linear-gradient in the .quest-card rule
-    # Find the .quest-card CSS block
+    # CSS should contain --surface-2 in the .quest-card rule
     quest_card_pos = result.index(".quest-card {")
     quest_card_end = result.index("}", quest_card_pos)
     quest_card_css = result[quest_card_pos:quest_card_end]
 
-    assert "linear-gradient" in quest_card_css
+    assert "--surface-2" in quest_card_css
+    assert "linear-gradient" not in quest_card_css
 
 
-def test_section_header_gradient(tmp_path):
-    """AC-4: Section headers have a gradient accent via CSS."""
+def test_quests_header_flex_layout(tmp_path):
+    """Portfolio section uses quests-header with flex layout."""
     data = DashboardData(
         finished_quests=[],
         active_quests=[],
@@ -673,17 +652,19 @@ def test_section_header_gradient(tmp_path):
 
     result = render_dashboard(data, output_path, repo_root)
 
-    # Find the .section-header CSS block
-    header_pos = result.index(".section-header {")
+    # quests-header with flex layout in CSS
+    header_pos = result.index(".quests-header {")
     header_end = result.index("}", header_pos)
     header_css = result[header_pos:header_end]
+    assert "display: flex" in header_css
+    assert "justify-content: space-between" in header_css
 
-    # Should contain a gradient treatment (border-image with linear-gradient)
-    assert "linear-gradient" in header_css
+    # quests-header in HTML
+    assert 'class="quests-header"' in result
 
 
 def test_decorative_elements_accessible(tmp_path):
-    """AC-6: Glow elements have aria-hidden; charts have noscript fallback."""
+    """Glow elements have aria-hidden; charts have noscript fallback."""
     data = DashboardData(
         finished_quests=[],
         active_quests=[],
@@ -695,15 +676,16 @@ def test_decorative_elements_accessible(tmp_path):
 
     result = render_dashboard(data, output_path, repo_root)
 
-    # Glow divs have aria-hidden="true"
-    assert 'aria-hidden="true"' in result
+    # Page-glow divs have aria-hidden="true"
+    assert 'class="page-glow page-glow-left" aria-hidden="true"' in result
+    assert 'class="page-glow page-glow-right" aria-hidden="true"' in result
 
     # Charts have noscript fallback
     assert "<noscript>Chart requires JavaScript</noscript>" in result
 
 
 def test_compute_monthly_buckets(tmp_path):
-    """AC-3: Monthly bucket computation groups quests correctly and fills gaps."""
+    """Monthly bucket computation groups quests correctly with all 5 statuses."""
     finished_quests = [
         JournalEntry(
             quest_id="f1",
@@ -769,19 +751,28 @@ def test_compute_monthly_buckets(tmp_path):
     # Should have 3 months: 2026-01, 2026-02, 2026-03
     assert list(buckets.keys()) == ["2026-01", "2026-02", "2026-03"]
 
-    # January: 2 finished, 0 abandoned
-    assert buckets["2026-01"] == {"finished": 2, "abandoned": 0}
-
-    # February: 0 finished, 1 abandoned (gap-filled for finished)
-    assert buckets["2026-02"] == {"finished": 0, "abandoned": 1}
-
-    # March: 1 finished, 0 abandoned
-    assert buckets["2026-03"] == {"finished": 1, "abandoned": 0}
-
-    # Active quests should NOT appear in any bucket
+    # All buckets have 5 status keys
     for month_data in buckets.values():
-        assert "active" not in month_data
-        assert "in_progress" not in month_data
+        assert set(month_data.keys()) == {
+            "finished",
+            "abandoned",
+            "in_progress",
+            "blocked",
+            "unknown",
+        }
+
+    # January: 2 finished
+    assert buckets["2026-01"]["finished"] == 2
+    assert buckets["2026-01"]["abandoned"] == 0
+
+    # February: 0 finished, 1 abandoned, 1 in_progress (active quest)
+    assert buckets["2026-02"]["finished"] == 0
+    assert buckets["2026-02"]["abandoned"] == 1
+    assert buckets["2026-02"]["in_progress"] == 1
+
+    # March: 1 finished
+    assert buckets["2026-03"]["finished"] == 1
+    assert buckets["2026-03"]["abandoned"] == 0
 
 
 def test_compute_monthly_buckets_empty():
@@ -830,11 +821,245 @@ def test_chartjs_missing_vendor_graceful(tmp_path):
     # No chart initialization code (no `new Chart`)
     assert "new Chart" not in result
 
-    # KPIs still present
-    assert 'kpi-value kpi-value--finished">1<' in result
+    # KPI cards still present
+    assert 'class="kpi-card"' in result
 
     # Glow divs still present
-    assert 'class="glow glow--green"' in result
+    assert 'class="page-glow page-glow-left"' in result
 
     # Canvas elements may still exist (with noscript fallback)
     assert 'id="chart-status-doughnut"' in result
+
+
+# ---------------------------------------------------------------------------
+# New tests for the redesigned dashboard
+# ---------------------------------------------------------------------------
+
+
+def test_hero_has_quest_intelligence_branding(tmp_path):
+    """Hero section has QUEST INTELLIGENCE eyebrow and Quest Portfolio Dashboard title."""
+    data = DashboardData(
+        finished_quests=[],
+        active_quests=[],
+        abandoned_quests=[],
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    result = render_dashboard(data, output_path, repo_root)
+
+    assert "QUEST INTELLIGENCE" in result
+    assert "Quest Portfolio Dashboard" in result
+    assert 'class="eyebrow"' in result
+
+
+def test_hero_has_timestamp(tmp_path):
+    """Hero section has a monospace timestamp line with meta-row class."""
+    data = DashboardData(
+        finished_quests=[],
+        active_quests=[],
+        abandoned_quests=[],
+        generated_at=datetime(2026, 2, 12, 8, 54, 0, tzinfo=UTC),
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    result = render_dashboard(data, output_path, repo_root)
+
+    assert 'class="meta-row"' in result
+    assert "DATA GENERATED:" in result
+    assert 'class="meta-value"' in result
+    # Monospace font in CSS
+    assert "ui-monospace" in result
+
+
+def test_kpi_row_blocked_count(tmp_path):
+    """Blocked KPI shows correct count; In Progress = active - blocked."""
+    active_quests = [
+        ActiveQuest(
+            quest_id=f"active-{i}",
+            slug=f"active-{i}",
+            title=f"Active {i}",
+            elevator_pitch="Test.",
+            status="In Progress",
+            phase="Building",
+            updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
+        )
+        for i in range(3)
+    ] + [
+        ActiveQuest(
+            quest_id=f"blocked-{i}",
+            slug=f"blocked-{i}",
+            title=f"Blocked {i}",
+            elevator_pitch="Test.",
+            status="Blocked",
+            phase="Building",
+            updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
+        )
+        for i in range(2)
+    ]
+
+    data = DashboardData(
+        finished_quests=[],
+        active_quests=active_quests,
+        abandoned_quests=[],
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    result = render_dashboard(data, output_path, repo_root)
+
+    # Blocked KPI shows 2
+    assert 'kpi-value kpi-value--blocked">2<' in result
+    # In Progress KPI shows 3 (5 active - 2 blocked)
+    assert 'kpi-value kpi-value--in-progress">3<' in result
+
+
+def test_charts_side_by_side_in_panel_grid(tmp_path):
+    """Both chart canvases are inside a panel-grid section."""
+    data = DashboardData(
+        finished_quests=[],
+        active_quests=[],
+        abandoned_quests=[],
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    result = render_dashboard(data, output_path, repo_root)
+
+    assert 'class="panel-grid"' in result
+
+    # Both canvases inside panel-grid
+    panel_grid_start = result.index('class="panel-grid"')
+    panel_grid_section = result[panel_grid_start:]
+    assert 'id="chart-status-doughnut"' in panel_grid_section
+    assert 'id="chart-time-progression"' in panel_grid_section
+
+
+def test_doughnut_chart_has_five_statuses(tmp_path):
+    """Chart config JS contains all 5 status labels for doughnut."""
+    data = DashboardData(
+        finished_quests=[
+            JournalEntry(
+                quest_id="f1",
+                slug="f1",
+                title="F1",
+                elevator_pitch="Test.",
+                status="Completed",
+                completed_date=date(2026, 2, 10),
+                journal_path=Path("docs/quest-journal/f1.md"),
+            )
+        ],
+        active_quests=[],
+        abandoned_quests=[],
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    result = render_dashboard(data, output_path, repo_root)
+
+    # All 5 labels in chart config
+    assert "'In Progress'" in result
+    assert "'Blocked'" in result
+    assert "'Abandoned'" in result
+    assert "'Finished'" in result
+    assert "'Unknown'" in result
+
+
+def test_portfolio_sorted_by_date(tmp_path):
+    """Quest cards appear in descending date order in portfolio."""
+    old_entry = JournalEntry(
+        quest_id="old-001",
+        slug="old-quest",
+        title="Old Quest",
+        elevator_pitch="Old.",
+        status="Completed",
+        completed_date=date(2026, 1, 1),
+        journal_path=Path("docs/quest-journal/old.md"),
+    )
+
+    recent_entry = JournalEntry(
+        quest_id="recent-001",
+        slug="recent-quest",
+        title="Recent Quest",
+        elevator_pitch="Recent.",
+        status="Completed",
+        completed_date=date(2026, 2, 15),
+        journal_path=Path("docs/quest-journal/recent.md"),
+    )
+
+    data = DashboardData(
+        finished_quests=[old_entry, recent_entry],
+        active_quests=[],
+        abandoned_quests=[],
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    result = render_dashboard(data, output_path, repo_root)
+
+    # Recent quest should appear before old quest
+    recent_pos = result.index("Recent Quest")
+    old_pos = result.index("Old Quest")
+    assert recent_pos < old_pos
+
+
+def test_card_badge_text_finished(tmp_path):
+    """Completed quests show FINISHED badge text."""
+    entry = JournalEntry(
+        quest_id="test-001",
+        slug="test-quest",
+        title="Test Quest",
+        elevator_pitch="Test.",
+        status="Completed",
+        completed_date=date(2026, 2, 10),
+        journal_path=Path("docs/quest-journal/test.md"),
+    )
+
+    data = DashboardData(
+        finished_quests=[entry],
+        active_quests=[],
+        abandoned_quests=[],
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    result = render_dashboard(data, output_path, repo_root)
+
+    assert "FINISHED" in result
+    # Should not show raw "Completed" in badge
+    assert 'badge--finished">Completed<' not in result
+
+
+def test_unknown_status_badge(tmp_path):
+    """Quest with unrecognized status gets badge--unknown class."""
+    quest = ActiveQuest(
+        quest_id="mystery-001",
+        slug="mystery-quest",
+        title="Mystery Quest",
+        elevator_pitch="Mystery.",
+        status="SomethingWeird",
+        phase="Unknown",
+        updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
+    )
+
+    data = DashboardData(
+        finished_quests=[],
+        active_quests=[quest],
+        abandoned_quests=[],
+    )
+
+    output_path = tmp_path / "docs" / "dashboard" / "index.html"
+    repo_root = tmp_path
+
+    result = render_dashboard(data, output_path, repo_root)
+
+    assert "badge--unknown" in result
+    assert "UNKNOWN" in result
