@@ -21,6 +21,8 @@ Future work items not yet ready for a full quest. When an idea is ready, run `/q
 | done | ~~quest-intake-gate~~ | Delegation-based intake gate with question-first routing for vague input. See [journal](../docs/quest-journal/quest-delegation-gate_2026-02-06.md). |
 | done | ~~handoff-fix-plan~~ | Standardize `---HANDOFF---` contracts across all role files. See [journal](../docs/quest-journal/handoff-contract-fix_2026-02-09.md). |
 | done | ~~quest-philosophy-small-core~~ | Thin orchestrator philosophy, handoff contracts, delegation workflow. See [journal](../docs/quest-journal/thin-orchestrator_2026-02-09.md). |
+| done | ~~dashboard-visual-polish~~ | Ambient glows, Chart.js charts, gradient enhancements. See [journal](../docs/quest-journal/dashboard-visual-polish_2026-02-12.md). |
+| done | ~~dashboard-layout-redesign~~ | Executive "Quest Intelligence" design — hero branding, KPI cards, side-by-side charts, unified portfolio. See [journal](../docs/quest-journal/dashboard-layout-redesign_2026-02-13.md). |
 | dropped | ~~default-quest-planner~~ | Brainstorm about configurable planner models. Superseded by gpt52-default-planner idea. |
 | dropped | ~~fixer~~ | One-line question about fixer routing. Never developed. |
 | dropped | ~~update_details~~ | UX brainstorm about update check UI. Never developed. |
