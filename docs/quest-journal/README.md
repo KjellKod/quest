@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-02-13 | [dashboard-layout-redesign](dashboard-layout-redesign_2026-02-13.md) | Restructured dashboard to match target executive "Quest Intelligence" design — hero branding, 5 KPI cards, side-by-side charts, unified portfolio section, card content redesign. |
 | 2026-02-12 | [dashboard-visual-polish](dashboard-visual-polish_2026-02-12.md) | Added ambient CSS glows, Chart.js doughnut and stacked area charts, gradient enhancements — dashboard goes from "works" to "looks great." |
 | 2026-02-12 | [harden-url-rendering](harden-url-rendering_2026-02-12.md) | Fixed XSS vulnerability in dashboard URL rendering — added `_sanitize_url()` with scheme/pattern validation and HTML attribute escaping, 7 new tests. |
 | 2026-02-11 | [codex-ci-review](codex-ci-review_2026-02-11.md) | Automated Codex CI code review workflow for PRs transitioning to ready-for-review. |
