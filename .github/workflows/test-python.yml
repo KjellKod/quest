@@ -1,0 +1,51 @@
+# CI workflow for Python tests (Quest Dashboard).
+# Runs unit and integration tests on every push/PR to main.
+#
+# To add as a required status check:
+#   1. Go to Settings > Branches > Branch protection for "main"
+#   2. Enable "Require status checks to pass before merging"
+#   3. Search for "Test Python / test" and select it
+#
+# Note: The check name only appears after the workflow has run at least once.
+
+name: Test Python
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for tests
+        id: check-tests
+        run: |
+          if [ -d tests/ ]; then
+            echo "has_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tests=false" >> "$GITHUB_OUTPUT"
+            echo "No tests/ directory found — skipping."
+          fi
+
+      - name: Set up Python
+        if: steps.check-tests.outputs.has_tests == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pytest
+        if: steps.check-tests.outputs.has_tests == 'true'
+        run: pip install pytest
+
+      - name: Run tests
+        if: steps.check-tests.outputs.has_tests == 'true'
+        run: python3 -m pytest tests/ -v
