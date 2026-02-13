@@ -7,8 +7,11 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 | Date | Quest | Outcome |
 |------|-------|---------|
 | 2026-02-12 | [ci-python-quest](ci-python-quest_2026-02-12.md) | Added pytest CI workflow to run 36 Python tests on push/PR to main. |
+| 2026-02-12 | [harden-url-rendering](harden-url-rendering_2026-02-12.md) | Fixed XSS vulnerability in dashboard URL rendering — added `_sanitize_url()` with scheme/pattern validation and HTML attribute escaping, 7 new tests. |
 | 2026-02-11 | [codex-ci-review](codex-ci-review_2026-02-11.md) | Automated Codex CI code review workflow for PRs transitioning to ready-for-review. |
 | 2026-02-09 | [thin-orchestrator](thin-orchestrator_2026-02-09.md) | Phase 2 of architecture evolution. Orchestrator passes paths, not content. Context stays lean. |
+| 2026-02-12 | [dashboard-final-implementation](dashboard-final-implementation_2026-02-12.md) | **Abandoned.** First dashboard attempt — plan approved, build interrupted by model switch. Superseded by dashboard-v2. |
+| 2026-02-12 | [dashboard-v2](dashboard-v2_2026-02-12.md) | Quest Dashboard: self-contained Python package generating static HTML dashboard with dark navy theme, three status sections, 29 tests. |
 | 2026-02-09 | [handoff-contract-fix](handoff-contract-fix_2026-02-09.md) | Standardized `---HANDOFF---` contracts across all 6 role files and workflow prompts. |
 | 2026-02-09 | [skill-strategy](skill-strategy_2026-02-09.md) | Research-only. Analyzed skill organization, distribution, and community patterns. |
 | 2026-02-06 | [caching-strategy-exploration](caching-strategy-exploration_2026-02-06.md) | Research-only. Mapped 11 caching strategies for Quest. No code changes. |

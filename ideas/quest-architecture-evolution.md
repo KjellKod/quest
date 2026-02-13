@@ -72,6 +72,27 @@ Orchestrator reads ONLY the SUMMARY line from handoff → decides next step
 
 ---
 
+### Phase 2b: Close remaining context leaks
+
+**Status:** Not started. See `ideas/quest-context-optimization.md` for full details.
+
+**Problem:** Phase 2 changed prompts to pass paths instead of content. But three leaks remain:
+1. `TaskOutput` returns full agent transcripts (~30-50k tokens/quest) into orchestrator context
+2. Synchronous MCP Codex responses return full text into orchestrator context (~10-20k tokens)
+3. Orchestrator reads full review files to present summaries (~5-10k tokens)
+
+By end of a quest with 2 review rounds, ~50-80k tokens of agent output still enters the orchestrator.
+
+**Solution:** The `handoff.json` pattern:
+- Every agent writes a tiny `handoff.json` alongside artifacts: `{"status", "next", "summary", "artifacts"}`
+- Orchestrator polls for this file instead of calling `TaskOutput`
+- All agents (Claude Task + Codex MCP) run in background, orchestrator never sees their output
+- Post-quest: suggest `/clear` to reset context for next quest
+
+**Impact:** Completes the thin orchestrator vision. Orchestrator context stays under ~30k tokens for an entire quest lifecycle instead of growing to 100k+.
+
+---
+
 ### Phase 3: State validation script
 
 **Problem:** The orchestrator is told to check state before proceeding. If it doesn't, nothing prevents a phase from starting without its prerequisites.
@@ -174,6 +195,7 @@ Phases 1 and 2 can start immediately, in parallel.
 |-------|--------|
 | Phase 1: `/explore` skill | Not started |
 | Phase 2: Thin orchestrator | **Done** (`thin-orchestrator_2026-02-09__1845`) |
+| Phase 2b: Close context leaks | Not started — `ideas/quest-context-optimization.md` |
 | Phase 3: State validation | Not started |
 | Phase 4: Role simplification | Not started |
 | Phase 5: Infrastructure | Backlog |
