@@ -415,7 +415,8 @@ After plan approval, present the plan interactively before proceeding to build.
    - Insert a row at the top of `docs/quest-journal/README.md` index table (after the header row) with date, quest link, and one-line outcome. The table is in reverse chronological order (newest first).
    - If quest originated from an idea file:
      - Quote the original idea content under "This is where it all began..."
-     - Update the idea file's `## Status` to `implemented`
+     - Remove the idea file (e.g., `ideas/my-idea.md`)
+     - Add a `done` row to `ideas/README.md` index: `| done | ~~idea-slug~~ | One-line pitch. See [journal](../docs/quest-journal/slug_date.md). |`
 
 3. **Archive the quest working directory:**
    - Create `.quest/archive/` if it doesn't exist
