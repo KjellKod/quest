@@ -2,6 +2,8 @@
 
 This module generates a self-contained HTML file with:
 - Inline CSS (dark navy theme from PR #21)
+- Ambient glow effects and gradient enhancements
+- Interactive charts (doughnut + time-progression) via inlined Chart.js
 - Three status sections: Finished, In Progress, Abandoned
 - Quest cards with title, elevator pitch, journal links, and metadata
 """
@@ -9,12 +11,21 @@ This module generates a self-contained HTML file with:
 from __future__ import annotations
 
 import html
+import json
+import logging
 import os
 import re
+from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 
 from .models import ActiveQuest, DashboardData, JournalEntry
+
+logger = logging.getLogger(__name__)
+
+# Path to the vendored Chart.js file
+_VENDOR_DIR = Path(__file__).parent / "vendor"
+_CHARTJS_PATH = _VENDOR_DIR / "chart.min.js"
 
 
 def render_dashboard(data: DashboardData, output_path: Path, repo_root: Path) -> str:
@@ -29,7 +40,10 @@ def render_dashboard(data: DashboardData, output_path: Path, repo_root: Path) ->
         Complete HTML document as string
     """
     css = _render_css()
+    chart_js_lib, chart_js_loaded = _render_chart_js()
+    glows = _render_glows()
     hero = _render_hero(data)
+    charts_section = _render_charts_section()
     finished_section = _render_finished_section(
         data.finished_quests, data.github_repo_url, output_path, repo_root
     )
@@ -39,6 +53,7 @@ def render_dashboard(data: DashboardData, output_path: Path, repo_root: Path) ->
     )
     warnings_html = _render_warnings(data.warnings)
     footer = _render_footer(data.generated_at)
+    chart_config = _render_chart_config(data, chart_js_loaded)
 
     return f"""<!doctype html>
 <html lang="en">
@@ -49,16 +64,20 @@ def render_dashboard(data: DashboardData, output_path: Path, repo_root: Path) ->
   <style>
 {css}
   </style>
+{chart_js_lib}
 </head>
 <body>
+{glows}
   <div class="container">
 {hero}
+{charts_section}
 {finished_section}
 {active_section}
 {abandoned_section}
 {warnings_html}
 {footer}
   </div>
+{chart_config}
 </body>
 </html>
 """
@@ -101,6 +120,8 @@ def _render_css() -> str:
     }
 
     .container {
+      position: relative;
+      z-index: 1;
       max-width: 1400px;
       margin: 0 auto;
     }
@@ -173,6 +194,9 @@ def _render_css() -> str:
 
     .section-header {
       margin-bottom: 1.5rem;
+      border-bottom: 2px solid transparent;
+      border-image: linear-gradient(to right, var(--status-finished), transparent) 1;
+      padding-bottom: 0.75rem;
     }
 
     .section-title {
@@ -195,7 +219,7 @@ def _render_css() -> str:
     }
 
     .quest-card {
-      background: var(--surface-1);
+      background: linear-gradient(135deg, var(--surface-1), rgba(15, 23, 42, 0.6));
       border: 1px solid var(--line);
       border-radius: var(--radius-md);
       padding: 1.5rem;
@@ -350,6 +374,103 @@ def _render_css() -> str:
       font-size: 0.875rem;
     }
 
+    /* Glow effects */
+    .glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.15;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .glow--green {
+      width: 400px;
+      height: 400px;
+      top: -100px;
+      right: -100px;
+      background: var(--status-finished);
+    }
+
+    .glow--blue {
+      width: 350px;
+      height: 350px;
+      bottom: -80px;
+      left: -80px;
+      background: var(--status-in-progress);
+    }
+
+    .glow--amber {
+      width: 300px;
+      height: 300px;
+      top: 40%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--status-abandoned);
+      opacity: 0.1;
+    }
+
+    /* Chart containers */
+    .chart-container {
+      max-width: 400px;
+      margin: 1.5rem auto 0;
+    }
+
+    .charts-section {
+      background: var(--surface-0);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      margin-bottom: 3rem;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .charts-section h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-0);
+      margin-bottom: 1rem;
+    }
+
+    .charts-grid {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .chart-panel {
+      flex: 1;
+      min-width: 280px;
+      max-width: 500px;
+    }
+
+    .chart-panel h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-1);
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Hero chart layout */
+    .hero-content {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .hero-kpis {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .hero-chart {
+      flex: 0 0 200px;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .hero h1 {
@@ -367,6 +488,17 @@ def _render_css() -> str:
       .quest-grid {
         grid-template-columns: 1fr;
       }
+
+      .hero-content {
+        flex-direction: column;
+      }
+
+      .hero-chart {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: 200px;
+        margin: 0 auto;
+      }
     }"""
 
 
@@ -379,21 +511,221 @@ def _render_hero(data: DashboardData) -> str:
     return f"""    <div class="hero">
       <h1>Quest Dashboard</h1>
       <div class="hero-subtitle">Quest status and progress tracking</div>
-      <div class="kpi-row">
-        <div class="kpi-item">
-          <div class="kpi-label">Finished</div>
-          <div class="kpi-value kpi-value--finished">{finished_count}</div>
+      <div class="hero-content">
+        <div class="hero-kpis">
+          <div class="kpi-row">
+            <div class="kpi-item">
+              <div class="kpi-label">Finished</div>
+              <div class="kpi-value kpi-value--finished">{finished_count}</div>
+            </div>
+            <div class="kpi-item">
+              <div class="kpi-label">In Progress</div>
+              <div class="kpi-value kpi-value--in-progress">{active_count}</div>
+            </div>
+            <div class="kpi-item">
+              <div class="kpi-label">Abandoned</div>
+              <div class="kpi-value kpi-value--abandoned">{abandoned_count}</div>
+            </div>
+          </div>
         </div>
-        <div class="kpi-item">
-          <div class="kpi-label">In Progress</div>
-          <div class="kpi-value kpi-value--in-progress">{active_count}</div>
-        </div>
-        <div class="kpi-item">
-          <div class="kpi-label">Abandoned</div>
-          <div class="kpi-value kpi-value--abandoned">{abandoned_count}</div>
+        <div class="hero-chart">
+          <div class="chart-container">
+            <canvas id="chart-status-doughnut"></canvas>
+            <noscript>Chart requires JavaScript</noscript>
+          </div>
         </div>
       </div>
     </div>"""
+
+
+def _render_glows() -> str:
+    """Emit fixed-position decorative glow divs.
+
+    These go outside .container in the body, providing ambient color
+    effects behind the dashboard content.
+    """
+    return """  <div class="glow glow--green" aria-hidden="true"></div>
+  <div class="glow glow--blue" aria-hidden="true"></div>
+  <div class="glow glow--amber" aria-hidden="true"></div>"""
+
+
+def _render_chart_js() -> tuple[str, bool]:
+    """Inline the vendored Chart.js library as a <script> block.
+
+    Returns:
+        A tuple of (script_tag, available) where script_tag is a ``<script>``
+        tag containing the full Chart.js source (or empty string if the vendor
+        file is missing), and available indicates whether Chart.js was loaded.
+    """
+    if not _CHARTJS_PATH.is_file():
+        logger.warning(
+            "Chart.js vendor file not found at %s; charts will be disabled",
+            _CHARTJS_PATH,
+        )
+        return "", False
+
+    chart_js_source = _CHARTJS_PATH.read_text(encoding="utf-8")
+    return f"  <script>\n{chart_js_source}\n  </script>", True
+
+
+def _render_charts_section() -> str:
+    """Emit the time-progression chart section between hero and finished quests."""
+    return """    <section class="charts-section">
+      <h2>Quest Activity Over Time</h2>
+      <div class="chart-panel">
+        <canvas id="chart-time-progression"></canvas>
+        <noscript>Chart requires JavaScript</noscript>
+      </div>
+    </section>"""
+
+
+def _compute_monthly_buckets(data: DashboardData) -> OrderedDict[str, dict[str, int]]:
+    """Group finished and abandoned quests by month for the time-progression chart.
+
+    Active quests are excluded -- this chart tracks completions and
+    abandonments over time.
+
+    Returns:
+        OrderedDict keyed by 'YYYY-MM' strings (sorted chronologically),
+        each value is ``{"finished": int, "abandoned": int}``.
+        Gaps between min and max months are filled with zeros.
+    """
+    raw: dict[str, dict[str, int]] = {}
+
+    for quest in data.finished_quests:
+        key = quest.completed_date.strftime("%Y-%m")
+        raw.setdefault(key, {"finished": 0, "abandoned": 0})
+        raw[key]["finished"] += 1
+
+    for quest in data.abandoned_quests:
+        key = quest.completed_date.strftime("%Y-%m")
+        raw.setdefault(key, {"finished": 0, "abandoned": 0})
+        raw[key]["abandoned"] += 1
+
+    if not raw:
+        return OrderedDict()
+
+    # Fill gaps between min and max months
+    sorted_keys = sorted(raw.keys())
+    min_year, min_month = (int(x) for x in sorted_keys[0].split("-"))
+    max_year, max_month = (int(x) for x in sorted_keys[-1].split("-"))
+
+    result: OrderedDict[str, dict[str, int]] = OrderedDict()
+    year, month = min_year, min_month
+    while (year, month) <= (max_year, max_month):
+        key = f"{year:04d}-{month:02d}"
+        result[key] = raw.get(key, {"finished": 0, "abandoned": 0})
+        month += 1
+        if month > 12:
+            month = 1
+            year += 1
+
+    return result
+
+
+def _render_chart_config(data: DashboardData, chart_js_available: bool) -> str:
+    """Generate inline JavaScript that creates Chart.js instances.
+
+    Args:
+        data: Dashboard data with all quests.
+        chart_js_available: Whether Chart.js was successfully loaded.
+
+    Returns:
+        A <script> tag with chart initialization code, or empty string
+        if Chart.js vendor was not loaded.
+    """
+    if not chart_js_available:
+        return ""
+
+    finished_count = len(data.finished_quests)
+    active_count = len(data.active_quests)
+    abandoned_count = len(data.abandoned_quests)
+
+    # Compute monthly buckets for time-progression chart
+    buckets = _compute_monthly_buckets(data)
+    labels = list(buckets.keys())
+    finished_series = [b["finished"] for b in buckets.values()]
+    abandoned_series = [b["abandoned"] for b in buckets.values()]
+
+    return f"""  <script>
+document.addEventListener('DOMContentLoaded', function() {{
+  // Doughnut chart: status distribution
+  var doughnutCtx = document.getElementById('chart-status-doughnut');
+  if (doughnutCtx) {{
+    new Chart(doughnutCtx, {{
+      type: 'doughnut',
+      data: {{
+        labels: ['Finished', 'In Progress', 'Abandoned'],
+        datasets: [{{
+          data: [{finished_count}, {active_count}, {abandoned_count}],
+          backgroundColor: [
+            getComputedStyle(document.documentElement).getPropertyValue('--status-finished').trim(),
+            getComputedStyle(document.documentElement).getPropertyValue('--status-in-progress').trim(),
+            getComputedStyle(document.documentElement).getPropertyValue('--status-abandoned').trim()
+          ],
+          borderWidth: 0
+        }}]
+      }},
+      options: {{
+        responsive: true,
+        plugins: {{
+          legend: {{ display: false }}
+        }},
+        cutout: '65%'
+      }}
+    }});
+  }}
+
+  // Time-progression chart: stacked area
+  var timeCtx = document.getElementById('chart-time-progression');
+  if (timeCtx) {{
+    new Chart(timeCtx, {{
+      type: 'line',
+      data: {{
+        labels: {json.dumps(labels)},
+        datasets: [
+          {{
+            label: 'Finished',
+            data: {json.dumps(finished_series)},
+            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-finished').trim(),
+            backgroundColor: 'rgba(52, 211, 153, 0.2)',
+            fill: true,
+            tension: 0.3
+          }},
+          {{
+            label: 'Abandoned',
+            data: {json.dumps(abandoned_series)},
+            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-abandoned').trim(),
+            backgroundColor: 'rgba(248, 113, 113, 0.2)',
+            fill: true,
+            tension: 0.3
+          }}
+        ]
+      }},
+      options: {{
+        responsive: true,
+        scales: {{
+          x: {{
+            ticks: {{ color: '#94a3b8' }},
+            grid: {{ color: 'rgba(148, 163, 184, 0.1)' }}
+          }},
+          y: {{
+            stacked: true,
+            beginAtZero: true,
+            ticks: {{ color: '#94a3b8', stepSize: 1 }},
+            grid: {{ color: 'rgba(148, 163, 184, 0.1)' }}
+          }}
+        }},
+        plugins: {{
+          legend: {{
+            labels: {{ color: '#cbd5e1' }}
+          }}
+        }}
+      }}
+    }});
+  }}
+}});
+  </script>"""
 
 
 def _render_finished_section(

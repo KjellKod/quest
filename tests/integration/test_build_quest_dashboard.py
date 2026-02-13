@@ -60,6 +60,15 @@ def test_build_dashboard_produces_valid_html(tmp_path):
     assert "In Progress" in html
     assert "Abandoned" in html
 
+    # Chart.js inlined and chart canvases present
+    assert "<script>" in html
+    assert 'id="chart-status-doughnut"' in html
+    assert 'id="chart-time-progression"' in html
+
+    # Glow elements present
+    assert 'class="glow glow--green"' in html
+    assert 'class="glow glow--blue"' in html
+
     print(f"Dashboard built successfully: {output_path}")
     print(f"HTML size: {len(html)} bytes")
 

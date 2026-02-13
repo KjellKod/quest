@@ -100,3 +100,7 @@ PR #21 had "subtle gradients everywhere" — not just the background, but layere
 ## Priority
 
 Medium. The dashboard is functional without these, but they were part of the original vision and make the difference between "works" and "looks great."
+
+## Status
+
+Implemented. See [quest journal](../docs/quest-journal/dashboard-visual-polish_2026-02-12.md).
