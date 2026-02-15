@@ -58,6 +58,24 @@ A plan is NOT ready when:
 - Quest brief
 - Iteration count
 
+## Handoff File
+
+Before outputting your text `---HANDOFF---` block, write a JSON file with your handoff data.
+
+**Path:** `.quest/<id>/phase_01_plan/handoff_arbiter.json`
+
+**Schema:**
+```json
+{
+  "status": "complete | needs_human | blocked",
+  "artifacts": [".quest/<id>/phase_01_plan/arbiter_verdict.md"],
+  "next": "planner | builder",
+  "summary": "Iteration <N>: <approve|iterate> — <reason>"
+}
+```
+
+The values MUST match your text `---HANDOFF---` block exactly. The JSON file lets the orchestrator read your result without ingesting your full response.
+
 ## Output Contract
 End your response with:
 

@@ -7,7 +7,8 @@ Future work items not yet ready for a full quest. When an idea is ready, run `/q
 | Status | Idea | Elevator pitch |
 |--------|------|---------------|
 | | [user-feedback](user-feedback.md) | Real-world user feedback on Quest UX: cost transparency, smart pausing, status clarity, plan navigation. |
-| | [quest-architecture-evolution](quest-architecture-evolution.md) | 5-phase roadmap to close the gap between Quest's philosophy and implementation. Phase 2 done, 3-5 remain. |
+| in-progress | [quest-architecture-evolution](quest-architecture-evolution.md) | 5-phase roadmap to close the gap between Quest's philosophy and implementation. Phase 2 done, 2b in progress. |
+| in-progress | [quest-context-optimization](quest-context-optimization.md) | Close remaining context leaks: handoff.json pattern, background agents, /clear suggestion. |
 | | [quest-step-numbering-cleanup](quest-step-numbering-cleanup.md) | Fix step numbering overlap between SKILL.md and workflow.md after the delegation refactor. |
 | | [quest-council_v1](quest-council_v1.md) | Dual-plan "council" mode: generate two competing plans, compare, merge the best parts. |
 | | [quest-council_v1_alternative](quest-council_v1_alternative.md) | Alternative council design with detailed arbiter comparison workflow. |
@@ -28,7 +29,7 @@ Future work items not yet ready for a full quest. When an idea is ready, run `/q
 | dropped | ~~fixer~~ | One-line question about fixer routing. Never developed. |
 | dropped | ~~update_details~~ | UX brainstorm about update check UI. Never developed. |
 
-**Legend:** blank = not started, done = implemented (file removed), dropped = discarded (file removed)
+**Legend:** blank = not started, in-progress = active idea being implemented, done = implemented (file removed), dropped = discarded (file removed)
 
 ## Format
 

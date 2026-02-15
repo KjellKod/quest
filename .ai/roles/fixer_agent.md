@@ -28,6 +28,24 @@ Claude (`Task(subagent_type="fixer")`)
 - Changed files (`git diff --name-only`)
 - Quest brief and approved plan
 
+## Handoff File
+
+Before outputting your text `---HANDOFF---` block, write a JSON file with your handoff data.
+
+**Path:** `.quest/<id>/phase_03_review/handoff_fixer.json`
+
+**Schema:**
+```json
+{
+  "status": "complete | needs_human | blocked",
+  "artifacts": [".quest/<id>/phase_03_review/review_fix_feedback_discussion.md"],
+  "next": "code_review",
+  "summary": "One line describing what you accomplished"
+}
+```
+
+The values MUST match your text `---HANDOFF---` block exactly. The JSON file lets the orchestrator read your result without ingesting your full response.
+
 ## Output Contract
 End your response with:
 

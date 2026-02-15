@@ -41,6 +41,32 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 - Quest brief
 - Optional context digest (`.ai/context_digest.md`) when orchestrator supplies it
 
+## Handoff File
+
+Before outputting your text `---HANDOFF---` block, write a JSON file with your handoff data.
+
+**Path (depends on your slot):**
+- Slot A (Claude): `.quest/<id>/phase_01_plan/handoff_claude.json`
+- Slot B (Codex): `.quest/<id>/phase_01_plan/handoff_codex.json`
+
+The orchestrator prompt identifies which slot you are. Use the corresponding path.
+
+**Schema:**
+```json
+{
+  "status": "complete | needs_human | blocked",
+  "artifacts": [".quest/<id>/phase_01_plan/review_<slot>.md"],
+  "next": "arbiter",
+  "summary": "One line describing what you accomplished"
+}
+```
+
+Use the artifact path for your assigned slot:
+- Slot A (Claude): `review_claude.md`
+- Slot B (Codex): `review_codex.md`
+
+The values MUST match your text `---HANDOFF---` block exactly. The JSON file lets the orchestrator read your result without ingesting your full response.
+
 ## Output Contract
 
 **Timestamp front matter:** Your review file MUST begin with YAML front matter containing timing metadata:

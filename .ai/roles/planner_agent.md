@@ -40,6 +40,24 @@ Claude (`Task(subagent_type="planner")`)
 - Codebase access (read-only for source, write to `.quest/` and `docs/implementation/`)
 - Arbiter verdict (on iteration 2+)
 
+## Handoff File
+
+Before outputting your text `---HANDOFF---` block, write a JSON file with your handoff data.
+
+**Path:** `.quest/<id>/phase_01_plan/handoff.json`
+
+**Schema:**
+```json
+{
+  "status": "complete | needs_human | blocked",
+  "artifacts": [".quest/<id>/phase_01_plan/plan.md"],
+  "next": "plan_review",
+  "summary": "One line describing what you accomplished"
+}
+```
+
+The values MUST match your text `---HANDOFF---` block exactly. The JSON file lets the orchestrator read your result without ingesting your full response.
+
 ## Output Contract
 End your response with:
 

@@ -22,12 +22,58 @@ After every subagent invocation (`Task` or `mcp__codex__codex`), the orchestrato
 
 Everything else from the subagent response (plan text, review content, build output, fix details) is not carried forward in the orchestrator's working context. The orchestrator does not retain, summarize, or re-process subagent output beyond these handoff fields.
 
+**Primary mechanism:** The orchestrator reads the agent's `handoff.json` file (see Handoff File Polling) to obtain status, artifacts, next, and summary. The full agent response body is discarded immediately. If `handoff.json` is unavailable or cannot be parsed as valid JSON, fall back to parsing the text `---HANDOFF---` block from the response.
+
 **Bounded exceptions** (content is used immediately and not carried forward):
 1. **Step 3.5 (Interactive Plan Presentation):** The orchestrator loads plan content for human interaction. This is bounded and deliberate.
 2. **Q&A loop (`needs_human`):** The orchestrator extracts questions from the subagent response text (before `---HANDOFF---`) to present to the user. The question text is used for the human exchange and not retained after re-invocation.
 3. **Artifact recovery:** If an expected artifact file (e.g., `plan.md`) is not written by a subagent, the orchestrator extracts it from the response and writes it to disk. The response content is discarded immediately after writing.
 
 **Why this works:** Every subagent reads files itself. The orchestrator's job is routing and state management, not content relay.
+
+### Handoff File Polling
+
+After any subagent completes, the orchestrator reads the agent's `handoff.json` file for routing decisions instead of parsing the full response.
+
+**Pattern:**
+1. Wait for the subagent to complete (Task completion or MCP response)
+2. Read the expected `handoff.json` file (tiny JSON, ~200 bytes)
+3. Use its `status`, `next`, `summary`, and `artifacts` fields for routing and user display
+4. Discard the full agent response -- do not retain, summarize, or process it
+5. **Fallback:** If handoff.json does not exist or cannot be parsed as valid JSON, parse the text `---HANDOFF---` block from the response (backward compatibility)
+
+**Expected handoff.json locations:**
+
+| Phase | Agent | handoff.json path |
+|-------|-------|------------------|
+| Plan | Planner | `.quest/<id>/phase_01_plan/handoff.json` |
+| Plan Review | Slot A | `.quest/<id>/phase_01_plan/handoff_claude.json` |
+| Plan Review | Slot B | `.quest/<id>/phase_01_plan/handoff_codex.json` |
+| Plan Review | Arbiter | `.quest/<id>/phase_01_plan/handoff_arbiter.json` |
+| Build | Builder | `.quest/<id>/phase_02_implementation/handoff.json` |
+| Code Review | Slot A | `.quest/<id>/phase_03_review/handoff_claude.json` |
+| Code Review | Slot B | `.quest/<id>/phase_03_review/handoff_codex.json` |
+| Fix | Fixer | `.quest/<id>/phase_03_review/handoff_fixer.json` |
+
+The orchestrator NEVER reads full review files, plan content, or build output for routing decisions. Only handoff.json (and, for Step 3.5, the plan file itself as a bounded exception).
+
+**Codex MCP response handling:** After a `mcp__codex__codex` call returns, the orchestrator reads the corresponding `handoff.json` file and does NOT retain the Codex response body in working context. The response may still appear in the conversation history (platform limitation), but the orchestrator treats it as consumed and does not reference it for any subsequent decision.
+
+**Context health logging:** After each handoff.json read or fallback, append a line to `.quest/<id>/logs/context_health.log`:
+
+```
+<timestamp> | phase=<phase> | agent=<agent_name> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback
+```
+
+Examples:
+```
+2026-02-15T00:12:00Z | phase=plan | agent=planner | handoff_json=found | source=handoff_json
+2026-02-15T00:15:00Z | phase=plan_review | agent=slot_a_claude | handoff_json=found | source=handoff_json
+2026-02-15T00:15:00Z | phase=plan_review | agent=slot_b_codex | handoff_json=missing | source=text_fallback
+2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | handoff_json=found | source=handoff_json
+```
+
+This log is lightweight (one line per agent invocation, ~8-12 lines per quest) and provides the data needed to evaluate whether the discard approach is effective or whether `run_in_background: true` should be adopted.
 
 ### Step 0: Resume Check
 
@@ -83,6 +129,8 @@ gates.max_plan_iterations (default: 4)
 
 **Loop:**
 
+0. **Clear stale handoff files:** If `plan_iteration >= 1` (i.e., any refinement pass after the first), delete any existing `handoff*.json` files in `.quest/<id>/phase_01_plan/` to prevent stale data from a previous iteration being read.
+
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
 2. **Invoke Planner** (Claude `Task(subagent_type="planner")`):
@@ -92,11 +140,14 @@ gates.max_plan_iterations (default: 4)
      - User feedback (if present): `.quest/<id>/phase_01_plan/user_feedback.md`
    - Require the prompt to include:
      - Write plan to: `.quest/<id>/phase_01_plan/plan.md`
+     - Write handoff file to: `.quest/<id>/phase_01_plan/handoff.json` with schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: plan_review`
-   - Wait for response
-   - Verify `.quest/<id>/phase_01_plan/plan.md` exists
-   - If not written, extract from response and write it
+   - Wait for Task to complete
+   - Read `.quest/<id>/phase_01_plan/handoff.json` for status/routing
+   - Verify `.quest/<id>/phase_01_plan/plan.md` exists (from handoff.artifacts)
+   - Fallback: if handoff.json missing or unparsable, parse text handoff from response; if plan.md not written, extract from response and write it
+   - Log to context_health.log: `<timestamp> | phase=plan | agent=planner | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
 3. **Read review config from allowlist:**
    - `review_mode` (default: `auto`)
@@ -126,6 +177,7 @@ gates.max_plan_iterations (default: 4)
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
      Write your review to: .quest/<id>/phase_01_plan/review_claude.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_claude.json
 
      IMPORTANT: Start your review file with YAML front matter timestamps:
      ---
@@ -150,6 +202,7 @@ gates.max_plan_iterations (default: 4)
 
      List up to 5 issues, highest severity first.
      Write your review to: .quest/<id>/phase_01_plan/review_claude.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_claude.json
 
      IMPORTANT: Start your review file with YAML front matter timestamps:
      ---
@@ -179,6 +232,7 @@ gates.max_plan_iterations (default: 4)
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
      Write your review to: .quest/<id>/phase_01_plan/review_codex.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_codex.json
 
      IMPORTANT: Start your review file with YAML front matter timestamps:
      ---
@@ -203,6 +257,7 @@ gates.max_plan_iterations (default: 4)
 
      List up to 5 issues, highest severity first.
      Write your review to: .quest/<id>/phase_01_plan/review_codex.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_codex.json
 
      IMPORTANT: Start your review file with YAML front matter timestamps:
      ---
@@ -216,7 +271,12 @@ gates.max_plan_iterations (default: 4)
    )
    ```
    - Issue BOTH calls in the SAME message for parallel execution
-   - Wait for BOTH responses, verify both review files written
+   - Wait for BOTH to complete
+   - Read `.quest/<id>/phase_01_plan/handoff_claude.json` and `handoff_codex.json`
+   - Verify both review files exist (from handoff.artifacts)
+   - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
+   - Log to context_health.log: `<timestamp> | phase=plan_review | agent=slot_a_claude | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
+   - Log to context_health.log: `<timestamp> | phase=plan_review | agent=slot_b_codex | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
    **Parallelism check:** After both review files are written, check for time overlap:
    1. Parse YAML front matter from both review files to extract `started` and `completed` timestamps
@@ -242,17 +302,22 @@ gates.max_plan_iterations (default: 4)
      Review B: .quest/<id>/phase_01_plan/review_codex.md
 
      Write verdict to: .quest/<id>/phase_01_plan/arbiter_verdict.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_arbiter.json
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: builder (approve) or planner (iterate)
      ```
-   - Parse verdict for NEXT field
+   - Wait for Task to complete
+   - Read `.quest/<id>/phase_01_plan/handoff_arbiter.json`
+   - Route based on `next` field ("builder" = approved, "planner" = iterate)
+   - Fallback: if handoff.json missing or unparsable, parse text handoff from response
+   - Log to context_health.log: `<timestamp> | phase=plan_review | agent=arbiter | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
 6. **Check verdict:**
    - If `NEXT: builder` → Plan approved! Update state: `phase: plan_reviewed`, proceed to **Step 3.5** (Interactive Presentation)
    - If `NEXT: planner` → Check iteration count
      - If `plan_iteration >= max_plan_iterations`: Warn user, ask to proceed anyway or review manually
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
-     - Otherwise: Loop back to step 1
+     - Otherwise: Loop back to step 0 (stale handoff cleanup)
 
 ### Step 3.5: Interactive Plan Presentation
 
@@ -363,10 +428,14 @@ After plan approval, present the plan interactively before proceeding to build.
      - Quest brief: `.quest/<id>/quest_brief.md`
    - Require the prompt to include:
      - Write output artifacts under: `.quest/<id>/phase_02_implementation/`
+     - Write handoff file to: `.quest/<id>/phase_02_implementation/handoff.json` with schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: code_review`
-   - Wait for response
-   - Verify artifacts written
+   - Wait for Task to complete
+   - Read `.quest/<id>/phase_02_implementation/handoff.json` for status/routing
+   - Verify artifacts written (from handoff.artifacts)
+   - Fallback: if handoff.json missing or unparsable, parse text handoff from response
+   - Log to context_health.log: `<timestamp> | phase=build | agent=builder | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
 3. **Update state:** `phase: reviewing`
 
@@ -417,6 +486,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Review ONLY the files listed above. Use git diff for details.
      Write review to: .quest/<id>/phase_03_review/review_claude.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_claude.json
 
      IMPORTANT: Start your review file with YAML front matter timestamps:
      ---
@@ -445,6 +515,7 @@ After plan approval, present the plan interactively before proceeding to build.
      Review ONLY the files listed above.
      List up to 5 issues, highest severity first.
      Write review to: .quest/<id>/phase_03_review/review_claude.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_claude.json
 
      IMPORTANT: Start your review file with YAML front matter timestamps:
      ---
@@ -478,6 +549,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Review ONLY the files listed above. Use git diff for details.
      Write review to: .quest/<id>/phase_03_review/review_codex.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_codex.json
 
      IMPORTANT: Start your review file with YAML front matter timestamps:
      ---
@@ -506,6 +578,7 @@ After plan approval, present the plan interactively before proceeding to build.
      Review ONLY the files listed above.
      List up to 5 issues, highest severity first.
      Write review to: .quest/<id>/phase_03_review/review_codex.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_codex.json
 
      IMPORTANT: Start your review file with YAML front matter timestamps:
      ---
@@ -520,7 +593,12 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    - **Note:** The `<file list>` and `<git diff --stat>` values embedded in these prompts are intentional small metadata (summary statistics and file names, typically a few lines). This is operational data for scoping the review, not subagent artifact content, and does not conflict with the Context Retention Rule.
    - Issue BOTH calls in the SAME message for parallel execution
-   - Wait for BOTH responses, verify both review files written
+   - Wait for BOTH to complete
+   - Read `.quest/<id>/phase_03_review/handoff_claude.json` and `handoff_codex.json`
+   - Verify both review files exist (from handoff.artifacts)
+   - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
+   - Log to context_health.log: `<timestamp> | phase=code_review | agent=slot_a_claude | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
+   - Log to context_health.log: `<timestamp> | phase=code_review | agent=slot_b_codex | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
    **Parallelism check:** After both review files are written, check for time overlap:
    1. Parse YAML front matter from both review files to extract `started` and `completed` timestamps
@@ -533,9 +611,20 @@ After plan approval, present the plan interactively before proceeding to build.
       ```
    6. If timestamps are missing or unparseable, log: `Code review: parallel=unknown (timestamp parse error)`
 
-5. **Check verdicts:**
-   - If EITHER reviewer says `NEXT: fixer` → Issues found, proceed to Step 6
-   - If BOTH say `NEXT: null` → Review passed! Update state: `phase: complete`, go to Step 7
+5. **Check verdicts via handoff.json (with fallback):**
+   - For each reviewer slot, use the `next` value obtained in step 4:
+     - If handoff.json was successfully read → use its `next` and `summary` fields
+     - If fallback was triggered (handoff.json missing or unparsable) → use the `NEXT` and `SUMMARY` values parsed from the text `---HANDOFF---` block in step 4
+   - If EITHER slot has `next: "fixer"` → Issues found, proceed to Step 6
+   - If BOTH have `next: null` → Review passed! Update state: `phase: complete`, go to Step 7
+   - Present summaries to user:
+     ```
+     Review complete:
+       Claude: "<summary from handoff or text fallback>"
+       Codex: "<summary from handoff or text fallback>"
+     Full reviews at: .quest/<id>/phase_03_review/review_claude.md, review_codex.md
+     ```
+   - Do NOT read the full review files for routing or status display
 
 ### Step 6: Fix Phase
 
@@ -558,15 +647,22 @@ After plan approval, present the plan interactively before proceeding to build.
      - Plan: `.quest/<id>/phase_01_plan/plan.md`
    - Require the prompt to include:
      - Write feedback to: `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md`
+     - Write handoff file to: `.quest/<id>/phase_03_review/handoff_fixer.json` with schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: code_review`
-   - Wait for response
+   - Wait for Task to complete
+   - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
+   - Fallback: if handoff.json missing or unparsable, parse text handoff from response
+   - Log to context_health.log: `<timestamp> | phase=fix | agent=fixer | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
-3. **Re-invoke BOTH Code Reviewers** (same as Step 5)
+3. **Clear stale handoff files:** Delete any existing `handoff_claude.json` and `handoff_codex.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
 
-4. **Check verdict:**
-   - If `NEXT: null` → Fixed! Proceed to Step 7
-   - If `NEXT: fixer`:
+4. **Re-invoke BOTH Code Reviewers** (same as Step 5)
+
+5. **Check verdict (with fallback):**
+   - For each reviewer slot, use the `next` value obtained in step 4 (from handoff.json if available, or text fallback if not)
+   - If BOTH have `next: null` → Fixed! Proceed to Step 7
+   - If EITHER has `next: "fixer"`:
      - If `fix_iteration >= max_fix_iterations`: Warn user, ask to proceed or review manually
      - Otherwise: Loop back to step 1
 
@@ -584,27 +680,61 @@ After plan approval, present the plan interactively before proceeding to build.
      - Remove the idea file (e.g., `ideas/my-idea.md`)
      - Add a `done` row to `ideas/README.md` index: `| done | ~~idea-slug~~ | One-line pitch. See [journal](../docs/quest-journal/slug_date.md). |`
 
-3. **Archive the quest working directory:**
+3. **Show summary:**
+   - Quest ID
+   - Files changed (from `git diff --name-only` and `state.json` artifact paths)
+   - Total iterations (plan + fix, from `state.json`)
+   - Parallel execution stats (read from `.quest/<id>/logs/parallelism.log` if it exists — show each line)
+   - Location of artifacts (will be archived to `.quest/archive/<id>/`)
+   - Location of journal entry
+
+4. **Context health report:**
+   If `.quest/<id>/logs/context_health.log` exists, display it in full:
+
+   ```
+   Context Health (handoff.json compliance):
+   ---
+   <contents of context_health.log, one line per agent>
+   ---
+   ```
+
+   Then display a brief reflection, split by agent type:
+   - Count entries with `source=handoff_json` vs `source=text_fallback`
+   - Split by agent type: Claude Task agents (planner, slot_a_claude, arbiter, builder, fixer) vs Codex MCP agents (slot_b_codex)
+   - Display:
+     ```
+     Handoff.json compliance:
+       Claude agents: <N>/<total> (<percentage>%)
+       Codex agents:  <N>/<total> (<percentage>%)
+       Overall:       <N>/<total> (<percentage>%)
+     ```
+   - If overall compliance is 100%:
+     "All agents wrote handoff.json. Orchestrator routed via structured handoff files throughout."
+   - If compliance is 75-99%:
+     "Most agents complied. <list non-compliant agents>. Consider tweaking instructions for those agents."
+   - If compliance is 50-74%:
+     "Mixed compliance. Investigate non-compliant agents. Consider upgrading to run_in_background: true for Claude Task agents."
+   - If compliance is <50%:
+     "Low compliance -- discard approach is not effective. Recommend upgrading to run_in_background: true."
+
+5. **Archive the quest working directory:**
    - Create `.quest/archive/` if it doesn't exist
    - Move `.quest/<id>/` to `.quest/archive/<id>/`
    - The journal entry in `docs/quest-journal/` is the permanent record; the archive preserves raw artifacts for reference
    - `.quest/` root should only contain active quests, `archive/`, and `audit.log`
 
-4. **Show summary:**
-   - Quest ID
-   - Files changed (from `git diff --name-only` and `state.json` artifact paths)
-   - Total iterations (plan + fix, from `state.json`)
-   - Parallel execution stats (read from `.quest/<id>/logs/parallelism.log` if it exists — show each line)
-   - Location of artifacts (now in `.quest/archive/<id>/`)
-   - Location of journal entry
-
-5. **Next steps suggestion:**
+6. **Next steps suggestion:**
    ```
    Review changes: git diff
    Commit: git add -p && git commit
    ```
 
-5. **Check for Quest updates:**
+7. **Context reset suggestion:**
+   ```
+   Quest complete. Consider running /clear before your next quest to reset context.
+   ```
+
+8. **Check for Quest updates:**
    After the quest completes, check if a Quest update is available (if enough time has passed since the last check).
 
    **Configuration:**
@@ -731,6 +861,7 @@ Quest brief: .quest/<id>/quest_brief.md
 <specific task instruction>
 
 Write output to: .quest/<id>/<path>
+Write handoff file to: .quest/<id>/<phase>/handoff.json
 
 When done, output:
 ---HANDOFF---

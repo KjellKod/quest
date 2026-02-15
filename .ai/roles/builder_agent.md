@@ -25,6 +25,24 @@ Claude (`Task(subagent_type="builder")`)
 - Quest brief
 - Plan review notes (if any)
 
+## Handoff File
+
+Before outputting your text `---HANDOFF---` block, write a JSON file with your handoff data.
+
+**Path:** `.quest/<id>/phase_02_implementation/handoff.json`
+
+**Schema:**
+```json
+{
+  "status": "complete | needs_human | blocked",
+  "artifacts": [".quest/<id>/phase_02_implementation/pr_description.md", ".quest/<id>/phase_02_implementation/builder_feedback_discussion.md"],
+  "next": "code_review",
+  "summary": "One line describing what you accomplished"
+}
+```
+
+The values MUST match your text `---HANDOFF---` block exactly. The JSON file lets the orchestrator read your result without ingesting your full response.
+
 ## Output Contract
 End your response with:
 
