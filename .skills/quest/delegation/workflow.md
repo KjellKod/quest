@@ -15,7 +15,7 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 
 ### Context Retention Rule
 
-After every subagent invocation (`mcp__codex__codex`), the orchestrator retains ONLY:
+After every subagent invocation (`Task` or `mcp__codex__codex`), the orchestrator retains ONLY:
 1. The **artifact path(s)** from the ARTIFACTS line of the handoff
 2. The **one-line SUMMARY** from the SUMMARY line of the handoff
 3. The **STATUS** and **NEXT** values for routing decisions
@@ -85,7 +85,7 @@ gates.max_plan_iterations (default: 4)
 
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
-2. **Invoke Planner** (`mcp__codex__codex(model: "gpt-5.3-codex")`):
+2. **Invoke Planner** (Claude `Task(subagent_type="planner")`):
    - Prompt: Reference file paths only, do not embed artifact content:
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Arbiter verdict (iteration 2+): `.quest/<id>/phase_01_plan/arbiter_verdict.md`
@@ -104,13 +104,52 @@ gates.max_plan_iterations (default: 4)
    - `codex_context_digest_path` (default: `.ai/context_digest.md`)
    - For plan review: treat `auto` as `full`. Use `fast` only if explicitly set.
 
-4. **Invoke BOTH Plan Reviewers IN PARALLEL** (same message, two Codex tool calls):
+4. **Invoke BOTH Plan Reviewers IN PARALLEL** (same message, one Task call + one Codex call):
 
-   Run the same review prompt twice with different output paths:
-   - Slot A output: `.quest/<id>/phase_01_plan/review_claude.md` (compatibility filename)
-   - Slot B output: `.quest/<id>/phase_01_plan/review_codex.md`
+   Two different models review independently for model diversity:
+   - **Slot A** (Claude): `Task(subagent_type="plan-reviewer")` → `.quest/<id>/phase_01_plan/review_claude.md`
+   - **Slot B** (Codex): `mcp__codex__codex` → `.quest/<id>/phase_01_plan/review_codex.md`
 
-   Use the digest path and **mode-specific** prompt for each slot:
+   **Slot A — Claude Task agent** (full and fast modes):
+
+   **Full mode** (default for plan review):
+   ```
+   Task(
+     subagent_type: "plan-reviewer",
+     prompt: "You are the Plan Review Agent (Claude).
+
+     Read your instructions: .ai/roles/plan_review_agent.md
+     Read context digest: <codex_context_digest_path>
+     (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
+
+     Quest brief: .quest/<id>/quest_brief.md
+     Plan to review: .quest/<id>/phase_01_plan/plan.md
+
+     Write your review to: .quest/<id>/phase_01_plan/review_claude.md
+
+     End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
+     NEXT: arbiter"
+   )
+   ```
+   **Fast mode** (only if `review_mode: fast`):
+   ```
+   Task(
+     subagent_type: "plan-reviewer",
+     prompt: "You are the Plan Review Agent (Claude).
+
+     Read context digest: <codex_context_digest_path>
+     Quest brief: .quest/<id>/quest_brief.md
+     Plan to review: .quest/<id>/phase_01_plan/plan.md
+
+     List up to 5 issues, highest severity first.
+     Write your review to: .quest/<id>/phase_01_plan/review_claude.md
+
+     End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
+     NEXT: arbiter"
+   )
+   ```
+
+   **Slot B — Codex MCP** (full and fast modes):
 
    **Full mode** (default for plan review):
    ```
@@ -125,7 +164,7 @@ gates.max_plan_iterations (default: 4)
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
-     Write your review to: <slot output path>
+     Write your review to: .quest/<id>/phase_01_plan/review_codex.md
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -142,12 +181,13 @@ gates.max_plan_iterations (default: 4)
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
      List up to 5 issues, highest severity first.
-     Write your review to: <slot output path>
+     Write your review to: .quest/<id>/phase_01_plan/review_codex.md
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
    )
    ```
+   - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH responses, verify both review files written
 
 5. **Invoke Arbiter** (`mcp__codex__codex(model: "gpt-5.3-codex")`):
@@ -278,7 +318,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
-2. **Invoke Builder** (`mcp__codex__codex(model: "gpt-5.3-codex")`):
+2. **Invoke Builder** (Claude `Task(subagent_type="builder")`):
    - Prompt: Reference file paths only, do not embed content:
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
      - Quest brief: `.quest/<id>/quest_brief.md`
@@ -312,13 +352,60 @@ After plan approval, present the plan interactively before proceeding to build.
      - If file_count ≤ max_files AND loc_total ≤ max_loc → **fast**
      - Otherwise → **full**
 
-4. **Invoke BOTH Code Reviewers IN PARALLEL** (same message, two Codex tool calls):
+4. **Invoke BOTH Code Reviewers IN PARALLEL** (same message, one Task call + one Codex call):
 
-   Run the same review prompt twice with different output paths:
-   - Slot A output: `.quest/<id>/phase_03_review/review_claude.md` (compatibility filename)
-   - Slot B output: `.quest/<id>/phase_03_review/review_codex.md`
+   Two different models review independently for model diversity:
+   - **Slot A** (Claude): `Task(subagent_type="code-reviewer")` → `.quest/<id>/phase_03_review/review_claude.md`
+   - **Slot B** (Codex): `mcp__codex__codex` → `.quest/<id>/phase_03_review/review_codex.md`
 
-   Use the digest path and **mode-specific** prompt for each slot:
+   **Slot A — Claude Task agent** (full and fast modes):
+
+   **Full mode**:
+   ```
+   Task(
+     subagent_type: "code-reviewer",
+     prompt: "You are the Code Review Agent (Claude).
+
+     Read your instructions: .ai/roles/code_review_agent.md
+     Read context digest: <codex_context_digest_path>
+     (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
+
+     Quest: .quest/<id>/quest_brief.md
+     Plan: .quest/<id>/phase_01_plan/plan.md
+
+     Changed files: <file list>
+     Diff summary: <git diff --stat>
+
+     Review ONLY the files listed above. Use git diff for details.
+     Write review to: .quest/<id>/phase_03_review/review_claude.md
+
+     End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
+     NEXT: fixer (if issues) or null (if clean)"
+   )
+   ```
+   **Fast mode**:
+   ```
+   Task(
+     subagent_type: "code-reviewer",
+     prompt: "You are the Code Review Agent (Claude).
+
+     Read context digest: <codex_context_digest_path>
+     Quest: .quest/<id>/quest_brief.md
+     Plan: .quest/<id>/phase_01_plan/plan.md
+
+     Changed files: <file list>
+     Diff summary: <git diff --stat>
+
+     Review ONLY the files listed above.
+     List up to 5 issues, highest severity first.
+     Write review to: .quest/<id>/phase_03_review/review_claude.md
+
+     End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
+     NEXT: fixer (if issues) or null (if clean)"
+   )
+   ```
+
+   **Slot B — Codex MCP** (full and fast modes):
 
    **Full mode**:
    ```
@@ -337,7 +424,7 @@ After plan approval, present the plan interactively before proceeding to build.
      Diff summary: <git diff --stat>
 
      Review ONLY the files listed above. Use git diff for details.
-     Write review to: <slot output path>
+     Write review to: .quest/<id>/phase_03_review/review_codex.md
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -358,13 +445,14 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Review ONLY the files listed above.
      List up to 5 issues, highest severity first.
-     Write review to: <slot output path>
+     Write review to: .quest/<id>/phase_03_review/review_codex.md
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
    )
    ```
    - **Note:** The `<file list>` and `<git diff --stat>` values embedded in these prompts are intentional small metadata (summary statistics and file names, typically a few lines). This is operational data for scoping the review, not subagent artifact content, and does not conflict with the Context Retention Rule.
+   - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH responses, verify both review files written
 
 5. **Check verdicts:**
@@ -383,7 +471,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `fix_iteration += 1`, `last_role: fixer_agent`
 
-2. **Invoke Fixer** (`mcp__codex__codex(model: "gpt-5.3-codex")`):
+2. **Invoke Fixer** (Claude `Task(subagent_type="fixer")`):
    - Prompt: Reference file paths only, do not embed content:
      - Code review A: `.quest/<id>/phase_03_review/review_claude.md`
      - Code review B: `.quest/<id>/phase_03_review/review_codex.md`
@@ -530,7 +618,24 @@ If any agent returns `STATUS: needs_human`:
 
 ---
 
-## Codex MCP Prompt Pattern
+## Subagent Prompt Patterns
+
+### Agent-to-Tool Mapping
+
+| Role | Tool | Model |
+|------|------|-------|
+| Planner | `Task(subagent_type="planner")` | Claude |
+| Plan Reviewer Slot A | `Task(subagent_type="plan-reviewer")` | Claude |
+| Plan Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
+| Arbiter | `mcp__codex__codex` | Codex (GPT) |
+| Builder | `Task(subagent_type="builder")` | Claude |
+| Code Reviewer Slot A | `Task(subagent_type="code-reviewer")` | Claude |
+| Code Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
+| Fixer | `Task(subagent_type="fixer")` | Claude |
+
+**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Codex) synthesizes both reviews as a neutral third party.
+
+### Codex MCP Prompt Pattern
 
 **IMPORTANT:** Keep Codex prompts SHORT. Point to files, let Codex read them. Prefer the context digest over full docs.
 

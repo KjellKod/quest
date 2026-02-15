@@ -4,7 +4,7 @@
 Implements the approved plan. Writes code, runs tests, produces a PR description.
 
 ## Tool
-Codex (`gpt-5.3-codex`)
+Claude (`Task(subagent_type="builder")`)
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)

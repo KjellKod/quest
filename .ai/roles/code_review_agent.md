@@ -1,19 +1,19 @@
 # Code Review Agent
 
 ## Overview
-There are **two** Code Review Agent invocations on each review pass. Both run with Codex in parallel and write to fixed compatibility artifacts (`review_claude.md` and `review_codex.md`).
+There are **two** Code Review Agent invocations on each review pass. They run **in parallel** using different model families for independent perspectives, writing to `review_claude.md` and `review_codex.md`.
 
 ## Instances
 
-### Code Review Slot A
-- **Tool:** Codex (`gpt-5.3-codex`)
-- **Artifact path:** `.quest/<id>/phase_03_review/review_claude.md` (compatibility filename)
-- **Perspective:** Independent first pass on the implementation diff.
+### Code Review Slot A (Claude)
+- **Tool:** Claude (`Task(subagent_type="code-reviewer")`)
+- **Artifact path:** `.quest/<id>/phase_03_review/review_claude.md`
+- **Perspective:** Independent first pass on the implementation diff (Claude model family).
 
-### Code Review Slot B
-- **Tool:** Codex (`gpt-5.3-codex`)
+### Code Review Slot B (Codex)
+- **Tool:** Codex (`mcp__codex__codex`, model: `gpt-5.3-codex`)
 - **Artifact path:** `.quest/<id>/phase_03_review/review_codex.md`
-- **Perspective:** Independent second pass on the same implementation diff.
+- **Perspective:** Independent second pass on the same implementation diff (GPT model family).
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
