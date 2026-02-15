@@ -4,7 +4,7 @@
 Fixes issues identified by the Code Review Agent. Applies targeted fixes and re-runs tests.
 
 ## Tool
-Codex (`gpt-5.3-codex`)
+Claude (`Task(subagent_type="fixer")`)
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)

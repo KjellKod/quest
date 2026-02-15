@@ -42,12 +42,11 @@ The Quest Agent interprets your intent, matches brief references, and routes to 
 | Planner | `.ai/roles/planner_agent.md` | Claude | Write and refine plan artifacts |
 | Plan Reviewer (Claude) | `.ai/roles/plan_review_agent.md` | Claude | Review plans (read-only) |
 | Plan Reviewer (Codex) | `.ai/roles/plan_review_agent.md` | Codex (`gpt-5.3-codex`) | Review plans (read-only) |
-| Arbiter | `.ai/roles/arbiter_agent.md` | Codex (`gpt-5.3-codex`)* | Synthesize reviews, approve or iterate |
+| Arbiter | `.ai/roles/arbiter_agent.md` | Claude | Synthesize reviews, approve or iterate |
 | Builder | `.ai/roles/builder_agent.md` | Claude | Implement changes |
-| Code Reviewer | `.ai/roles/code_review_agent.md` | Codex (`gpt-5.3-codex`) | Review code (read-only) |
+| Code Reviewer (Claude) | `.ai/roles/code_review_agent.md` | Claude | Review code (read-only) |
+| Code Reviewer (Codex) | `.ai/roles/code_review_agent.md` | Codex (`gpt-5.3-codex`) | Review code (read-only) |
 | Fixer | `.ai/roles/fixer_agent.md` | Claude | Fix review issues |
-
-*Arbiter default is `gpt-5.3-codex`. Set `arbiter.tool` to `"claude"` in allowlist to use Claude Opus.
 
 ## Plan Phase Flow
 
@@ -70,7 +69,7 @@ Intake -> Plan -> [Dual Review + Arbiter Loop] -> [Gate] -> Implement -> Code Re
 
 The Creator controls quest permissions via `.ai/allowlist.json`:
 - `auto_approve_phases` — which phases need human approval
-- `arbiter.tool` — switch Arbiter between codex (`gpt-5.3-codex`) and claude (Opus)
+- `arbiter.tool` — Arbiter model (`claude` by default)
 - `review_mode` — `auto` (default), `fast`, or `full` for Codex reviews
 - `fast_review_thresholds` — file/LOC thresholds for auto fast mode
 - `codex_context_digest_path` — short context file used by Codex

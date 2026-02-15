@@ -1,19 +1,19 @@
 # Plan Review Agent
 
 ## Overview
-There are **two** Plan Review Agent invocations on every plan iteration. Both run with Codex in parallel and write to fixed compatibility artifacts (`review_claude.md` and `review_codex.md`). Their reviews are fed to the Arbiter, never directly back to the Planner.
+There are **two** Plan Review Agent invocations on every plan iteration. They run **in parallel** using different model families for independent perspectives, writing to `review_claude.md` and `review_codex.md`. Their reviews are fed to the Arbiter, never directly back to the Planner.
 
 ## Instances
 
-### Plan Review Slot A
-- **Tool:** Codex (`gpt-5.3-codex`)
-- **Artifact path:** `.quest/<id>/phase_01_plan/review_claude.md` (compatibility filename)
-- **Perspective:** Independent first pass on the plan.
+### Plan Review Slot A (Claude)
+- **Tool:** Claude (`Task(subagent_type="plan-reviewer")`)
+- **Artifact path:** `.quest/<id>/phase_01_plan/review_claude.md`
+- **Perspective:** Independent first pass on the plan (Claude model family).
 
-### Plan Review Slot B
-- **Tool:** Codex (`gpt-5.3-codex`)
+### Plan Review Slot B (Codex)
+- **Tool:** Codex (`mcp__codex__codex`, model: `gpt-5.3-codex`)
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_codex.md`
-- **Perspective:** Independent second pass on the same plan.
+- **Perspective:** Independent second pass on the same plan (GPT model family).
 
 ## Context Required (both instances)
 - `.skills/BOOTSTRAP.md` (project bootstrapping)

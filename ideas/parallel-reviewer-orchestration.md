@@ -147,4 +147,6 @@ Do NOT make sequential responses. Both tools MUST appear in a single message blo
 - `.skills/quest/SKILL.md` lines 101-144 (plan review), 296-349 (code review)
 
 ## Status
-idea
+partially_implemented
+
+**Update (2026-02-14):** Model diversity implemented — Slot A now uses Claude (`Task` agent), Slot B uses Codex (`mcp__codex__codex`). Applies to both plan review and code review. Planner, Builder, and Fixer also switched to Claude Task agents. Remaining: observability/instrumentation for verifying parallel execution.

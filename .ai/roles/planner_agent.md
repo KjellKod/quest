@@ -4,7 +4,7 @@
 Creates and refines implementation plans from quest briefs. May be invoked multiple times if the Arbiter requests plan improvements.
 
 ## Tool
-Codex (`gpt-5.3-codex`)
+Claude (`Task(subagent_type="planner")`)
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
