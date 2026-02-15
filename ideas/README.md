@@ -9,8 +9,9 @@ Future work items not yet ready for a full quest. When an idea is ready, run `/q
 | | [user-feedback](user-feedback.md) | Real-world user feedback on Quest UX: cost transparency, smart pausing, status clarity, plan navigation. |
 | | [quest-architecture-evolution](quest-architecture-evolution.md) | 5-phase roadmap to close the gap between Quest's philosophy and implementation. Phase 2 done, 3-5 remain. |
 | | [quest-step-numbering-cleanup](quest-step-numbering-cleanup.md) | Fix step numbering overlap between SKILL.md and workflow.md after the delegation refactor. |
-| | [quest-council_v1](quest-council_v1.md) | Dual-plan "council" mode: generate two competing plans, compare, merge the best parts. |
-| | [quest-council_v1_alternative](quest-council_v1_alternative.md) | Alternative council design with detailed arbiter comparison workflow. |
+| | [quest-council-mode](quest-council-mode.md) | `/quest council` — two competing plans, independent reviews, council arbiter comparison report, human picks winner + optional golden nuggets. |
+| dropped | ~~quest-council_v1~~ | Superseded by quest-council-mode. |
+| dropped | ~~quest-council_v1_alternative~~ | Superseded by quest-council-mode. |
 | | [gpt52-default-planner](gpt52-default-planner.md) | Make GPT the default planner to diversify model perspective earlier in the pipeline. |
 | | [codex-quest-skill](codex-quest-skill.md) | GPT-only quest runner via Codex CLI — run quests without Claude Code. |
 | | [parallel-reviewer-orchestration](parallel-reviewer-orchestration.md) | Ensure Claude and Codex reviewers run in parallel during review phases. |
