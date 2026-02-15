@@ -68,7 +68,7 @@ Each plan gets its own full review cycle — the same dual-reviewer + arbiter fl
 - Review B:Codex → `.quest/<id>/phase_01_plan/review_b_codex.md`
 - Arbiter B → `.quest/<id>/phase_01_plan/arbiter_b.md`
 
-**Parallelism:** Plan A reviews and Plan B reviews can run in parallel (4 reviewers simultaneously). The two arbiters run after their respective reviews complete.
+**Parallelism:** Plan A reviews and Plan B reviews can run in parallel (4 reviewers simultaneously). The two arbiters also run in parallel with each other — Arbiter A launches as soon as Track A reviews complete, Arbiter B launches as soon as Track B reviews complete. They don't depend on each other, so if both tracks' reviews finish around the same time, both arbiters run simultaneously.
 
 **Iteration within each track:** If arbiter-A says "iterate", Plan A goes through refinement just like today. Same for Plan B. Each track iterates independently up to `max_plan_iterations` (independent caps — Track A iterating doesn't penalize Track B's budget).
 
