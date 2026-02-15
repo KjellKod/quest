@@ -15,12 +15,15 @@ Future work items not yet ready for a full quest. When an idea is ready, run `/q
 | | [codex-quest-skill](codex-quest-skill.md) | GPT-only quest runner via Codex CLI — run quests without Claude Code. |
 | | [parallel-reviewer-orchestration](parallel-reviewer-orchestration.md) | Ensure Claude and Codex reviewers run in parallel during review phases. |
 | | [github-ci-pr-validation](github-ci-pr-validation.md) | CI workflow to validate quest plan structure on pull requests. |
+| | [quest-abandon-flow](quest-abandon-flow.md) | `/quest abandon <id>` command — formal abandon with journal entry, state update, and archive cleanup. |
 | | [quest-readme-auto-update](quest-readme-auto-update.md) | Auto-update `.quest/README.md` index when a quest completes. |
 | | [memory_bank_model](memory_bank_model.md) | Curated repo docs as the AI's authoritative mental model instead of scanning files. |
 | | [quest-completion-gate](quest-completion-gate.md) | When is a quest really done? Weigh trade-offs: close at review approval, close at PR merge, or soft close with hardening breadcrumbs. |
 | done | ~~quest-intake-gate~~ | Delegation-based intake gate with question-first routing for vague input. See [journal](../docs/quest-journal/quest-delegation-gate_2026-02-06.md). |
 | done | ~~handoff-fix-plan~~ | Standardize `---HANDOFF---` contracts across all role files. See [journal](../docs/quest-journal/handoff-contract-fix_2026-02-09.md). |
 | done | ~~quest-philosophy-small-core~~ | Thin orchestrator philosophy, handoff contracts, delegation workflow. See [journal](../docs/quest-journal/thin-orchestrator_2026-02-09.md). |
+| done | ~~dashboard-visual-polish~~ | Ambient glows, Chart.js charts, gradient enhancements. See [journal](../docs/quest-journal/dashboard-visual-polish_2026-02-12.md). |
+| done | ~~dashboard-layout-redesign~~ | Executive "Quest Intelligence" design — hero branding, KPI cards, side-by-side charts, unified portfolio. See [journal](../docs/quest-journal/dashboard-layout-redesign_2026-02-13.md). |
 | dropped | ~~default-quest-planner~~ | Brainstorm about configurable planner models. Superseded by gpt52-default-planner idea. |
 | dropped | ~~fixer~~ | One-line question about fixer routing. Never developed. |
 | dropped | ~~update_details~~ | UX brainstorm about update check UI. Never developed. |
