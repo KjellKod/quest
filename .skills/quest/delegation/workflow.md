@@ -127,6 +127,13 @@ gates.max_plan_iterations (default: 4)
 
      Write your review to: .quest/<id>/phase_01_plan/review_claude.md
 
+     IMPORTANT: Start your review file with YAML front matter timestamps:
+     ---
+     reviewer: Claude (Slot A)
+     started: <ISO 8601 timestamp when you begin reviewing>
+     completed: <ISO 8601 timestamp when you finish reviewing>
+     ---
+
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
    )
@@ -143,6 +150,13 @@ gates.max_plan_iterations (default: 4)
 
      List up to 5 issues, highest severity first.
      Write your review to: .quest/<id>/phase_01_plan/review_claude.md
+
+     IMPORTANT: Start your review file with YAML front matter timestamps:
+     ---
+     reviewer: Claude (Slot A)
+     started: <ISO 8601 timestamp when you begin reviewing>
+     completed: <ISO 8601 timestamp when you finish reviewing>
+     ---
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -166,6 +180,13 @@ gates.max_plan_iterations (default: 4)
 
      Write your review to: .quest/<id>/phase_01_plan/review_codex.md
 
+     IMPORTANT: Start your review file with YAML front matter timestamps:
+     ---
+     reviewer: Codex (Slot B)
+     started: <ISO 8601 timestamp when you begin reviewing>
+     completed: <ISO 8601 timestamp when you finish reviewing>
+     ---
+
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
    )
@@ -183,12 +204,30 @@ gates.max_plan_iterations (default: 4)
      List up to 5 issues, highest severity first.
      Write your review to: .quest/<id>/phase_01_plan/review_codex.md
 
+     IMPORTANT: Start your review file with YAML front matter timestamps:
+     ---
+     reviewer: Codex (Slot B)
+     started: <ISO 8601 timestamp when you begin reviewing>
+     completed: <ISO 8601 timestamp when you finish reviewing>
+     ---
+
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
    )
    ```
    - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH responses, verify both review files written
+
+   **Parallelism check:** After both review files are written, check for time overlap:
+   1. Parse YAML front matter from both review files to extract `started` and `completed` timestamps
+   2. Check for overlap: `started_B < completed_A AND started_A < completed_B`
+   3. Calculate overlap duration if parallel
+   4. Create `.quest/<id>/logs/` directory if it doesn't exist
+   5. Append a line to `.quest/<id>/logs/parallelism.log`:
+      ```
+      Plan review: parallel=<true|false> (Slot A: <HH:MM:SS>-<HH:MM:SS>, Slot B: <HH:MM:SS>-<HH:MM:SS>, overlap: <N>s)
+      ```
+   6. If timestamps are missing or unparseable, log: `Plan review: parallel=unknown (timestamp parse error)`
 
 5. **Invoke Arbiter** (Claude `Task(subagent_type="arbiter")`):
    - Use a short prompt with path references only:
@@ -379,6 +418,13 @@ After plan approval, present the plan interactively before proceeding to build.
      Review ONLY the files listed above. Use git diff for details.
      Write review to: .quest/<id>/phase_03_review/review_claude.md
 
+     IMPORTANT: Start your review file with YAML front matter timestamps:
+     ---
+     reviewer: Claude (Slot A)
+     started: <ISO 8601 timestamp when you begin reviewing>
+     completed: <ISO 8601 timestamp when you finish reviewing>
+     ---
+
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
    )
@@ -399,6 +445,13 @@ After plan approval, present the plan interactively before proceeding to build.
      Review ONLY the files listed above.
      List up to 5 issues, highest severity first.
      Write review to: .quest/<id>/phase_03_review/review_claude.md
+
+     IMPORTANT: Start your review file with YAML front matter timestamps:
+     ---
+     reviewer: Claude (Slot A)
+     started: <ISO 8601 timestamp when you begin reviewing>
+     completed: <ISO 8601 timestamp when you finish reviewing>
+     ---
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -426,6 +479,13 @@ After plan approval, present the plan interactively before proceeding to build.
      Review ONLY the files listed above. Use git diff for details.
      Write review to: .quest/<id>/phase_03_review/review_codex.md
 
+     IMPORTANT: Start your review file with YAML front matter timestamps:
+     ---
+     reviewer: Codex (Slot B)
+     started: <ISO 8601 timestamp when you begin reviewing>
+     completed: <ISO 8601 timestamp when you finish reviewing>
+     ---
+
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
    )
@@ -447,6 +507,13 @@ After plan approval, present the plan interactively before proceeding to build.
      List up to 5 issues, highest severity first.
      Write review to: .quest/<id>/phase_03_review/review_codex.md
 
+     IMPORTANT: Start your review file with YAML front matter timestamps:
+     ---
+     reviewer: Codex (Slot B)
+     started: <ISO 8601 timestamp when you begin reviewing>
+     completed: <ISO 8601 timestamp when you finish reviewing>
+     ---
+
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
    )
@@ -454,6 +521,17 @@ After plan approval, present the plan interactively before proceeding to build.
    - **Note:** The `<file list>` and `<git diff --stat>` values embedded in these prompts are intentional small metadata (summary statistics and file names, typically a few lines). This is operational data for scoping the review, not subagent artifact content, and does not conflict with the Context Retention Rule.
    - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH responses, verify both review files written
+
+   **Parallelism check:** After both review files are written, check for time overlap:
+   1. Parse YAML front matter from both review files to extract `started` and `completed` timestamps
+   2. Check for overlap: `started_B < completed_A AND started_A < completed_B`
+   3. Calculate overlap duration if parallel
+   4. Create `.quest/<id>/logs/` directory if it doesn't exist
+   5. Append a line to `.quest/<id>/logs/parallelism.log`:
+      ```
+      Code review: parallel=<true|false> (Slot A: <HH:MM:SS>-<HH:MM:SS>, Slot B: <HH:MM:SS>-<HH:MM:SS>, overlap: <N>s)
+      ```
+   6. If timestamps are missing or unparseable, log: `Code review: parallel=unknown (timestamp parse error)`
 
 5. **Check verdicts:**
    - If EITHER reviewer says `NEXT: fixer` → Issues found, proceed to Step 6
@@ -516,6 +594,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Quest ID
    - Files changed (from `git diff --name-only` and `state.json` artifact paths)
    - Total iterations (plan + fix, from `state.json`)
+   - Parallel execution stats (read from `.quest/<id>/logs/parallelism.log` if it exists — show each line)
    - Location of artifacts (now in `.quest/archive/<id>/`)
    - Location of journal entry
 
