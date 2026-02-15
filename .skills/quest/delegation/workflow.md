@@ -63,15 +63,21 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 
 **Format:**
 ```
-<timestamp> | phase=<phase> | agent=<agent_name> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback
+<timestamp> | phase=<phase> | agent=<agent_name> | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback
 ```
 
-**Example log after a full plan phase:**
+Use `plan_iteration` for plan/plan_review phases, `fix_iteration` for code_review/fix phases, and `1` for build (single pass).
+
+**Example log for a quest with 2 plan iterations:**
 ```
-2026-02-15T00:12:00Z | phase=plan | agent=planner | handoff_json=found | source=handoff_json
-2026-02-15T00:15:00Z | phase=plan_review | agent=slot_a_claude | handoff_json=found | source=handoff_json
-2026-02-15T00:15:00Z | phase=plan_review | agent=slot_b_codex | handoff_json=missing | source=text_fallback
-2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | handoff_json=found | source=handoff_json
+2026-02-15T00:12:00Z | phase=plan | agent=planner | iter=1 | handoff_json=found | source=handoff_json
+2026-02-15T00:15:00Z | phase=plan_review | agent=slot_a_claude | iter=1 | handoff_json=found | source=handoff_json
+2026-02-15T00:15:00Z | phase=plan_review | agent=slot_b_codex | iter=1 | handoff_json=missing | source=text_fallback
+2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | iter=1 | handoff_json=found | source=handoff_json
+2026-02-15T00:25:00Z | phase=plan | agent=planner | iter=2 | handoff_json=found | source=handoff_json
+2026-02-15T00:28:00Z | phase=plan_review | agent=slot_a_claude | iter=2 | handoff_json=found | source=handoff_json
+2026-02-15T00:28:00Z | phase=plan_review | agent=slot_b_codex | iter=2 | handoff_json=found | source=handoff_json
+2026-02-15T00:31:00Z | phase=plan_review | agent=arbiter | iter=2 | handoff_json=found | source=handoff_json
 ```
 
 This log is how we measure whether the handoff.json pattern is working. It is displayed to the user at quest completion (Step 7). If you skip logging, the compliance report will be incomplete.
