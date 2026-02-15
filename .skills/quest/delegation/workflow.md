@@ -190,7 +190,7 @@ gates.max_plan_iterations (default: 4)
    - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH responses, verify both review files written
 
-5. **Invoke Arbiter** (`mcp__codex__codex(model: "gpt-5.3-codex")`):
+5. **Invoke Arbiter** (Claude `Task(subagent_type="arbiter")`):
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -627,13 +627,13 @@ If any agent returns `STATUS: needs_human`:
 | Planner | `Task(subagent_type="planner")` | Claude |
 | Plan Reviewer Slot A | `Task(subagent_type="plan-reviewer")` | Claude |
 | Plan Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Arbiter | `mcp__codex__codex` | Codex (GPT) |
+| Arbiter | `Task(subagent_type="arbiter")` | Claude |
 | Builder | `Task(subagent_type="builder")` | Claude |
 | Code Reviewer Slot A | `Task(subagent_type="code-reviewer")` | Claude |
 | Code Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
 | Fixer | `Task(subagent_type="fixer")` | Claude |
 
-**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Codex) synthesizes both reviews as a neutral third party.
+**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Claude) synthesizes both reviews.
 
 ### Codex MCP Prompt Pattern
 

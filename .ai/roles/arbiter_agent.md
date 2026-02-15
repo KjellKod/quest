@@ -4,7 +4,7 @@
 Gatekeeper for plan quality. Receives both plan-review artifacts, synthesizes their feedback, filters out noise, and decides whether the plan is ready for implementation or needs another iteration.
 
 ## Tool
-Codex (`gpt-5.3-codex`)
+Claude (`Task(subagent_type="arbiter")`)
 
 ## Core Philosophy
 The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It filters feedback through:
