@@ -304,7 +304,7 @@ After plan approval, present the plan interactively before proceeding to build.
    f. Return to Step 3, item 1:
       - Planner will be invoked with user_feedback.md referenced (per Step 3, item 2 -- Planner invocation above)
       - plan_iteration increments as normal
-      - Full review cycle (Codex slot A + Codex slot B + Arbiter) runs
+      - Full review cycle (Claude slot A + Codex slot B + Arbiter) runs
       - After approval, Step 3.5 presentation starts fresh from step 1
 
 ### Step 4: Build Phase
