@@ -35,32 +35,6 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 - Diff summary (`git diff --stat`, optional)
 - Quest brief and plan
 
-## Handoff File
-
-Before outputting your text `---HANDOFF---` block, write a JSON file with your handoff data.
-
-**Path (depends on your slot):**
-- Slot A (Claude): `.quest/<id>/phase_03_review/handoff_claude.json`
-- Slot B (Codex): `.quest/<id>/phase_03_review/handoff_codex.json`
-
-The orchestrator prompt identifies which slot you are. Use the corresponding path.
-
-**Schema:**
-```json
-{
-  "status": "complete | needs_human | blocked",
-  "artifacts": [".quest/<id>/phase_03_review/review_<slot>.md"],
-  "next": "fixer | null",
-  "summary": "One line describing what you accomplished"
-}
-```
-
-Use the artifact path for your assigned slot:
-- Slot A (Claude): `review_claude.md`
-- Slot B (Codex): `review_codex.md`
-
-The values MUST match your text `---HANDOFF---` block exactly. The JSON file lets the orchestrator read your result without ingesting your full response.
-
 ## Output Contract
 
 **Timestamp front matter:** Your review file MUST begin with YAML front matter containing timing metadata:
@@ -75,7 +49,24 @@ completed: <ISO 8601 timestamp when you finished reviewing>
 
 Record `started` before you begin analysis and `completed` after writing the review body. These timestamps are used by the orchestrator to verify parallel execution.
 
-**Handoff:** End your response with:
+**Step 1 — Write handoff.json** to your slot's path:
+- Slot A (Claude): `.quest/<id>/phase_03_review/handoff_claude.json`
+- Slot B (Codex): `.quest/<id>/phase_03_review/handoff_codex.json`
+
+```json
+{
+  "status": "complete | needs_human | blocked",
+  "artifacts": [".quest/<id>/phase_03_review/review_claude.md or review_codex.md"],
+  "next": "fixer | null",
+  "summary": "One line describing what you accomplished"
+}
+```
+
+Use the artifact path for your assigned slot:
+- Slot A (Claude): `review_claude.md`
+- Slot B (Codex): `review_codex.md`
+
+**Step 2 — Output text handoff block** (must match the JSON above):
 
 ```text
 ---HANDOFF---
@@ -85,9 +76,7 @@ NEXT: fixer | null
 SUMMARY: <one line>
 ```
 
-Use exactly one artifact path for the current slot:
-- Slot A: `.quest/<id>/phase_03_review/review_claude.md`
-- Slot B: `.quest/<id>/phase_03_review/review_codex.md`
+Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
 

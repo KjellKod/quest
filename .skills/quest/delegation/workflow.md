@@ -59,13 +59,14 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 
 **Codex MCP response handling:** After a `mcp__codex__codex` call returns, the orchestrator reads the corresponding `handoff.json` file and does NOT retain the Codex response body in working context. The response may still appear in the conversation history (platform limitation), but the orchestrator treats it as consumed and does not reference it for any subsequent decision.
 
-**Context health logging:** After each handoff.json read or fallback, append a line to `.quest/<id>/logs/context_health.log`:
+**MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions.
 
+**Format:**
 ```
 <timestamp> | phase=<phase> | agent=<agent_name> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback
 ```
 
-Examples:
+**Example log after a full plan phase:**
 ```
 2026-02-15T00:12:00Z | phase=plan | agent=planner | handoff_json=found | source=handoff_json
 2026-02-15T00:15:00Z | phase=plan_review | agent=slot_a_claude | handoff_json=found | source=handoff_json
@@ -73,7 +74,7 @@ Examples:
 2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | handoff_json=found | source=handoff_json
 ```
 
-This log is lightweight (one line per agent invocation, ~8-12 lines per quest) and provides the data needed to evaluate whether the discard approach is effective or whether `run_in_background: true` should be adopted.
+This log is how we measure whether the handoff.json pattern is working. It is displayed to the user at quest completion (Step 7). If you skip logging, the compliance report will be incomplete.
 
 ### Step 0: Resume Check
 
@@ -147,7 +148,6 @@ gates.max_plan_iterations (default: 4)
    - Read `.quest/<id>/phase_01_plan/handoff.json` for status/routing
    - Verify `.quest/<id>/phase_01_plan/plan.md` exists (from handoff.artifacts)
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response; if plan.md not written, extract from response and write it
-   - Log to context_health.log: `<timestamp> | phase=plan | agent=planner | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
 3. **Read review config from allowlist:**
    - `review_mode` (default: `auto`)
@@ -275,8 +275,6 @@ gates.max_plan_iterations (default: 4)
    - Read `.quest/<id>/phase_01_plan/handoff_claude.json` and `handoff_codex.json`
    - Verify both review files exist (from handoff.artifacts)
    - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
-   - Log to context_health.log: `<timestamp> | phase=plan_review | agent=slot_a_claude | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
-   - Log to context_health.log: `<timestamp> | phase=plan_review | agent=slot_b_codex | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
    **Parallelism check:** After both review files are written, check for time overlap:
    1. Parse YAML front matter from both review files to extract `started` and `completed` timestamps
@@ -310,7 +308,6 @@ gates.max_plan_iterations (default: 4)
    - Read `.quest/<id>/phase_01_plan/handoff_arbiter.json`
    - Route based on `next` field ("builder" = approved, "planner" = iterate)
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response
-   - Log to context_health.log: `<timestamp> | phase=plan_review | agent=arbiter | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
 6. **Check verdict:**
    - If `NEXT: builder` → Plan approved! Update state: `phase: plan_reviewed`, proceed to **Step 3.5** (Interactive Presentation)
@@ -435,7 +432,6 @@ After plan approval, present the plan interactively before proceeding to build.
    - Read `.quest/<id>/phase_02_implementation/handoff.json` for status/routing
    - Verify artifacts written (from handoff.artifacts)
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response
-   - Log to context_health.log: `<timestamp> | phase=build | agent=builder | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
 3. **Update state:** `phase: reviewing`
 
@@ -597,8 +593,6 @@ After plan approval, present the plan interactively before proceeding to build.
    - Read `.quest/<id>/phase_03_review/handoff_claude.json` and `handoff_codex.json`
    - Verify both review files exist (from handoff.artifacts)
    - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
-   - Log to context_health.log: `<timestamp> | phase=code_review | agent=slot_a_claude | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
-   - Log to context_health.log: `<timestamp> | phase=code_review | agent=slot_b_codex | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
    **Parallelism check:** After both review files are written, check for time overlap:
    1. Parse YAML front matter from both review files to extract `started` and `completed` timestamps
@@ -653,7 +647,6 @@ After plan approval, present the plan interactively before proceeding to build.
    - Wait for Task to complete
    - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response
-   - Log to context_health.log: `<timestamp> | phase=fix | agent=fixer | handoff_json=<found|missing|unparsable> | source=<handoff_json|text_fallback>`
 
 3. **Clear stale handoff files:** Delete any existing `handoff_claude.json` and `handoff_codex.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
 
