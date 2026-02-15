@@ -222,6 +222,18 @@ Council mode roughly **doubles** the planning phase cost and time:
 - [x] **Iteration caps:** Independent per track. Track A iterating doesn't penalize Track B's budget.
 - [x] **Post-nugget review:** Light review pass (single reviewer, fast mode) on the refined plan after golden nugget incorporation.
 
+## Open Questions
+
+- [ ] **Council model config in allowlist.json:** The idea references a `council` config block for model choices but doesn't define where it lives in `allowlist.json`. Options: (a) add a `council.model_overrides` block separate from the existing `model_overrides`, or (b) add new keys to the existing `model_overrides` (e.g., `planner_b`, `arbiter_council`). Must be explicit about which keys Planner A, Planner B, and the council arbiter read.
+
+- [ ] **Planner B prompt template (Codex MCP pattern):** If Planner B uses `mcp__codex__codex`, its prompt must follow the "short Codex prompts" guidance from `workflow.md` — point to files, don't inline content. A concrete prompt template for Planner B should be specified, mirroring the existing Codex reviewer patterns (role file path, context digest path, quest brief path, output path, handoff block).
+
+- [ ] **Top-level `plan_iteration` semantics during council mode:** In normal mode, `plan_iteration` is top-level in `state.json` and referenced throughout `workflow.md` (Step 3 loop, iteration cap checks). In council mode, each track has its own `plan_iteration` inside the `council` object. Specify what happens to the top-level `plan_iteration`: set to 0 and ignored, set to the winning track's final value after human decision, or removed entirely. Downstream steps (Step 3.5 change handling) increment `plan_iteration` — this must work correctly after council mode resolves.
+
+- [ ] **Resume logic additions to Step 0 for council phases:** The existing Step 0 in `workflow.md` doesn't know about `plan_council`, `plan_council_review`, or `plan_council_verdict` phases. Specify the resume mapping: `plan_council` → continue pending tracks, `plan_council_review` → continue pending reviews/arbiters, `plan_council_verdict` → run council arbiter, `presenting` (with `mode: council`) → present council verdict for human decision. This should be additive to the existing Step 0 table without breaking normal-mode resume.
+
+- [ ] **Audit and parallelism logging for council events:** The existing workflow appends to `.quest/audit.log` and `.quest/<id>/logs/parallelism.log`. Council mode should: (a) log council-specific audit events (council arbiter invoked, human chose Plan A/B, golden nuggets incorporated), (b) log parallelism for the 4-reviewer parallel execution (two tracks × two reviewers) using the same YAML timestamp/overlap pattern, and (c) log parallelism for the two parallel arbiter runs.
+
 ## Status
 
 idea
