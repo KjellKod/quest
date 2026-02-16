@@ -563,7 +563,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - For each reviewer slot, use the `next` value obtained in step 4:
      - If handoff.json was successfully read → use its `next` and `summary` fields
      - If fallback was triggered (handoff.json missing or unparsable) → use the `NEXT` and `SUMMARY` values parsed from the text `---HANDOFF---` block in step 4
-   - If EITHER slot has `next: "fixer"` → Issues found, proceed to Step 6
+   - If EITHER slot has `next: "fixer"` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> fixing` -- if non-zero, STOP. Issues found, proceed to Step 6
    - If BOTH have `next: null` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, STOP. Review passed! Update state: `phase: complete`, go to Step 7
    - Present summaries to user:
      ```

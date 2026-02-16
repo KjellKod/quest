@@ -14,6 +14,13 @@
 #
 # Dependencies: bash, jq, standard POSIX utilities
 # No network access required.
+#
+# Design note: This script is intentionally stricter than the workflow's
+# fallback behavior. The workflow allows text-based handoff parsing when
+# handoff.json files are missing. This script requires handoff.json files
+# for semantic checks (arbiter verdict, review outcomes). This strictness
+# incentivizes agents to write handoff.json and pushes the system toward
+# structured handoff as the norm rather than the exception.
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 SCRIPT_NAME="$(basename "$0")"
