@@ -42,3 +42,8 @@ jobs:
         run: |
           chmod +x scripts/validate-handoff-contracts.sh
           ./scripts/validate-handoff-contracts.sh
+
+      - name: Run state validation tests
+        run: |
+          chmod +x tests/test-validate-quest-state.sh
+          bash tests/test-validate-quest-state.sh
