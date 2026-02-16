@@ -37,19 +37,24 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 
 ## Output Contract
 
-**Timestamp front matter:** Your review file MUST begin with YAML front matter containing timing metadata:
+**Step 1 — Write handoff.json** to your slot's path:
+- Slot A (Claude): `.quest/<id>/phase_03_review/handoff_claude.json`
+- Slot B (Codex): `.quest/<id>/phase_03_review/handoff_codex.json`
 
-```yaml
----
-reviewer: Claude (Slot A) | Codex (Slot B)
-started: <ISO 8601 timestamp when you began reviewing>
-completed: <ISO 8601 timestamp when you finished reviewing>
----
+```json
+{
+  "status": "complete | needs_human | blocked",
+  "artifacts": [".quest/<id>/phase_03_review/review_claude.md or review_codex.md"],
+  "next": "fixer | null",
+  "summary": "One line describing what you accomplished"
+}
 ```
 
-Record `started` before you begin analysis and `completed` after writing the review body. These timestamps are used by the orchestrator to verify parallel execution.
+Use the artifact path for your assigned slot:
+- Slot A (Claude): `review_claude.md`
+- Slot B (Codex): `review_codex.md`
 
-**Handoff:** End your response with:
+**Step 2 — Output text handoff block** (must match the JSON above):
 
 ```text
 ---HANDOFF---
@@ -59,9 +64,7 @@ NEXT: fixer | null
 SUMMARY: <one line>
 ```
 
-Use exactly one artifact path for the current slot:
-- Slot A: `.quest/<id>/phase_03_review/review_claude.md`
-- Slot B: `.quest/<id>/phase_03_review/review_codex.md`
+Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
 

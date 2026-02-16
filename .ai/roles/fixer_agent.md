@@ -29,8 +29,18 @@ Claude (`Task(subagent_type="fixer")`)
 - Quest brief and approved plan
 
 ## Output Contract
-End your response with:
 
+**Step 1 — Write handoff.json** to `.quest/<id>/phase_03_review/handoff_fixer.json`:
+```json
+{
+  "status": "complete | needs_human | blocked",
+  "artifacts": [".quest/<id>/phase_03_review/review_fix_feedback_discussion.md"],
+  "next": "code_review",
+  "summary": "One line describing what you accomplished"
+}
+```
+
+**Step 2 — Output text handoff block** (must match the JSON above):
 ```text
 ---HANDOFF---
 STATUS: complete | needs_human | blocked
@@ -38,6 +48,8 @@ ARTIFACTS: .quest/<id>/phase_03_review/review_fix_feedback_discussion.md[, <chan
 NEXT: code_review
 SUMMARY: <one line>
 ```
+
+Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
 
