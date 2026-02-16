@@ -395,6 +395,14 @@ main() {
   validate_semantic_content "$quest_dir" "$CURRENT_PHASE" "$target_phase"
   validate_iteration_bounds "$target_phase" "$PLAN_ITERATION" "$FIX_ITERATION"
 
+  # Log this validation run
+  local log_dir="$quest_dir/logs"
+  if [ -d "$log_dir" ] || mkdir -p "$log_dir" 2>/dev/null; then
+    local result="pass"
+    [ "$ERRORS" -gt 0 ] && result="fail"
+    echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') | transition=$CURRENT_PHASE->$target_phase | result=$result | errors=$ERRORS" >> "$log_dir/validation.log"
+  fi
+
   echo ""
   if [ "$ERRORS" -gt 0 ]; then
     echo "$ERRORS validation(s) failed"

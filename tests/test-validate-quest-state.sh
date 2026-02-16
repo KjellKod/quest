@@ -433,6 +433,24 @@ AEOF
   [ "$rc" -eq 0 ] && echo "$stderr_output" | grep -q "\[WARN\]" && echo "$stderr_output" | grep -qi "max_plan_iterations"
 }
 
+test_validation_log_written() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/phase_01_plan" "$tmpdir/logs"
+  echo '{"phase":"plan_reviewed","plan_iteration":1,"fix_iteration":0}' > "$tmpdir/state.json"
+  echo "plan content" > "$tmpdir/phase_01_plan/plan.md"
+  echo '{"status":"complete","next":"builder","summary":"approved"}' > "$tmpdir/phase_01_plan/handoff_arbiter.json"
+
+  bash "$SCRIPT" "$tmpdir" "building" > /dev/null 2>&1
+  local rc=$?
+  local has_log=false
+  if [ -f "$tmpdir/logs/validation.log" ] && grep -q "plan_reviewed->building" "$tmpdir/logs/validation.log" && grep -q "result=pass" "$tmpdir/logs/validation.log"; then
+    has_log=true
+  fi
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ] && [ "$has_log" = true ]
+}
+
 # ---- Run all tests ----
 
 echo "=== Quest State Validation Tests ==="
@@ -465,6 +483,7 @@ run_test test_valid_plan_reviewed_to_presenting
 run_test test_valid_presenting_to_presentation_complete
 run_test test_valid_presentation_complete_to_building
 run_test test_non_numeric_allowlist_iterations
+run_test test_validation_log_written
 
 echo ""
 echo "=== Results ==="
