@@ -59,7 +59,7 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 
 **Codex MCP response handling:** After a `mcp__codex__codex` call returns, the orchestrator reads the corresponding `handoff.json` file and does NOT retain the Codex response body in working context. The response may still appear in the conversation history (platform limitation), but the orchestrator treats it as consumed and does not reference it for any subsequent decision.
 
-**MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions.
+**MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions. Create the `.quest/<id>/logs/` directory first if it does not exist.
 
 **Format:**
 ```
@@ -564,7 +564,7 @@ After plan approval, present the plan interactively before proceeding to build.
      Review complete:
        Claude: "<summary from handoff or text fallback>"
        Codex: "<summary from handoff or text fallback>"
-     Full reviews at: .quest/<id>/phase_03_review/review_claude.md, review_codex.md
+     Full reviews at: .quest/<id>/phase_03_review/review_claude.md, .quest/<id>/phase_03_review/review_codex.md
      ```
    - Do NOT read the full review files for routing or status display
 
