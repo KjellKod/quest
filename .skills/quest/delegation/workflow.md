@@ -185,13 +185,6 @@ gates.max_plan_iterations (default: 4)
      Write your review to: .quest/<id>/phase_01_plan/review_claude.md
      Write handoff file to: .quest/<id>/phase_01_plan/handoff_claude.json
 
-     IMPORTANT: Start your review file with YAML front matter timestamps:
-     ---
-     reviewer: Claude (Slot A)
-     started: <ISO 8601 timestamp when you begin reviewing>
-     completed: <ISO 8601 timestamp when you finish reviewing>
-     ---
-
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
    )
@@ -209,13 +202,6 @@ gates.max_plan_iterations (default: 4)
      List up to 5 issues, highest severity first.
      Write your review to: .quest/<id>/phase_01_plan/review_claude.md
      Write handoff file to: .quest/<id>/phase_01_plan/handoff_claude.json
-
-     IMPORTANT: Start your review file with YAML front matter timestamps:
-     ---
-     reviewer: Claude (Slot A)
-     started: <ISO 8601 timestamp when you begin reviewing>
-     completed: <ISO 8601 timestamp when you finish reviewing>
-     ---
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -240,13 +226,6 @@ gates.max_plan_iterations (default: 4)
      Write your review to: .quest/<id>/phase_01_plan/review_codex.md
      Write handoff file to: .quest/<id>/phase_01_plan/handoff_codex.json
 
-     IMPORTANT: Start your review file with YAML front matter timestamps:
-     ---
-     reviewer: Codex (Slot B)
-     started: <ISO 8601 timestamp when you begin reviewing>
-     completed: <ISO 8601 timestamp when you finish reviewing>
-     ---
-
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
    )
@@ -265,33 +244,25 @@ gates.max_plan_iterations (default: 4)
      Write your review to: .quest/<id>/phase_01_plan/review_codex.md
      Write handoff file to: .quest/<id>/phase_01_plan/handoff_codex.json
 
-     IMPORTANT: Start your review file with YAML front matter timestamps:
-     ---
-     reviewer: Codex (Slot B)
-     started: <ISO 8601 timestamp when you begin reviewing>
-     completed: <ISO 8601 timestamp when you finish reviewing>
-     ---
-
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
    )
    ```
+   - **Before issuing the calls**, record the current wall-clock time as `dispatch_start`
    - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH to complete
+   - Record the current wall-clock time as `dispatch_end`
    - Read `.quest/<id>/phase_01_plan/handoff_claude.json` and `handoff_codex.json`
    - Verify both review files exist (from handoff.artifacts)
    - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
 
-   **Parallelism check:** After both review files are written, check for time overlap:
-   1. Parse YAML front matter from both review files to extract `started` and `completed` timestamps
-   2. Check for overlap: `started_B < completed_A AND started_A < completed_B`
-   3. Calculate overlap duration if parallel
-   4. Create `.quest/<id>/logs/` directory if it doesn't exist
-   5. Append a line to `.quest/<id>/logs/parallelism.log`:
+   **Parallelism check (orchestrator-timed):**
+   1. Create `.quest/<id>/logs/` directory if it doesn't exist
+   2. Append a line to `.quest/<id>/logs/parallelism.log`:
       ```
-      Plan review: parallel=<true|false> (Slot A: <HH:MM:SS>-<HH:MM:SS>, Slot B: <HH:MM:SS>-<HH:MM:SS>, overlap: <N>s)
+      Plan review: dispatched=concurrent (wall: <dispatch_start>-<dispatch_end>)
       ```
-   6. If timestamps are missing or unparseable, log: `Plan review: parallel=unknown (timestamp parse error)`
+      The wall-clock duration covers both agents. Since both calls are issued in the same message, they run concurrently by construction. Agent self-reported timestamps are unreliable and must NOT be used for parallelism verification.
 
 5. **Invoke Arbiter** (Claude `Task(subagent_type="arbiter")`):
    - Use a short prompt with path references only:
@@ -490,13 +461,6 @@ After plan approval, present the plan interactively before proceeding to build.
      Write review to: .quest/<id>/phase_03_review/review_claude.md
      Write handoff file to: .quest/<id>/phase_03_review/handoff_claude.json
 
-     IMPORTANT: Start your review file with YAML front matter timestamps:
-     ---
-     reviewer: Claude (Slot A)
-     started: <ISO 8601 timestamp when you begin reviewing>
-     completed: <ISO 8601 timestamp when you finish reviewing>
-     ---
-
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
    )
@@ -518,13 +482,6 @@ After plan approval, present the plan interactively before proceeding to build.
      List up to 5 issues, highest severity first.
      Write review to: .quest/<id>/phase_03_review/review_claude.md
      Write handoff file to: .quest/<id>/phase_03_review/handoff_claude.json
-
-     IMPORTANT: Start your review file with YAML front matter timestamps:
-     ---
-     reviewer: Claude (Slot A)
-     started: <ISO 8601 timestamp when you begin reviewing>
-     completed: <ISO 8601 timestamp when you finish reviewing>
-     ---
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -553,13 +510,6 @@ After plan approval, present the plan interactively before proceeding to build.
      Write review to: .quest/<id>/phase_03_review/review_codex.md
      Write handoff file to: .quest/<id>/phase_03_review/handoff_codex.json
 
-     IMPORTANT: Start your review file with YAML front matter timestamps:
-     ---
-     reviewer: Codex (Slot B)
-     started: <ISO 8601 timestamp when you begin reviewing>
-     completed: <ISO 8601 timestamp when you finish reviewing>
-     ---
-
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
    )
@@ -582,34 +532,26 @@ After plan approval, present the plan interactively before proceeding to build.
      Write review to: .quest/<id>/phase_03_review/review_codex.md
      Write handoff file to: .quest/<id>/phase_03_review/handoff_codex.json
 
-     IMPORTANT: Start your review file with YAML front matter timestamps:
-     ---
-     reviewer: Codex (Slot B)
-     started: <ISO 8601 timestamp when you begin reviewing>
-     completed: <ISO 8601 timestamp when you finish reviewing>
-     ---
-
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
    )
    ```
    - **Note:** The `<file list>` and `<git diff --stat>` values embedded in these prompts are intentional small metadata (summary statistics and file names, typically a few lines). This is operational data for scoping the review, not subagent artifact content, and does not conflict with the Context Retention Rule.
+   - **Before issuing the calls**, record the current wall-clock time as `dispatch_start`
    - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH to complete
+   - Record the current wall-clock time as `dispatch_end`
    - Read `.quest/<id>/phase_03_review/handoff_claude.json` and `handoff_codex.json`
    - Verify both review files exist (from handoff.artifacts)
    - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
 
-   **Parallelism check:** After both review files are written, check for time overlap:
-   1. Parse YAML front matter from both review files to extract `started` and `completed` timestamps
-   2. Check for overlap: `started_B < completed_A AND started_A < completed_B`
-   3. Calculate overlap duration if parallel
-   4. Create `.quest/<id>/logs/` directory if it doesn't exist
-   5. Append a line to `.quest/<id>/logs/parallelism.log`:
+   **Parallelism check (orchestrator-timed):**
+   1. Create `.quest/<id>/logs/` directory if it doesn't exist
+   2. Append a line to `.quest/<id>/logs/parallelism.log`:
       ```
-      Code review: parallel=<true|false> (Slot A: <HH:MM:SS>-<HH:MM:SS>, Slot B: <HH:MM:SS>-<HH:MM:SS>, overlap: <N>s)
+      Code review: dispatched=concurrent (wall: <dispatch_start>-<dispatch_end>)
       ```
-   6. If timestamps are missing or unparseable, log: `Code review: parallel=unknown (timestamp parse error)`
+      The wall-clock duration covers both agents. Since both calls are issued in the same message, they run concurrently by construction. Agent self-reported timestamps are unreliable and must NOT be used for parallelism verification.
 
 5. **Check verdicts via handoff.json (with fallback):**
    - For each reviewer slot, use the `next` value obtained in step 4:

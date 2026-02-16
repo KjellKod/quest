@@ -37,18 +37,6 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 
 ## Output Contract
 
-**Timestamp front matter:** Your review file MUST begin with YAML front matter containing timing metadata:
-
-```yaml
----
-reviewer: Claude (Slot A) | Codex (Slot B)
-started: <ISO 8601 timestamp when you began reviewing>
-completed: <ISO 8601 timestamp when you finished reviewing>
----
-```
-
-Record `started` before you begin analysis and `completed` after writing the review body. These timestamps are used by the orchestrator to verify parallel execution.
-
 **Step 1 — Write handoff.json** to your slot's path:
 - Slot A (Claude): `.quest/<id>/phase_03_review/handoff_claude.json`
 - Slot B (Codex): `.quest/<id>/phase_03_review/handoff_codex.json`
