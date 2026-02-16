@@ -45,6 +45,7 @@
 .skills/quest/delegation/router.md
 .skills/quest/delegation/workflow.md
 scripts/validate-quest-config.sh
+scripts/validate-quest-state.sh
 scripts/validate-manifest.sh
 scripts/validate-handoff-contracts.sh
 

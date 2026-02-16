@@ -316,7 +316,7 @@ gates.max_plan_iterations (default: 4)
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response
 
 6. **Check verdict:**
-   - If `NEXT: builder` → Plan approved! Update state: `phase: plan_reviewed`, proceed to **Step 3.5** (Interactive Presentation)
+   - If `NEXT: builder` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> plan_reviewed` -- if non-zero, STOP. Plan approved! Update state: `phase: plan_reviewed`, proceed to **Step 3.5** (Interactive Presentation)
    - If `NEXT: planner` → Check iteration count
      - If `plan_iteration >= max_plan_iterations`: Warn user, ask to proceed anyway or review manually
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
@@ -325,6 +325,8 @@ gates.max_plan_iterations (default: 4)
 ### Step 3.5: Interactive Plan Presentation
 
 After plan approval, present the plan interactively before proceeding to build.
+
+**Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presenting` -- if non-zero, STOP.
 
 **On entry:** Update state: `phase: presenting`
 
@@ -342,7 +344,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Ask: "Would you like to see the detailed phase-by-phase walkthrough? (yes/no)"
 
 **2. Handle Response:**
-   - If user declines ("no", "n", "nope", "skip", "proceed", etc.) -> Update state: `phase: presentation_complete`, then proceed to Step 4 (Build Phase)
+   - If user declines ("no", "n", "nope", "skip", "proceed", etc.) -> **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presentation_complete` -- if non-zero, STOP. Update state: `phase: presentation_complete`, then proceed to Step 4 (Build Phase)
    - If user accepts ("yes", "y", "yeah", "sure", "detailed", etc.) -> Continue to phase extraction
 
 **3. Extract Phases from Plan:**
@@ -391,7 +393,7 @@ After plan approval, present the plan interactively before proceeding to build.
    e. Ask: "Questions about this phase? Or changes you'd like to request? (continue/question/change)"
 
 **6. Handle Phase Response:**
-   - If "continue" (or "c", "next", "ok", "looks good", etc.) -> Move to next phase, or if last phase: update state `phase: presentation_complete` and proceed to Step 4
+   - If "continue" (or "c", "next", "ok", "looks good", etc.) -> Move to next phase, or if last phase: **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presentation_complete` -- if non-zero, STOP. Update state `phase: presentation_complete` and proceed to Step 4
    - If "question" (or "q", "?", user asks a question directly) -> Answer the question using plan context, then re-ask: "Any other questions, or ready to continue? (continue/question/change)"
    - If "change" (or "modify", "revise", "update", user requests a change directly) -> Proceed to Change Handling
 
@@ -423,9 +425,11 @@ After plan approval, present the plan interactively before proceeding to build.
 
 **Build:**
 
-1. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
+1. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> building` -- if non-zero, STOP.
 
-2. **Invoke Builder** (Claude `Task(subagent_type="builder")`):
+2. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
+
+3. **Invoke Builder** (Claude `Task(subagent_type="builder")`):
    - Prompt: Reference file paths only, do not embed content:
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
      - Quest brief: `.quest/<id>/quest_brief.md`
@@ -439,9 +443,11 @@ After plan approval, present the plan interactively before proceeding to build.
    - Verify artifacts written (from handoff.artifacts)
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response
 
-3. **Update state:** `phase: reviewing`
+4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, STOP.
 
-4. Proceed to Step 5
+5. **Update state:** `phase: reviewing`
+
+6. Proceed to Step 5
 
 ### Step 5: Review Phase
 
@@ -616,7 +622,7 @@ After plan approval, present the plan interactively before proceeding to build.
      - If handoff.json was successfully read → use its `next` and `summary` fields
      - If fallback was triggered (handoff.json missing or unparsable) → use the `NEXT` and `SUMMARY` values parsed from the text `---HANDOFF---` block in step 4
    - If EITHER slot has `next: "fixer"` → Issues found, proceed to Step 6
-   - If BOTH have `next: null` → Review passed! Update state: `phase: complete`, go to Step 7
+   - If BOTH have `next: null` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, STOP. Review passed! Update state: `phase: complete`, go to Step 7
    - Present summaries to user:
      ```
      Review complete:
@@ -636,7 +642,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 **Loop:**
 
-1. **Update state:** `fix_iteration += 1`, `last_role: fixer_agent`
+1. **Update state:** `phase: fixing`, `fix_iteration += 1`, `last_role: fixer_agent`
 
 2. **Invoke Fixer** (Claude `Task(subagent_type="fixer")`):
    - Prompt: Reference file paths only, do not embed content:
@@ -656,11 +662,15 @@ After plan approval, present the plan interactively before proceeding to build.
 
 3. **Clear stale handoff files:** Delete any existing `handoff_claude.json` and `handoff_codex.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
 
-4. **Re-invoke BOTH Code Reviewers** (same as Step 5)
+4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, STOP.
 
-5. **Check verdict (with fallback):**
-   - For each reviewer slot, use the `next` value obtained in step 4 (from handoff.json if available, or text fallback if not)
-   - If BOTH have `next: null` → Fixed! Proceed to Step 7
+5. **Re-invoke BOTH Code Reviewers** (same as Step 5)
+
+6. **Check verdict (with fallback):**
+   - For each reviewer slot, use the `next` value obtained in step 5 (from handoff.json if available, or text fallback if not)
+   - If BOTH have `next: null` → Fixed!
+     - **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, STOP.
+     - Proceed to Step 7
    - If EITHER has `next: "fixer"`:
      - If `fix_iteration >= max_fix_iterations`: Warn user, ask to proceed or review manually
      - Otherwise: Loop back to step 1
