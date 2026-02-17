@@ -7,13 +7,34 @@
 
 ---
 
+## Review Round 2 (2026-02-17)
+
+Latest commits (`6e47e73`, `8d19ebc`) address several items from Round 1:
+
+| Round 1 Item | Status |
+|---|---|
+| Should Fix: Journal says "27 tests" | **Resolved** — updated to 28 |
+| Should Fix: Journal says "8 gates" | **Resolved** — updated to 10 |
+| New: Early-exit path missing validation log | **Resolved** — now logs on early failure |
+| New: Early-exit path missing agent stop instruction | **Resolved** — now consistent with normal failure path |
+| Must Fix: `presentation_complete→building` semantic check | **Open** — downgraded to Should Fix (see below) |
+| Must Fix: `reviewing→complete` loose null check | **Open** — unchanged |
+| Should Fix: Inline gate wording in workflow | **Open** — unchanged |
+| Should Fix: Test file missing executable bit | **Open** — still `100644` |
+
+### Updated Recommendation: **Approve**
+
+The remaining open items are low-risk. The two original must-fix items have been re-evaluated:
+
+---
+
 ## 1. Summary
 
 - Solid implementation of a bash-based validation gate that enforces phase transition legality, artifact prerequisites, and semantic handoff checks before Quest phase transitions.
 - 28 tests pass, covering all transition paths, edge cases, error conditions, and iteration bounds.
 - 10 validation gates correctly wired into `workflow.md` at every phase transition boundary.
 - Manifest validation passes; CI integration is correct.
-- **Recommendation: Approve with minor items below.**
+- Latest commits fix the early-exit logging gap and correct stale documentation counts.
 
 ---
 
@@ -25,21 +46,19 @@ None.
 
 ## 3. Must Fix
 
-- **`presentation_complete→building` skips semantic arbiter check.** The transition `presentation_complete→building` in `validate_artifacts()` only checks that `plan.md` exists but does not validate `handoff_arbiter.json` semantics (unlike `plan_reviewed→building` which does). A quest that goes through the presentation path could bypass the arbiter approval check. Either add a semantic check for this transition or document why it is intentionally skipped (since the arbiter check already passed at `plan→plan_reviewed`).
-
-- **`reviewing→complete` semantic check uses string `"null"` comparison.** In `validate_semantic_content()`, the `reviewing→complete` case checks `if [ "$claude_next" != "null" ]`. The jq expression `jq -r '.next'` outputs the literal string `null` when the JSON value is `null`, so this works. However, if the JSON field is missing entirely, `jq -r '.next'` also outputs `null`. This means a handoff file with no `next` field at all would incorrectly pass semantic validation. Consider using `jq -e 'has("next") and .next == null'` for a stricter check, or document the current behavior as acceptable.
+None remaining. Both original must-fix items downgraded after re-analysis.
 
 ---
 
 ## 4. Should Fix
 
-- **Journal entry says "27-test harness" but test suite has 28 tests.** The journal entry (`docs/quest-journal/state-validation-script_2026-02-15.md` and `docs/quest-journal/README.md`) references "27 tests" but the test file contains 28 `run_test` calls and the runner reports 28 passing. Update the journal entries to say 28.
+- **`reviewing→complete` semantic check uses string `"null"` comparison.** (Downgraded from Must Fix.) In `validate_semantic_content()`, `jq -r '.next'` outputs the string `null` for both JSON `null` and a missing field. A handoff file missing the `next` field entirely would incorrectly pass. In practice, the handoff schema is enforced by agents writing structured JSON, so this is unlikely to cause real failures. Consider adding a code comment acknowledging this behavior, or tightening the check to `jq -e 'has("next") and .next == null'` in a follow-up.
 
-- **Journal entry says "8 workflow gates" but there are 10.** The PR description itself says 10 validation gates, but the journal still says 8. Update for consistency.
+- **`presentation_complete→building` has no semantic arbiter re-check.** (Downgraded from Must Fix.) After tracing the workflow, the arbiter approval is enforced at `plan→plan_reviewed`. The presentation path (`plan_reviewed→presenting→presentation_complete→building`) only shows the plan to the user; it does not re-enter the arbiter. So by the time `presentation_complete→building` runs, the arbiter has already approved. This is correct behavior. Add a brief code comment in `validate_semantic_content` explaining why this transition intentionally skips the arbiter semantic check.
 
-- **Workflow gate placement: validation runs _before_ state update but gate text is ambiguous in some places.** In step 3.5 (presenting), the gate text reads: `Run validate-quest-state.sh ... presenting -- if non-zero ... Do NOT modify state.json. **On entry:** Update state: phase: presenting`. This is correct (validate first, then update), but the inline placement within a single sentence in step 3.2 (plan_reviewed→presenting) makes the ordering less clear. Consider separating the validation gate onto its own line in these cases for readability, similar to how it's done in Step 4 (building).
+- **Test file is not executable.** `tests/test-validate-quest-state.sh` is `100644` while `scripts/validate-quest-state.sh` is `100755`. CI works around this with `chmod +x`, but setting the bit in git is cleaner.
 
-- **Test file is not executable.** The test file `tests/test-validate-quest-state.sh` is added without the executable bit (the CI explicitly does `chmod +x` before running it). The main script `scripts/validate-quest-state.sh` correctly has `+x`. Set the executable bit on the test file too for consistency and direct invocability.
+- **Inline gate wording in workflow Step 3.5.** The validation gate for `presenting` and `presentation_complete` transitions is embedded mid-sentence in the workflow markdown. Step 4 (building) uses a cleaner block-style gate. Consider making all gates use the same block style for consistency.
 
 ---
 
@@ -57,13 +76,14 @@ None.
 | Validation logging | `test_validation_log_written` | Covered |
 | Non-numeric allowlist iterations | `test_non_numeric_allowlist_iterations` | Covered |
 | Presentation path transitions | `test_valid_plan_reviewed_to_presenting`, `test_valid_presenting_to_presentation_complete`, `test_valid_presentation_complete_to_building` | Covered |
-| `presentation_complete→building` semantic check | *None* | **Gap** (see Must Fix) |
+
+Test coverage is comprehensive. No blocking gaps remain.
 
 ---
 
 ## 6. Questions
 
-- **Is the `presentation_complete→building` semantic gap intentional?** The arbiter check runs at `plan_reviewed`, and the presentation path only shows the plan to the user. If this is by design (the arbiter already approved before presenting), it should be documented in a code comment in the `validate_semantic_content` function. If not, it's a must-fix.
+None remaining. The `presentation_complete→building` semantic gap has been resolved as intentional by design (arbiter already approved at `plan_reviewed` before presentation begins).
 
 ---
 
@@ -75,7 +95,4 @@ None.
 - Strict agent-facing messaging at exit ("Do NOT modify state.json to work around this failure") is a thoughtful touch for preventing AI agent workarounds.
 - Iteration bounds as warnings rather than hard failures is a good separation of concerns (policy in orchestrator, structure in validator).
 - The `read_max_iterations` function correctly validates non-numeric values from allowlist.json with warnings and fallback defaults.
-
-**Minor code quality notes (nits, not blocking):**
-- `REPO_ROOT` is determined at script start via `git rev-parse --show-toplevel` but this could fail in non-git contexts. The `|| pwd` fallback is reasonable.
-- The `find` usage in `check_dir_nonempty` is fine but could use `-maxdepth` for efficiency in deeply nested directories. Not a real concern for quest directories.
+- Early-exit path (Round 2 fix) now correctly logs to validation.log and includes agent stop instructions — consistent with the normal failure path.
