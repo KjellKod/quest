@@ -12,9 +12,9 @@ This completes Phase 3 of the Quest Architecture Evolution roadmap (`ideas/quest
 
 ## Files Changed
 
-- `scripts/validate-quest-state.sh` — New, ~230 lines. Core validation script with error-counter pattern, transition table, semantic content checks.
-- `tests/test-validate-quest-state.sh` — New, ~400 lines. 27 test cases covering all transitions, artifacts, semantic checks, iteration bounds, edge cases.
-- `.skills/quest/delegation/workflow.md` — Modified. 8 validation gate callsite lines inserted before phase transitions.
+- `scripts/validate-quest-state.sh` — New, ~430 lines. Core validation script with error-counter pattern, transition table, semantic content checks, agent stop instruction on failure.
+- `tests/test-validate-quest-state.sh` — New, ~500 lines. 28 test cases covering all transitions, artifacts, semantic checks, iteration bounds, edge cases, validation logging.
+- `.skills/quest/delegation/workflow.md` — Modified. 10 validation gate callsite lines inserted before phase transitions.
 - `ideas/quest-architecture-evolution.md` — Modified. Phase 3 status updated to Done.
 - `.quest-manifest` — Modified. Added `scripts/validate-quest-state.sh` to copy-as-is section.
 

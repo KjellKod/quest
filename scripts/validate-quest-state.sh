@@ -392,8 +392,17 @@ main() {
 
   # If state.json could not be parsed, we cannot proceed with further checks
   if [ -z "$CURRENT_PHASE" ]; then
+    # Log even on early failure
+    local log_dir="$quest_dir/logs"
+    if [ -d "$log_dir" ] || mkdir -p "$log_dir" 2>/dev/null; then
+      echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') | transition=unknown->$target_phase | result=fail | errors=$ERRORS" >> "$log_dir/validation.log"
+    fi
     echo ""
     echo "$ERRORS validation(s) failed"
+    echo ""
+    echo "AGENT: Validation failed. Do NOT proceed with this phase transition."
+    echo "Do NOT modify state.json to work around this failure."
+    echo "Report this validation failure to the user and STOP."
     exit 1
   fi
 
