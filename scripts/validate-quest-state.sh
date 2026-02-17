@@ -413,6 +413,10 @@ main() {
   echo ""
   if [ "$ERRORS" -gt 0 ]; then
     echo "$ERRORS validation(s) failed"
+    echo ""
+    echo "AGENT: Validation failed. Do NOT proceed with this phase transition."
+    echo "Do NOT modify state.json to work around this failure."
+    echo "Report this validation failure to the user and STOP."
     exit 1
   fi
   echo "All validations passed!"
