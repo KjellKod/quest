@@ -72,38 +72,18 @@ Orchestrator reads ONLY the SUMMARY line from handoff → decides next step
 
 ---
 
-### Phase 2b: Close remaining context leaks — MOSTLY DONE
+### Phase 2b: Close remaining context leaks — IN PROGRESS
 
-**Status:** Mostly implemented. 5 of 7 items shipped incrementally alongside Phase 2. See `ideas/quest-context-optimization.md` for the original proposal.
+**Status:** Mostly implemented. 5 of 7 items shipped incrementally alongside Phase 2.
 
-**Problem:** Phase 2 changed prompts to pass paths instead of content. But three leaks remain:
-1. `TaskOutput` returns full agent transcripts (~30-50k tokens/quest) into orchestrator context
-2. Synchronous MCP Codex responses return full text into orchestrator context (~10-20k tokens)
-3. Orchestrator reads full review files to present summaries (~5-10k tokens)
+**Full findings moved:** `ideas/phase2b-context-leak-closure.md`
 
-By end of a quest with 2 review rounds, ~50-80k tokens of agent output still enters the orchestrator.
+**Original proposal:** `ideas/quest-context-optimization.md`
 
-**Solution:** The `handoff.json` pattern:
-- Every agent writes a tiny `handoff.json` alongside artifacts: `{"status", "next", "summary", "artifacts"}`
-- Orchestrator polls for this file instead of calling `TaskOutput`
-- All agents (Claude Task + Codex MCP) run in background, orchestrator never sees their output
-- Post-quest: suggest `/clear` to reset context for next quest
-
-**What shipped (in workflow.md and role files):**
-
-| Item | Status | Where |
-|------|--------|-------|
-| handoff.json pattern — agents write, orchestrator reads | **Done** | workflow.md "Handoff File Polling" (lines 34-58), all 6 role files have "Step 1 — Write handoff.json" |
-| Context Retention Rule — orchestrator keeps only status/path/summary | **Done** | workflow.md lines 16-31 |
-| Don't read full reviews for routing | **Done** | workflow.md line 575: "Do NOT read the full review files" |
-| Post-quest `/clear` suggestion | **Done** | workflow.md line 685 |
-| Context health logging + compliance report | **Done** | workflow.md lines 62-83 (logging), lines 642-669 (report) |
-| Background all Claude Task agents (`run_in_background: true`) | **Not done** | Only referenced as future upgrade in compliance report |
-| Wrap Codex MCP in background Task agents | **Not done** | Codex still called synchronously; line 60 acknowledges platform limitation |
-
-**What remains:** The two background-invocation items. These are platform-dependent — they require `run_in_background: true` to actually prevent transcript injection into orchestrator context. The handoff.json infrastructure is in place; the question is whether the platform prevents the full response from entering context when agents run in background mode. Worth a quick experiment before committing to implementation.
-
-**Impact:** The implemented items establish the pattern and discipline. The remaining items would complete the vision but depend on platform behavior.
+**Current summary:**
+- The core `handoff.json` contract and thin-context routing discipline are in place.
+- Remaining gap is runtime behavior: background invocation path for Claude/Codex flows and proving that transcript bodies no longer pollute orchestrator context.
+- Latest recommendation is to complete Phase 2b with a small, measurable rollout (explicit poll timeout, token cap assertion, fallback rehearsal, and cloud-contract rehearsal) rather than starting a new architecture layer.
 
 ---
 
@@ -167,7 +147,7 @@ Each phase is a standalone quest. The phases are ordered by impact and independe
 
 1. **Phase 1 (explore):** No dependencies. Can ship independently. Lowest urgency — Claude Code's built-in Explore agent covers the capability informally; this formalizes it.
 2. **Phase 2 (thin orchestrator):** Done.
-3. **Phase 2b (context leaks):** Mostly done. Remaining items (background invocation) depend on platform behavior — worth an experiment before committing.
+3. **Phase 2b (context leaks):** In progress. See `ideas/phase2b-context-leak-closure.md` for findings and the concrete next-step rollout.
 4. **Phase 3 (state validation):** Done.
 5. **Phase 4 (role relocation):** No dependencies. Safe, low-risk housekeeping. Zero functional change.
 6. **Phase 5 (infrastructure):** Depends on external platform evolution. Backlog.
@@ -180,7 +160,7 @@ Each phase is a standalone quest. The phases are ordered by impact and independe
 |-------|--------|
 | Phase 1: `/explore` skill | Not started |
 | Phase 2: Thin orchestrator | **Done** (`thin-orchestrator_2026-02-09__1845`) |
-| Phase 2b: Close context leaks | **Mostly done** — 5/7 items shipped. Remaining: background agent invocation (platform-dependent). See `ideas/quest-context-optimization.md` |
+| Phase 2b: Close context leaks | **In progress** — 5/7 items shipped. Findings + next step: `ideas/phase2b-context-leak-closure.md` (proposal history: `ideas/quest-context-optimization.md`) |
 | Phase 3: State validation | **Done** (`state-validation-script_2026-02-15__1508`) |
 | Phase 4: Role relocation | Not started — ownership cleanup, zero functional change |
 | Phase 5: Infrastructure | Backlog |
