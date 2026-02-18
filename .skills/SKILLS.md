@@ -7,7 +7,7 @@ This directory contains specialized skills for AI agents working in this reposit
 ### quest
 **Purpose:** Multi-agent orchestration for non-trivial features. Coordinates Planner, dual Plan Reviewers (Claude + Codex), Arbiter, Builder, Code Reviewer, and Fixer through structured handoffs with human approval gates.
 
-**Use when:** The user invokes `/quest` or describes a feature that needs planning, review, implementation, and code review as separate coordinated phases. Also use when resuming an existing quest by ID.
+**Use when:** The user invokes `/quest` or `$quest`, or describes a feature that needs planning, review, implementation, and code review as separate coordinated phases. Also use when resuming an existing quest by ID.
 
 **Location:** `.skills/quest/SKILL.md`
 

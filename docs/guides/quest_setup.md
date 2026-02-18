@@ -1,6 +1,6 @@
 # Quest Setup Guide
 
-How to add the `/quest` multi-agent orchestration system to your repository.
+How to add the `/quest` and `$quest` multi-agent orchestration system to your repository.
 
 ## Prerequisites
 
@@ -98,6 +98,9 @@ Copy these folders to your repository root:
 .skills/quest/                    # Full skill procedure (AI-agnostic)
   SKILL.md
 
+.agents/skills/quest/             # Codex thin wrapper layer
+  SKILL.md                        # Thin wrapper → .skills/quest/
+
 .claude/                          # Claude Code integration layer
   skills/quest/SKILL.md           # Thin wrapper → .skills/quest/
   agents/                         # Thin wrappers → .ai/roles/
@@ -194,6 +197,7 @@ After setup, verify everything is in place:
 1. **Check files exist:**
    ```bash
    ls -la .ai/allowlist.json
+   ls -la .agents/skills/quest/SKILL.md
    ls -la .claude/skills/quest/SKILL.md
    ls -la .claude/agents/
    ls -la .claude/hooks/enforce-allowlist.sh
@@ -212,14 +216,16 @@ After setup, verify everything is in place:
 4. **Test the skill loads:**
    ```
    /quest status
+   $quest status
    ```
 
 ## Usage
 
-Once set up, use the `/quest` command in Claude Code:
+Once set up, use the Quest command from your client:
 
 ```
 /quest "Add a loading skeleton to the candidate list"
+$quest "Add a loading skeleton to the candidate list"
 ```
 
 See `.ai/quest.md` for full usage documentation.
@@ -311,6 +317,9 @@ your-repo/
 ├── .skills/
 │   └── quest/
 │       └── SKILL.md              # Full skill procedure (AI-agnostic)
+├── .agents/
+│   └── skills/quest/
+│       └── SKILL.md              # Thin wrapper → .skills/quest/ (Codex)
 ├── .claude/
 │   ├── agents/                   # Thin wrappers (reference only)
 │   ├── hooks/
@@ -329,4 +338,4 @@ your-repo/
         └── logs/                 # Raw agent outputs
 ```
 
-**Note:** Source of truth is always in AI-agnostic locations (`.ai/`, `.skills/`). The `.claude/` folder contains thin wrappers that delegate to the portable definitions.
+**Note:** Source of truth is always in AI-agnostic locations (`.ai/`, `.skills/`). Wrapper folders (`.claude/`, `.agents/`) delegate to the portable definitions.

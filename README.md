@@ -168,6 +168,7 @@ The installer:
 Copy these folders to your repository root:
 - `.ai/` - Source of truth (permissions, roles, templates)
 - `.skills/` - Skill procedures (plan-maker, code-reviewer, etc.)
+- `.agents/` - Codex skill wrappers (thin wrappers -> `.skills/`)
 - `.claude/` - Claude Code integration (agents, hooks)
 - `.cursor/` - Cursor integration
 - `.codex/` - Codex integration
@@ -199,12 +200,19 @@ Edit `.ai/allowlist.json` to match your project:
 ### Use it
 
 ```bash
+# Claude Code
 claude
 /quest "Add a loading skeleton to the user list"
 # or
 /quest "use my specification <path>"
 # or if you have mcp/jira or similar installed, with skills etc to retrieve them
 /quest "lets work with <jira ticket>"
+```
+
+```bash
+# Codex (thin wrapper in .agents/skills/quest/SKILL.md)
+codex
+$quest "Add a loading skeleton to the user list"
 ```
 
 Quest scales from simple to complex — just describe what you want:
@@ -461,6 +469,8 @@ your-repo/
 │   ├── code-reviewer/SKILL.md    # Code review checklist
 │   ├── implementer/SKILL.md      # Implementation methodology
 │   └── git-commit-assistant/SKILL.md  # Commit message from staged diff + trailer
+├── .agents/                      # Codex skill wrappers
+│   └── skills/quest/SKILL.md     # Thin wrapper → .skills/quest/
 ├── .claude/                      # Claude Code integration
 │   ├── agents/                   # Thin wrappers → .ai/roles/
 │   ├── hooks/                    # Permission enforcement
