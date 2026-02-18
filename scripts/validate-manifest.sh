@@ -43,6 +43,7 @@ EXPECTED_PATTERNS=(
   ".skills/*.md"
   ".skills/*/*.md"
   ".skills/*/*/*.md"
+  ".agents/*/*/*.md"
   ".claude/*.md"
   ".claude/agents/*.md"
   ".claude/hooks/*.sh"

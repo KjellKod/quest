@@ -6,6 +6,7 @@ Multi-agent workflow for planning, reviewing, building, and fixing features thro
 
 ```
 /quest "Add a loading skeleton to the candidate list"
+$quest "Add a loading skeleton to the candidate list"
 /quest "Implement the transparency audit plan"
 /quest transparency-v2_2026-02-02__1831
 /quest transparency-v2_2026-02-02__1831 "now review the code"
@@ -24,7 +25,7 @@ If the user provides a quest ID (matches pattern `*_YYYY-MM-DD__HHMM`):
 1. Read `.quest/<id>/state.json` and resume from the recorded phase
 2. Delegate to `delegation/workflow.md`
 
-If the user says `/quest status`, handle as a utility command (see `delegation/workflow.md` Utility Commands).
+If the user says `/quest status` or `$quest status`, handle as a utility command (see `delegation/workflow.md` Utility Commands).
 
 ### Step 2: Classify Input (New Quest)
 

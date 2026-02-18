@@ -25,7 +25,7 @@ This repository uses **layered documentation** for AI agent context management.
 
 ## Quick Navigation
 
-- **Multi-agent orchestration?** → Use `.skills/quest/` skill
+- **Multi-agent orchestration?** → Use `$quest` (thin wrapper in `.agents/skills/quest/SKILL.md`, which delegates to `.skills/quest/SKILL.md`)
 - **Building a feature?** → Use `.skills/implementer/` skill
 - **Reviewing an implementation plan?** → Use `.skills/plan-reviewer/` skill
 - **Reviewing code?** → Use `.skills/code-reviewer/` skill

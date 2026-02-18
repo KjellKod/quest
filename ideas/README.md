@@ -8,6 +8,7 @@ Future work items not yet ready for a full quest. When an idea is ready, run `/q
 |--------|------|---------------|
 | | [user-feedback](user-feedback.md) | Real-world user feedback on Quest UX: cost transparency, smart pausing, status clarity, plan navigation. |
 | in-progress | [quest-architecture-evolution](quest-architecture-evolution.md) | 5-phase roadmap to close the gap between Quest's philosophy and implementation. Phase 2 done, 2b in progress. |
+| in-progress | [phase2b-context-leak-closure](phase2b-context-leak-closure.md) | Candid findings and concrete completion plan for Phase 2b context leak closure. |
 | in-progress | [quest-context-optimization](quest-context-optimization.md) | Close remaining context leaks: handoff.json pattern, background agents, /clear suggestion. |
 | | [quest-step-numbering-cleanup](quest-step-numbering-cleanup.md) | Fix step numbering overlap between SKILL.md and workflow.md after the delegation refactor. |
 | | [quest-council-mode](quest-council-mode.md) | `/quest council` — two competing plans, independent reviews, council arbiter comparison report, human picks winner + optional golden nuggets. |
