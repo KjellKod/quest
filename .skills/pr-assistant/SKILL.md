@@ -96,12 +96,11 @@ Append this line at the end of the PR body:
 
 ```
 ---
-Quest/Co-Authored by <agent name and model> On Behalf of <github username>
+Quest/Co-Authored by Claude Opus 4.6, GPT-5.3 Codex in Collaboration with <github username>
 ```
 
 Replace:
 
-- **Agent name and model** with the active agent (e.g. "Claude Opus 4.6 via Claude Code").
 - **github username** with the repository author's GitHub username (infer from git config, remote URL, or ask if unknown).
 
 Never omit the trailer.

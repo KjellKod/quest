@@ -74,13 +74,12 @@ Always append this trailer exactly:
 
 ```bash
 
-Quest/Co-Authored by <agent name and model> On Behalf of <github username>
+Quest/Co-Authored by Claude Opus 4.6, GPT-5.3 Codex in Collaboration with <github username>
 
 ```
 
 Replace:
 
-- **Agent name and model** with the active agent (e.g. "Claude 3.5 Sonnet via Cursor").
 - **github username** with the repository author's GitHub username (infer from git config, remote URL, or ask if unknown).
 
 Never omit the trailer.
