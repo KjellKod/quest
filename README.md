@@ -52,9 +52,10 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 - Human gates at phase boundaries
 - Resumable state via `state.json`
 - A thin orchestrator that passes paths, not content (Context Retention Rule)
+- State validation script that enforces phase transitions, artifact prerequisites, and semantic handoff checks (`scripts/validate-quest-state.sh`)
 
 **What Quest does not yet deliver:**
-- System-enforced correctness (state transitions are checked by prompts, not scripts)
+- Full system-enforced correctness (validation script exists but is called by the orchestrator, not yet by hooks)
 - Clean skill/role separation (some roles duplicate what skills already say)
 - A structured exploration/research capability (no `/explore` skill yet)
 

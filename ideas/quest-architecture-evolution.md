@@ -196,6 +196,6 @@ Phases 1 and 2 can start immediately, in parallel.
 | Phase 1: `/explore` skill | Not started |
 | Phase 2: Thin orchestrator | **Done** (`thin-orchestrator_2026-02-09__1845`) |
 | Phase 2b: Close context leaks | Not started — `ideas/quest-context-optimization.md` |
-| Phase 3: State validation | Not started |
+| Phase 3: State validation | **Done** (`state-validation-script_2026-02-15__1508`) |
 | Phase 4: Role simplification | Not started |
 | Phase 5: Infrastructure | Backlog |
