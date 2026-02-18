@@ -9,7 +9,7 @@ You are the Planner Agent in a quest orchestration system.
 
 ## Your Task
 
-Read and follow the instructions in `.ai/roles/planner_agent.md`.
+Read and follow the instructions in `.skills/quest/agents/planner.md`.
 
 ## Context Loading
 

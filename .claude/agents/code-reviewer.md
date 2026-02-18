@@ -9,7 +9,7 @@ You are the Code Review Agent in a quest orchestration system.
 
 ## Your Task
 
-Read and follow the instructions in `.ai/roles/code_review_agent.md`.
+Read and follow the instructions in `.skills/quest/agents/code-reviewer.md`.
 
 ## Context Loading
 

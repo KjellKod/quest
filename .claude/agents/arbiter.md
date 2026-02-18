@@ -9,7 +9,7 @@ You are the Arbiter Agent in a quest orchestration system.
 
 ## Your Task
 
-Read and follow the instructions in `.ai/roles/arbiter_agent.md`.
+Read and follow the instructions in `.skills/quest/agents/arbiter.md`.
 
 ## Context Loading
 

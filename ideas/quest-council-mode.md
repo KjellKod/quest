@@ -80,7 +80,7 @@ Each plan gets its own full review cycle — the same dual-reviewer + arbiter fl
 
 ### Phase 3: Council Arbiter — Comparison Report
 
-The council arbiter is NOT a new role file. It uses the existing `.ai/roles/arbiter_agent.md` which will gain a "Council Mode" section with council-specific criteria and the strict output template below. This inherits the arbiter's core philosophy (KISS, YAGNI, anti-spin, bias toward action) while adding comparison-specific guidance: "Which plan has the stronger architecture?", "Where do they diverge?", "Are there transferable elements?"
+The council arbiter is NOT a new role file. It uses the existing `.skills/quest/agents/arbiter.md` which will gain a "Council Mode" section with council-specific criteria and the strict output template below. This inherits the arbiter's core philosophy (KISS, YAGNI, anti-spin, bias toward action) while adding comparison-specific guidance: "Which plan has the stronger architecture?", "Where do they diverge?", "Are there transferable elements?"
 
 It does NOT merge plans. It compares and recommends.
 
@@ -203,7 +203,7 @@ Phases: `plan_council` → `plan_council_review` → `plan_council_verdict` → 
 
 - **Default mode:** `/quest "description"` still runs single-plan. Council is opt-in.
 - **Build/review/fix phases:** Identical to today. Once `plan.md` exists, everything downstream is the same.
-- **Role files:** No new role files. Council arbiter adds a "Council Mode" section to the existing `.ai/roles/arbiter_agent.md`.
+- **Role files:** No new role files. Council arbiter adds a "Council Mode" section to the existing `.skills/quest/agents/arbiter.md`.
 - **Router/questioner:** Still runs before planning. Council mode doesn't skip intake quality.
 
 ## Cost and Time Implications
@@ -217,7 +217,7 @@ Council mode roughly **doubles** the planning phase cost and time:
 ## Resolved Questions
 
 - [x] **Documentation location:** SKILL.md Usage section only. Once implemented, council is a feature, not an idea.
-- [x] **Council arbiter instructions:** "Council Mode" section in `.ai/roles/arbiter_agent.md`. Inherits core philosophy, adds comparison-specific criteria.
+- [x] **Council arbiter instructions:** "Council Mode" section in `.skills/quest/agents/arbiter.md`. Inherits core philosophy, adds comparison-specific criteria.
 - [x] **Both tracks rejected:** Iterate both in parallel up to `max_plan_iterations`. If one exhausts, continue the other. If both exhaust, pause and ask the human.
 - [x] **Iteration caps:** Independent per track. Track A iterating doesn't penalize Track B's budget.
 - [x] **Post-nugget review:** Light review pass (single reviewer, fast mode) on the refined plan after golden nugget incorporation.

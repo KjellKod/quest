@@ -80,12 +80,7 @@ Copy these folders to your repository root:
   allowlist.json                  # Permission configuration
   quest.md                        # Quick reference
   roles/                          # Agent role definitions
-    planner_agent.md
-    plan_review_agent.md
-    arbiter_agent.md
-    builder_agent.md
-    code_review_agent.md
-    fixer_agent.md
+    quest_agent.md
   schemas/
     handoff.schema.json           # Inter-agent communication contract
   templates/
@@ -97,13 +92,20 @@ Copy these folders to your repository root:
 
 .skills/quest/                    # Full skill procedure (AI-agnostic)
   SKILL.md
+  agents/                         # Quest-owned role files
+    planner.md
+    plan-reviewer.md
+    arbiter.md
+    builder.md
+    code-reviewer.md
+    fixer.md
 
 .agents/skills/quest/             # Codex thin wrapper layer
   SKILL.md                        # Thin wrapper → .skills/quest/
 
 .claude/                          # Claude Code integration layer
   skills/quest/SKILL.md           # Thin wrapper → .skills/quest/
-  agents/                         # Thin wrappers → .ai/roles/
+  agents/                         # Thin wrappers → .skills/quest/agents/
     planner.md
     plan-reviewer.md
     arbiter.md
@@ -238,7 +240,7 @@ Each agent runs in **complete isolation** — no shared conversation history:
 
 **Claude agents** (planner, builder, fixer, plan-reviewer):
 - Spawned via Task tool with `subagent_type: general-purpose`
-- Receive assembled prompt with role instructions from `.ai/roles/*.md`
+- Receive assembled prompt with role instructions from `.skills/quest/agents/*.md`
 - Start fresh, return handoff when done
 
 **Codex agents** (code-reviewer, arbiter when configured):
@@ -268,9 +270,9 @@ Plans are reviewed by both Claude AND Codex independently:
 
 ## Customizing Roles
 
-The agent role definitions in `.ai/roles/*.md` are the source of truth. The `.claude/agents/*.md` files are thin wrappers that serve as documentation and reference.
+The agent role definitions in `.skills/quest/agents/*.md` are the source of truth. The quest router role stays in `.ai/roles/quest_agent.md`. The `.claude/agents/*.md` files are thin wrappers that serve as documentation and reference.
 
-To customize behavior, edit the files in `.ai/roles/`. The wrapper files rarely need changes.
+To customize behavior, edit `.skills/quest/agents/` (or `.ai/roles/quest_agent.md` for routing behavior). The wrapper files rarely need changes.
 
 ## Troubleshooting
 

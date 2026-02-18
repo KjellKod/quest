@@ -472,7 +472,7 @@ your-repo/
 ├── .agents/                      # Codex skill wrappers
 │   └── skills/quest/SKILL.md     # Thin wrapper → .skills/quest/
 ├── .claude/                      # Claude Code integration
-│   ├── agents/                   # Thin wrappers → .ai/roles/
+│   ├── agents/                   # Thin wrappers → .skills/quest/agents/
 │   ├── hooks/                    # Permission enforcement
 │   └── skills/quest/SKILL.md     # Thin wrapper → .skills/quest/
 ├── .cursor/                      # Cursor integration

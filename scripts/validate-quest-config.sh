@@ -24,7 +24,7 @@ When run without options, validates:
   - .quest/ is in .gitignore
   - .ai/allowlist.json is valid JSON
   - .ai/allowlist.json matches schema (if ajv installed)
-  - .ai/roles/*.md have required sections
+  - .skills/quest/agents/*.md and .ai/roles/quest_agent.md have required sections
 EOF
   exit 0
 }
@@ -158,21 +158,32 @@ validate_schema() {
 
 # Validate role markdown files have required sections
 validate_roles() {
-  local roles_dir="$REPO_ROOT/.ai/roles"
-  if [ ! -d "$roles_dir" ]; then
-    fail ".ai/roles/ directory does not exist"
+  local quest_roles_dir="$REPO_ROOT/.skills/quest/agents"
+  local quest_agent_file="$REPO_ROOT/.ai/roles/quest_agent.md"
+  if [ ! -d "$quest_roles_dir" ]; then
+    fail ".skills/quest/agents/ directory does not exist"
     return
   fi
 
-  local role_files
-  role_files=$(find "$roles_dir" -name "*.md" -type f)
-
-  if [ -z "$role_files" ]; then
-    fail "No role files found in .ai/roles/"
+  if [ ! -f "$quest_agent_file" ]; then
+    fail ".ai/roles/quest_agent.md does not exist"
     return
   fi
 
-  for role_file in $role_files; do
+  local role_files=()
+  while IFS= read -r role_file; do
+    role_files+=("$role_file")
+  done < <(find "$quest_roles_dir" -name "*.md" -type f | sort)
+  if [ "${#role_files[@]}" -eq 0 ]; then
+    fail "No role files found in .skills/quest/agents/"
+    return
+  fi
+
+  # quest_agent.md stays in .ai/roles/ and must be validated too.
+  role_files+=("$quest_agent_file")
+
+  local role_file
+  for role_file in "${role_files[@]}"; do
     local filename
     filename=$(basename "$role_file")
     local missing=""

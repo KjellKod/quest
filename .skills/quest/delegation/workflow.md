@@ -175,7 +175,7 @@ gates.max_plan_iterations (default: 4)
      subagent_type: "plan-reviewer",
      prompt: "You are the Plan Review Agent (Claude).
 
-     Read your instructions: .ai/roles/plan_review_agent.md
+     Read your instructions: .skills/quest/agents/plan-reviewer.md
      Read context digest: <codex_context_digest_path>
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
@@ -216,7 +216,7 @@ gates.max_plan_iterations (default: 4)
      model: "gpt-5.3-codex",
      prompt: "You are the Plan Review Agent (Codex).
 
-     Read your instructions: .ai/roles/plan_review_agent.md
+     Read your instructions: .skills/quest/agents/plan-reviewer.md
      Read context digest: <codex_context_digest_path>
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
@@ -269,7 +269,7 @@ gates.max_plan_iterations (default: 4)
      ```
      You are the Arbiter Agent.
 
-     Read your instructions: .ai/roles/arbiter_agent.md
+     Read your instructions: .skills/quest/agents/arbiter.md
 
      Quest brief: .quest/<id>/quest_brief.md
      Plan: .quest/<id>/phase_01_plan/plan.md
@@ -453,7 +453,7 @@ After plan approval, present the plan interactively before proceeding to build.
      subagent_type: "code-reviewer",
      prompt: "You are the Code Review Agent (Claude).
 
-     Read your instructions: .ai/roles/code_review_agent.md
+     Read your instructions: .skills/quest/agents/code-reviewer.md
      Read context digest: <codex_context_digest_path>
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
@@ -502,7 +502,7 @@ After plan approval, present the plan interactively before proceeding to build.
      model: "gpt-5.3-codex",
      prompt: "You are the Code Review Agent (Codex).
 
-     Read your instructions: .ai/roles/code_review_agent.md
+     Read your instructions: .skills/quest/agents/code-reviewer.md
      Read context digest: <codex_context_digest_path>
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
@@ -802,7 +802,7 @@ If any agent returns `STATUS: needs_human`:
 ```markdown
 You are the <ROLE>.
 
-Read your instructions: .ai/roles/<role>_agent.md
+Read your instructions: .skills/quest/agents/<role>.md
 Read context digest: .ai/context_digest.md
 Optional (full mode only, if needed): .skills/BOOTSTRAP.md, AGENTS.md
 

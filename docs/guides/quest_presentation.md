@@ -436,7 +436,7 @@ logs/
 
 .claude/                          # Claude Code integration
   skills/quest/SKILL.md           # Thin wrapper → .skills/
-  agents/*.md                     # Thin wrappers → .ai/roles/
+  agents/*.md                     # Thin wrappers → .skills/quest/agents/
   hooks/enforce-allowlist.sh      # Permission enforcement
 
 .skills/quest/SKILL.md            # The actual skill procedure
@@ -473,7 +473,7 @@ logs/
 
 | Component | Location | Why |
 |-----------|----------|-----|
-| Role definitions | `.ai/roles/` | AI-agnostic, works with any tool |
+| Role definitions | `.skills/quest/agents/` (+ `.ai/roles/quest_agent.md`) | AI-agnostic, works with any tool |
 | Permissions | `.ai/allowlist.json` | Plain JSON, human-editable |
 | Skill procedure | `.skills/quest/` | AI-agnostic, could work with other orchestrators |
 | Claude Code config | `.claude/` | Thin wrappers that delegate to `.ai/` and `.skills/` |

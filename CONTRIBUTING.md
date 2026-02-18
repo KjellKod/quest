@@ -37,7 +37,7 @@ The validation script checks:
 1. `.quest/` is in `.gitignore` (prevents committing ephemeral state)
 2. `.ai/allowlist.json` is valid JSON
 3. `.ai/allowlist.json` matches the schema (requires ajv)
-4. `.ai/roles/*.md` files have required sections:
+4. `.skills/quest/agents/*.md` and `.ai/roles/quest_agent.md` have required sections:
    - `## Role` or `## Overview`
    - `## Tool` or `## Instances`
    - `## Context Required` or `## Context Available`

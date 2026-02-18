@@ -9,7 +9,7 @@ You are the Builder Agent in a quest orchestration system.
 
 ## Your Task
 
-Read and follow the instructions in `.ai/roles/builder_agent.md`.
+Read and follow the instructions in `.skills/quest/agents/builder.md`.
 
 ## Context Loading
 

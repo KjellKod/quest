@@ -6,6 +6,7 @@ Future work items not yet ready for a full quest. When an idea is ready, run `/q
 
 | Status | Idea | Elevator pitch |
 |--------|------|---------------|
+| done | ~~phase4_plan_updated_by_kjell~~ | Relocate Quest role wiring to .skills/quest/agents. See [journal](../docs/quest-journal/phase4-role-wiring_2026-02-18.md). |
 | | [user-feedback](user-feedback.md) | Real-world user feedback on Quest UX: cost transparency, smart pausing, status clarity, plan navigation. |
 | in-progress | [quest-architecture-evolution](quest-architecture-evolution.md) | 5-phase roadmap to close the gap between Quest's philosophy and implementation. Phase 2 done, 2b in progress. |
 | in-progress | [phase2b-context-leak-closure](phase2b-context-leak-closure.md) | Candid findings and concrete completion plan for Phase 2b context leak closure. |

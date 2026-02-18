@@ -5,12 +5,12 @@
 [copy-as-is]
 # These files are replaced with upstream version (if unmodified locally)
 .ai/quest.md
-.ai/roles/arbiter_agent.md
-.ai/roles/builder_agent.md
-.ai/roles/code_review_agent.md
-.ai/roles/fixer_agent.md
-.ai/roles/plan_review_agent.md
-.ai/roles/planner_agent.md
+.skills/quest/agents/arbiter.md
+.skills/quest/agents/builder.md
+.skills/quest/agents/code-reviewer.md
+.skills/quest/agents/fixer.md
+.skills/quest/agents/plan-reviewer.md
+.skills/quest/agents/planner.md
 .ai/roles/quest_agent.md
 .ai/schemas/allowlist.schema.json
 .ai/schemas/handoff.schema.json
