@@ -72,9 +72,9 @@ Orchestrator reads ONLY the SUMMARY line from handoff → decides next step
 
 ---
 
-### Phase 2b: Close remaining context leaks
+### Phase 2b: Close remaining context leaks — MOSTLY DONE
 
-**Status:** Not started. See `ideas/quest-context-optimization.md` for full details.
+**Status:** Mostly implemented. 5 of 7 items shipped incrementally alongside Phase 2. See `ideas/quest-context-optimization.md` for the original proposal.
 
 **Problem:** Phase 2 changed prompts to pass paths instead of content. But three leaks remain:
 1. `TaskOutput` returns full agent transcripts (~30-50k tokens/quest) into orchestrator context
@@ -89,7 +89,21 @@ By end of a quest with 2 review rounds, ~50-80k tokens of agent output still ent
 - All agents (Claude Task + Codex MCP) run in background, orchestrator never sees their output
 - Post-quest: suggest `/clear` to reset context for next quest
 
-**Impact:** Completes the thin orchestrator vision. Orchestrator context stays under ~30k tokens for an entire quest lifecycle instead of growing to 100k+.
+**What shipped (in workflow.md and role files):**
+
+| Item | Status | Where |
+|------|--------|-------|
+| handoff.json pattern — agents write, orchestrator reads | **Done** | workflow.md "Handoff File Polling" (lines 34-58), all 6 role files have "Step 1 — Write handoff.json" |
+| Context Retention Rule — orchestrator keeps only status/path/summary | **Done** | workflow.md lines 16-31 |
+| Don't read full reviews for routing | **Done** | workflow.md line 575: "Do NOT read the full review files" |
+| Post-quest `/clear` suggestion | **Done** | workflow.md line 685 |
+| Context health logging + compliance report | **Done** | workflow.md lines 62-83 (logging), lines 642-669 (report) |
+| Background all Claude Task agents (`run_in_background: true`) | **Not done** | Only referenced as future upgrade in compliance report |
+| Wrap Codex MCP in background Task agents | **Not done** | Codex still called synchronously; line 60 acknowledges platform limitation |
+
+**What remains:** The two background-invocation items. These are platform-dependent — they require `run_in_background: true` to actually prevent transcript injection into orchestrator context. The handoff.json infrastructure is in place; the question is whether the platform prevents the full response from entering context when agents run in background mode. Worth a quick experiment before committing to implementation.
+
+**Impact:** The implemented items establish the pattern and discipline. The remaining items would complete the vision but depend on platform behavior.
 
 ---
 
@@ -122,43 +136,13 @@ By end of a quest with 2 review rounds, ~50-80k tokens of agent output still ent
 
 ---
 
-### Phase 4: Simplify role/skill layering (incremental)
+### Phase 4: Relocate role wiring to `.skills/quest/agents/`
 
-**Problem:** Four layers between intent and execution:
-```
-Quest SKILL.md → Task(planner) → planner_agent.md → plan-maker/SKILL.md → writes plan
-```
+**Status:** Not started. See `ideas/phase4-role-relocation.md` for full analysis.
 
-Roles that are 1:1 with skills add indirection without value. The role's unique contribution is ~10 lines of Quest-specific wiring (handoff format, output paths).
+**Summary:** Move 6 role files from `.ai/roles/` to `.skills/quest/agents/` so Quest wiring lives under the Quest skill. Zero functional change — ownership cleanup only.
 
-**Solution:** The orchestrator's invocation prompts become the wiring layer.
-
-Before:
-```
-Task(planner): "Read .ai/roles/planner_agent.md. Quest brief at .quest/<id>/quest_brief.md."
-```
-
-After:
-```
-Task(planner): "Read .skills/plan-maker/SKILL.md. Quest brief at .quest/<id>/quest_brief.md.
-Write plan to .quest/<id>/phase_01_plan/plan.md.
-When done, output: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY"
-```
-
-**Which roles to eliminate:**
-- `planner_agent.md` → wiring injected by orchestrator, skill is plan-maker
-- `plan_review_agent.md` → wiring injected by orchestrator, skill is plan-reviewer
-- `code_review_agent.md` → wiring injected by orchestrator, skill is code-reviewer
-- `builder_agent.md` → wiring injected by orchestrator, skill is implementer
-- `fixer_agent.md` → wiring injected by orchestrator, skill is implementer (fix mode)
-
-**Which roles to keep:**
-- `arbiter_agent.md` → No corresponding skill. Pure Quest logic. Legitimate role.
-- `quest_agent.md` → Routing logic for the orchestrator itself. Legitimate role.
-
-**Approach:** Do this one role at a time. Start with planner (simplest mapping). Validate the quest still works. Then proceed to reviewers, builder, fixer.
-
-**Impact:** Fewer files, fewer context loads, less indirection. Cleaner mental model: skills are capabilities, the orchestrator wires them.
+**Key finding from analysis:** Blast radius is ~15+ files (runtime, validation scripts, metadata, docs), not the ~2 originally estimated. The move is safe but larger than it looks. See the idea file for the full reference list, validation baseline, and validation plan.
 
 ---
 
@@ -181,13 +165,14 @@ When done, output: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY"
 
 Each phase is a standalone quest. The phases are ordered by impact and independence:
 
-1. **Phase 1 (explore):** No dependencies. Can ship immediately.
-2. **Phase 2 (thin orchestrator):** No dependencies on Phase 1. Can run in parallel.
-3. **Phase 3 (state validation):** Benefits from Phase 2 (thinner orchestrator = clearer phase transitions to validate). Best done after Phase 2.
-4. **Phase 4 (role simplification):** Benefits from Phase 2 (orchestrator prompts change anyway). Best done after Phase 2.
-5. **Phase 5 (infrastructure):** Depends on external platform evolution. Backlog.
+1. **Phase 1 (explore):** No dependencies. Can ship independently. Lowest urgency — Claude Code's built-in Explore agent covers the capability informally; this formalizes it.
+2. **Phase 2 (thin orchestrator):** Done.
+3. **Phase 2b (context leaks):** Mostly done. Remaining items (background invocation) depend on platform behavior — worth an experiment before committing.
+4. **Phase 3 (state validation):** Done.
+5. **Phase 4 (role relocation):** No dependencies. Safe, low-risk housekeeping. Zero functional change.
+6. **Phase 5 (infrastructure):** Depends on external platform evolution. Backlog.
 
-Phases 1 and 2 can start immediately, in parallel.
+**Honest take on remaining work:** Phases 2, 2b (mostly), and 3 delivered the real improvements — context discipline and state enforcement. What remains is either cosmetic (Phase 4), nice-to-have (Phase 1), platform-dependent (2b remainder), or long-term (Phase 5). The system works. Doing nothing is a legitimate option. Time spent on Quest meta-improvement is time not spent using Quest to build features.
 
 ## Status
 
@@ -195,7 +180,7 @@ Phases 1 and 2 can start immediately, in parallel.
 |-------|--------|
 | Phase 1: `/explore` skill | Not started |
 | Phase 2: Thin orchestrator | **Done** (`thin-orchestrator_2026-02-09__1845`) |
-| Phase 2b: Close context leaks | Not started — `ideas/quest-context-optimization.md` |
+| Phase 2b: Close context leaks | **Mostly done** — 5/7 items shipped. Remaining: background agent invocation (platform-dependent). See `ideas/quest-context-optimization.md` |
 | Phase 3: State validation | **Done** (`state-validation-script_2026-02-15__1508`) |
-| Phase 4: Role simplification | Not started |
+| Phase 4: Role relocation | Not started — ownership cleanup, zero functional change |
 | Phase 5: Infrastructure | Backlog |
