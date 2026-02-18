@@ -653,18 +653,18 @@ After plan approval, present the plan interactively before proceeding to build.
    Then display a brief reflection, split by runtime and role:
    - Count entries with `source=handoff_json` vs `source=text_fallback`
    - Split by runtime using the `runtime=claude|codex` field from each log line
-   - Also split by role instance (using observed log entries):
-     - `planner`
-     - `plan-review slot A`
-     - `plan-review slot B`
-     - `arbiter`
-     - `builder`
-     - `code-review slot A`
-     - `code-review slot B`
-     - `fixer`
+   - Also split by role instance using `(phase, agent)` pairs (do NOT key by `agent` alone):
+     - Planner = `(phase=plan, agent=planner)`
+     - Plan Review Slot A = `(phase=plan_review, agent=slot_a_claude)`
+     - Plan Review Slot B = `(phase=plan_review, agent=slot_b_codex)`
+     - Arbiter = `(phase=plan_review, agent=arbiter)`
+     - Builder = `(phase=build, agent=builder)`
+     - Code Review Slot A = `(phase=code_review, agent=slot_a_claude)`
+     - Code Review Slot B = `(phase=code_review, agent=slot_b_codex)`
+     - Fixer = `(phase=fix, agent=fixer)`
    - For each role instance, report `X/Y` where:
-     - `Y` = total observed invocations for that role instance in the log
-     - `X` = observed invocations for that role instance with `source=handoff_json`
+     - `Y` = total observed invocations for that exact `(phase, agent)` pair in the log
+     - `X` = observed invocations for that exact `(phase, agent)` pair with `source=handoff_json`
    - If a role/runtime did not run in this quest, display `0/0 (n/a)` instead of implying failure
    - Display:
      ```
