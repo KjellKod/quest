@@ -193,6 +193,8 @@ validate_artifacts() {
       check_file "$quest_dir/phase_01_plan/plan.md"
       ;;
     "presentation_complete->building")
+      # No arbiter semantic re-check here. The arbiter approves at plan->plan_reviewed.
+      # The presentation path only shows the plan to the user; it doesn't change approval.
       check_file "$quest_dir/phase_01_plan/plan.md"
       ;;
     "plan_reviewed->building")
@@ -294,6 +296,8 @@ validate_semantic_content() {
 
       if [ -f "$claude_file" ]; then
         local claude_next
+        # Note: jq -r outputs "null" for both JSON null and missing .next field.
+        # This is acceptable since agents always write structured handoff JSON.
         claude_next=$(jq -r '.next' "$claude_file" 2>/dev/null)
         if [ "$claude_next" != "null" ]; then
           both_clean=false
