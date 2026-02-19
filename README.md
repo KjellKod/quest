@@ -67,7 +67,7 @@ See [ideas/quest-architecture-evolution.md](ideas/quest-architecture-evolution.m
 
 **Part of the [Candid Talent Edge](https://candidtalentedge.com) initiative by KjellKod**
 
-> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool. Take a [look at how a disciplined approach](docs/guides/quest_presentation.md) to software engineering is directly applicable to an agentic orchestration setup. 
+> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool. Take a [look at how a disciplined approach](docs/guides/quest_presentation.md) to software engineering is directly applicable to an agentic orchestration setup. You can now run Quest from both runtimes: Claude `/quest` and Codex `$quest`.
 
 Quest is a portable framework for running coordinated AI agents with human oversight.
 
@@ -214,6 +214,12 @@ claude
 codex
 $quest "Add a loading skeleton to the user list"
 ```
+
+**Milestone:** Quest is now runnable directly from Codex via `$quest`.
+
+**Compatibility note (February 2026):**
+- Codex `$quest` currently requires enabling Codex `/experimental` subagents.
+- If you do not have that capability enabled, use Claude `/quest` with Codex MCP configured for dual-model reviews.
 
 Quest scales from simple to complex — just describe what you want:
 
