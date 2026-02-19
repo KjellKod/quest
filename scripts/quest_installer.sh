@@ -221,7 +221,12 @@ prompt_view_docs() {
   fi
 
   echo ""
-  if prompt_yn "Would you like to view .ai/quest.md now?" "y"; then
+  local prompt="Would you like to view .ai/quest.md now?"
+  if ! command -v glow &>/dev/null; then
+    prompt="${prompt} (for best viewing experience, install glow: brew install glow)"
+  fi
+
+  if prompt_yn "$prompt" "y"; then
     echo ""
     show_markdown_file ".ai/quest.md" || true
   else
