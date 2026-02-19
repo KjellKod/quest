@@ -190,6 +190,45 @@ log_action() {
   fi
 }
 
+# Show a markdown file with best available local renderer.
+show_markdown_file() {
+  local filepath="$1"
+
+  if [ ! -f "$filepath" ]; then
+    log_warn "Cannot open missing file: $filepath"
+    return 1
+  fi
+
+  # Prefer a markdown renderer if installed.
+  if command -v glow &>/dev/null; then
+    glow "$filepath"
+    return 0
+  fi
+
+  # Fall back to pager/plain text.
+  if command -v less &>/dev/null; then
+    less "$filepath"
+  else
+    cat "$filepath"
+  fi
+}
+
+# Optional post-install prompt to view quest documentation.
+prompt_view_docs() {
+  # Skip in non-interactive or automation modes.
+  if $DRY_RUN || $FORCE_MODE || [ ! -t 0 ] || [ ! -t 1 ]; then
+    return 0
+  fi
+
+  echo ""
+  if prompt_yn "Would you like to view .ai/quest.md now?" "y"; then
+    echo ""
+    show_markdown_file ".ai/quest.md" || true
+  else
+    echo "Installer finished. You can open .ai/quest.md any time."
+  fi
+}
+
 # Confirm install source when defaulting to main with no explicit source flag.
 confirm_install_source() {
   # Non-main branch was explicitly chosen or set.
@@ -1293,6 +1332,9 @@ print_next_steps() {
   echo "  - Quest documentation: .ai/quest.md"
   echo "  - Available skills: .skills/SKILLS.md"
   echo "  - Repository: https://github.com/${UPSTREAM_REPO}"
+
+  # Optional interactive docs preview.
+  prompt_view_docs
 }
 
 ###############################################################################
