@@ -824,6 +824,18 @@ install_copy_as_is_file() {
     return 0
   fi
 
+  # Special case: when running the installer from this repo path, avoid
+  # prompting on the installer file itself. Self-update is already handled
+  # earlier by check_self_update(); prompting here can look like a hang.
+  local running_script_rel="${SCRIPT_PATH#$(pwd)/}"
+  if [ "$filepath" = "scripts/quest_installer.sh" ] && [ "$running_script_rel" = "$filepath" ]; then
+    rm -f "$temp_file"
+    # Keep local checksum so this run remains non-blocking and deterministic.
+    set_updated_checksum "$filepath" "$local_checksum"
+    log_info "Keeping current running installer: $filepath"
+    return 0
+  fi
+
   if $FORCE_MODE; then
     rm -f "$temp_file"
     log_warn "Skipping modified file: $filepath"
