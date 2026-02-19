@@ -25,6 +25,7 @@ SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SO
 DRY_RUN=false
 FORCE_MODE=false
 SKIP_SELF_UPDATE=false
+SOURCE_EXPLICIT=false
 
 # State variables (set during execution)
 IS_GIT_REPO=false
@@ -187,6 +188,44 @@ log_action() {
   else
     echo -e "${GREEN}[ACTION]${NC} $1"
   fi
+}
+
+# Confirm install source when defaulting to main with no explicit source flag.
+confirm_install_source() {
+  # Non-main branch was explicitly chosen or set.
+  if [ "$UPSTREAM_BRANCH" != "main" ]; then
+    return 0
+  fi
+
+  # --branch was provided explicitly (including --branch main).
+  if $SOURCE_EXPLICIT; then
+    return 0
+  fi
+
+  # Skip prompt for automation/dry-run/non-interactive runs.
+  if $FORCE_MODE || $DRY_RUN || [ ! -t 0 ]; then
+    return 0
+  fi
+
+  echo ""
+  log_warn "Install source not specified. Default source is branch: main."
+  if prompt_yn "Install from main?" "y"; then
+    return 0
+  fi
+
+  echo ""
+  log_info "Installation cancelled."
+  echo "Re-run with an explicit source/option:"
+  echo "  --branch <name>   Install from a specific branch"
+  echo "  --check           Dry run (preview only)"
+  echo "  --force           Non-interactive mode"
+  echo "  --help            Show all options"
+  echo ""
+  echo "Examples:"
+  echo "  ./$SCRIPT_NAME --branch main"
+  echo "  ./$SCRIPT_NAME --branch phase4_architecture_evolution_codex"
+  echo "  ./$SCRIPT_NAME --check --branch main"
+  exit 0
 }
 
 # Prompt user for yes/no (defaults to yes)
@@ -1298,6 +1337,12 @@ run_install() {
   # Detect current state (git repo, Quest installed, etc.)
   detect_repo_state
 
+  # Confirm source when defaulting to main with no explicit source flag.
+  confirm_install_source
+
+  # Always show selected upstream source for transparency.
+  log_info "Using upstream branch: ${UPSTREAM_BRANCH}"
+
   # Fetch upstream version (sets UPSTREAM_SHA)
   fetch_upstream_version
 
@@ -1393,6 +1438,7 @@ parse_args() {
           exit 1
         fi
         UPSTREAM_BRANCH="$2"
+        SOURCE_EXPLICIT=true
         shift 2
         ;;
       --skip-self-update)
