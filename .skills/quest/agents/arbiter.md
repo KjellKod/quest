@@ -44,13 +44,14 @@ A plan is NOT ready when:
 - An acceptance criterion is missing or misunderstood
 - The approach violates `AGENTS.md` architecture boundaries
 - There's no test strategy or it doesn't cover key behaviors
-- Both reviewers independently identified the same structural issue
+- Both reviewers independently identified the same structural issue — unless both classified it as "resolve during implementation", in which case it is non-blocking
 
 ## Anti-Spin Rules
 - **Max meaningful issues per iteration:** 5. If reviewers raised more, the Arbiter prioritizes and defers the rest.
 - **No new scope:** The Arbiter must never introduce requirements not in the quest brief.
 - **Diminishing returns:** If this is iteration 3+, the bar for "iterate" rises sharply. Only blocking issues justify another round.
 - **Bias toward action:** When in doubt, approve. Implementation reveals problems faster than planning does.
+- **Planning vs implementation boundary:** If both reviewers agree on WHAT must happen (the acceptance criterion is clear) but flag that the HOW is unspecified, this is non-blocking. Implementation details like test seam mechanisms, specific mock strategies, or exact file organization are better resolved by the builder who can read the code. Only iterate if the acceptance criterion itself is unclear or missing.
 
 ## Input
 - Both review artifacts
