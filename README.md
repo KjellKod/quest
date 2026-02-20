@@ -52,16 +52,17 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 - Human gates at phase boundaries
 - Resumable state via `state.json`
 - A thin orchestrator that passes paths, not content (Context Retention Rule)
+- Structured handoff contract (`handoff.json`) between orchestrator and subagents, with text fallback for backward compatibility
 - State validation script that enforces phase transitions, artifact prerequisites, and semantic handoff checks (`scripts/validate-quest-state.sh`)
-- **Full Codex orchestration (BETA):** Quest can now run end-to-end with GPT-5.3/Codex as the orchestrator via `$quest`. This is functional but not yet as robust as Claude-orchestrated runs — expect occasional handoff compliance gaps and rougher edges. The most reliable configuration remains Claude as orchestrator with Codex as a subagent reviewer.
+- Context health logging and compliance reporting — every handoff is logged, compliance is reported at quest completion
+- Consolidated skill ownership — all quest agent wiring lives under `.skills/quest/`
+- Codex orchestration (BETA): Quest runs end-to-end via `$quest` with GPT-5.3/Codex as orchestrator. Claude-orchestrated `/quest` remains the more robust path.
 
-**What Quest does not yet deliver:**
-- A structured exploration/research capability (no `/explore` skill yet — Claude Code's built-in Explore agent covers this informally)
+**What we considered and deliberately left alone:**
+- **Infrastructure hooks (Phase 5):** Claude Code hooks can block tool calls and intercept subagent lifecycle. We assessed using them to make state validation mandatory. The orchestrator already achieves 12/12 handoff compliance in observed runs, and a blanket hook would need fragile prompt-parsing to distinguish quest subagents from other `Task` calls. Deferred until an observed failure justifies the complexity.
+- **`/explore` skill (Phase 1):** A formal research/discovery skill. Claude Code's built-in Explore agent covers this informally. Would formalize it, but not blocking any real workflow today.
 
-**What we investigated and deliberately deferred:**
-- **Infrastructure hooks (Phase 5):** Claude Code's hooks can now block tool calls, intercept subagent lifecycle, and enforce quality gates. We assessed using `PreToolUse` hooks to make state validation mandatory (not just prompt-requested). The conclusion: the orchestrator already follows its validation gates reliably (12/12 handoff compliance in observed runs), and a blanket hook would need fragile prompt-parsing logic to distinguish quest subagents from other `Task` calls. Deferred until an observed failure justifies the complexity. The platform capability is documented in the evolution roadmap for when it's needed.
-
-**The philosophy is right. The architecture is pragmatically correct. The remaining gaps are either nice-to-have or insurance against unobserved failures.**
+**The system works. The remaining ideas are either nice-to-have or insurance against unobserved failures.**
 
 See [ideas/quest-architecture-evolution.md](ideas/quest-architecture-evolution.md) for the full evolution roadmap and decision rationale.
 
