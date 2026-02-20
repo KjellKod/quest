@@ -126,7 +126,7 @@ Orchestrator reads ONLY the SUMMARY line from handoff → decides next step
 
 ---
 
-### Phase 5: Infrastructure hooks — READY TO START
+### Phase 5: Infrastructure hooks — DEFERRED
 
 **Problem:** The orchestrator is instructions that a model may or may not follow. Phase 3 added a state validation *script*, but the orchestrator still has to *choose* to call it. The gap: system-enforced correctness vs. prompt-requested correctness.
 
@@ -166,6 +166,31 @@ Orchestrator reads ONLY the SUMMARY line from handoff → decides next step
 
 **Impact:** Closes the original gap between philosophy and implementation. State validation becomes mandatory, not optional. Handoff contracts become enforced, not requested.
 
+**Candid assessment (2026-02-20) — why we're deferring:**
+
+The platform is ready, but the problem isn't urgent. Analysis of real quest runs shows:
+
+1. **The failure mode is theoretical.** `context_health.log` from actual quests shows 12/12 `handoff_json=found` across all agents. The orchestrator calls `validate-quest-state.sh` at every gate. The instructions work — the model follows them.
+
+2. **Hooks can't cover the full surface.** The highest-value hook (`PreToolUse` on `Task`) only intercepts Claude subagents. Codex MCP calls (`mcp__codex__codex`) are tool calls, not subagents — a `PreToolUse` hook would need to parse the Codex prompt string to figure out which quest phase it targets. That's fragile. So even with hooks, Slot B enforcement stays prompt-based. Half-coverage isn't worth the debugging complexity.
+
+3. **The real failure modes are logic-level, not gate-level.** When quests go wrong, it's because the orchestrator misroutes (wrong phase), misinterprets a handoff summary, or accumulates context despite being told not to. These are semantic errors that no hook can catch — they require better prompts or model improvements, not infrastructure gates.
+
+4. **Debugging cost.** Adding hooks creates a third layer of failure reasoning: was it the orchestrator, the subagent, or a hook? For a system that's already working, this complexity isn't justified.
+
+5. **YAGNI — Quest's own principle.** Build from observed failure, not anticipated need. When a quest fails because a validation gate was skipped or a handoff was missing, that's the signal to add the corresponding hook. Until then, time spent on Phase 5 is time not spent using Quest to build features.
+
+**Why not "just add the PreToolUse hook on Task"?**
+
+The initial instinct was that a `PreToolUse` hook running `validate-quest-state.sh` before every `Task` call would be ~30 lines of shell with zero downside. On closer inspection, it's more complex than that:
+
+- The hook fires on *all* `Task` calls, not just quest subagents. It would need to distinguish quest from non-quest invocations by parsing the prompt for `.quest/<id>/` paths.
+- Not all quest subagent launches have (or need) a preceding validation gate. Planner, reviewer, and arbiter launches happen *within* a phase, not at a transition boundary. Only builder, code-reviewer, and fixer launches are gated. A blanket hook would either block legitimate calls or need to replicate the workflow's phase-transition logic.
+- That replication creates a second source of truth for which subagents need validation and which don't — exactly the kind of parallel logic that drifts over time.
+- Net: the hook would be a fragile prompt-parsing validation layer that duplicates what the orchestrator already does correctly. Not ~30 lines, not zero downside.
+
+**Decision:** Defer. The platform capability is documented here for when it's needed. If `context_health.log` starts showing compliance drops or state validation gets skipped in a real quest, revisit with a targeted hook for the specific failure observed — not a blanket gate.
+
 ---
 
 ## Implementation Strategy
@@ -177,9 +202,9 @@ Each phase is a standalone quest. The phases are ordered by impact and independe
 3. **Phase 2b (context leaks):** In progress. See `ideas/phase2b-context-leak-closure.md` for findings and the concrete next-step rollout.
 4. **Phase 3 (state validation):** Done.
 5. **Phase 4 (role relocation):** No dependencies. Safe, low-risk housekeeping. Zero functional change.
-6. **Phase 5 (infrastructure hooks):** Platform is ready. No external dependencies remaining. Highest remaining value — makes Phase 3's state validation mandatory rather than opt-in, and can close Phase 2b's handoff enforcement gap.
+6. **Phase 5 (infrastructure hooks):** Platform is ready but problem is theoretical. Deferred until observed failure justifies the complexity. See Phase 5 section for full rationale.
 
-**Honest take on remaining work:** Phases 2, 2b (mostly), 3, and 4 delivered the core improvements — context discipline, state enforcement, and ownership cleanup. Phase 5 is now the highest-value remaining work: it makes existing guardrails (state validation, handoff contracts) *impossible to skip*. Phase 1 (explore) remains nice-to-have. The system works today; Phase 5 makes it harder to break.
+**Honest take on remaining work:** Phases 2, 2b (mostly), 3, and 4 delivered the core improvements — context discipline, state enforcement, and ownership cleanup. What remains is either nice-to-have (Phase 1 explore) or insurance against unobserved failures (Phase 5 hooks). The system works. The highest-value use of time is running quests to build features, not adding meta-infrastructure.
 
 ## Status
 
@@ -190,4 +215,4 @@ Each phase is a standalone quest. The phases are ordered by impact and independe
 | Phase 2b: Close context leaks | **In progress** — 5/7 items shipped. Findings + next step: `ideas/phase2b-context-leak-closure.md` (proposal history: `ideas/quest-context-optimization.md`) |
 | Phase 3: State validation | **Done** (`state-validation-script_2026-02-15__1508`) |
 | Phase 4: Role relocation | **Done** (`phase4-role-wiring_2026-02-17__2218`) — ownership cleanup, zero functional change |
-| Phase 5: Infrastructure hooks | **Ready to start** — platform unblocked as of 2026-02-20. See updated Phase 5 section |
+| Phase 5: Infrastructure hooks | **Deferred** — platform ready, problem theoretical. Revisit when `context_health.log` shows compliance drops |

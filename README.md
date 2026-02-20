@@ -56,13 +56,14 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 - **Full Codex orchestration (BETA):** Quest can now run end-to-end with GPT-5.3/Codex as the orchestrator via `$quest`. This is functional but not yet as robust as Claude-orchestrated runs — expect occasional handoff compliance gaps and rougher edges. The most reliable configuration remains Claude as orchestrator with Codex as a subagent reviewer.
 
 **What Quest does not yet deliver:**
-- Full system-enforced correctness (validation script exists but is called by the orchestrator, not yet by hooks)
-- Clean skill/role separation (some roles duplicate what skills already say)
-- A structured exploration/research capability (no `/explore` skill yet)
+- A structured exploration/research capability (no `/explore` skill yet — Claude Code's built-in Explore agent covers this informally)
 
-**The philosophy is right. The architecture is pragmatically correct. The gap between them is the roadmap.**
+**What we investigated and deliberately deferred:**
+- **Infrastructure hooks (Phase 5):** Claude Code's hooks can now block tool calls, intercept subagent lifecycle, and enforce quality gates. We assessed using `PreToolUse` hooks to make state validation mandatory (not just prompt-requested). The conclusion: the orchestrator already follows its validation gates reliably (12/12 handoff compliance in observed runs), and a blanket hook would need fragile prompt-parsing logic to distinguish quest subagents from other `Task` calls. Deferred until an observed failure justifies the complexity. The platform capability is documented in the evolution roadmap for when it's needed.
 
-See [ideas/quest-architecture-evolution.md](ideas/quest-architecture-evolution.md) for the phased plan to close these gaps.
+**The philosophy is right. The architecture is pragmatically correct. The remaining gaps are either nice-to-have or insurance against unobserved failures.**
+
+See [ideas/quest-architecture-evolution.md](ideas/quest-architecture-evolution.md) for the full evolution roadmap and decision rationale.
 
 # Quest: A Multi-Agent Orchestration Blueprint
 
