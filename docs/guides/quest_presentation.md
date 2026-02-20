@@ -473,7 +473,7 @@ logs/
 
 | Component | Location | Why |
 |-----------|----------|-----|
-| Role definitions | `.skills/quest/agents/` (+ `.ai/roles/quest_agent.md`) | AI-agnostic, works with any tool |
+| Role definitions | `.skills/quest/agents/` (+ `.ai/roles/quest_agent.md`) | AI-agnostic, works with any tool ([README](../../.skills/quest/agents/README.md)) |
 | Permissions | `.ai/allowlist.json` | Plain JSON, human-editable |
 | Skill procedure | `.skills/quest/` | AI-agnostic, could work with other orchestrators |
 | Claude Code config | `.claude/` | Thin wrappers that delegate to `.ai/` and `.skills/` |

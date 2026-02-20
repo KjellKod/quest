@@ -270,7 +270,7 @@ Plans are reviewed by both Claude AND Codex independently:
 
 ## Customizing Roles
 
-The agent role definitions in `.skills/quest/agents/*.md` are the source of truth. The quest router role stays in `.ai/roles/quest_agent.md`. The `.claude/agents/*.md` files are thin wrappers that serve as documentation and reference.
+The agent role definitions in `.skills/quest/agents/*.md` are the source of truth. The quest router role stays in `.ai/roles/quest_agent.md`. The `.claude/agents/*.md` files are thin wrappers that serve as documentation and reference. See `.skills/quest/agents/README.md` for how agent wiring files relate to portable skills.
 
 To customize behavior, edit `.skills/quest/agents/` (or `.ai/roles/quest_agent.md` for routing behavior). The wrapper files rarely need changes.
 
