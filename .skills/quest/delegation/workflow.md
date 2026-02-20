@@ -13,6 +13,14 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 - **Timebox structure discovery:** Avoid full repo inventories. Do a quick top-level scan + targeted `rg` searches instead of browsing directory-by-directory.
 - **If the user wants speed:** Offer to proceed with minimal questions + explicit assumptions (fast intake).
 
+### Hard Phase Gate (No Pre-Build Source Edits)
+
+Before Step 4 (Build Phase), the orchestrator and all agents MUST NOT edit source/product files.
+
+- In phases `plan`, `plan_reviewed`, `presenting`, and `presentation_complete`, writes are limited to quest artifacts under `.quest/**` only.
+- Any implementation request received before Build must be captured as plan feedback (`.quest/<id>/phase_01_plan/user_feedback.md`) and deferred to Step 4.
+- If any pre-Build action would modify non-`.quest/**` files, STOP and ask the user whether to proceed to Build first.
+
 ### Context Retention Rule
 
 After every subagent invocation (`Task` or `mcp__codex__codex`), the orchestrator retains ONLY:
@@ -63,21 +71,22 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 
 **Format:**
 ```
-<timestamp> | phase=<phase> | agent=<agent_name> | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback
+<timestamp> | phase=<phase> | agent=<agent_name> | runtime=claude|codex | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback
 ```
 
 Use `plan_iteration` for plan/plan_review phases, `fix_iteration` for code_review/fix phases, and `1` for build (single pass).
+Set `runtime` to the runtime actually used for that invocation (`claude` or `codex`).
 
 **Example log for a quest with 2 plan iterations:**
 ```
-2026-02-15T00:12:00Z | phase=plan | agent=planner | iter=1 | handoff_json=found | source=handoff_json
-2026-02-15T00:15:00Z | phase=plan_review | agent=slot_a_claude | iter=1 | handoff_json=found | source=handoff_json
-2026-02-15T00:15:00Z | phase=plan_review | agent=slot_b_codex | iter=1 | handoff_json=missing | source=text_fallback
-2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | iter=1 | handoff_json=found | source=handoff_json
-2026-02-15T00:25:00Z | phase=plan | agent=planner | iter=2 | handoff_json=found | source=handoff_json
-2026-02-15T00:28:00Z | phase=plan_review | agent=slot_a_claude | iter=2 | handoff_json=found | source=handoff_json
-2026-02-15T00:28:00Z | phase=plan_review | agent=slot_b_codex | iter=2 | handoff_json=found | source=handoff_json
-2026-02-15T00:31:00Z | phase=plan_review | agent=arbiter | iter=2 | handoff_json=found | source=handoff_json
+2026-02-15T00:12:00Z | phase=plan | agent=planner | runtime=claude | iter=1 | handoff_json=found | source=handoff_json
+2026-02-15T00:15:00Z | phase=plan_review | agent=slot_a_claude | runtime=claude | iter=1 | handoff_json=found | source=handoff_json
+2026-02-15T00:15:00Z | phase=plan_review | agent=slot_b_codex | runtime=codex | iter=1 | handoff_json=missing | source=text_fallback
+2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=1 | handoff_json=found | source=handoff_json
+2026-02-15T00:25:00Z | phase=plan | agent=planner | runtime=claude | iter=2 | handoff_json=found | source=handoff_json
+2026-02-15T00:28:00Z | phase=plan_review | agent=slot_a_claude | runtime=claude | iter=2 | handoff_json=found | source=handoff_json
+2026-02-15T00:28:00Z | phase=plan_review | agent=slot_b_codex | runtime=codex | iter=2 | handoff_json=found | source=handoff_json
+2026-02-15T00:31:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=2 | handoff_json=found | source=handoff_json
 ```
 
 This log is how we measure whether the handoff.json pattern is working. It is displayed to the user at quest completion (Step 7). If you skip logging, the compliance report will be incomplete.
@@ -175,7 +184,7 @@ gates.max_plan_iterations (default: 4)
      subagent_type: "plan-reviewer",
      prompt: "You are the Plan Review Agent (Claude).
 
-     Read your instructions: .ai/roles/plan_review_agent.md
+     Read your instructions: .skills/quest/agents/plan-reviewer.md
      Read context digest: <codex_context_digest_path>
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
@@ -216,7 +225,7 @@ gates.max_plan_iterations (default: 4)
      model: "gpt-5.3-codex",
      prompt: "You are the Plan Review Agent (Codex).
 
-     Read your instructions: .ai/roles/plan_review_agent.md
+     Read your instructions: .skills/quest/agents/plan-reviewer.md
      Read context digest: <codex_context_digest_path>
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
@@ -269,7 +278,7 @@ gates.max_plan_iterations (default: 4)
      ```
      You are the Arbiter Agent.
 
-     Read your instructions: .ai/roles/arbiter_agent.md
+     Read your instructions: .skills/quest/agents/arbiter.md
 
      Quest brief: .quest/<id>/quest_brief.md
      Plan: .quest/<id>/phase_01_plan/plan.md
@@ -453,7 +462,7 @@ After plan approval, present the plan interactively before proceeding to build.
      subagent_type: "code-reviewer",
      prompt: "You are the Code Review Agent (Claude).
 
-     Read your instructions: .ai/roles/code_review_agent.md
+     Read your instructions: .skills/quest/agents/code-reviewer.md
      Read context digest: <codex_context_digest_path>
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
@@ -502,7 +511,7 @@ After plan approval, present the plan interactively before proceeding to build.
      model: "gpt-5.3-codex",
      prompt: "You are the Code Review Agent (Codex).
 
-     Read your instructions: .ai/roles/code_review_agent.md
+     Read your instructions: .skills/quest/agents/code-reviewer.md
      Read context digest: <codex_context_digest_path>
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
@@ -649,16 +658,40 @@ After plan approval, present the plan interactively before proceeding to build.
    ---
    ```
 
-   Then display a brief reflection, split by agent type:
+   Then display a brief reflection, split by runtime and role:
    - Count entries with `source=handoff_json` vs `source=text_fallback`
-   - Split by agent type: Claude Task agents (planner, slot_a_claude, arbiter, builder, fixer) vs Codex MCP agents (slot_b_codex)
+   - Split by runtime using the `runtime=claude|codex` field from each log line
+   - Also split by role instance using `(phase, agent)` pairs (do NOT key by `agent` alone):
+     - Planner = `(phase=plan, agent=planner)`
+     - Plan Review Slot A = `(phase=plan_review, agent=slot_a_claude)`
+     - Plan Review Slot B = `(phase=plan_review, agent=slot_b_codex)`
+     - Arbiter = `(phase=plan_review, agent=arbiter)`
+     - Builder = `(phase=build, agent=builder)`
+     - Code Review Slot A = `(phase=code_review, agent=slot_a_claude)`
+     - Code Review Slot B = `(phase=code_review, agent=slot_b_codex)`
+     - Fixer = `(phase=fix, agent=fixer)`
+   - For each role instance, report `X/Y` where:
+     - `Y` = total observed invocations for that exact `(phase, agent)` pair in the log
+     - `X` = observed invocations for that exact `(phase, agent)` pair with `source=handoff_json`
+   - If a role/runtime did not run in this quest, display `0/0 (n/a)` instead of implying failure
    - Display:
      ```
      Handoff.json compliance:
        Claude agents: <N>/<total> (<percentage>%)
        Codex agents:  <N>/<total> (<percentage>%)
        Overall:       <N>/<total> (<percentage>%)
+
+     Role-level compliance:
+       Planner (<runtime>): <X>/<Y> (<percentage or n/a>)
+       Plan Review Slot A (<runtime>): <X>/<Y> (<percentage or n/a>)
+       Plan Review Slot B (<runtime>): <X>/<Y> (<percentage or n/a>)
+       Arbiter (<runtime>): <X>/<Y> (<percentage or n/a>)
+       Builder (<runtime>): <X>/<Y> (<percentage or n/a>)
+       Code Review Slot A (<runtime>): <X>/<Y> (<percentage or n/a>)
+       Code Review Slot B (<runtime>): <X>/<Y> (<percentage or n/a>)
+       Fixer (<runtime>): <X>/<Y> (<percentage or n/a>)
      ```
+   - For codex-only quests, explicitly show `Claude agents: 0/0 (n/a)` if no Claude entries exist.
    - If overall compliance is 100%:
      "All agents wrote handoff.json. Orchestrator routed via structured handoff files throughout."
    - If compliance is 75-99%:
@@ -802,7 +835,7 @@ If any agent returns `STATUS: needs_human`:
 ```markdown
 You are the <ROLE>.
 
-Read your instructions: .ai/roles/<role>_agent.md
+Read your instructions: .skills/quest/agents/<role>.md
 Read context digest: .ai/context_digest.md
 Optional (full mode only, if needed): .skills/BOOTSTRAP.md, AGENTS.md
 

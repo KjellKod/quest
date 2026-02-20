@@ -118,7 +118,7 @@ Orchestrator reads ONLY the SUMMARY line from handoff → decides next step
 
 ### Phase 4: Relocate role wiring to `.skills/quest/agents/`
 
-**Status:** Not started. See `ideas/phase4-role-relocation.md` for full analysis.
+**Status:** Done via quest `phase4-role-wiring_2026-02-17__2218`. See `ideas/phase4-role-relocation.md` for full analysis.
 
 **Summary:** Move 6 role files from `.ai/roles/` to `.skills/quest/agents/` so Quest wiring lives under the Quest skill. Zero functional change — ownership cleanup only.
 
@@ -162,5 +162,5 @@ Each phase is a standalone quest. The phases are ordered by impact and independe
 | Phase 2: Thin orchestrator | **Done** (`thin-orchestrator_2026-02-09__1845`) |
 | Phase 2b: Close context leaks | **In progress** — 5/7 items shipped. Findings + next step: `ideas/phase2b-context-leak-closure.md` (proposal history: `ideas/quest-context-optimization.md`) |
 | Phase 3: State validation | **Done** (`state-validation-script_2026-02-15__1508`) |
-| Phase 4: Role relocation | Not started — ownership cleanup, zero functional change |
+| Phase 4: Role relocation | **Done** (`phase4-role-wiring_2026-02-17__2218`) — ownership cleanup, zero functional change |
 | Phase 5: Infrastructure | Backlog |

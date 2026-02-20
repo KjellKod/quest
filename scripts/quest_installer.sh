@@ -25,6 +25,7 @@ SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SO
 DRY_RUN=false
 FORCE_MODE=false
 SKIP_SELF_UPDATE=false
+SOURCE_EXPLICIT=false
 
 # State variables (set during execution)
 IS_GIT_REPO=false
@@ -187,6 +188,88 @@ log_action() {
   else
     echo -e "${GREEN}[ACTION]${NC} $1"
   fi
+}
+
+# Show a markdown file with best available local renderer.
+show_markdown_file() {
+  local filepath="$1"
+
+  if [ ! -f "$filepath" ]; then
+    log_warn "Cannot open missing file: $filepath"
+    return 1
+  fi
+
+  # Prefer a markdown renderer if installed.
+  if command -v glow &>/dev/null; then
+    glow "$filepath"
+    return 0
+  fi
+
+  # Fall back to pager/plain text.
+  if command -v less &>/dev/null; then
+    less "$filepath"
+  else
+    cat "$filepath"
+  fi
+}
+
+# Optional post-install prompt to view quest documentation.
+prompt_view_docs() {
+  # Skip in non-interactive or automation modes.
+  if $DRY_RUN || $FORCE_MODE || [ ! -t 0 ] || [ ! -t 1 ]; then
+    return 0
+  fi
+
+  echo ""
+  local prompt="Would you like to view .ai/quest.md now?"
+  if ! command -v glow &>/dev/null; then
+    prompt="${prompt} (for best viewing experience, install glow: brew install glow)"
+  fi
+
+  if prompt_yn "$prompt" "y"; then
+    echo ""
+    show_markdown_file ".ai/quest.md" || true
+  else
+    echo "Installer finished. You can open .ai/quest.md any time."
+  fi
+}
+
+# Confirm install source when defaulting to main with no explicit source flag.
+confirm_install_source() {
+  # Non-main branch was explicitly chosen or set.
+  if [ "$UPSTREAM_BRANCH" != "main" ]; then
+    return 0
+  fi
+
+  # --branch was provided explicitly (including --branch main).
+  if $SOURCE_EXPLICIT; then
+    return 0
+  fi
+
+  # Skip prompt for automation/dry-run/non-interactive runs.
+  if $FORCE_MODE || $DRY_RUN || [ ! -t 0 ]; then
+    return 0
+  fi
+
+  echo ""
+  log_warn "Install source not specified. Default source is branch: main."
+  if prompt_yn "Install from main?" "y"; then
+    return 0
+  fi
+
+  echo ""
+  log_info "Installation cancelled."
+  echo "Re-run with an explicit source/option:"
+  echo "  --branch <name>   Install from a specific branch"
+  echo "  --check           Dry run (preview only)"
+  echo "  --force           Non-interactive mode"
+  echo "  --help            Show all options"
+  echo ""
+  echo "Examples:"
+  echo "  ./$SCRIPT_NAME --branch main"
+  echo "  ./$SCRIPT_NAME --branch phase4_architecture_evolution_codex"
+  echo "  ./$SCRIPT_NAME --check --branch main"
+  exit 0
 }
 
 # Prompt user for yes/no (defaults to yes)
@@ -824,6 +907,18 @@ install_copy_as_is_file() {
     return 0
   fi
 
+  # Special case: when running the installer from this repo path, avoid
+  # prompting on the installer file itself. Self-update is already handled
+  # earlier by check_self_update(); prompting here can look like a hang.
+  local running_script_rel="${SCRIPT_PATH#$(pwd)/}"
+  if [ "$filepath" = "scripts/quest_installer.sh" ] && [ "$running_script_rel" = "$filepath" ]; then
+    rm -f "$temp_file"
+    # Keep local checksum so this run remains non-blocking and deterministic.
+    set_updated_checksum "$filepath" "$local_checksum"
+    log_info "Keeping current running installer: $filepath"
+    return 0
+  fi
+
   if $FORCE_MODE; then
     rm -f "$temp_file"
     log_warn "Skipping modified file: $filepath"
@@ -1242,6 +1337,9 @@ print_next_steps() {
   echo "  - Quest documentation: .ai/quest.md"
   echo "  - Available skills: .skills/SKILLS.md"
   echo "  - Repository: https://github.com/${UPSTREAM_REPO}"
+
+  # Optional interactive docs preview.
+  prompt_view_docs
 }
 
 ###############################################################################
@@ -1285,6 +1383,12 @@ run_install() {
 
   # Detect current state (git repo, Quest installed, etc.)
   detect_repo_state
+
+  # Confirm source when defaulting to main with no explicit source flag.
+  confirm_install_source
+
+  # Always show selected upstream source for transparency.
+  log_info "Using upstream branch: ${UPSTREAM_BRANCH}"
 
   # Fetch upstream version (sets UPSTREAM_SHA)
   fetch_upstream_version
@@ -1381,6 +1485,7 @@ parse_args() {
           exit 1
         fi
         UPSTREAM_BRANCH="$2"
+        SOURCE_EXPLICIT=true
         shift 2
         ;;
       --skip-self-update)

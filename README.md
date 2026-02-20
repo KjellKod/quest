@@ -53,6 +53,7 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 - Resumable state via `state.json`
 - A thin orchestrator that passes paths, not content (Context Retention Rule)
 - State validation script that enforces phase transitions, artifact prerequisites, and semantic handoff checks (`scripts/validate-quest-state.sh`)
+- **Full Codex orchestration (BETA):** Quest can now run end-to-end with GPT-5.3/Codex as the orchestrator via `$quest`. This is functional but not yet as robust as Claude-orchestrated runs — expect occasional handoff compliance gaps and rougher edges. The most reliable configuration remains Claude as orchestrator with Codex as a subagent reviewer.
 
 **What Quest does not yet deliver:**
 - Full system-enforced correctness (validation script exists but is called by the orchestrator, not yet by hooks)
@@ -67,7 +68,7 @@ See [ideas/quest-architecture-evolution.md](ideas/quest-architecture-evolution.m
 
 **Part of the [Candid Talent Edge](https://candidtalentedge.com) initiative by KjellKod**
 
-> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool. Take a [look at how a disciplined approach](docs/guides/quest_presentation.md) to software engineering is directly applicable to an agentic orchestration setup. 
+> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool. Take a [look at how a disciplined approach](docs/guides/quest_presentation.md) to software engineering is directly applicable to an agentic orchestration setup. You can now run Quest from both runtimes: Claude `/quest` and Codex `$quest`.
 
 Quest is a portable framework for running coordinated AI agents with human oversight.
 
@@ -214,6 +215,13 @@ claude
 codex
 $quest "Add a loading skeleton to the user list"
 ```
+
+**Milestone:** Quest is now runnable directly from Codex via `$quest`.
+
+**Codex orchestration (BETA, February 2026):**
+- Codex `$quest` runs the full Quest pipeline with GPT-5.3 as the orchestrator. This works but is less reliable than Claude `/quest` — handoff protocol compliance is lower and some phases may require text-fallback parsing instead of structured `handoff.json` routing.
+- Codex `$quest` currently requires enabling Codex `/experimental` subagents.
+- **Recommended setup:** Claude `/quest` as orchestrator with Codex MCP configured for dual-model reviews. This gives you the best of both models with the most robust orchestration.
 
 Quest scales from simple to complex — just describe what you want:
 
@@ -472,7 +480,7 @@ your-repo/
 ├── .agents/                      # Codex skill wrappers
 │   └── skills/quest/SKILL.md     # Thin wrapper → .skills/quest/
 ├── .claude/                      # Claude Code integration
-│   ├── agents/                   # Thin wrappers → .ai/roles/
+│   ├── agents/                   # Thin wrappers → .skills/quest/agents/
 │   ├── hooks/                    # Permission enforcement
 │   └── skills/quest/SKILL.md     # Thin wrapper → .skills/quest/
 ├── .cursor/                      # Cursor integration

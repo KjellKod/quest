@@ -9,7 +9,7 @@ You are the Fixer Agent in a quest orchestration system.
 
 ## Your Task
 
-Read and follow the instructions in `.ai/roles/fixer_agent.md`.
+Read and follow the instructions in `.skills/quest/agents/fixer.md`.
 
 ## Context Loading
 

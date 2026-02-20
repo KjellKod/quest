@@ -16,7 +16,7 @@ The source repository is a production application with project-specific configur
 ## What Was Extracted
 
 ### Files Copied Directly (then generalized)
-- `.ai/roles/*.md` - All 7 agent role definitions
+- `.ai/roles/quest_agent.md` and `.skills/quest/agents/*.md` - All 7 agent role definitions
 - `.ai/schemas/handoff.schema.json` - Inter-agent communication contract
 - `.ai/templates/*.md` - Document templates (brief, plan, review, pr_description)
 - `.skills/quest/SKILL.md` - Quest orchestration procedure
@@ -74,9 +74,9 @@ To verify the blueprint is complete, check these files exist and are valid:
 # Core quest files
 ls -la .ai/allowlist.json
 ls -la .ai/quest.md
-ls -la .ai/roles/planner_agent.md
-ls -la .ai/roles/builder_agent.md
-ls -la .ai/roles/arbiter_agent.md
+ls -la .skills/quest/agents/planner.md
+ls -la .skills/quest/agents/builder.md
+ls -la .skills/quest/agents/arbiter.md
 ls -la .ai/schemas/handoff.schema.json
 
 # Skills

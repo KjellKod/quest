@@ -39,14 +39,14 @@ The Quest Agent interprets your intent, matches brief references, and routes to 
 | Role | File | Tool | Purpose |
 |------|------|------|---------|
 | Quest Agent | (Claude Code itself) | Claude | Orchestration, gating |
-| Planner | `.ai/roles/planner_agent.md` | Claude | Write and refine plan artifacts |
-| Plan Reviewer (Claude) | `.ai/roles/plan_review_agent.md` | Claude | Review plans (read-only) |
-| Plan Reviewer (Codex) | `.ai/roles/plan_review_agent.md` | Codex (`gpt-5.3-codex`) | Review plans (read-only) |
-| Arbiter | `.ai/roles/arbiter_agent.md` | Claude | Synthesize reviews, approve or iterate |
-| Builder | `.ai/roles/builder_agent.md` | Claude | Implement changes |
-| Code Reviewer (Claude) | `.ai/roles/code_review_agent.md` | Claude | Review code (read-only) |
-| Code Reviewer (Codex) | `.ai/roles/code_review_agent.md` | Codex (`gpt-5.3-codex`) | Review code (read-only) |
-| Fixer | `.ai/roles/fixer_agent.md` | Claude | Fix review issues |
+| Planner | `.skills/quest/agents/planner.md` | Claude | Write and refine plan artifacts |
+| Plan Reviewer (Claude) | `.skills/quest/agents/plan-reviewer.md` | Claude | Review plans (read-only) |
+| Plan Reviewer (Codex) | `.skills/quest/agents/plan-reviewer.md` | Codex (`gpt-5.3-codex`) | Review plans (read-only) |
+| Arbiter | `.skills/quest/agents/arbiter.md` | Claude | Synthesize reviews, approve or iterate |
+| Builder | `.skills/quest/agents/builder.md` | Claude | Implement changes |
+| Code Reviewer (Claude) | `.skills/quest/agents/code-reviewer.md` | Claude | Review code (read-only) |
+| Code Reviewer (Codex) | `.skills/quest/agents/code-reviewer.md` | Codex (`gpt-5.3-codex`) | Review code (read-only) |
+| Fixer | `.skills/quest/agents/fixer.md` | Claude | Fix review issues |
 
 ## Plan Phase Flow
 

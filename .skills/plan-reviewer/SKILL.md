@@ -254,9 +254,14 @@ Use this structure by default:
 - [ ] Item 1
 - [ ] Item 2
 
-## 3 Open Requirements That Must be Resolved Before Coding
-- [ ] Item 1
-- [ ] Item 2
+## 3. Open Requirements
+### Must resolve before coding (blocking)
+- Items where the acceptance criterion itself is missing, ambiguous, or untestable
+
+### Resolve during implementation (non-blocking)
+- Items where the WHAT is clear from the acceptance criteria but the exact HOW is an implementation detail
+- Example: "a test seam is needed for year injection" is non-blocking if the AC already says "rejects non-2026 year before writes"
+- Example: "which exact mock library to use" is non-blocking
 
 ## 4. Validation Plan Summary
 ### Manual
@@ -316,3 +321,5 @@ If the reviewer requests a full deep dive, expand into:
 ## Automated Test Expectations
 
 **Requirement:** For each Acceptance Criterion, provide at least **one explicit example test case** when feasible. If a criterion cannot be reasonably automated, mark it as **Deferred** and include the reason and what manual validation will cover.
+
+When a test approach requires codebase investigation to determine the mechanism (e.g., how to inject a test seam, which mock strategy to use), classify it as "resolve during implementation" rather than blocking — as long as the plan states the acceptance criterion the test must satisfy.

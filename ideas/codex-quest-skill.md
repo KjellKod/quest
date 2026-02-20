@@ -97,7 +97,7 @@ Note: both options still assume “Codex is installed and authenticated”; they
 ### Reuse strategy (keep Claude `/quest` working)
 Reuse these as-is:
 - `.ai/allowlist.json` (policy + gates)
-- `.ai/roles/*.md` (role instructions)
+- `.skills/quest/agents/*.md` and `.ai/roles/quest_agent.md` (role instructions)
 - `.ai/templates/*.md` (artifact templates)
 - `.ai/context_digest.md` (stable review context)
 - `.ai/schemas/handoff.schema.json` (handoff contract)

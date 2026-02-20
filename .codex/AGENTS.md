@@ -33,6 +33,18 @@ This repository uses **layered documentation** for AI agent context management.
 - **Create or update a PR?** → Use `.skills/pr-assistant/` skill
 - **Understanding the system?** → Start with `docs/architecture/` if present
 
+## Quest Discipline (Codex)
+
+When the user invokes `$quest`, follow Quest process exactly:
+
+- Treat `$quest` as workflow orchestration, not direct implementation.
+- Do not edit project/source files before the Build Phase is reached through normal Quest gates.
+- Plan + dual review + arbiter + presentation/human approval must happen before implementation.
+- If the user requests "plan and build now" in one prompt, still run planning and gates first.
+- During pre-build phases, write only quest artifacts under `.quest/` (and planning docs under `docs/implementation/` when needed).
+
+Make sure you follow all the quest instructions to the letter, updating state, showing the plan, etc. Make sure you have dual plan reviewers with an arbiter, and dual code reviewers with an arbiter. etc. 
+
 ## Skills
 
 This repository uses **skills** for specialized workflows. Skills are automatically discovered and used based on task context:

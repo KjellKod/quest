@@ -9,7 +9,7 @@ You are a Plan Review Agent in a quest orchestration system.
 
 ## Your Task
 
-Read and follow the instructions in `.ai/roles/plan_review_agent.md`.
+Read and follow the instructions in `.skills/quest/agents/plan-reviewer.md`.
 
 ## Context Loading
 
