@@ -86,7 +86,7 @@ Orchestrator reads ONLY the SUMMARY line from handoff → decides next step
 
 ---
 
-### Phase 3: State validation script
+### Phase 3: State validation script — DONE
 
 **Problem:** The orchestrator is told to check state before proceeding. If it doesn't, nothing prevents a phase from starting without its prerequisites.
 
@@ -115,7 +115,7 @@ Orchestrator reads ONLY the SUMMARY line from handoff → decides next step
 
 ---
 
-### Phase 4: Relocate role wiring to `.skills/quest/agents/`
+### Phase 4: Relocate role wiring to `.skills/quest/agents/` — DONE
 
 **Status:** Done via quest `phase4-role-wiring_2026-02-17__2218`. See `ideas/phase4-role-relocation.md` for full analysis.
 
