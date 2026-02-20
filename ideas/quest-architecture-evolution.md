@@ -126,18 +126,45 @@ Orchestrator reads ONLY the SUMMARY line from handoff → decides next step
 
 ---
 
-### Phase 5: Infrastructure migration (future, when platform catches up)
+### Phase 5: Infrastructure hooks — READY TO START
 
-**Problem:** The orchestrator is instructions that a model may or may not follow. As Claude Code's hooks, agents, and plugins mature, enforcement can move from prompt to infrastructure.
+**Problem:** The orchestrator is instructions that a model may or may not follow. Phase 3 added a state validation *script*, but the orchestrator still has to *choose* to call it. The gap: system-enforced correctness vs. prompt-requested correctness.
 
-**Solution:** Migrate incrementally:
-- Use hooks to enforce state validation before tool calls
-- Use `context: fork` for every phase (not just reviews)
-- Use plugin architecture if skills need to be distributed
+**Status update (2026-02-20):** The original trigger was "when hooks can block tool calls based on script output." That capability now exists and is mature. Claude Code hooks have evolved well beyond the original Phase 5 assumptions.
 
-**When:** Watch Claude Code releases. When hooks can block tool calls based on script output, that's the migration trigger.
+**What the platform offers today:**
 
-**Impact:** Long-term. The gap between philosophy and implementation closes further.
+| Capability | Hook event | Quest use case |
+|------------|-----------|----------------|
+| Block tool calls via script exit code or JSON | `PreToolUse` | Run `validate-quest-state.sh` before subagent `Task` launches — block if prerequisites missing |
+| Intercept subagent lifecycle | `SubagentStart`, `SubagentStop` | Inject context into quest subagents at spawn; validate handoff on stop |
+| Enforce quality gates on task completion | `TaskCompleted` | Prevent task marked complete unless artifacts exist and reviews pass |
+| Skill-scoped hooks (YAML frontmatter) | All events | Quest skill defines its own hooks, active only during quest execution |
+| Prompt-based hooks (LLM as gatekeeper) | `PreToolUse`, `Stop`, etc. | Use a fast model to evaluate whether a phase transition makes sense |
+| Agent-based hooks (multi-turn verification) | Same as prompt hooks | Spawn a verification subagent that reads files and checks state |
+| Modify tool input before execution | `PreToolUse` | Rewrite subagent prompts to inject quest-specific context |
+| Prevent agent from stopping prematurely | `Stop`, `SubagentStop` | Keep builder/reviewer going if deliverables are incomplete |
+
+**Concrete opportunities (ordered by impact):**
+
+1. **`PreToolUse` hook on `Task` tool** — Before the orchestrator spawns a subagent (planner, reviewer, builder, fixer), run `validate-quest-state.sh` to verify the target phase's prerequisites. If validation fails, the tool call is blocked and the model sees the error. This is the single highest-value hook: it moves state validation from "prompt hopes model calls script" to "infrastructure always runs script."
+
+2. **`SubagentStop` hook for handoff validation** — When a quest subagent finishes, verify that `handoff.json` exists and contains required fields (`status`, `artifacts`, `summary`). Block the stop if handoff is missing, forcing the subagent to write it. Directly addresses the Phase 2b remaining gap.
+
+3. **Skill-scoped hook definitions** — Define hooks in `.skills/quest/SKILL.md` frontmatter so they're only active during quest execution. No global side effects.
+
+4. **`Stop` hook for orchestrator completeness** — Prevent the orchestrator from stopping mid-quest unless all phases are complete or explicitly abandoned.
+
+5. **`SubagentStart` context injection** — Use `SubagentStart` hooks to inject quest-specific context (current phase, artifact paths) into subagents without the orchestrator having to pass it via prompt.
+
+**What this does NOT replace:**
+- The orchestrator still drives the phase sequence and user interaction
+- Hooks are guardrails, not controllers — they prevent wrong transitions, they don't decide what to do next
+- `validate-quest-state.sh` (Phase 3) remains the core logic; hooks just ensure it always runs
+
+**Estimated scope:** Hook configuration in `.skills/quest/SKILL.md` frontmatter + 1-2 small validation scripts in `.claude/hooks/` or `scripts/`. No changes to orchestration logic — this is additive enforcement.
+
+**Impact:** Closes the original gap between philosophy and implementation. State validation becomes mandatory, not optional. Handoff contracts become enforced, not requested.
 
 ---
 
@@ -150,9 +177,9 @@ Each phase is a standalone quest. The phases are ordered by impact and independe
 3. **Phase 2b (context leaks):** In progress. See `ideas/phase2b-context-leak-closure.md` for findings and the concrete next-step rollout.
 4. **Phase 3 (state validation):** Done.
 5. **Phase 4 (role relocation):** No dependencies. Safe, low-risk housekeeping. Zero functional change.
-6. **Phase 5 (infrastructure):** Depends on external platform evolution. Backlog.
+6. **Phase 5 (infrastructure hooks):** Platform is ready. No external dependencies remaining. Highest remaining value — makes Phase 3's state validation mandatory rather than opt-in, and can close Phase 2b's handoff enforcement gap.
 
-**Honest take on remaining work:** Phases 2, 2b (mostly), and 3 delivered the real improvements — context discipline and state enforcement. What remains is either cosmetic (Phase 4), nice-to-have (Phase 1), platform-dependent (2b remainder), or long-term (Phase 5). The system works. Doing nothing is a legitimate option. Time spent on Quest meta-improvement is time not spent using Quest to build features.
+**Honest take on remaining work:** Phases 2, 2b (mostly), 3, and 4 delivered the core improvements — context discipline, state enforcement, and ownership cleanup. Phase 5 is now the highest-value remaining work: it makes existing guardrails (state validation, handoff contracts) *impossible to skip*. Phase 1 (explore) remains nice-to-have. The system works today; Phase 5 makes it harder to break.
 
 ## Status
 
@@ -163,4 +190,4 @@ Each phase is a standalone quest. The phases are ordered by impact and independe
 | Phase 2b: Close context leaks | **In progress** — 5/7 items shipped. Findings + next step: `ideas/phase2b-context-leak-closure.md` (proposal history: `ideas/quest-context-optimization.md`) |
 | Phase 3: State validation | **Done** (`state-validation-script_2026-02-15__1508`) |
 | Phase 4: Role relocation | **Done** (`phase4-role-wiring_2026-02-17__2218`) — ownership cleanup, zero functional change |
-| Phase 5: Infrastructure | Backlog |
+| Phase 5: Infrastructure hooks | **Ready to start** — platform unblocked as of 2026-02-20. See updated Phase 5 section |
