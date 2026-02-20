@@ -52,7 +52,9 @@ Use this format:
   - Description of change
 
 ## Test Plan
-- [ ] Checklist of how to verify the changes.
+- [ ] Concrete verification step describing what to do and what to expect
+- [ ] Another verification step
+Watch for: <known risk or edge case, if any>
 ```
 
 ### Summary section
@@ -98,6 +100,17 @@ Rules:
 - Keep descriptions concise — one line per change, focus on what and why.
 - Omit categories with no changes. Only include what is relevant.
 - If the PR is very small (1-2 files), a flat bullet list is fine — do not force categories.
+
+### Test Plan section
+
+Each checkbox should be a concrete verification step — what to do and what result to expect. A reviewer reading the list should be able to pull the branch and verify without guessing.
+
+Rules:
+- Use checkboxes (`- [ ]`) for every verification step.
+- Describe the action and the expected outcome in one line (e.g. "Run X, confirm Y").
+- Only include steps that a human needs to perform. Skip anything CI already covers (linting, syntax checks, type checks).
+- If there is a known risk or edge case worth watching, add a `Watch for:` line at the end — no checkbox, just a heads-up.
+- Keep it short. 2-5 steps is typical. If you need more, the PR may be too large.
 
 ### Bot-generated content
 
