@@ -43,6 +43,8 @@ When the user invokes `$quest`, follow Quest process exactly:
 - If the user requests "plan and build now" in one prompt, still run planning and gates first.
 - During pre-build phases, write only quest artifacts under `.quest/` (and planning docs under `docs/implementation/` when needed).
 
+Make sure you follow all the quest instructions to the letter, updating state, showing the plan, etc. Make sure you have dual plan reviewers with an arbiter, and dual code reviewers with an arbiter. etc. 
+
 ## Skills
 
 This repository uses **skills** for specialized workflows. Skills are automatically discovered and used based on task context:
