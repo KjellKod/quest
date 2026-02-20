@@ -72,18 +72,17 @@ Orchestrator reads ONLY the SUMMARY line from handoff → decides next step
 
 ---
 
-### Phase 2b: Close remaining context leaks — IN PROGRESS
+### Phase 2b: Close remaining context leaks — 5/7 SHIPPED, remainder deferred
 
-**Status:** Mostly implemented. 5 of 7 items shipped incrementally alongside Phase 2.
+**Status:** Core contract delivered. Remaining 2 items are runtime isolation concerns deferred alongside Phase 5.
 
 **Full findings moved:** `ideas/phase2b-context-leak-closure.md`
 
 **Original proposal:** `ideas/quest-context-optimization.md`
 
-**Current summary:**
-- The core `handoff.json` contract and thin-context routing discipline are in place.
-- Remaining gap is runtime behavior: background invocation path for Claude/Codex flows and proving that transcript bodies no longer pollute orchestrator context.
-- Latest recommendation is to complete Phase 2b with a small, measurable rollout (explicit poll timeout, token cap assertion, fallback rehearsal, and cloud-contract rehearsal) rather than starting a new architecture layer.
+**What shipped (5/7):** `handoff.json` contract, context retention rule, no full review reads for routing, post-quest `/clear` suggestion, context health logging.
+
+**What's deferred (2/7):** Background invocation for all Claude Task agents, and background-safe Codex review path. These are runtime isolation behaviors that depend on platform-level guarantees. Same reasoning as Phase 5: the orchestrator already achieves full handoff compliance in observed runs, and the remaining items are insurance against unobserved context leakage. Revisit if compliance reporting shows degradation.
 
 ---
 
@@ -199,7 +198,7 @@ Each phase is a standalone quest. The phases are ordered by impact and independe
 
 1. **Phase 1 (explore):** No dependencies. Can ship independently. Lowest urgency — Claude Code's built-in Explore agent covers the capability informally; this formalizes it.
 2. **Phase 2 (thin orchestrator):** Done.
-3. **Phase 2b (context leaks):** In progress. See `ideas/phase2b-context-leak-closure.md` for findings and the concrete next-step rollout.
+3. **Phase 2b (context leaks):** 5/7 shipped. Remaining 2 items deferred — runtime isolation concerns, same reasoning as Phase 5.
 4. **Phase 3 (state validation):** Done.
 5. **Phase 4 (role relocation):** No dependencies. Safe, low-risk housekeeping. Zero functional change.
 6. **Phase 5 (infrastructure hooks):** Platform is ready but problem is theoretical. Deferred until observed failure justifies the complexity. See Phase 5 section for full rationale.
@@ -212,7 +211,7 @@ Each phase is a standalone quest. The phases are ordered by impact and independe
 |-------|--------|
 | Phase 1: `/explore` skill | Not started |
 | Phase 2: Thin orchestrator | **Done** (`thin-orchestrator_2026-02-09__1845`) |
-| Phase 2b: Close context leaks | **In progress** — 5/7 items shipped. Findings + next step: `ideas/phase2b-context-leak-closure.md` (proposal history: `ideas/quest-context-optimization.md`) |
+| Phase 2b: Close context leaks | **5/7 shipped**, remainder deferred — runtime isolation concerns, revisit if compliance degrades. Details: `ideas/phase2b-context-leak-closure.md` |
 | Phase 3: State validation | **Done** (`state-validation-script_2026-02-15__1508`) |
 | Phase 4: Role relocation | **Done** (`phase4-role-wiring_2026-02-17__2218`) — ownership cleanup, zero functional change |
 | Phase 5: Infrastructure hooks | **Deferred** — platform ready, problem theoretical. Revisit when `context_health.log` shows compliance drops |
