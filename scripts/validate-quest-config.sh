@@ -173,7 +173,7 @@ validate_roles() {
   local role_files=()
   while IFS= read -r role_file; do
     role_files+=("$role_file")
-  done < <(find "$quest_roles_dir" -name "*.md" -type f | sort)
+  done < <(find "$quest_roles_dir" -name "*.md" ! -name "README.md" -type f | sort)
   if [ "${#role_files[@]}" -eq 0 ]; then
     fail "No role files found in .skills/quest/agents/"
     return
