@@ -13,6 +13,14 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 - **Timebox structure discovery:** Avoid full repo inventories. Do a quick top-level scan + targeted `rg` searches instead of browsing directory-by-directory.
 - **If the user wants speed:** Offer to proceed with minimal questions + explicit assumptions (fast intake).
 
+### Hard Phase Gate (No Pre-Build Source Edits)
+
+Before Step 4 (Build Phase), the orchestrator and all agents MUST NOT edit source/product files.
+
+- In phases `plan`, `plan_reviewed`, `presenting`, and `presentation_complete`, writes are limited to quest artifacts under `.quest/**` only.
+- Any implementation request received before Build must be captured as plan feedback (`.quest/<id>/phase_01_plan/user_feedback.md`) and deferred to Step 4.
+- If any pre-Build action would modify non-`.quest/**` files, STOP and ask the user whether to proceed to Build first.
+
 ### Context Retention Rule
 
 After every subagent invocation (`Task` or `mcp__codex__codex`), the orchestrator retains ONLY:
