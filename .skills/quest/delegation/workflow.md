@@ -76,6 +76,12 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 
 Use `plan_iteration` for plan/plan_review phases, `fix_iteration` for code_review/fix phases, and `1` for build (single pass).
 Set `runtime` to the runtime actually used for that invocation (`claude` or `codex`).
+Never infer runtime from the agent label/name (for example `slot_a_claude`); labels are role identifiers, not backend evidence.
+
+Runtime attribution rule (authoritative):
+- Log `runtime=claude` only when the invocation actually used Claude `Task(...)`.
+- Log `runtime=codex` when invocation used `mcp__codex__codex` or Codex agent tools (`spawn_agent`/`worker`/`explorer`).
+- If a role expected to be Claude is executed with Codex fallback, keep the same role label but log `runtime=codex`.
 
 **Example log for a quest with 2 plan iterations:**
 ```
@@ -661,6 +667,7 @@ After plan approval, present the plan interactively before proceeding to build.
    Then display a brief reflection, split by runtime and role:
    - Count entries with `source=handoff_json` vs `source=text_fallback`
    - Split by runtime using the `runtime=claude|codex` field from each log line
+   - Runtime counts must come from logged runtime values only; do not infer runtime from role names.
    - Also split by role instance using `(phase, agent)` pairs (do NOT key by `agent` alone):
      - Planner = `(phase=plan, agent=planner)`
      - Plan Review Slot A = `(phase=plan_review, agent=slot_a_claude)`
@@ -711,6 +718,8 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    Review changes: git diff
    Commit: git add -p && git commit
+   Draft PR: use .skills/pr-assistant/SKILL.md (preserve any existing Ellipsis hidden block when editing PR body)
+   PR review gate: post an explicit review comment on the draft/ready PR, then merge only after NIT filtering using AGENTS.md rubric (readability-first, KISS/YAGNI/SRP/DRY, simple robust over complex elegance, avoid mocking-hell)
    ```
 
 7. **Context reset suggestion:**
@@ -827,6 +836,7 @@ If any agent returns `STATUS: needs_human`:
 | Fixer | `Task(subagent_type="fixer")` | Claude |
 
 **Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Claude) synthesizes both reviews.
+This table shows default intent, not guaranteed runtime per environment. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
 
 ### Codex MCP Prompt Pattern
 
