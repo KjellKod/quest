@@ -17,7 +17,11 @@ Claude (`Task(subagent_type="builder")`)
 1. Read the approved plan
 2. Implement changes following the plan step by step
 3. Run tests after each significant change
-4. Write PR description to `.quest/<quest_id>/phase_02_implementation/pr_description.md`
+4. Write PR description to `.quest/<quest_id>/phase_02_implementation/pr_description.md` using a reviewer-friendly layout:
+   - `## Summary` (what + why in plain language)
+   - `## Changes` (grouped by area/files)
+   - `## Validation` (commands + outcomes)
+   - `## Notes` (risks/follow-ups)
 5. Record decisions in `.quest/<quest_id>/phase_02_implementation/builder_feedback_discussion.md`
 
 ## Input

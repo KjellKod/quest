@@ -57,6 +57,24 @@ Use this format:
 Watch for: <known risk or edge case, if any>
 ```
 
+For Quest-driven implementation PRs, prefer this compact human-readable variant when it communicates better:
+
+```
+## Summary
+- What changed and why (plain-language bullets, 3-6 lines max)
+
+## Changes
+- Grouped bullets by area (`src/...`, `tests/...`, `docs/...`)
+
+## Validation
+- Command and result pairs (for example `npm test --silent` -> `34/34 pass`)
+
+## Notes
+- Reviewer guidance, follow-ups, or known constraints
+```
+
+Keep the human-authored section concise and scannable. Reviewers should understand scope and risk in under a minute.
+
 ### Summary section
 
 - Start with a single sentence that captures the full "what + why" of the PR. This is the line a reviewer reads to decide how deeply to engage.
@@ -115,6 +133,13 @@ Rules:
 ### Bot-generated content
 
 If a bot (e.g. Ellipsis) appends an auto-generated summary to the PR, leave it in place. Do not duplicate or conflict with its content in the human-written sections.
+
+When updating an existing PR body, preserve bot-injected hidden sections exactly:
+
+- If the body contains `<!-- ELLIPSIS_HIDDEN -->` markers, keep everything from the first marker to the end byte-for-byte unchanged.
+- Regenerate only the human-authored section above the marker block.
+- Never remove, rewrite, or reorder the Ellipsis block, badge, or hidden comment anchors.
+- If the marker is absent but a bot summary block exists, preserve that block and only update the human section.
 
 ### Draft mode (required)
 
