@@ -532,3 +532,41 @@ Edit `.skills/quest/SKILL.md` to customize Codex prompts:
 | Customization | Edit prompts in .skills/quest/SKILL.md |
 
 **The result**: Structured, auditable, human-gated AI workflows that leverage Claude Code's native capabilities instead of fighting them.
+
+---
+
+## Quest Portfolio & Roadmap
+
+### Live Dashboard
+
+See all quest outcomes, status distribution, and drill into individual journal entries:
+
+**[Quest Portfolio Dashboard](https://kjellkod.github.io/quest/)**
+
+### Example Quests
+
+Every completed quest produces a journal entry with a summary, artifacts, and lessons learned. Here are some highlights showing the range of work Quest handles:
+
+| Quest | What it did | Journal |
+|-------|------------|---------|
+| **Phase 4 Role Wiring** | Relocated six Quest role files from `.ai/roles/` to `.skills/quest/agents/`, updated runtime references, validators, metadata, and docs | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/phase4-role-wiring_2026-02-18.md) |
+| **State Validation Script** | Built `validate-quest-state.sh` — the first system-enforced correctness check for Quest phase transitions, with 28-test harness and 10 workflow gates | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/state-validation-script_2026-02-15.md) |
+| **Context Leak Closure** | Implemented `handoff.json` structured file pattern so every agent writes a tiny JSON file and the orchestrator reads routing decisions without processing full responses | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/context-leak-closure_2026-02-15.md) |
+| **Dashboard Layout Redesign** | Restructured dashboard to match executive "Quest Intelligence" design — hero branding, KPI cards, side-by-side charts, card content redesign | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/dashboard-layout-redesign_2026-02-13.md) |
+| **Thin Orchestrator** | Phase 2 of architecture evolution — orchestrator passes paths not content, context stays lean | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/thin-orchestrator_2026-02-09.md) |
+| **Harden URL Rendering** | Fixed XSS vulnerability in dashboard URL rendering — added `_sanitize_url()` with scheme/pattern validation, 7 new tests | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/harden-url-rendering_2026-02-12.md) |
+
+See the full [Quest Journal](https://github.com/KjellKod/quest/tree/main/docs/quest-journal) for all 21 quests, or browse them on the [dashboard](https://kjellkod.github.io/quest/).
+
+### Architecture Evolution Roadmap
+
+Quest has evolved through deliberate phases, each driven by a quest:
+
+1. **Phase 1** — Delegation gate and routing (quest-delegation-gate)
+2. **Phase 2** — Thin orchestrator, paths not content (thin-orchestrator)
+3. **Phase 2b** — Context leak closure with handoff.json (context-leak-closure)
+4. **Phase 3** — State validation script with 28 tests (state-validation-script)
+5. **Phase 4** — Role wiring consolidated under `.skills/quest/` (phase4-role-wiring)
+6. **Phase 5** — Infrastructure hooks — assessed and deliberately deferred
+
+See [ideas/quest-architecture-evolution.md](../../ideas/quest-architecture-evolution.md) for the full roadmap and decision rationale.
