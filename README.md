@@ -492,6 +492,7 @@ your-repo/
 
 ## Documentation
 
+- **[Quest Portfolio Dashboard](https://kjellkod.github.io/quest/)** - Live dashboard: quest outcomes, status distribution, and links to every quest journal entry
 - **[Quest Setup Guide](docs/guides/quest_setup.md)** - Detailed setup instructions
 - **[Quest Presentation](docs/guides/quest_presentation.md)** - How it works (with diagrams)
 - **[Input Routing Guide](docs/guides/quest_input_routing.md)** - How Quest evaluates your input and routes between questioning and planning
