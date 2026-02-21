@@ -465,20 +465,20 @@
       <p class="eyebrow">QUEST INTELLIGENCE</p>
       <h1>Quest Portfolio Dashboard</h1>
       <div class="hero-subtitle">Board-level visibility into quest outcomes, execution momentum, and strategic throughput.</div>
-      <div class="meta-row"><span class="meta-label">DATA GENERATED:</span> <span class="meta-value">Feb 13, 2026, 08:48 AM UTC</span></div>
+      <div class="meta-row"><span class="meta-label">DATA GENERATED:</span> <span class="meta-value">Feb 21, 2026, 04:40 AM UTC</span></div>
     </div>
     <div class="kpi-grid">
       <article class="kpi-card">
         <p class="kpi-label">Total Quests</p>
-        <p class="kpi-value">24</p>
+        <p class="kpi-value">23</p>
       </article>
       <article class="kpi-card">
         <p class="kpi-label">Finished</p>
-        <p class="kpi-value kpi-value--finished">14</p>
+        <p class="kpi-value kpi-value--finished">19</p>
       </article>
       <article class="kpi-card">
         <p class="kpi-label">In Progress</p>
-        <p class="kpi-value kpi-value--in-progress">6</p>
+        <p class="kpi-value kpi-value--in-progress">2</p>
       </article>
       <article class="kpi-card">
         <p class="kpi-label">Blocked</p>
@@ -510,19 +510,76 @@
     <section class="quests-section" id="quest-portfolio">
       <div class="quests-header">
         <h2>Quest Portfolio</h2>
-        <p class="panel-subtitle">24 quests represented</p>
+        <p class="panel-subtitle">23 quests represented</p>
       </div>
       <div class="quest-grid">
         <article class="quest-card">
           <div class="quest-card-header">
-            <h3 class="quest-card-title">Dashboard Layout Redesign</h3>
+            <h3 class="quest-card-title">Phase 4 Role Wiring</h3>
+            <span class="badge badge--finished">FINISHED</span>
+          </div>
+          <p class="quest-pitch">Relocated six Quest role files from `.ai/roles/` to `.skills/quest/agents/`, then updated runtime references, validators, metadata, and docs to match the new ownership model.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/phase4-role-wiring_2026-02-18.md">Phase4 Role Wiring 2026 02 18</a></span>
+            <span><b>Completion Date:</b> Feb 18, 2026</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Quest Brief</h3>
             <span class="badge badge--in-progress">IN PROGRESS</span>
           </div>
-          <p class="quest-pitch">Implement `ideas/dashboard-layout-redesign.md` — test, validate it, &quot;look at it.&quot; We want roughly this look and feel for the top part as in the reference screenshots (currently our ongoing/completed quests look great so those we don&#x27;t have to touch in how they are laid out and composition — only color scheme etc). See also PR #21 for &quot;look&quot; on the top part and the color radiance and the executive style.</p>
+          <p class="quest-pitch">$quest let&#x27;s implment in this branch the phase4 approach, ref ideas (own document + architecture evolution). Make sure you follow all the quests instructions to the letter, updating state, showing me the plan etc, etc. Make sure we have dual reviewers, arbiter, dual coders, arbiter etc. etc.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> dashboard-layout-redesign_2026-02-13__0103</span>
-            <span><b>Updated:</b> Feb 13, 2026</span>
-            <span><b>Iterations:</b> plan 2 / fix 2</span>
+            <span><b>Quest ID:</b> phase4-role-relocation_2026-02-17__2152</span>
+            <span><b>Updated:</b> Feb 18, 2026</span>
+            <span><b>Iterations:</b> plan 2 / fix 0</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Quest Brief</h3>
+            <span class="badge badge--in-progress">IN PROGRESS</span>
+          </div>
+          <p class="quest-pitch">$quest Let&#x27;s analyze and review with a very candid and honest approach, pros and cons for the next possible step on the Quest architecture evolution. We want to keep a KISS approach. We don&#x27;t want to complicate things, and we absolutely want to make sure that the orchestration and agents are laser-focused. We don&#x27;t want context pollution. Please see ideas/quest-architecture-evolution.md For suggestions on how it can be implemented, we also want to make sure that this approach works both with Codex being the orchestrator of the running sub-agents (Codex sub-agents versus cloud). If there are other approaches to solve this cleanup, then we can suggest those as well. If it&#x27;s better to leave it as is, we can be honest and mention that as well. We don&#x27;t want to make a change unless it actually makes a tangible improvement.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> quest-architecture-evolution-review_2026-02-17__2129</span>
+            <span><b>Updated:</b> Feb 18, 2026</span>
+            <span><b>Iterations:</b> plan 3 / fix 0</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">State Validation Script</h3>
+            <span class="badge badge--finished">FINISHED</span>
+          </div>
+          <p class="quest-pitch">Implemented `scripts/validate-quest-state.sh` — the first system-enforced correctness check for Quest phase transitions. The shell script validates state.json integrity, phase transition legality, artifact prerequisites, semantic content checks (arbiter verdict, review outcomes via jq on handoff JSON), and iteration bounds before every phase transition.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/state-validation-script_2026-02-15.md">state-validation-script_2026-02-15__1508</a></span>
+            <span><b>Completion Date:</b> Feb 15, 2026</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Close Remaining Context Leaks (Phase 2b)</h3>
+            <span class="badge badge--finished">FINISHED</span>
+          </div>
+          <p class="quest-pitch">Implemented the handoff.json structured file pattern to close the remaining context leaks in the Quest orchestrator. Every agent now writes a tiny JSON file (~200 bytes) alongside its artifacts, and the orchestrator reads this file for routing decisions instead of processing full agent responses.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/context-leak-closure_2026-02-15.md">context-leak-closure_2026-02-14__2317</a></span>
+            <span><b>Completion Date:</b> Feb 15, 2026</span>
+            <span><b>Iterations:</b> plan 3 / fix 2</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Quest: Dashboard Layout Redesign</h3>
+            <span class="badge badge--finished">FINISHED</span>
+          </div>
+          <p class="quest-pitch">Restructured the Quest Dashboard layout to match the target executive &quot;Quest Intelligence&quot; design from PR #21. The dashboard now features the &quot;QUEST INTELLIGENCE&quot; branding eyebrow, &quot;Quest Portfolio Dashboard&quot; title, 5 KPI cards (Total, Finished, In Progress, Blocked, Abandoned), side-by-side chart panels (Status Distribution doughnut + Final Status Over Time line chart), and a unified Quest Portfolio section with redesigned cards showing full pitch text and labeled metadata.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/dashboard-layout-redesign_2026-02-13.md">dashboard-layout-redesign_2026-02-13__0103</a></span>
+            <span><b>Completion Date:</b> Feb 13, 2026</span>
           </p>
         </article>
         <article class="quest-card">
@@ -532,7 +589,7 @@
           </div>
           <p class="quest-pitch">Fixed HTML attribute injection (XSS) vulnerability in the Quest Dashboard&#x27;s URL rendering. Added `_sanitize_url()` function that validates scheme (HTTPS-only), validates GitHub URL pattern via regex, and applies HTML attribute escaping before any URL is interpolated into `href=&quot;...&quot;` attributes. Also escaped fallback relative paths, removed stderr side effect from loaders, and unified the `github_url` missing-value convention.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> harden-url-rendering_2026-02-12__1522</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/harden-url-rendering_2026-02-12.md">harden-url-rendering_2026-02-12__1522</a></span>
             <span><b>Completion Date:</b> Feb 12, 2026</span>
             <span><b>Iterations:</b> plan 1 / fix 1</span>
           </p>
@@ -544,7 +601,7 @@
           </div>
           <p class="quest-pitch">Restored visual features from the PR #21 prototype that were cut during the dashboard-v2 implementation. Added ambient CSS glows (green, blue, amber blurred circles behind content), interactive Chart.js doughnut and stacked area charts, and gradient enhancements on cards and section headers. Chart.js 4.4.7 is vendored and inlined at render time — the dashboard remains a single self-contained HTML file with no external dependencies. Graceful degradation ensures the dashboard still works if the vendor file is missing.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> dashboard-visual-polish_2026-02-12__1621</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/dashboard-visual-polish_2026-02-12.md">dashboard-visual-polish_2026-02-12__1621</a></span>
             <span><b>Completion Date:</b> Feb 12, 2026</span>
             <span><b>Iterations:</b> plan 2 / fix 1</span>
           </p>
@@ -556,9 +613,20 @@
           </div>
           <p class="quest-pitch">Built the Quest Dashboard: a self-contained Python package that generates a static HTML dashboard from quest journal entries and active quest state files. Three status sections (Finished, In Progress, Abandoned) with dark navy theme, elevator pitch cards, journal/PR links, and muted metadata. Single-file HTML output with no external dependencies.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> dashboard-v2_2026-02-12__0940</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/dashboard-v2_2026-02-12.md">dashboard-v2_2026-02-12__0940</a></span>
             <span><b>Completion Date:</b> Feb 12, 2026</span>
             <span><b>Iterations:</b> plan 1 / fix 1</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">ci-python-quest</h3>
+            <span class="badge badge--finished">FINISHED</span>
+          </div>
+          <p class="quest-pitch">Added a GitHub Actions workflow to run the Python test suite (pytest) on every push to main and PR targeting main. This ensures the 36 Quest Dashboard unit and integration tests are enforced in CI, preventing regressions from slipping through undetected.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/ci-python-quest_2026-02-12.md">ci-python-quest_2026-02-12__1612</a></span>
+            <span><b>Completion Date:</b> Feb 12, 2026</span>
           </p>
         </article>
         <article class="quest-card">
@@ -568,7 +636,7 @@
           </div>
           <p class="quest-pitch">First attempt at building the Quest Dashboard. Plan was approved by arbiter after one iteration, but the build phase was interrupted when models were switched from Sonnet to Opus. Rather than resuming, a new quest (dashboard-v2) was created using this quest&#x27;s approved plan as input. Dashboard-v2 completed successfully.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> dashboard-final-implementation_2026-02-12__0913</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/dashboard-final-implementation_2026-02-12.md">dashboard-final-implementation_2026-02-12__0913</a></span>
             <span><b>Completion Date:</b> Feb 12, 2026</span>
           </p>
         </article>
@@ -579,7 +647,7 @@
           </div>
           <p class="quest-pitch">Ported the Codex CI code review workflow from candid_talent_edge (PR #164) to the Quest framework repository. Added a GitHub Actions workflow that triggers OpenAI Codex as an automated code reviewer when a PR transitions from draft to ready-for-review, a Quest-adapted CI code reviewer skill, and registered the new skill in the catalog and manifest.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> codex-ci-review_2026-02-11__1314</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/codex-ci-review_2026-02-11.md">codex-ci-review_2026-02-11__1314</a></span>
             <span><b>Completion Date:</b> Feb 11, 2026</span>
             <span><b>Iterations:</b> plan 1 / fix 0</span>
           </p>
@@ -591,7 +659,7 @@
           </div>
           <p class="quest-pitch">Implemented Phase 2 of the Quest architecture evolution: the &quot;thin orchestrator&quot; principle. The Quest orchestrator now passes file paths to subagents instead of embedding content, reducing context growth from O(n*content_size) to O(n*one_line).</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> thin-orchestrator_2026-02-09__1845</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/thin-orchestrator_2026-02-09.md">thin-orchestrator_2026-02-09__1845</a></span>
             <span><b>Completion Date:</b> Feb 09, 2026</span>
             <span><b>Iterations:</b> plan 1 / fix 1</span>
           </p>
@@ -603,7 +671,7 @@
           </div>
           <p class="quest-pitch">Analyzed how Quest should organize, manage, and distribute skills. Researched community best practices (Agent Skills standard, plugin marketplaces, distribution patterns). Produced strategic recommendations.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> skill-strategy_2026-02-09__1200</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/skill-strategy_2026-02-09.md">skill-strategy_2026-02-09__1200</a></span>
             <span><b>Completion Date:</b> Feb 09, 2026</span>
           </p>
         </article>
@@ -614,69 +682,9 @@
           </div>
           <p class="quest-pitch">Fixed handoff contract inconsistencies across Quest role files and workflow. Standardized all 6 role files on `---HANDOFF---` text format with STATUS/ARTIFACTS/NEXT/SUMMARY fields, removed &quot;Context Is In Your Prompt&quot; contradictions, and made workflow prompts explicitly request handoff format.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> handoff-contract-fix_2026-02-09__2228</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/handoff-contract-fix_2026-02-09.md">handoff-contract-fix_2026-02-09__2228</a></span>
             <span><b>Completion Date:</b> Feb 09, 2026</span>
             <span><b>Iterations:</b> plan 3 / fix 1</span>
-          </p>
-        </article>
-        <article class="quest-card">
-          <div class="quest-card-header">
-            <h3 class="quest-card-title">agents-comment</h3>
-            <span class="badge badge--unknown">UNKNOWN</span>
-          </div>
-          <p class="quest-pitch">Add a one-line comment to the top of AGENTS.md explaining what the file does</p>
-          <p class="quest-meta">
-            <span><b>Quest ID:</b> agents-comment_2026-02-09__1933</span>
-            <span><b>Updated:</b> Feb 09, 2026</span>
-            <span><b>Iterations:</b> plan 2 / fix 0</span>
-          </p>
-        </article>
-        <article class="quest-card">
-          <div class="quest-card-header">
-            <h3 class="quest-card-title">hello-world-model-test</h3>
-            <span class="badge badge--in-progress">IN PROGRESS</span>
-          </div>
-          <p class="quest-pitch">``` use gpt-5.3-codex as planner, reviewer (code+plan) and coder/implementere I want the planner to write a file to /tmp that says &quot;hello world @modelname&quot; and the same should the &quot;coder do&quot;. All parallell review models are gpt-5-3-codex as well as the coder and planner. ```</p>
-          <p class="quest-meta">
-            <span><b>Quest ID:</b> hello-world-model-test_2026-02-09__2215</span>
-            <span><b>Updated:</b> Feb 09, 2026</span>
-            <span><b>Iterations:</b> plan 1 / fix 0</span>
-          </p>
-        </article>
-        <article class="quest-card">
-          <div class="quest-card-header">
-            <h3 class="quest-card-title">Dashboard — Web UI</h3>
-            <span class="badge badge--in-progress">IN PROGRESS</span>
-          </div>
-          <p class="quest-pitch">&quot;Build a dashboard&quot; — Option A: Web UI Dashboard</p>
-          <p class="quest-meta">
-            <span><b>Quest ID:</b> dashboard-web-ui_2026-02-07__0219</span>
-            <span><b>Updated:</b> Feb 07, 2026</span>
-            <span><b>Iterations:</b> plan 1 / fix 0</span>
-          </p>
-        </article>
-        <article class="quest-card">
-          <div class="quest-card-header">
-            <h3 class="quest-card-title">Dashboard — CLI</h3>
-            <span class="badge badge--in-progress">IN PROGRESS</span>
-          </div>
-          <p class="quest-pitch">&quot;Build a dashboard&quot; — Option B: CLI Dashboard (Terminal UI)</p>
-          <p class="quest-meta">
-            <span><b>Quest ID:</b> dashboard-cli_2026-02-07__0219</span>
-            <span><b>Updated:</b> Feb 07, 2026</span>
-            <span><b>Iterations:</b> plan 1 / fix 0</span>
-          </p>
-        </article>
-        <article class="quest-card">
-          <div class="quest-card-header">
-            <h3 class="quest-card-title">Dashboard — Shared Analytics</h3>
-            <span class="badge badge--in-progress">IN PROGRESS</span>
-          </div>
-          <p class="quest-pitch">&quot;Build a dashboard&quot; — Option C: Shared/Published Analytics Dashboard</p>
-          <p class="quest-meta">
-            <span><b>Quest ID:</b> dashboard-shared-analytics_2026-02-07__0219</span>
-            <span><b>Updated:</b> Feb 07, 2026</span>
-            <span><b>Iterations:</b> plan 1 / fix 0</span>
           </p>
         </article>
         <article class="quest-card">
@@ -686,7 +694,7 @@
           </div>
           <p class="quest-pitch">Decomposed the monolithic `.skills/quest/SKILL.md` (635 lines) into a slim routing entry point (73 lines) plus three delegation files under `.skills/quest/delegation/`. The delegation pattern structurally enforces intake quality — vague input routes to a dedicated questioning phase before planning begins, while detailed input goes directly to the workflow.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> quest-delegation-gate_2026-02-05__2125</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/quest-delegation-gate_2026-02-06.md">quest-delegation-gate_2026-02-05__2125</a></span>
             <span><b>Completion Date:</b> Feb 06, 2026</span>
             <span><b>Iterations:</b> plan 1 / fix 1</span>
           </p>
@@ -698,21 +706,9 @@
           </div>
           <p class="quest-pitch">Comprehensive research exploration mapping 11 distinct caching strategies applicable to the Quest AI agent system. The quest produced two educational research documents and a quest index README — no code changes, as the research itself was the deliverable.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> caching-strategy-exploration_2026-02-06__1305</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/caching-strategy-exploration_2026-02-06.md">caching-strategy-exploration_2026-02-06__1305</a></span>
             <span><b>Completion Date:</b> Feb 06, 2026</span>
             <span><b>Iterations:</b> plan 1 / fix 1</span>
-          </p>
-        </article>
-        <article class="quest-card">
-          <div class="quest-card-header">
-            <h3 class="quest-card-title">Rust Web Browser</h3>
-            <span class="badge badge--in-progress">IN PROGRESS</span>
-          </div>
-          <p class="quest-pitch">Build a full-featured web browser in Rust.</p>
-          <p class="quest-meta">
-            <span><b>Quest ID:</b> rust-web-browser_2026-02-05__1723</span>
-            <span><b>Updated:</b> Feb 06, 2026</span>
-            <span><b>Iterations:</b> plan 1 / fix 0</span>
           </p>
         </article>
         <article class="quest-card">
@@ -722,7 +718,7 @@
           </div>
           <p class="quest-pitch">Implemented automatic weekly update checking for Quest. After a quest completes, the system checks if updates are available (respecting a configurable interval) and prompts the user to update if a newer version exists upstream.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> weekly-update-check_2026-02-04__2349</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/weekly-update-check_2026-02-05.md">weekly-update-check_2026-02-04__2349</a></span>
             <span><b>Completion Date:</b> Feb 05, 2026</span>
             <span><b>Iterations:</b> plan 2 / fix 0</span>
           </p>
@@ -734,7 +730,7 @@
           </div>
           <p class="quest-pitch">Planned a dual-planning-track feature for `/quest` where users could choose between &quot;Quest&quot; (fast, single plan) and &quot;Quest Council&quot; (rigorous, two competing plans merged by arbiter). Plan was approved after 2 iterations but was never built.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> quest-council-mode_2026-02-05__1636</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/quest-council-mode_2026-02-05.md">quest-council-mode_2026-02-05__1636</a></span>
             <span><b>Completion Date:</b> Feb 05, 2026</span>
           </p>
         </article>
@@ -745,7 +741,7 @@
           </div>
           <p class="quest-pitch">First-ever quest run on the extracted repository. Validated that the Quest blueprint was correctly extracted from the source repo, created the `ideas/` directory for tracking future work, and updated the README with public domain messaging.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> validate-and-launch_2026-02-04__1045</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/validate-and-launch_2026-02-04.md">validate-and-launch_2026-02-04__1045</a></span>
             <span><b>Completion Date:</b> Feb 04, 2026</span>
             <span><b>Iterations:</b> plan 1 / fix 1</span>
           </p>
@@ -757,7 +753,7 @@
           </div>
           <p class="quest-pitch">Enhanced the quest orchestration to present plans interactively rather than dumping the full plan at once. Users now see a brief summary first, then can opt into a phase-by-phase walkthrough with the ability to request changes at each step.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> interactive-plan-presentation_2026-02-04__1516</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/interactive-plan-presentation_2026-02-04.md">interactive-plan-presentation_2026-02-04__1516</a></span>
             <span><b>Completion Date:</b> Feb 04, 2026</span>
             <span><b>Iterations:</b> plan 2 / fix 3</span>
           </p>
@@ -769,7 +765,7 @@
           </div>
           <p class="quest-pitch">Created a single unified installer script (`scripts/quest_installer.sh`) that installs and updates Quest in any repository.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> installer-script_2026-02-04__1841</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/installer-script_2026-02-04.md">installer-script_2026-02-04__1841</a></span>
             <span><b>Completion Date:</b> Feb 04, 2026</span>
           </p>
         </article>
@@ -780,27 +776,15 @@
           </div>
           <p class="quest-pitch">Implemented GitHub Actions CI and local pre-commit hooks that validate quest-related artifacts to prevent broken configurations from being committed.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> ci-quest-validation_2026-02-04__1532</span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/ci-quest-validation_2026-02-04.md">ci-quest-validation_2026-02-04__1532</a></span>
             <span><b>Completion Date:</b> Feb 04, 2026</span>
-          </p>
-        </article>
-        <article class="quest-card">
-          <div class="quest-card-header">
-            <h3 class="quest-card-title">Web AI Setup Code Review</h3>
-            <span class="badge badge--unknown">UNKNOWN</span>
-          </div>
-          <p class="quest-pitch">Conduct a thorough code review of the AI-assisted development setup in the `web` repository (branch `ONF-8312/ai-setup`), producing approved PR comments.</p>
-          <p class="quest-meta">
-            <span><b>Quest ID:</b> web-ai-setup-review_2026-02-04__1730</span>
-            <span><b>Updated:</b> Feb 04, 2026</span>
-            <span><b>Iterations:</b> plan 1 / fix 0</span>
           </p>
         </article>
       </div>
     </section>
 
     <footer class="footer">
-      Generated on 2026-02-13 08:48:03 UTC
+      Generated on 2026-02-21 04:40:42 UTC
     </footer>
   </div>
   <script>
@@ -813,7 +797,7 @@ document.addEventListener('DOMContentLoaded', function() {
       data: {
         labels: ['In Progress', 'Blocked', 'Abandoned', 'Finished', 'Unknown'],
         datasets: [{
-          data: [6, 0, 2, 14, 2],
+          data: [2, 0, 2, 19, 0],
           backgroundColor: [
             getComputedStyle(document.documentElement).getPropertyValue('--status-in-progress').trim(),
             getComputedStyle(document.documentElement).getPropertyValue('--status-blocked').trim(),
@@ -851,7 +835,7 @@ document.addEventListener('DOMContentLoaded', function() {
         datasets: [
           {
             label: 'Finished',
-            data: [14],
+            data: [19],
             borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-finished').trim(),
             fill: false,
             tension: 0.25,
@@ -860,7 +844,7 @@ document.addEventListener('DOMContentLoaded', function() {
           },
           {
             label: 'In Progress',
-            data: [6],
+            data: [2],
             borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-in-progress').trim(),
             fill: false,
             tension: 0.25,
@@ -887,7 +871,7 @@ document.addEventListener('DOMContentLoaded', function() {
           },
           {
             label: 'Unknown',
-            data: [2],
+            data: [0],
             borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-unknown').trim(),
             fill: false,
             tension: 0.25,

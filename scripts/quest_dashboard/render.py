@@ -922,7 +922,16 @@ def _render_quest_card(
         badge_class = "unknown"
 
     # Build metadata spans
-    meta_items = [f'<span><b>Quest ID:</b> {html.escape(quest.quest_id)}</span>']
+    if isinstance(quest, JournalEntry) and github_url:
+        journal_url = _sanitize_url(f"{github_url}/blob/main/{quest.journal_path}")
+        if journal_url:
+            meta_items = [
+                f'<span><b>Quest ID:</b> <a href="{journal_url}">{html.escape(quest.quest_id)}</a></span>'
+            ]
+        else:
+            meta_items = [f'<span><b>Quest ID:</b> {html.escape(quest.quest_id)}</span>']
+    else:
+        meta_items = [f'<span><b>Quest ID:</b> {html.escape(quest.quest_id)}</span>']
 
     if isinstance(quest, JournalEntry):
         meta_items.append(
