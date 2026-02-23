@@ -39,6 +39,11 @@ When the user invokes `$quest`, treat it as orchestration and follow the canonic
 - `AGENTS.md` (Quest Execution Discipline + PR Review Gate + engineering rubric)
 - `.skills/quest/delegation/workflow.md` (phase gates and merge flow)
 
+Critical rules (always apply, even if referenced files fail to load):
+- Do not edit project/source files before the Build Phase is reached through normal Quest gates.
+- Plan + dual review + arbiter + presentation/human approval must happen before implementation.
+- If the user requests "plan and build now" in one prompt, still run planning and gates first.
+
 Make sure you follow all the quest instructions to the letter, updating state, showing the plan, etc. Make sure you have dual plan reviewers with an arbiter, and dual code reviewers with an arbiter. etc. 
 
 ## Skills

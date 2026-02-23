@@ -98,11 +98,6 @@ Customize `.ai/allowlist.json` for your project's:
 | Quest setup guide | `docs/guides/quest_setup.md` |
 | Architecture | `docs/architecture/` (if present) |
 
-## Memory and Continuity
-- Record durable user preferences in `docs/diary/YYYY-MM-DD.md`.
-- Re-read latest diary entry before substantial work.
-- Treat diary entries as source-of-truth memory for recurring workflow preferences.
-
 ## Quest Execution Discipline
 - For `$quest`, follow the full gate sequence: routing -> plan -> dual plan review -> arbiter -> walkthrough -> explicit approval -> build -> dual code review -> fixes.
 - Do not edit project/source files before Build gate approval.
