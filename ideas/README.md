@@ -17,7 +17,7 @@ When an idea is implementation-ready, run `/quest "..."` and move execution evid
 | File | Status | Purpose |
 |---|---|---|
 | `quest-policy-canonicalization-and-enforcement-roadmap.md` | proposed | Canonical plan to reduce policy drift and convert rules into enforced checks. |
-| `pr-body-hard-gate-required-check.md` | proposed | Enforce PR body structure as required CI + branch protection. |
+| ~~pr-body-hard-gate~~ | implemented | PR body CI gate shipped. See [journal](../docs/quest-journal/pr-body-gate_2026-02-22.md). Branch protection enforcement is a follow-up. |
 | `handoff-validation-and-failure-ux.md` | proposed | Add actionable diagnostics when handoff fallback occurs. |
 | `quest-abandon-flow.md` | proposed | Add `/quest abandon <id>` flow with state-safe transitions. |
 | `quest-completion-gate.md` | idea | Define when a quest should be considered complete. |
@@ -73,10 +73,7 @@ Current ideas/ walkthrough (excluding ideas/README.md):
      Elevator: Historical record of moving role wiring under Quest skill ownership.
      Recommendation + opinion: Keep as implemented history; no new work needed.
      Risk: Low. Impact: Low (now).
-  8. ideas/pr-body-hard-gate-required-check.md
-     Elevator: Enforce PR structure (Summary/Changes/Validation/Notes) via required CI check.
-     Recommendation + opinion: Prioritize after gate-validator basics; good enforcement move.
-     Risk: Medium (false positives/policy friction). Impact: Medium-High.
+  8. ~~ideas/pr-body-hard-gate-required-check.md~~ — Implemented. See `docs/quest-journal/pr-body-gate_2026-02-22.md`.
   9. ideas/quest-abandon-flow.md
      Elevator: Add formal /quest abandon <id> lifecycle handling with safe state transitions.
      Recommendation + opinion: Worth doing; medium priority but clean operational value.
