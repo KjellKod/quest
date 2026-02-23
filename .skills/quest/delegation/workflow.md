@@ -718,9 +718,9 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    Review changes: git diff
    Commit: git add -p && git commit
-   Draft PR: use .skills/pr-assistant/SKILL.md (preserve any existing bot-managed PR sections when editing PR body)
-   PR review gate: post an explicit review comment on the draft/ready PR, then merge only after NIT filtering using AGENTS.md rubric (readability-first, KISS/YAGNI/SRP/DRY, simple robust over complex elegance, avoid mocking-hell)
    ```
+   - **Draft PR:** use `.skills/pr-assistant/SKILL.md` (preserve any existing bot-managed PR sections when editing PR body)
+   - **PR review gate:** post an explicit review comment on the draft/ready PR, then merge only after NIT filtering using `AGENTS.md` rubric (readability-first, KISS/YAGNI/SRP/DRY, simple robust over complex elegance, avoid mocking-hell)
 
 7. **Context reset suggestion:**
    ```

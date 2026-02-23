@@ -40,7 +40,7 @@ When the user invokes `$quest`, treat it as orchestration and follow the canonic
 - `.skills/quest/delegation/workflow.md` (phase gates and merge flow)
 
 Critical rules (always apply, even if referenced files fail to load):
-- Do not edit project/source files before the Build Phase is reached through normal Quest gates.
+- Before Build Phase, write only to `.quest/` artifacts (and `docs/implementation/` when needed). Do not edit project/source files.
 - Plan + dual review + arbiter + presentation/human approval must happen before implementation.
 - If the user requests "plan and build now" in one prompt, still run planning and gates first.
 
