@@ -9,8 +9,7 @@ This note translates those risks into concrete implementation guidance.
 
 ## Scope Clarification
 This is the consolidation doc for policy hardening. It supersedes scattered one-off notes about PR wording and mixed gate proposals.
-Supporting incident notes remain:
-- `ideas/quest-sequence-enforcement-feedback-2026-02-21.md`
+Supporting incident note:
 - `ideas/runtime-attribution-accuracy-for-context-health.md`
 
 ## Problem 1: Policy Duplication (Drift Risk)
@@ -96,5 +95,11 @@ These files all contain behavior rules. Some are source-of-truth, some are mirro
 - CI-enforced compliance for gate order, runtime attribution, and PR quality rules.
 - Lower chance of "instructions said X but run did Y" failures.
 
+## Progress (2026-02-22)
+- Problem 1 (duplication): canonical pointers in `.codex/AGENTS.md` and `.agents/` done. Lint script and `Canonical Source` annotations not started.
+- Problem 2 item 3 (PR body gate): shipped. See `docs/quest-journal/pr-body-gate_2026-02-22.md`.
+- Problem 2 items 1, 2, 4, 5: not started.
+- Rollout Phase A partially started (PR body gate runs warn-only, not yet required).
+
 ## Status
-proposed
+in-progress

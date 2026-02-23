@@ -16,7 +16,7 @@ When an idea is implementation-ready, run `/quest "..."` and move execution evid
 ### Governance and Enforcement
 | File | Status | Purpose |
 |---|---|---|
-| `quest-policy-canonicalization-and-enforcement-roadmap.md` | proposed | Canonical plan to reduce policy drift and convert rules into enforced checks. |
+| `quest-policy-canonicalization-and-enforcement-roadmap.md` | in-progress | Canonical plan to reduce policy drift and convert rules into enforced checks. |
 | ~~pr-body-hard-gate~~ | implemented | PR body CI gate shipped. See [journal](../docs/quest-journal/pr-body-gate_2026-02-22.md). Branch protection enforcement is a follow-up. |
 | `handoff-validation-and-failure-ux.md` | proposed | Add actionable diagnostics when handoff fallback occurs. |
 | `quest-abandon-flow.md` | proposed | Add `/quest abandon <id>` flow with state-safe transitions. |
@@ -39,7 +39,6 @@ When an idea is implementation-ready, run `/quest "..."` and move execution evid
 |---|---|---|
 | `codex-quest-skill.md` | idea | Codex-only quest orchestration runner design. |
 | ~~codex-quest~~ | implemented | Moved to [`docs/guides/codex-quest-install.md`](../docs/guides/codex-quest-install.md). |
-| `quest-sequence-enforcement-feedback-2026-02-21.md` | reference | Incident note on early-build drift and required sequence controls. |
 | `runtime-attribution-accuracy-for-context-health.md` | reference | Incident note and fix plan for backend runtime attribution accuracy. |
 | `memory_bank_model.md` | reference | General memory-bank pattern note for AI-guided repos. |
 
@@ -107,10 +106,7 @@ Current ideas/ walkthrough (excluding ideas/README.md):
      Elevator: Automatically maintain .quest/README.md completion index.
      Recommendation + opinion: Useful convenience; defer behind stronger enforcement work.
      Risk: Low. Impact: Low-Medium.
-  17. ideas/quest-sequence-enforcement-feedback-2026-02-21.md
-     Elevator: Incident note documenting early-build sequencing failure and corrective controls.
-     Recommendation + opinion: Keep as reference evidence until enforcement is fully automated.
-     Risk: Low. Impact: Medium (decision support).
+  17. ~~ideas/quest-sequence-enforcement-feedback-2026-02-21.md~~ — Deleted. Incident absorbed into policy roadmap and branch hardening.
   18. ideas/runtime-attribution-accuracy-for-context-health.md
      Elevator: Incident note and correction protocol for runtime attribution errors in context logs.
      Recommendation + opinion: Keep as reference until runtime validator is implemented and stable.
