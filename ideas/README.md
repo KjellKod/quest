@@ -1,60 +1,50 @@
 # Ideas
 
-Future work items not yet ready for a full quest. When an idea is ready, run `/quest` to turn it into a quest run.
+Working notes for Quest improvements that are not yet fully implemented.
 
-## Index
+When an idea is implementation-ready, run `/quest "..."` and move execution evidence to `docs/quest-journal/`.
 
-| Status | Idea | Elevator pitch |
-|--------|------|---------------|
-| done | ~~phase4_plan_updated_by_kjell~~ | Relocate Quest role wiring to .skills/quest/agents. See [journal](../docs/quest-journal/phase4-role-wiring_2026-02-18.md). |
-| | [user-feedback](user-feedback.md) | Real-world user feedback on Quest UX: cost transparency, smart pausing, status clarity, plan navigation. |
-| | [quest-file-attribution-line](quest-file-attribution-line.md) | Add a one-line commented Quest attribution/public-domain/license reference to Quest-managed files. |
-| in-progress | [quest-architecture-evolution](quest-architecture-evolution.md) | 5-phase roadmap to close the gap between Quest's philosophy and implementation. Phase 2 done, 2b in progress. |
-| in-progress | [phase2b-context-leak-closure](phase2b-context-leak-closure.md) | Candid findings and concrete completion plan for Phase 2b context leak closure. |
-| in-progress | [quest-context-optimization](quest-context-optimization.md) | Close remaining context leaks: handoff.json pattern, background agents, /clear suggestion. |
-| | [quest-step-numbering-cleanup](quest-step-numbering-cleanup.md) | Fix step numbering overlap between SKILL.md and workflow.md after the delegation refactor. |
-| | [quest-council-mode](quest-council-mode.md) | `/quest council` — two competing plans, independent reviews, council arbiter comparison report, human picks winner + optional golden nuggets. |
-| dropped | ~~quest-council_v1~~ | Superseded by quest-council-mode. |
-| dropped | ~~quest-council_v1_alternative~~ | Superseded by quest-council-mode. |
-| | [gpt52-default-planner](gpt52-default-planner.md) | Make GPT the default planner to diversify model perspective earlier in the pipeline. |
-| | [codex-quest-skill](codex-quest-skill.md) | GPT-only quest runner via Codex CLI — run quests without Claude Code. |
-| | [parallel-reviewer-orchestration](parallel-reviewer-orchestration.md) | Ensure Claude and Codex reviewers run in parallel during review phases. |
-| | [github-ci-pr-validation](github-ci-pr-validation.md) | CI workflow to validate quest plan structure on pull requests. |
-| | [quest-abandon-flow](quest-abandon-flow.md) | `/quest abandon <id>` command — formal abandon with journal entry, state update, and archive cleanup. |
-| | [quest-readme-auto-update](quest-readme-auto-update.md) | Auto-update `.quest/README.md` index when a quest completes. |
-| | [memory_bank_model](memory_bank_model.md) | Curated repo docs as the AI's authoritative mental model instead of scanning files. |
-| | [quest-completion-gate](quest-completion-gate.md) | When is a quest really done? Weigh trade-offs: close at review approval, close at PR merge, or soft close with hardening breadcrumbs. |
-| done | ~~quest-intake-gate~~ | Delegation-based intake gate with question-first routing for vague input. See [journal](../docs/quest-journal/quest-delegation-gate_2026-02-06.md). |
-| done | ~~handoff-fix-plan~~ | Standardize `---HANDOFF---` contracts across all role files. See [journal](../docs/quest-journal/handoff-contract-fix_2026-02-09.md). |
-| done | ~~quest-philosophy-small-core~~ | Thin orchestrator philosophy, handoff contracts, delegation workflow. See [journal](../docs/quest-journal/thin-orchestrator_2026-02-09.md). |
-| done | ~~dashboard-visual-polish~~ | Ambient glows, Chart.js charts, gradient enhancements. See [journal](../docs/quest-journal/dashboard-visual-polish_2026-02-12.md). |
-| done | ~~dashboard-layout-redesign~~ | Executive "Quest Intelligence" design — hero branding, KPI cards, side-by-side charts, unified portfolio. See [journal](../docs/quest-journal/dashboard-layout-redesign_2026-02-13.md). |
-| dropped | ~~default-quest-planner~~ | Brainstorm about configurable planner models. Superseded by gpt52-default-planner idea. |
-| dropped | ~~fixer~~ | One-line question about fixer routing. Never developed. |
-| dropped | ~~update_details~~ | UX brainstorm about update check UI. Never developed. |
+## Status Legend
+- `idea`: concept captured, not scoped
+- `proposed`: concrete plan exists, not started
+- `in-progress`: partially implemented or actively iterating
+- `reference`: operational note or incident record (not a build proposal)
+- `implemented`: completed; retained for historical context
 
-**Legend:** blank = not started, in-progress = active idea being implemented, done = implemented (file removed), dropped = discarded (file removed)
+## Active Index
 
-## Format
+### Governance and Enforcement
+| File | Status | Purpose |
+|---|---|---|
+| `quest-policy-canonicalization-and-enforcement-roadmap.md` | proposed | Canonical plan to reduce policy drift and convert rules into enforced checks. |
+| `pr-body-hard-gate-required-check.md` | proposed | Enforce PR body structure as required CI + branch protection. |
+| `handoff-validation-and-failure-ux.md` | proposed | Add actionable diagnostics when handoff fallback occurs. |
+| `quest-abandon-flow.md` | proposed | Add `/quest abandon <id>` flow with state-safe transitions. |
+| `quest-completion-gate.md` | idea | Define when a quest should be considered complete. |
+| `quest-readme-auto-update.md` | idea | Auto-maintain `.quest/README.md` on quest completion. |
 
-Each idea is a brief markdown file with:
+### Architecture and Workflow Evolution
+| File | Status | Purpose |
+|---|---|---|
+| `quest-architecture-evolution.md` | in-progress | Multi-phase roadmap for Quest architecture maturity. |
+| `phase2b-context-leak-closure.md` | in-progress | Concrete closure plan and findings for remaining context leaks. |
+| `quest-context-optimization.md` | in-progress | Token/context reduction tactics for orchestrator paths. |
+| `parallel-reviewer-orchestration.md` | in-progress | Ensure reviewer phases are truly parallel and observable. |
+| `phase4-role-relocation.md` | implemented | Historical record for role file relocation decision/work. |
+| `quest-council-mode.md` | idea | Optional dual-plan council mode for high-risk work. |
+| `quest-file-attribution-line.md` | idea | File-level Quest attribution and license provenance line. |
 
-```markdown
-# Idea Title
+### Codex and Operations Notes
+| File | Status | Purpose |
+|---|---|---|
+| `codex-quest-skill.md` | idea | Codex-only quest orchestration runner design. |
+| `codex-quest.md` | reference | Installation runbook for making Quest visible in Codex global skills. |
+| `quest-sequence-enforcement-feedback-2026-02-21.md` | reference | Incident note on early-build drift and required sequence controls. |
+| `runtime-attribution-accuracy-for-context-health.md` | reference | Incident note and fix plan for backend runtime attribution accuracy. |
+| `memory_bank_model.md` | reference | General memory-bank pattern note for AI-guided repos. |
 
-## What
-Brief description.
-
-## Why
-Why this would be useful.
-
-## Approach
-Rough implementation ideas (optional).
-
-## Status
-idea | in-progress | implemented | rejected
-```
-
-## When to Graduate to a Quest
-
-Run `/quest "your idea description"` to turn an idea into a quest run under `.quest/`.
+## Hygiene Rules
+- Keep one file per idea family; avoid duplicate variants.
+- Keep incident notes in `ideas/` only while they are actively informing roadmap work.
+- If a note is superseded, delete it or merge it into the canonical idea file.
+- If an idea is implemented, link the quest journal entry in the file and mark status accordingly.

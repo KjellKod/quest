@@ -1,7 +1,7 @@
 # PR Description Hard Gate (Required Check + Branch Protection)
 
 ## Objective
-Turn PR description structure from “best practice” into an enforceable merge gate.
+Turn PR description structure from "best practice" into an enforceable merge gate.
 
 ## Enforced Structure
 Require these headings in the human-authored PR section:
@@ -13,22 +13,23 @@ Require these headings in the human-authored PR section:
 ## How to Enforce
 1. Add a workflow job (example name: `pr-body-gate`) triggered on PR events:
    - `opened`, `edited`, `synchronize`, `ready_for_review`, `reopened`
-2. Parse PR body and validate required headings.
-3. If Ellipsis marker exists (`<!-- ELLIPSIS_HIDDEN -->`), validate only content above the first marker.
-4. Fail the job when headings are missing.
+2. Parse PR body and validate required headings in the human-authored section.
+3. Preserve bot-managed sections/anchors unchanged; do not require those sections to match the human heading schema.
+4. Fail the job when required headings are missing.
 5. Mark this check as required in branch protection/rulesets for `main`.
 
 ## Why This Should Be Core Quest Behavior
 - Prevents format drift when users bypass skills and edit PR bodies manually.
-- Keeps human-readable reviewer context consistent across PRs.
-- Coexists safely with Ellipsis/bot sections by validating only the human section.
+- Keeps reviewer context consistent and scannable.
+- Makes PR quality behavior enforceable, not instruction-only.
 
 ## Rollout Pattern
-- Phase 1: enable workflow and observe failures for a week.
-- Phase 2: enable required check in branch protection.
-- Phase 3: add regression fixture for PR body with Ellipsis marker to ensure parser behavior stays stable.
+- Phase 1: enable workflow in warn-only mode.
+- Phase 2: enforce as required status check.
+- Phase 3: add regression fixtures for mixed human + bot-managed PR bodies.
 
-## Downstream Implementation Status
-Implemented in downstream repo via:
-- `.github/workflows/pr-body-gate.yml`
-with explicit human-section validation and Ellipsis-aware parsing.
+## Downstream Implementation Note
+This gate has already been trialed in a downstream repository and is compatible with preserving bot-managed PR sections.
+
+## Status
+proposed

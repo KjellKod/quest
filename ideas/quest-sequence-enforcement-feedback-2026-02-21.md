@@ -21,3 +21,6 @@ During a `$quest` run in a downstream repo, implementation began too early befor
 
 ## Why this matters
 This improves consistency, review quality, and user trust in Quest’s phase discipline, especially when users expect strict plan-first execution.
+
+## Status
+reference

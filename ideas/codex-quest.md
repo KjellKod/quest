@@ -58,3 +58,6 @@ Restart Codex so it reloads skills.
 If Quest still does not appear after restart, re-check:
 - `~/.codex/skills/quest/SKILL.md` exists
 - the file has valid frontmatter with `name: quest`
+
+## Status
+reference
