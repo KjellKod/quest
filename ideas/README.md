@@ -38,7 +38,7 @@ When an idea is implementation-ready, run `/quest "..."` and move execution evid
 | File | Status | Purpose |
 |---|---|---|
 | `codex-quest-skill.md` | idea | Codex-only quest orchestration runner design. |
-| `codex-quest.md` | reference | Installation runbook for making Quest visible in Codex global skills. |
+| `codex-quest.md` | implemented | Installation runbook for making Quest visible in Codex global skills. |
 | `quest-sequence-enforcement-feedback-2026-02-21.md` | reference | Incident note on early-build drift and required sequence controls. |
 | `runtime-attribution-accuracy-for-context-health.md` | reference | Incident note and fix plan for backend runtime attribution accuracy. |
 | `memory_bank_model.md` | reference | General memory-bank pattern note for AI-guided repos. |
@@ -54,8 +54,7 @@ Current ideas/ walkthrough (excluding ideas/README.md):
      Risk: Medium-High. Impact: High (if Codex-first workflow matters).
   2. ideas/codex-quest.md
      Elevator: Operational runbook for getting Quest visible in global Codex skills.
-     Recommendation + opinion: Keep as reference; practical and already useful.
-     Risk: Low. Impact: Medium (onboarding friction reduction).
+     Status: Implemented. Quest is installed and discoverable via Codex global skills.
   3. ideas/handoff-validation-and-failure-ux.md
      Elevator: Validate handoff.json and log explicit fallback reasons to make failures diagnosable.
      Recommendation + opinion: Prioritize soon; this is high-value reliability hardening.

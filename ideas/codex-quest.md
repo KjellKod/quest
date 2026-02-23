@@ -60,4 +60,4 @@ If Quest still does not appear after restart, re-check:
 - the file has valid frontmatter with `name: quest`
 
 ## Status
-reference
+implemented
