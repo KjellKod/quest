@@ -97,3 +97,15 @@ Customize `.ai/allowlist.json` for your project's:
 | Available skills | `.skills/SKILLS.md` |
 | Quest setup guide | `docs/guides/quest_setup.md` |
 | Architecture | `docs/architecture/` (if present) |
+
+## Quest Execution Discipline
+- For `$quest`, follow the full gate sequence: routing -> plan -> dual plan review -> arbiter -> walkthrough -> explicit approval -> build -> dual code review -> fixes.
+- Do not edit project/source files before Build gate approval.
+- If implementation starts early, stop, disclose, and return to required gates.
+
+## PR Review Gate
+- Always use feature branches and draft PRs.
+- Before merge, post an explicit review comment on the draft/ready PR.
+- Merge only after filtering low-value NITs and judging through readability-first, KISS, YAGNI, SRP, and DRY.
+- Prefer simple robust over complex elegance.
+- Keep tests high quality and avoid mocking-hell.

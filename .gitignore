@@ -1,5 +1,8 @@
 # Quest ephemeral state
 .quest/
+
+# Workspace scratch
+.ws/
 .quest-last-check
 
 # Python

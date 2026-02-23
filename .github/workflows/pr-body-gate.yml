@@ -1,0 +1,52 @@
+name: PR Body Gate
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - ready_for_review
+      - reopened
+
+jobs:
+  pr-body-gate:
+    name: pr-body-gate
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+
+    steps:
+      - name: Validate required PR sections
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request?.body || "";
+
+            const requiredHeadings = [
+              "## Summary",
+              "## Changes",
+              "## Validation",
+              "## Notes",
+            ];
+
+            const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const missing = requiredHeadings.filter((heading) => {
+              const re = new RegExp(`^\\s*${escapeRegex(heading)}\\s*$`, "m");
+              return !re.test(body);
+            });
+
+            if (missing.length > 0) {
+              core.setFailed(
+                [
+                  "PR body is missing required section headings:",
+                  ...missing.map((h) => `- ${h}`),
+                  "",
+                  "Expected headings:",
+                  ...requiredHeadings.map((h) => `- ${h}`),
+                ].join("\n")
+              );
+              return;
+            }
+
+            core.info("PR body gate passed.");

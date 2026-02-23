@@ -114,7 +114,13 @@ Rules:
 
 ### Bot-generated content
 
-If a bot (e.g. Ellipsis) appends an auto-generated summary to the PR, leave it in place. Do not duplicate or conflict with its content in the human-written sections.
+If a bot appends an auto-generated summary to the PR, leave it in place. Do not duplicate or conflict with its content in the human-written sections.
+
+When updating an existing PR body, preserve bot-managed sections exactly:
+
+- If the body contains bot-managed sections or hidden anchors/comments, keep those blocks unchanged.
+- Regenerate only the human-authored section.
+- Never remove, rewrite, or reorder bot-managed blocks, badges, or hidden anchors/comments.
 
 ### Draft mode (required)
 

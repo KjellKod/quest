@@ -35,13 +35,14 @@ This repository uses **layered documentation** for AI agent context management.
 
 ## Quest Discipline (Codex)
 
-When the user invokes `$quest`, follow Quest process exactly:
+When the user invokes `$quest`, treat it as orchestration and follow the canonical rules from:
+- `AGENTS.md` (Quest Execution Discipline + PR Review Gate + engineering rubric)
+- `.skills/quest/delegation/workflow.md` (phase gates and merge flow)
 
-- Treat `$quest` as workflow orchestration, not direct implementation.
-- Do not edit project/source files before the Build Phase is reached through normal Quest gates.
+Critical rules (always apply, even if referenced files fail to load):
+- Before Build Phase, write only to `.quest/` artifacts (and `docs/implementation/` when needed). Do not edit project/source files.
 - Plan + dual review + arbiter + presentation/human approval must happen before implementation.
 - If the user requests "plan and build now" in one prompt, still run planning and gates first.
-- During pre-build phases, write only quest artifacts under `.quest/` (and planning docs under `docs/implementation/` when needed).
 
 Make sure you follow all the quest instructions to the letter, updating state, showing the plan, etc. Make sure you have dual plan reviewers with an arbiter, and dual code reviewers with an arbiter. etc. 
 
