@@ -9,8 +9,8 @@ This note translates those risks into concrete implementation guidance.
 
 ## Scope Clarification
 This is the consolidation doc for policy hardening. It supersedes scattered one-off notes about PR wording and mixed gate proposals.
-Supporting incident note:
-- `ideas/runtime-attribution-accuracy-for-context-health.md`
+Supporting incident note (deleted, fix shipped in `workflow.md` on this branch):
+- ~~`ideas/runtime-attribution-accuracy-for-context-health.md`~~
 
 ## Problem 1: Policy Duplication (Drift Risk)
 

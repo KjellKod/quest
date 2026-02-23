@@ -35,7 +35,6 @@ When an idea is implementation-ready, run `/quest "..."` and move execution evid
 | File | Status | Purpose |
 |---|---|---|
 | `codex-quest-skill.md` | idea | Codex-only quest orchestration runner design. |
-| `runtime-attribution-accuracy-for-context-health.md` | reference | Incident note and fix plan for backend runtime attribution accuracy. |
 | `memory_bank_model.md` | reference | General memory-bank pattern note for AI-guided repos. |
 
 ### Graduated
@@ -45,6 +44,7 @@ When an idea is implementation-ready, run `/quest "..."` and move execution evid
 | pr-body-hard-gate | [`docs/quest-journal/pr-body-gate_2026-02-22.md`](../docs/quest-journal/pr-body-gate_2026-02-22.md) |
 | phase4-role-relocation | [`docs/quest-journal/phase4-role-wiring_2026-02-18.md`](../docs/quest-journal/phase4-role-wiring_2026-02-18.md) |
 | quest-sequence-enforcement | Absorbed into policy roadmap and branch hardening |
+| runtime-attribution-accuracy | Fix shipped in `workflow.md`; validator tracked in policy roadmap |
 
 ## Hygiene Rules
 - Keep one file per idea family; avoid duplicate variants.
