@@ -127,16 +127,18 @@ Quest uses GPT 5.2 or GPT5-3-codex via Codex as a second reviewer. If you want d
 ```bash
 
 # update to gpt-5.3 
-npm i -g @openai/codex
+npm install  -g @openai/codex@latest
+
 # validate you have access to it
 codex -m gpt-5.3-codex 
+
 # change the default
 vim ~/.codex/config.toml
 ```
 
 ```bash
 # Add Codex MCP server to Claude Code
-claude mcp add codex -- npx -y @anthropic/codex-mcp-server
+claude mcp add codex-cli -- npx -y codex-mcp-server   
 
 # Requires OpenAI API key configured
 # https://platform.openai.com/docs/quickstart
@@ -148,15 +150,22 @@ If you skip this, Quest will use Claude for all roles (still works, just single-
 
 ### Option A: Use the Installer (Recommended)
 
+##### Download the installer
 ```bash
-# Download the installer
 curl -fsSL https://raw.githubusercontent.com/KjellKod/quest/main/scripts/quest_installer.sh -o quest_installer.sh
+```
+
+```
 chmod +x quest_installer.sh
+```
 
-# Preview what will be installed
+##### Preview what will be installed
+```
 ./quest_installer.sh --check
+```
 
-# Install Quest
+##### Install Quest
+```
 ./quest_installer.sh
 ```
 
