@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "description": "Creator-managed permissions for quest orchestration. Edit this file to pre-approve or restrict quest agent actions. Changes take effect on next quest run.",
+  "version": 3,
+  "description": "Unified permissions and routing for quest orchestration. Shared permissions across all runtimes, per-runtime model routing. Edit this file to pre-approve or restrict quest agent actions. Changes take effect on next quest run.",
   "auto_approve_phases": {
     "plan_creation": true,
     "plan_review": true,
@@ -9,18 +9,87 @@
     "code_review": true,
     "fix_loop": false
   },
-  "arbiter": {
-    "tool": "claude",
-    "notes": "Set to 'codex' to use gpt-5.3-codex as Arbiter instead of Claude. Default: claude."
+  "role_permissions": {
+    "planner": {
+      "file_write": [".quest/**", "docs/implementation/**"],
+      "file_read": ["**"],
+      "bash": ["find", "grep", "wc", "tree", "ls", "gh pr view.*"]
+    },
+    "reviewer_a": {
+      "file_write": [".quest/**"],
+      "file_read": ["**"],
+      "bash": ["gh pr view.*"]
+    },
+    "reviewer_b": {
+      "file_write": [".quest/**"],
+      "file_read": ["**"],
+      "bash": ["gh pr view.*"]
+    },
+    "arbiter": {
+      "file_write": [".quest/**"],
+      "file_read": ["**"],
+      "bash": ["gh pr view.*"]
+    },
+    "builder": {
+      "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "scripts/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
+      "file_read": ["**"],
+      "bash": ["npm test", "npm run build", "pytest", "python", "pip", "npx", "yarn test", "make test", "shasum", "sha256sum"]
+    },
+    "code_reviewer_a": {
+      "file_write": [".quest/**"],
+      "file_read": ["**"],
+      "bash": ["git diff", "git log", "git status", "gh pr view.*"]
+    },
+    "code_reviewer_b": {
+      "file_write": [".quest/**"],
+      "file_read": ["**"],
+      "bash": ["git diff", "git log", "git status", "gh pr view.*"]
+    },
+    "fixer": {
+      "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
+      "file_read": ["**"],
+      "bash": ["npm test", "pytest", "python", "yarn test", "make test", "shasum", "sha256sum"]
+    }
   },
-  "model_overrides": {
-    "planner": "opus",
-    "plan_reviewer_a": "opus",
-    "plan_reviewer_b": "gpt-5.3-codex",
-    "builder": "opus",
-    "code_reviewer_a": "opus",
-    "code_reviewer_b": "gpt-5.3-codex",
-    "arbiter": "opus"
+  "model_routing": {
+    "claude": {
+      "planner":         { "tool": "task", "subagent": "planner" },
+      "reviewer_a":      { "tool": "task", "subagent": "plan-reviewer" },
+      "reviewer_b":      { "tool": "mcp",  "server": "codex", "model": "gpt-5.3-codex" },
+      "arbiter":         { "tool": "task", "subagent": "arbiter" },
+      "builder":         { "tool": "task", "subagent": "builder" },
+      "code_reviewer_a": { "tool": "task", "subagent": "code-reviewer" },
+      "code_reviewer_b": { "tool": "mcp",  "server": "codex", "model": "gpt-5.3-codex" },
+      "fixer":           { "tool": "task", "subagent": "fixer" }
+    },
+    "opencode": {
+      "planner":         { "tool": "task", "subagent": "planner",       "tier": "advanced" },
+      "reviewer_a":      { "tool": "task", "subagent": "plan-reviewer", "tier": "advanced" },
+      "reviewer_b":      { "tool": "task", "subagent": "plan-reviewer", "tier": "standard" },
+      "arbiter":         { "tool": "task", "subagent": "arbiter",       "tier": "advanced" },
+      "builder":         { "tool": "task", "subagent": "builder",       "tier": "advanced" },
+      "code_reviewer_a": { "tool": "task", "subagent": "code-reviewer", "tier": "advanced" },
+      "code_reviewer_b": { "tool": "task", "subagent": "code-reviewer", "tier": "standard" },
+      "fixer":           { "tool": "task", "subagent": "fixer",         "tier": "advanced" }
+    },
+    "codex": {
+      "_note": "Codex runtime (beta). Uses spawn_agent/worker for subagent invocation.",
+      "planner":         { "tool": "task", "subagent": "planner" },
+      "reviewer_a":      { "tool": "task", "subagent": "plan-reviewer" },
+      "reviewer_b":      { "tool": "task", "subagent": "plan-reviewer" },
+      "arbiter":         { "tool": "task", "subagent": "arbiter" },
+      "builder":         { "tool": "task", "subagent": "builder" },
+      "code_reviewer_a": { "tool": "task", "subagent": "code-reviewer" },
+      "code_reviewer_b": { "tool": "task", "subagent": "code-reviewer" },
+      "fixer":           { "tool": "task", "subagent": "fixer" }
+    }
+  },
+  "model_tiers": {
+    "opencode": {
+      "quick": "anthropic/claude-haiku-4-5-20250307",
+      "standard": "anthropic/claude-sonnet-4-5-20251101",
+      "advanced": "anthropic/claude-opus-4-5-20251101"
+    }
   },
   "review_mode": "auto",
   "fast_review_thresholds": {
@@ -31,43 +100,6 @@
   "update_check": {
     "enabled": true,
     "interval_days": 7
-  },
-  "role_permissions": {
-    "planner_agent": {
-      "file_write": [".quest/**", "docs/implementation/**"],
-      "file_read": ["**"],
-      "bash": ["find", "grep", "wc", "tree", "ls", "gh pr view.*"]
-    },
-    "plan_review_claude": {
-      "file_write": [".quest/**"],
-      "file_read": ["**"],
-      "bash": ["gh pr view.*"]
-    },
-    "plan_review_codex": {
-      "file_write": [".quest/**"],
-      "file_read": ["**"],
-      "bash": ["gh pr view.*"]
-    },
-    "arbiter_agent": {
-      "file_write": [".quest/**"],
-      "file_read": ["**"],
-      "bash": ["gh pr view.*"]
-    },
-    "builder_agent": {
-      "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "scripts/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
-      "file_read": ["**"],
-      "bash": ["npm test", "npm run build", "pytest", "python", "pip", "npx", "yarn test", "make test", "shasum", "sha256sum"]
-    },
-    "code_review_agent": {
-      "file_write": [".quest/**"],
-      "file_read": ["**"],
-      "bash": ["git diff", "git log", "git status", "gh pr view.*"]
-    },
-    "fixer_agent": {
-      "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
-      "file_read": ["**"],
-      "bash": ["npm test", "pytest", "python", "yarn test", "make test", "shasum", "sha256sum"]
-    }
   },
   "gates": {
     "require_approval_before_commit": true,

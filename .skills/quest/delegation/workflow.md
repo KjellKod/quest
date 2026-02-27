@@ -21,6 +21,25 @@ Before Step 4 (Build Phase), the orchestrator and all agents MUST NOT edit sourc
 - Any implementation request received before Build must be captured as plan feedback (`.quest/<id>/phase_01_plan/user_feedback.md`) and deferred to Step 4.
 - If any pre-Build action would modify non-`.quest/**` files, STOP and ask the user whether to proceed to Build first.
 
+### Runtime Detection
+
+The orchestrator detects the current runtime at startup and reads dispatch config from `.ai/allowlist.json`:
+
+1. **Detection order:**
+   - If `.opencode/` directory exists and the orchestrator is running inside OpenCode: runtime = `opencode`
+   - If the environment is Codex (e.g., `spawn_agent`/`worker` tools available): runtime = `codex`
+   - Otherwise: runtime = `claude` (default)
+
+2. **Dispatch lookup:**
+   - Read `model_routing[<runtime>]` from `.ai/allowlist.json` for each slot
+   - For each slot, use the `tool`, `subagent`, `tier`, and/or `model` fields to determine how to invoke
+   - If `tool == "task"`: invoke `Task(subagent_type=<subagent>)`
+   - If `tool == "mcp"`: invoke `mcp__<server>__<server>(model=<model>)`
+   - If `tier` is set: resolve the concrete model via `model_tiers[<runtime>][<tier>]`
+   - If `model` is set explicitly: use that model directly (overrides tier)
+
+3. **Permissions** always come from `role_permissions` in the allowlist (shared across all runtimes).
+
 ### Context Retention Rule
 
 After every subagent invocation (`Task` or `mcp__codex__codex`), the orchestrator retains ONLY:
@@ -71,11 +90,11 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 
 **Format:**
 ```
-<timestamp> | phase=<phase> | agent=<agent_name> | runtime=claude|codex | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback
+<timestamp> | phase=<phase> | agent=<agent_name> | runtime=claude|opencode|codex | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback
 ```
 
 Use `plan_iteration` for plan/plan_review phases, `fix_iteration` for code_review/fix phases, and `1` for build (single pass).
-Set `runtime` to the runtime actually used for that invocation (`claude` or `codex`).
+Set `runtime` to the runtime actually used for that invocation (as detected via Runtime Detection above: `claude`, `opencode`, or `codex`).
 Never infer runtime from the agent label/name (for example `slot_a_claude`); labels are role identifiers, not backend evidence.
 
 Runtime attribution rule (authoritative):
@@ -155,7 +174,7 @@ gates.max_plan_iterations (default: 4)
 
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
-2. **Invoke Planner** (Claude `Task(subagent_type="planner")`):
+2. **Invoke Planner** (dispatch via `model_routing[runtime].planner`):
    - Prompt: Reference file paths only, do not embed artifact content:
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Arbiter verdict (iteration 2+): `.quest/<id>/phase_01_plan/arbiter_verdict.md`
@@ -176,19 +195,23 @@ gates.max_plan_iterations (default: 4)
    - `codex_context_digest_path` (default: `.ai/context_digest.md`)
    - For plan review: treat `auto` as `full`. Use `fast` only if explicitly set.
 
-4. **Invoke BOTH Plan Reviewers IN PARALLEL** (same message, one Task call + one Codex call):
+4. **Invoke BOTH Plan Reviewers IN PARALLEL** (same message, two dispatch calls):
 
-   Two different models review independently for model diversity:
-   - **Slot A** (Claude): `Task(subagent_type="plan-reviewer")` → `.quest/<id>/phase_01_plan/review_claude.md`
-   - **Slot B** (Codex): `mcp__codex__codex` → `.quest/<id>/phase_01_plan/review_codex.md`
+   Two different models review independently for model diversity. Resolve each slot from `model_routing[runtime]`:
+   - **Slot A**: dispatch via `model_routing[runtime].reviewer_a` → `.quest/<id>/phase_01_plan/review_claude.md`
+   - **Slot B**: dispatch via `model_routing[runtime].reviewer_b` → `.quest/<id>/phase_01_plan/review_codex.md`
 
-   **Slot A — Claude Task agent** (full and fast modes):
+   For each slot, read the routing config and invoke accordingly:
+   - If `tool == "task"`: `Task(subagent_type: <subagent>, ...)`
+   - If `tool == "mcp"`: `mcp__<server>__<server>(model: <model>, ...)`
+   - If `tier` is set: resolve model via `model_tiers[runtime][tier]`
+
+   **Slot A** (full and fast modes):
 
    **Full mode** (default for plan review):
    ```
-   Task(
-     subagent_type: "plan-reviewer",
-     prompt: "You are the Plan Review Agent (Claude).
+   Dispatch via model_routing[runtime].reviewer_a:
+     prompt: "You are the Plan Review Agent (Slot A).
 
      Read your instructions: .skills/quest/agents/plan-reviewer.md
      Read context digest: <codex_context_digest_path>
@@ -202,13 +225,11 @@ gates.max_plan_iterations (default: 4)
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
-   )
    ```
    **Fast mode** (only if `review_mode: fast`):
    ```
-   Task(
-     subagent_type: "plan-reviewer",
-     prompt: "You are the Plan Review Agent (Claude).
+   Dispatch via model_routing[runtime].reviewer_a:
+     prompt: "You are the Plan Review Agent (Slot A).
 
      Read context digest: <codex_context_digest_path>
      Quest brief: .quest/<id>/quest_brief.md
@@ -220,16 +241,14 @@ gates.max_plan_iterations (default: 4)
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
-   )
    ```
 
-   **Slot B — Codex MCP** (full and fast modes):
+   **Slot B** (full and fast modes):
 
    **Full mode** (default for plan review):
    ```
-   mcp__codex__codex(
-     model: "gpt-5.3-codex",
-     prompt: "You are the Plan Review Agent (Codex).
+   Dispatch via model_routing[runtime].reviewer_b:
+     prompt: "You are the Plan Review Agent (Slot B).
 
      Read your instructions: .skills/quest/agents/plan-reviewer.md
      Read context digest: <codex_context_digest_path>
@@ -243,13 +262,11 @@ gates.max_plan_iterations (default: 4)
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
-   )
    ```
    **Fast mode** (only if `review_mode: fast`):
    ```
-   mcp__codex__codex(
-     model: "gpt-5.3-codex",
-     prompt: "You are the Plan Review Agent (Codex).
+   Dispatch via model_routing[runtime].reviewer_b:
+     prompt: "You are the Plan Review Agent (Slot B).
 
      Read context digest: <codex_context_digest_path>
      Quest brief: .quest/<id>/quest_brief.md
@@ -261,7 +278,6 @@ gates.max_plan_iterations (default: 4)
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
-   )
    ```
    - **Before issuing the calls**, record the current wall-clock time as `dispatch_start`
    - Issue BOTH calls in the SAME message for parallel execution
@@ -279,7 +295,7 @@ gates.max_plan_iterations (default: 4)
       ```
       The wall-clock duration covers both agents. Since both calls are issued in the same message, they run concurrently by construction. Agent self-reported timestamps are unreliable and must NOT be used for parallelism verification.
 
-5. **Invoke Arbiter** (Claude `Task(subagent_type="arbiter")`):
+5. **Invoke Arbiter** (dispatch via `model_routing[runtime].arbiter`):
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -415,7 +431,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 2. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
-3. **Invoke Builder** (Claude `Task(subagent_type="builder")`):
+3. **Invoke Builder** (dispatch via `model_routing[runtime].builder`):
    - Prompt: Reference file paths only, do not embed content:
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
      - Quest brief: `.quest/<id>/quest_brief.md`
@@ -454,19 +470,23 @@ After plan approval, present the plan interactively before proceeding to build.
      - If file_count ≤ max_files AND loc_total ≤ max_loc → **fast**
      - Otherwise → **full**
 
-4. **Invoke BOTH Code Reviewers IN PARALLEL** (same message, one Task call + one Codex call):
+4. **Invoke BOTH Code Reviewers IN PARALLEL** (same message, two dispatch calls):
 
-   Two different models review independently for model diversity:
-   - **Slot A** (Claude): `Task(subagent_type="code-reviewer")` → `.quest/<id>/phase_03_review/review_claude.md`
-   - **Slot B** (Codex): `mcp__codex__codex` → `.quest/<id>/phase_03_review/review_codex.md`
+   Two different models review independently for model diversity. Resolve each slot from `model_routing[runtime]`:
+   - **Slot A**: dispatch via `model_routing[runtime].code_reviewer_a` → `.quest/<id>/phase_03_review/review_claude.md`
+   - **Slot B**: dispatch via `model_routing[runtime].code_reviewer_b` → `.quest/<id>/phase_03_review/review_codex.md`
 
-   **Slot A — Claude Task agent** (full and fast modes):
+   For each slot, read the routing config and invoke accordingly:
+   - If `tool == "task"`: `Task(subagent_type: <subagent>, ...)`
+   - If `tool == "mcp"`: `mcp__<server>__<server>(model: <model>, ...)`
+   - If `tier` is set: resolve model via `model_tiers[runtime][tier]`
+
+   **Slot A** (full and fast modes):
 
    **Full mode**:
    ```
-   Task(
-     subagent_type: "code-reviewer",
-     prompt: "You are the Code Review Agent (Claude).
+   Dispatch via model_routing[runtime].code_reviewer_a:
+     prompt: "You are the Code Review Agent (Slot A).
 
      Read your instructions: .skills/quest/agents/code-reviewer.md
      Read context digest: <codex_context_digest_path>
@@ -484,13 +504,11 @@ After plan approval, present the plan interactively before proceeding to build.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
-   )
    ```
    **Fast mode**:
    ```
-   Task(
-     subagent_type: "code-reviewer",
-     prompt: "You are the Code Review Agent (Claude).
+   Dispatch via model_routing[runtime].code_reviewer_a:
+     prompt: "You are the Code Review Agent (Slot A).
 
      Read context digest: <codex_context_digest_path>
      Quest: .quest/<id>/quest_brief.md
@@ -506,16 +524,14 @@ After plan approval, present the plan interactively before proceeding to build.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
-   )
    ```
 
-   **Slot B — Codex MCP** (full and fast modes):
+   **Slot B** (full and fast modes):
 
    **Full mode**:
    ```
-   mcp__codex__codex(
-     model: "gpt-5.3-codex",
-     prompt: "You are the Code Review Agent (Codex).
+   Dispatch via model_routing[runtime].code_reviewer_b:
+     prompt: "You are the Code Review Agent (Slot B).
 
      Read your instructions: .skills/quest/agents/code-reviewer.md
      Read context digest: <codex_context_digest_path>
@@ -533,13 +549,11 @@ After plan approval, present the plan interactively before proceeding to build.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
-   )
    ```
    **Fast mode**:
    ```
-   mcp__codex__codex(
-     model: "gpt-5.3-codex",
-     prompt: "You are the Code Review Agent (Codex).
+   Dispatch via model_routing[runtime].code_reviewer_b:
+     prompt: "You are the Code Review Agent (Slot B).
 
      Read context digest: <codex_context_digest_path>
      Quest: .quest/<id>/quest_brief.md
@@ -555,7 +569,6 @@ After plan approval, present the plan interactively before proceeding to build.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
-   )
    ```
    - **Note:** The `<file list>` and `<git diff --stat>` values embedded in these prompts are intentional small metadata (summary statistics and file names, typically a few lines). This is operational data for scoping the review, not subagent artifact content, and does not conflict with the Context Retention Rule.
    - **Before issuing the calls**, record the current wall-clock time as `dispatch_start`
@@ -601,7 +614,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `phase: fixing`, `fix_iteration += 1`, `last_role: fixer_agent`
 
-2. **Invoke Fixer** (Claude `Task(subagent_type="fixer")`):
+2. **Invoke Fixer** (dispatch via `model_routing[runtime].fixer`):
    - Prompt: Reference file paths only, do not embed content:
      - Code review A: `.quest/<id>/phase_03_review/review_claude.md`
      - Code review B: `.quest/<id>/phase_03_review/review_codex.md`
@@ -824,19 +837,23 @@ If any agent returns `STATUS: needs_human`:
 
 ### Agent-to-Tool Mapping
 
-| Role | Tool | Model |
-|------|------|-------|
-| Planner | `Task(subagent_type="planner")` | Claude |
-| Plan Reviewer Slot A | `Task(subagent_type="plan-reviewer")` | Claude |
-| Plan Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Arbiter | `Task(subagent_type="arbiter")` | Claude |
-| Builder | `Task(subagent_type="builder")` | Claude |
-| Code Reviewer Slot A | `Task(subagent_type="code-reviewer")` | Claude |
-| Code Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Fixer | `Task(subagent_type="fixer")` | Claude |
+Dispatch for each slot is determined by `model_routing[runtime]` in `.ai/allowlist.json`. The table below shows the slot names and their default routing for the `claude` runtime:
 
-**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Claude) synthesizes both reviews.
-This table shows default intent, not guaranteed runtime per environment. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
+| Slot | Default Tool (claude runtime) | Subagent |
+|------|------|-------|
+| `planner` | `Task(subagent_type="planner")` | planner |
+| `reviewer_a` | `Task(subagent_type="plan-reviewer")` | plan-reviewer |
+| `reviewer_b` | `mcp__codex__codex` | plan-reviewer |
+| `arbiter` | `Task(subagent_type="arbiter")` | arbiter |
+| `builder` | `Task(subagent_type="builder")` | builder |
+| `code_reviewer_a` | `Task(subagent_type="code-reviewer")` | code-reviewer |
+| `code_reviewer_b` | `mcp__codex__codex` | code-reviewer |
+| `fixer` | `Task(subagent_type="fixer")` | fixer |
+
+For other runtimes (`opencode`, `codex`), read `model_routing[runtime]` to determine the tool, subagent, tier, and/or model for each slot.
+
+**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter synthesizes both reviews.
+This table shows default intent for the `claude` runtime, not guaranteed runtime per environment. If roles are executed through different tools, runtime attribution in `context_health.log` must record the actual runtime used.
 
 ### Codex MCP Prompt Pattern
 

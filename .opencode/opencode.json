@@ -1,0 +1,85 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-opus-4-5-20251101",
+  "small_model": "anthropic/claude-haiku-4-5-20250307",
+  "agent": {
+    "quest": {
+      "description": "Quest orchestration agent - manages multi-agent workflow",
+      "mode": "primary",
+      "prompt": "{file:.opencode/skills/quest/SKILL.md}",
+      "task_budget": 20,
+      "permission": {
+        "task": {
+          "planner": "allow",
+          "plan-reviewer": "allow",
+          "builder": "allow",
+          "code-reviewer": "allow",
+          "arbiter": "allow",
+          "fixer": "allow"
+        }
+      }
+    },
+    "planner": {
+      "description": "Creates implementation plans",
+      "mode": "subagent",
+      "prompt": "{file:.opencode/agents/planner.md}"
+    },
+    "plan-reviewer": {
+      "description": "Reviews implementation plans",
+      "mode": "subagent",
+      "prompt": "{file:.opencode/agents/plan-reviewer.md}"
+    },
+    "builder": {
+      "description": "Implements features",
+      "mode": "subagent",
+      "prompt": "{file:.opencode/agents/builder.md}"
+    },
+    "code-reviewer": {
+      "description": "Reviews code changes",
+      "mode": "subagent",
+      "prompt": "{file:.opencode/agents/code-reviewer.md}"
+    },
+    "arbiter": {
+      "description": "Synthesizes reviews, makes decisions",
+      "mode": "subagent",
+      "prompt": "{file:.opencode/agents/arbiter.md}"
+    },
+    "fixer": {
+      "description": "Addresses review feedback",
+      "mode": "subagent",
+      "prompt": "{file:.opencode/agents/fixer.md}"
+    }
+  },
+  "command": {
+    "quest": {
+      "description": "Run Quest multi-agent orchestration",
+      "agent": "quest",
+      "subtask": true
+    },
+    "plan": {
+      "description": "Create implementation plan",
+      "agent": "planner",
+      "subtask": true
+    },
+    "review-plan": {
+      "description": "Review implementation plan",
+      "agent": "plan-reviewer",
+      "subtask": true
+    },
+    "build": {
+      "description": "Implement the plan",
+      "agent": "builder",
+      "subtask": true
+    },
+    "review-code": {
+      "description": "Review code implementation",
+      "agent": "code-reviewer",
+      "subtask": true
+    },
+    "fix": {
+      "description": "Fix review issues",
+      "agent": "fixer",
+      "subtask": true
+    }
+  }
+}
