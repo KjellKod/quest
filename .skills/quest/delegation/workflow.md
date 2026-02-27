@@ -25,10 +25,12 @@ Before Step 4 (Build Phase), the orchestrator and all agents MUST NOT edit sourc
 
 The orchestrator detects the current runtime at startup and reads dispatch config from `.ai/allowlist.json`:
 
-1. **Detection order:**
-   - If `.opencode/` directory exists and the orchestrator is running inside OpenCode: runtime = `opencode`
-   - If the environment is Codex (e.g., `spawn_agent`/`worker` tools available): runtime = `codex`
-   - Otherwise: runtime = `claude` (default)
+1. **Detection order** (check the orchestrator itself, not the repo contents):
+   - If the orchestrator was invoked by OpenCode (the `task` tool uses agent names from `.opencode/agents/`, or the `OPENCODE` environment variable is set): runtime = `opencode`
+   - If the orchestrator was invoked by Codex (e.g., `spawn_agent`/`worker` tools available, or running inside `$quest`): runtime = `codex`
+   - Otherwise (Claude Code `Task(subagent_type=...)`, `/quest` command): runtime = `claude` (default)
+
+   **Important:** Do NOT use the presence of `.opencode/` directory as a detection signal — the installer creates it in all repos regardless of which CLI is in use. Detection must be based on which CLI is actually executing the orchestration.
 
 2. **Dispatch lookup:**
    - Read `model_routing[<runtime>]` from `.ai/allowlist.json` for each slot

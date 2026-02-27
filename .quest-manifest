@@ -38,6 +38,14 @@
 .claude/skills/quest/SKILL.md
 .claude/AGENTS.md
 .codex/AGENTS.md
+.opencode/agents/arbiter.md
+.opencode/agents/builder.md
+.opencode/agents/code-reviewer.md
+.opencode/agents/fixer.md
+.opencode/agents/plan-reviewer.md
+.opencode/agents/planner.md
+.opencode/commands/quest.md
+.opencode/skills/quest/SKILL.md
 .agents/skills/quest/SKILL.md
 .skills/BOOTSTRAP.md
 .skills/README.md
@@ -62,6 +70,7 @@ scripts/validate-handoff-contracts.sh
 # These files are NEVER overwritten - upstream changes create .quest_updated suffix
 .ai/allowlist.json
 .ai/context_digest.md
+.opencode/opencode.json
 
 [merge-carefully]
 # These files prompt for merge if they exist locally

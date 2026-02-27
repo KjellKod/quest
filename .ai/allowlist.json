@@ -86,9 +86,9 @@
   },
   "model_tiers": {
     "opencode": {
-      "quick": "anthropic/claude-haiku-4-5-20250307",
-      "standard": "anthropic/claude-sonnet-4-5-20251101",
-      "advanced": "anthropic/claude-opus-4-5-20251101"
+      "quick": "opencode/gpt-5-nano",
+      "standard": "opencode/kimi-k2.5-free",
+      "advanced": "opencode/big-pickle"
     }
   },
   "review_mode": "auto",
