@@ -677,7 +677,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
    Then display a brief reflection, split by runtime and role:
    - Count entries with `source=handoff_json` vs `source=text_fallback`
-   - Split by runtime using the `runtime=claude|codex` field from each log line
+   - Split by runtime using the `runtime=claude|codex|opencode` field from each log line
    - Runtime counts must come from logged runtime values only; do not infer runtime from role names.
    - Also split by role instance using `(phase, agent)` pairs (do NOT key by `agent` alone):
      - Planner = `(phase=plan, agent=planner)`
@@ -856,7 +856,7 @@ The orchestrator identifies its runtime to select the correct tool invocation pa
 - **Codex**: Has `spawn_agent`/`worker`/`explorer` tools
 - **OpenCode**: Has `task` tool referencing agents defined in `.opencode/agents/`
 
-Use `model_routing[<detected_runtime>]` from allowlist.json for model selection.
+Use `model_routing[<detected_runtime>]` from allowlist.json as advisory defaults for model selection. Runtime-specific configs (e.g., `.opencode/opencode.json` agent `model` fields, Claude `model_overrides`) are authoritative — they determine what actually runs. `model_routing` documents intent; runtime configs execute it.
 
 ### Codex MCP Prompt Pattern
 

@@ -287,6 +287,31 @@ validate_opencode() {
   else
     fail ".opencode/agents/ has $agent_count agent files (expected 6)"
   fi
+
+  # Check for model drift between allowlist model_routing.opencode and opencode.json
+  if command -v jq &>/dev/null; then
+    local allowlist="$REPO_ROOT/.ai/allowlist.json"
+    local ocjson="$REPO_ROOT/.opencode/opencode.json"
+    if jq -e '.model_routing.opencode' "$allowlist" &>/dev/null; then
+      local drift=false
+      local role model_routing model_oc
+      for role in planner plan-reviewer arbiter builder code-reviewer fixer; do
+        # model_routing uses underscores for multi-word keys
+        local routing_key
+        routing_key=$(echo "$role" | tr '-' '_')
+        # plan-reviewer -> reviewer_a in model_routing (simplified: just check planner/builder/arbiter/fixer)
+        model_routing=$(jq -r ".model_routing.opencode.${routing_key} // empty" "$allowlist" 2>/dev/null)
+        model_oc=$(jq -r ".agents.\"${role}\".model // empty" "$ocjson" 2>/dev/null)
+        if [ -n "$model_routing" ] && [ -n "$model_oc" ] && [ "$model_routing" != "$model_oc" ]; then
+          echo -e "${GREEN}[WARN]${NC} Model drift: allowlist model_routing.opencode.${routing_key}=${model_routing} != opencode.json ${role}=${model_oc}"
+          drift=true
+        fi
+      done
+      if [ "$drift" = false ]; then
+        pass "No model drift between allowlist model_routing.opencode and opencode.json"
+      fi
+    fi
+  fi
 }
 
 echo "=== Quest Configuration Validation ==="

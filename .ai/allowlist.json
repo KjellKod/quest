@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "description": "Creator-managed permissions for quest orchestration. Edit this file to pre-approve or restrict quest agent actions. Changes take effect on next quest run.",
+  "description": "Creator-managed permissions for quest orchestration. Edit this file to pre-approve or restrict quest agent actions. Changes take effect on next quest run. model_routing documents advisory defaults per runtime; runtime-specific configs (.opencode/opencode.json, Claude model_overrides) are authoritative.",
   "auto_approve_phases": {
     "plan_creation": true,
     "plan_review": true,

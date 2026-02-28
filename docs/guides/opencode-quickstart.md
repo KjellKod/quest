@@ -29,7 +29,7 @@ OpenCode is an open-source terminal-based AI coding assistant. Quest integrates 
 | gpt-5-nano | Secondary | Active |
 | kimi-k2.5-free | -- | Expired |
 
-Model assignments are configured in `.ai/allowlist.json` under `model_routing.opencode`.
+Model defaults are documented in `.ai/allowlist.json` under `model_routing.opencode`. The authoritative model assignments live in `.opencode/opencode.json` (per-agent `model` fields) — that's what OpenCode actually uses at runtime.
 
 ## Setup
 
