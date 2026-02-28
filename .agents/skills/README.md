@@ -1,5 +1,5 @@
-# Skills Bootstrap Note
-
-More repository skills are defined under `.skills/`.
-Review the `.skills/` directory for improved skill usage
+---
+name: README.md
+description: This directory has information about the `quest` skill. For more available skills, see this repository's root directory in `.skills`
+---
 

@@ -25,36 +25,9 @@ This document defines the coding conventions and architecture boundaries for thi
 - Don't add "improvements" that weren't requested
 - Test real logic, skip trivial code (getters, imports, types)
 
-## Architecture Boundaries
-
-Customize this section for your project. Define what each directory/module is responsible for:
-
-```
-src/           # Application source code
-  components/  # UI components (if applicable)
-  services/    # Business logic and external integrations
-  utils/       # Shared utility functions
-lib/           # Shared libraries
-tests/         # Test files
-  unit/        # Unit tests
-  integration/ # Integration tests
-scripts/       # Build and utility scripts
-docs/          # Documentation
-  architecture/    # System design docs
-  implementation/  # Active and historical plans
-  guides/          # How-to guides
-```
-
-### Boundary Rules (customize for your project)
-
-1. **Components** only handle UI rendering and local state
-2. **Services** handle business logic and external API calls
-3. **Utils** are pure functions with no side effects
-4. **Tests** mock at service boundaries, not internal logic
-
 ## Testing Expectations
 
-- Bug fixes use TDD when practical (red → green → verify)
+- Bug fixes: add a test that reproduces the bug (fails first), fix the code without changing that test, then re-run it to verify it passes.
 - Unit tests in `tests/unit/`, integration tests in `tests/integration/`
 - Mock at boundaries (APIs, DBs, I/O), not internal logic
 - Test names describe behavior: `test_create_user_when_email_invalid_returns_400()`
@@ -82,6 +55,17 @@ This repository uses the `/quest` command for multi-agent feature development:
 
 See `.ai/quest.md` for full documentation.
 
+### Skills Discovery READ THIS
+Check this location for available skills. 
+1. `.skills` --> see .skills/SKILLS.md
+2. `.agents/skills/`
+
+### Skills Source of Truth & Precedence
+- Before starting any task, inspect `.skills/SKILLS.md` and `.agents/skills/` for available skills
+- Repo-local skill definitions are authoritative
+- Preloaded or session-provided skill lists are hints/fallbacks, not source of truth
+- If sources disagree, report the mismatch explicitly and follow repo-local definitions
+
 ### Allowlist Configuration
 
 Customize `.ai/allowlist.json` for your project's:
@@ -94,7 +78,7 @@ Customize `.ai/allowlist.json` for your project's:
 | Topic | Location |
 |-------|----------|
 | Quest orchestration | `.ai/quest.md` |
-| Available skills | `.skills/SKILLS.md` |
+| SKILLs directory  | `.skills/SKILLS.md` |
 | Quest setup guide | `docs/guides/quest_setup.md` |
 | Architecture | `docs/architecture/` (if present) |
 
