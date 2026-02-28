@@ -6,12 +6,12 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 ## Instances
 
 ### Plan Review Slot A (Reviewer A)
-- **Tool:** Claude (`Task(subagent_type="plan-reviewer")`), Codex (`mcp__codex__codex`), or OpenCode (`task(agent="plan-reviewer")`)
+- **Tool:** Claude (`Task(subagent_type="plan-reviewer")`), Codex (`mcp__codex__codex`), or OpenCode (`task(agent="plan-reviewer-a")`)
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_reviewer_a.md`
 - **Perspective:** Independent first pass on the plan.
 
 ### Plan Review Slot B (Reviewer B)
-- **Tool:** Codex (`mcp__codex__codex`), or OpenCode (`task(agent="plan-reviewer")` with different model)
+- **Tool:** Codex (`mcp__codex__codex`), or OpenCode (`task(agent="plan-reviewer-b")`)
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_reviewer_b.md`
 - **Perspective:** Independent second pass on the same plan (different model family).
 

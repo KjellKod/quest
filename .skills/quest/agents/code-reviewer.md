@@ -6,12 +6,12 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 ## Instances
 
 ### Code Review Slot A (Reviewer A)
-- **Tool:** Claude (`Task(subagent_type="code-reviewer")`), Codex (`mcp__codex__codex`), or OpenCode (`task(agent="code-reviewer")`)
+- **Tool:** Claude (`Task(subagent_type="code-reviewer")`), Codex (`mcp__codex__codex`), or OpenCode (`task(agent="code-reviewer-a")`)
 - **Artifact path:** `.quest/<id>/phase_03_review/review_reviewer_a.md`
 - **Perspective:** Independent first pass on the implementation diff.
 
 ### Code Review Slot B (Reviewer B)
-- **Tool:** Codex (`mcp__codex__codex`), or OpenCode (`task(agent="code-reviewer")` with different model)
+- **Tool:** Codex (`mcp__codex__codex`), or OpenCode (`task(agent="code-reviewer-b")`)
 - **Artifact path:** `.quest/<id>/phase_03_review/review_reviewer_b.md`
 - **Perspective:** Independent second pass on the same implementation diff (different model family).
 
