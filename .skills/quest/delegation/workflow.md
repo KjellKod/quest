@@ -48,7 +48,11 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 2. Read the expected `handoff.json` file (tiny JSON, ~200 bytes)
 3. Use its `status`, `next`, `summary`, and `artifacts` fields for routing and user display
 4. Discard the full agent response -- do not retain, summarize, or process it
-5. **Fallback:** If handoff.json does not exist or cannot be parsed as valid JSON, parse the text `---HANDOFF---` block from the response (backward compatibility)
+5. **Deterministic precedence for missing/unparsable handoff.json:**
+   - **Claude invocation (Task):** If `handoff.json` is missing/unparsable, parse text `---HANDOFF---` as fallback.
+   - **Codex invocation (`mcp__codex__codex`):** Missing/unparsable `handoff.json` is non-compliant. Re-run the same Codex role once with a strict reminder.
+   - If the second Codex attempt is still non-compliant, missing/unparsable handoff, or `blocked`, invoke the equivalent Claude `Task` fallback for that step.
+   - Only after this retry/fallback chain, if the final attempt still has no parseable `handoff.json`, parse text `---HANDOFF---` as last-resort compatibility fallback.
 
 **Expected handoff.json locations:**
 
@@ -71,10 +75,11 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 - Codex must not ask the user questions and must not return `STATUS: needs_human`.
 - If context is incomplete, Codex makes explicit assumptions in the artifact and continues.
 - If it cannot proceed safely, Codex returns `STATUS: blocked` with a concrete reason.
-- Orchestrator handling for Codex `needs_human`/non-compliant output:
+- Orchestrator handling for Codex `needs_human`/non-compliant output and missing/unparsable handoff:
   1. Re-invoke the same Codex role once with a strict reminder: "no questions, no `needs_human`, make explicit assumptions."
-  2. If the second attempt is still non-compliant, missing handoff, or blocked, fall back to the equivalent Claude `Task` role for that step.
-  3. Only enter human Q&A if the Claude fallback returns `STATUS: needs_human`.
+  2. If the second attempt is still non-compliant, missing/unparsable handoff, or `blocked`, fall back to the equivalent Claude `Task` role for that step.
+  3. Only after retry + Claude fallback may text `---HANDOFF---` parsing be used as a last-resort compatibility path.
+  4. Only enter human Q&A if the Claude fallback returns `STATUS: needs_human`.
 
 **MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions. Create the `.quest/<id>/logs/` directory first if it does not exist.
 
@@ -280,7 +285,9 @@ gates.max_plan_iterations (default: 4)
    - Record the current wall-clock time as `dispatch_end`
    - Read `.quest/<id>/phase_01_plan/handoff_claude.json` and `handoff_codex.json`
    - Verify both review files exist (from handoff.artifacts)
-   - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
+   - Apply deterministic precedence from **Handoff File Polling**:
+     - Claude slot may use direct text fallback when handoff.json is missing/unparsable.
+     - Codex slot must retry once, then Claude fallback, before any text fallback routing.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -434,6 +441,7 @@ After plan approval, present the plan interactively before proceeding to build.
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
      - Quest brief: `.quest/<id>/quest_brief.md`
    - Require the prompt to include:
+     - If using Codex path: `Read your instructions: .skills/quest/agents/builder.md`
      - Write output artifacts under: `.quest/<id>/phase_02_implementation/`
      - Write handoff file to: `.quest/<id>/phase_02_implementation/handoff.json` with schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
@@ -441,11 +449,11 @@ After plan approval, present the plan interactively before proceeding to build.
    - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_02_implementation/handoff.json` for status/routing
    - Verify artifacts written (from handoff.artifacts)
-   - Fallback: if handoff.json missing or unparsable, parse text handoff from response
-   - If Codex path returns `needs_human`, malformed handoff, or `blocked`:
+   - If Codex path returns `needs_human`, malformed output, missing/unparsable handoff, or `blocked`:
      1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
      2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="builder")`) with the same artifact-path contract.
      3. Only ask the user questions if the Claude fallback returns `needs_human`.
+   - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
 4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
 
@@ -584,7 +592,9 @@ After plan approval, present the plan interactively before proceeding to build.
    - Record the current wall-clock time as `dispatch_end`
    - Read `.quest/<id>/phase_03_review/handoff_claude.json` and `handoff_codex.json`
    - Verify both review files exist (from handoff.artifacts)
-   - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
+   - Apply deterministic precedence from **Handoff File Polling**:
+     - Claude slot may use direct text fallback when handoff.json is missing/unparsable.
+     - Codex slot must retry once, then Claude fallback, before any text fallback routing.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -597,14 +607,14 @@ After plan approval, present the plan interactively before proceeding to build.
 5. **Check verdicts via handoff.json (with fallback):**
    - For each reviewer slot, use the `next` value obtained in step 4:
      - If handoff.json was successfully read → use its `next` and `summary` fields
-     - If fallback was triggered (handoff.json missing or unparsable) → use the `NEXT` and `SUMMARY` values parsed from the text `---HANDOFF---` block in step 4
+     - If fallback was triggered after applying deterministic precedence (retry/fallback chain) → use `NEXT` and `SUMMARY` from parsed text `---HANDOFF---`
    - If EITHER slot has `next: "fixer"` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> fixing` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Issues found, proceed to Step 6
    - If BOTH have `next: null` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Review passed! Update state: `phase: complete`, go to Step 7
    - Present summaries to user:
      ```
      Review complete:
-       Claude: "<summary from handoff or text fallback>"
-       Codex: "<summary from handoff or text fallback>"
+       Claude: "<summary from handoff or fallback>"
+       Codex: "<summary from handoff or fallback (after retry/fallback precedence)>"
      Full reviews at: .quest/<id>/phase_03_review/review_claude.md, .quest/<id>/phase_03_review/review_codex.md
      ```
    - Do NOT read the full review files for routing or status display
@@ -632,17 +642,18 @@ After plan approval, present the plan interactively before proceeding to build.
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Plan: `.quest/<id>/phase_01_plan/plan.md`
    - Require the prompt to include:
+     - If using Codex path: `Read your instructions: .skills/quest/agents/fixer.md`
      - Write feedback to: `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md`
      - Write handoff file to: `.quest/<id>/phase_03_review/handoff_fixer.json` with schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: code_review`
    - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
-   - Fallback: if handoff.json missing or unparsable, parse text handoff from response
-   - If Codex path returns `needs_human`, malformed handoff, or `blocked`:
+   - If Codex path returns `needs_human`, malformed output, missing/unparsable handoff, or `blocked`:
      1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
      2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="fixer")`) with the same artifact-path contract.
      3. Only ask the user questions if the Claude fallback returns `needs_human`.
+   - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
 3. **Clear stale handoff files:** Delete any existing `handoff_claude.json` and `handoff_codex.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
 
@@ -651,7 +662,7 @@ After plan approval, present the plan interactively before proceeding to build.
 5. **Re-invoke BOTH Code Reviewers** (same as Step 5)
 
 6. **Check verdict (with fallback):**
-   - For each reviewer slot, use the `next` value obtained in step 5 (from handoff.json if available, or text fallback if not)
+   - For each reviewer slot, use the `next` value obtained in step 5 (handoff.json preferred; text fallback only after deterministic precedence)
    - If BOTH have `next: null` → Fixed!
      - **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
      - Proceed to Step 7
