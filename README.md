@@ -148,7 +148,7 @@ If you skip this, Quest will use Claude for all roles (still works, just single-
 
 ## OpenCode
 
-Quest can run from the OpenCode runtime using the `$quest` command. OpenCode uses different models (e.g., big-pickle, minimax) as agents.
+Quest can run from the OpenCode runtime using the `/quest` command. OpenCode uses different models (e.g., big-pickle, minimax) as agents.
 
 ### Prerequisites
 
@@ -167,10 +167,10 @@ opencode
 
 ```bash
 # Run Quest from OpenCode
-$quest "Add a loading skeleton to the user list"
+/quest "Add a loading skeleton to the user list"
 
 # Resume a previous quest
-$quest feature-x_2026-02-27__1200
+/quest feature-x_2026-02-27__1200
 ```
 
 For detailed instructions, see [OpenCode Quickstart Guide](docs/guides/opencode-quickstart.md).

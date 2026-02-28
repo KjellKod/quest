@@ -35,8 +35,8 @@ cp -r .opencode/ /path/to/your-repo/
 # Start OpenCode in your repository
 opencode
 
-# Quest should be available via $quest command
-$quest "your task description"
+# Quest should be available via /quest command
+/quest "your task description"
 ```
 
 ## Directory Structure
@@ -57,7 +57,7 @@ The `.opencode/` directory contains:
 │   └── quest/
 │       └── SKILL.md  # Quest orchestration skill
 └── commands/          # Command definitions
-    └── quest.md       # $quest command definition
+    └── quest.md       # /quest command definition
 ```
 
 ## Running Your First Quest
@@ -73,13 +73,13 @@ opencode
 
 ```bash
 # Basic quest
-$quest "Add a loading skeleton to the user list"
+/quest "Add a loading skeleton to the user list"
 
 # With specific requirements
-$quest "Add dark mode that persists in localStorage"
+/quest "Add dark mode that persists in localStorage"
 
 # Resume a previous quest
-$quest feature-x_2026-02-27__1200
+/quest feature-x_2026-02-27__1200
 ```
 
 ### Step 3: Human Approval Gates
