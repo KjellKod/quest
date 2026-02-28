@@ -53,10 +53,12 @@ scripts/validate-manifest.sh
 scripts/validate-handoff-contracts.sh
 .opencode/opencode.json
 .opencode/agents/planner.md
-.opencode/agents/plan-reviewer.md
+.opencode/agents/plan-reviewer-a.md
+.opencode/agents/plan-reviewer-b.md
 .opencode/agents/arbiter.md
 .opencode/agents/builder.md
-.opencode/agents/code-reviewer.md
+.opencode/agents/code-reviewer-a.md
+.opencode/agents/code-reviewer-b.md
 .opencode/agents/fixer.md
 .opencode/commands/quest.md
 .opencode/skills/quest/SKILL.md

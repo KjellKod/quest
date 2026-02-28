@@ -289,21 +289,29 @@ validate_opencode() {
   fi
 
   # Check for model drift between allowlist model_routing.opencode and opencode.json
+  # Maps allowlist role keys to opencode.json agent keys
   if command -v jq &>/dev/null; then
     local allowlist="$REPO_ROOT/.ai/allowlist.json"
     local ocjson="$REPO_ROOT/.opencode/opencode.json"
     if jq -e '.model_routing.opencode' "$allowlist" &>/dev/null; then
       local drift=false
-      local role model_routing model_oc
-      for role in planner plan-reviewer arbiter builder code-reviewer fixer; do
-        # model_routing uses underscores for multi-word keys
-        local routing_key
-        routing_key=$(echo "$role" | tr '-' '_')
-        # plan-reviewer -> reviewer_a in model_routing (simplified: just check planner/builder/arbiter/fixer)
+      # Format: "routing_key:agent_key"
+      local mapping
+      for mapping in \
+        "planner:planner" \
+        "reviewer_a:plan-reviewer-a" \
+        "reviewer_b:plan-reviewer-b" \
+        "builder:builder" \
+        "code_reviewer_a:code-reviewer-a" \
+        "code_reviewer_b:code-reviewer-b" \
+        "arbiter:arbiter"; do
+        local routing_key="${mapping%%:*}"
+        local agent_key="${mapping##*:}"
+        local model_routing model_oc
         model_routing=$(jq -r ".model_routing.opencode.${routing_key} // empty" "$allowlist" 2>/dev/null)
-        model_oc=$(jq -r ".agents.\"${role}\".model // empty" "$ocjson" 2>/dev/null)
+        model_oc=$(jq -r ".agents.\"${agent_key}\".model // empty" "$ocjson" 2>/dev/null)
         if [ -n "$model_routing" ] && [ -n "$model_oc" ] && [ "$model_routing" != "$model_oc" ]; then
-          echo -e "${GREEN}[WARN]${NC} Model drift: allowlist model_routing.opencode.${routing_key}=${model_routing} != opencode.json ${role}=${model_oc}"
+          echo -e "${GREEN}[WARN]${NC} Model drift: allowlist model_routing.opencode.${routing_key}=${model_routing} != opencode.json ${agent_key}=${model_oc}"
           drift=true
         fi
       done

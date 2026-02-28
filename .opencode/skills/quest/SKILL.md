@@ -16,6 +16,7 @@ You are running Quest from the OpenCode runtime.
 - After each `task` call, verify the expected artifact file exists on disk. If missing, extract content from the response and write it yourself.
 - Log runtime as `opencode` in context_health.log
 - Review artifacts use `reviewer_a` / `reviewer_b` naming (not claude/codex)
+- For dual-model review, use split agents: `plan-reviewer-a` / `plan-reviewer-b` and `code-reviewer-a` / `code-reviewer-b` (different models for independent perspectives)
 
 ## Proceed
 Follow the procedure in `.skills/quest/delegation/workflow.md` starting from Step 0.

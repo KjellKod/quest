@@ -1,10 +1,12 @@
 {
   "agents": {
     "planner": { "file": "agents/planner.md", "model": "big-pickle" },
-    "plan-reviewer": { "file": "agents/plan-reviewer.md", "model": "big-pickle" },
+    "plan-reviewer-a": { "file": "agents/plan-reviewer-a.md", "model": "big-pickle" },
+    "plan-reviewer-b": { "file": "agents/plan-reviewer-b.md", "model": "minimax-m2.5-free" },
     "arbiter": { "file": "agents/arbiter.md", "model": "big-pickle" },
     "builder": { "file": "agents/builder.md", "model": "big-pickle" },
-    "code-reviewer": { "file": "agents/code-reviewer.md", "model": "big-pickle" },
+    "code-reviewer-a": { "file": "agents/code-reviewer-a.md", "model": "big-pickle" },
+    "code-reviewer-b": { "file": "agents/code-reviewer-b.md", "model": "gpt-5-nano" },
     "fixer": { "file": "agents/fixer.md", "model": "big-pickle" }
   },
   "commands": {

@@ -31,6 +31,15 @@ OpenCode is an open-source terminal-based AI coding assistant. Quest integrates 
 
 Model defaults are documented in `.ai/allowlist.json` under `model_routing.opencode`. The authoritative model assignments live in `.opencode/opencode.json` (per-agent `model` fields) — that's what OpenCode actually uses at runtime.
 
+### Model Diversity
+
+Quest uses dual-model review — two reviewers from different model families for independent perspectives. OpenCode assigns models per agent definition (not per invocation), so reviewer agents are split into A/B variants:
+
+- `plan-reviewer-a` (big-pickle) / `plan-reviewer-b` (minimax-m2.5-free)
+- `code-reviewer-a` (big-pickle) / `code-reviewer-b` (gpt-5-nano)
+
+Both variants point to the same shared role definition (`.skills/quest/agents/plan-reviewer.md` and `code-reviewer.md`). The split is purely for model assignment.
+
 ## Setup
 
 1. Ensure your repository has the Quest `.opencode/` directory (included if you installed Quest via the installer or manual copy).
