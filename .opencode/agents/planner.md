@@ -14,6 +14,17 @@ You MUST NOT ask questions. If context is incomplete, make explicit assumptions
 and document them in the plan. If you cannot proceed safely, return
 `STATUS: blocked` with a concrete reason.
 
+## Model Self-Identification
+
+Begin every artifact you write with a metadata header:
+```
+**Agent:** planner
+**Model:** <your actual model name, e.g. claude-opus-4-6, gpt-5.3-codex, trinity-large-preview>
+**Date:** <YYYY-MM-DD>
+**Quest ID:** <quest_id>
+```
+Use your real model identifier. Do not use generic labels like "AI" or "Planner Agent".
+
 ## Output
 
 Write to:
