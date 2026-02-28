@@ -292,7 +292,7 @@ During review phases, the orchestrator dispatches **both reviewers in a single m
 └───────────┬─────────────┘       │       └───────────┬─────────────┘
             │                     │                   │
             ▼                     │                   ▼
-   review_claude.md               │          review_codex.md
+   review_reviewer_a.md               │          review_reviewer_b.md
                                   │
               └───────────────────┼───────────────────┘
                                   │
@@ -409,14 +409,14 @@ All artifacts preserved in `.quest/<id>/`:
 ```
 phase_01_plan/
   plan.md              # The implementation plan
-  review_claude.md     # Claude's plan review
-  review_codex.md      # Codex's plan review
+  review_reviewer_a.md  # Reviewer A's plan review
+  review_reviewer_b.md  # Reviewer B's plan review
   arbiter_verdict.md   # Arbiter's decision
 phase_02_implementation/
   pr_description.md    # PR description
 phase_03_review/
-  review_claude.md     # Claude's code review
-  review_codex.md      # Codex's code review
+  review_reviewer_a.md  # Reviewer A's code review
+  review_reviewer_b.md  # Reviewer B's code review
 logs/
   allowlist_snapshot.json  # Permissions at quest start
 ```
@@ -512,7 +512,7 @@ Edit `.skills/quest/SKILL.md` to customize Codex prompts:
 ```
 "Review .quest/<id>/plan.md
  List issues (max 5 bullets).
- Write to review_codex.md"
+ Write to review_reviewer_b.md"
 ```
 
 ---

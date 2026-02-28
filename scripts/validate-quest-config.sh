@@ -25,6 +25,7 @@ When run without options, validates:
   - .ai/allowlist.json is valid JSON
   - .ai/allowlist.json matches schema (if ajv installed)
   - .skills/quest/agents/*.md and .ai/roles/quest_agent.md have required sections
+  - .opencode/ files (if directory exists): opencode.json, agents, SKILL.md, command
 EOF
   exit 0
 }
@@ -165,11 +166,6 @@ validate_roles() {
     return
   fi
 
-  if [ ! -f "$quest_agent_file" ]; then
-    fail ".ai/roles/quest_agent.md does not exist"
-    return
-  fi
-
   local role_files=()
   while IFS= read -r role_file; do
     role_files+=("$role_file")
@@ -179,8 +175,10 @@ validate_roles() {
     return
   fi
 
-  # quest_agent.md stays in .ai/roles/ and must be validated too.
-  role_files+=("$quest_agent_file")
+  # quest_agent.md in .ai/roles/ is optional; validate if present.
+  if [ -f "$quest_agent_file" ]; then
+    role_files+=("$quest_agent_file")
+  fi
 
   local role_file
   for role_file in "${role_files[@]}"; do
@@ -224,6 +222,73 @@ validate_roles() {
   done
 }
 
+# Validate OpenCode files (only if .opencode/ exists)
+validate_opencode() {
+  if [ ! -d "$REPO_ROOT/.opencode" ]; then
+    return
+  fi
+
+  echo ""
+  echo "--- OpenCode Validation ---"
+
+  # Check opencode.json
+  validate_json "$REPO_ROOT/.opencode/opencode.json"
+
+  # Check SKILL.md
+  if [ -f "$REPO_ROOT/.opencode/skills/quest/SKILL.md" ]; then
+    pass ".opencode/skills/quest/SKILL.md exists"
+  else
+    fail ".opencode/skills/quest/SKILL.md does not exist"
+  fi
+
+  # Check command file
+  if [ -f "$REPO_ROOT/.opencode/commands/quest.md" ]; then
+    pass ".opencode/commands/quest.md exists"
+  else
+    fail ".opencode/commands/quest.md does not exist"
+  fi
+
+  # Check agent files (expect 6)
+  local agent_dir="$REPO_ROOT/.opencode/agents"
+  if [ ! -d "$agent_dir" ]; then
+    fail ".opencode/agents/ directory does not exist"
+    return
+  fi
+
+  local agent_count=0
+  local agent_file
+  for agent_file in "$agent_dir"/*.md; do
+    [ -f "$agent_file" ] || continue
+    agent_count=$((agent_count + 1))
+    local filename
+    filename=$(basename "$agent_file")
+
+    # Verify YAML frontmatter (starts with ---, has name: and description:)
+    local has_frontmatter=true
+    if ! head -1 "$agent_file" | grep -q "^---"; then
+      has_frontmatter=false
+    fi
+    if ! grep -q "^name:" "$agent_file"; then
+      has_frontmatter=false
+    fi
+    if ! grep -q "^description:" "$agent_file"; then
+      has_frontmatter=false
+    fi
+
+    if [ "$has_frontmatter" = true ]; then
+      pass ".opencode/agents/$filename has YAML frontmatter"
+    else
+      fail ".opencode/agents/$filename missing YAML frontmatter (name/description)"
+    fi
+  done
+
+  if [ "$agent_count" -ge 6 ]; then
+    pass ".opencode/agents/ has $agent_count agent files (expected 6+)"
+  else
+    fail ".opencode/agents/ has $agent_count agent files (expected 6)"
+  fi
+}
+
 echo "=== Quest Configuration Validation ==="
 echo ""
 
@@ -231,6 +296,7 @@ check_gitignore
 validate_json "$REPO_ROOT/.ai/allowlist.json"
 validate_schema
 validate_roles
+validate_opencode
 
 echo ""
 if [ $ERRORS -eq 0 ]; then

@@ -39,6 +39,16 @@ Everything else from the subagent response (plan text, review content, build out
 
 **Why this works:** Every subagent reads files itself. The orchestrator's job is routing and state management, not content relay.
 
+### Artifact Persistence Rule
+
+After every subagent invocation, the orchestrator MUST verify that the expected artifact file(s) exist on disk:
+
+1. Check that each file listed in the handoff `artifacts` array exists
+2. If a file is missing, attempt to extract its content from the subagent response and write it to the expected path
+3. If extraction fails, log the missing artifact and surface the error to the user
+
+This is critical for OpenCode where `task` tool subagents may return content in their response without writing to disk.
+
 ### Handoff File Polling
 
 After any subagent completes, the orchestrator reads the agent's `handoff.json` file for routing decisions instead of parsing the full response.
@@ -55,12 +65,12 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 | Phase | Agent | handoff.json path |
 |-------|-------|------------------|
 | Plan | Planner | `.quest/<id>/phase_01_plan/handoff.json` |
-| Plan Review | Slot A | `.quest/<id>/phase_01_plan/handoff_claude.json` |
-| Plan Review | Slot B | `.quest/<id>/phase_01_plan/handoff_codex.json` |
+| Plan Review | Slot A | `.quest/<id>/phase_01_plan/handoff_reviewer_a.json` |
+| Plan Review | Slot B | `.quest/<id>/phase_01_plan/handoff_reviewer_b.json` |
 | Plan Review | Arbiter | `.quest/<id>/phase_01_plan/handoff_arbiter.json` |
 | Build | Builder | `.quest/<id>/phase_02_implementation/handoff.json` |
-| Code Review | Slot A | `.quest/<id>/phase_03_review/handoff_claude.json` |
-| Code Review | Slot B | `.quest/<id>/phase_03_review/handoff_codex.json` |
+| Code Review | Slot A | `.quest/<id>/phase_03_review/handoff_reviewer_a.json` |
+| Code Review | Slot B | `.quest/<id>/phase_03_review/handoff_reviewer_b.json` |
 | Fix | Fixer | `.quest/<id>/phase_03_review/handoff_fixer.json` |
 
 The orchestrator NEVER reads full review files, plan content, or build output for routing decisions. Only handoff.json (and, for Step 3.5, the plan file itself as a bounded exception).
@@ -71,27 +81,28 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 
 **Format:**
 ```
-<timestamp> | phase=<phase> | agent=<agent_name> | runtime=claude|codex | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback
+<timestamp> | phase=<phase> | agent=<agent_name> | runtime=claude|codex|opencode | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback
 ```
 
 Use `plan_iteration` for plan/plan_review phases, `fix_iteration` for code_review/fix phases, and `1` for build (single pass).
-Set `runtime` to the runtime actually used for that invocation (`claude` or `codex`).
-Never infer runtime from the agent label/name (for example `slot_a_claude`); labels are role identifiers, not backend evidence.
+Set `runtime` to the runtime actually used for that invocation (`claude`, `codex`, or `opencode`).
+Never infer runtime from the agent label/name (for example `reviewer_a`); labels are role identifiers, not backend evidence.
 
 Runtime attribution rule (authoritative):
 - Log `runtime=claude` only when the invocation actually used Claude `Task(...)`.
 - Log `runtime=codex` when invocation used `mcp__codex__codex` or Codex agent tools (`spawn_agent`/`worker`/`explorer`).
+- Log `runtime=opencode` when invocation used OpenCode `task(agent=...)` tool.
 - If a role expected to be Claude is executed with Codex fallback, keep the same role label but log `runtime=codex`.
 
 **Example log for a quest with 2 plan iterations:**
 ```
 2026-02-15T00:12:00Z | phase=plan | agent=planner | runtime=claude | iter=1 | handoff_json=found | source=handoff_json
-2026-02-15T00:15:00Z | phase=plan_review | agent=slot_a_claude | runtime=claude | iter=1 | handoff_json=found | source=handoff_json
-2026-02-15T00:15:00Z | phase=plan_review | agent=slot_b_codex | runtime=codex | iter=1 | handoff_json=missing | source=text_fallback
+2026-02-15T00:15:00Z | phase=plan_review | agent=reviewer_a | runtime=claude | iter=1 | handoff_json=found | source=handoff_json
+2026-02-15T00:15:00Z | phase=plan_review | agent=reviewer_b | runtime=codex | iter=1 | handoff_json=missing | source=text_fallback
 2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=1 | handoff_json=found | source=handoff_json
 2026-02-15T00:25:00Z | phase=plan | agent=planner | runtime=claude | iter=2 | handoff_json=found | source=handoff_json
-2026-02-15T00:28:00Z | phase=plan_review | agent=slot_a_claude | runtime=claude | iter=2 | handoff_json=found | source=handoff_json
-2026-02-15T00:28:00Z | phase=plan_review | agent=slot_b_codex | runtime=codex | iter=2 | handoff_json=found | source=handoff_json
+2026-02-15T00:28:00Z | phase=plan_review | agent=reviewer_a | runtime=claude | iter=2 | handoff_json=found | source=handoff_json
+2026-02-15T00:28:00Z | phase=plan_review | agent=reviewer_b | runtime=codex | iter=2 | handoff_json=found | source=handoff_json
 2026-02-15T00:31:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=2 | handoff_json=found | source=handoff_json
 ```
 
@@ -179,8 +190,8 @@ gates.max_plan_iterations (default: 4)
 4. **Invoke BOTH Plan Reviewers IN PARALLEL** (same message, one Task call + one Codex call):
 
    Two different models review independently for model diversity:
-   - **Slot A** (Claude): `Task(subagent_type="plan-reviewer")` → `.quest/<id>/phase_01_plan/review_claude.md`
-   - **Slot B** (Codex): `mcp__codex__codex` → `.quest/<id>/phase_01_plan/review_codex.md`
+   - **Slot A** (Claude): `Task(subagent_type="plan-reviewer")` → `.quest/<id>/phase_01_plan/review_reviewer_a.md`
+   - **Slot B** (Codex): `mcp__codex__codex` → `.quest/<id>/phase_01_plan/review_reviewer_b.md`
 
    **Slot A — Claude Task agent** (full and fast modes):
 
@@ -197,8 +208,8 @@ gates.max_plan_iterations (default: 4)
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
-     Write your review to: .quest/<id>/phase_01_plan/review_claude.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_claude.json
+     Write your review to: .quest/<id>/phase_01_plan/review_reviewer_a.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_reviewer_a.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -215,8 +226,8 @@ gates.max_plan_iterations (default: 4)
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
      List up to 5 issues, highest severity first.
-     Write your review to: .quest/<id>/phase_01_plan/review_claude.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_claude.json
+     Write your review to: .quest/<id>/phase_01_plan/review_reviewer_a.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_reviewer_a.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -238,8 +249,8 @@ gates.max_plan_iterations (default: 4)
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
-     Write your review to: .quest/<id>/phase_01_plan/review_codex.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_codex.json
+     Write your review to: .quest/<id>/phase_01_plan/review_reviewer_b.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_reviewer_b.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -256,8 +267,8 @@ gates.max_plan_iterations (default: 4)
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
      List up to 5 issues, highest severity first.
-     Write your review to: .quest/<id>/phase_01_plan/review_codex.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_codex.json
+     Write your review to: .quest/<id>/phase_01_plan/review_reviewer_b.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_reviewer_b.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -267,7 +278,7 @@ gates.max_plan_iterations (default: 4)
    - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH to complete
    - Record the current wall-clock time as `dispatch_end`
-   - Read `.quest/<id>/phase_01_plan/handoff_claude.json` and `handoff_codex.json`
+   - Read `.quest/<id>/phase_01_plan/handoff_reviewer_a.json` and `handoff_reviewer_b.json`
    - Verify both review files exist (from handoff.artifacts)
    - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
 
@@ -288,8 +299,8 @@ gates.max_plan_iterations (default: 4)
 
      Quest brief: .quest/<id>/quest_brief.md
      Plan: .quest/<id>/phase_01_plan/plan.md
-     Review A: .quest/<id>/phase_01_plan/review_claude.md
-     Review B: .quest/<id>/phase_01_plan/review_codex.md
+     Review A: .quest/<id>/phase_01_plan/review_reviewer_a.md
+     Review B: .quest/<id>/phase_01_plan/review_reviewer_b.md
 
      Write verdict to: .quest/<id>/phase_01_plan/arbiter_verdict.md
      Write handoff file to: .quest/<id>/phase_01_plan/handoff_arbiter.json
@@ -457,8 +468,8 @@ After plan approval, present the plan interactively before proceeding to build.
 4. **Invoke BOTH Code Reviewers IN PARALLEL** (same message, one Task call + one Codex call):
 
    Two different models review independently for model diversity:
-   - **Slot A** (Claude): `Task(subagent_type="code-reviewer")` → `.quest/<id>/phase_03_review/review_claude.md`
-   - **Slot B** (Codex): `mcp__codex__codex` → `.quest/<id>/phase_03_review/review_codex.md`
+   - **Slot A** (Claude): `Task(subagent_type="code-reviewer")` → `.quest/<id>/phase_03_review/review_reviewer_a.md`
+   - **Slot B** (Codex): `mcp__codex__codex` → `.quest/<id>/phase_03_review/review_reviewer_b.md`
 
    **Slot A — Claude Task agent** (full and fast modes):
 
@@ -479,8 +490,8 @@ After plan approval, present the plan interactively before proceeding to build.
      Diff summary: <git diff --stat>
 
      Review ONLY the files listed above. Use git diff for details.
-     Write review to: .quest/<id>/phase_03_review/review_claude.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_claude.json
+     Write review to: .quest/<id>/phase_03_review/review_reviewer_a.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_reviewer_a.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -501,8 +512,8 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Review ONLY the files listed above.
      List up to 5 issues, highest severity first.
-     Write review to: .quest/<id>/phase_03_review/review_claude.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_claude.json
+     Write review to: .quest/<id>/phase_03_review/review_reviewer_a.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_reviewer_a.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -528,8 +539,8 @@ After plan approval, present the plan interactively before proceeding to build.
      Diff summary: <git diff --stat>
 
      Review ONLY the files listed above. Use git diff for details.
-     Write review to: .quest/<id>/phase_03_review/review_codex.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_codex.json
+     Write review to: .quest/<id>/phase_03_review/review_reviewer_b.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_reviewer_b.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -550,8 +561,8 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Review ONLY the files listed above.
      List up to 5 issues, highest severity first.
-     Write review to: .quest/<id>/phase_03_review/review_codex.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_codex.json
+     Write review to: .quest/<id>/phase_03_review/review_reviewer_b.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_reviewer_b.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -562,7 +573,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH to complete
    - Record the current wall-clock time as `dispatch_end`
-   - Read `.quest/<id>/phase_03_review/handoff_claude.json` and `handoff_codex.json`
+   - Read `.quest/<id>/phase_03_review/handoff_reviewer_a.json` and `handoff_reviewer_b.json`
    - Verify both review files exist (from handoff.artifacts)
    - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
 
@@ -585,7 +596,7 @@ After plan approval, present the plan interactively before proceeding to build.
      Review complete:
        Claude: "<summary from handoff or text fallback>"
        Codex: "<summary from handoff or text fallback>"
-     Full reviews at: .quest/<id>/phase_03_review/review_claude.md, .quest/<id>/phase_03_review/review_codex.md
+     Full reviews at: .quest/<id>/phase_03_review/review_reviewer_a.md, .quest/<id>/phase_03_review/review_reviewer_b.md
      ```
    - Do NOT read the full review files for routing or status display
 
@@ -603,8 +614,8 @@ After plan approval, present the plan interactively before proceeding to build.
 
 2. **Invoke Fixer** (Claude `Task(subagent_type="fixer")`):
    - Prompt: Reference file paths only, do not embed content:
-     - Code review A: `.quest/<id>/phase_03_review/review_claude.md`
-     - Code review B: `.quest/<id>/phase_03_review/review_codex.md`
+     - Code review A: `.quest/<id>/phase_03_review/review_reviewer_a.md`
+     - Code review B: `.quest/<id>/phase_03_review/review_reviewer_b.md`
      - Changed files: <file list from git diff>
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Plan: `.quest/<id>/phase_01_plan/plan.md`
@@ -617,7 +628,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response
 
-3. **Clear stale handoff files:** Delete any existing `handoff_claude.json` and `handoff_codex.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
+3. **Clear stale handoff files:** Delete any existing `handoff_reviewer_a.json` and `handoff_reviewer_b.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
 
 4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
 
@@ -670,12 +681,12 @@ After plan approval, present the plan interactively before proceeding to build.
    - Runtime counts must come from logged runtime values only; do not infer runtime from role names.
    - Also split by role instance using `(phase, agent)` pairs (do NOT key by `agent` alone):
      - Planner = `(phase=plan, agent=planner)`
-     - Plan Review Slot A = `(phase=plan_review, agent=slot_a_claude)`
-     - Plan Review Slot B = `(phase=plan_review, agent=slot_b_codex)`
+     - Plan Review Slot A = `(phase=plan_review, agent=reviewer_a)`
+     - Plan Review Slot B = `(phase=plan_review, agent=reviewer_b)`
      - Arbiter = `(phase=plan_review, agent=arbiter)`
      - Builder = `(phase=build, agent=builder)`
-     - Code Review Slot A = `(phase=code_review, agent=slot_a_claude)`
-     - Code Review Slot B = `(phase=code_review, agent=slot_b_codex)`
+     - Code Review Slot A = `(phase=code_review, agent=reviewer_a)`
+     - Code Review Slot B = `(phase=code_review, agent=reviewer_b)`
      - Fixer = `(phase=fix, agent=fixer)`
    - For each role instance, report `X/Y` where:
      - `Y` = total observed invocations for that exact `(phase, agent)` pair in the log
@@ -824,19 +835,28 @@ If any agent returns `STATUS: needs_human`:
 
 ### Agent-to-Tool Mapping
 
-| Role | Tool | Model |
-|------|------|-------|
-| Planner | `Task(subagent_type="planner")` | Claude |
-| Plan Reviewer Slot A | `Task(subagent_type="plan-reviewer")` | Claude |
-| Plan Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Arbiter | `Task(subagent_type="arbiter")` | Claude |
-| Builder | `Task(subagent_type="builder")` | Claude |
-| Code Reviewer Slot A | `Task(subagent_type="code-reviewer")` | Claude |
-| Code Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Fixer | `Task(subagent_type="fixer")` | Claude |
+| Role | Claude Tool | Codex Tool | OpenCode Tool |
+|------|------------|------------|---------------|
+| Planner | `Task(subagent_type="planner")` | `spawn_agent`/`worker` | `task(agent="planner")` |
+| Reviewer A | `Task(subagent_type="plan-reviewer")` | `mcp__codex__codex` | `task(agent="plan-reviewer")` |
+| Reviewer B | `mcp__codex__codex` | `mcp__codex__codex` | `task(agent="plan-reviewer")` with different model |
+| Arbiter | `Task(subagent_type="arbiter")` | `spawn_agent`/`worker` | `task(agent="arbiter")` |
+| Builder | `Task(subagent_type="builder")` | `spawn_agent`/`worker` | `task(agent="builder")` |
+| Code Reviewer A | `Task(subagent_type="code-reviewer")` | `mcp__codex__codex` | `task(agent="code-reviewer")` |
+| Code Reviewer B | `mcp__codex__codex` | `mcp__codex__codex` | `task(agent="code-reviewer")` with different model |
+| Fixer | `Task(subagent_type="fixer")` | `spawn_agent`/`worker` | `task(agent="fixer")` |
 
-**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Claude) synthesizes both reviews.
+**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter synthesizes both reviews.
 This table shows default intent, not guaranteed runtime per environment. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
+
+### Runtime Detection
+
+The orchestrator identifies its runtime to select the correct tool invocation pattern:
+- **Claude Code**: Has `Task` tool with `subagent_type` parameter
+- **Codex**: Has `spawn_agent`/`worker`/`explorer` tools
+- **OpenCode**: Has `task` tool referencing agents defined in `.opencode/agents/`
+
+Use `model_routing[<detected_runtime>]` from allowlist.json for model selection.
 
 ### Codex MCP Prompt Pattern
 
@@ -898,9 +918,9 @@ mcp__codex__codex(
   model: "gpt-5.3-codex",
   prompt: "Review .quest/<id>/phase_01_plan/plan.md
 
-  List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_codex.md
+  List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_reviewer_b.md
 
-  End with: ---HANDOFF--- STATUS: complete ARTIFACTS: .quest/<id>/phase_01_plan/review_codex.md NEXT: arbiter SUMMARY: <one line>"
+  End with: ---HANDOFF--- STATUS: complete ARTIFACTS: .quest/<id>/phase_01_plan/review_reviewer_b.md NEXT: arbiter SUMMARY: <one line>"
 )
 ```
 

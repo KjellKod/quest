@@ -44,5 +44,5 @@ Implemented automatic weekly update checking for Quest. After a quest completes,
 ## Artifacts
 
 - Plan: `.quest/weekly-update-check_2026-02-04__2349/phase_01_plan/plan.md`
-- Reviews: `.quest/weekly-update-check_2026-02-04__2349/phase_01_plan/review_claude.md`
-- Code Review: `.quest/weekly-update-check_2026-02-04__2349/phase_03_review/review_claude.md`
+- Reviews: `.quest/weekly-update-check_2026-02-04__2349/phase_01_plan/review_reviewer_a.md`
+- Code Review: `.quest/weekly-update-check_2026-02-04__2349/phase_03_review/review_reviewer_a.md`

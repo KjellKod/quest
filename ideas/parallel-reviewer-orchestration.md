@@ -41,7 +41,7 @@ When Claude makes **multiple tool calls in the same response message**, they are
 └───────────┬─────────────┘       │       └───────────┬─────────────┘
             │                     │                   │
             ▼                     │                   ▼
-   review_claude.md               │          review_codex.md
+   review_reviewer_a.md            │          review_reviewer_b.md
                                   │
               └───────────────────┼───────────────────┘
                                   │

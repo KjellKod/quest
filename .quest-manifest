@@ -51,6 +51,15 @@ scripts/validate-quest-config.sh
 scripts/validate-quest-state.sh
 scripts/validate-manifest.sh
 scripts/validate-handoff-contracts.sh
+.opencode/opencode.json
+.opencode/agents/planner.md
+.opencode/agents/plan-reviewer.md
+.opencode/agents/arbiter.md
+.opencode/agents/builder.md
+.opencode/agents/code-reviewer.md
+.opencode/agents/fixer.md
+.opencode/commands/quest.md
+.opencode/skills/quest/SKILL.md
 
 [user-customized]
 # These files are NEVER overwritten - upstream changes create .quest_updated suffix
@@ -67,3 +76,7 @@ scripts/validate-handoff-contracts.sh
 .quest
 ideas
 docs/quest-journal
+.opencode
+.opencode/agents
+.opencode/commands
+.opencode/skills/quest

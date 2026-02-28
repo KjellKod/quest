@@ -21,8 +21,32 @@
     "arbiter": {
       "type": "object",
       "properties": {
-        "tool": { "type": "string", "enum": ["claude", "codex"] },
+        "tool": { "type": "string", "enum": ["claude", "codex", "opencode"] },
         "notes": { "type": "string" }
+      }
+    },
+    "model_overrides": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Deprecated in v3. Use model_routing instead. Kept for backward compatibility."
+    },
+    "model_routing": {
+      "type": "object",
+      "description": "Per-runtime model assignments for each quest role.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": "string" }
+      }
+    },
+    "model_tiers": {
+      "type": "object",
+      "description": "Per-runtime model tier classifications (primary, secondary, expired).",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
       }
     },
     "review_mode": { "type": "string", "enum": ["auto", "manual", "fast", "full"] },
@@ -53,6 +77,13 @@
         "require_approval_before_delete": { "type": "boolean" },
         "max_plan_iterations": { "type": "integer", "minimum": 1 },
         "max_fix_iterations": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "update_check": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "interval_days": { "type": "integer", "minimum": 1 }
       }
     }
   }

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "description": "Creator-managed permissions for quest orchestration. Edit this file to pre-approve or restrict quest agent actions. Changes take effect on next quest run.",
   "auto_approve_phases": {
     "plan_creation": true,
@@ -11,7 +11,7 @@
   },
   "arbiter": {
     "tool": "claude",
-    "notes": "Set to 'codex' to use gpt-5.3-codex as Arbiter instead of Claude. Default: claude."
+    "notes": "Set to 'codex' or 'opencode' to use a different runtime as Arbiter. Default: claude."
   },
   "model_overrides": {
     "planner": "opus",
@@ -21,6 +21,42 @@
     "code_reviewer_a": "opus",
     "code_reviewer_b": "gpt-5.3-codex",
     "arbiter": "opus"
+  },
+  "model_routing": {
+    "claude": {
+      "planner": "opus",
+      "reviewer_a": "opus",
+      "reviewer_b": "gpt-5.3-codex",
+      "builder": "opus",
+      "code_reviewer_a": "opus",
+      "code_reviewer_b": "gpt-5.3-codex",
+      "arbiter": "opus"
+    },
+    "opencode": {
+      "planner": "big-pickle",
+      "reviewer_a": "big-pickle",
+      "reviewer_b": "minimax-m2.5-free",
+      "builder": "big-pickle",
+      "code_reviewer_a": "big-pickle",
+      "code_reviewer_b": "gpt-5-nano",
+      "arbiter": "big-pickle"
+    },
+    "codex": {
+      "planner": "gpt-5.3-codex",
+      "reviewer_a": "gpt-5.3-codex",
+      "reviewer_b": "gpt-5.3-codex",
+      "builder": "gpt-5.3-codex",
+      "code_reviewer_a": "gpt-5.3-codex",
+      "code_reviewer_b": "gpt-5.3-codex",
+      "arbiter": "gpt-5.3-codex"
+    }
+  },
+  "model_tiers": {
+    "opencode": {
+      "primary": ["big-pickle"],
+      "secondary": ["minimax-m2.5-free", "gpt-5-nano"],
+      "expired": ["kimi-k2.5-free"]
+    }
   },
   "review_mode": "auto",
   "fast_review_thresholds": {
@@ -38,12 +74,12 @@
       "file_read": ["**"],
       "bash": ["find", "grep", "wc", "tree", "ls", "gh pr view.*"]
     },
-    "plan_review_claude": {
+    "plan_review_a": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
       "bash": ["gh pr view.*"]
     },
-    "plan_review_codex": {
+    "plan_review_b": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
       "bash": ["gh pr view.*"]

@@ -179,8 +179,8 @@ validate_artifacts() {
   case "${current}->${target}" in
     "plan->plan_reviewed")
       check_file "$quest_dir/phase_01_plan/plan.md"
-      check_file "$quest_dir/phase_01_plan/review_claude.md"
-      check_file "$quest_dir/phase_01_plan/review_codex.md"
+      check_file "$quest_dir/phase_01_plan/review_reviewer_a.md"
+      check_file "$quest_dir/phase_01_plan/review_reviewer_b.md"
       check_file "$quest_dir/phase_01_plan/arbiter_verdict.md"
       ;;
     "plan->plan")
@@ -204,12 +204,12 @@ validate_artifacts() {
       check_dir_nonempty "$quest_dir/phase_02_implementation"
       ;;
     "reviewing->fixing")
-      check_file "$quest_dir/phase_03_review/review_claude.md"
-      check_file "$quest_dir/phase_03_review/review_codex.md"
+      check_file "$quest_dir/phase_03_review/review_reviewer_a.md"
+      check_file "$quest_dir/phase_03_review/review_reviewer_b.md"
       ;;
     "reviewing->complete")
-      check_file "$quest_dir/phase_03_review/review_claude.md"
-      check_file "$quest_dir/phase_03_review/review_codex.md"
+      check_file "$quest_dir/phase_03_review/review_reviewer_a.md"
+      check_file "$quest_dir/phase_03_review/review_reviewer_b.md"
       ;;
     "fixing->reviewing")
       check_file "$quest_dir/phase_03_review/review_fix_feedback_discussion.md"
@@ -264,21 +264,21 @@ validate_semantic_content() {
       fi
       ;;
     "reviewing->fixing")
-      local claude_file="$quest_dir/phase_03_review/handoff_claude.json"
-      local codex_file="$quest_dir/phase_03_review/handoff_codex.json"
+      local reviewer_a_file="$quest_dir/phase_03_review/handoff_reviewer_a.json"
+      local reviewer_b_file="$quest_dir/phase_03_review/handoff_reviewer_b.json"
       local has_fixer=false
 
-      if [ -f "$claude_file" ]; then
-        local claude_next
-        claude_next=$(jq -r '.next' "$claude_file" 2>/dev/null)
-        if [ "$claude_next" = "fixer" ]; then
+      if [ -f "$reviewer_a_file" ]; then
+        local reviewer_a_next
+        reviewer_a_next=$(jq -r '.next' "$reviewer_a_file" 2>/dev/null)
+        if [ "$reviewer_a_next" = "fixer" ]; then
           has_fixer=true
         fi
       fi
-      if [ -f "$codex_file" ]; then
-        local codex_next
-        codex_next=$(jq -r '.next' "$codex_file" 2>/dev/null)
-        if [ "$codex_next" = "fixer" ]; then
+      if [ -f "$reviewer_b_file" ]; then
+        local reviewer_b_next
+        reviewer_b_next=$(jq -r '.next' "$reviewer_b_file" 2>/dev/null)
+        if [ "$reviewer_b_next" = "fixer" ]; then
           has_fixer=true
         fi
       fi
@@ -290,26 +290,26 @@ validate_semantic_content() {
       fi
       ;;
     "reviewing->complete")
-      local claude_file="$quest_dir/phase_03_review/handoff_claude.json"
-      local codex_file="$quest_dir/phase_03_review/handoff_codex.json"
+      local reviewer_a_file="$quest_dir/phase_03_review/handoff_reviewer_a.json"
+      local reviewer_b_file="$quest_dir/phase_03_review/handoff_reviewer_b.json"
       local both_clean=true
 
-      if [ -f "$claude_file" ]; then
-        local claude_next
+      if [ -f "$reviewer_a_file" ]; then
+        local reviewer_a_next
         # Note: jq -r outputs "null" for both JSON null and missing .next field.
         # This is acceptable since agents always write structured handoff JSON.
-        claude_next=$(jq -r '.next' "$claude_file" 2>/dev/null)
-        if [ "$claude_next" != "null" ]; then
+        reviewer_a_next=$(jq -r '.next' "$reviewer_a_file" 2>/dev/null)
+        if [ "$reviewer_a_next" != "null" ]; then
           both_clean=false
         fi
       else
         both_clean=false
       fi
 
-      if [ -f "$codex_file" ]; then
-        local codex_next
-        codex_next=$(jq -r '.next' "$codex_file" 2>/dev/null)
-        if [ "$codex_next" != "null" ]; then
+      if [ -f "$reviewer_b_file" ]; then
+        local reviewer_b_next
+        reviewer_b_next=$(jq -r '.next' "$reviewer_b_file" 2>/dev/null)
+        if [ "$reviewer_b_next" != "null" ]; then
           both_clean=false
         fi
       else

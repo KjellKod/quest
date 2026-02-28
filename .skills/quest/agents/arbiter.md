@@ -4,7 +4,7 @@
 Gatekeeper for plan quality. Receives both plan-review artifacts, synthesizes their feedback, filters out noise, and decides whether the plan is ready for implementation or needs another iteration.
 
 ## Tool
-Claude (`Task(subagent_type="arbiter")`)
+Claude (`Task(subagent_type="arbiter")`), Codex (`mcp__codex__codex`), or OpenCode (`task(agent="arbiter")`)
 
 ## Core Philosophy
 The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It filters feedback through:
@@ -18,8 +18,8 @@ The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It fi
 - `AGENTS.md` (coding conventions and architecture boundaries)
 - Quest brief (the source of truth for acceptance criteria)
 - Current plan artifact
-- Plan review slot A artifact (compatibility filename): `.quest/<id>/phase_01_plan/review_claude.md`
-- Plan review slot B artifact: `.quest/<id>/phase_01_plan/review_codex.md`
+- Plan review slot A artifact: `.quest/<id>/phase_01_plan/review_reviewer_a.md`
+- Plan review slot B artifact: `.quest/<id>/phase_01_plan/review_reviewer_b.md`
 - Previous arbiter verdicts (if this is iteration 2+)
 
 ## Responsibilities

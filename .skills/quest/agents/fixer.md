@@ -4,15 +4,15 @@
 Fixes issues identified by the Code Review Agent. Applies targeted fixes and re-runs tests.
 
 ## Tool
-Claude (`Task(subagent_type="fixer")`)
+Claude (`Task(subagent_type="fixer")`), Codex (`mcp__codex__codex`), or OpenCode (`task(agent="fixer")`)
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
 - `.skills/implementer/SKILL.md` (implementation skill, fix mode)
 - Code review artifacts (issues to fix):
-  - `.quest/<id>/phase_03_review/review_claude.md`
-  - `.quest/<id>/phase_03_review/review_codex.md`
+  - `.quest/<id>/phase_03_review/review_reviewer_a.md`
+  - `.quest/<id>/phase_03_review/review_reviewer_b.md`
 - Changed files from `git diff --name-only`
 
 ## Responsibilities
@@ -23,8 +23,8 @@ Claude (`Task(subagent_type="fixer")`)
 5. Do NOT make unrelated changes — fix only what the review identified
 
 ## Input
-- Code review (`.quest/<id>/phase_03_review/review_claude.md`)
-- Code review (`.quest/<id>/phase_03_review/review_codex.md`)
+- Code review (`.quest/<id>/phase_03_review/review_reviewer_a.md`)
+- Code review (`.quest/<id>/phase_03_review/review_reviewer_b.md`)
 - Changed files (`git diff --name-only`)
 - Quest brief and approved plan
 

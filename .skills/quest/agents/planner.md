@@ -4,7 +4,7 @@
 Creates and refines implementation plans from quest briefs. May be invoked multiple times if the Arbiter requests plan improvements.
 
 ## Tool
-Claude (`Task(subagent_type="planner")`)
+Claude (`Task(subagent_type="planner")`), Codex (`mcp__codex__codex`), or OpenCode (`task(agent="planner")`)
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)

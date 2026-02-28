@@ -57,6 +57,7 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 - Context health logging and compliance reporting — every handoff is logged, compliance is reported at quest completion
 - Consolidated skill ownership — all quest agent wiring lives under `.skills/quest/`
 - Codex orchestration (BETA): Quest runs end-to-end via `$quest` with GPT-5.3/Codex as orchestrator. Claude-orchestrated `/quest` remains the more robust path.
+- OpenCode runtime support: Quest runs from OpenCode via `/quest` using free Zen models (big-pickle, minimax-m2.5-free, gpt-5-nano). Thin shim delegates to the shared workflow.
 
 **What we considered and deliberately left alone:**
 - **Infrastructure hooks (Phase 5):** Claude Code hooks can block tool calls and intercept subagent lifecycle. We assessed using them to make state validation mandatory. The orchestrator already achieves 12/12 handoff compliance in observed runs, and a blanket hook would need fragile prompt-parsing to distinguish quest subagents from other `Task` calls. Deferred until an observed failure justifies the complexity.
@@ -70,7 +71,7 @@ See [ideas/quest-architecture-evolution.md](ideas/quest-architecture-evolution.m
 
 **Part of the [Candid Talent Edge](https://candidtalentedge.com) initiative by KjellKod**
 
-> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool. Take a [look at how a disciplined approach](docs/guides/quest_presentation.md) to software engineering is directly applicable to an agentic orchestration setup. You can now run Quest from both runtimes: Claude `/quest` and Codex `$quest`.
+> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool. Take a [look at how a disciplined approach](docs/guides/quest_presentation.md) to software engineering is directly applicable to an agentic orchestration setup. You can now run Quest from three runtimes: Claude `/quest`, Codex `$quest`, and OpenCode `/quest`.
 
 Quest is a portable framework for running coordinated AI agents with human oversight.
 
@@ -145,6 +146,21 @@ claude mcp add codex-cli -- npx -y codex-mcp-server
 ```
 
 If you skip this, Quest will use Claude for all roles (still works, just single-model).
+
+### Optional: OpenCode (for free Zen model orchestration)
+
+Quest can run from OpenCode using free Zen models (big-pickle, minimax-m2.5-free, gpt-5-nano):
+
+```bash
+# Install OpenCode CLI
+# See: https://opencode.dev
+
+# Quest's .opencode/ directory is included — no extra setup needed
+# Verify with:
+bash scripts/validate-quest-config.sh
+```
+
+See the [OpenCode Quickstart Guide](docs/guides/opencode-quickstart.md) for details.
 
 ## Quick Start
 
@@ -227,7 +243,13 @@ codex
 $quest "Add a loading skeleton to the user list"
 ```
 
-**Milestone:** Quest is now runnable directly from Codex via `$quest`.
+```bash
+# OpenCode (thin shim in .opencode/skills/quest/SKILL.md)
+opencode
+/quest "Add a loading skeleton to the user list"
+```
+
+**Milestone:** Quest is now runnable from Claude Code, Codex, and OpenCode.
 
 **Codex orchestration (BETA, February 2026):**
 - Codex `$quest` runs the full Quest pipeline with GPT-5.3 as the orchestrator. This works but is less reliable than Claude `/quest` — handoff protocol compliance is lower and some phases may require text-fallback parsing instead of structured `handoff.json` routing.
@@ -455,7 +477,7 @@ The Quest Orchestrator (main Claude running `/quest`) coordinates specialized ag
 └───────────┬─────────────┘       │       └───────────┬─────────────┘
             │                     │                   │
             ▼                     │                   ▼
-   review_claude.md               │          review_codex.md
+   review_reviewer_a.md            │          review_reviewer_b.md
                                   │
               └───────────────────┼───────────────────┘
                                   │
@@ -494,6 +516,11 @@ your-repo/
 │   ├── agents/                   # Thin wrappers → .skills/quest/agents/
 │   ├── hooks/                    # Permission enforcement
 │   └── skills/quest/SKILL.md     # Thin wrapper → .skills/quest/
+├── .opencode/                    # OpenCode integration
+│   ├── agents/                   # YAML frontmatter + pointer → .skills/quest/agents/
+│   ├── commands/quest.md         # /quest command definition
+│   ├── opencode.json             # Agent definitions, models, permissions
+│   └── skills/quest/SKILL.md     # Thin shim → .skills/quest/
 ├── .cursor/                      # Cursor integration
 ├── .codex/                       # Codex integration
 └── .quest/                       # Ephemeral run state (gitignored)
@@ -505,6 +532,7 @@ your-repo/
 - **[Quest Setup Guide](docs/guides/quest_setup.md)** - Detailed setup instructions
 - **[Quest Presentation](docs/guides/quest_presentation.md)** - How it works (with diagrams)
 - **[Input Routing Guide](docs/guides/quest_input_routing.md)** - How Quest evaluates your input and routes between questioning and planning
+- **[OpenCode Quickstart](docs/guides/opencode-quickstart.md)** - Setup and usage for OpenCode runtime
 - **[AGENTS.md](AGENTS.md)** - Coding rules to customize
 - **[.ai/quest.md](.ai/quest.md)** - Quick reference
 

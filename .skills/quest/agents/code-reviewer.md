@@ -1,19 +1,19 @@
 # Code Review Agent
 
 ## Overview
-There are **two** Code Review Agent invocations on each review pass. They run **in parallel** using different model families for independent perspectives, writing to `review_claude.md` and `review_codex.md`.
+There are **two** Code Review Agent invocations on each review pass. They run **in parallel** using different model families for independent perspectives, writing to `review_reviewer_a.md` and `review_reviewer_b.md`.
 
 ## Instances
 
-### Code Review Slot A (Claude)
-- **Tool:** Claude (`Task(subagent_type="code-reviewer")`)
-- **Artifact path:** `.quest/<id>/phase_03_review/review_claude.md`
-- **Perspective:** Independent first pass on the implementation diff (Claude model family).
+### Code Review Slot A (Reviewer A)
+- **Tool:** Claude (`Task(subagent_type="code-reviewer")`), Codex (`mcp__codex__codex`), or OpenCode (`task(agent="code-reviewer")`)
+- **Artifact path:** `.quest/<id>/phase_03_review/review_reviewer_a.md`
+- **Perspective:** Independent first pass on the implementation diff.
 
-### Code Review Slot B (Codex)
-- **Tool:** Codex (`mcp__codex__codex`, model: `gpt-5.3-codex`)
-- **Artifact path:** `.quest/<id>/phase_03_review/review_codex.md`
-- **Perspective:** Independent second pass on the same implementation diff (GPT model family).
+### Code Review Slot B (Reviewer B)
+- **Tool:** Codex (`mcp__codex__codex`), or OpenCode (`task(agent="code-reviewer")` with different model)
+- **Artifact path:** `.quest/<id>/phase_03_review/review_reviewer_b.md`
+- **Perspective:** Independent second pass on the same implementation diff (different model family).
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
@@ -38,21 +38,21 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 ## Output Contract
 
 **Step 1 — Write handoff.json** to your slot's path:
-- Slot A (Claude): `.quest/<id>/phase_03_review/handoff_claude.json`
-- Slot B (Codex): `.quest/<id>/phase_03_review/handoff_codex.json`
+- Slot A (Reviewer A): `.quest/<id>/phase_03_review/handoff_reviewer_a.json`
+- Slot B (Reviewer B): `.quest/<id>/phase_03_review/handoff_reviewer_b.json`
 
 ```json
 {
   "status": "complete | needs_human | blocked",
-  "artifacts": [".quest/<id>/phase_03_review/review_claude.md or review_codex.md"],
+  "artifacts": [".quest/<id>/phase_03_review/review_reviewer_a.md or review_reviewer_b.md"],
   "next": "fixer | null",
   "summary": "One line describing what you accomplished"
 }
 ```
 
 Use the artifact path for your assigned slot:
-- Slot A (Claude): `review_claude.md`
-- Slot B (Codex): `review_codex.md`
+- Slot A (Reviewer A): `review_reviewer_a.md`
+- Slot B (Reviewer B): `review_reviewer_b.md`
 
 **Step 2 — Output text handoff block** (must match the JSON above):
 

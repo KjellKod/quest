@@ -1,0 +1,17 @@
+{
+  "agents": {
+    "planner": { "file": "agents/planner.md", "model": "big-pickle" },
+    "plan-reviewer": { "file": "agents/plan-reviewer.md", "model": "big-pickle" },
+    "arbiter": { "file": "agents/arbiter.md", "model": "big-pickle" },
+    "builder": { "file": "agents/builder.md", "model": "big-pickle" },
+    "code-reviewer": { "file": "agents/code-reviewer.md", "model": "big-pickle" },
+    "fixer": { "file": "agents/fixer.md", "model": "big-pickle" }
+  },
+  "commands": {
+    "quest": { "file": "commands/quest.md" }
+  },
+  "permissions": {
+    "allow_bash": true,
+    "allow_file_write": true
+  }
+}

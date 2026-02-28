@@ -72,8 +72,8 @@ test_valid_plan_to_plan_reviewed() {
   create_state_json "$tmpdir" "plan"
   mkdir -p "$tmpdir/phase_01_plan"
   touch "$tmpdir/phase_01_plan/plan.md"
-  touch "$tmpdir/phase_01_plan/review_claude.md"
-  touch "$tmpdir/phase_01_plan/review_codex.md"
+  touch "$tmpdir/phase_01_plan/review_reviewer_a.md"
+  touch "$tmpdir/phase_01_plan/review_reviewer_b.md"
   touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
@@ -88,14 +88,14 @@ test_missing_artifact_plan_to_plan_reviewed() {
   create_state_json "$tmpdir" "plan"
   mkdir -p "$tmpdir/phase_01_plan"
   touch "$tmpdir/phase_01_plan/plan.md"
-  touch "$tmpdir/phase_01_plan/review_claude.md"
-  # Missing review_codex.md
+  touch "$tmpdir/phase_01_plan/review_reviewer_a.md"
+  # Missing review_reviewer_b.md
   touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "review_codex.md"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "review_reviewer_b.md"
 }
 
 test_valid_plan_reviewed_to_building() {
@@ -171,10 +171,10 @@ test_valid_reviewing_to_complete() {
   tmpdir=$(mktemp -d)
   create_state_json "$tmpdir" "reviewing"
   mkdir -p "$tmpdir/phase_03_review"
-  touch "$tmpdir/phase_03_review/review_claude.md"
-  touch "$tmpdir/phase_03_review/review_codex.md"
-  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_claude.json"
-  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_codex.json"
+  touch "$tmpdir/phase_03_review/review_reviewer_a.md"
+  touch "$tmpdir/phase_03_review/review_reviewer_b.md"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_reviewer_a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_reviewer_b.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
   local rc=$?
@@ -187,10 +187,10 @@ test_reviewing_to_complete_has_issues() {
   tmpdir=$(mktemp -d)
   create_state_json "$tmpdir" "reviewing"
   mkdir -p "$tmpdir/phase_03_review"
-  touch "$tmpdir/phase_03_review/review_claude.md"
-  touch "$tmpdir/phase_03_review/review_codex.md"
-  echo '{"status":"complete","next":"fixer","summary":"found issues"}' > "$tmpdir/phase_03_review/handoff_claude.json"
-  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_codex.json"
+  touch "$tmpdir/phase_03_review/review_reviewer_a.md"
+  touch "$tmpdir/phase_03_review/review_reviewer_b.md"
+  echo '{"status":"complete","next":"fixer","summary":"found issues"}' > "$tmpdir/phase_03_review/handoff_reviewer_a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_reviewer_b.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
   local rc=$?
@@ -203,10 +203,10 @@ test_valid_reviewing_to_fixing() {
   tmpdir=$(mktemp -d)
   create_state_json "$tmpdir" "reviewing"
   mkdir -p "$tmpdir/phase_03_review"
-  touch "$tmpdir/phase_03_review/review_claude.md"
-  touch "$tmpdir/phase_03_review/review_codex.md"
-  echo '{"status":"complete","next":"fixer","summary":"found issues"}' > "$tmpdir/phase_03_review/handoff_claude.json"
-  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_codex.json"
+  touch "$tmpdir/phase_03_review/review_reviewer_a.md"
+  touch "$tmpdir/phase_03_review/review_reviewer_b.md"
+  echo '{"status":"complete","next":"fixer","summary":"found issues"}' > "$tmpdir/phase_03_review/handoff_reviewer_a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_reviewer_b.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
   local rc=$?
@@ -219,10 +219,10 @@ test_reviewing_to_fixing_both_clean() {
   tmpdir=$(mktemp -d)
   create_state_json "$tmpdir" "reviewing"
   mkdir -p "$tmpdir/phase_03_review"
-  touch "$tmpdir/phase_03_review/review_claude.md"
-  touch "$tmpdir/phase_03_review/review_codex.md"
-  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_claude.json"
-  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_codex.json"
+  touch "$tmpdir/phase_03_review/review_reviewer_a.md"
+  touch "$tmpdir/phase_03_review/review_reviewer_b.md"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_reviewer_a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_reviewer_b.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
   local rc=$?
