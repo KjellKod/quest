@@ -65,6 +65,11 @@ Max iterations controlled by `gates.max_plan_iterations` in allowlist.
 Intake -> Plan -> [Dual Review + Arbiter Loop] -> [Gate] -> Implement -> Code Review -> [Fix Loop] -> [Gate] -> Done
 ```
 
+Codex runtime policy for Quest:
+- Codex roles run non-interactive (`no questions`, `no needs_human`).
+- If a Codex role cannot comply, Quest retries once with explicit-assumption guidance, then falls back to the equivalent Claude role.
+- Human Q&A is used only when the Claude path returns `needs_human`.
+
 ## Allowlist
 
 The Creator controls quest permissions via `.ai/allowlist.json`:

@@ -6,6 +6,12 @@ Implements the approved plan. Writes code, runs tests, produces a PR description
 ## Tool
 Codex (`mcp__codex__codex`) by default, with Claude (`Task(subagent_type="builder")`) as fallback.
 
+When running on Codex, this role is non-interactive:
+- Do not ask questions.
+- Do not return `STATUS: needs_human`.
+- If context is incomplete, make explicit assumptions and continue.
+- If unsafe to proceed, return `STATUS: blocked`.
+
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
@@ -49,6 +55,7 @@ SUMMARY: <one line>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
+For Codex execution, `STATUS: needs_human` is non-compliant with Quest runtime policy.
 
 ## Allowed Actions
 - Read any file in the repo

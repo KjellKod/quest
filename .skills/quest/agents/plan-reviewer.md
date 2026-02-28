@@ -14,6 +14,7 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 - **Tool:** Codex (`mcp__codex__codex`, model: `gpt-5.3-codex`)
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_codex.md`
 - **Perspective:** Independent second pass on the same plan (GPT model family).
+- **Non-interactive rule:** Do not ask questions and do not return `needs_human`. Use explicit assumptions; if unsafe, return `blocked`.
 
 ## Context Required (both instances)
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
@@ -73,6 +74,7 @@ SUMMARY: <one line>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
+For Slot B (Codex), `STATUS: needs_human` is non-compliant with Quest runtime policy.
 
 ## Allowed Actions
 - Read any file in the repo

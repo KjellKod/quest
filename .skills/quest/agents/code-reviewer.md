@@ -14,6 +14,7 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 - **Tool:** Codex (`mcp__codex__codex`, model: `gpt-5.3-codex`)
 - **Artifact path:** `.quest/<id>/phase_03_review/review_codex.md`
 - **Perspective:** Independent second pass on the same implementation diff (GPT model family).
+- **Non-interactive rule:** Do not ask questions and do not return `needs_human`. Use explicit assumptions; if unsafe, return `blocked`.
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
@@ -67,6 +68,7 @@ SUMMARY: <one line>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
+For Slot B (Codex), `STATUS: needs_human` is non-compliant with Quest runtime policy.
 
 If `NEXT: null`, the review passed with no blocking issues.
 If `NEXT: fixer`, there are issues to fix.

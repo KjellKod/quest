@@ -67,6 +67,15 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 
 **Codex MCP response handling:** After a `mcp__codex__codex` call returns, the orchestrator reads the corresponding `handoff.json` file and does NOT retain the Codex response body in working context. The response may still appear in the conversation history (platform limitation), but the orchestrator treats it as consumed and does not reference it for any subsequent decision.
 
+**Codex non-interactive contract (all `mcp__codex__codex` calls):**
+- Codex must not ask the user questions and must not return `STATUS: needs_human`.
+- If context is incomplete, Codex makes explicit assumptions in the artifact and continues.
+- If it cannot proceed safely, Codex returns `STATUS: blocked` with a concrete reason.
+- Orchestrator handling for Codex `needs_human`/non-compliant output:
+  1. Re-invoke the same Codex role once with a strict reminder: "no questions, no `needs_human`, make explicit assumptions."
+  2. If the second attempt is still non-compliant, missing handoff, or blocked, fall back to the equivalent Claude `Task` role for that step.
+  3. Only enter human Q&A if the Claude fallback returns `STATUS: needs_human`.
+
 **MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions. Create the `.quest/<id>/logs/` directory first if it does not exist.
 
 **Format:**
@@ -230,6 +239,7 @@ gates.max_plan_iterations (default: 4)
    mcp__codex__codex(
      model: "gpt-5.3-codex",
      prompt: "You are the Plan Review Agent (Codex).
+     Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
      Read your instructions: .skills/quest/agents/plan-reviewer.md
      Read context digest: <codex_context_digest_path>
@@ -250,6 +260,7 @@ gates.max_plan_iterations (default: 4)
    mcp__codex__codex(
      model: "gpt-5.3-codex",
      prompt: "You are the Plan Review Agent (Codex).
+     Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
      Read context digest: <codex_context_digest_path>
      Quest brief: .quest/<id>/quest_brief.md
@@ -431,6 +442,10 @@ After plan approval, present the plan interactively before proceeding to build.
    - Read `.quest/<id>/phase_02_implementation/handoff.json` for status/routing
    - Verify artifacts written (from handoff.artifacts)
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response
+   - If Codex path returns `needs_human`, malformed handoff, or `blocked`:
+     1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
+     2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="builder")`) with the same artifact-path contract.
+     3. Only ask the user questions if the Claude fallback returns `needs_human`.
 
 4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
 
@@ -519,6 +534,7 @@ After plan approval, present the plan interactively before proceeding to build.
    mcp__codex__codex(
      model: "gpt-5.3-codex",
      prompt: "You are the Code Review Agent (Codex).
+     Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
      Read your instructions: .skills/quest/agents/code-reviewer.md
      Read context digest: <codex_context_digest_path>
@@ -543,6 +559,7 @@ After plan approval, present the plan interactively before proceeding to build.
    mcp__codex__codex(
      model: "gpt-5.3-codex",
      prompt: "You are the Code Review Agent (Codex).
+     Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
      Read context digest: <codex_context_digest_path>
      Quest: .quest/<id>/quest_brief.md
@@ -622,6 +639,10 @@ After plan approval, present the plan interactively before proceeding to build.
    - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response
+   - If Codex path returns `needs_human`, malformed handoff, or `blocked`:
+     1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
+     2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="fixer")`) with the same artifact-path contract.
+     3. Only ask the user questions if the Claude fallback returns `needs_human`.
 
 3. **Clear stale handoff files:** Delete any existing `handoff_claude.json` and `handoff_codex.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
 
@@ -793,9 +814,13 @@ After plan approval, present the plan interactively before proceeding to build.
 
 ---
 
-## Q&A Loop Pattern
+## Q&A Loop Pattern (Claude-only in normal operation)
 
-If any agent returns `STATUS: needs_human`:
+Normal rule:
+- Codex paths do not enter direct human Q&A. They retry once and then fall back to Claude.
+- Human Q&A is used when a Claude role returns `STATUS: needs_human`.
+
+If a Claude role returns `STATUS: needs_human`:
 
 1. Extract questions from the response (text before `---HANDOFF---`) -- this is an intentional, bounded content read for human interaction, similar to Step 3.5
 2. Present questions to user
@@ -917,7 +942,7 @@ mcp__codex__codex(
 ## Error Handling
 
 - If an agent fails to produce a handoff: Extract any artifacts from the response, log the error, ask user how to proceed
-- If Codex MCP fails: mark the step `blocked`, surface the failure, and ask user whether to retry
+- If Codex MCP fails: retry once with strict non-interactive reminder; if failure persists, fall back to equivalent Claude role; ask user only if fallback also cannot proceed
 - If max iterations reached: Stop, show current state, ask user for guidance
 - If artifact file missing after agent run: Try to extract from response text and write it
 
