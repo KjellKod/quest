@@ -17,10 +17,11 @@
     "planner": "opus",
     "plan_reviewer_a": "opus",
     "plan_reviewer_b": "gpt-5.3-codex",
-    "builder": "opus",
+    "builder": "gpt-5.3-codex",
     "code_reviewer_a": "opus",
     "code_reviewer_b": "gpt-5.3-codex",
-    "arbiter": "opus"
+    "arbiter": "opus",
+    "fixer": "gpt-5.3-codex"
   },
   "review_mode": "auto",
   "fast_review_thresholds": {

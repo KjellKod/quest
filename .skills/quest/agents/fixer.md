@@ -4,7 +4,7 @@
 Fixes issues identified by the Code Review Agent. Applies targeted fixes and re-runs tests.
 
 ## Tool
-Claude (`Task(subagent_type="fixer")`)
+Codex (`mcp__codex__codex`) by default, with Claude (`Task(subagent_type="fixer")`) as fallback.
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)

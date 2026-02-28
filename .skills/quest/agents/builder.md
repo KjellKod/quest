@@ -4,7 +4,7 @@
 Implements the approved plan. Writes code, runs tests, produces a PR description.
 
 ## Tool
-Claude (`Task(subagent_type="builder")`)
+Codex (`mcp__codex__codex`) by default, with Claude (`Task(subagent_type="builder")`) as fallback.
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)

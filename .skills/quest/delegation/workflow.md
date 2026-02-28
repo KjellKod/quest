@@ -415,7 +415,10 @@ After plan approval, present the plan interactively before proceeding to build.
 
 2. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
-3. **Invoke Builder** (Claude `Task(subagent_type="builder")`):
+3. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude `Task` fallback):
+   - Read `model_overrides.builder` from allowlist (default: `gpt-5.3-codex`).
+   - If builder model is Codex, invoke via `mcp__codex__codex`.
+   - If builder model is Claude, invoke via `Task(subagent_type="builder")`.
    - Prompt: Reference file paths only, do not embed content:
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
      - Quest brief: `.quest/<id>/quest_brief.md`
@@ -424,7 +427,7 @@ After plan approval, present the plan interactively before proceeding to build.
      - Write handoff file to: `.quest/<id>/phase_02_implementation/handoff.json` with schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: code_review`
-   - Wait for Task to complete
+   - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_02_implementation/handoff.json` for status/routing
    - Verify artifacts written (from handoff.artifacts)
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response
@@ -601,7 +604,10 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `phase: fixing`, `fix_iteration += 1`, `last_role: fixer_agent`
 
-2. **Invoke Fixer** (Claude `Task(subagent_type="fixer")`):
+2. **Invoke Fixer** (default Codex `mcp__codex__codex`, Claude `Task` fallback):
+   - Read `model_overrides.fixer` from allowlist (default: `gpt-5.3-codex`).
+   - If fixer model is Codex, invoke via `mcp__codex__codex`.
+   - If fixer model is Claude, invoke via `Task(subagent_type="fixer")`.
    - Prompt: Reference file paths only, do not embed content:
      - Code review A: `.quest/<id>/phase_03_review/review_claude.md`
      - Code review B: `.quest/<id>/phase_03_review/review_codex.md`
@@ -613,7 +619,7 @@ After plan approval, present the plan interactively before proceeding to build.
      - Write handoff file to: `.quest/<id>/phase_03_review/handoff_fixer.json` with schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: code_review`
-   - Wait for Task to complete
+   - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response
 
@@ -826,16 +832,16 @@ If any agent returns `STATUS: needs_human`:
 
 | Role | Tool | Model |
 |------|------|-------|
-| Planner | `Task(subagent_type="planner")` | Claude |
-| Plan Reviewer Slot A | `Task(subagent_type="plan-reviewer")` | Claude |
+| Planner | `Task(subagent_type="planner")` | Claude Opus (`opus`) |
+| Plan Reviewer Slot A | `Task(subagent_type="plan-reviewer")` | Claude Opus (`opus`) |
 | Plan Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Arbiter | `Task(subagent_type="arbiter")` | Claude |
-| Builder | `Task(subagent_type="builder")` | Claude |
-| Code Reviewer Slot A | `Task(subagent_type="code-reviewer")` | Claude |
+| Arbiter | `Task(subagent_type="arbiter")` | Claude Opus (`opus`) |
+| Builder | `mcp__codex__codex` (default), `Task(subagent_type="builder")` (fallback) | Codex (GPT) default, Claude fallback |
+| Code Reviewer Slot A | `Task(subagent_type="code-reviewer")` | Claude Opus (`opus`) |
 | Code Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Fixer | `Task(subagent_type="fixer")` | Claude |
+| Fixer | `mcp__codex__codex` (default), `Task(subagent_type="fixer")` (fallback) | Codex (GPT) default, Claude fallback |
 
-**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Claude) synthesizes both reviews.
+**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Claude) synthesizes both reviews while implementation/fix defaults stay Codex-first.
 This table shows default intent, not guaranteed runtime per environment. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
 
 ### Codex MCP Prompt Pattern
