@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Quest Allowlist Configuration",
-  "description": "Creator-managed permissions for quest orchestration.",
+  "description": "Creator-managed permissions and model routing for quest orchestration (v3).",
   "type": "object",
-  "required": ["version", "auto_approve_phases", "arbiter", "review_mode", "role_permissions", "gates"],
+  "required": ["version", "auto_approve_phases", "role_permissions", "model_routing", "review_mode", "gates"],
   "properties": {
-    "version": { "type": "integer", "minimum": 1 },
+    "version": { "type": "integer", "minimum": 3 },
     "description": { "type": "string" },
     "auto_approve_phases": {
       "type": "object",
@@ -18,11 +18,45 @@
         "fix_loop": { "type": "boolean" }
       }
     },
-    "arbiter": {
+    "role_permissions": {
       "type": "object",
-      "properties": {
-        "tool": { "type": "string", "enum": ["claude", "codex"] },
-        "notes": { "type": "string" }
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "file_write": { "type": "array", "items": { "type": "string" } },
+          "file_read": { "type": "array", "items": { "type": "string" } },
+          "bash": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "model_routing": {
+      "type": "object",
+      "description": "Per-runtime model routing. Maps role slots to tools, subagents, and model tiers.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "tool": { "type": "string" },
+                "subagent": { "type": "string" },
+                "server": { "type": "string" },
+                "model": { "type": "string" },
+                "tier": { "type": "string" }
+              }
+            },
+            { "type": "string" }
+          ]
+        }
+      }
+    },
+    "model_tiers": {
+      "type": "object",
+      "description": "Per-runtime mapping of tier names to concrete model IDs.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": "string" }
       }
     },
     "review_mode": { "type": "string", "enum": ["auto", "manual", "fast", "full"] },
@@ -34,15 +68,11 @@
       }
     },
     "codex_context_digest_path": { "type": "string" },
-    "role_permissions": {
+    "update_check": {
       "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "properties": {
-          "file_write": { "type": "array", "items": { "type": "string" } },
-          "file_read": { "type": "array", "items": { "type": "string" } },
-          "bash": { "type": "array", "items": { "type": "string" } }
-        }
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "interval_days": { "type": "integer", "minimum": 1 }
       }
     },
     "gates": {
