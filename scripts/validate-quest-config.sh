@@ -313,6 +313,12 @@ validate_opencode() {
         if [ -n "$model_routing" ] && [ -n "$model_oc" ] && [ "$model_routing" != "$model_oc" ]; then
           echo -e "${GREEN}[WARN]${NC} Model drift: allowlist model_routing.opencode.${routing_key}=${model_routing} != opencode.json ${agent_key}=${model_oc}"
           drift=true
+        elif [ -n "$model_routing" ] && [ -z "$model_oc" ]; then
+          echo -e "${GREEN}[WARN]${NC} Model drift: allowlist has model_routing.opencode.${routing_key}=${model_routing} but opencode.json missing ${agent_key}"
+          drift=true
+        elif [ -z "$model_routing" ] && [ -n "$model_oc" ]; then
+          echo -e "${GREEN}[WARN]${NC} Model drift: opencode.json has ${agent_key}=${model_oc} but allowlist missing model_routing.opencode.${routing_key}"
+          drift=true
         fi
       done
       if [ "$drift" = false ]; then
