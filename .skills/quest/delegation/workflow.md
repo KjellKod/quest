@@ -838,15 +838,16 @@ If any agent returns `STATUS: needs_human`:
 | Role | Claude Tool | Codex Tool | OpenCode Tool |
 |------|------------|------------|---------------|
 | Planner | `Task(subagent_type="planner")` | `spawn_agent`/`worker` | `task(agent="planner")` |
-| Reviewer A | `Task(subagent_type="plan-reviewer")` | `mcp__codex__codex` | `task(agent="plan-reviewer")` |
-| Reviewer B | `mcp__codex__codex` | `mcp__codex__codex` | `task(agent="plan-reviewer")` with different model |
+| Reviewer A | `Task(subagent_type="plan-reviewer")` | `mcp__codex__codex` | `task(agent="plan-reviewer-a")` |
+| Reviewer B | `mcp__codex__codex` | `mcp__codex__codex` | `task(agent="plan-reviewer-b")` |
 | Arbiter | `Task(subagent_type="arbiter")` | `spawn_agent`/`worker` | `task(agent="arbiter")` |
 | Builder | `Task(subagent_type="builder")` | `spawn_agent`/`worker` | `task(agent="builder")` |
-| Code Reviewer A | `Task(subagent_type="code-reviewer")` | `mcp__codex__codex` | `task(agent="code-reviewer")` |
-| Code Reviewer B | `mcp__codex__codex` | `mcp__codex__codex` | `task(agent="code-reviewer")` with different model |
+| Code Reviewer A | `Task(subagent_type="code-reviewer")` | `mcp__codex__codex` | `task(agent="code-reviewer-a")` |
+| Code Reviewer B | `mcp__codex__codex` | `mcp__codex__codex` | `task(agent="code-reviewer-b")` |
 | Fixer | `Task(subagent_type="fixer")` | `spawn_agent`/`worker` | `task(agent="fixer")` |
 
 **Model diversity** in review phases gives independent perspectives from different model families. The Arbiter synthesizes both reviews.
+OpenCode uses split reviewer agent IDs (`*-a` / `*-b`) for model diversity because model binding is per-agent in `.opencode/opencode.json`.
 This table shows default intent, not guaranteed runtime per environment. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
 
 ### Runtime Detection
