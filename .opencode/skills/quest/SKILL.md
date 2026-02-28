@@ -55,8 +55,11 @@ Evaluate the user's input:
 - If input is detailed (has intent, constraints, acceptance criteria): proceed to planning
 - If input is thin: ask 1-3 clarifying questions (max 10 total)
 - Create quest folder: `.quest/<slug>_YYYY-MM-DD__HHMM/`
+- Create initial state file with `"phase": "intake"`
 
 ### Phase 2: Planning
+
+**Update state:** `"phase": "planning"`
 
 1. Use `Task` tool to invoke the Planner agent:
    ```
@@ -109,10 +112,13 @@ Include these sections:
 Be specific and actionable. Reviewers will evaluate feasibility."
    )
    ```
-2. Write plan to: `.quest/<id>/phase_01_plan/plan.md`
-3. Write handoff to: `.quest/<id>/phase_01_plan/handoff.json`
+2. **Verify artifacts exist** — after the Task completes, check that `plan.md` and `handoff.json` were written. If not, write the Task result to those files yourself.
+3. Write plan to: `.quest/<id>/phase_01_plan/plan.md`
+4. Write handoff to: `.quest/<id>/phase_01_plan/handoff.json`
 
 ### Phase 3: Plan Review (Dual Model)
+
+**Update state:** `"phase": "plan_review"`
 
 Invoke TWO reviewers concurrently using separate Task calls:
 
@@ -192,6 +198,8 @@ APPROVE | ITERATE
 )
 ```
 
+**After Reviewer A completes:** Verify `.quest/<id>/phase_01_plan/review_reviewer_a.md` exists on disk. If not, write the Task result to that path. Subagents may return their output as a Task result without persisting to disk — the orchestrator must ensure all artifacts are saved.
+
 **Reviewer B (Secondary - standard tier):**
 ```
 Task(
@@ -268,7 +276,11 @@ APPROVE | ITERATE
 )
 ```
 
+**After Reviewer B completes:** Verify `.quest/<id>/phase_01_plan/review_reviewer_b.md` exists on disk. If not, write the Task result to that path.
+
 ### Phase 4: Arbiter
+
+**Update state:** `"phase": "arbiter"`
 
 Invoke Arbiter to synthesize reviews:
 ```
@@ -328,11 +340,17 @@ APPROVE | ITERATE
 )
 ```
 
+**After Arbiter completes:** Verify `.quest/<id>/phase_01_plan/arbiter.md` exists on disk. If not, write the Task result to that path.
+
 ### Phase 5: Human Gate
+
+**Update state:** `"phase": "human_gate"`
 
 Present the plan and arbiter verdict to the user. Wait for explicit approval before proceeding to build.
 
 ### Phase 6: Build
+
+**Update state:** `"phase": "building"`
 
 Invoke Builder to implement:
 ```
@@ -383,7 +401,11 @@ Create: .quest/<id>/phase_02_implementation/implementation_notes.md
 )
 ```
 
+**After Builder completes:** Verify `.quest/<id>/phase_02_implementation/implementation_notes.md` exists on disk. If not, write the Task result to that path.
+
 ### Phase 7: Code Review (Dual Model)
+
+**Update state:** `"phase": "code_review"`
 
 Invoke TWO code reviewers concurrently:
 
@@ -465,6 +487,8 @@ APPROVE | NEEDS_FIX
 )
 ```
 
+**After Reviewer A completes:** Verify `.quest/<id>/phase_03_review/review_reviewer_a.md` exists on disk. If not, write the Task result to that path.
+
 **Reviewer B:**
 ```
 Task(
@@ -543,7 +567,11 @@ APPROVE | NEEDS_FIX
 )
 ```
 
+**After Reviewer B completes:** Verify `.quest/<id>/phase_03_review/review_reviewer_b.md` exists on disk. If not, write the Task result to that path.
+
 ### Phase 8: Fix Loop (if needed)
+
+**Update state:** `"phase": "fixing"` (if fixes needed)
 
 If reviewers find issues:
 
@@ -593,7 +621,8 @@ Add a section:
 
 ### Phase 9: Complete
 
-- Update state to complete
+**Update state:** `"phase": "complete", "status": "complete"`
+
 - Create journal entry in `docs/quest-journal/`
 - Show summary to user
 
@@ -603,8 +632,12 @@ When executing Quest in OpenCode:
 
 1. Use `Task` tool for all subagent invocations
 2. Use `subagent_type` parameter to specify which agent
-3. Track state in `.quest/<id>/state.json`
+3. Track state in `.quest/<id>/state.json` — update at EVERY phase transition
 4. Write artifacts to the quest folder
+
+### Artifact Persistence Rule
+
+**CRITICAL:** After every `Task` call, verify the expected output file exists on disk. Subagents may return their content as Task results without writing to disk. If the expected file is missing, the orchestrator MUST write the Task result to the expected path. Never proceed to the next phase with missing artifact files.
 
 ## Error Handling
 

@@ -13,6 +13,11 @@ tools:
 
 Read and follow the role definition in `.ai/roles/builder.md`.
 
+## Output
+
+Write your implementation artifacts to:
+- `.quest/<quest_id>/phase_02_implementation/implementation_notes.md`
+
 ## Workflow
 
 1. Read the approved plan from `.quest/<quest_id>/phase_01_plan/plan.md`

@@ -146,6 +146,35 @@ claude mcp add codex-cli -- npx -y codex-mcp-server
 
 If you skip this, Quest will use Claude for all roles (still works, just single-model).
 
+## OpenCode
+
+Quest can run from the OpenCode runtime using the `$quest` command. OpenCode uses different models (e.g., big-pickle, minimax) as agents.
+
+### Prerequisites
+
+- **OpenCode CLI** - Install from [https://opencode.ai/docs](https://opencode.ai/docs)
+
+### Quick Setup
+
+```bash
+# Copy .opencode/ to your repository
+cp -r .opencode/ /path/to/your-repo/
+cd your-repo
+opencode
+```
+
+### Usage
+
+```bash
+# Run Quest from OpenCode
+$quest "Add a loading skeleton to the user list"
+
+# Resume a previous quest
+$quest feature-x_2026-02-27__1200
+```
+
+For detailed instructions, see [OpenCode Quickstart Guide](docs/guides/opencode-quickstart.md).
+
 ## Quick Start
 
 ### Option A: Use the Installer (Recommended)

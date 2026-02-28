@@ -25,6 +25,10 @@ When run without options, validates:
   - .ai/allowlist.json is valid JSON
   - .ai/allowlist.json matches schema (if ajv installed)
   - .skills/quest/agents/*.md and .ai/roles/quest_agent.md have required sections
+  - .opencode/opencode.json is valid JSON (if present)
+  - .opencode/agents/*.md have required frontmatter and ## Output section
+  - .opencode/skills/*/SKILL.md have valid frontmatter
+  - .opencode/commands/*.md have valid frontmatter
 EOF
   exit 0
 }
@@ -224,6 +228,176 @@ validate_roles() {
   done
 }
 
+# Validate OpenCode opencode.json
+validate_opencode_json() {
+  local opencode_json="$REPO_ROOT/.opencode/opencode.json"
+  if [ ! -f "$opencode_json" ]; then
+    fail ".opencode/opencode.json does not exist"
+    return
+  fi
+
+  if command -v jq &>/dev/null; then
+    if jq empty "$opencode_json" 2>/dev/null; then
+      pass ".opencode/opencode.json is valid JSON"
+    else
+      fail ".opencode/opencode.json is invalid JSON"
+    fi
+  else
+    # Pure bash: check for basic JSON structure
+    if head -c1 "$opencode_json" | grep -q '{' && tail -c2 "$opencode_json" | grep -q '}'; then
+      pass ".opencode/opencode.json appears to be JSON (install jq for full validation)"
+    else
+      fail ".opencode/opencode.json does not appear to be valid JSON"
+    fi
+  fi
+}
+
+# Validate OpenCode agent files have required frontmatter and sections
+validate_opencode_agents() {
+  local agents_dir="$REPO_ROOT/.opencode/agents"
+  if [ ! -d "$agents_dir" ]; then
+    fail ".opencode/agents/ directory does not exist"
+    return
+  fi
+
+  local agent_files=()
+  while IFS= read -r agent_file; do
+    agent_files+=("$agent_file")
+  done < <(find "$agents_dir" -name "*.md" ! -name "README.md" -type f | sort)
+
+  if [ "${#agent_files[@]}" -eq 0 ]; then
+    fail "No agent files found in .opencode/agents/"
+    return
+  fi
+
+  local agent_file
+  for agent_file in "${agent_files[@]}"; do
+    local filename
+    filename=$(basename "$agent_file")
+    local missing=""
+
+    # Check YAML frontmatter exists (--- at start)
+    if ! head -3 "$agent_file" | grep -q "^---"; then
+      missing="$missing YAML frontmatter,"
+    fi
+
+    # Check frontmatter contains name: field
+    if ! grep -q "^name:" "$agent_file"; then
+      missing="$missing name: field,"
+    fi
+
+    # Check frontmatter contains description: field
+    if ! grep -q "^description:" "$agent_file"; then
+      missing="$missing description: field,"
+    fi
+
+    # Check for ## Output section
+    if ! grep -q "^## Output" "$agent_file"; then
+      missing="$missing ## Output section,"
+    fi
+
+    if [ -z "$missing" ]; then
+      pass "$filename has all required frontmatter and sections"
+    else
+      missing="${missing%,}" # Remove trailing comma
+      fail "$filename missing:$missing"
+    fi
+  done
+}
+
+# Validate OpenCode skill files have valid frontmatter
+validate_opencode_skills() {
+  local skills_dir="$REPO_ROOT/.opencode/skills"
+  if [ ! -d "$skills_dir" ]; then
+    fail ".opencode/skills/ directory does not exist"
+    return
+  fi
+
+  local skill_files=()
+  while IFS= read -r skill_file; do
+    skill_files+=("$skill_file")
+  done < <(find "$skills_dir" -name "SKILL.md" -type f | sort)
+
+  if [ "${#skill_files[@]}" -eq 0 ]; then
+    fail "No SKILL.md files found in .opencode/skills/"
+    return
+  fi
+
+  local skill_file
+  for skill_file in "${skill_files[@]}"; do
+    local filename
+    filename=$(basename "$skill_file")
+    local skill_name
+    skill_name=$(dirname "$skill_file" | xargs basename)
+    local missing=""
+
+    # Check YAML frontmatter exists (--- at start)
+    if ! head -3 "$skill_file" | grep -q "^---"; then
+      missing="$missing YAML frontmatter,"
+    fi
+
+    # Check frontmatter contains name: field
+    if ! grep -q "^name:" "$skill_file"; then
+      missing="$missing name: field,"
+    fi
+
+    # Check frontmatter contains description: field
+    if ! grep -q "^description:" "$skill_file"; then
+      missing="$missing description: field,"
+    fi
+
+    if [ -z "$missing" ]; then
+      pass "$skill_name/SKILL.md has valid frontmatter"
+    else
+      missing="${missing%,}" # Remove trailing comma
+      fail "$skill_name/SKILL.md missing:$missing"
+    fi
+  done
+}
+
+# Validate OpenCode command files have valid frontmatter
+validate_opencode_commands() {
+  local commands_dir="$REPO_ROOT/.opencode/commands"
+  if [ ! -d "$commands_dir" ]; then
+    fail ".opencode/commands/ directory does not exist"
+    return
+  fi
+
+  local command_files=()
+  while IFS= read -r command_file; do
+    command_files+=("$command_file")
+  done < <(find "$commands_dir" -name "*.md" ! -name "README.md" -type f | sort)
+
+  if [ "${#command_files[@]}" -eq 0 ]; then
+    fail "No command files found in .opencode/commands/"
+    return
+  fi
+
+  local command_file
+  for command_file in "${command_files[@]}"; do
+    local filename
+    filename=$(basename "$command_file")
+    local missing=""
+
+    # Check YAML frontmatter exists (--- at start)
+    if ! head -3 "$command_file" | grep -q "^---"; then
+      missing="$missing YAML frontmatter,"
+    fi
+
+    # Check frontmatter contains description: field
+    if ! grep -q "^description:" "$command_file"; then
+      missing="$missing description: field,"
+    fi
+
+    if [ -z "$missing" ]; then
+      pass "$filename has valid frontmatter"
+    else
+      missing="${missing%,}" # Remove trailing comma
+      fail "$filename missing:$missing"
+    fi
+  done
+}
+
 echo "=== Quest Configuration Validation ==="
 echo ""
 
@@ -231,6 +405,16 @@ check_gitignore
 validate_json "$REPO_ROOT/.ai/allowlist.json"
 validate_schema
 validate_roles
+
+# OpenCode validation (if .opencode/ directory exists)
+if [ -d "$REPO_ROOT/.opencode" ]; then
+  validate_opencode_json
+  validate_opencode_agents
+  validate_opencode_skills
+  validate_opencode_commands
+else
+  echo -e "${GREEN}[SKIP]${NC} .opencode/ directory not found - skipping OpenCode validation"
+fi
 
 echo ""
 if [ $ERRORS -eq 0 ]; then

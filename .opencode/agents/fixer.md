@@ -13,6 +13,11 @@ tools:
 
 Read and follow the role definition in `.ai/roles/fixer.md`.
 
+## Output
+
+Update the implementation notes with your fixes:
+- `.quest/<quest_id>/phase_02_implementation/implementation_notes.md`
+
 ## Workflow
 
 1. Read reviews from `.quest/<quest_id>/phase_03_review/`
