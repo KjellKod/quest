@@ -9,13 +9,14 @@
       "type": "string",
       "enum": [
         "quest_agent",
-        "planner_agent",
-        "plan_review_claude",
-        "plan_review_codex",
-        "arbiter_agent",
-        "builder_agent",
-        "code_review_agent",
-        "fixer_agent"
+        "planner",
+        "reviewer_a",
+        "reviewer_b",
+        "arbiter",
+        "builder",
+        "code_reviewer_a",
+        "code_reviewer_b",
+        "fixer"
       ],
       "description": "The role that produced this handoff."
     },
@@ -69,13 +70,14 @@
       "type": ["string", "null"],
       "enum": [
         "quest_agent",
-        "planner_agent",
-        "plan_review_claude",
-        "plan_review_codex",
-        "arbiter_agent",
-        "builder_agent",
-        "code_review_agent",
-        "fixer_agent",
+        "planner",
+        "reviewer_a",
+        "reviewer_b",
+        "arbiter",
+        "builder",
+        "code_reviewer_a",
+        "code_reviewer_b",
+        "fixer",
         null
       ],
       "description": "The suggested next role, or null if the quest phase is done."

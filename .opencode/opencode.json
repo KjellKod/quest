@@ -6,14 +6,16 @@
     "quest": {
       "description": "Quest orchestration agent - manages multi-agent workflow",
       "mode": "primary",
-      "prompt": "{file:.opencode/skills/quest/SKILL.md}",
+      "prompt": "{file:skills/quest/SKILL.md}",
       "task_budget": 20,
       "permission": {
         "task": {
           "planner": "allow",
-          "plan-reviewer": "allow",
+          "plan-reviewer-a": "allow",
+          "plan-reviewer-b": "allow",
           "builder": "allow",
-          "code-reviewer": "allow",
+          "code-reviewer-a": "allow",
+          "code-reviewer-b": "allow",
           "arbiter": "allow",
           "fixer": "allow"
         }
@@ -21,62 +23,85 @@
     },
     "planner": {
       "description": "Creates implementation plans",
+      "model": "opencode/big-pickle",
       "mode": "subagent",
-      "prompt": "{file:.opencode/agents/planner.md}"
+      "prompt": "{file:agents/planner.md}"
     },
-    "plan-reviewer": {
-      "description": "Reviews implementation plans",
+    "plan-reviewer-a": {
+      "description": "Reviews implementation plans (Reviewer A - advanced)",
+      "model": "opencode/big-pickle",
       "mode": "subagent",
-      "prompt": "{file:.opencode/agents/plan-reviewer.md}"
+      "prompt": "{file:agents/plan-reviewer.md}"
+    },
+    "plan-reviewer-b": {
+      "description": "Reviews implementation plans (Reviewer B - standard)",
+      "model": "opencode/minimax-m2.5-free",
+      "mode": "subagent",
+      "prompt": "{file:agents/plan-reviewer.md}"
     },
     "builder": {
       "description": "Implements features",
+      "model": "opencode/big-pickle",
       "mode": "subagent",
-      "prompt": "{file:.opencode/agents/builder.md}"
+      "prompt": "{file:agents/builder.md}"
     },
-    "code-reviewer": {
-      "description": "Reviews code changes",
+    "code-reviewer-a": {
+      "description": "Reviews code changes (Reviewer A - advanced)",
+      "model": "opencode/big-pickle",
       "mode": "subagent",
-      "prompt": "{file:.opencode/agents/code-reviewer.md}"
+      "prompt": "{file:agents/code-reviewer.md}"
+    },
+    "code-reviewer-b": {
+      "description": "Reviews code changes (Reviewer B - standard)",
+      "model": "opencode/minimax-m2.5-free",
+      "mode": "subagent",
+      "prompt": "{file:agents/code-reviewer.md}"
     },
     "arbiter": {
       "description": "Synthesizes reviews, makes decisions",
+      "model": "opencode/big-pickle",
       "mode": "subagent",
-      "prompt": "{file:.opencode/agents/arbiter.md}"
+      "prompt": "{file:agents/arbiter.md}"
     },
     "fixer": {
       "description": "Addresses review feedback",
+      "model": "opencode/big-pickle",
       "mode": "subagent",
-      "prompt": "{file:.opencode/agents/fixer.md}"
+      "prompt": "{file:agents/fixer.md}"
     }
   },
   "command": {
     "quest": {
+      "template": "$ARGUMENTS",
       "description": "Run Quest multi-agent orchestration",
-      "agent": "quest",
-      "subtask": true
+      "agent": "quest"
     },
     "plan": {
+      "template": "$ARGUMENTS",
       "description": "Create implementation plan",
       "agent": "planner",
       "subtask": true
     },
     "review-plan": {
+      "template": "$ARGUMENTS",
       "description": "Review implementation plan",
-      "agent": "plan-reviewer",
+      "agent": "plan-reviewer-a",
       "subtask": true
     },
     "build": {
+      "template": "$ARGUMENTS",
       "description": "Implement the plan",
       "agent": "builder",
       "subtask": true
     },
     "review-code": {
+      "template": "$ARGUMENTS",
       "description": "Review code implementation",
-      "agent": "code-reviewer",
+      "agent": "code-reviewer-a",
       "subtask": true
     },
     "fix": {
+      "template": "$ARGUMENTS",
       "description": "Fix review issues",
       "agent": "fixer",
       "subtask": true

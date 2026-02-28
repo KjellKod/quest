@@ -64,12 +64,12 @@
     },
     "opencode": {
       "planner":         { "tool": "task", "subagent": "planner",       "tier": "advanced" },
-      "reviewer_a":      { "tool": "task", "subagent": "plan-reviewer", "tier": "advanced" },
-      "reviewer_b":      { "tool": "task", "subagent": "plan-reviewer", "tier": "standard" },
+      "reviewer_a":      { "tool": "task", "subagent": "plan-reviewer-a", "tier": "advanced" },
+      "reviewer_b":      { "tool": "task", "subagent": "plan-reviewer-b", "tier": "standard" },
       "arbiter":         { "tool": "task", "subagent": "arbiter",       "tier": "advanced" },
       "builder":         { "tool": "task", "subagent": "builder",       "tier": "advanced" },
-      "code_reviewer_a": { "tool": "task", "subagent": "code-reviewer", "tier": "advanced" },
-      "code_reviewer_b": { "tool": "task", "subagent": "code-reviewer", "tier": "standard" },
+      "code_reviewer_a": { "tool": "task", "subagent": "code-reviewer-a", "tier": "advanced" },
+      "code_reviewer_b": { "tool": "task", "subagent": "code-reviewer-b", "tier": "standard" },
       "fixer":           { "tool": "task", "subagent": "fixer",         "tier": "advanced" }
     },
     "codex": {
@@ -87,7 +87,7 @@
   "model_tiers": {
     "opencode": {
       "quick": "opencode/gpt-5-nano",
-      "standard": "opencode/kimi-k2.5-free",
+      "standard": "opencode/minimax-m2.5-free",
       "advanced": "opencode/big-pickle"
     }
   },

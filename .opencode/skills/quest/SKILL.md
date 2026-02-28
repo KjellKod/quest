@@ -119,9 +119,9 @@ Invoke TWO reviewers concurrently using separate Task calls:
 **Reviewer A (Primary - advanced tier):**
 ```
 Task(
-  subagent_type="plan-reviewer",
+  subagent_type="plan-reviewer-a",
   description="Review plan - Reviewer A",
-  prompt="You are Reviewer A (Advanced Model) for Quest plan review.
+  prompt="You are Reviewer A for Quest plan review.
 
 ## Your Role
 Evaluate the implementation plan thoroughly. Your review helps ensure quality before human approval.
@@ -195,9 +195,9 @@ APPROVE | ITERATE
 **Reviewer B (Secondary - standard tier):**
 ```
 Task(
-  subagent_type="plan-reviewer",
-  description="Review plan - Reviewer B", 
-  prompt="You are Reviewer B (Standard Model) for Quest plan review.
+  subagent_type="plan-reviewer-b",
+  description="Review plan - Reviewer B",
+  prompt="You are Reviewer B for Quest plan review.
 
 ## Your Role
 Provide an independent evaluation of the implementation plan. Look for gaps and issues Reviewer A might miss.
@@ -390,9 +390,9 @@ Invoke TWO code reviewers concurrently:
 **Reviewer A:**
 ```
 Task(
-  subagent_type="code-reviewer",
+  subagent_type="code-reviewer-a",
   description="Review code - Reviewer A",
-  prompt="You are Reviewer A (Advanced Model) for Quest code review.
+  prompt="You are Reviewer A for Quest code review.
 
 ## Your Role
 Evaluate the implementation for correctness, security, and quality. Your review determines if we're ready to complete.
@@ -468,9 +468,9 @@ APPROVE | NEEDS_FIX
 **Reviewer B:**
 ```
 Task(
-  subagent_type="code-reviewer",
+  subagent_type="code-reviewer-b",
   description="Review code - Reviewer B",
-  prompt="You are Reviewer B (Standard Model) for Quest code review.
+  prompt="You are Reviewer B for Quest code review.
 
 ## Your Role
 Provide independent code review. Look for issues Reviewer A might miss.
