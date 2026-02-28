@@ -85,7 +85,7 @@ OpenCode `task` subagents may return content in their response without writing f
 
 ### Model availability
 
-Free Zen models may expire or become unavailable. Check the `model_tiers.opencode.expired` list in `allowlist.json` for known expired models. If a model fails, try switching to another model in the `model_routing.opencode` section.
+Free Zen models may expire or become unavailable. Check the `model_tiers.opencode.expired` list in `allowlist.json` for known expired models. If a model fails, update the agent's `model` field in `.opencode/opencode.json` (the authoritative config) and update `model_routing.opencode` in `allowlist.json` to match (advisory, keeps docs in sync).
 
 ### Path resolution
 
