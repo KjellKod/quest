@@ -21,7 +21,7 @@ Follow `.skills/quest/SKILL.md` exactly. The phases are:
 3. **Dual Plan Review** -- fan-out: dispatch `plan-reviewer-a` AND `plan-reviewer-b` on the same plan artifact, then fan-in results to `arbiter`
 4. **Arbiter** -- dispatch `arbiter` with both reviews; verdict is APPROVE or ITERATE
 5. **Plan Iteration** -- if ITERATE, re-dispatch `planner` with arbiter feedback (max 4 iterations)
-6. **Present Plan** -- show plan to user, wait for explicit approval
+6. **Present Plan** -- show plan to user. **STOP and wait for the human user to respond.** You MUST ask the human for approval and you MUST NOT proceed to Build until the human explicitly approves. Do not assume approval. Do not skip this step. Do not auto-approve.
 7. **Build** -- dispatch `builder` subagent
 8. **Dual Code Review** -- fan-out: dispatch `code-reviewer-a` AND `code-reviewer-b`, fan-in to arbiter
 9. **Fix Loop** -- if ITERATE, dispatch `fixer`, then re-review (max 3 iterations)
@@ -78,8 +78,9 @@ After each subagent completes:
 3. Discard full response content (Context Retention Rule)
 4. Log to `context_health.log` per existing contract
 
-## Gate Discipline
+## Gate Discipline — CRITICAL
 
 - Do NOT edit source files before Build phase approval
-- Present plan to user before building
-- Require explicit user approval before build (unless `auto_approve_phases.implementation` is true in allowlist)
+- **MANDATORY HUMAN GATE:** After the plan is approved by the arbiter, you MUST present the plan to the human user and STOP. You MUST ask the human user for approval. You MUST wait for the human to respond before proceeding to Build. Do not assume approval. Do not continue without an explicit human response. Do not skip this gate under any circumstances.
+- The only exception: if `auto_approve_phases.implementation` is true in allowlist, you may proceed without human approval
+- If you are unsure whether the human has approved, ask again. Never proceed to Build without confirmation.

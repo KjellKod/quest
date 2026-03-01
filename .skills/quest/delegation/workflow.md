@@ -326,9 +326,11 @@ gates.max_plan_iterations (default: 4)
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
      - Otherwise: Loop back to step 0 (stale handoff cleanup)
 
-### Step 3.5: Interactive Plan Presentation
+### Step 3.5: Interactive Plan Presentation (MANDATORY HUMAN GATE)
 
 After plan approval, present the plan interactively before proceeding to build.
+
+**THIS IS A MANDATORY STOP POINT.** You MUST present the plan to the human user, ask for their approval, and STOP execution until the human responds. Do not assume approval. Do not skip this step. Do not auto-approve. Do not proceed to Step 4 until the human has explicitly approved.
 
 **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presenting` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
 
@@ -422,10 +424,11 @@ After plan approval, present the plan interactively before proceeding to build.
 
 ### Step 4: Build Phase
 
-**Gate check:**
+**MANDATORY GATE CHECK — Do not skip this:**
 - Read `auto_approve_phases.implementation` from allowlist
-- If false: Ask user "Plan approved. Proceed with implementation?"
-- Wait for confirmation before continuing
+- If false (default): You MUST ask the user "Plan approved. Proceed with implementation?" and then STOP and wait for the human to respond. Do not proceed until the human explicitly says yes. Do not assume approval. Do not auto-approve.
+- If true: You may proceed without asking
+- **If you have not received explicit human approval from Step 3.5 or this gate, STOP NOW and ask.**
 
 **Build:**
 
