@@ -4,7 +4,7 @@
     "quest": {
       "description": "Quest orchestration agent - coordinates plan/review/build/fix workflow",
       "mode": "primary",
-      "model": "opencode/kimi-k2.5",
+      "model": "opencode/claude-opus-4-6",
       "steps": 35,
       "prompt": "{file:agents/quest.md}",
       "permission": {
@@ -67,7 +67,7 @@
     "arbiter": {
       "description": "Synthesizes dual reviews, renders APPROVE or ITERATE verdict",
       "mode": "subagent",
-      "model": "opencode/minimax-m2.5-free",
+      "model": "opencode/claude-opus-4-6",
       "prompt": "{file:agents/arbiter.md}",
       "permission": {
         "edit": {
@@ -141,7 +141,7 @@
     "fixer": {
       "description": "Addresses code review feedback",
       "mode": "subagent",
-      "model": "opencode/minimax-m2.5-free",
+      "model": "opencode/gpt-5.3-codex",
       "prompt": "{file:agents/fixer.md}",
       "permission": {
         "edit": {

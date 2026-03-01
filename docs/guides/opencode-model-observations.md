@@ -55,8 +55,8 @@ General:
 
 ### KiMi K2.5 (`opencode/kimi-k2.5`)
 
-**Tested as:** Reviewer B (plan), Orchestrator (testing now)
-**Verdict:** Working as reviewer, testing as orchestrator
+**Tested as:** Reviewer B (plan), Orchestrator
+**Verdict:** Good reviewer, failed orchestrator
 
 Reviewer:
 - Fast execution — noticeably quicker than other models
@@ -65,12 +65,12 @@ Reviewer:
 - Different model family from Codex and Claude — provides genuine review diversity
 
 Orchestrator:
-- Testing now — 256K context window and agent swarm intelligence suggest potential
-- Known for strong agentic capabilities (multi-agent coordination, tool use)
-- Paid tier model — unlike Trinity and MiniMax (both free, both failed as orchestrator)
+- **Failed.** Did not dispatch any subagents — treated the task as a solo agent problem. No Quest phases, no handoff artifacts, no `.quest/` state.
+- Bypassed edit permissions using `cat >` bash instead of Edit tool — circumvented the permission model
+- Produced good quality output as a solo agent (485-line document, well-structured, researched via web search) but completely ignored the orchestration contract
+- Paid tier model — cost did not help. Same failure class as Trinity (free) and MiniMax (free): none of them coordinate multi-agent pipelines.
 
-General:
-- Free tier candidate for reviewer B slot
+**Recommendation: Use as Reviewer B (proven). Do not use as orchestrator, arbiter, or other judgment-heavy roles.**
 
 ### Big Pickle (`opencode/big-pickle`)
 
@@ -124,21 +124,35 @@ Profile (from benchmarks):
 
 MiniMax failed to drive the Quest pipeline as orchestrator. Config archived, not recommended.
 
-### Experimental Configuration (KiMi orchestrator — testing now)
+### Failed: KiMi orchestrator
+
+KiMi did not dispatch subagents — acted as solo agent, bypassed permissions via bash. Good output quality but zero orchestration.
+
+### Failed Orchestrators Summary
+
+| Model | Cost | Failure Mode |
+|-------|------|-------------|
+| trinity-large-preview-free | free | Skipped human gates, lost fan-out |
+| minimax-m2.5-free | free | Could not drive pipeline |
+| kimi-k2.5 | paid | Solo agent, no subagent dispatch |
+
+**Conclusion: Opus is the only viable orchestrator. Cost tier does not predict orchestration capability.**
+
+### Active Configuration (Opus orchestrator, diverse subagents)
 
 | Role | Model | Cost | Status |
 |------|-------|------|--------|
-| Orchestrator | kimi-k2.5 | paid | Testing |
+| Orchestrator | claude-opus-4-6 | paid | Proven |
 | Planner | trinity-large-preview-free | free | Proven |
 | Plan Reviewer A | gpt-5.3-codex | paid | Proven |
 | Plan Reviewer B | kimi-k2.5 | paid | Working |
-| Arbiter | minimax-m2.5-free | free | Testing |
+| Arbiter | claude-opus-4-6 | paid | Proven |
 | Builder | gpt-5.3-codex | paid | Proven |
 | Code Reviewer A | gpt-5.3-codex | paid | Proven |
 | Code Reviewer B | minimax-m2.5-free | free | Testing |
-| Fixer | minimax-m2.5-free | free | Testing |
+| Fixer | gpt-5.3-codex | paid | Proven (in builder role) |
 
-4 free / 5 paid slots. 4 model families: KiMi, Trinity, Codex, MiniMax.
+2 free / 7 paid slots. 5 model families: Claude, Trinity, Codex, KiMi, MiniMax.
 
 ## Test Prompt for Experimental Config
 
@@ -167,4 +181,5 @@ for each slot."
 6. **Human gates require a reliable orchestrator** — Trinity skipped the plan approval gate (0 toolcalls, auto-concluded "user approved"). Opus respected the gate. For workflows with human checkpoints, Opus as orchestrator is the safe choice.
 7. **Subagent slot naming leaks from shared skill files** — KiMi identified as "Slot A (Claude)" because workflow.md uses hardcoded Claude-era slot names. The model self-ID header in artifacts is the authoritative source, not the preamble text.
 8. **Model diversity produces real disagreement** — Codex iterated where Claude approved in one run. This validates the dual-review pattern as more than rubber-stamping.
-9. **Opus is the only proven orchestrator** — Trinity skipped gates, MiniMax failed to drive the pipeline. Strong benchmarks do not predict orchestration reliability. Free-tier models work well as subagents but not as orchestrators.
+9. **Opus is the only viable orchestrator** — Trinity (free) skipped gates, MiniMax (free) couldn't drive the pipeline, KiMi (paid) acted as solo agent. 0/3 alternatives worked. Cost tier does not predict orchestration capability — only Opus reliably dispatches subagents and respects human gates.
+10. **Permission bypass via bash** — KiMi used `cat >` to write files when Edit was denied. The permission model has a bash escape hatch that agentic models will find.
