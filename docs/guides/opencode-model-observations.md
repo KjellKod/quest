@@ -161,6 +161,71 @@ Based on actual Quest runs:
 
 **Key insight: Trinity should only be used as planner. KiMi + Codex are the reliable subagent pair.**
 
+### Default Configuration (active in `.opencode/opencode.json`)
+
+```
+                          ┌─────────────────┐
+                          │   KiMi K2.5     │
+                          │  (orchestrator)  │
+                          └────────┬────────┘
+                                   │
+                    ┌──────────────┼──────────────┐
+                    ▼              │              ▼
+            ┌──────────────┐      │     ┌──────────────┐
+            │ Trinity Free │      │     │              │
+            │  (planner)   │      │     │              │
+            └──────┬───────┘      │     │              │
+                   │              │     │              │
+         ┌─────────┴─────────┐    │     │              │
+         ▼                   ▼    │     │              │
+  ┌─────────────┐  ┌─────────────┐│     │              │
+  │ Codex       │  │ KiMi        ││     │              │
+  │ (reviewer A)│  │ (reviewer B)││     │              │
+  └──────┬──────┘  └──────┬──────┘│     │              │
+         └────────┬───────┘       │     │              │
+                  ▼               │     │              │
+          ┌──────────────┐        │     │              │
+          │  Opus        │        │     │              │
+          │  (arbiter)   │        │     │              │
+          └──────┬───────┘        │     │              │
+                 │                │     │              │
+                 ▼                │     │              │
+          [human gate]            │     │              │
+                 │                │     │              │
+                 ▼                │     │              │
+          ┌──────────────┐        │     │              │
+          │ Codex        │        │     │              │
+          │ (builder)    │        │     │              │
+          └──────┬───────┘        │     │              │
+                 │                │     │              │
+         ┌───────┴───────┐       │     │              │
+         ▼               ▼       │     │              │
+  ┌─────────────┐  ┌─────────────┐     │              │
+  │ KiMi        │  │ Codex       │     │              │
+  │ (reviewer A)│  │ (reviewer B)│     │              │
+  └──────┬──────┘  └──────┬──────┘     │              │
+         └────────┬───────┘            │              │
+                  ▼                    │              │
+          ┌──────────────┐             │              │
+          │ Codex        │◄────────────┘              │
+          │ (fixer)      │  (if issues found)         │
+          └──────────────┘                            │
+```
+
+| Role | Model | Cost |
+|------|-------|------|
+| Orchestrator | kimi-k2.5 | paid |
+| Planner | trinity-large-preview-free | free |
+| Plan Reviewer A | gpt-5.3-codex | paid |
+| Plan Reviewer B | kimi-k2.5 | paid |
+| Arbiter | claude-opus-4-6 | paid |
+| Builder | gpt-5.3-codex | paid |
+| Code Reviewer A | kimi-k2.5 | paid |
+| Code Reviewer B | gpt-5.3-codex | paid |
+| Fixer | gpt-5.3-codex | paid |
+
+1 free / 8 paid. 4 model families: KiMi (orchestrator + reviews), Codex (build + fix + reviews), Opus (arbiter), Trinity (planner).
+
 ## Test Prompt for Experimental Config
 
 Designed to exercise the full pipeline including fixer (asks for a document that requires research, structured output, and cross-referencing multiple sources):

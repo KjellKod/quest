@@ -4,7 +4,7 @@
     "quest": {
       "description": "Quest orchestration agent - coordinates plan/review/build/fix workflow",
       "mode": "primary",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/kimi-k2.5",
       "steps": 35,
       "prompt": "{file:agents/quest.md}",
       "permission": {
@@ -103,9 +103,9 @@
       }
     },
     "code-reviewer-a": {
-      "description": "Reviews code changes (Reviewer A - Codex)",
+      "description": "Reviews code changes (Reviewer A - KiMi)",
       "mode": "subagent",
-      "model": "opencode/gpt-5.3-codex",
+      "model": "opencode/kimi-k2.5",
       "prompt": "{file:agents/code-reviewer.md}",
       "permission": {
         "edit": {
@@ -121,9 +121,9 @@
       }
     },
     "code-reviewer-b": {
-      "description": "Reviews code changes (Reviewer B - MiniMax)",
+      "description": "Reviews code changes (Reviewer B - Codex)",
       "mode": "subagent",
-      "model": "opencode/minimax-m2.5-free",
+      "model": "opencode/gpt-5.3-codex",
       "prompt": "{file:agents/code-reviewer.md}",
       "permission": {
         "edit": {
