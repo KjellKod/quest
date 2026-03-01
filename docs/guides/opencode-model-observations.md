@@ -55,13 +55,21 @@ General:
 
 ### KiMi K2.5 (`opencode/kimi-k2.5`)
 
-**Tested as:** Reviewer B (plan)
-**Verdict:** Working, fast
+**Tested as:** Reviewer B (plan), Orchestrator (testing now)
+**Verdict:** Working as reviewer, testing as orchestrator
 
+Reviewer:
 - Fast execution — noticeably quicker than other models
 - Followed review prompt contract and produced structured output
 - Adopted "Slot A (Claude)" label from workflow.md legacy naming — read Quest skill files literally and took on the slot name it found there. Artifact self-identification header is the real check.
 - Different model family from Codex and Claude — provides genuine review diversity
+
+Orchestrator:
+- Testing now — 256K context window and agent swarm intelligence suggest potential
+- Known for strong agentic capabilities (multi-agent coordination, tool use)
+- Paid tier model — unlike Trinity and MiniMax (both free, both failed as orchestrator)
+
+General:
 - Free tier candidate for reviewer B slot
 
 ### Big Pickle (`opencode/big-pickle`)
@@ -78,8 +86,13 @@ General:
 
 ### Minimax M2.5 (`opencode/minimax-m2.5-free`)
 
-**Tested as:** Orchestrator, Arbiter, Code Reviewer B, Fixer (all in progress)
-**Verdict:** Testing — strong profile, unproven in Quest
+**Tested as:** Orchestrator, Arbiter, Code Reviewer B, Fixer
+**Verdict:** Failed as orchestrator. Untested in subagent roles.
+
+Orchestrator:
+- **Does not work as orchestrator.** Failed to drive the Quest pipeline — could not coordinate subagent dispatch and phase transitions.
+- Same class of failure as Trinity (both free-tier models struggle with orchestration complexity)
+- Strong benchmarks did not translate to reliable multi-agent coordination
 
 Profile (from benchmarks):
 - 80.2% SWE-Bench Verified, 84.3% HumanEval — strong coding
@@ -89,16 +102,7 @@ Profile (from benchmarks):
 - 80% lower cost than Claude Sonnet 3.5
 - Free tier available
 
-Why we're testing it broadly:
-- Replaced Big Pickle (which stalled on review tasks) as fixer
-- Strong agentic benchmark scores suggest it can handle orchestration, arbitration, and review
-- Free tier makes it attractive for high-volume roles
-- Different model family from Trinity, KiMi, Codex — adds diversity
-
-Risks to watch:
-- Will it respect human approval gates as orchestrator? (Same risk Trinity had)
-- Arbiter role requires judgment synthesis — can it weigh conflicting reviews?
-- 4 slots with same model reduces diversity within the pipeline
+**Recommendation: Do not use as orchestrator. May still work for subagent roles (arbiter, reviewer, fixer) — untested. Opus remains the only proven orchestrator.**
 
 ## Current Model Table
 
@@ -116,11 +120,15 @@ Risks to watch:
 | Code Reviewer B | trinity-large-preview-free | Untested in this slot |
 | Fixer | gpt-5.3-codex | Proven (in builder role) |
 
-### Experimental Configuration (MiniMax orchestrator — testing now)
+### Failed: MiniMax orchestrator
+
+MiniMax failed to drive the Quest pipeline as orchestrator. Config archived, not recommended.
+
+### Experimental Configuration (KiMi orchestrator — testing now)
 
 | Role | Model | Cost | Status |
 |------|-------|------|--------|
-| Orchestrator | minimax-m2.5-free | free | Testing |
+| Orchestrator | kimi-k2.5 | paid | Testing |
 | Planner | trinity-large-preview-free | free | Proven |
 | Plan Reviewer A | gpt-5.3-codex | paid | Proven |
 | Plan Reviewer B | kimi-k2.5 | paid | Working |
@@ -130,7 +138,7 @@ Risks to watch:
 | Code Reviewer B | minimax-m2.5-free | free | Testing |
 | Fixer | minimax-m2.5-free | free | Testing |
 
-5 free / 4 paid slots. 4 model families: MiniMax, Trinity, Codex, KiMi.
+4 free / 5 paid slots. 4 model families: KiMi, Trinity, Codex, MiniMax.
 
 ## Test Prompt for Experimental Config
 
@@ -159,3 +167,4 @@ for each slot."
 6. **Human gates require a reliable orchestrator** — Trinity skipped the plan approval gate (0 toolcalls, auto-concluded "user approved"). Opus respected the gate. For workflows with human checkpoints, Opus as orchestrator is the safe choice.
 7. **Subagent slot naming leaks from shared skill files** — KiMi identified as "Slot A (Claude)" because workflow.md uses hardcoded Claude-era slot names. The model self-ID header in artifacts is the authoritative source, not the preamble text.
 8. **Model diversity produces real disagreement** — Codex iterated where Claude approved in one run. This validates the dual-review pattern as more than rubber-stamping.
+9. **Opus is the only proven orchestrator** — Trinity skipped gates, MiniMax failed to drive the pipeline. Strong benchmarks do not predict orchestration reliability. Free-tier models work well as subagents but not as orchestrators.

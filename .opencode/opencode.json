@@ -4,7 +4,7 @@
     "quest": {
       "description": "Quest orchestration agent - coordinates plan/review/build/fix workflow",
       "mode": "primary",
-      "model": "opencode/minimax-m2.5-free",
+      "model": "opencode/kimi-k2.5",
       "steps": 35,
       "prompt": "{file:agents/quest.md}",
       "permission": {
