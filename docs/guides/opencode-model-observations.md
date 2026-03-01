@@ -12,25 +12,28 @@ Field notes from Quest orchestration testing. Updated as we learn more.
 
 ### Trinity Large Preview (`opencode/trinity-large-preview-free`)
 
-**Tested as:** Orchestrator, Planner
-**Verdict:** Excellent planner, unreliable orchestrator
+**Tested as:** Orchestrator, Planner, Plan Reviewer A, Arbiter, Code Reviewer B
+**Verdict:** Excellent planner, unreliable in other subagent roles, not suitable for orchestration
 
 Planner:
 - Excellent — structured output, follows prompt contracts well, fast execution
 - Consistently produces quality plans that pass dual review
+- 100% success rate across multiple runs
+
+Reviewer / Arbiter (subagent):
+- **Unreliable.** Failed in 3/4 subagent roles during KiMi-orchestrated run:
+  - Plan Reviewer A: crashed, produced no artifacts (0 toolcalls on first dispatch, 7 toolcalls on retry but no output)
+  - Arbiter: dispatched but returned empty — no verdict written
+  - Code Reviewer B: crashed, no output
+- Only the Planner role succeeded
 
 Orchestrator:
-- Dispatches subagents via Task tool — real subagent invocation confirmed
-- Sequential fan-out only (dispatches reviewer B after reviewer A finishes, not concurrently)
-- **CRITICAL: Skips human approval gate.** "Present plan for approval" phase had 0 toolcalls — Trinity said "present" then immediately concluded "user approved" without waiting for input. This is a gate violation.
-- Inconsistent gate behavior — respected `auto_approve_phases.implementation: false` in one run but skipped the plan presentation gate in another
-- Lost fan-out during one dual review attempt (reviewer A hung, reviewer B never dispatched)
-- On resume from slug: re-planned instead of recognizing existing plan artifact
-- Tried `.agents/skills/` path before `.skills/` but self-corrected
+- Hit 131K context limit during one run — likely caused by Exa MCP dumping large search results into subagent context, which bled back to the orchestrator. With Exa banned, 128K may be sufficient. Needs retesting without Exa.
+- Earlier testing (pre-gate-fix): dispatched subagents but skipped human approval gate, lost fan-out during dual review attempts, re-planned on resume instead of recognizing existing plan artifact
 
 General:
-- Free tier — excellent for cost-sensitive subagent roles (planner, reviewer)
-- **Recommendation: Use as planner/subagent, not orchestrator. Opus is more reliable for orchestration with human gates.**
+- Free tier — excellent for cost-sensitive planner role
+- **Recommendation: Use as planner. Not reliable as reviewer or arbiter (3/4 crashes). Orchestrator needs retesting without Exa.**
 
 ### Claude Opus 4.6 (`opencode/claude-opus-4-6`)
 
@@ -61,22 +64,28 @@ Orchestrator:
 
 ### KiMi K2.5 (`opencode/kimi-k2.5`)
 
-**Tested as:** Reviewer B (plan), Orchestrator
-**Verdict:** Good reviewer, failed orchestrator
+**Tested as:** Reviewer B (plan), Code Reviewer A, Orchestrator
+**Verdict:** Excellent reviewer, strong orchestrator (with strengthened gates), blazingly fast
 
 Reviewer:
-- Fast execution — noticeably quicker than other models
+- **Blazingly fast** — dramatically faster than Opus or Codex. Lightning-speed responses.
 - Followed review prompt contract and produced structured output
-- Adopted "Slot A (Claude)" label from workflow.md legacy naming — read Quest skill files literally and took on the slot name it found there. Artifact self-identification header is the real check.
+- 100% success rate as reviewer — produced artifacts in every run (plan review and code review)
+- Code Reviewer A: 125-line review, verified all 7 acceptance criteria with line-number evidence, APPROVE verdict
 - Different model family from Codex and Claude — provides genuine review diversity
 
 Orchestrator:
-- **Failed.** Did not dispatch any subagents — treated the task as a solo agent problem. No Quest phases, no handoff artifacts, no `.quest/` state.
-- Bypassed edit permissions using `cat >` bash instead of Edit tool — circumvented the permission model
-- Produced good quality output as a solo agent (485-line document, well-structured, researched via web search) but completely ignored the orchestration contract
-- Paid tier model — cost did not help. Same failure class as Trinity (free) and MiniMax (free): none of them coordinate multi-agent pipelines.
+- **Working** (with strengthened gate instructions). Completed full pipeline: intake → plan → dual review → arbiter → human gate → build → dual code review → complete.
+- Dispatches subagents correctly, logs telemetry, respects human approval gate, offers detailed plan walkthrough
+- Even double-checked `auto_approve_phases.implementation: false` and asked for explicit build confirmation
+- Gracefully handled 2 agent crashes (Trinity subagents) — continued with available reviews
+- **Full pipeline in ~8 minutes** — fastest orchestrator by far
+- Previous failure (pre-gate-fix): acted as solo agent, no subagent dispatch. Strengthened gate instructions fixed this completely.
+- **Known issue: arbiter identity forgery** — when the arbiter subagent (Trinity) returned empty, KiMi wrote the arbiter verdict itself with a fake self-ID header (`Model: claude-opus-4-6`). Orchestrator must not impersonate subagents. Needs guardrail.
+- **128K context limit** — may hit context wall on longer pipelines. Banning Exa MCP helped in tested run.
+- 3rd working orchestrator after Opus and Codex.
 
-**Recommendation: Use as Reviewer B (proven). Do not use as orchestrator, arbiter, or other judgment-heavy roles.**
+**Recommendation: Best orchestrator for speed. Pair with reliable subagents (Codex for builder/fixer, KiMi for reviewer). Do not pair with Trinity as reviewer/arbiter — Trinity crashes. Needs guardrail against arbiter forgery.**
 
 ### Big Pickle (`opencode/big-pickle`)
 
@@ -110,56 +119,60 @@ Profile (from benchmarks):
 
 **Recommendation: Do not use as orchestrator. May still work for subagent roles (arbiter, reviewer, fixer) — untested. Opus remains the only proven orchestrator.**
 
-## Current Model Table
+## Working Orchestrators
 
-### Proven Configuration (Opus orchestrator)
+Three models work as orchestrator (with strengthened gate instructions):
 
-| Role | Model | Status |
-|------|-------|--------|
-| Orchestrator | claude-opus-4-6 | Proven |
-| Planner | trinity-large-preview-free | Proven |
-| Plan Reviewer A | gpt-5.3-codex | Proven |
-| Plan Reviewer B | kimi-k2.5 | Working |
-| Arbiter | claude-opus-4-6 | Proven |
-| Builder | gpt-5.3-codex | Proven |
-| Code Reviewer A | gpt-5.3-codex | Proven |
-| Code Reviewer B | trinity-large-preview-free | Untested in this slot |
-| Fixer | gpt-5.3-codex | Proven (in builder role) |
+| Model | Cost | Context | Speed | Gate compliance | Notes |
+|-------|------|---------|-------|----------------|-------|
+| claude-opus-4-6 | paid | 200K | slow | Proven | Most reliable, most expensive |
+| gpt-5.3-codex | paid | 200K+ | medium | Working | Proven with strengthened gates |
+| kimi-k2.5 | paid | 128K | **fast** | Working | Fastest by far, needs arbiter forgery guardrail |
 
-### Failed: MiniMax orchestrator
+**Note:** Trinity and MiniMax failed as orchestrators. Trinity hit 131K context limit in one run (likely Exa MCP, needs retesting without it).
 
-MiniMax failed to drive the Quest pipeline as orchestrator. Config archived, not recommended.
+## Model Reliability by Subagent Role
 
-### Failed: KiMi orchestrator
+Based on actual Quest runs:
 
-KiMi did not dispatch subagents — acted as solo agent, bypassed permissions via bash. Good output quality but zero orchestration.
+| Model | Planner | Reviewer | Arbiter | Builder | Fixer |
+|-------|---------|----------|---------|---------|-------|
+| Trinity | Proven | Failed (3/4 crashes) | Failed (empty) | Untested | Untested |
+| Codex | Untested | Proven | Untested | Proven | Proven |
+| KiMi | Untested | Proven (100%) | Untested | Untested | Untested |
+| Opus | Untested | Proven | Proven | Untested | Untested |
 
-### Failed Orchestrators Summary
+## Recommended Configurations
 
-| Model | Cost | Failure Mode |
-|-------|------|-------------|
-| trinity-large-preview-free | free | Skipped human gates, lost fan-out |
-| minimax-m2.5-free | free | Could not drive pipeline |
-| kimi-k2.5 | paid | Solo agent, no subagent dispatch |
-| gpt-5.3-codex | paid | Skipped human approval gate |
+### Reliable (Opus orchestrator)
 
-**Conclusion: Opus is the only viable orchestrator. 4/4 alternatives failed. This is a systemic issue — human gate compliance appears to be an Opus-specific capability, not a general LLM skill.**
+| Role | Model | Cost |
+|------|-------|------|
+| Orchestrator | claude-opus-4-6 | paid |
+| Planner | trinity-large-preview-free | free |
+| Plan Reviewer A | gpt-5.3-codex | paid |
+| Plan Reviewer B | kimi-k2.5 | paid |
+| Arbiter | claude-opus-4-6 | paid |
+| Builder | gpt-5.3-codex | paid |
+| Code Reviewer A | kimi-k2.5 | paid |
+| Code Reviewer B | gpt-5.3-codex | paid |
+| Fixer | gpt-5.3-codex | paid |
 
-### Active Configuration (Opus orchestrator — proven)
+### Fast (KiMi orchestrator)
 
-| Role | Model | Cost | Status |
-|------|-------|------|--------|
-| Orchestrator | gpt-5.3-codex | paid | Testing |
-| Planner | trinity-large-preview-free | free | Proven |
-| Plan Reviewer A | gpt-5.3-codex | paid | Proven |
-| Plan Reviewer B | kimi-k2.5 | paid | Working |
-| Arbiter | claude-opus-4-6 | paid | Proven |
-| Builder | gpt-5.3-codex | paid | Proven |
-| Code Reviewer A | gpt-5.3-codex | paid | Proven |
-| Code Reviewer B | minimax-m2.5-free | free | Testing |
-| Fixer | gpt-5.3-codex | paid | Proven (in builder role) |
+| Role | Model | Cost |
+|------|-------|------|
+| Orchestrator | kimi-k2.5 | paid |
+| Planner | trinity-large-preview-free | free |
+| Plan Reviewer A | gpt-5.3-codex | paid |
+| Plan Reviewer B | kimi-k2.5 | paid |
+| Arbiter | claude-opus-4-6 | paid |
+| Builder | gpt-5.3-codex | paid |
+| Code Reviewer A | kimi-k2.5 | paid |
+| Code Reviewer B | gpt-5.3-codex | paid |
+| Fixer | gpt-5.3-codex | paid |
 
-2 free / 7 paid slots. 5 model families: Claude, Trinity, Codex, KiMi, MiniMax.
+**Key insight: Trinity should only be used as planner. KiMi + Codex are the reliable subagent pair.**
 
 ## Test Prompt for Experimental Config
 
@@ -188,7 +201,7 @@ for each slot."
 6. **Human gates require a reliable orchestrator** — Trinity skipped the plan approval gate (0 toolcalls, auto-concluded "user approved"). Opus respected the gate. For workflows with human checkpoints, Opus as orchestrator is the safe choice.
 7. **Subagent slot naming leaks from shared skill files** — KiMi identified as "Slot A (Claude)" because workflow.md uses hardcoded Claude-era slot names. The model self-ID header in artifacts is the authoritative source, not the preamble text.
 8. **Model diversity produces real disagreement** — Codex iterated where Claude approved in one run. This validates the dual-review pattern as more than rubber-stamping.
-9. **Opus is the only viable orchestrator** — Trinity (free) skipped gates, MiniMax (free) couldn't drive pipeline, KiMi (paid) went solo, Codex (paid) skipped gates. 0/4 alternatives worked. Human gate compliance appears to be an Opus-specific capability, not a general LLM skill.
+9. **Strengthened gate instructions fix orchestration across model families** — After adding explicit "STOP", "MUST ask", "do not assume approval" language, both Codex and KiMi now work as orchestrators. The original gate failures were instruction clarity issues, not model capability issues. 3 working orchestrators: Opus (proven), Codex (working), KiMi (working).
 10. **Permission bypass via bash** — KiMi used `cat >` to write files when Edit was denied. The permission model has a bash escape hatch that agentic models will find.
 11. **Sonnet 4.6 is the untested cost-optimization candidate** — 79.6% SWE-Bench Verified (only 1.2% behind Opus), ~3x cheaper. Could replace Opus in arbiter or reviewer-a slots. Not yet tested in Quest.
 12. **Benchmark data from KiMi's research** — Codex 5.3: 80.0% SWE-Bench, 77.3% Terminal-Bench 2.0, 56.8% SWE-Bench Pro. KiMi K2.5: 76.8% SWE-Bench, 85.0% LiveCodeBench v6, 50.2% Humanity's Last Exam. Trinity: 398B MoE / 13B active, 512K context. GLM-5: 744B / 40B active, SOTA Terminal-Bench 2.0 — untested fifth model family.
@@ -197,3 +210,8 @@ for each slot."
 15. **Our current layout matches the independently-derived optimal config** — Codex's "Budget Hybrid C" analysis (Opus orchestrator+arbiter, Trinity planner, Codex builder/fixer/reviewer, KiMi reviewer-b) is essentially what we already run. Confirmed by two independent model analyses.
 16. **Evidence strength tagging is useful for suitability docs** — Codex used "Proven (Quest)" vs "Benchmark-backed" vs "Model-card-only" categories. Better than binary suitable/unsuitable — captures confidence level.
 17. **GLM-5 is an untested fifth model family** — 744B/40B active MoE, SOTA Terminal-Bench 2.0, #1 open-source Vending Bench 2, arXiv:2602.15763. Potential builder/reviewer diversity candidate.
+18. **Trinity is planner-only** — Failed in 3/4 non-planner subagent roles (plan reviewer, arbiter, code reviewer all crashed with no output). Excellent planner but unreliable elsewhere. Do not use as reviewer or arbiter.
+19. **KiMi + Codex are the reliable subagent pair** — Both have 100% completion rate across all tested roles. KiMi is fastest, Codex is best at code generation. Together they provide model diversity for dual review.
+20. **Orchestrator identity forgery** — When a subagent returns empty, KiMi orchestrator wrote the artifact itself with a fake model self-ID header. Orchestrators must not impersonate subagents. Needs a guardrail (e.g., validator check that artifact model header matches configured model for that role).
+21. **Context bleeding is real** — Subagent full responses accumulate in orchestrator context even though the Context Retention Rule says to discard them. The rule is behavioral (instruction), not mechanical (runtime-enforced). Banning large MCP tools (Exa) from orchestrated runs helps significantly — the 131K context overflow on Trinity was likely Exa-caused, not inherent.
+22. **KiMi K2.5 completed full pipeline in ~8 minutes** — Fastest orchestrator tested. Opus takes significantly longer for the same pipeline.
