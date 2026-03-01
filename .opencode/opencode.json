@@ -4,7 +4,7 @@
     "quest": {
       "description": "Quest orchestration agent - coordinates plan/review/build/fix workflow",
       "mode": "primary",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/minimax-m2.5-free",
       "steps": 35,
       "prompt": "{file:agents/quest.md}",
       "permission": {
@@ -28,7 +28,7 @@
     "planner": {
       "description": "Creates implementation plans from quest briefs",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/trinity-large-preview-free",
       "prompt": "{file:agents/planner.md}",
       "permission": {
         "edit": {
@@ -39,9 +39,9 @@
       }
     },
     "plan-reviewer-a": {
-      "description": "Reviews implementation plans (Reviewer A - Claude)",
+      "description": "Reviews implementation plans (Reviewer A - Codex)",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/gpt-5.3-codex",
       "prompt": "{file:agents/plan-reviewer.md}",
       "permission": {
         "edit": {
@@ -52,9 +52,9 @@
       }
     },
     "plan-reviewer-b": {
-      "description": "Reviews implementation plans (Reviewer B - Codex)",
+      "description": "Reviews implementation plans (Reviewer B - KiMi K2.5)",
       "mode": "subagent",
-      "model": "opencode/gpt-5.3-codex",
+      "model": "opencode/kimi-k2.5",
       "prompt": "{file:agents/plan-reviewer.md}",
       "permission": {
         "edit": {
@@ -67,7 +67,7 @@
     "arbiter": {
       "description": "Synthesizes dual reviews, renders APPROVE or ITERATE verdict",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/minimax-m2.5-free",
       "prompt": "{file:agents/arbiter.md}",
       "permission": {
         "edit": {
@@ -103,9 +103,9 @@
       }
     },
     "code-reviewer-a": {
-      "description": "Reviews code changes (Reviewer A - Claude)",
+      "description": "Reviews code changes (Reviewer A - Codex)",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/gpt-5.3-codex",
       "prompt": "{file:agents/code-reviewer.md}",
       "permission": {
         "edit": {
@@ -121,9 +121,9 @@
       }
     },
     "code-reviewer-b": {
-      "description": "Reviews code changes (Reviewer B - Codex)",
+      "description": "Reviews code changes (Reviewer B - MiniMax)",
       "mode": "subagent",
-      "model": "opencode/gpt-5.3-codex",
+      "model": "opencode/minimax-m2.5-free",
       "prompt": "{file:agents/code-reviewer.md}",
       "permission": {
         "edit": {
@@ -141,7 +141,7 @@
     "fixer": {
       "description": "Addresses code review feedback",
       "mode": "subagent",
-      "model": "opencode/gpt-5.3-codex",
+      "model": "opencode/minimax-m2.5-free",
       "prompt": "{file:agents/fixer.md}",
       "permission": {
         "edit": {
