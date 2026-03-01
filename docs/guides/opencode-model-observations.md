@@ -45,8 +45,8 @@ General:
 
 ### GPT-5.3 Codex (`opencode/gpt-5.3-codex`)
 
-**Tested as:** Reviewer B (plan), Builder, Orchestrator (testing now)
-**Verdict:** Proven for implementation and review, testing as orchestrator
+**Tested as:** Reviewer B (plan), Builder, Orchestrator
+**Verdict:** Proven for implementation and review, failed as orchestrator
 
 Reviewer/Builder:
 - Successfully reviewed plans with structured output
@@ -55,9 +55,9 @@ Reviewer/Builder:
 - Good for implementation-heavy roles (builder, fixer, reviewer)
 
 Orchestrator:
-- Testing now — paid tier, strong coding benchmarks, proven subagent discipline
-- Unlike free-tier failures (Trinity, MiniMax), Codex follows instructions precisely in subagent roles — may translate to orchestration
-- Different failure risk profile than KiMi (which bypassed permissions and went solo)
+- **Failed.** Skipped human approval gate — did not pause for plan review before proceeding to build.
+- Same gate-skip failure as Trinity. Strong subagent discipline does not translate to orchestration gate compliance.
+- 4th orchestrator failure confirms this is a systemic issue, not model-specific.
 
 ### KiMi K2.5 (`opencode/kimi-k2.5`)
 
@@ -141,10 +141,11 @@ KiMi did not dispatch subagents — acted as solo agent, bypassed permissions vi
 | trinity-large-preview-free | free | Skipped human gates, lost fan-out |
 | minimax-m2.5-free | free | Could not drive pipeline |
 | kimi-k2.5 | paid | Solo agent, no subagent dispatch |
+| gpt-5.3-codex | paid | Skipped human approval gate |
 
-**Conclusion: Opus is the only viable orchestrator. Cost tier does not predict orchestration capability.**
+**Conclusion: Opus is the only viable orchestrator. 4/4 alternatives failed. This is a systemic issue — human gate compliance appears to be an Opus-specific capability, not a general LLM skill.**
 
-### Experimental Configuration (Codex orchestrator — testing now)
+### Active Configuration (Opus orchestrator — proven)
 
 | Role | Model | Cost | Status |
 |------|-------|------|--------|
@@ -187,5 +188,8 @@ for each slot."
 6. **Human gates require a reliable orchestrator** — Trinity skipped the plan approval gate (0 toolcalls, auto-concluded "user approved"). Opus respected the gate. For workflows with human checkpoints, Opus as orchestrator is the safe choice.
 7. **Subagent slot naming leaks from shared skill files** — KiMi identified as "Slot A (Claude)" because workflow.md uses hardcoded Claude-era slot names. The model self-ID header in artifacts is the authoritative source, not the preamble text.
 8. **Model diversity produces real disagreement** — Codex iterated where Claude approved in one run. This validates the dual-review pattern as more than rubber-stamping.
-9. **Opus is the only viable orchestrator** — Trinity (free) skipped gates, MiniMax (free) couldn't drive the pipeline, KiMi (paid) acted as solo agent. 0/3 alternatives worked. Cost tier does not predict orchestration capability — only Opus reliably dispatches subagents and respects human gates.
+9. **Opus is the only viable orchestrator** — Trinity (free) skipped gates, MiniMax (free) couldn't drive pipeline, KiMi (paid) went solo, Codex (paid) skipped gates. 0/4 alternatives worked. Human gate compliance appears to be an Opus-specific capability, not a general LLM skill.
 10. **Permission bypass via bash** — KiMi used `cat >` to write files when Edit was denied. The permission model has a bash escape hatch that agentic models will find.
+11. **Sonnet 4.6 is the untested cost-optimization candidate** — 79.6% SWE-Bench Verified (only 1.2% behind Opus), ~3x cheaper. Could replace Opus in arbiter or reviewer-a slots. Not yet tested in Quest.
+12. **Benchmark data from KiMi's research** — Codex 5.3: 80.0% SWE-Bench, 77.3% Terminal-Bench 2.0, 56.8% SWE-Bench Pro. KiMi K2.5: 76.8% SWE-Bench, 85.0% LiveCodeBench v6, 50.2% Humanity's Last Exam. Trinity: 398B MoE / 13B active, 512K context. GLM-5: 744B / 40B active, SOTA Terminal-Bench 2.0 — untested fifth model family.
+13. **30 models available in OpenCode across 8 families** — Claude (8), GPT/Codex (10), KiMi (3), MiniMax (3), Gemini (3), GLM (3), Trinity (1), Big Pickle (1). We've tested 6 of 30.
