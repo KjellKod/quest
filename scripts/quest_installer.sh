@@ -1410,8 +1410,12 @@ run_install() {
 
   # Check if already up to date
   if $HAS_QUEST && [ "$LOCAL_VERSION" = "$UPSTREAM_SHA" ]; then
-    log_success "Quest is already up to date (${UPSTREAM_SHA:0:8})"
-    exit 0
+    if $FORCE_MODE; then
+      log_warn "Quest version stamp matches upstream (${UPSTREAM_SHA:0:8}) — reinstalling anyway (--force)"
+    else
+      log_success "Quest is already up to date (${UPSTREAM_SHA:0:8})"
+      exit 0
+    fi
   fi
 
   # Show what we're doing
