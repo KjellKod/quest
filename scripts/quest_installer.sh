@@ -335,7 +335,7 @@ prompt_file_action() {
   fi
 
   while true; do
-    echo -n -e "${YELLOW}${filepath}${NC} has local modifications. [O]verwrite / [S]kip / [D]iff? "
+    echo -n -e "${YELLOW}${filepath}${NC} has local modifications. [O]verwrite / [S]kip / [D]iff? " >&2
     read -r response
 
     case "$response" in
@@ -352,7 +352,7 @@ prompt_file_action() {
         return
         ;;
       *)
-        echo "Please enter O, S, or D"
+        echo "Please enter O, S, or D" >&2
         ;;
     esac
   done
