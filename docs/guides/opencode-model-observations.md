@@ -129,6 +129,21 @@ Based on actual Quest runs:
 | KiMi | Untested | Proven (100%) | Untested | Untested | Untested |
 | Opus | Untested | Proven | Proven | Untested | Untested |
 
+## Proven Models by Role
+
+Which models can fill each Quest role, based on actual testing:
+
+| Role | Proven Models | Notes |
+|------|--------------|-------|
+| **Orchestrator** | KiMi K2.5, Opus, Codex | KiMi fastest, Opus most reliable, Codex solid with strengthened gates |
+| **Planner** | Trinity (free), Opus, Codex | Trinity 100% success rate — best value. KiMi untested but likely capable |
+| **Reviewer** | KiMi (100%), Codex, Opus | KiMi blazingly fast. Trinity failed 3/4 — do not use |
+| **Arbiter** | Opus | Only proven arbiter. High-judgment role — worth the cost |
+| **Builder** | Codex | Only proven builder. Strong at code generation |
+| **Fixer** | Codex | Only proven fixer. Same strengths as builder |
+
+**Opus and Codex are general-purpose** — proven or expected to work in any slot. KiMi excels at speed-sensitive roles (orchestrator, reviewer). Trinity is planner-only.
+
 ## Recommended Configurations
 
 ### Reliable (Opus orchestrator)
