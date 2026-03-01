@@ -32,6 +32,14 @@
 .claude/skills/quest/SKILL.md
 .claude/AGENTS.md
 .codex/AGENTS.md
+.opencode/agents/arbiter.md
+.opencode/agents/builder.md
+.opencode/agents/code-reviewer.md
+.opencode/agents/fixer.md
+.opencode/agents/plan-reviewer.md
+.opencode/agents/planner.md
+.opencode/agents/quest.md
+.opencode/opencode.json
 .agents/skills/README.md
 .agents/skills/quest/SKILL.md
 .skills/BOOTSTRAP.md
@@ -66,5 +74,6 @@ scripts/validate-handoff-contracts.sh
 [directories]
 # These directories are created if missing
 .quest
+.opencode/agents
 ideas
 docs/quest-journal
