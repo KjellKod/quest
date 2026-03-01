@@ -32,16 +32,15 @@ When Claude makes **multiple tool calls in the same response message**, they are
               ▼                   │                   ▼
 ┌─────────────────────────┐       │       ┌─────────────────────────┐
 │   Tool Call 1:          │       │       │   Tool Call 2:          │
-│   Task tool             │  PARALLEL     │   mcp__codex__codex     │
-│   (plan-reviewer or     │   EXECUTION   │                         │
-│   code-reviewer agent)  │       │       │                         │
+│   Reviewer A            │  PARALLEL     │   Reviewer B            │
+│   (per config)          │   EXECUTION   │   (per config)          │
 │                         │       │       │                         │
-│  → Spawns Claude        │       │       │  → Calls Codex MCP      │
-│    subagent             │       │       │    server               │
+│  → plan-reviewer or     │       │       │  → Reviews same         │
+│    code-reviewer agent  │       │       │    artifacts            │
 └───────────┬─────────────┘       │       └───────────┬─────────────┘
             │                     │                   │
             ▼                     │                   ▼
-   review_claude.md               │          review_codex.md
+   review_plan-reviewer-a.md       │          review_plan-reviewer-b.md
                                   │
               └───────────────────┼───────────────────┘
                                   │

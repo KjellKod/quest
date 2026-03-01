@@ -32,7 +32,7 @@ When you are done, end your response with:
 ```
 ---HANDOFF---
 STATUS: complete | needs_human | blocked
-ARTIFACTS: .quest/<id>/phase_01_plan/review_claude.md
+ARTIFACTS: .quest/<id>/phase_01_plan/review_plan-reviewer-a.md
 NEXT: arbiter
 SUMMARY: One line describing your review findings
 ---

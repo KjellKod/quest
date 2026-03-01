@@ -10,8 +10,8 @@
       "enum": [
         "quest_agent",
         "planner_agent",
-        "plan_review_claude",
-        "plan_review_codex",
+        "plan_review_a",
+        "plan_review_b",
         "arbiter_agent",
         "builder_agent",
         "code_review_agent",
@@ -70,8 +70,8 @@
       "enum": [
         "quest_agent",
         "planner_agent",
-        "plan_review_claude",
-        "plan_review_codex",
+        "plan_review_a",
+        "plan_review_b",
         "arbiter_agent",
         "builder_agent",
         "code_review_agent",

@@ -21,7 +21,7 @@ Claude (`Task(subagent_type="planner")`)
 2. Explore the codebase to understand current state
 3. Write a structured implementation plan
 4. Include: scope, approach, file changes, acceptance criteria, test strategy
-5. Write plan to `.quest/<quest_id>/phase_01_plan/plan.md`
+5. Write plan to `.quest/<quest_id>/phase_01_plan/plan.md` — the first lines MUST be your self-ID header (Agent/Model/Date/Quest ID) before any other content
 
 ### Subsequent invocations (refinement)
 1. Read the Arbiter's verdict and synthesized feedback

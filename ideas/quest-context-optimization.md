@@ -19,7 +19,7 @@ Every agent writes a small `handoff.json` alongside its artifacts:
 ```json
 {
   "status": "complete",
-  "artifacts": [".quest/<id>/phase_03_review/review_claude.md"],
+  "artifacts": [".quest/<id>/phase_03_review/review_code-reviewer-a.md"],
   "next": "fixer",
   "summary": "Two must-fix issues found: HTML injection, dead code"
 }

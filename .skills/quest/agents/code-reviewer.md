@@ -1,19 +1,19 @@
 # Code Review Agent
 
 ## Overview
-There are **two** Code Review Agent invocations on each review pass. They run **in parallel** using different model families for independent perspectives, writing to `review_claude.md` and `review_codex.md`.
+There are **two** Code Review Agent invocations on each review pass. They run **in parallel** using different model families for independent perspectives, writing to `review_code-reviewer-a.md` and `review_code-reviewer-b.md`.
 
 ## Instances
 
-### Code Review Slot A (Claude)
-- **Tool:** Claude (`Task(subagent_type="code-reviewer")`)
-- **Artifact path:** `.quest/<id>/phase_03_review/review_claude.md`
-- **Perspective:** Independent first pass on the implementation diff (Claude model family).
+### Code Reviewer A
+- **Tool:** Dispatched by orchestrator (model per config)
+- **Artifact path:** `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
+- **Perspective:** Independent first pass on the implementation diff.
 
-### Code Review Slot B (Codex)
-- **Tool:** Codex (`mcp__codex__codex`, model: `gpt-5.3-codex`)
-- **Artifact path:** `.quest/<id>/phase_03_review/review_codex.md`
-- **Perspective:** Independent second pass on the same implementation diff (GPT model family).
+### Code Reviewer B
+- **Tool:** Dispatched by orchestrator (model per config)
+- **Artifact path:** `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
+- **Perspective:** Independent second pass on the same implementation diff (different model family for diversity).
 - **Non-interactive rule:** Do not ask questions and do not return `needs_human`. Use explicit assumptions; if unsafe, return `blocked`.
 
 ## Context Required
@@ -39,21 +39,21 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 ## Output Contract
 
 **Step 1 — Write handoff.json** to your slot's path:
-- Slot A (Claude): `.quest/<id>/phase_03_review/handoff_claude.json`
-- Slot B (Codex): `.quest/<id>/phase_03_review/handoff_codex.json`
+- Reviewer A: `.quest/<id>/phase_03_review/handoff_code-reviewer-a.json`
+- Reviewer B: `.quest/<id>/phase_03_review/handoff_code-reviewer-b.json`
 
 ```json
 {
   "status": "complete | needs_human | blocked",
-  "artifacts": [".quest/<id>/phase_03_review/review_claude.md or review_codex.md"],
+  "artifacts": [".quest/<id>/phase_03_review/review_code-reviewer-a.md or review_code-reviewer-b.md"],
   "next": "fixer | null",
   "summary": "One line describing what you accomplished"
 }
 ```
 
 Use the artifact path for your assigned slot:
-- Slot A (Claude): `review_claude.md`
-- Slot B (Codex): `review_codex.md`
+- Reviewer A: `review_code-reviewer-a.md`
+- Reviewer B: `review_code-reviewer-b.md`
 
 **Step 2 — Output text handoff block** (must match the JSON above):
 
@@ -68,7 +68,7 @@ SUMMARY: <one line>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
-For Slot B (Codex), `STATUS: needs_human` is non-compliant with Quest runtime policy.
+For Reviewer B, `STATUS: needs_human` is non-compliant with Quest runtime policy.
 
 If `NEXT: null`, the review passed with no blocking issues.
 If `NEXT: fixer`, there are issues to fix.

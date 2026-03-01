@@ -447,15 +447,15 @@ The Quest Orchestrator (main Claude running `/quest`) coordinates specialized ag
               ▼                   │                   ▼
 ┌─────────────────────────┐       │       ┌─────────────────────────┐
 │   Tool Call 1:          │       │       │   Tool Call 2:          │
-│   Task tool             │  PARALLEL     │   mcp__codex__codex     │
-│   (Claude subagent)     │   EXECUTION   │   (Codex MCP server)    │
+│   Reviewer A            │  PARALLEL     │   Reviewer B            │
+│   (per config)          │   EXECUTION   │   (per config)          │
 │                         │       │       │                         │
-│  → plan-reviewer or     │       │       │  → GPT-5.2 reviews      │
-│    code-reviewer agent  │       │       │    same artifacts       │
+│  → plan-reviewer or     │       │       │  → Reviews same         │
+│    code-reviewer agent  │       │       │    artifacts            │
 └───────────┬─────────────┘       │       └───────────┬─────────────┘
             │                     │                   │
             ▼                     │                   ▼
-   review_claude.md               │          review_codex.md
+   review_plan-reviewer-a.md       │          review_plan-reviewer-b.md
                                   │
               └───────────────────┼───────────────────┘
                                   │

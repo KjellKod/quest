@@ -17,8 +17,8 @@ When running on Codex, this role is non-interactive:
 - `AGENTS.md` (coding conventions and architecture boundaries)
 - `.skills/implementer/SKILL.md` (implementation skill, fix mode)
 - Code review artifacts (issues to fix):
-  - `.quest/<id>/phase_03_review/review_claude.md`
-  - `.quest/<id>/phase_03_review/review_codex.md`
+  - `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
+  - `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
 - Changed files from `git diff --name-only`
 
 ## Responsibilities
@@ -29,8 +29,8 @@ When running on Codex, this role is non-interactive:
 5. Do NOT make unrelated changes — fix only what the review identified
 
 ## Input
-- Code review (`.quest/<id>/phase_03_review/review_claude.md`)
-- Code review (`.quest/<id>/phase_03_review/review_codex.md`)
+- Code review (`.quest/<id>/phase_03_review/review_code-reviewer-a.md`)
+- Code review (`.quest/<id>/phase_03_review/review_code-reviewer-b.md`)
 - Changed files (`git diff --name-only`)
 - Quest brief and approved plan
 
