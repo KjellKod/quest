@@ -4,7 +4,7 @@
     "quest": {
       "description": "Quest orchestration agent - coordinates plan/review/build/fix workflow",
       "mode": "primary",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/gpt-5.3-codex",
       "steps": 35,
       "prompt": "{file:agents/quest.md}",
       "permission": {

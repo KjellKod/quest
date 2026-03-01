@@ -45,13 +45,19 @@ General:
 
 ### GPT-5.3 Codex (`opencode/gpt-5.3-codex`)
 
-**Tested as:** Reviewer B (plan), Builder
-**Verdict:** Proven for implementation and review
+**Tested as:** Reviewer B (plan), Builder, Orchestrator (testing now)
+**Verdict:** Proven for implementation and review, testing as orchestrator
 
+Reviewer/Builder:
 - Successfully reviewed plans with structured output
 - Produced genuine disagreement with Claude reviewer (iterated where Claude approved) — real model diversity
 - Handoff contract compliance confirmed
 - Good for implementation-heavy roles (builder, fixer, reviewer)
+
+Orchestrator:
+- Testing now — paid tier, strong coding benchmarks, proven subagent discipline
+- Unlike free-tier failures (Trinity, MiniMax), Codex follows instructions precisely in subagent roles — may translate to orchestration
+- Different failure risk profile than KiMi (which bypassed permissions and went solo)
 
 ### KiMi K2.5 (`opencode/kimi-k2.5`)
 
@@ -138,11 +144,11 @@ KiMi did not dispatch subagents — acted as solo agent, bypassed permissions vi
 
 **Conclusion: Opus is the only viable orchestrator. Cost tier does not predict orchestration capability.**
 
-### Active Configuration (Opus orchestrator, diverse subagents)
+### Experimental Configuration (Codex orchestrator — testing now)
 
 | Role | Model | Cost | Status |
 |------|-------|------|--------|
-| Orchestrator | claude-opus-4-6 | paid | Proven |
+| Orchestrator | gpt-5.3-codex | paid | Testing |
 | Planner | trinity-large-preview-free | free | Proven |
 | Plan Reviewer A | gpt-5.3-codex | paid | Proven |
 | Plan Reviewer B | kimi-k2.5 | paid | Working |
