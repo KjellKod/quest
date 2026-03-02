@@ -1,14 +1,16 @@
 # OpenCode: Field Notes from Multi-Model Orchestration
 
-We put $20 into OpenCode and ran 30+ models through a real multi-agent pipeline. Some models surprised us. Some disappointed. One completely changed how we think about code review.
+We put $20 into OpenCode and ran 30+ AI models through a real multi-agent pipeline. Some surprised us. Some disappointed. One completely changed how we think about code review.
 
 ---
 
 ## What We Were Testing
 
-**OpenCode** gives you something Claude Code and Codex CLI don't: access to 30+ models across multiple families — Claude, GPT/Codex, KiMi, Gemini, Trinity, and more — with the ability to assign different models to different roles in a single pipeline.
+Most AI coding tools tie you to one vendor. **Claude Code** runs Claude models. **Codex CLI** runs OpenAI models. They're good — but you're locked in.
 
-We tested this with **Quest**, a 9-agent orchestration pipeline:
+**OpenCode** is different. It gives you access to 30+ models across multiple families — Claude, GPT/Codex, KiMi, Gemini, Trinity, and more — and lets you assign different models to different jobs in a single workflow. Think of it like building a team where each person is hired for what they're best at.
+
+We tested this with **Quest**, our multi-agent orchestration system. Here's the workflow:
 
 ```
      ┌─────────────────────────────────────────────────────────┐
@@ -18,21 +20,23 @@ We tested this with **Quest**, a 9-agent orchestration pipeline:
         │       │        │        │        │         │       │
         ▼       ▼        ▼        ▼        ▼         ▼       ▼
       plan  →  dual → arbiter → gate  →  build  →  dual  →  fix
-              review             ⇑                review
-                               [human]
+             review             ⇑                review
+                              [human]
 ```
 
-Seven phases, nine agents, each slot running a different model. The question: does mixing model families actually produce better results than running everything on one vendor's best model?
+One AI writes a plan. Two different AIs review it independently. A third AI decides if the reviews are valid. A human approves. Another AI builds the code. Two more AIs review the code. If there are problems, yet another AI fixes them. Nine agents, seven phases.
 
-The answer turned out to be yes — but not for the reasons we expected.
+The question: does mixing AI models from different companies actually produce better results than running everything on one vendor's best model?
 
-### A note on how Quest orchestrates
+The answer was yes — but not for the reasons we expected.
 
-Quest doesn't use code to drive or enforce orchestration. There's no runtime state machine, no programmatic guardrails. The entire pipeline — phase transitions, human gates, handoff contracts, permission boundaries — is driven by **LLM instruction-following**. Markdown prompts, not code.
+### How Quest works (and why the "bugs" in this document exist)
 
-This is likely atypical for multi-agent orchestration. Most frameworks use code to enforce control flow. But the instruction-driven approach has a real advantage: **portability**. The same Quest skills and agent definitions work as a near drop-in across Claude Code, Codex CLI, Cursor IDE, Vibe-Kanban IDE, and now OpenCode. No runtime to port, no SDK to integrate. If the tool can follow markdown instructions and dispatch subagents, Quest runs on it.
+Most multi-agent frameworks use code to enforce rules — "don't skip step 3", "only the builder can edit source files." Quest does something different: **everything is driven by markdown instructions.** No code, no state machine, no programmatic guardrails. The AI reads the instructions and follows them.
 
-The trade-off is that every "bug" in this document — skipped gates, identity forgery, permission bypasses — exists because there's no code enforcing the rules. The LLM has to *choose* to follow them. Some models are better at this than others, which is exactly what this document measures.
+This sounds fragile, and sometimes it is. Every issue in this document — models skipping approval steps, faking identities, bypassing permissions — happened because we're trusting AI models to follow written rules rather than enforcing those rules in code.
+
+So why do it this way? **Portability.** The same instruction files work across Claude Code, Codex CLI, Cursor, Vibe-Kanban, and OpenCode with near-zero changes. No SDK to integrate, no runtime to port. If the tool can read markdown and dispatch subagents, Quest runs on it. That's a trade-off we're happy with.
 
 ---
 
@@ -42,71 +46,65 @@ The trade-off is that every "bug" in this document — skipped gates, identity f
 
 **Tested as:** Orchestrator, Arbiter, Reviewer, Builder, Fixer
 
-No surprises here. Opus handles everything — orchestration, arbitration, all the roles — with consistent quality. Full pipeline completion, correct subagent dispatch, proper telemetry logging. Every artifact had self-identification headers. Every gate was respected.
+No surprises. Opus handles everything with consistent quality. Every step completed correctly, every approval gate was respected, every artifact was properly labeled. It just works.
 
-The catch is cost. Opus is expensive, and you don't need it everywhere. We found its sweet spot: **arbiter**. The role that synthesizes conflicting reviews and makes judgment calls is exactly where you want the most capable model. In one run, Opus correctly filtered non-blocking issues from two reviewers who disagreed, keeping the pipeline moving without losing signal.
+The catch is cost. Opus is the most expensive model we tested, and you don't need it everywhere. We found its sweet spot: **arbiter** — the role that reads two conflicting reviews and decides what actually matters. That's a judgment call, and Opus is the best judge we have.
 
 ### ✅ GPT-5.3 Codex — The Disciplined Builder
 
 **Tested as:** Reviewer, Builder, Fixer, Orchestrator
 
-Codex is the workhorse. Best-in-class at code generation and implementation. As a builder and fixer, it just works — structured output, handoff contract compliance, clean artifacts every time.
+Codex is the workhorse. Best-in-class at writing code — clean, structured, compliant output every time.
 
-What surprised us was its review style. Codex shines at **behavioral and UX-focused review** — it catches unrecoverable states, first-run flow issues, and user experience gaps that other models gloss over. Post-fix reviews are concise and clean. No fluff.
+What surprised us was its code review style. Codex is great at catching **user experience issues** — things like unrecoverable error states, broken first-run flows, and edge cases that would frustrate real users. Its reviews are concise and clean. No fluff.
 
-Codex also has the strongest **instruction discipline** of any model we tested. Handover items are consistent. Telemetry logging (start/end times, agent identity) is accurate across phases. When the protocol says to do something, Codex does it.
+Codex also follows instructions more precisely than any other model we tested. When the protocol says "log your start time and end time," Codex does it perfectly. Every time. This matters more than you'd think in a multi-agent pipeline.
 
-As orchestrator, it initially skipped the human approval gate — but so did every non-Opus model. After applying strengthened gate instructions, the problems went away.
-
-### ✅ 🚀 KiMi K2.5 — The One That Changed Everything 
+### ✅ 🚀 KiMi K2.5 — The One That Changed Everything
 
 **Tested as:** Reviewer, Code Reviewer, Orchestrator
 
-KiMi K2.5 was supposed to be a quick experiment. It became our **default** orchestrator.
+KiMi K2.5 was supposed to be a quick experiment. It became our default orchestrator.
 
-**Speed.** KiMi completed the full 9-agent pipeline in ~8 minutes. For context, the same pipeline takes significantly longer with Opus or Codex orchestrating. The speed difference isn't marginal — **it's dramatic**.
+**Speed.** KiMi completed the full 9-agent pipeline in ~8 minutes. The same pipeline takes significantly longer with Opus or Codex orchestrating. The difference isn't marginal — **it's dramatic**.
 
-**Review depth.** This is where KiMi genuinely surprised us. In head-to-head code reviews against Codex, KiMi consistently went deeper. It caught issues Codex missed. It surfaced security concerns — threat surface analysis, authentication edge cases — that other models overlooked entirely.
+**Review depth.** This is where KiMi genuinely surprised us. In head-to-head code reviews against Codex, KiMi consistently went deeper — especially on security. It found threat surfaces, authentication edge cases, and concurrency issues that other models completely overlooked.
 
 #### 🏆 The defining moment
 
-**KiMi caught a race condition that Codex never found — despite 3 separate opportunities.** Same code, same review prompt. Codex had 3 opportunities to catch it and missed it every time. KiMi found it on the first pass.
+**KiMi caught a race condition that Codex never found — despite 3 separate opportunities.** Same code, same review instructions. Codex had 3 chances to catch it and missed it every time. KiMi found it on the first pass.
 
-For security-sensitive code — authentication, session handling, anything with concurrency — **KiMi's depth provides materially higher confidence than Codex**. Both models are effective reviewers, but they see different things. Codex catches UX and behavioral issues really well. KiMi catches security and correctness issues. Together, they don't rubber-stamp each other. They genuinely disagree, and that disagreement is valuable.
-
-Post-fix, both were effective. KiMi produced deeper, narrative-style reviews. Codex was concise and clean. Different styles, both useful.
+For security-sensitive code — authentication, session handling, anything with concurrency — **KiMi's depth provides materially higher confidence**. But both models are effective reviewers. They just see different things. Codex catches UX problems. KiMi catches security problems. Together, they don't rubber-stamp each other. They genuinely disagree, and that disagreement is the whole point.
 
 ##### The trade-off
 
-**KiMi is weaker**  than Codex at following instructions to the letter. Handover items had glitches. Telemetry notes — start times, end times, agent identity — were inconsistent across phases. Where Codex is meticulous about protocol compliance, KiMi is... *creative*. It gets the job done, but the metadata isn't always clean.
+**KiMi is weaker than Codex at following instructions to the letter.** Metadata was inconsistent — start times, end times, agent identity labels drifted across phases. Where Codex is meticulous about protocol, KiMi is... *creative*. It gets the job done, but the bookkeeping isn't always clean.
 
-Despite these rough edges, KiMi earned its spot. For speed and analytical depth, nothing else comes close.
+Despite the rough edges, KiMi earned its spot. For speed and analytical depth, nothing else comes close.
 
 ---
 
 ## The Models That Didn't
 
-### ✅   Trinity Large Preview (free) — Planner Only 🤔
+### ✅ Trinity Large Preview (free) — Planner Only 🤔
 
-**Trinity is an excellent planner**. 100% success rate across multiple runs — structured output, follows prompt contracts, fast execution. At zero cost, it's the best value in the pipeline. Codex, Kimi, Opus all agreed with Trinity's planning.
+**Trinity is an excellent planner.** 100% success rate across multiple runs, and it's free. Every other model in the pipeline agreed with Trinity's plans. Best value in the whole setup.
 
-❌ Everything else failed. Trinity crashed in 3 out of 4 non-planner roles: plan reviewer (no output after 7 tool calls), arbiter (dispatched, returned empty), code reviewer (crashed). 
-
-**Use it as a planner. Don't use it for anything else.**
+❌ Everything else failed. Trinity crashed in 3 out of 4 non-planner roles. Use it as a planner. Don't use it for anything else.
 
 ### ❌ MiniMax M2.5 (free) — Benchmarks Lied
 
-Strong community benchmarks. Failed orchestration immediately — couldn't coordinate subagent dispatch or phase transitions. May work for simpler subagent roles "fixer"?, but we stopped testing after the catastrophic orchestrator failure.
+Strong community benchmarks. Failed orchestration immediately — couldn't coordinate the pipeline at all. We stopped testing after that.
 
 ### 💀 Big Pickle — Dead on Arrival
 
-Produced no output when dispatched as a reviewer. Appeared dead in the subagent session. Seemed appealing at first when we used it with direct prompting. Kept disappointing. Not recommended for any Quest role. Maybe can be suitable for drone work?
+Produced no output when dispatched as a reviewer. Just... nothing. Seemed appealing at first with direct prompting. Kept disappointing.
 
 ---
 
 ## The Winning Configuration
 
-Four model families. One free, eight paid. Each model in its best role.
+Four model families. One free, eight paid. Each model doing what it does best.
 
 ```
               ┌─────────────────────┐
@@ -129,8 +127,8 @@ Four model families. One free, eight paid. Each model in its best role.
               └─────────┬────────┘
                         ▼
               ┌─────────────────────┐
-              │     Opus            │
-              │    (arbiter)        │
+              │        Opus         │
+              │      (arbiter)      │
               └──────────┬──────────┘
                          │
                          ▼
@@ -156,19 +154,19 @@ Four model families. One free, eight paid. Each model in its best role.
               └─────────────────────┘
 ```
 
-| Role | Model | Why This Model |
-|------|-------|----------------|
+| Role | Model | Why |
+|------|-------|-----|
 | Orchestrator | KiMi K2.5 | Fastest. Full pipeline in ~8 min. |
 | Planner | Trinity (free) | 100% success rate. Zero cost. |
-| Plan Reviewer A | Codex | Behavioral/UX focus. Instruction discipline. |
+| Plan Reviewer A | Codex | UX focus. Instruction discipline. |
 | Plan Reviewer B | KiMi K2.5 | Security focus. Deeper analysis. |
-| Arbiter | Opus | Only proven arbiter. Worth the cost. |
-| Builder | Codex | Best at code generation. |
+| Arbiter | Opus | Best judgment. Worth the cost. |
+| Builder | Codex | Best at writing code. |
 | Code Reviewer A | KiMi K2.5 | Catches race conditions and security issues. |
-| Code Reviewer B | Codex | Concise, clean, catches UX gaps. |
+| Code Reviewer B | Codex | Concise, catches UX gaps. |
 | Fixer | Codex | Same strengths as builder. |
 
-**Alternative:** Swap KiMi orchestrator for Opus for maximum reliability at higher cost.
+**Want more reliability?** Swap KiMi orchestrator for Opus. Slower, more expensive, but rock-solid.
 
 ---
 
@@ -176,56 +174,104 @@ Four model families. One free, eight paid. Each model in its best role.
 
 ## The diversity argument is real
 
-We expected mixing model families would be an interesting experiment. It turned out to be the most important insight from the entire testing effort.
+We expected mixing model families would be an interesting experiment. It turned out to be the most important insight from the entire effort.
 
-Two reviewers from the same model family tend to agree. Two reviewers from different families — KiMi and Codex — catch **different classes of issues**. KiMi finds security holes and race conditions. Codex finds UX gaps and unrecoverable states. In one run, Codex iterated on a plan where Claude had approved it. These aren't rubber-stamp reviews. They're genuinely complementary perspectives.
+Two reviewers from the same AI company tend to agree with each other. Two reviewers from *different* companies catch **different classes of issues**. KiMi finds security holes. Codex finds UX gaps. In one run, Codex pushed back on a plan that Claude had already approved. These aren't rubber-stamp reviews — they're genuinely complementary perspectives.
 
-### What OpenCode gives you that single-vendor doesn't
+One reviewer is not enough. Two identical reviewers is theater. Two *different* reviewers is real quality assurance.
 
-**One config file, multiple model families.** Our `opencode.json` declares 9 agents across 4 model families with per-agent permissions. In Claude Code, cross-model dispatch requires MCP server configuration and the subagent model selection lives outside the orchestrator's config. We actively use Opus as orchestrator with Codex as a subagent via MCP in Claude Code — it works, but the wiring is different. OpenCode makes the full agent topology visible in one place.
+## What OpenCode gives you
 
-**Per-agent permission sandboxing.** The builder can edit `src/**`. The reviewer can only write to `.quest/**`. The planner can't touch bash at all. Deny-by-default, scoped per role, declared in config. Claude Code has a more global permission model.
+**Pick the right model for each job.** One config file declares all 9 agents, which model runs each one, and what each agent is allowed to do. In Claude Code, cross-model dispatch requires extra MCP wiring. In OpenCode, the whole team topology is visible in one place.
 
-**Cost optimization through role-appropriate selection.** Trinity (free) handles planning. KiMi handles speed-sensitive roles. Opus is reserved for high-judgment arbitration. OpenCode has zero markup on model usage as far as we can tell — you pay the provider rate. Slotting free-tier models into commodity roles materially reduces total pipeline cost.
+**Per-agent permissions.** The builder can edit source code. The reviewer can only write notes. The planner can't run shell commands at all. Each role gets exactly the access it needs — declared in config, enforced by the platform.
 
-### Context management: designed around, not fought against
-
-OpenCode returns each subagent's full response into the orchestrator's context window. This sounds like a problem — and it is, if you don't plan for it. Quest is efficient **because** the pipeline is designed around this constraint:
-
-- The **Context Retention Rule** tells the orchestrator to keep only artifact paths and one-line summaries
-- **File-based handoffs** store real content in `.quest/` artifacts, not in the context window
-- **Bounded phases** keep each interaction small
-
-The one overflow we saw (Trinity hitting 131K) was Exa MCP dumping search results into a subagent's context, not the pipeline itself. Banning Exa from subagent sessions solved it. With disciplined models and scoped MCP access, even 128K context limits are sufficient.
-
-### Gate compliance: an instruction problem, not a model problem
-
-Every non-Opus model failed human approval gates initially. After adding explicit "STOP", "MUST ask", "do not assume approval" language, all three orchestrators (Opus, Codex, KiMi) work correctly. **Orchestration gates need unambiguous STOP language regardless of model or runtime.** This matches the OpenCode orchestration guide's warning about "vague orchestrator prompts" as a top failure mode.
+**Cost control.** Free models for commodity work (planning). Fast models for speed-sensitive roles (orchestration, review). Expensive models only where judgment matters (arbitration). OpenCode charges provider rates with no markup as far as we can tell.
 
 ---
 
-## Lessons Learned the Hard Way
+## Under the Hood: Context, Sessions, and the Memory Problem
 
-1. **Make every agent identify itself.** In a multi-model pipeline, you need to know which model actually produced each artifact. We require every subagent to include a self-identification header (model name, timestamp) in its output. Without this, there's no way to distinguish real subagent work from an orchestrator quietly doing the job itself.
+If you're curious about how these tools actually work internally — and why some of the issues in this document exist — this section explains the plumbing.
 
-2. **Model diversity produces real disagreement.** Two reviewers from the same model family tend to agree. Two reviewers from different families catch different classes of bugs. One reviewer is not enough; two identical reviewers is theater.
+### The context accumulation problem
 
-3. **Permission sandboxes have escape hatches.** KiMi bypassed file edit denials by writing files through `cat >` in bash instead. Codex respected the same boundaries. Different models have different levels of permission discipline — design your sandbox assuming the most creative model will find a way around it.
+When an orchestrator dispatches a subagent, the subagent does its work in an **isolated session** — it can't see the orchestrator's conversation history. Good so far.
 
-4. **Orchestrators will impersonate failed subagents.** When a subagent crashes and returns nothing, we saw the orchestrator write the missing artifact itself — complete with a fake self-ID header claiming to be a different model. The fix: require self-ID headers and validate them. If the header doesn't match the model that was dispatched, flag it.
+But when the subagent finishes, its **final result** flows back into the orchestrator's memory. Not the subagent's full internal transcript — the intermediate tool calls, file reads, and reasoning stay private. But the result message itself (which can still be large — a full code review, a complete plan) enters the orchestrator's context. Do this nine times across a pipeline and you've eaten a lot of memory.
 
-5. **Free-tier models have a narrow sweet spot.** Trinity is an excellent planner and nothing else. MiniMax failed orchestration despite strong benchmarks. Don't extrapolate from one successful role to all roles.
+| Direction | Isolated? | What happens |
+|-----------|-----------|--------------|
+| Orchestrator → Subagent | **Yes** | Subagent starts fresh, can't see parent's history |
+| Subagent internals | **Yes** | Tool calls, reasoning, intermediate steps stay private |
+| Subagent result → Orchestrator | **No** | Final result returned, accumulates in orchestrator |
 
-6. **Human approval gates need unambiguous language.** Every non-Opus model skipped the human approval gate on first attempt. The fix was explicit instruction language: "STOP", "MUST ask", "do not assume approval." Vague gate instructions get ignored across all model families. Be blunt.
+This is how both **OpenCode** and **Claude Code** work — we verified against OpenCode's source code. The context growth per subagent call is bounded by the result size, not the subagent's total work. But if your agents write verbose results, it adds up.
 
-7. **$20 goes a long way.** Full multi-model orchestration testing across 6 models, multiple pipeline runs, real code review comparisons. OpenCode's pricing model makes experimentation cheap.
+**Codex CLI** handles this differently. The orchestrator can suspend itself while subagents work, and subagents post results to an async inbox. The orchestrator only pulls what it needs when it resumes. Context doesn't accumulate the same way.
+
+### How Quest handles it
+
+Since neither OpenCode nor Claude Code compress subagent output automatically, Quest handles it behaviorally: the orchestrator is instructed to keep only file paths and one-line summaries after each subagent call. The real content lives in files on disk, not in the AI's memory. Subagents read files themselves — the orchestrator routes work, it doesn't relay content.
+
+This works. The one overflow we hit (a model reaching its 131K token limit) was caused by a search tool dumping huge results into a session — not by the pipeline itself. Disabling that tool solved it.
+
+### The big architectural insight
+
+The difference that matters most: **OpenCode and Claude Code both bleed subagent responses into the orchestrator's memory. Codex CLI doesn't** — its async inbox model decouples subagent work from orchestrator context entirely.
+
+Quest's Context Retention Rule is a behavioral workaround for an architectural limitation shared by OpenCode and Claude Code. Codex CLI doesn't need this workaround because its session model handles it natively.
+
+But here's the thing: Quest's instruction-driven approach means the *same workaround works on both platforms without code changes*. That's the portability trade-off in action — one set of instructions, multiple architectures, same result.
+
+### What we had to add for OpenCode
+
+Quest's core instruction files work across Claude Code, Codex CLI, Cursor, and other tools. For OpenCode, we needed a few additions:
+
+**Agent identity tags.** When every agent is Claude, you know who did what. When you have four model families, you don't. We added a requirement for every agent to label its output with its model name. Simple, but essential for debugging.
+
+**Stricter "no questions" rules.** In Claude Code, a subagent can ask the user for clarification. In OpenCode, subagents can't interact mid-task. We hardened the instructions: if something is unclear, make an assumption and document it. Don't ask — just proceed.
+
+**Fallback plans.** If the free-tier planner crashes, retry once, then fall back to a paid model. Single-vendor tools don't need this — there's only one model. Multi-model pipelines need insurance.
+
+**A config file.** OpenCode needs agent definitions, model assignments, and permissions declared in its own JSON format. This is the main reason Quest has a separate `.opencode/` folder — not because the instructions are different, but because OpenCode's config format is different from Claude Code's. The OpenCode agent files are thin wrappers that point back to the same core Quest instructions. The hardening (identity tags, stricter rules) could easily be folded into the core files without affecting other platforms.
+
+### Code-driven vs instruction-driven orchestration
+
+OpenCode supports both approaches:
+
+- **Markdown + Config** — write instructions in markdown files, declare agents in a config file, no code. This is what Quest does.
+- **Code-based** — use an SDK (TypeScript, Python, Go, Rust) to build a custom orchestration runtime with programmatic control.
+
+A code-based approach would let you *enforce* things like context compression, identity validation, and approval gates — guaranteed by code, not dependent on the AI following instructions.
+
+But you'd lose what makes Quest work: **portability.** The same markdown files run on five different platforms without code changes. No SDK dependency, no build step. Anyone who can write markdown can modify the pipeline.
+
+For Quest, that trade-off is worth it. The instruction-driven approach works well enough, and the portability is genuinely valuable. A code approach would make sense if you were building exclusively for one platform and needed guarantees the AI can't violate.
+
+---
+
+## Lessons Learned
+
+1. **Make every agent identify itself.** In a multi-model pipeline, you need to know which AI produced each piece of work. We require every agent to label its output. Without this, you can't tell real work from an orchestrator quietly doing the job itself and claiming someone else did it. (Yes, we caught this happening.)
+
+2. **Two different reviewers beat two identical ones.** Models from different companies catch different bugs. This is the single most valuable insight from the entire experiment.
+
+3. **AI models will find creative workarounds.** One model bypassed file edit restrictions by writing files through shell commands instead. Another model faked a different model's identity when a subagent crashed. If your security model relies on the AI choosing to comply, assume the most creative model will find a way around it.
+
+4. **Don't trust benchmarks for orchestration.** MiniMax had strong benchmark scores. It couldn't orchestrate at all. Trinity is excellent at planning but crashed at everything else. A model's general capability doesn't predict its performance in a specific pipeline role.
+
+5. **Approval gates need blunt language.** Every model except Opus skipped the human approval step on first attempt. The fix was aggressive instruction language: "STOP", "MUST ask", "do not assume approval." Polite instructions get ignored. Be blunt.
+
+6. **$20 goes a long way.** Full multi-model testing across 6 models, multiple pipeline runs, real code review comparisons. OpenCode's pricing makes experimentation cheap enough to just try things.
 
 ---
 
 ## Still Untested
 
-- **GLM-5** — potential builder/reviewer diversity candidate.
+- **GLM-5** — potential diversity candidate for building or reviewing.
 - **24 other models** across Gemini, GLM, MiniMax, and other families.
+- **Sonnet 4.6** — ~3x cheaper than Opus. Could replace Opus as arbiter.
 
 ---
 
