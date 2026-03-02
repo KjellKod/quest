@@ -1,6 +1,6 @@
 # OpenCode: Field Notes from Multi-Model Orchestration
 
-We put $20 into OpenCode and ran 30+ AI models through a real multi-agent pipeline. Some surprised us. Some disappointed. One completely changed how we think about code review.
+We put $20 into OpenCode, ported our multi-agent pipeline to run on it, and tested both high-tier paid models and free models across every role. Some surprised us. Some disappointed. One completely changed how we think about code review.
 
 ---
 
