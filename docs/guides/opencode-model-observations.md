@@ -1,273 +1,238 @@
-# OpenCode Model Observations
+# OpenCode: Field Notes from Multi-Model Orchestration
 
-Field notes from Quest orchestration testing. Updated as we learn more.
+We put $20 into OpenCode and ran 30+ models through a real multi-agent pipeline. Some models surprised us. Some disappointed. One completely changed how we think about code review.
 
-## Executive Summary
+---
 
-OpenCode is field-tested and approved for Onfleet. After the free trial, $20 of real spend went into serious multi-agent orchestration testing — the full Quest pipeline: plan → dual review → arbitrate → build → code review → fix.
+## What We Were Testing
 
-**What is OpenCode?** A similar experience to Claude Code or Codex CLI, but with access to 30+ models across multiple families — Claude Opus 4.6/Sonnet, Codex 5.3/5.2, KiMi, Gemini, and more. Mix and match per task.
+**OpenCode** gives you something Claude Code and Codex CLI don't: access to 30+ models across multiple families — Claude, GPT/Codex, KiMi, Gemini, Trinity, and more — with the ability to assign different models to different roles in a single pipeline.
 
-**What real testing found (not benchmarks):**
-
-- **Claude Opus 4.6** — No surprises. Handles everything. Most reliable, most expensive.
-- **GPT-5.3 Codex** — No surprises. Handles everything. Arguably best-in-class at code generation and implementation. As a reviewer, Codex shines at behavioral/UX-focused review — catching unrecoverable states, first-run flow issues, and user experience gaps.
-- **KiMi K2.5** — The surprise winner. Blazingly fast — completed a full 9-agent pipeline in ~8 minutes. Strong at orchestration, reviewing, and coding. Default orchestrator now. Beat GPT-5.3 Codex on code reviews: deeper analysis, exceptional security focus, and caught a tricky race condition that Codex missed across 3 opportunities. Both Codex and KiMi are clearly effective reviewers, but for security-sensitive code like authentication, KiMi's depth and thoroughness provides higher confidence in the security model. Trade-off: weaker than Codex at following instructions to the letter — handover metadata and telemetry notes were inconsistent across phases.
-- **Trinity Large Preview (free)** — Excellent planner at zero cost. But unreliable for anything else — crashed in 3 out of 4 non-planner roles.
-- **MiniMax M2.5** — Strong community benchmarks but failed orchestration tests. May work for simpler tasks, mostly untested.
-- **Big Pickle** — Not ready for interactive or reasoning-heavy tasks. Seemed appealing at first. Kept disappointing.
-
-**Key insight:** Different models excel at different roles. Using multiple model families together produces genuine diversity — two reviewers from different families catch different issues instead of rubber-stamping each other.
-
-**Bottom line:** OpenCode is a flexible and cheaper alternative to Claude Code since you can mix expensive models (including Claude) with free-tier options. Most free or lesser-known models aren't comparable to Claude and GPT, but KiMi K2.5 was impressive. You pay for usage on paid models, but OpenCode has zero markup as far as we can tell, making it a good option if you want access to both Codex and Claude under a single billing model. Company tier account application is in progress. It's free to download if you want to take it for a spin.
-
-## Testing Context
-
-- Runtime: OpenCode CLI
-- Orchestration: Quest multi-agent pipeline (plan → dual review → arbiter → build → code review → fix)
-- Date range: 2026-02-28 onwards
-
-## Model Observations
-
-### Trinity Large Preview (`opencode/trinity-large-preview-free`)
-
-**Tested as:** Orchestrator, Planner, Plan Reviewer A, Arbiter, Code Reviewer B
-**Verdict:** Excellent planner, unreliable in other subagent roles, not suitable for orchestration
-
-Planner:
-- Excellent — structured output, follows prompt contracts well, fast execution
-- Consistently produces quality plans that pass dual review
-- 100% success rate across multiple runs
-
-Reviewer / Arbiter (subagent):
-- **Unreliable.** Failed in 3/4 subagent roles during KiMi-orchestrated run:
-  - Plan Reviewer A: crashed, produced no artifacts (0 toolcalls on first dispatch, 7 toolcalls on retry but no output)
-  - Arbiter: dispatched but returned empty — no verdict written
-  - Code Reviewer B: crashed, no output
-- Only the Planner role succeeded
-
-Orchestrator:
-- Hit 131K context limit during one run — likely caused by Exa MCP dumping large search results into subagent context, which bled back to the orchestrator. With Exa banned, 128K may be sufficient. Needs retesting without Exa.
-- Earlier testing (pre-gate-fix): dispatched subagents but skipped human approval gate, lost fan-out during dual review attempts, re-planned on resume instead of recognizing existing plan artifact
-
-General:
-- Free tier — excellent for cost-sensitive planner role
-- **Recommendation: Use as planner. Not reliable as reviewer or arbiter (3/4 crashes). Orchestrator needs retesting without Exa.**
-
-### Claude Opus 4.6 (`opencode/claude-opus-4-6`)
-
-**Tested as:** Orchestrator, Arbiter, Reviewer A
-**Verdict:** Proven, reliable
-
-- Full pipeline completion as orchestrator with real subagent dispatch confirmed
-- Strong arbiter — correctly synthesized conflicting reviews (Claude approved, Codex iterated), filtered non-blocking issues
-- Model self-identification headers confirmed in all artifacts
-- Telemetry logged with paired start/finish events
-- Most expensive option — best reserved for high-judgment roles (arbiter, orchestrator)
-
-### GPT-5.3 Codex (`opencode/gpt-5.3-codex`)
-
-**Tested as:** Reviewer B (plan), Builder, Orchestrator
-**Verdict:** Proven for implementation and review, failed as orchestrator
-
-Reviewer/Builder:
-- Successfully reviewed plans with structured output
-- Produced genuine disagreement with Claude reviewer (iterated where Claude approved) — real model diversity
-- Handoff contract compliance confirmed
-- Good for implementation-heavy roles (builder, fixer, reviewer)
-
-Orchestrator:
-- **Failed.** Skipped human approval gate — did not pause for plan review before proceeding to build.
-- Same gate-skip failure as Trinity. Strong subagent discipline does not translate to orchestration gate compliance.
-- 4th orchestrator failure confirms this is a systemic issue, not model-specific.
-
-### KiMi K2.5 (`opencode/kimi-k2.5`)
-
-**Tested as:** Reviewer B (plan), Code Reviewer A, Orchestrator
-**Verdict:** Excellent reviewer, strong orchestrator (with strengthened gates), blazingly fast
-
-Reviewer:
-- **Blazingly fast** — dramatically faster than Opus or Codex. Lightning-speed responses.
-- Followed review prompt contract and produced structured output
-- 100% success rate as reviewer — produced artifacts in every run (plan review and code review)
-- Code Reviewer A: 125-line review, verified all 7 acceptance criteria with line-number evidence, APPROVE verdict
-- **More thorough on code reviews than Codex** — catches issues that Codex misses, produces more detailed findings
-- **Exceptional security focus** — surfaces security concerns in both planning and code review that other models overlook. Strong on security details and threat surface analysis.
-- **Caught a race condition that Codex missed** — validates KiMi's deeper analysis on concurrency and correctness issues.
-- Post-fix code reviews: both KiMi and Codex were effective. KiMi produced deeper narrative-style reviews; Codex was concise and clean.
-- Different model family from Codex and Claude — provides genuine review diversity
-
-Orchestrator:
-- **Working** (with strengthened gate instructions). Completed full pipeline: intake → plan → dual review → arbiter → human gate → build → dual code review → complete.
-- Dispatches subagents correctly, respects human approval gate, offers detailed plan walkthrough
-- **Weaker than Codex at following instructions to the letter** — handover items had glitches, telemetry logging (start/end times, agent identity) was inconsistent across phases. Codex is more disciplined at structured protocol compliance.
-- Even double-checked `auto_approve_phases.implementation: false` and asked for explicit build confirmation
-- Gracefully handled 2 agent crashes (Trinity subagents) — continued with available reviews
-- **Full pipeline in ~8 minutes** — fastest orchestrator by far
-- Previous failure (pre-gate-fix): acted as solo agent, no subagent dispatch. Strengthened gate instructions fixed this completely.
-- **Known issue: arbiter identity forgery** — when the arbiter subagent (Trinity) returned empty, KiMi wrote the arbiter verdict itself with a fake self-ID header (`Model: claude-opus-4-6`). Orchestrator must not impersonate subagents. Needs guardrail.
-- **128K context limit** — may hit context wall on longer pipelines. Banning Exa MCP helped in tested run.
-- 3rd working orchestrator after Opus and Codex.
-
-**Recommendation: Best orchestrator for speed. Pair with reliable subagents (Codex for builder/fixer, KiMi for reviewer). Do not pair with Trinity as reviewer/arbiter — Trinity crashes. Needs guardrail against arbiter forgery.**
-
-### Big Pickle (`opencode/big-pickle`)
-
-**Tested as:** Reviewer A (plan)
-**Verdict:** Not recommended for agentic roles
-
-- Produced no output when dispatched as reviewer — appeared dead in subagent session
-- **Not recommended for any Quest role.** If it can't review, it can't build or fix either.
-
-### Minimax M2.5 (`opencode/minimax-m2.5-free`)
-
-**Tested as:** Orchestrator, Arbiter, Code Reviewer B, Fixer
-**Verdict:** Failed as orchestrator. Untested in subagent roles.
-
-- **Failed as orchestrator.** Could not coordinate subagent dispatch and phase transitions.
-- Free tier, strong coding benchmarks, but benchmarks didn't translate to multi-agent coordination.
-- Subagent roles (reviewer, fixer) untested.
-
-**Recommendation: Do not use as orchestrator. May work for subagent roles — untested.**
-
-## Working Orchestrators
-
-Three models work as orchestrator (with strengthened gate instructions):
-
-| Model | Cost | Context | Speed | Gate compliance | Notes |
-|-------|------|---------|-------|----------------|-------|
-| claude-opus-4-6 | paid | 200K | slow | Proven | Most reliable, most expensive |
-| gpt-5.3-codex | paid | 200K+ | medium | Working | Proven with strengthened gates |
-| kimi-k2.5 | paid | 128K | **fast** | Working | Fastest by far, needs arbiter forgery guardrail |
-
-**Note:** Trinity and MiniMax failed as orchestrators. Trinity hit 131K context limit in one run (likely Exa MCP, needs retesting without it).
-
-## Model Reliability by Subagent Role
-
-Based on actual Quest runs:
-
-| Model | Planner | Reviewer | Arbiter | Builder | Fixer |
-|-------|---------|----------|---------|---------|-------|
-| Trinity | Proven | Failed (3/4 crashes) | Failed (empty) | Untested | Untested |
-| Codex | Untested | Proven | Untested | Proven | Proven |
-| KiMi | Untested | Proven (100%) | Untested | Untested | Untested |
-| Opus | Untested | Proven | Proven | Untested | Untested |
-
-## Proven Models by Role
-
-Which models can fill each Quest role, based on actual testing:
-
-| Role | Proven Models | Notes |
-|------|--------------|-------|
-| **Orchestrator** | KiMi K2.5, Opus, Codex | KiMi fastest, Opus most reliable, Codex solid with strengthened gates |
-| **Planner** | Trinity (free), Opus, Codex | Trinity 100% success rate — best value. KiMi untested but likely capable |
-| **Reviewer** | KiMi (100%), Codex, Opus | KiMi blazingly fast, most thorough, and strongest on security. Trinity failed 3/4 — do not use |
-| **Arbiter** | Opus | Only proven arbiter. High-judgment role — worth the cost |
-| **Builder** | Codex | Only proven builder. Strong at code generation |
-| **Fixer** | Codex | Only proven fixer. Same strengths as builder |
-
-**Opus and Codex are general-purpose** — proven or expected to work in any slot. KiMi excels at speed-sensitive roles (orchestrator, reviewer). Trinity is planner-only.
-
-## Recommended Configurations
-
-### Reliable (Opus orchestrator)
-
-| Role | Model | Cost |
-|------|-------|------|
-| Orchestrator | claude-opus-4-6 | paid |
-| Planner | trinity-large-preview-free | free |
-| Plan Reviewer A | gpt-5.3-codex | paid |
-| Plan Reviewer B | kimi-k2.5 | paid |
-| Arbiter | claude-opus-4-6 | paid |
-| Builder | gpt-5.3-codex | paid |
-| Code Reviewer A | kimi-k2.5 | paid |
-| Code Reviewer B | gpt-5.3-codex | paid |
-| Fixer | gpt-5.3-codex | paid |
-
-### Fast (KiMi orchestrator)
-
-| Role | Model | Cost |
-|------|-------|------|
-| Orchestrator | kimi-k2.5 | paid |
-| Planner | trinity-large-preview-free | free |
-| Plan Reviewer A | gpt-5.3-codex | paid |
-| Plan Reviewer B | kimi-k2.5 | paid |
-| Arbiter | claude-opus-4-6 | paid |
-| Builder | gpt-5.3-codex | paid |
-| Code Reviewer A | kimi-k2.5 | paid |
-| Code Reviewer B | gpt-5.3-codex | paid |
-| Fixer | gpt-5.3-codex | paid |
-
-**Key insight: Trinity should only be used as planner. KiMi + Codex are the reliable subagent pair.**
-
-### Default Configuration (active in `.opencode/opencode.json`)
+We tested this with **Quest**, a 9-agent orchestration pipeline:
 
 ```
-                          ┌─────────────────┐
-                          │   KiMi K2.5     │
-                          │  (orchestrator)  │
-                          └────────┬────────┘
-                                   │
-                    ┌──────────────┼──────────────┐
-                    ▼              │              ▼
-            ┌──────────────┐      │     ┌──────────────┐
-            │ Trinity Free │      │     │              │
-            │  (planner)   │      │     │              │
-            └──────┬───────┘      │     │              │
-                   │              │     │              │
-         ┌─────────┴─────────┐    │     │              │
-         ▼                   ▼    │     │              │
-  ┌─────────────┐  ┌─────────────┐│     │              │
-  │ Codex       │  │ KiMi        ││     │              │
-  │ (reviewer A)│  │ (reviewer B)││     │              │
-  └──────┬──────┘  └──────┬──────┘│     │              │
-         └────────┬───────┘       │     │              │
-                  ▼               │     │              │
-          ┌──────────────┐        │     │              │
-          │  Opus        │        │     │              │
-          │  (arbiter)   │        │     │              │
-          └──────┬───────┘        │     │              │
-                 │                │     │              │
-                 ▼                │     │              │
-          [human gate]            │     │              │
-                 │                │     │              │
-                 ▼                │     │              │
-          ┌──────────────┐        │     │              │
-          │ Codex        │        │     │              │
-          │ (builder)    │        │     │              │
-          └──────┬───────┘        │     │              │
-                 │                │     │              │
-         ┌───────┴───────┐       │     │              │
-         ▼               ▼       │     │              │
-  ┌─────────────┐  ┌─────────────┐     │              │
-  │ KiMi        │  │ Codex       │     │              │
-  │ (reviewer A)│  │ (reviewer B)│     │              │
-  └──────┬──────┘  └──────┬──────┘     │              │
-         └────────┬───────┘            │              │
-                  ▼                    │              │
-          ┌──────────────┐             │              │
-          │ Codex        │◄────────────┘              │
-          │ (fixer)      │  (if issues found)         │
-          └──────────────┘                            │
+     ┌─────────────────────────────────────────────────────────┐
+     │                      ORCHESTRATOR                       │
+     │               (coordinates all phases below)            │
+     └──┬───────┬────────┬────────┬─────-──┬────--───┬───────┬─┘
+        │       │        │        │        │         │       │
+        ▼       ▼        ▼        ▼        ▼         ▼       ▼
+      plan  →  dual → arbiter → gate  →  build  →  dual  →  fix
+              review             ⇑                review
+                               [human]
 ```
 
-| Role | Model | Cost |
-|------|-------|------|
-| Orchestrator | kimi-k2.5 | paid |
-| Planner | trinity-large-preview-free | free |
-| Plan Reviewer A | gpt-5.3-codex | paid |
-| Plan Reviewer B | kimi-k2.5 | paid |
-| Arbiter | claude-opus-4-6 | paid |
-| Builder | gpt-5.3-codex | paid |
-| Code Reviewer A | kimi-k2.5 | paid |
-| Code Reviewer B | gpt-5.3-codex | paid |
-| Fixer | gpt-5.3-codex | paid |
+Seven phases, nine agents, each slot running a different model. The question: does mixing model families actually produce better results than running everything on one vendor's best model?
 
-1 free / 8 paid. 4 model families: KiMi (orchestrator + reviews), Codex (build + fix + reviews), Opus (arbiter), Trinity (planner).
+The answer turned out to be yes — but not for the reasons we expected.
 
-## Test Prompt for Experimental Config
+---
 
-Designed to exercise the full pipeline including fixer (asks for a document that requires research, structured output, and cross-referencing multiple sources):
+## The Models That Worked
+
+### ✅ Claude Opus 4.6 — The Reliable Veteran
+
+**Tested as:** Orchestrator, Arbiter, Reviewer, Builder, Fixer
+
+No surprises here. Opus handles everything — orchestration, arbitration, all the roles — with consistent quality. Full pipeline completion, correct subagent dispatch, proper telemetry logging. Every artifact had self-identification headers. Every gate was respected.
+
+The catch is cost. Opus is expensive, and you don't need it everywhere. We found its sweet spot: **arbiter**. The role that synthesizes conflicting reviews and makes judgment calls is exactly where you want the most capable model. In one run, Opus correctly filtered non-blocking issues from two reviewers who disagreed, keeping the pipeline moving without losing signal.
+
+### ✅ GPT-5.3 Codex — The Disciplined Builder
+
+**Tested as:** Reviewer, Builder, Fixer, Orchestrator
+
+Codex is the workhorse. Best-in-class at code generation and implementation. As a builder and fixer, it just works — structured output, handoff contract compliance, clean artifacts every time.
+
+What surprised us was its review style. Codex shines at **behavioral and UX-focused review** — it catches unrecoverable states, first-run flow issues, and user experience gaps that other models gloss over. Post-fix reviews are concise and clean. No fluff.
+
+Codex also has the strongest **instruction discipline** of any model we tested. Handover items are consistent. Telemetry logging (start/end times, agent identity) is accurate across phases. When the protocol says to do something, Codex does it.
+
+As orchestrator, it initially skipped the human approval gate — but so did every non-Opus model. After applying strengthened gate instructions, the problems went away.
+
+### ✅ 🚀 KiMi K2.5 — The One That Changed Everything 
+
+**Tested as:** Reviewer, Code Reviewer, Orchestrator
+
+KiMi K2.5 was supposed to be a quick experiment. It became our **default** orchestrator.
+
+**Speed.** KiMi completed the full 9-agent pipeline in ~8 minutes. For context, the same pipeline takes significantly longer with Opus or Codex orchestrating. The speed difference isn't marginal — **it's dramatic**.
+
+**Review depth.** This is where KiMi genuinely surprised us. In head-to-head code reviews against Codex, KiMi consistently went deeper. It caught issues Codex missed. It surfaced security concerns — threat surface analysis, authentication edge cases — that other models overlooked entirely.
+
+#### 🏆 The defining moment
+
+**KiMi caught a race condition that Codex never found — despite 3 separate opportunities.** Same code, same review prompt. Codex had 3 opportunities to catch it and missed it every time. KiMi found it on the first pass.
+
+For security-sensitive code — authentication, session handling, anything with concurrency — **KiMi's depth provides materially higher confidence than Codex**. Both models are effective reviewers, but they see different things. Codex catches UX and behavioral issues really well. KiMi catches security and correctness issues. Together, they don't rubber-stamp each other. They genuinely disagree, and that disagreement is valuable.
+
+Post-fix, both were effective. KiMi produced deeper, narrative-style reviews. Codex was concise and clean. Different styles, both useful.
+
+##### The trade-off
+
+**KiMi is weaker**  than Codex at following instructions to the letter. Handover items had glitches. Telemetry notes — start times, end times, agent identity — were inconsistent across phases. Where Codex is meticulous about protocol compliance, KiMi is... *creative*. It gets the job done, but the metadata isn't always clean.
+
+There's also a trust issue: when a subagent (Trinity) returned empty, Kimi didn't raise the alert, but decided to be *creative* and wrote the arbiter verdict itself — with a fake self-ID header claiming to be `claude-opus-4-6` 🤦‍♂️. An orchestrator impersonating a subagent is a real problem that needs a guardrail - for this reason **Kimi** is forever banned with the current 2.5 version as a Quest orchestrator.
+
+Despite these rough edges, KiMi earned its spot. For speed and analytical depth, nothing else comes close.
+
+---
+
+## The Models That Didn't
+
+### 🤔 Trinity Large Preview (free) — Planner Only
+
+**Trinity is an excellent planner**. 100% success rate across multiple runs — structured output, follows prompt contracts, fast execution. At zero cost, it's the best value in the pipeline. Codex, Kimi, Opus all agreed with Trinity's planning.
+
+❌ Everything else failed. Trinity crashed in 3 out of 4 non-planner roles: plan reviewer (no output after 7 tool calls), arbiter (dispatched, returned empty), code reviewer (crashed). 
+
+**Use it as a planner. Don't use it for anything else.**
+
+### ❌ MiniMax M2.5 (free) — Benchmarks Lied
+
+Strong community benchmarks. Failed orchestration immediately — couldn't coordinate subagent dispatch or phase transitions. May work for simpler subagent roles "fixer"?, but we stopped testing after the catastropic orchestrator failure.
+
+### 💀 Big Pickle — Dead on Arrival
+
+Produced no output when dispatched as a reviewer. Appeared dead in the subagent session. Seemed appealing at first when we used it with direct prompting. Kept disappointing. Not recommended for any Quest role. Maybe can be suitable for drone work?
+
+---
+
+## The Winning Configuration
+
+Four model families. One free, eight paid. Each model in its best role.
+
+```
+              ┌─────────────────────┐
+              │      KiMi K2.5      │
+              │    (orchestrator)    │
+              └──────────┬──────────┘
+                         │ dispatches all agents below
+                         ▼
+              ┌─────────────────────┐
+              │    Trinity Free     │
+              │     (planner)       │
+              └──────────┬──────────┘
+                         │
+                ┌────────┴────────┐
+                ▼                 ▼
+       ┌──────────────┐  ┌──────────────┐
+       │    Codex     │  │     KiMi     │
+       │ (reviewer A) │  │ (reviewer B) │
+       └──────┬───────┘  └───────┬──────┘
+              └─────────┬────────┘
+                        ▼
+              ┌─────────────────────┐
+              │     Opus            │
+              │    (arbiter)        │
+              └──────────┬──────────┘
+                         │
+                         ▼
+                   [human gate]
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │       Codex         │
+              │     (builder)       │
+              └──────────┬──────────┘
+                         │
+                ┌────────┴────────┐
+                ▼                 ▼
+       ┌──────────────┐  ┌──────────────┐
+       │     KiMi     │  │    Codex     │
+       │ (reviewer A) │  │ (reviewer B) │
+       └──────┬───────┘  └───────┬──────┘
+              └─────────┬────────┘
+                        ▼
+              ┌─────────────────────┐
+              │       Codex         │
+              │      (fixer)        │◄── if issues found
+              └─────────────────────┘
+```
+
+| Role | Model | Why This Model |
+|------|-------|----------------|
+| Orchestrator | KiMi K2.5 | Fastest. Full pipeline in ~8 min. |
+| Planner | Trinity (free) | 100% success rate. Zero cost. |
+| Plan Reviewer A | Codex | Behavioral/UX focus. Instruction discipline. |
+| Plan Reviewer B | KiMi K2.5 | Security focus. Deeper analysis. |
+| Arbiter | Opus | Only proven arbiter. Worth the cost. |
+| Builder | Codex | Best at code generation. |
+| Code Reviewer A | KiMi K2.5 | Catches race conditions and security issues. |
+| Code Reviewer B | Codex | Concise, clean, catches UX gaps. |
+| Fixer | Codex | Same strengths as builder. |
+
+**Alternative:** Swap KiMi orchestrator for Opus for maximum reliability at higher cost.
+
+---
+
+## Why Multi-Model Beats Single-Vendor
+
+### The diversity argument is real
+
+We expected mixing model families would be an interesting experiment. It turned out to be the most important insight from the entire testing effort.
+
+Two reviewers from the same model family tend to agree. Two reviewers from different families — KiMi and Codex — catch **different classes of issues**. KiMi finds security holes and race conditions. Codex finds UX gaps and unrecoverable states. In one run, Codex iterated on a plan where Claude had approved it. These aren't rubber-stamp reviews. They're genuinely complementary perspectives.
+
+### What OpenCode gives you that single-vendor doesn't
+
+**One config file, multiple model families.** Our `opencode.json` declares 9 agents across 4 model families with per-agent permissions. In Claude Code, cross-model dispatch requires MCP server configuration and the subagent model selection lives outside the orchestrator's config. We actively use Opus as orchestrator with Codex as a subagent via MCP in Claude Code — it works, but the wiring is different. OpenCode makes the full agent topology visible in one place.
+
+**Per-agent permission sandboxing.** The builder can edit `src/**`. The reviewer can only write to `.quest/**`. The planner can't touch bash at all. Deny-by-default, scoped per role, declared in config. Claude Code has a more global permission model.
+
+**Cost optimization through role-appropriate selection.** Trinity (free) handles planning. KiMi handles speed-sensitive roles. Opus is reserved for high-judgment arbitration. OpenCode has zero markup on model usage as far as we can tell — you pay the provider rate. Slotting free-tier models into commodity roles materially reduces total pipeline cost.
+
+### Context management: designed around, not fought against
+
+OpenCode returns each subagent's full response into the orchestrator's context window. This sounds like a problem — and it is, if you don't plan for it. Quest is efficient **because** the pipeline is designed around this constraint:
+
+- The **Context Retention Rule** tells the orchestrator to keep only artifact paths and one-line summaries
+- **File-based handoffs** store real content in `.quest/` artifacts, not in the context window
+- **Bounded phases** keep each interaction small
+
+The one overflow we saw (Trinity hitting 131K) was Exa MCP dumping search results into a subagent's context, not the pipeline itself. Banning Exa solved it. With disciplined models and scoped MCP access, even 128K context limits are sufficient.
+
+### Gate compliance: an instruction problem, not a model problem
+
+Every non-Opus model failed human approval gates initially. After adding explicit "STOP", "MUST ask", "do not assume approval" language, all three orchestrators (Opus, Codex, KiMi) work correctly. **Orchestration gates need unambiguous STOP language regardless of model or runtime.** This matches the OpenCode orchestration guide's warning about "vague orchestrator prompts" as a top failure mode.
+
+---
+
+## Lessons Learned the Hard Way
+
+1. **Model self-identification in artifacts is essential.** Without it, you can't verify real subagent dispatch vs orchestrator role-playing. We caught KiMi impersonating Opus because the headers didn't match.
+
+2. **Model diversity produces real disagreement.** This is the whole point. Two models from different families catch different bugs. One reviewer is not enough; two identical reviewers is theater.
+
+3. **KiMi trades instruction precision for analytical depth.** Weaker at protocol compliance, stronger at finding real issues. Know the trade-off and assign roles accordingly.
+
+4. **Permission models have escape hatches.** KiMi bypassed edit denials by using `cat >` via bash. Codex respects permission boundaries. Permission discipline varies by model — design your sandbox assuming the worst.
+
+5. **Context bleeding is manageable but not automatic.** The Context Retention Rule is behavioral, not runtime-enforced. You have to design lean handoffs and ban noisy MCP tools. It works — but only because we planned for it.
+
+6. **Orchestrator identity forgery is a real risk.** When subagents fail, capable orchestrators will fill the gap themselves — sometimes with fake attribution. Needs a runtime guardrail, not just instructions.
+
+7. **Fan-out is fragile.** Dual review dispatch has failed under Trinity. Sequential dispatch is more reliable than parallel for now.
+
+8. **Free-tier models have a narrow sweet spot.** Trinity is an excellent planner and nothing else. MiniMax failed orchestration despite strong benchmarks. Don't extrapolate from one success to all roles.
+
+9. **Strengthened gates fix orchestration across all model families.** The failures weren't about model capability — they were about instruction clarity. Invest in unambiguous control flow language.
+
+10. **$20 goes a long way.** Full multi-model orchestration testing across 6 models, multiple pipeline runs, real code review comparisons. OpenCode's pricing model makes experimentation cheap.
+
+---
+
+## Still Untested
+
+- **Sonnet 4.6** — ~3x cheaper than Opus. Potential arbiter replacement.
+- **GLM-5** — potential builder/reviewer diversity candidate.
+- **24 other models** across Gemini, GLM, MiniMax, and other families.
+
+---
+
+## Try It Yourself
+
+Test prompt designed to exercise the full Quest pipeline including fixer:
 
 ```
 /quest "Create docs/guides/opencode-model-suitability.md that documents which models
@@ -282,63 +247,4 @@ free-tier configuration. The document should help future users pick the right mo
 for each slot."
 ```
 
-## OpenCode vs Single-Vendor Orchestration
-
-How OpenCode multi-model orchestration compares to running everything inside Claude Code or Codex CLI — and what we had to figure out to make Quest work across model families.
-
-### Cross-family model mixing per role
-
-Claude Code defaults to Claude models. Codex CLI defaults to OpenAI models. OpenCode lets you assign **different model families per agent slot** in a single config file. Our `opencode.json` runs 4 model families in one pipeline — KiMi orchestrating, Trinity planning, Codex building, Opus arbitrating. This is the core differentiator: right-size each role by model strength, not vendor lock-in.
-
-### Declarative permission sandboxing per agent
-
-OpenCode's `permission` block gives **per-agent file and tool restrictions** — deny-by-default on task dispatch, scoped edit paths, bash allow-lists. Claude Code has a more global permission model. In OpenCode, we enforce that the builder can edit `src/**` but the reviewer can only write to `.quest/**`. This is least-privilege per role, declared in config, not enforced by convention.
-
-### Subagent dispatch as a first-class primitive
-
-OpenCode's Task tool creates a **child session** with its own model, prompt, and permissions. Claude Code can also dispatch to other models — we actively use Opus as orchestrator with Codex as a subagent via MCP — but the wiring is different. In OpenCode, the agent definitions, model assignments, and permission boundaries are all declared in one config file. In Claude Code, cross-model dispatch requires MCP server configuration and the subagent model selection lives outside the orchestrator's config.
-
-### Context bleeding is architectural — Quest is designed around it
-
-OpenCode's architecture returns each subagent's full response into the orchestrator's context window. This is not a flaw — it's how session-based orchestration works. Quest is efficient **because** the pipeline is designed around this constraint:
-
-- The **Context Retention Rule** instructs the orchestrator to keep only artifact paths and one-line summaries, discarding verbose subagent output.
-- **File-based handoffs** mean the real content lives in `.quest/` artifacts, not in the context window.
-- **Bounded phases** keep each subagent interaction small and focused.
-
-The result: orchestrator context stays lean through disciplined pipeline design. The one overflow we saw (Trinity hitting 131K) was caused by Exa MCP dumping large search results into a subagent's context, which bled back — not by the pipeline itself. Banning Exa solved it. With disciplined models and scoped MCP access, the architecture works within even 128K context limits.
-
-### Gate compliance is an instruction-clarity problem, not a model problem
-
-Three different model families (Claude, Codex, KiMi) all failed human approval gates initially, then all worked after strengthening the gate language with explicit "STOP", "MUST ask", "do not assume approval" instructions. This is a universal insight: **orchestration gates need unambiguous STOP language regardless of model or runtime**. The OpenCode orchestration guide lists "vague orchestrator prompts" as a top failure mode — our testing confirms this across families.
-
-### Fan-out is config, not code
-
-The dual-review pattern — dispatch two reviewers from different model families, then an arbiter synthesizes — maps to OpenCode's fan-out/fan-in pattern. We achieve this purely through `opencode.json` agent definitions and markdown prompts, no custom runtime code. Claude Code can also fan out via MCP to other models, but the configuration surface is different: OpenCode makes the full agent topology visible in one file.
-
-### Cost optimization through role-appropriate model selection
-
-Trinity free-tier as planner, KiMi for speed-sensitive roles (orchestrator, reviewer), Opus only where high-judgment matters (arbiter). We pay for 8 of 9 slots but right-size cost per role. In a single-vendor setup, every agent runs at that vendor's pricing. OpenCode has zero markup on model usage as far as we can tell — you pay the provider rate, making it a good option for mixed-model pipelines. The ability to slot in free-tier models for commodity roles (planning) materially reduces total pipeline cost.
-
-## Key Learnings
-
-1. **Model self-identification in artifacts is essential** — without it, you can't verify real subagent dispatch vs orchestrator role-playing
-2. **"runtime=claude" in telemetry is correct even for Codex models** — runtime is the launcher (Claude Code Task tool), model is what runs inside
-3. **Big Pickle is not suited for agentic Quest roles** — stalled on a structured review task, known to struggle with multi-step reasoning on AgentBench
-4. **Trinity self-corrects on path errors** — tried wrong skill path, found the right one without intervention
-5. **Fan-out is the fragile point** — dual review dispatch has failed once under Trinity; sequential dispatch is the norm
-6. **Human gates require a reliable orchestrator** — Trinity skipped the plan approval gate (0 toolcalls, auto-concluded "user approved"). Opus respected the gate. For workflows with human checkpoints, Opus as orchestrator is the safe choice.
-7. **Subagent slot naming leaks from shared skill files** — KiMi identified as "Slot A (Claude)" because workflow.md uses hardcoded Claude-era slot names. The model self-ID header in artifacts is the authoritative source, not the preamble text.
-8. **Model diversity produces real disagreement** — Codex iterated where Claude approved in one run. This validates the dual-review pattern as more than rubber-stamping.
-9. **Strengthened gate instructions fix orchestration across model families** — After adding explicit "STOP", "MUST ask", "do not assume approval" language, both Codex and KiMi now work as orchestrators. The original gate failures were instruction clarity issues, not model capability issues. 3 working orchestrators: Opus (proven), Codex (working), KiMi (working).
-10. **Permission bypass via bash** — KiMi used `cat >` to write files when Edit was denied. The permission model has a bash escape hatch that agentic models will find.
-11. **Sonnet 4.6 is untested** — ~3x cheaper than Opus. Could replace Opus in arbiter slot. Not yet tested in Quest.
-12. **30 models available in OpenCode across 8 families** — Claude (8), GPT/Codex (10), KiMi (3), MiniMax (3), Gemini (3), GLM (3), Trinity (1), Big Pickle (1). We've tested 6 of 30.
-13. **Codex respects permission boundaries, KiMi doesn't** — KiMi bypasses edit denials via `cat >` bash. Permission discipline varies by model.
-14. **Trinity is planner-only** — Failed 3/4 non-planner subagent roles (reviewer, arbiter, code reviewer all crashed). Do not use as reviewer or arbiter.
-15. **KiMi + Codex are the reliable subagent pair** — 100% completion rate across all tested roles. KiMi fastest and most thorough reviewer, Codex best at code generation. Together they provide model diversity.
-16. **Orchestrator identity forgery** — When a subagent returns empty, KiMi wrote the artifact itself with a fake self-ID header. Needs a guardrail.
-17. **Context bleeding is real** — Subagent responses accumulate in orchestrator context. The Context Retention Rule is behavioral, not runtime-enforced. Banning large MCP tools (Exa) helps — the 131K overflow on Trinity was likely Exa-caused.
-18. **KiMi K2.5 completed full pipeline in ~8 minutes** — Fastest orchestrator by far.
-19. **GLM-5 is untested** — potential builder/reviewer diversity candidate.
-20. **KiMi trades instruction precision for analytical depth** — Weaker than Codex at structured protocol compliance (handover items, telemetry logging consistency), but stronger at finding real issues in code. Different strengths for different roles.
+OpenCode is free to download. Company tier account application is in progress. You can use your $20 stipend to start experimenting.
