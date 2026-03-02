@@ -51,10 +51,14 @@ Use this format:
 - **<Category>**:
   - Description of change
 
-## Test Plan
+## Validation
 - [ ] Concrete verification step describing what to do and what to expect
 - [ ] Another verification step
 Watch for: <known risk or edge case, if any>
+
+## Notes
+- Important implementation/deployment/reviewer context that is not obvious from the diff.
+- Do not repeat the Summary; only include unique, high-signal details reviewers should know.
 ```
 
 ### Summary section
@@ -101,7 +105,7 @@ Rules:
 - Omit categories with no changes. Only include what is relevant.
 - If the PR is very small (1-2 files), a flat bullet list is fine — do not force categories.
 
-### Test Plan section
+### Validation section
 
 Each checkbox should be a concrete verification step — what to do and what result to expect. A reviewer reading the list should be able to pull the branch and verify without guessing.
 
@@ -111,6 +115,15 @@ Rules:
 - Only include steps that a human needs to perform. Skip anything CI already covers (linting, syntax checks, type checks).
 - If there is a known risk or edge case worth watching, add a `Watch for:` line at the end — no checkbox, just a heads-up.
 - Keep it short. 2-5 steps is typical. If you need more, the PR may be too large.
+
+### Notes section
+
+Use `## Notes` for important context reviewers should know before merge or rollout.
+
+Rules:
+- Include only non-obvious, high-value context (e.g., follow-up work, rollout caveats, compatibility constraints, temporary limitations).
+- Do not duplicate the Summary section.
+- Keep it concise; omit the section content if there is nothing important to add.
 
 ### Bot-generated content
 

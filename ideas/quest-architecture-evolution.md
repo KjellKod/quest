@@ -103,7 +103,7 @@ Orchestrator reads ONLY the SUMMARY line from handoff → decides next step
 ```
 
 **Phase transition requirements:**
-- `plan → plan_reviewed`: plan.md, review_claude.md, review_codex.md, arbiter_verdict.md must exist
+- `plan → plan_reviewed`: plan.md, review_plan-reviewer-a.md, review_plan-reviewer-b.md, arbiter_verdict.md must exist
 - `plan_reviewed → building`: plan.md exists, arbiter verdict says "builder"
 - `building → reviewing`: builder artifacts exist (changed files)
 - `reviewing → fixing`: review files exist with issues

@@ -284,15 +284,15 @@ During review phases, the orchestrator dispatches **both reviewers in a single m
               ▼                   │                   ▼
 ┌─────────────────────────┐       │       ┌─────────────────────────┐
 │   Tool Call 1:          │       │       │   Tool Call 2:          │
-│   Task tool             │  PARALLEL     │   mcp__codex__codex     │
-│   (Claude subagent)     │   EXECUTION   │   (Codex MCP server)    │
+│   Reviewer A            │  PARALLEL     │   Reviewer B            │
+│   (per config)          │   EXECUTION   │   (per config)          │
 │                         │       │       │                         │
-│  → plan-reviewer or     │       │       │  → GPT-5.2 reviews      │
-│    code-reviewer agent  │       │       │    same artifacts       │
+│  → plan-reviewer or     │       │       │  → Reviews same         │
+│    code-reviewer agent  │       │       │    artifacts            │
 └───────────┬─────────────┘       │       └───────────┬─────────────┘
             │                     │                   │
             ▼                     │                   ▼
-   review_claude.md               │          review_codex.md
+   review_plan-reviewer-a.md       │          review_plan-reviewer-b.md
                                   │
               └───────────────────┼───────────────────┘
                                   │
@@ -409,14 +409,14 @@ All artifacts preserved in `.quest/<id>/`:
 ```
 phase_01_plan/
   plan.md              # The implementation plan
-  review_claude.md     # Claude's plan review
-  review_codex.md      # Codex's plan review
+  review_plan-reviewer-a.md  # Plan Reviewer A's review
+  review_plan-reviewer-b.md  # Plan Reviewer B's review
   arbiter_verdict.md   # Arbiter's decision
 phase_02_implementation/
   pr_description.md    # PR description
 phase_03_review/
-  review_claude.md     # Claude's code review
-  review_codex.md      # Codex's code review
+  review_code-reviewer-a.md  # Code Reviewer A's review
+  review_code-reviewer-b.md  # Code Reviewer B's review
 logs/
   allowlist_snapshot.json  # Permissions at quest start
 ```
@@ -512,7 +512,7 @@ Edit `.skills/quest/SKILL.md` to customize Codex prompts:
 ```
 "Review .quest/<id>/plan.md
  List issues (max 5 bullets).
- Write to review_codex.md"
+ Write to review_plan-reviewer-b.md"
 ```
 
 ---

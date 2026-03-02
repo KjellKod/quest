@@ -48,24 +48,38 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 2. Read the expected `handoff.json` file (tiny JSON, ~200 bytes)
 3. Use its `status`, `next`, `summary`, and `artifacts` fields for routing and user display
 4. Discard the full agent response -- do not retain, summarize, or process it
-5. **Fallback:** If handoff.json does not exist or cannot be parsed as valid JSON, parse the text `---HANDOFF---` block from the response (backward compatibility)
+5. **Deterministic precedence for missing/unparsable handoff.json:**
+   - **Claude invocation (Task):** If `handoff.json` is missing/unparsable, parse text `---HANDOFF---` as fallback.
+   - **Codex invocation (`mcp__codex__codex`):** Missing/unparsable `handoff.json` is non-compliant. Re-run the same Codex role once with a strict reminder.
+   - If the second Codex attempt is still non-compliant, missing/unparsable handoff, or `blocked`, invoke the equivalent Claude `Task` fallback for that step.
+   - Only after this retry/fallback chain, if the final attempt still has no parseable `handoff.json`, parse text `---HANDOFF---` as last-resort compatibility fallback.
 
 **Expected handoff.json locations:**
 
 | Phase | Agent | handoff.json path |
 |-------|-------|------------------|
 | Plan | Planner | `.quest/<id>/phase_01_plan/handoff.json` |
-| Plan Review | Slot A | `.quest/<id>/phase_01_plan/handoff_claude.json` |
-| Plan Review | Slot B | `.quest/<id>/phase_01_plan/handoff_codex.json` |
+| Plan Review | Slot A | `.quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json` |
+| Plan Review | Slot B | `.quest/<id>/phase_01_plan/handoff_plan-reviewer-b.json` |
 | Plan Review | Arbiter | `.quest/<id>/phase_01_plan/handoff_arbiter.json` |
 | Build | Builder | `.quest/<id>/phase_02_implementation/handoff.json` |
-| Code Review | Slot A | `.quest/<id>/phase_03_review/handoff_claude.json` |
-| Code Review | Slot B | `.quest/<id>/phase_03_review/handoff_codex.json` |
+| Code Review | Slot A | `.quest/<id>/phase_03_review/handoff_code-reviewer-a.json` |
+| Code Review | Slot B | `.quest/<id>/phase_03_review/handoff_code-reviewer-b.json` |
 | Fix | Fixer | `.quest/<id>/phase_03_review/handoff_fixer.json` |
 
 The orchestrator NEVER reads full review files, plan content, or build output for routing decisions. Only handoff.json (and, for Step 3.5, the plan file itself as a bounded exception).
 
 **Codex MCP response handling:** After a `mcp__codex__codex` call returns, the orchestrator reads the corresponding `handoff.json` file and does NOT retain the Codex response body in working context. The response may still appear in the conversation history (platform limitation), but the orchestrator treats it as consumed and does not reference it for any subsequent decision.
+
+**Codex non-interactive contract (all `mcp__codex__codex` calls):**
+- Codex must not ask the user questions and must not return `STATUS: needs_human`.
+- If context is incomplete, Codex makes explicit assumptions in the artifact and continues.
+- If it cannot proceed safely, Codex returns `STATUS: blocked` with a concrete reason.
+- Orchestrator handling for Codex `needs_human`/non-compliant output and missing/unparsable handoff:
+  1. Re-invoke the same Codex role once with a strict reminder: "no questions, no `needs_human`, make explicit assumptions."
+  2. If the second attempt is still non-compliant, missing/unparsable handoff, or `blocked`, fall back to the equivalent Claude `Task` role for that step.
+  3. Only after retry + Claude fallback may text `---HANDOFF---` parsing be used as a last-resort compatibility path.
+  4. Only enter human Q&A if the Claude fallback returns `STATUS: needs_human`.
 
 **MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions. Create the `.quest/<id>/logs/` directory first if it does not exist.
 
@@ -76,7 +90,7 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 
 Use `plan_iteration` for plan/plan_review phases, `fix_iteration` for code_review/fix phases, and `1` for build (single pass).
 Set `runtime` to the runtime actually used for that invocation (`claude` or `codex`).
-Never infer runtime from the agent label/name (for example `slot_a_claude`); labels are role identifiers, not backend evidence.
+Never infer runtime from the agent label/name (for example `plan-reviewer-a`); labels are role identifiers, not backend evidence.
 
 Runtime attribution rule (authoritative):
 - Log `runtime=claude` only when the invocation actually used Claude `Task(...)`.
@@ -86,12 +100,12 @@ Runtime attribution rule (authoritative):
 **Example log for a quest with 2 plan iterations:**
 ```
 2026-02-15T00:12:00Z | phase=plan | agent=planner | runtime=claude | iter=1 | handoff_json=found | source=handoff_json
-2026-02-15T00:15:00Z | phase=plan_review | agent=slot_a_claude | runtime=claude | iter=1 | handoff_json=found | source=handoff_json
-2026-02-15T00:15:00Z | phase=plan_review | agent=slot_b_codex | runtime=codex | iter=1 | handoff_json=missing | source=text_fallback
+2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=1 | handoff_json=found | source=handoff_json
+2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-b | runtime=codex | iter=1 | handoff_json=missing | source=text_fallback
 2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=1 | handoff_json=found | source=handoff_json
 2026-02-15T00:25:00Z | phase=plan | agent=planner | runtime=claude | iter=2 | handoff_json=found | source=handoff_json
-2026-02-15T00:28:00Z | phase=plan_review | agent=slot_a_claude | runtime=claude | iter=2 | handoff_json=found | source=handoff_json
-2026-02-15T00:28:00Z | phase=plan_review | agent=slot_b_codex | runtime=codex | iter=2 | handoff_json=found | source=handoff_json
+2026-02-15T00:28:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=2 | handoff_json=found | source=handoff_json
+2026-02-15T00:28:00Z | phase=plan_review | agent=plan-reviewer-b | runtime=codex | iter=2 | handoff_json=found | source=handoff_json
 2026-02-15T00:31:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=2 | handoff_json=found | source=handoff_json
 ```
 
@@ -179,8 +193,8 @@ gates.max_plan_iterations (default: 4)
 4. **Invoke BOTH Plan Reviewers IN PARALLEL** (same message, one Task call + one Codex call):
 
    Two different models review independently for model diversity:
-   - **Slot A** (Claude): `Task(subagent_type="plan-reviewer")` → `.quest/<id>/phase_01_plan/review_claude.md`
-   - **Slot B** (Codex): `mcp__codex__codex` → `.quest/<id>/phase_01_plan/review_codex.md`
+   - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
+   - **Reviewer B**: dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
 
    **Slot A — Claude Task agent** (full and fast modes):
 
@@ -188,7 +202,7 @@ gates.max_plan_iterations (default: 4)
    ```
    Task(
      subagent_type: "plan-reviewer",
-     prompt: "You are the Plan Review Agent (Claude).
+     prompt: "You are Plan Reviewer A.
 
      Read your instructions: .skills/quest/agents/plan-reviewer.md
      Read context digest: <codex_context_digest_path>
@@ -197,8 +211,8 @@ gates.max_plan_iterations (default: 4)
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
-     Write your review to: .quest/<id>/phase_01_plan/review_claude.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_claude.json
+     Write your review to: .quest/<id>/phase_01_plan/review_plan-reviewer-a.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -208,28 +222,29 @@ gates.max_plan_iterations (default: 4)
    ```
    Task(
      subagent_type: "plan-reviewer",
-     prompt: "You are the Plan Review Agent (Claude).
+     prompt: "You are Plan Reviewer A.
 
      Read context digest: <codex_context_digest_path>
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
      List up to 5 issues, highest severity first.
-     Write your review to: .quest/<id>/phase_01_plan/review_claude.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_claude.json
+     Write your review to: .quest/<id>/phase_01_plan/review_plan-reviewer-a.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
    )
    ```
 
-   **Slot B — Codex MCP** (full and fast modes):
+   **Reviewer B** (full and fast modes):
 
    **Full mode** (default for plan review):
    ```
    mcp__codex__codex(
      model: "gpt-5.3-codex",
-     prompt: "You are the Plan Review Agent (Codex).
+     prompt: "You are Plan Reviewer B.
+     Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
      Read your instructions: .skills/quest/agents/plan-reviewer.md
      Read context digest: <codex_context_digest_path>
@@ -238,8 +253,8 @@ gates.max_plan_iterations (default: 4)
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
-     Write your review to: .quest/<id>/phase_01_plan/review_codex.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_codex.json
+     Write your review to: .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_plan-reviewer-b.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -249,15 +264,16 @@ gates.max_plan_iterations (default: 4)
    ```
    mcp__codex__codex(
      model: "gpt-5.3-codex",
-     prompt: "You are the Plan Review Agent (Codex).
+     prompt: "You are Plan Reviewer B.
+     Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
      Read context digest: <codex_context_digest_path>
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
      List up to 5 issues, highest severity first.
-     Write your review to: .quest/<id>/phase_01_plan/review_codex.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_codex.json
+     Write your review to: .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
+     Write handoff file to: .quest/<id>/phase_01_plan/handoff_plan-reviewer-b.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -267,9 +283,11 @@ gates.max_plan_iterations (default: 4)
    - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH to complete
    - Record the current wall-clock time as `dispatch_end`
-   - Read `.quest/<id>/phase_01_plan/handoff_claude.json` and `handoff_codex.json`
+   - Read `.quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json` and `handoff_plan-reviewer-b.json`
    - Verify both review files exist (from handoff.artifacts)
-   - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
+   - Apply deterministic precedence from **Handoff File Polling**:
+     - Claude slot may use direct text fallback when handoff.json is missing/unparsable.
+     - Codex slot must retry once, then Claude fallback, before any text fallback routing.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -288,8 +306,8 @@ gates.max_plan_iterations (default: 4)
 
      Quest brief: .quest/<id>/quest_brief.md
      Plan: .quest/<id>/phase_01_plan/plan.md
-     Review A: .quest/<id>/phase_01_plan/review_claude.md
-     Review B: .quest/<id>/phase_01_plan/review_codex.md
+     Review A: .quest/<id>/phase_01_plan/review_plan-reviewer-a.md
+     Review B: .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
 
      Write verdict to: .quest/<id>/phase_01_plan/arbiter_verdict.md
      Write handoff file to: .quest/<id>/phase_01_plan/handoff_arbiter.json
@@ -308,9 +326,11 @@ gates.max_plan_iterations (default: 4)
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
      - Otherwise: Loop back to step 0 (stale handoff cleanup)
 
-### Step 3.5: Interactive Plan Presentation
+### Step 3.5: Interactive Plan Presentation (MANDATORY HUMAN GATE)
 
 After plan approval, present the plan interactively before proceeding to build.
+
+**THIS IS A MANDATORY STOP POINT.** You MUST present the plan to the human user, ask for their approval, and STOP execution until the human responds. Do not assume approval. Do not skip this step. Do not auto-approve. Do not proceed to Step 4 until the human has explicitly approved.
 
 **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presenting` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
 
@@ -404,10 +424,11 @@ After plan approval, present the plan interactively before proceeding to build.
 
 ### Step 4: Build Phase
 
-**Gate check:**
+**MANDATORY GATE CHECK — Do not skip this:**
 - Read `auto_approve_phases.implementation` from allowlist
-- If false: Ask user "Plan approved. Proceed with implementation?"
-- Wait for confirmation before continuing
+- If false (default): You MUST ask the user "Plan approved. Proceed with implementation?" and then STOP and wait for the human to respond. Do not proceed until the human explicitly says yes. Do not assume approval. Do not auto-approve.
+- If true: You may proceed without asking
+- **If you have not received explicit human approval from Step 3.5 or this gate, STOP NOW and ask.**
 
 **Build:**
 
@@ -415,19 +436,27 @@ After plan approval, present the plan interactively before proceeding to build.
 
 2. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
-3. **Invoke Builder** (Claude `Task(subagent_type="builder")`):
+3. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude `Task` fallback):
+   - Read `model_overrides.builder` from allowlist (default: `gpt-5.3-codex`).
+   - If builder model is Codex, invoke via `mcp__codex__codex`.
+   - If builder model is Claude, invoke via `Task(subagent_type="builder")`.
    - Prompt: Reference file paths only, do not embed content:
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
      - Quest brief: `.quest/<id>/quest_brief.md`
    - Require the prompt to include:
+     - If using Codex path: `Read your instructions: .skills/quest/agents/builder.md`
      - Write output artifacts under: `.quest/<id>/phase_02_implementation/`
      - Write handoff file to: `.quest/<id>/phase_02_implementation/handoff.json` with schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: code_review`
-   - Wait for Task to complete
+   - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_02_implementation/handoff.json` for status/routing
    - Verify artifacts written (from handoff.artifacts)
-   - Fallback: if handoff.json missing or unparsable, parse text handoff from response
+   - If Codex path returns `needs_human`, malformed output, missing/unparsable handoff, or `blocked`:
+     1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
+     2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="builder")`) with the same artifact-path contract.
+     3. Only ask the user questions if the Claude fallback returns `needs_human`.
+   - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
 4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
 
@@ -457,8 +486,8 @@ After plan approval, present the plan interactively before proceeding to build.
 4. **Invoke BOTH Code Reviewers IN PARALLEL** (same message, one Task call + one Codex call):
 
    Two different models review independently for model diversity:
-   - **Slot A** (Claude): `Task(subagent_type="code-reviewer")` → `.quest/<id>/phase_03_review/review_claude.md`
-   - **Slot B** (Codex): `mcp__codex__codex` → `.quest/<id>/phase_03_review/review_codex.md`
+   - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
+   - **Reviewer B**: dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
 
    **Slot A — Claude Task agent** (full and fast modes):
 
@@ -466,7 +495,7 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    Task(
      subagent_type: "code-reviewer",
-     prompt: "You are the Code Review Agent (Claude).
+     prompt: "You are Code Reviewer A.
 
      Read your instructions: .skills/quest/agents/code-reviewer.md
      Read context digest: <codex_context_digest_path>
@@ -479,8 +508,8 @@ After plan approval, present the plan interactively before proceeding to build.
      Diff summary: <git diff --stat>
 
      Review ONLY the files listed above. Use git diff for details.
-     Write review to: .quest/<id>/phase_03_review/review_claude.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_claude.json
+     Write review to: .quest/<id>/phase_03_review/review_code-reviewer-a.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_code-reviewer-a.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -490,7 +519,7 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    Task(
      subagent_type: "code-reviewer",
-     prompt: "You are the Code Review Agent (Claude).
+     prompt: "You are Code Reviewer A.
 
      Read context digest: <codex_context_digest_path>
      Quest: .quest/<id>/quest_brief.md
@@ -501,8 +530,8 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Review ONLY the files listed above.
      List up to 5 issues, highest severity first.
-     Write review to: .quest/<id>/phase_03_review/review_claude.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_claude.json
+     Write review to: .quest/<id>/phase_03_review/review_code-reviewer-a.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_code-reviewer-a.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -515,7 +544,8 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    mcp__codex__codex(
      model: "gpt-5.3-codex",
-     prompt: "You are the Code Review Agent (Codex).
+     prompt: "You are Code Reviewer B.
+     Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
      Read your instructions: .skills/quest/agents/code-reviewer.md
      Read context digest: <codex_context_digest_path>
@@ -528,8 +558,8 @@ After plan approval, present the plan interactively before proceeding to build.
      Diff summary: <git diff --stat>
 
      Review ONLY the files listed above. Use git diff for details.
-     Write review to: .quest/<id>/phase_03_review/review_codex.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_codex.json
+     Write review to: .quest/<id>/phase_03_review/review_code-reviewer-b.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_code-reviewer-b.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -539,7 +569,8 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    mcp__codex__codex(
      model: "gpt-5.3-codex",
-     prompt: "You are the Code Review Agent (Codex).
+     prompt: "You are Code Reviewer B.
+     Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
      Read context digest: <codex_context_digest_path>
      Quest: .quest/<id>/quest_brief.md
@@ -550,8 +581,8 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Review ONLY the files listed above.
      List up to 5 issues, highest severity first.
-     Write review to: .quest/<id>/phase_03_review/review_codex.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_codex.json
+     Write review to: .quest/<id>/phase_03_review/review_code-reviewer-b.md
+     Write handoff file to: .quest/<id>/phase_03_review/handoff_code-reviewer-b.json
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -562,9 +593,11 @@ After plan approval, present the plan interactively before proceeding to build.
    - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH to complete
    - Record the current wall-clock time as `dispatch_end`
-   - Read `.quest/<id>/phase_03_review/handoff_claude.json` and `handoff_codex.json`
+   - Read `.quest/<id>/phase_03_review/handoff_code-reviewer-a.json` and `handoff_code-reviewer-b.json`
    - Verify both review files exist (from handoff.artifacts)
-   - Fallback: if either handoff.json missing or unparsable, parse text handoff from that response
+   - Apply deterministic precedence from **Handoff File Polling**:
+     - Claude slot may use direct text fallback when handoff.json is missing/unparsable.
+     - Codex slot must retry once, then Claude fallback, before any text fallback routing.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -577,15 +610,15 @@ After plan approval, present the plan interactively before proceeding to build.
 5. **Check verdicts via handoff.json (with fallback):**
    - For each reviewer slot, use the `next` value obtained in step 4:
      - If handoff.json was successfully read → use its `next` and `summary` fields
-     - If fallback was triggered (handoff.json missing or unparsable) → use the `NEXT` and `SUMMARY` values parsed from the text `---HANDOFF---` block in step 4
+     - If fallback was triggered after applying deterministic precedence (retry/fallback chain) → use `NEXT` and `SUMMARY` from parsed text `---HANDOFF---`
    - If EITHER slot has `next: "fixer"` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> fixing` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Issues found, proceed to Step 6
    - If BOTH have `next: null` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Review passed! Update state: `phase: complete`, go to Step 7
    - Present summaries to user:
      ```
      Review complete:
-       Claude: "<summary from handoff or text fallback>"
-       Codex: "<summary from handoff or text fallback>"
-     Full reviews at: .quest/<id>/phase_03_review/review_claude.md, .quest/<id>/phase_03_review/review_codex.md
+       Claude: "<summary from handoff or fallback>"
+       Codex: "<summary from handoff or fallback (after retry/fallback precedence)>"
+     Full reviews at: .quest/<id>/phase_03_review/review_code-reviewer-a.md, .quest/<id>/phase_03_review/review_code-reviewer-b.md
      ```
    - Do NOT read the full review files for routing or status display
 
@@ -601,30 +634,38 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `phase: fixing`, `fix_iteration += 1`, `last_role: fixer_agent`
 
-2. **Invoke Fixer** (Claude `Task(subagent_type="fixer")`):
+2. **Invoke Fixer** (default Codex `mcp__codex__codex`, Claude `Task` fallback):
+   - Read `model_overrides.fixer` from allowlist (default: `gpt-5.3-codex`).
+   - If fixer model is Codex, invoke via `mcp__codex__codex`.
+   - If fixer model is Claude, invoke via `Task(subagent_type="fixer")`.
    - Prompt: Reference file paths only, do not embed content:
-     - Code review A: `.quest/<id>/phase_03_review/review_claude.md`
-     - Code review B: `.quest/<id>/phase_03_review/review_codex.md`
+     - Code review A: `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
+     - Code review B: `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
      - Changed files: <file list from git diff>
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Plan: `.quest/<id>/phase_01_plan/plan.md`
    - Require the prompt to include:
+     - If using Codex path: `Read your instructions: .skills/quest/agents/fixer.md`
      - Write feedback to: `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md`
      - Write handoff file to: `.quest/<id>/phase_03_review/handoff_fixer.json` with schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: code_review`
-   - Wait for Task to complete
+   - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
-   - Fallback: if handoff.json missing or unparsable, parse text handoff from response
+   - If Codex path returns `needs_human`, malformed output, missing/unparsable handoff, or `blocked`:
+     1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
+     2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="fixer")`) with the same artifact-path contract.
+     3. Only ask the user questions if the Claude fallback returns `needs_human`.
+   - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
-3. **Clear stale handoff files:** Delete any existing `handoff_claude.json` and `handoff_codex.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
+3. **Clear stale handoff files:** Delete any existing `handoff_code-reviewer-a.json` and `handoff_code-reviewer-b.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
 
 4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
 
 5. **Re-invoke BOTH Code Reviewers** (same as Step 5)
 
 6. **Check verdict (with fallback):**
-   - For each reviewer slot, use the `next` value obtained in step 5 (from handoff.json if available, or text fallback if not)
+   - For each reviewer slot, use the `next` value obtained in step 5 (handoff.json preferred; text fallback only after deterministic precedence)
    - If BOTH have `next: null` → Fixed!
      - **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
      - Proceed to Step 7
@@ -670,12 +711,12 @@ After plan approval, present the plan interactively before proceeding to build.
    - Runtime counts must come from logged runtime values only; do not infer runtime from role names.
    - Also split by role instance using `(phase, agent)` pairs (do NOT key by `agent` alone):
      - Planner = `(phase=plan, agent=planner)`
-     - Plan Review Slot A = `(phase=plan_review, agent=slot_a_claude)`
-     - Plan Review Slot B = `(phase=plan_review, agent=slot_b_codex)`
+     - Plan Review Slot A = `(phase=plan_review, agent=plan-reviewer-a)`
+     - Plan Review Slot B = `(phase=plan_review, agent=plan-reviewer-b)`
      - Arbiter = `(phase=plan_review, agent=arbiter)`
      - Builder = `(phase=build, agent=builder)`
-     - Code Review Slot A = `(phase=code_review, agent=slot_a_claude)`
-     - Code Review Slot B = `(phase=code_review, agent=slot_b_codex)`
+     - Code Review Slot A = `(phase=code_review, agent=code-reviewer-a)`
+     - Code Review Slot B = `(phase=code_review, agent=code-reviewer-b)`
      - Fixer = `(phase=fix, agent=fixer)`
    - For each role instance, report `X/Y` where:
      - `Y` = total observed invocations for that exact `(phase, agent)` pair in the log
@@ -787,9 +828,13 @@ After plan approval, present the plan interactively before proceeding to build.
 
 ---
 
-## Q&A Loop Pattern
+## Q&A Loop Pattern (Claude-only in normal operation)
 
-If any agent returns `STATUS: needs_human`:
+Normal rule:
+- Codex paths do not enter direct human Q&A. They retry once and then fall back to Claude.
+- Human Q&A is used when a Claude role returns `STATUS: needs_human`.
+
+If a Claude role returns `STATUS: needs_human`:
 
 1. Extract questions from the response (text before `---HANDOFF---`) -- this is an intentional, bounded content read for human interaction, similar to Step 3.5
 2. Present questions to user
@@ -826,16 +871,16 @@ If any agent returns `STATUS: needs_human`:
 
 | Role | Tool | Model |
 |------|------|-------|
-| Planner | `Task(subagent_type="planner")` | Claude |
-| Plan Reviewer Slot A | `Task(subagent_type="plan-reviewer")` | Claude |
+| Planner | `Task(subagent_type="planner")` | Claude Opus (`opus`) |
+| Plan Reviewer Slot A | `Task(subagent_type="plan-reviewer")` | Claude Opus (`opus`) |
 | Plan Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Arbiter | `Task(subagent_type="arbiter")` | Claude |
-| Builder | `Task(subagent_type="builder")` | Claude |
-| Code Reviewer Slot A | `Task(subagent_type="code-reviewer")` | Claude |
+| Arbiter | `Task(subagent_type="arbiter")` | Claude Opus (`opus`) |
+| Builder | `mcp__codex__codex` (default), `Task(subagent_type="builder")` (fallback) | Codex (GPT) default, Claude fallback |
+| Code Reviewer Slot A | `Task(subagent_type="code-reviewer")` | Claude Opus (`opus`) |
 | Code Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Fixer | `Task(subagent_type="fixer")` | Claude |
+| Fixer | `mcp__codex__codex` (default), `Task(subagent_type="fixer")` (fallback) | Codex (GPT) default, Claude fallback |
 
-**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Claude) synthesizes both reviews.
+**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Claude) synthesizes both reviews while implementation/fix defaults stay Codex-first.
 This table shows default intent, not guaranteed runtime per environment. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
 
 ### Codex MCP Prompt Pattern
@@ -898,9 +943,9 @@ mcp__codex__codex(
   model: "gpt-5.3-codex",
   prompt: "Review .quest/<id>/phase_01_plan/plan.md
 
-  List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_codex.md
+  List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
 
-  End with: ---HANDOFF--- STATUS: complete ARTIFACTS: .quest/<id>/phase_01_plan/review_codex.md NEXT: arbiter SUMMARY: <one line>"
+  End with: ---HANDOFF--- STATUS: complete ARTIFACTS: .quest/<id>/phase_01_plan/review_plan-reviewer-b.md NEXT: arbiter SUMMARY: <one line>"
 )
 ```
 
@@ -911,7 +956,7 @@ mcp__codex__codex(
 ## Error Handling
 
 - If an agent fails to produce a handoff: Extract any artifacts from the response, log the error, ask user how to proceed
-- If Codex MCP fails: mark the step `blocked`, surface the failure, and ask user whether to retry
+- If Codex MCP fails: retry once with strict non-interactive reminder; if failure persists, fall back to equivalent Claude role; ask user only if fallback also cannot proceed
 - If max iterations reached: Stop, show current state, ask user for guidance
 - If artifact file missing after agent run: Try to extract from response text and write it
 

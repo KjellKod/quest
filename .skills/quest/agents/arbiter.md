@@ -18,8 +18,8 @@ The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It fi
 - `AGENTS.md` (coding conventions and architecture boundaries)
 - Quest brief (the source of truth for acceptance criteria)
 - Current plan artifact
-- Plan review slot A artifact (compatibility filename): `.quest/<id>/phase_01_plan/review_claude.md`
-- Plan review slot B artifact: `.quest/<id>/phase_01_plan/review_codex.md`
+- Plan review A artifact: `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
+- Plan review B artifact: `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
 - Previous arbiter verdicts (if this is iteration 2+)
 
 ## Responsibilities

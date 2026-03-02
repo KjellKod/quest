@@ -38,15 +38,15 @@ The Quest Agent interprets your intent, matches brief references, and routes to 
 
 | Role | File | Tool | Purpose |
 |------|------|------|---------|
-| Quest Agent | (Claude Code itself) | Claude | Orchestration, gating |
-| Planner | `.skills/quest/agents/planner.md` | Claude | Write and refine plan artifacts |
-| Plan Reviewer (Claude) | `.skills/quest/agents/plan-reviewer.md` | Claude | Review plans (read-only) |
+| Quest Agent | (Claude Code itself) | Claude Opus (`opus`) | Orchestration, gating |
+| Planner | `.skills/quest/agents/planner.md` | Claude Opus (`opus`) | Write and refine plan artifacts |
+| Plan Reviewer (Claude) | `.skills/quest/agents/plan-reviewer.md` | Claude Opus (`opus`) | Review plans (read-only) |
 | Plan Reviewer (Codex) | `.skills/quest/agents/plan-reviewer.md` | Codex (`gpt-5.3-codex`) | Review plans (read-only) |
-| Arbiter | `.skills/quest/agents/arbiter.md` | Claude | Synthesize reviews, approve or iterate |
-| Builder | `.skills/quest/agents/builder.md` | Claude | Implement changes |
-| Code Reviewer (Claude) | `.skills/quest/agents/code-reviewer.md` | Claude | Review code (read-only) |
+| Arbiter | `.skills/quest/agents/arbiter.md` | Claude Opus (`opus`) | Synthesize reviews, approve or iterate |
+| Builder | `.skills/quest/agents/builder.md` | Codex (`gpt-5.3-codex`) by default; Claude fallback | Implement changes |
+| Code Reviewer (Claude) | `.skills/quest/agents/code-reviewer.md` | Claude Opus (`opus`) | Review code (read-only) |
 | Code Reviewer (Codex) | `.skills/quest/agents/code-reviewer.md` | Codex (`gpt-5.3-codex`) | Review code (read-only) |
-| Fixer | `.skills/quest/agents/fixer.md` | Claude | Fix review issues |
+| Fixer | `.skills/quest/agents/fixer.md` | Codex (`gpt-5.3-codex`) by default; Claude fallback | Fix review issues |
 
 ## Plan Phase Flow
 
@@ -65,11 +65,17 @@ Max iterations controlled by `gates.max_plan_iterations` in allowlist.
 Intake -> Plan -> [Dual Review + Arbiter Loop] -> [Gate] -> Implement -> Code Review -> [Fix Loop] -> [Gate] -> Done
 ```
 
+Codex runtime policy for Quest:
+- Codex roles run non-interactive (`no questions`, `no needs_human`).
+- If a Codex role cannot comply, Quest retries once with explicit-assumption guidance, then falls back to the equivalent Claude role.
+- Human Q&A is used only when the Claude path returns `needs_human`.
+
 ## Allowlist
 
 The Creator controls quest permissions via `.ai/allowlist.json`:
 - `auto_approve_phases` — which phases need human approval
 - `arbiter.tool` — Arbiter model (`claude` by default)
+- `model_overrides` — default role model map (`planner`, `plan_reviewer_a`, `plan_reviewer_b`, `builder`, `code_reviewer_a`, `code_reviewer_b`, `arbiter`, `fixer`)
 - `review_mode` — `auto` (default), `fast`, or `full` for Codex reviews
 - `fast_review_thresholds` — file/LOC thresholds for auto fast mode
 - `codex_context_digest_path` — short context file used by Codex
