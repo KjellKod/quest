@@ -24,9 +24,17 @@ We tested this with **Quest**, our multi-agent orchestration system. Here's the 
                               [human]
 ```
 
-One AI writes a plan. Two different AIs review it independently. A third AI decides if the reviews are valid. A human approves. Another AI builds the code. Two more AIs review the code. If there are problems, yet another AI fixes them. Nine agents, seven phases.
+**Goal:** fast iterations without lowering the quality bar.
 
-The question: does mixing AI models from different companies actually produce better results than running everything on one vendor's best model?
+We run code changes through a small “agent assembly line.”
+
+An AI drafts the plan, two other AIs review it separately, and a third AI arbitrates to filter out nitpicks. A human approves the plan. Then an AI writes the code, two more AIs review it, and a final AI fixes anything that remains.
+
+**Key constraint**: every agent operates in a clean context. We iterate until the arbiter calls it done.
+
+Nine agents, seven phases.
+
+**The question**: does mixing AI models from different companies actually produce better results than running everything on one vendor's best model?
 
 The answer was yes — but not for the reasons we expected.
 
