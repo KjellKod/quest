@@ -57,6 +57,7 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 - Context health logging and compliance reporting — every handoff is logged, compliance is reported at quest completion
 - Consolidated skill ownership — all quest agent wiring lives under `.skills/quest/`
 - Codex orchestration (BETA): Quest runs end-to-end via `$quest` with GPT-5.3/Codex as orchestrator. Claude-orchestrated `/quest` remains the more robust path.
+- OpenCode integration: Quest runs on OpenCode with multi-model agent assignments (e.g., Opus as arbiter, Codex as builder, KiMi as reviewer). See [field notes](docs/guides/opencode-model-observations.md).
 
 **What we considered and deliberately left alone:**
 - **Infrastructure hooks (Phase 5):** Claude Code hooks can block tool calls and intercept subagent lifecycle. We assessed using them to make state validation mandatory. The orchestrator already achieves 12/12 handoff compliance in observed runs, and a blanket hook would need fragile prompt-parsing to distinguish quest subagents from other `Task` calls. Deferred until an observed failure justifies the complexity.
@@ -70,7 +71,7 @@ See [ideas/quest-architecture-evolution.md](ideas/quest-architecture-evolution.m
 
 **Part of the [Candid Talent Edge](https://candidtalentedge.com) initiative by KjellKod**
 
-> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool. Take a [look at how a disciplined approach](docs/guides/quest_presentation.md) to software engineering is directly applicable to an agentic orchestration setup. You can now run Quest from both runtimes: Claude `/quest` and Codex `$quest`.
+> *New here?* Watch the [Quest Demo](docs/media/quest-demo.mov), listen to the [Fellowship of the Code](docs/media/critique-fellowship-of-the-code.m4a) (AI-generated audio critique), or read Claude's [honest analysis](docs/guides/quest_analysis.md) of this tool. Take a [look at how a disciplined approach](docs/guides/quest_presentation.md) to software engineering is directly applicable to an agentic orchestration setup. You can now run Quest from three runtimes: Claude `/quest`, Codex `$quest`, and [OpenCode](https://opencode.ai/).
 
 Quest is a portable framework for running coordinated AI agents with human oversight.
 
@@ -511,6 +512,7 @@ your-repo/
 - **[Quest Presentation](docs/guides/quest_presentation.md)** - How it works (with diagrams)
 - **[Input Routing Guide](docs/guides/quest_input_routing.md)** - How Quest evaluates your input and routes between questioning and planning
 - **[AGENTS.md](AGENTS.md)** - Coding rules to customize
+- **[OpenCode Field Notes](docs/guides/opencode-model-observations.md)** - Multi-model testing results, winning configurations, and architecture comparison
 - **[.ai/quest.md](.ai/quest.md)** - Quick reference
 
 ## The Quest Party: Agent Roles
