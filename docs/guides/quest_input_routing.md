@@ -6,7 +6,7 @@ This guide explains the routing logic, what the questioning phase looks like, an
 
 ## The Three Paths
 
-```
+```bash
 /quest "your input"
        │
        ├── Quest ID provided?  ──yes──>  Resume existing quest
@@ -74,6 +74,7 @@ Reason: Scope is clear but testing expectations and deployment concerns remain u
 ```
 
 The three decisions:
+
 - **CONTINUE** — important gaps remain, ask more questions
 - **EDIT** — your answer was unclear, rephrase and re-ask (doesn't consume new question numbers)
 - **STOP** — enough information to produce a solid plan
@@ -144,6 +145,7 @@ Once Quest creates the quest folder and starts planning, state is saved and you 
 ## Examples
 
 **Thin input — triggers questioning:**
+
 ```bash
 /quest "add caching"
 # Quest asks: Q1 (what to cache?), Q2 (cache invalidation strategy?), Q3 (scope?)
@@ -151,6 +153,7 @@ Once Quest creates the quest folder and starts planning, state is saved and you 
 ```
 
 **Detailed input — skips questioning:**
+
 ```bash
 /quest "Add Redis caching to the /api/users endpoint. Scope: src/services/userService.ts
 and src/middleware/cache.ts. TTL: 5 minutes, invalidate on user update. AC: (1) cache hit
@@ -160,6 +163,7 @@ Test: integration test with Redis test container."
 ```
 
 **Quick override — skip remaining questions:**
+
 ```bash
 /quest "refactor the authentication system"
 # Quest asks Q1, Q2, Q3 about scope and approach
@@ -168,6 +172,7 @@ Test: integration test with Redis test container."
 ```
 
 **High-risk domain — extra scrutiny:**
+
 ```bash
 /quest "migrate user data from PostgreSQL to MongoDB"
 # Even with some detail, Quest may question further due to high risk (data migration)

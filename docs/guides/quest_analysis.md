@@ -85,6 +85,7 @@ Quest is a **portable multi-agent orchestration framework** for AI-assisted soft
 ### 1. Thoughtful Architecture
 
 The separation of concerns is clean:
+
 - `.ai/` — Source of truth (AI-agnostic configuration)
 - `.claude/`, `.cursor/`, `.codex/` — Thin wrappers for specific tools
 - `.skills/` — Reusable procedures that work across AI tools

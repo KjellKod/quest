@@ -43,6 +43,7 @@ Deliverables:
 ## Goal
 
 Implement Quest OpenCode integration using OpenCode's official model:
+
 - config + markdown orchestration
 - no custom runtime driver unless needed later
 - no branch archaeology or legacy duplication

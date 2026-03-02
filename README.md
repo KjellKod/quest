@@ -150,26 +150,30 @@ If you skip this, Quest will use Claude for all roles (still works, just single-
 
 ### Option A: Use the Installer (Recommended)
 
-##### Download the installer
+#### Download the installer
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/KjellKod/quest/main/scripts/quest_installer.sh -o quest_installer.sh
 ```
 
-```
+```bash
 chmod +x quest_installer.sh
 ```
 
-##### Preview what will be installed
+#### Preview what will be installed
+
 ```
 ./quest_installer.sh --check
 ```
 
-##### Install Quest
-```
+#### Install Quest
+
+```bash
 ./quest_installer.sh
 ```
 
 The installer:
+
 - Handles fresh installs AND updates
 - Tracks file checksums to detect your modifications
 - Never overwrites your customizations (uses `.quest_updated` suffix)
@@ -178,6 +182,7 @@ The installer:
 ### Option B: Manual Copy
 
 Copy these folders to your repository root:
+
 - `.ai/` - Source of truth (permissions, roles, templates)
 - `.skills/` - Skill procedures (plan-maker, code-reviewer, etc.)
 - `.agents/` - Codex skill wrappers (thin wrappers -> `.skills/`)

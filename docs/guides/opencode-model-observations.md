@@ -1,4 +1,4 @@
-# OpenCode: Field Notes from Multi-Model Orchestration
+# [OpenCode](https://opencode.ai/): Field Notes from Multi-Model Orchestration
 
 We put $20 into OpenCode, ported our multi-agent pipeline to run on it, and tested both high-tier paid models and free models across every role. Some surprised us. Some disappointed. One model completely changed how we think about code review.
 
@@ -186,7 +186,7 @@ One reviewer is not enough. Two identical reviewers is theater. Two *different* 
 
 **Per-agent permissions.** The builder can edit source code. The reviewer can only write notes. The planner can't run shell commands at all. Each role gets exactly the access it needs — declared in config, enforced by the platform.
 
-**Pay for what you use.** OpenCode isn't an IDE — it's a CLI tool. But compared to IDE-based tools like Cursor that layer subscription fees on top of model costs, OpenCode's model is refreshingly simple: you pay the provider rate, no markup. Slot a free model into planning, a fast model into reviews, and an expensive model only where judgment matters. Your bill reflects what you actually used, not what tier you subscribed to.
+**Pay for what you use.** OpenCode isn't an IDE — it's a CLI tool. All models are available through OpenCode's Zen gateway — pay-as-you-go, per token. No subscription tiers. Slot a free model into planning, a fast model into reviews, and an expensive model only where judgment matters. If you already have OpenAI or Anthropic API keys, you can bring your own and use Zen for the rest.
 
 ---
 
@@ -196,7 +196,7 @@ If you're curious about how these tools actually work internally — and why som
 
 ### The context accumulation problem
 
-When an orchestrator dispatches a subagent, the subagent does its work in an **isolated session** — it can't see the orchestrator's conversation history. Good so far.
+When a [quest](https://github.com/KjellKod/quest) orchestrator dispatches a subagent, the subagent does its work in an **isolated session** — it can't see the orchestrator's conversation history. Good so far.
 
 But when the subagent finishes, its **final result** flows back into the orchestrator's memory. Not the subagent's full internal transcript — the intermediate tool calls, file reads, and reasoning stay private. But the result message itself (which can still be large — a full code review, a complete plan) enters the orchestrator's context. Do this nine times across a pipeline and you've eaten a lot of memory.
 
@@ -218,7 +218,7 @@ This works. The one overflow we hit (a model reaching its 131K token limit) was 
 
 ### The big architectural insight
 
-The difference that matters most: **OpenCode and Claude Code both bleed subagent responses into the orchestrator's memory. Codex CLI doesn't** — its async inbox model decouples subagent work from orchestrator context entirely.
+The difference that matters most: **OpenCode and Claude Code both bleed subagent responses into the quest orchestrator's memory. Codex CLI doesn't** — its async inbox model decouples subagent work from orchestrator context entirely.
 
 Quest's Context Retention Rule is a behavioral workaround for an architectural limitation shared by OpenCode and Claude Code. Codex CLI doesn't need this workaround because its session model handles it natively.
 
@@ -226,11 +226,11 @@ But here's the thing: Quest's instruction-driven approach means the *same workar
 
 ### What we had to add for OpenCode
 
-Quest's core instruction files work across Claude Code, Codex CLI, Cursor, and other tools. For OpenCode, we needed a few additions:
+[Quest's](https://github.com/KjellKod/quest) core instruction files work across Claude Code, Codex CLI, Cursor, and other tools. For OpenCode, we decided on a few additions:
 
 **Agent identity tags.** When every agent is Claude, you know who did what. When you have four model families, you don't. We added a requirement for every agent to label its output with its model name. Simple, but essential for debugging.
 
-**Stricter "no questions" rules.** In Claude Code, a subagent can ask the user for clarification. In OpenCode, subagents can't interact mid-task. We hardened the instructions: if something is unclear, make an assumption and document it. Don't ask — just proceed.
+**Stricter "no questions" rules.** On all platforms, subagents run autonomously — they can't interact with the user mid-task. But a model might still *try* to ask a question by writing one into its output, stalling the pipeline. We hardened the instructions: if something is unclear, make an assumption and document it. Don't ask — just proceed.
 
 **Fallback plans.** If the free-tier planner crashes, retry once, then fall back to a paid model. Single-vendor tools don't need this — there's only one model. Multi-model pipelines need insurance.
 
@@ -247,7 +247,7 @@ A code-based approach would let you *enforce* things like context compression, i
 
 But you'd lose what makes Quest work: **portability.** The same markdown files run on five different platforms without code changes. No SDK dependency, no build step. Anyone who can write markdown can modify the pipeline.
 
-For Quest, that trade-off is worth it. The instruction-driven approach works well enough, and the portability is genuinely valuable. A code approach would make sense if you were building exclusively for one platform and needed guarantees the AI can't violate.
+For Quest, that trade-off is worth it. The instruction-driven approach works well enough, and the portability is genuinely valuable. The same instruction files work across Claude Code, Codex CLI, Cursor, Visual Studio, Vibe-Kanban, and OpenCode. A code approach would make sense if you were building exclusively for one platform and needed guarantees the AI can't violate.
 
 ---
 
@@ -261,9 +261,9 @@ For Quest, that trade-off is worth it. The instruction-driven approach works wel
 
 4. **Don't trust benchmarks for orchestration.** MiniMax had strong benchmark scores. It couldn't orchestrate at all. Trinity is excellent at planning but crashed at everything else. A model's general capability doesn't predict its performance in a specific pipeline role.
 
-5. **Approval gates need blunt language.** Every model except Opus skipped the human approval step on first attempt. The fix was aggressive instruction language: "STOP", "MUST ask", "do not assume approval." Polite instructions get ignored. Be blunt.
+5. **Approval gates need blunt language.** Every model except Opus skipped the human approval step on first attempt. The fix was aggressive instruction language: "STOP", "MUST ask", "do not assume approval." **Polite instructions get ignored**. Be blunt.
 
-6. **$20 goes a long way.** Full multi-model testing across 6 models, multiple pipeline runs, real code review comparisons. OpenCode's pricing makes experimentation cheap enough to just try things.
+6. Try out [OpenCode](https://opencode.ai/) **$20 goes a long way.** Full multi-model testing across multiple models, multiple pipeline runs, real code review comparisons. OpenCode's pricing makes experimentation cheap enough to just try things.
 
 ---
 
@@ -277,4 +277,4 @@ For Quest, that trade-off is worth it. The instruction-driven approach works wel
 
 ## Try It Yourself
 
-OpenCode is free to download. Company tier accounts are also available.
+[OpenCode](https://opencode.ai/) is free to download. Company tier accounts are also available.
