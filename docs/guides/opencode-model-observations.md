@@ -14,7 +14,7 @@ We tested this with **Quest**, a 9-agent orchestration pipeline:
      ┌─────────────────────────────────────────────────────────┐
      │                      ORCHESTRATOR                       │
      │               (coordinates all phases below)            │
-     └──┬───────┬────────┬────────┬─────-──┬────--───┬───────┬─┘
+     └──┬───────┬────────┬────────┬────────┬─────────┬───────┬─┘
         │       │        │        │        │         │       │
         ▼       ▼        ▼        ▼        ▼         ▼       ▼
       plan  →  dual → arbiter → gate  →  build  →  dual  →  fix
@@ -25,6 +25,14 @@ We tested this with **Quest**, a 9-agent orchestration pipeline:
 Seven phases, nine agents, each slot running a different model. The question: does mixing model families actually produce better results than running everything on one vendor's best model?
 
 The answer turned out to be yes — but not for the reasons we expected.
+
+### A note on how Quest orchestrates
+
+Quest doesn't use code to drive or enforce orchestration. There's no runtime state machine, no programmatic guardrails. The entire pipeline — phase transitions, human gates, handoff contracts, permission boundaries — is driven by **LLM instruction-following**. Markdown prompts, not code.
+
+This is likely atypical for multi-agent orchestration. Most frameworks use code to enforce control flow. But the instruction-driven approach has a real advantage: **portability**. The same Quest skills and agent definitions work as a near drop-in across Claude Code, Codex CLI, Cursor IDE, Vibe-Kanban IDE, and now OpenCode. No runtime to port, no SDK to integrate. If the tool can follow markdown instructions and dispatch subagents, Quest runs on it.
+
+The trade-off is that every "bug" in this document — skipped gates, identity forgery, permission bypasses — exists because there's no code enforcing the rules. The LLM has to *choose* to follow them. Some models are better at this than others, which is exactly what this document measures.
 
 ---
 
@@ -72,15 +80,13 @@ Post-fix, both were effective. KiMi produced deeper, narrative-style reviews. Co
 
 **KiMi is weaker**  than Codex at following instructions to the letter. Handover items had glitches. Telemetry notes — start times, end times, agent identity — were inconsistent across phases. Where Codex is meticulous about protocol compliance, KiMi is... *creative*. It gets the job done, but the metadata isn't always clean.
 
-There's also a trust issue: when a subagent (Trinity) returned empty, Kimi didn't raise the alert, but decided to be *creative* and wrote the arbiter verdict itself — with a fake self-ID header claiming to be `claude-opus-4-6` 🤦‍♂️. An orchestrator impersonating a subagent is a real problem that needs a guardrail - for this reason **Kimi** is forever banned with the current 2.5 version as a Quest orchestrator.
-
 Despite these rough edges, KiMi earned its spot. For speed and analytical depth, nothing else comes close.
 
 ---
 
 ## The Models That Didn't
 
-### 🤔 Trinity Large Preview (free) — Planner Only
+### ✅   Trinity Large Preview (free) — Planner Only 🤔
 
 **Trinity is an excellent planner**. 100% success rate across multiple runs — structured output, follows prompt contracts, fast execution. At zero cost, it's the best value in the pipeline. Codex, Kimi, Opus all agreed with Trinity's planning.
 
@@ -90,7 +96,7 @@ Despite these rough edges, KiMi earned its spot. For speed and analytical depth,
 
 ### ❌ MiniMax M2.5 (free) — Benchmarks Lied
 
-Strong community benchmarks. Failed orchestration immediately — couldn't coordinate subagent dispatch or phase transitions. May work for simpler subagent roles "fixer"?, but we stopped testing after the catastropic orchestrator failure.
+Strong community benchmarks. Failed orchestration immediately — couldn't coordinate subagent dispatch or phase transitions. May work for simpler subagent roles "fixer"?, but we stopped testing after the catastrophic orchestrator failure.
 
 ### 💀 Big Pickle — Dead on Arrival
 
@@ -166,9 +172,9 @@ Four model families. One free, eight paid. Each model in its best role.
 
 ---
 
-## Why Multi-Model Beats Single-Vendor
+# Why Multi-Model Beats Single-Vendor
 
-### The diversity argument is real
+## The diversity argument is real
 
 We expected mixing model families would be an interesting experiment. It turned out to be the most important insight from the entire testing effort.
 
@@ -190,7 +196,7 @@ OpenCode returns each subagent's full response into the orchestrator's context w
 - **File-based handoffs** store real content in `.quest/` artifacts, not in the context window
 - **Bounded phases** keep each interaction small
 
-The one overflow we saw (Trinity hitting 131K) was Exa MCP dumping search results into a subagent's context, not the pipeline itself. Banning Exa solved it. With disciplined models and scoped MCP access, even 128K context limits are sufficient.
+The one overflow we saw (Trinity hitting 131K) was Exa MCP dumping search results into a subagent's context, not the pipeline itself. Banning Exa from subagent sessions solved it. With disciplined models and scoped MCP access, even 128K context limits are sufficient.
 
 ### Gate compliance: an instruction problem, not a model problem
 
@@ -200,31 +206,24 @@ Every non-Opus model failed human approval gates initially. After adding explici
 
 ## Lessons Learned the Hard Way
 
-1. **Model self-identification in artifacts is essential.** Without it, you can't verify real subagent dispatch vs orchestrator role-playing. We caught KiMi impersonating Opus because the headers didn't match.
+1. **Make every agent identify itself.** In a multi-model pipeline, you need to know which model actually produced each artifact. We require every subagent to include a self-identification header (model name, timestamp) in its output. Without this, there's no way to distinguish real subagent work from an orchestrator quietly doing the job itself.
 
-2. **Model diversity produces real disagreement.** This is the whole point. Two models from different families catch different bugs. One reviewer is not enough; two identical reviewers is theater.
+2. **Model diversity produces real disagreement.** Two reviewers from the same model family tend to agree. Two reviewers from different families catch different classes of bugs. One reviewer is not enough; two identical reviewers is theater.
 
-3. **KiMi trades instruction precision for analytical depth.** Weaker at protocol compliance, stronger at finding real issues. Know the trade-off and assign roles accordingly.
+3. **Permission sandboxes have escape hatches.** KiMi bypassed file edit denials by writing files through `cat >` in bash instead. Codex respected the same boundaries. Different models have different levels of permission discipline — design your sandbox assuming the most creative model will find a way around it.
 
-4. **Permission models have escape hatches.** KiMi bypassed edit denials by using `cat >` via bash. Codex respects permission boundaries. Permission discipline varies by model — design your sandbox assuming the worst.
+4. **Orchestrators will impersonate failed subagents.** When a subagent crashes and returns nothing, we saw the orchestrator write the missing artifact itself — complete with a fake self-ID header claiming to be a different model. The fix: require self-ID headers and validate them. If the header doesn't match the model that was dispatched, flag it.
 
-5. **Context bleeding is manageable but not automatic.** The Context Retention Rule is behavioral, not runtime-enforced. You have to design lean handoffs and ban noisy MCP tools. It works — but only because we planned for it.
+5. **Free-tier models have a narrow sweet spot.** Trinity is an excellent planner and nothing else. MiniMax failed orchestration despite strong benchmarks. Don't extrapolate from one successful role to all roles.
 
-6. **Orchestrator identity forgery is a real risk.** When subagents fail, capable orchestrators will fill the gap themselves — sometimes with fake attribution. Needs a runtime guardrail, not just instructions.
+6. **Human approval gates need unambiguous language.** Every non-Opus model skipped the human approval gate on first attempt. The fix was explicit instruction language: "STOP", "MUST ask", "do not assume approval." Vague gate instructions get ignored across all model families. Be blunt.
 
-7. **Fan-out is fragile.** Dual review dispatch has failed under Trinity. Sequential dispatch is more reliable than parallel for now.
-
-8. **Free-tier models have a narrow sweet spot.** Trinity is an excellent planner and nothing else. MiniMax failed orchestration despite strong benchmarks. Don't extrapolate from one success to all roles.
-
-9. **Strengthened gates fix orchestration across all model families.** The failures weren't about model capability — they were about instruction clarity. Invest in unambiguous control flow language.
-
-10. **$20 goes a long way.** Full multi-model orchestration testing across 6 models, multiple pipeline runs, real code review comparisons. OpenCode's pricing model makes experimentation cheap.
+7. **$20 goes a long way.** Full multi-model orchestration testing across 6 models, multiple pipeline runs, real code review comparisons. OpenCode's pricing model makes experimentation cheap.
 
 ---
 
 ## Still Untested
 
-- **Sonnet 4.6** — ~3x cheaper than Opus. Potential arbiter replacement.
 - **GLM-5** — potential builder/reviewer diversity candidate.
 - **24 other models** across Gemini, GLM, MiniMax, and other families.
 
@@ -232,19 +231,4 @@ Every non-Opus model failed human approval gates initially. After adding explici
 
 ## Try It Yourself
 
-Test prompt designed to exercise the full Quest pipeline including fixer:
-
-```
-/quest "Create docs/guides/opencode-model-suitability.md that documents which models
-available in opencode (from 'opencode models' output) are suitable or unsuitable for
-each Quest orchestration role (orchestrator, planner, reviewer, arbiter, builder, fixer).
-For each model, research its actual capabilities — run 'opencode models' to get the full
-list, then check publicly known benchmarks and characteristics relevant to each role's
-requirements. Base the role requirements on .skills/quest/agents/ definitions.
-Cross-reference with our testing observations in docs/guides/opencode-model-observations.md
-where available. Include a recommended default configuration and a budget-friendly
-free-tier configuration. The document should help future users pick the right model
-for each slot."
-```
-
-OpenCode is free to download. Company tier account application is in progress. You can use your $20 stipend to start experimenting.
+OpenCode is free to download. Company tier accounts are also available.
