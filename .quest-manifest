@@ -63,6 +63,7 @@ scripts/validate-handoff-contracts.sh
 
 [user-customized]
 # These files are NEVER overwritten - upstream changes create .quest_updated suffix
+AGENTS.md
 .ai/allowlist.json
 .ai/context_digest.md
 
