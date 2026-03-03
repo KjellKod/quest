@@ -28,7 +28,7 @@
     "planner": {
       "description": "Creates implementation plans from quest briefs",
       "mode": "subagent",
-      "model": "opencode/trinity-large-preview-free",
+      "model": "opencode/kimi-k2.5",
       "prompt": "{file:agents/planner.md}",
       "permission": {
         "edit": {
