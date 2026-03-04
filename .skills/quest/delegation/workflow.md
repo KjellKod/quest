@@ -13,6 +13,22 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 - **Timebox structure discovery:** Avoid full repo inventories. Do a quick top-level scan + targeted `rg` searches instead of browsing directory-by-directory.
 - **If the user wants speed:** Offer to proceed with minimal questions + explicit assumptions (fast intake).
 
+### Codex Availability Probe (Run Once Per Session — Applies to ALL `mcp__codex__codex` calls)
+
+Before the first Codex invocation, the orchestrator MUST probe for tool availability:
+
+1. Call `ToolSearch("codex")` (or platform equivalent) to discover if `mcp__codex__codex` is available.
+2. Cache the result as `codex_available` (boolean) for the rest of the session.
+3. If `codex_available` is false:
+   - Log: `"Codex MCP not available in this session — all Codex slots will use Claude Task fallback."`
+   - **Global rule:** Every `mcp__codex__codex` invocation in this workflow (Reviewer B slots, Builder, Fixer — any role) is replaced with the equivalent Claude `Task` fallback for that role. Use the same prompt (minus the non-interactive rule), the same output file paths, and the same handoff contract. Do not retry Codex. Do not treat this as an error.
+4. If `codex_available` is true:
+   - Proceed normally with Codex invocations per the workflow below.
+
+**This rule is global.** Individual steps do not repeat the `codex_available` check — they just say `mcp__codex__codex` and this section governs what actually happens. The orchestrator applies the substitution transparently.
+
+**Why:** MCP servers are loaded at session startup. If the Codex MCP server failed to connect (binary not on PATH, server crash, etc.), it cannot be recovered mid-session. Probing once avoids repeated failed invocations and misleading error messages.
+
 ### Hard Phase Gate (No Pre-Build Source Edits)
 
 Before Step 4 (Build Phase), the orchestrator and all agents MUST NOT edit source/product files.
