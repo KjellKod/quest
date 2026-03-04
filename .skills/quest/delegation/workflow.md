@@ -9,22 +9,21 @@ Follow these steps in order. After each step that modifies state, update `.quest
 Quest is opinionated: default to **thorough**, but be **progressive** and avoid wasted repo exploration.
 
 - **Intake before exploration:** Do not start repo exploration until the quest brief is stable (Step 1 complete), unless the user explicitly asks you to “just run with it”.
-- **Progressive exploration:** Start from the context digest + allowlist + plan. Only deep-dive into the repo when the plan/implementation needs it.
+- **Progressive exploration:** Start from the context digest + platform config + plan. Only deep-dive into the repo when the plan/implementation needs it.
 - **Timebox structure discovery:** Avoid full repo inventories. Do a quick top-level scan + targeted `rg` searches instead of browsing directory-by-directory.
 - **If the user wants speed:** Offer to proceed with minimal questions + explicit assumptions (fast intake).
 
 ### Tool Aliases (Platform-Specific Resolution)
 
-This document uses platform-neutral aliases. The orchestrator resolves them based on its runtime:
+This document uses platform-neutral aliases. Each platform resolves them to its native tools:
 
-| Alias | Claude Code | OpenCode |
-|-------|-------------|----------|
-| `Codex(role, prompt)` | `mcp__codex__codex(model: "<model>", prompt: "<prompt>")` | `codex_codex(prompt: "<prompt>")` via MCP, or `task(subagent_type: "<role>")` with model from opencode.json |
-| `Claude(role, prompt)` | `Task(subagent_type: "<role>", prompt: "<prompt>")` | `task(subagent_type: "<role>")` — model from opencode.json |
+| Alias | Meaning |
+|-------|---------|
+| `Codex(role, prompt)` | Invoke the named role using a Codex-family model |
+| `Claude(role, prompt)` | Invoke the named role using a Claude-family model |
 
-**Rule:** Use whichever tool your platform provides. Do not call aliases literally.
-- Claude Code: `Codex(...)` → `mcp__codex__codex(...)`, `Claude(...)` → `Task(...)`
-- OpenCode: `Codex(...)` → `codex_codex(...)` (MCP), `Claude(...)` → `task(subagent_type: "<role>")`
+**Resolution is platform-specific.** See your platform's orchestrator prompt for exact tool mapping.
+Do not call aliases literally — use your platform's native dispatch mechanism.
 
 ### Hard Phase Gate (No Pre-Build Source Edits)
 
@@ -168,7 +167,7 @@ Determine the action based on instruction + current state:
 
 ### Step 3: Plan Phase
 
-**Read allowlist gates:**
+**Read platform config gates:**
 ```
 auto_approve_phases.plan_creation
 auto_approve_phases.plan_review
@@ -182,7 +181,7 @@ gates.max_plan_iterations (default: 4)
 
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
-2. **Invoke Planner** (Claude `Task(subagent_type="planner")`):
+2. **Invoke Planner** (Claude(role: "planner")):
    - Prompt: Reference file paths only, do not embed artifact content:
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Arbiter verdict (iteration 2+): `.quest/<id>/phase_01_plan/arbiter_verdict.md`
@@ -197,7 +196,7 @@ gates.max_plan_iterations (default: 4)
    - Verify `.quest/<id>/phase_01_plan/plan.md` exists (from handoff.artifacts)
    - Fallback: if handoff.json missing or unparsable, parse text handoff from response; if plan.md not written, extract from response and write it
 
-3. **Read review config from allowlist:**
+3. **Read review config from platform config:**
    - `review_mode` (default: `auto`)
    - `fast_review_thresholds` (not used for plan review)
    - `codex_context_digest_path` (default: `.ai/context_digest.md`)
@@ -213,8 +212,8 @@ gates.max_plan_iterations (default: 4)
 
    **Full mode** (default for plan review):
    ```
-   Task(
-     subagent_type: "plan-reviewer",
+   Claude(
+     role: "plan-reviewer",
      prompt: "You are Plan Reviewer A.
 
      Read your instructions: .skills/quest/agents/plan-reviewer.md
@@ -233,8 +232,8 @@ gates.max_plan_iterations (default: 4)
    ```
    **Fast mode** (only if `review_mode: fast`):
    ```
-   Task(
-     subagent_type: "plan-reviewer",
+   Claude(
+     role: "plan-reviewer",
      prompt: "You are Plan Reviewer A.
 
      Read context digest: <codex_context_digest_path>
@@ -310,7 +309,7 @@ gates.max_plan_iterations (default: 4)
       ```
       The wall-clock duration covers both agents. Since both calls are issued in the same message, they run concurrently by construction. Agent self-reported timestamps are unreliable and must NOT be used for parallelism verification.
 
-5. **Invoke Arbiter** (Claude `Task(subagent_type="arbiter")`):
+5. **Invoke Arbiter** (Claude(role: "arbiter")):
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -438,7 +437,7 @@ After plan approval, present the plan interactively before proceeding to build.
 ### Step 4: Build Phase
 
 **MANDATORY GATE CHECK — Do not skip this:**
-- Read `auto_approve_phases.implementation` from allowlist
+- Read `auto_approve_phases.implementation` from platform config
 - If false (default): You MUST ask the user "Plan approved. Proceed with implementation?" and then STOP and wait for the human to respond. Do not proceed until the human explicitly says yes. Do not assume approval. Do not auto-approve.
 - If true: You may proceed without asking
 - **If you have not received explicit human approval from Step 3.5 or this gate, STOP NOW and ask.**
@@ -450,9 +449,8 @@ After plan approval, present the plan interactively before proceeding to build.
 2. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
 3. **Invoke Builder** (default `Codex(role: "builder", ...)`, Claude `Claude(role: "builder", ...)` fallback):
-   - Read `model_overrides.builder` from allowlist (default: `gpt-5.3-codex`).
-   - If builder model is Codex, invoke via `Codex(role: "builder", ...)`.
-   - If builder model is Claude, invoke via `Claude(role: "builder", ...)`.
+   - Invoke using the model assigned to this role by the platform.
+   - Default path: `Codex(role: "builder", ...)`. Fallback: `Claude(role: "builder", ...)`.
    - Prompt: Reference file paths only, do not embed content:
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
      - Quest brief: `.quest/<id>/quest_brief.md`
@@ -467,7 +465,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Verify artifacts written (from handoff.artifacts)
    - If Codex path returns `needs_human`, malformed output, missing/unparsable handoff, or `blocked`:
      1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
-     2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="builder")`) with the same artifact-path contract.
+     2. If still non-compliant, invoke Claude fallback (`Claude(role: "builder")`) with the same artifact-path contract.
      3. Only ask the user questions if the Claude fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
@@ -481,7 +479,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `status: in_progress`, `last_role: code_review_agent`
 
-2. **Read review config from allowlist:**
+2. **Read review config from platform config:**
    - `review_mode` (default: `auto`)
    - `fast_review_thresholds.max_files` (default: 5)
    - `fast_review_thresholds.max_loc` (default: 200)
@@ -506,8 +504,8 @@ After plan approval, present the plan interactively before proceeding to build.
 
    **Full mode**:
    ```
-   Task(
-     subagent_type: "code-reviewer",
+   Claude(
+     role: "code-reviewer",
      prompt: "You are Code Reviewer A.
 
      Read your instructions: .skills/quest/agents/code-reviewer.md
@@ -530,8 +528,8 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    **Fast mode**:
    ```
-   Task(
-     subagent_type: "code-reviewer",
+   Claude(
+     role: "code-reviewer",
      prompt: "You are Code Reviewer A.
 
      Read context digest: <codex_context_digest_path>
@@ -637,10 +635,10 @@ After plan approval, present the plan interactively before proceeding to build.
 
 ### Step 6: Fix Phase
 
-**Read allowlist:** `gates.max_fix_iterations` (default: 3)
+**Read platform config:** `gates.max_fix_iterations` (default: 3)
 
 **Gate check:**
-- Read `auto_approve_phases.fix_loop` from allowlist
+- Read `auto_approve_phases.fix_loop` from platform config
 - If false: Ask user "Code review found issues. Proceed with fixes?"
 
 **Loop:**
@@ -648,9 +646,8 @@ After plan approval, present the plan interactively before proceeding to build.
 1. **Update state:** `phase: fixing`, `fix_iteration += 1`, `last_role: fixer_agent`
 
 2. **Invoke Fixer** (default `Codex(role: "fixer", ...)`, Claude `Claude(role: "fixer", ...)` fallback):
-   - Read `model_overrides.fixer` from allowlist (default: `gpt-5.3-codex`).
-   - If fixer model is Codex, invoke via `Codex(role: "fixer", ...)`.
-   - If fixer model is Claude, invoke via `Claude(role: "fixer", ...)`.
+   - Invoke using the model assigned to this role by the platform.
+   - Default path: `Codex(role: "fixer", ...)`. Fallback: `Claude(role: "fixer", ...)`.
    - Prompt: Reference file paths only, do not embed content:
      - Code review A: `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
      - Code review B: `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
@@ -667,7 +664,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
    - If Codex path returns `needs_human`, malformed output, missing/unparsable handoff, or `blocked`:
      1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
-     2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="fixer")`) with the same artifact-path contract.
+     2. If still non-compliant, invoke Claude fallback (`Claude(role: "fixer")`) with the same artifact-path contract.
      3. Only ask the user questions if the Claude fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
@@ -785,20 +782,20 @@ After plan approval, present the plan interactively before proceeding to build.
    After the quest completes, check if a Quest update is available (if enough time has passed since the last check).
 
    **Configuration:**
-   - Read `update_check` from `.ai/allowlist.json`:
+   - Read `update_check` from platform config (`.ai/allowlist.json` or equivalent):
      - `enabled` (default: true) - set to false to disable update checks
      - `interval_days` (default: 7) - minimum days between checks
 
    **Logic:**
    ```bash
    # Check for Quest updates (after completion)
-   ALLOWLIST_FILE=".ai/allowlist.json"
+   CONFIG_FILE=".ai/allowlist.json"
    LAST_CHECK_FILE=".quest-last-check"
    NOW=$(date +%s)
 
    # Read config (default enabled=true, interval=7)
-   UPDATE_ENABLED=$(jq -r '.update_check.enabled // true' "$ALLOWLIST_FILE" 2>/dev/null)
-   INTERVAL_DAYS=$(jq -r '.update_check.interval_days // 7' "$ALLOWLIST_FILE" 2>/dev/null)
+   UPDATE_ENABLED=$(jq -r '.update_check.enabled // true' "$CONFIG_FILE" 2>/dev/null)
+   INTERVAL_DAYS=$(jq -r '.update_check.interval_days // 7' "$CONFIG_FILE" 2>/dev/null)
 
    if [ "$UPDATE_ENABLED" != "false" ]; then
      INTERVAL_SECONDS=$((INTERVAL_DAYS * 24 * 60 * 60))
@@ -939,7 +936,7 @@ Codex MCP calls can be slower when each run must:
 2. Analyze the content
 3. Write output file
 
-**To speed up Codex reviews**, use the allowlist review controls:
+**To speed up Codex reviews**, use the review controls in platform config:
 - `review_mode: fast` → shorter prompts, max 5 bullets
 - `review_mode: auto` → fast for small diffs, full for large
 - `review_mode: full` → always full context
@@ -981,4 +978,4 @@ Codex(
 
 **`/quest status <id>`** — Show detailed status for a specific quest
 
-**`/quest allowlist`** — Display current allowlist configuration
+**`/quest config`** — Display current platform configuration

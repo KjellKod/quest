@@ -93,3 +93,9 @@ Before creating the quest folder, present the routing classification to the user
      "updated_at": "<timestamp>"
    }
    ```
+
+### Tool Resolution (Claude Code)
+
+The workflow uses platform-neutral aliases. Claude Code resolves them as follows:
+- `Codex(role, prompt)` → `mcp__codex__codex(model from .ai/allowlist.json model_overrides, prompt)`
+- `Claude(role, prompt)` → `Task(subagent_type: "<role>", prompt)`
