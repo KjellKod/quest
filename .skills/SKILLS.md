@@ -68,6 +68,13 @@ This directory contains specialized skills for AI agents working in this reposit
 
 **Location:** `.skills/pr-assistant/SKILL.md`
 
+### pr-shepherd
+**Purpose:** Push a draft PR and iterate until CI passes and review comments are resolved, then mark ready for review. Handles the full lifecycle of getting a PR merged.
+
+**Use when:** The user wants to push a PR through CI and review, or asks to shepherd/babysit a PR until it's ready.
+
+**Location:** `.skills/pr-shepherd/SKILL.md`
+
 ## How Skills Work
 
 Skills use a three-level loading system:
