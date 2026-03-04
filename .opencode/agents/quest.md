@@ -37,6 +37,13 @@ For dual reviews (Steps 3 and 8):
 
 Sequential fan-out is acceptable. True parallelism is not required.
 
+## Codex Dispatch (via MCP)
+
+For these roles, use `mcp__codex__codex` MCP tool instead of `task`:
+  plan-reviewer-b, builder, code-reviewer-b, fixer
+
+All other roles use `task` dispatch as described above.
+
 ## Iteration Loop Guardrails
 
 - Plan loop: max `max_plan_iterations` = 4 (from `.ai/allowlist.json` gates)

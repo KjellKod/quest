@@ -1,5 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "mcp__codex": {
+      "type": "local",
+      "command": ["codex", "-m", "gpt-5.3-codex", "mcp-server"],
+      "timeout": 120000
+    }
+  },
   "agent": {
     "quest": {
       "description": "Quest orchestration agent - coordinates plan/review/build/fix workflow",
@@ -39,9 +46,9 @@
       }
     },
     "plan-reviewer-a": {
-      "description": "Reviews implementation plans (Reviewer A - Codex)",
+      "description": "Reviews implementation plans (Reviewer A - Codex via MCP)",
       "mode": "subagent",
-      "model": "opencode/gpt-5.3-codex",
+      "model": "opencode/kimi-k2.5",
       "prompt": "{file:agents/plan-reviewer.md}",
       "permission": {
         "edit": {
@@ -52,9 +59,9 @@
       }
     },
     "plan-reviewer-b": {
-      "description": "Reviews implementation plans (Reviewer B - KiMi K2.5)",
+      "description": "Reviews implementation plans (Reviewer B - Codex)",
       "mode": "subagent",
-      "model": "opencode/kimi-k2.5",
+      "model": "opencode/gpt-5.3-codex",
       "prompt": "{file:agents/plan-reviewer.md}",
       "permission": {
         "edit": {
@@ -78,9 +85,9 @@
       }
     },
     "builder": {
-      "description": "Implements approved plans",
+      "description": "Implements approved plans (can invoke Codex via MCP)",
       "mode": "subagent",
-      "model": "opencode/gpt-5.3-codex",
+      "model": "opencode/kimi-k2.5",
       "prompt": "{file:agents/builder.md}",
       "permission": {
         "edit": {
@@ -141,7 +148,7 @@
     "fixer": {
       "description": "Addresses code review feedback",
       "mode": "subagent",
-      "model": "opencode/gpt-5.3-codex",
+      "model": "opencode/claude-opus-4-6",
       "prompt": "{file:agents/fixer.md}",
       "permission": {
         "edit": {

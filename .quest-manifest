@@ -29,6 +29,7 @@
 .claude/hooks/session-start.sh
 .claude/skills/git-commit-assistant/SKILL.md
 .claude/skills/pr-assistant/SKILL.md
+.claude/skills/pr-shepherd/SKILL.md
 .claude/skills/quest/SKILL.md
 .claude/AGENTS.md
 .codex/AGENTS.md
@@ -49,6 +50,7 @@
 .skills/code-reviewer/SKILL.md
 .skills/git-commit-assistant/SKILL.md
 .skills/pr-assistant/SKILL.md
+.skills/pr-shepherd/SKILL.md
 .skills/implementer/SKILL.md
 .skills/plan-maker/SKILL.md
 .skills/plan-reviewer/SKILL.md
