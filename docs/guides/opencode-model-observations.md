@@ -176,7 +176,7 @@ Four model families. One free, eight paid. Each model doing what it does best.
 
 **Want more reliability?** Swap KiMi orchestrator for Opus. Slower, more expensive, but rock-solid.
 
-> **Known behavior:** In OpenCode, the orchestrator always runs as whichever model you start the quest with — regardless of the model declared in `opencode.json`. If you launch the quest from an Opus session, Opus orchestrates. If you launch from KiMi, KiMi orchestrates. The `opencode.json` agent config sets the *default*, but the active session model wins.
+> **Known behavior:** In OpenCode, the orchestrator always runs as whichever model you start the quest with — regardless of the model declared in `opencode.json`. If you launch the quest from an Opus session, Opus orchestrates. If you launch from KiMi, KiMi orchestrates. The `opencode.json` agent config sets the *default*, but the active session model wins. However, per-agent model configs ARE respected for `task` subagents — e.g., arbiter configured as `opencode/claude-opus-4-6` runs as Opus regardless of session model.
 
 ---
 
