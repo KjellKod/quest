@@ -59,9 +59,9 @@
       }
     },
     "plan-reviewer-b": {
-      "description": "Reviews implementation plans (Reviewer B - KiMi K2.5)",
+      "description": "Reviews implementation plans (Reviewer B - Codex)",
       "mode": "subagent",
-      "model": "opencode/kimi-k2.5",
+      "model": "opencode/gpt-5.3-codex",
       "prompt": "{file:agents/plan-reviewer.md}",
       "permission": {
         "edit": {
@@ -128,9 +128,9 @@
       }
     },
     "code-reviewer-b": {
-      "description": "Reviews code changes (Reviewer B - Codex via MCP)",
+      "description": "Reviews code changes (Reviewer B - Codex)",
       "mode": "subagent",
-      "model": "opencode/kimi-k2.5",
+      "model": "opencode/gpt-5.3-codex",
       "prompt": "{file:agents/code-reviewer.md}",
       "permission": {
         "edit": {
@@ -146,9 +146,9 @@
       }
     },
     "fixer": {
-      "description": "Addresses code review feedback (can invoke Codex via MCP)",
+      "description": "Addresses code review feedback",
       "mode": "subagent",
-      "model": "opencode/kimi-k2.5",
+      "model": "opencode/claude-opus-4-6",
       "prompt": "{file:agents/fixer.md}",
       "permission": {
         "edit": {
