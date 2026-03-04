@@ -41,12 +41,13 @@ Sequential fan-out is acceptable. True parallelism is not required.
 
 OpenCode resolves workflow aliases using its native tools:
 - `Claude(role, prompt)` → `task(subagent_type: "<role>")` — uses model from opencode.json
-- `Codex(role, prompt)` → `codex_codex` MCP tool with the role's prompt
+- `Codex(role, prompt)` → `codex_codex` MCP tool — MUST use this, not `task`
 
-Roles configured as Codex in opencode.json agent definitions:
-  plan-reviewer-a, builder, code-reviewer-b, fixer
+Codex roles (MUST dispatch via `codex_codex` MCP):
+  plan-reviewer-b, builder, code-reviewer-b, fixer
 
-All other roles use `task` dispatch (Claude path).
+Claude roles (dispatch via `task`):
+  planner, plan-reviewer-a, arbiter, code-reviewer-a
 
 ## Gates
 
