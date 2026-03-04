@@ -15,11 +15,11 @@
   },
   "model_overrides": {
     "planner": "opus",
-    "plan_reviewer_a": "opus",
-    "plan_reviewer_b": "gpt-5.3-codex",
+    "plan-reviewer-a": "opus",
+    "plan-reviewer-b": "gpt-5.3-codex",
     "builder": "gpt-5.3-codex",
-    "code_reviewer_a": "opus",
-    "code_reviewer_b": "gpt-5.3-codex",
+    "code-reviewer-a": "opus",
+    "code-reviewer-b": "gpt-5.3-codex",
     "arbiter": "opus",
     "fixer": "gpt-5.3-codex"
   },
