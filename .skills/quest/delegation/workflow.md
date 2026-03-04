@@ -13,6 +13,19 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 - **Timebox structure discovery:** Avoid full repo inventories. Do a quick top-level scan + targeted `rg` searches instead of browsing directory-by-directory.
 - **If the user wants speed:** Offer to proceed with minimal questions + explicit assumptions (fast intake).
 
+### Tool Aliases (Platform-Specific Resolution)
+
+This document uses platform-neutral aliases. The orchestrator resolves them based on its runtime:
+
+| Alias | Claude Code | OpenCode |
+|-------|-------------|----------|
+| `Codex(role, prompt)` | `mcp__codex__codex(model: "<model>", prompt: "<prompt>")` | `codex_codex(prompt: "<prompt>")` via MCP, or `task(subagent_type: "<role>")` with model from opencode.json |
+| `Claude(role, prompt)` | `Task(subagent_type: "<role>", prompt: "<prompt>")` | `task(subagent_type: "<role>")` — model from opencode.json |
+
+**Rule:** Use whichever tool your platform provides. Do not call aliases literally.
+- Claude Code: `Codex(...)` → `mcp__codex__codex(...)`, `Claude(...)` → `Task(...)`
+- OpenCode: `Codex(...)` → `codex_codex(...)` (MCP), `Claude(...)` → `task(subagent_type: "<role>")`
+
 ### Hard Phase Gate (No Pre-Build Source Edits)
 
 Before Step 4 (Build Phase), the orchestrator and all agents MUST NOT edit source/product files.
@@ -23,7 +36,7 @@ Before Step 4 (Build Phase), the orchestrator and all agents MUST NOT edit sourc
 
 ### Context Retention Rule
 
-After every subagent invocation (`Task` or `mcp__codex__codex`), the orchestrator retains ONLY:
+After every subagent invocation (`Claude(...)` or `Codex(...)`), the orchestrator retains ONLY:
 1. The **artifact path(s)** from the ARTIFACTS line of the handoff
 2. The **one-line SUMMARY** from the SUMMARY line of the handoff
 3. The **STATUS** and **NEXT** values for routing decisions
@@ -50,7 +63,7 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 4. Discard the full agent response -- do not retain, summarize, or process it
 5. **Deterministic precedence for missing/unparsable handoff.json:**
    - **Claude invocation (Task):** If `handoff.json` is missing/unparsable, parse text `---HANDOFF---` as fallback.
-   - **Codex invocation (`mcp__codex__codex`):** Missing/unparsable `handoff.json` is non-compliant. Re-run the same Codex role once with a strict reminder.
+   - **Codex invocation (`Codex(...)`):** Missing/unparsable `handoff.json` is non-compliant. Re-run the same Codex role once with a strict reminder.
    - If the second Codex attempt is still non-compliant, missing/unparsable handoff, or `blocked`, invoke the equivalent Claude `Task` fallback for that step.
    - Only after this retry/fallback chain, if the final attempt still has no parseable `handoff.json`, parse text `---HANDOFF---` as last-resort compatibility fallback.
 
@@ -69,9 +82,9 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 
 The orchestrator NEVER reads full review files, plan content, or build output for routing decisions. Only handoff.json (and, for Step 3.5, the plan file itself as a bounded exception).
 
-**Codex MCP response handling:** After a `mcp__codex__codex` call returns, the orchestrator reads the corresponding `handoff.json` file and does NOT retain the Codex response body in working context. The response may still appear in the conversation history (platform limitation), but the orchestrator treats it as consumed and does not reference it for any subsequent decision.
+**Codex response handling:** After a `Codex(...)` call returns, the orchestrator reads the corresponding `handoff.json` file and does NOT retain the Codex response body in working context. The response may still appear in the conversation history (platform limitation), but the orchestrator treats it as consumed and does not reference it for any subsequent decision.
 
-**Codex non-interactive contract (all `mcp__codex__codex` calls):**
+**Codex non-interactive contract (all `Codex(...)` calls):**
 - Codex must not ask the user questions and must not return `STATUS: needs_human`.
 - If context is incomplete, Codex makes explicit assumptions in the artifact and continues.
 - If it cannot proceed safely, Codex returns `STATUS: blocked` with a concrete reason.
@@ -94,7 +107,7 @@ Never infer runtime from the agent label/name (for example `plan-reviewer-a`); l
 
 Runtime attribution rule (authoritative):
 - Log `runtime=claude` only when the invocation actually used Claude `Task(...)`.
-- Log `runtime=codex` when invocation used `mcp__codex__codex` or Codex agent tools (`spawn_agent`/`worker`/`explorer`).
+- Log `runtime=codex` when invocation used `Codex(...)` or Codex agent tools (`spawn_agent`/`worker`/`explorer`).
 - If a role expected to be Claude is executed with Codex fallback, keep the same role label but log `runtime=codex`.
 
 **Example log for a quest with 2 plan iterations:**
@@ -241,8 +254,8 @@ gates.max_plan_iterations (default: 4)
 
    **Full mode** (default for plan review):
    ```
-   mcp__codex__codex(
-     model: "gpt-5.3-codex",
+   Codex(
+     role: "plan-reviewer-b",
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -262,8 +275,8 @@ gates.max_plan_iterations (default: 4)
    ```
    **Fast mode** (only if `review_mode: fast`):
    ```
-   mcp__codex__codex(
-     model: "gpt-5.3-codex",
+   Codex(
+     role: "plan-reviewer-b",
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -436,10 +449,10 @@ After plan approval, present the plan interactively before proceeding to build.
 
 2. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
-3. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude `Task` fallback):
+3. **Invoke Builder** (default `Codex(role: "builder", ...)`, Claude `Claude(role: "builder", ...)` fallback):
    - Read `model_overrides.builder` from allowlist (default: `gpt-5.3-codex`).
-   - If builder model is Codex, invoke via `mcp__codex__codex`.
-   - If builder model is Claude, invoke via `Task(subagent_type="builder")`.
+   - If builder model is Codex, invoke via `Codex(role: "builder", ...)`.
+   - If builder model is Claude, invoke via `Claude(role: "builder", ...)`.
    - Prompt: Reference file paths only, do not embed content:
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
      - Quest brief: `.quest/<id>/quest_brief.md`
@@ -538,12 +551,12 @@ After plan approval, present the plan interactively before proceeding to build.
    )
    ```
 
-   **Slot B — Codex MCP** (full and fast modes):
+   **Slot B — Codex** (full and fast modes):
 
    **Full mode**:
    ```
-   mcp__codex__codex(
-     model: "gpt-5.3-codex",
+   Codex(
+     role: "code-reviewer-b",
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -567,8 +580,8 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    **Fast mode**:
    ```
-   mcp__codex__codex(
-     model: "gpt-5.3-codex",
+   Codex(
+     role: "code-reviewer-b",
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -634,10 +647,10 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `phase: fixing`, `fix_iteration += 1`, `last_role: fixer_agent`
 
-2. **Invoke Fixer** (default Codex `mcp__codex__codex`, Claude `Task` fallback):
+2. **Invoke Fixer** (default `Codex(role: "fixer", ...)`, Claude `Claude(role: "fixer", ...)` fallback):
    - Read `model_overrides.fixer` from allowlist (default: `gpt-5.3-codex`).
-   - If fixer model is Codex, invoke via `mcp__codex__codex`.
-   - If fixer model is Claude, invoke via `Task(subagent_type="fixer")`.
+   - If fixer model is Codex, invoke via `Codex(role: "fixer", ...)`.
+   - If fixer model is Claude, invoke via `Claude(role: "fixer", ...)`.
    - Prompt: Reference file paths only, do not embed content:
      - Code review A: `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
      - Code review B: `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
@@ -871,14 +884,14 @@ If a Claude role returns `STATUS: needs_human`:
 
 | Role | Tool | Model |
 |------|------|-------|
-| Planner | `Task(subagent_type="planner")` | Claude Opus (`opus`) |
-| Plan Reviewer Slot A | `Task(subagent_type="plan-reviewer")` | Claude Opus (`opus`) |
-| Plan Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Arbiter | `Task(subagent_type="arbiter")` | Claude Opus (`opus`) |
-| Builder | `mcp__codex__codex` (default), `Task(subagent_type="builder")` (fallback) | Codex (GPT) default, Claude fallback |
-| Code Reviewer Slot A | `Task(subagent_type="code-reviewer")` | Claude Opus (`opus`) |
-| Code Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Fixer | `mcp__codex__codex` (default), `Task(subagent_type="fixer")` (fallback) | Codex (GPT) default, Claude fallback |
+| Planner | `Claude(role: "planner")` | Claude Opus (`opus`) |
+| Plan Reviewer Slot A | `Claude(role: "plan-reviewer-a")` | Claude Opus (`opus`) |
+| Plan Reviewer Slot B | `Codex(role: "plan-reviewer-b")` | Codex (GPT) |
+| Arbiter | `Claude(role: "arbiter")` | Claude Opus (`opus`) |
+| Builder | `Codex(role: "builder")` (default), `Claude(role: "builder")` (fallback) | Codex (GPT) default, Claude fallback |
+| Code Reviewer Slot A | `Claude(role: "code-reviewer-a")` | Claude Opus (`opus`) |
+| Code Reviewer Slot B | `Codex(role: "code-reviewer-b")` | Codex (GPT) |
+| Fixer | `Codex(role: "fixer")` (default), `Claude(role: "fixer")` (fallback) | Codex (GPT) default, Claude fallback |
 
 **Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Claude) synthesizes both reviews while implementation/fix defaults stay Codex-first.
 This table shows default intent, not guaranteed runtime per environment. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
@@ -939,8 +952,8 @@ Codex MCP calls can be slower when each run must:
 
 **Example minimal prompt:**
 ```
-mcp__codex__codex(
-  model: "gpt-5.3-codex",
+Codex(
+  role: "plan-reviewer-b",
   prompt: "Review .quest/<id>/phase_01_plan/plan.md
 
   List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_plan-reviewer-b.md

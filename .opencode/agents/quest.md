@@ -37,6 +37,18 @@ For dual reviews (Steps 3 and 8):
 
 Sequential fan-out is acceptable. True parallelism is not required.
 
+## Codex Dispatch (via MCP)
+
+For roles assigned to Codex in `.ai/allowlist.json` model_overrides:
+- Use `codex_codex` MCP tool with the role's prompt (same prompt pattern as workflow.md)
+- For Claude-assigned roles: use `task` with `subagent_type` as before
+
+This maps to the Tool Aliases table in workflow.md:
+- `Codex(role, prompt)` → `codex_codex(prompt: "<prompt>")`
+- `Claude(role, prompt)` → `task(subagent_type: "<role>")`
+
+Agents configured with `opencode/kimi-k2.5` as base model can still invoke Codex via the `codex_codex` MCP tool when the workflow specifies a Codex role.
+
 ## Iteration Loop Guardrails
 
 - Plan loop: max `max_plan_iterations` = 4 (from `.ai/allowlist.json` gates)
