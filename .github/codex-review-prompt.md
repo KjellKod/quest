@@ -47,8 +47,25 @@ If no issues found, return: `[]`
 {PLACEHOLDER_PR_DESCRIPTION}
 </pr_description>
 
-## Existing review comments (already posted)
-Do NOT raise the same concern again -- even if the code still looks the same. Only comment on **new** issues not already covered.
+## Existing review comments and replies (already posted)
+
+The JSON below contains ALL inline review comments on this PR -- both bot
+comments and human replies. Each object has:
+- `id`: comment ID
+- `in_reply_to_id`: if set, this is a reply to the comment with that ID
+- `user`: who posted it (`github-actions[bot]` = bot, anything else = human)
+- `path`: file path
+- `body`: comment text
+
+**Thread-awareness rules:**
+- Do NOT re-raise a concern that was already posted by the bot.
+- If a human replied to a bot comment (e.g., "acknowledged", "intentional",
+  "won't fix", or explained why), treat that concern as **resolved** -- do
+  not raise it again even if the code hasn't changed.
+- If a human reply asks a follow-up question or disagrees, you may post a
+  NEW comment continuing the discussion, but only if you have new information
+  from the current diff to add.
+- When in doubt, stay silent. Nagging is worse than missing a repeat.
 
 <existing_comments>
 {PLACEHOLDER_EXISTING_COMMENTS}

@@ -47,13 +47,14 @@ jobs:
           gh pr view ${{ github.event.pull_request.number }} \
             --json title,body --jq '.title + "\n\n" + (.body // "")' > /tmp/pr_description.txt
 
-      - name: Fetch existing review comments
+      - name: Fetch existing review comments and replies
         if: steps.check-key.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Fetch ALL inline review comments (bot + human) with thread info
           gh api --paginate --slurp "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments" \
-            --jq 'map(.[]) | map(select(.user.login == "github-actions[bot]") | {path, body})' \
+            --jq 'map(.[]) | map({id, in_reply_to_id, user: .user.login, path, body})' \
             > /tmp/existing_comments.json 2>/dev/null || echo "[]" > /tmp/existing_comments.json
 
       - name: Build review prompt
@@ -87,6 +88,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
           REPO: ${{ github.repository }}
+          STRICT_INLINE_POSTING: "false"
         run: |
           if [ ! -s /tmp/review-output.json ]; then
             echo "::warning::No AI review output file produced. Skipping inline review posting."
@@ -176,7 +178,42 @@ jobs:
           import subprocess
           import tempfile
 
-          print(f"Posting up to {len(comments)} inline comment(s) against commit {os.environ['COMMIT_SHA'][:8]}.")
+          # --- Dedup: filter out comments that already exist on the PR ---
+          existing = []
+          try:
+              existing = json.load(open("/tmp/existing_comments.json"))
+          except Exception:
+              pass
+
+          def is_duplicate(new_comment, existing_comments):
+              """Check if a comment on the same path with similar body already exists."""
+              new_path = new_comment.get("path", "")
+              new_body = new_comment.get("body", "").strip().lower()
+              # Extract first sentence as fingerprint (severity + core message)
+              new_fingerprint = new_body[:200]
+              for ex in existing_comments:
+                  if ex.get("path") != new_path:
+                      continue
+                  ex_body = ex.get("body", "").strip().lower()
+                  # Exact match
+                  if new_body == ex_body:
+                      return True
+                  # Same first 200 chars (same core concern, minor wording change)
+                  if ex_body[:200] == new_fingerprint:
+                      return True
+              return False
+
+          before_count = len(comments)
+          comments = [c for c in comments if not is_duplicate(c, existing)]
+          deduped = before_count - len(comments)
+          if deduped:
+              print(f"Skipped {deduped} duplicate comment(s) already posted on this PR.")
+
+          if not comments:
+              print("All comments were duplicates. Nothing new to post.")
+              sys.exit(0)
+
+          print(f"Posting {len(comments)} new inline comment(s) against commit {os.environ['COMMIT_SHA'][:8]}.")
 
           posted = 0
           failed = []
@@ -232,6 +269,13 @@ jobs:
                   )
 
           if posted == 0 and comments:
-              print("::error::No inline comments were posted; all candidate comments failed.")
-              sys.exit(1)
+              strict = os.environ.get("STRICT_INLINE_POSTING", "false").lower() in (
+                  "1",
+                  "true",
+                  "yes",
+              )
+              print("::warning::No inline comments were posted; all candidate comments failed.")
+              if strict:
+                  print("::error::STRICT_INLINE_POSTING is enabled; failing job.")
+                  sys.exit(1)
           PYEOF
