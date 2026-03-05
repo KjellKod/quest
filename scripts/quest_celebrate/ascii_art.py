@@ -314,6 +314,10 @@ def block_letter_title(text: str, safe_mode: bool = False, max_width: int = 80) 
             parts.append(_BLOCK_FONT[ch][row_idx])
         rows.append(" ".join(parts))
 
+    # Font source is ASCII '#'. In Unicode mode, render with solid blocks.
+    if not safe_mode:
+        rows = [row.replace("#", "█") for row in rows]
+
     return "\n".join(rows)
 
 
@@ -333,25 +337,21 @@ def render_achievements(
 
     lines = []
     if safe_mode:
-        lines.append("ACHIEVEMENTS UNLOCKED")
+        lines.append("    ACHIEVEMENTS UNLOCKED\n")
+        for ach in achievements:
+            model = f" ({ach.attribution})" if getattr(ach, "attribution", "") else ""
+            lines.append(f"    * {ach.title}{model} - {ach.description}")
     else:
-        lines.append("\U0001f3c6 ACHIEVEMENTS UNLOCKED \U0001f3c6")
-
-    lines.append("-" * 40)
-
-    for ach in achievements:
-        if safe_mode:
-            lines.append(f"  {ach.icon} {ach.title} -- {ach.description}")
-        else:
-            lines.append(f"  \u2b50 {ach.title} -- {ach.description}")
+        lines.append("    🏆 ACHIEVEMENTS UNLOCKED 🏆\n")
+        for ach in achievements:
+            model = f" ({ach.attribution})" if getattr(ach, "attribution", "") else ""
+            lines.append(f"    ⭐️ {ach.title}{model} - {ach.description}")
 
     lines.append("")
     return "\n".join(lines)
 
 
-def render_impact_metrics(
-    quest_data: "QuestData", safe_mode: bool = False
-) -> str:
+def render_impact_metrics(quest_data: "QuestData", safe_mode: bool = False) -> str:
     """Render impact metrics in a formatted grid."""
     lines = []
     if safe_mode:
@@ -428,7 +428,7 @@ def gremlin_retirement_art(safe_mode: bool = False) -> str:
     if safe_mode:
         return """\n      .-\"\"\"-.\n     /  ^ ^  \\\n    |   o o   |\n    |   \\_/   |\n     \\  ===  /\n      '-...-'\n    ~ Now with pension ~\n    """
 
-    return """\n      .-\"\"\"-.\n     /  ^ ^  \\\n    |   o o   |   👾💤\n    |   \\_/   |  \n     \\  ===  /   Now with pension\n      '-...-'    and healthcare!\n    """
+    return """\n      .-\"\"\"-.\n     /  ^ ^  \\\n    |   o o   |   👾💤\n    |   \\_/   |  \n     \\  ===  /   Now with pension\n      '-...-'    and zero on-call!\n    """
 
 
 def rocket_launch_art(safe_mode: bool = False) -> str:
@@ -511,7 +511,17 @@ def get_movie_credits_lines(
     total stats, and gremlin retirement closing.
     """
     lines: List[str] = []
-    sep = "=" * 58
+    sep = "=" * 72
+
+    def friendly_model(model: str) -> str:
+        lower = model.lower()
+        if "kimi" in lower:
+            return "KiMi K2.5"
+        if "opus" in lower or "claude" in lower:
+            return "Claude Opus"
+        if "codex" in lower or "gpt-" in lower:
+            return "Codex"
+        return model.split("/")[-1] if model else ""
 
     # THE END banner
     lines.append("")
@@ -531,14 +541,21 @@ def get_movie_credits_lines(
     if quest_data.agents:
         lines.append("  STARRING")
         lines.append("")
+        seen = set()
         for agent in quest_data.agents:
-            name_part = agent.name
+            key = (agent.name, agent.model)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            model_label = friendly_model(agent.model)
+            if model_label:
+                name_part = f"{agent.name} [{model_label}]"
+            else:
+                name_part = agent.name
             role_part = agent.role_title
-            model_part = f"({agent.model})" if agent.model else ""
-            dots = "." * max(2, 40 - len(name_part) - len(role_part))
+            dots = "." * max(4, 50 - len(name_part) - len(role_part))
             lines.append(f"    {name_part} {dots} {role_part}")
-            if model_part:
-                lines.append(f"      {model_part}")
         lines.append("")
 
     # CREW section
@@ -554,7 +571,8 @@ def get_movie_credits_lines(
         lines.append("  SPECIAL ACHIEVEMENTS")
         lines.append("")
         for ach in quest_data.achievements:
-            lines.append(f"    {ach.icon} \"{ach.title}\" - {ach.description}")
+            model = f" ({ach.attribution})" if getattr(ach, "attribution", "") else ""
+            lines.append(f'    {ach.icon} "{ach.title}{model}" - {ach.description}')
         lines.append("")
 
     # FAMOUS LAST WORDS

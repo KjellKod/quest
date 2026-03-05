@@ -95,19 +95,16 @@ def detect_terminal_capabilities() -> TerminalCaps:
     is_ci = _check_ci()
     is_interactive = sys.stdout.isatty() and sys.stderr.isatty()
 
-    # In CI or non-interactive mode, use safe defaults
-    if is_ci or not is_interactive:
-        return TerminalCaps(
-            supports_unicode=False,
-            supports_emoji=False,
-            is_interactive=is_interactive,
-            is_ci=is_ci,
-            columns=_get_columns(),
-        )
+    # CI logs often mangle Unicode rendering, so force ASCII-safe there.
+    # Outside CI, detect Unicode support even when output is piped.
+    supports_unicode = False if is_ci else _check_unicode_support()
+
+    # Emoji support: disable in CI (logs don't render emoji well)
+    supports_emoji = not is_ci and _check_emoji_support()
 
     return TerminalCaps(
-        supports_unicode=_check_unicode_support(),
-        supports_emoji=_check_emoji_support(),
+        supports_unicode=supports_unicode,
+        supports_emoji=supports_emoji,
         is_interactive=is_interactive,
         is_ci=is_ci,
         columns=_get_columns(),
@@ -117,4 +114,4 @@ def detect_terminal_capabilities() -> TerminalCaps:
 def is_safe_mode() -> bool:
     """Convenience function to check if safe mode should be used."""
     caps = detect_terminal_capabilities()
-    return caps.is_ci or not caps.is_interactive or not caps.supports_unicode
+    return caps.is_ci or not caps.supports_unicode

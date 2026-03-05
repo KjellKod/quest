@@ -34,7 +34,11 @@ from quest_celebrate.ascii_art import (
     trophy_art,
 )
 from quest_celebrate.config import CelebrationConfig, load_config
-from quest_celebrate.progress import render_progress_bar, render_phase_progress, scroll_credits
+from quest_celebrate.progress import (
+    render_progress_bar,
+    render_phase_progress,
+    scroll_credits,
+)
 from quest_celebrate.quest_data import (
     Achievement,
     AgentInfo,
@@ -663,34 +667,40 @@ class TestQuestDataLoading:
 
         # handoff files
         (plan_dir / "handoff_plan-reviewer-a.json").write_text(
-            json.dumps({
-                "agent": "plan-reviewer-a",
-                "model": "claude-opus-4-6",
-                "summary": "Plan review complete with minor issues.",
-                "artifacts": [],
-            })
+            json.dumps(
+                {
+                    "agent": "plan-reviewer-a",
+                    "model": "claude-opus-4-6",
+                    "summary": "Plan review complete with minor issues.",
+                    "artifacts": [],
+                }
+            )
         )
 
         impl_dir = quest_dir / "phase_02_implementation"
         impl_dir.mkdir()
         (impl_dir / "handoff.json").write_text(
-            json.dumps({
-                "agent": "builder",
-                "model": "gpt-5.3-codex",
-                "summary": "Built the feature successfully.",
-                "artifacts": ["src/feature.py", "tests/test_feature.py"],
-            })
+            json.dumps(
+                {
+                    "agent": "builder",
+                    "model": "gpt-5.3-codex",
+                    "summary": "Built the feature successfully.",
+                    "artifacts": ["src/feature.py", "tests/test_feature.py"],
+                }
+            )
         )
 
         review_dir = quest_dir / "phase_03_review"
         review_dir.mkdir()
         (review_dir / "handoff_code-reviewer-a.json").write_text(
-            json.dumps({
-                "agent": "code-reviewer-a",
-                "model": "claude-opus-4-6",
-                "summary": "Review complete, approved.",
-                "artifacts": [".quest/test-quest/phase_03_review/review_a.md"],
-            })
+            json.dumps(
+                {
+                    "agent": "code-reviewer-a",
+                    "model": "claude-opus-4-6",
+                    "summary": "Review complete, approved.",
+                    "artifacts": [".quest/test-quest/phase_03_review/review_a.md"],
+                }
+            )
         )
 
         # review markdown
@@ -769,12 +779,14 @@ class TestQuestDataLoading:
         # Add a PR reference to a handoff
         impl_dir = quest_dir / "phase_02_implementation"
         (impl_dir / "handoff.json").write_text(
-            json.dumps({
-                "agent": "builder",
-                "model": "gpt-5.3-codex",
-                "summary": "Built feature, created PR #42.",
-                "artifacts": ["src/feature.py"],
-            })
+            json.dumps(
+                {
+                    "agent": "builder",
+                    "model": "gpt-5.3-codex",
+                    "summary": "Built feature, created PR #42.",
+                    "artifacts": ["src/feature.py"],
+                }
+            )
         )
 
         data = load_quest_data(quest_dir)
@@ -823,8 +835,8 @@ class TestBlockLetterTitle:
         lines = result.split("\n")
         assert len(lines) == 5
 
-        # Should contain # characters (block font uses #)
-        assert "#" in result
+        # Unicode mode uses filled block characters for stronger visuals
+        assert "█" in result
 
     def test_block_letter_safe_mode_ascii_only(self):
         """All chars are ASCII in safe mode."""
@@ -855,7 +867,9 @@ class TestAchievements:
         """Verifies correct achievements for given data."""
         achievements = [
             Achievement(icon="[WIN]", title="Quest Complete", description="All done"),
-            Achievement(icon="[BUG]", title="Gremlin Slayer", description="Fixed 3 issues"),
+            Achievement(
+                icon="[BUG]", title="Gremlin Slayer", description="Fixed 3 issues"
+            ),
         ]
         result = render_achievements(achievements, safe_mode=True)
 
@@ -923,8 +937,11 @@ class TestMovieCredits:
             name="Test Quest",
             agents=[
                 AgentInfo(
-                    name="builder", model="model", role_title="Role",
-                    summary="Summary", phase="Building",
+                    name="builder",
+                    model="model",
+                    role_title="Role",
+                    summary="Summary",
+                    phase="Building",
                 ),
             ],
             achievements=[

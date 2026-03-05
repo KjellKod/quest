@@ -75,6 +75,13 @@ This directory contains specialized skills for AI agents working in this reposit
 
 **Location:** `.skills/pr-shepherd/SKILL.md`
 
+### celebrate
+**Purpose:** Play a rich quest completion celebration animation with block letters, achievements, impact metrics, quality score, and end credits. Runs the celebrate script or produces a manual celebration from quest artifacts.
+
+**Use when:** The user invokes `/celebrate`, asks to celebrate a quest, or when a quest reaches completion. Also triggered by the quest workflow Step 7.
+
+**Location:** `.skills/celebrate/SKILL.md`
+
 ## How Skills Work
 
 Skills use a three-level loading system:

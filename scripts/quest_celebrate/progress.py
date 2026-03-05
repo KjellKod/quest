@@ -25,14 +25,24 @@ def render_progress_bar(
     filled = int(width * percent / 100)
     empty = width - filled
 
+    # Always use ASCII for progress bars — Unicode blocks render
+    # poorly in many terminals. Emojis work much better as indicators.
+    bar = "=" * filled + "-" * empty
+
+    # Add emoji indicator based on progress
     if safe_mode:
-        # ASCII-only: [==========] 100% - detail
-        bar = "=" * filled + "-" * empty
         return f"[{bar}] {percent:3}% - {detail}"
+
+    if percent >= 100:
+        emoji = "✅"
+    elif percent >= 75:
+        emoji = "🔄"
+    elif percent >= 25:
+        emoji = "⚡"
     else:
-        # Unicode: [██████████] 100% - detail
-        bar = "█" * filled + "░" * empty
-        return f"[{bar}] {percent:3}% - {detail}"
+        emoji = "🚀"
+
+    return f"{emoji} [{bar}] {percent:3}% - {detail}"
 
 
 def animate_progress_bars(
@@ -50,15 +60,17 @@ def animate_progress_bars(
         output: Output stream (default sys.stdout)
     """
     # Determine delay based on speed
+    # These are TOTAL delays for the full animation (divided by 5 steps)
+    # Timing per phase: fast=~0.4s, default=~2.4s, slow=~6.4s
     if speed == "fast":
-        delay = 0.05
+        delay = 0.4
     elif speed == "slow":
-        delay = 0.8
+        delay = 6.4
     else:  # default
-        delay = 0.3
+        delay = 2.4
 
     # Clear any previous output and start fresh
-    for detail, target_percent in phases:
+    for phase_idx, (detail, target_percent) in enumerate(phases):
         # Animate from 0 to target
         steps = 5
         for step in range(1, steps + 1):
@@ -73,6 +85,10 @@ def animate_progress_bars(
         # Move to next line after completing this phase
         output.write("\n")
         output.flush()
+
+        # Small pause between phases
+        if phase_idx < len(phases) - 1:
+            time.sleep(delay / steps * 0.5)
 
 
 def render_phase_progress(

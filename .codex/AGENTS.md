@@ -26,6 +26,7 @@ This repository uses **layered documentation** for AI agent context management.
 ## Quick Navigation
 
 - **Multi-agent orchestration?** → Use `$quest` (thin wrapper in `.agents/skills/quest/SKILL.md`, which delegates to `.skills/quest/SKILL.md`)
+- **Celebrate a quest?** → Use `$celebrate` (thin wrapper in `.agents/skills/celebrate/SKILL.md`, which delegates to `.skills/celebrate/SKILL.md`)
 - **Building a feature?** → Use `.skills/implementer/` skill
 - **Reviewing an implementation plan?** → Use `.skills/plan-reviewer/` skill
 - **Reviewing code?** → Use `.skills/code-reviewer/` skill
@@ -51,6 +52,7 @@ Make sure you follow all the quest instructions to the letter, updating state, s
 This repository uses **skills** for specialized workflows. Skills are automatically discovered and used based on task context:
 
 - **quest:** Multi-agent orchestration for features (plan → review → build → review → fix)
+- **celebrate:** Play quest completion celebration animation with achievements, metrics, and credits
 - **plan-reviewer:** Review implementation plans and PR specifications for test coverage
 - **code-reviewer:** Review actual code for quality, security, and patterns
 - **implementer:** Step-by-step implementation with traceability

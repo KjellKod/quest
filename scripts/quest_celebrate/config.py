@@ -115,9 +115,7 @@ def _apply_auto_detection(config: CelebrationConfig) -> CelebrationConfig:
 
     # Determine safe mode
     if config.safe_mode == "auto":
-        config.is_safe = (
-            caps.is_ci or not caps.is_interactive or not caps.supports_unicode
-        )
+        config.is_safe = caps.is_ci or not caps.supports_unicode
     elif config.safe_mode == "always":
         config.is_safe = True
     else:  # never
@@ -155,10 +153,10 @@ def load_config(
     config.columns = caps.columns
 
     # Determine safe mode from auto-detection
+    # Only use safe mode in CI or if terminal doesn't support Unicode
+    # Being piped or non-interactive shouldn't mean boring output
     if cli_safe_mode is None:
-        config.is_safe = (
-            caps.is_ci or not caps.is_interactive or not caps.supports_unicode
-        )
+        config.is_safe = caps.is_ci or not caps.supports_unicode
 
     # Layer 3: allowlist.json
     allowlist_config = _load_allowlist_config(repo_root)
@@ -200,9 +198,7 @@ def load_config(
 
     # Final safe mode determination
     if config.safe_mode == "auto":
-        config.is_safe = (
-            caps.is_ci or not caps.is_interactive or not caps.supports_unicode
-        )
+        config.is_safe = caps.is_ci or not caps.supports_unicode
     elif config.safe_mode == "always":
         config.is_safe = True
     elif config.safe_mode == "never":

@@ -31,6 +31,7 @@ class Achievement:
     icon: str  # emoji or safe-mode text
     title: str  # e.g. "Gremlin Slayer"
     description: str  # e.g. "Fixed 3 review issues"
+    attribution: str = ""  # e.g. "Codex" or "KiMi K2.5"
 
 
 @dataclass
@@ -70,6 +71,10 @@ class QuestData:
 
 # Mapping from agent name patterns to cinematic role titles
 _ROLE_TITLE_MAP = {
+    "plan-reviewer-a": "The A Plan Critic",
+    "plan-reviewer-b": "The B Plan Critic",
+    "code-reviewer-a": "The A Code Critic",
+    "code-reviewer-b": "The B Code Critic",
     "planner": "The Architect",
     "plan-reviewer": "The Plan Critic",
     "builder": "The Implementer",
@@ -82,6 +87,11 @@ _ROLE_TITLE_MAP = {
 def _map_agent_role_title(agent_name: str) -> str:
     """Map an agent name to a cinematic role title."""
     lower = agent_name.lower()
+
+    # Exact matches first (handles A/B critic labels)
+    if lower in _ROLE_TITLE_MAP:
+        return _ROLE_TITLE_MAP[lower]
+
     for pattern, title in _ROLE_TITLE_MAP.items():
         if pattern in lower:
             return title
@@ -167,9 +177,7 @@ def _read_plan_summary(quest_dir: Path) -> str:
         return ""
 
     # Look for ## Overview section
-    overview_match = re.search(
-        r"## Overview\s*\n+(.+?)(?:\n##|\Z)", text, re.DOTALL
-    )
+    overview_match = re.search(r"## Overview\s*\n+(.+?)(?:\n##|\Z)", text, re.DOTALL)
     if overview_match:
         summary = overview_match.group(1).strip()
         if len(summary) > 300:
@@ -229,6 +237,82 @@ def _collect_handoff_data(quest_dir: Path) -> Tuple[List[AgentInfo], List[str]]:
         for artifact in data.get("artifacts", []):
             if artifact not in files_changed:
                 files_changed.append(artifact)
+
+    if agents:
+        return agents, files_changed
+
+    # Legacy fallback for older quests without handoff JSON artifacts.
+    # Infer participant models/roles from markdown artifact filenames.
+    def infer_model_from_name(name: str) -> str:
+        lower = name.lower()
+        if "kimi" in lower:
+            return "moonshotai/kimi-k2.5"
+        if "codex" in lower or "gpt" in lower:
+            return "openai/gpt-5.3-codex"
+        if "claude" in lower or "opus" in lower:
+            return "anthropic/claude-opus"
+        return ""
+
+    def add_legacy_agent(name: str, model: str, phase: str, summary: str = "") -> None:
+        if not name:
+            return
+
+        for existing in agents:
+            if existing.name != name:
+                continue
+
+            # Same role already captured with same model -> skip duplicate.
+            if existing.model == model:
+                return
+
+            # Prefer model-bearing entries over empty-model placeholders.
+            if not existing.model and model:
+                existing.model = model
+                return
+
+            # If existing already has a model and new one doesn't, skip.
+            if existing.model and not model:
+                return
+
+        agents.append(
+            AgentInfo(
+                name=name,
+                model=model,
+                role_title=_map_agent_role_title(name),
+                summary=summary,
+                phase=phase,
+            )
+        )
+
+    legacy_markdown = sorted(quest_dir.glob("**/*.md"))
+    for md_path in legacy_markdown:
+        rel = str(md_path.relative_to(quest_dir)).lower()
+        file_name = md_path.name.lower()
+        model = infer_model_from_name(file_name)
+        phase = _phase_from_path(rel)
+
+        if "phase_01_plan" in rel and "review_" in file_name:
+            if "claude" in file_name:
+                role = "plan-reviewer-a"
+            elif "codex" in file_name or "gpt" in file_name:
+                role = "plan-reviewer-b"
+            else:
+                continue
+            add_legacy_agent(role, model, phase)
+        elif "phase_01_plan" in rel and "arbiter" in file_name:
+            add_legacy_agent("arbiter", model, phase)
+        elif "phase_02_implementation" in rel and "builder" in file_name:
+            add_legacy_agent("builder", model, phase)
+        elif "phase_03_review" in rel and "review_" in file_name:
+            if "claude" in file_name:
+                role = "code-reviewer-a"
+            elif "codex" in file_name or "gpt" in file_name:
+                role = "code-reviewer-b"
+            else:
+                continue
+            add_legacy_agent(role, model, phase)
+        elif "phase_03_review" in rel and "fix" in file_name:
+            add_legacy_agent("fixer", model, phase)
 
     return agents, files_changed
 
@@ -314,12 +398,57 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
     """Generate achievements based on quest stats."""
     achievements: List[Achievement] = []
 
+    def friendly_model(model: str) -> str:
+        """Normalize raw model ids to readable labels."""
+        if not model:
+            return ""
+
+        lower = model.lower()
+        if "kimi" in lower:
+            return "KiMi K2.5"
+        if "opus" in lower or "claude" in lower:
+            return "Claude Opus"
+        if "codex" in lower or "gpt-" in lower:
+            return "Codex"
+
+        # Fallback to model id suffix (after provider prefix)
+        return model.split("/")[-1]
+
+    def models_for_role(*role_keywords: str) -> str:
+        """Get unique friendly model labels for agents matching role keywords."""
+        labels: List[str] = []
+        seen = set()
+        for agent in data.agents:
+            name = agent.name.lower()
+            if not any(keyword in name for keyword in role_keywords):
+                continue
+            label = friendly_model(agent.model)
+            if label and label not in seen:
+                seen.add(label)
+                labels.append(label)
+        return " + ".join(labels)
+
+    def models_for_all() -> str:
+        labels: List[str] = []
+        seen = set()
+        for agent in data.agents:
+            label = friendly_model(agent.model)
+            if label and label not in seen:
+                seen.add(label)
+                labels.append(label)
+        return " + ".join(labels)
+
     if data.review_count > 0 and len(data.review_findings) > 0:
         achievements.append(
             Achievement(
                 icon="[BUG]",
                 title="Gremlin Slayer",
                 description=f"Tackled {len(data.review_findings)} review findings",
+                attribution=(
+                    models_for_role("fixer")
+                    or models_for_role("builder")
+                    or models_for_role("reviewer")
+                ),
             )
         )
 
@@ -329,6 +458,7 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
                 icon="[TEST]",
                 title="Battle Tested",
                 description=f"Survived {data.review_count} reviews",
+                attribution=models_for_role("reviewer"),
             )
         )
 
@@ -338,6 +468,7 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
                 icon="[SHIP]",
                 title="Ship It",
                 description=f"PR #{data.pr_number} created",
+                attribution=models_for_role("builder"),
             )
         )
 
@@ -347,6 +478,7 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
                 icon="[PLAN]",
                 title="Plan Perfectionist",
                 description=f"Iterated plan {data.plan_iterations} times",
+                attribution=models_for_role("planner", "plan-reviewer"),
             )
         )
 
@@ -356,6 +488,7 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
                 icon="[TEAM]",
                 title="Full Squad",
                 description=f"{len(data.agents)} agents collaborated",
+                attribution=models_for_all(),
             )
         )
 
@@ -365,6 +498,7 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
                 icon="[WIN]",
                 title="Quest Complete",
                 description="All phases finished successfully",
+                attribution=models_for_all(),
             )
         )
 

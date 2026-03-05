@@ -13,7 +13,13 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 - **Timebox structure discovery:** Avoid full repo inventories. Do a quick top-level scan + targeted `rg` searches instead of browsing directory-by-directory.
 - **If the user wants speed:** Offer to proceed with minimal questions + explicit assumptions (fast intake).
 
-### Codex Availability Probe (Run Once Per Session — Applies to ALL `mcp__codex__codex` calls)
+### Codex Availability Probe (Run Once Per Session — Applies to ALL Codex MCP calls)
+
+Tool naming is platform-specific:
+- Claude Code: `mcp__codex__codex`
+- OpenCode: `codex_codex`
+
+In this document, `mcp__codex__codex` means "the platform's Codex session-start MCP tool".
 
 Before the first Codex invocation, the orchestrator MUST probe for tool availability:
 
@@ -703,13 +709,14 @@ After plan approval, present the plan interactively before proceeding to build.
 2. **Ask user before celebrating:**
    - Prompt: "Quest is complete! What would you like to do?"
      - **Celebrate!** — proceed to step 3 (run the celebration animation)
-     - **Show recap first** — display the quest summary (step 5) and context health report (step 6) *before* the celebration, then ask again: "Ready to celebrate?" (yes → step 3, skip → already shown so continue to journal)
      - **Skip celebration** — go straight to step 4 (journal + summary, no animation)
    - In non-interactive / CI environments, skip the prompt and run the celebration automatically
 
-3. **Run celebration (non-blocking):**
-   - `bash scripts/quest_celebrate/quest-celebrate.sh --quest-dir .quest/<id> || true`
-   - This is fire-and-forget: if it fails, quest completion continues
+3. **Run celebration (skill-first):**
+   - Invoke the `celebrate` skill and provide the quest ID/path so it reads artifacts and renders rich markdown directly
+   - Do NOT call the Python celebration script from this step in interactive agent flows
+   - Optional fallback (non-interactive/runtime-only): `python3 scripts/quest_celebrate/celebrate.py --quest-dir .quest/<id> --style epic || true`
+   - This step is fire-and-forget: if celebration fails, quest completion continues
 
 4. **Create quest journal entry:**
     - Create `docs/quest-journal/` directory if it doesn't exist

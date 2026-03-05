@@ -8,6 +8,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 |------|-------|---------|
 | 2026-03-05 | [celebrate-v2](celebrate-v2_2026-03-05.md) | Reworked celebration system with deep artifact reading, block-letter titles, achievements, quality scores, and cinematic movie credits. |
 | 2026-03-05 | [pr-inline-commenting-playbook](pr-inline-commenting-playbook_2026-03-05.md) | Added a practical inline-commenting playbook to PR shepherd guidance, including tone, severity, and signature conventions. |
+| 2026-03-04 | [quest-completion-animations](quest-completion-animations_2026-03-04.md) | Quest Completion Animation System with 4 animation styles, 38 passing tests, and integration into quest workflow. |
 | 2026-02-28 | [opencode-model-suitability](opencode-model-suitability_2026-02-28.md) | Comprehensive model selection guide — 32 OpenCode models mapped to 6 Quest roles with evidence tags, benchmarks, and default/budget configs. |
 | 2026-02-22 | [pr-body-gate](pr-body-gate_2026-02-22.md) | PR body structure CI gate — validates required headings on PRs. Phase 1 (warn-only) shipped; branch protection enforcement is a follow-up. |
 | 2026-02-18 | [phase4-role-wiring](phase4-role-wiring_2026-02-18.md) | Relocated Quest role wiring to .skills/quest/agents with updated validators, docs, and clean dual-review completion. |
