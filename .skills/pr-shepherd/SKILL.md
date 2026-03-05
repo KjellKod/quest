@@ -28,6 +28,43 @@ Push a draft PR and iterate until CI passes and review comments are resolved, th
    - **Disagree?** → Reply on the comment with clear reasoning explaining why.
    - **Question/clarification?** → Reply on the comment with the answer.
 
+### Step 4.5: Inline Commenting Playbook
+Use this for every inline review reply so comments feel coaching-oriented and actionable.
+
+Comment formula:
+1. Start with a small positive anchor.
+2. Name the issue precisely (what and why).
+3. Suggest a concrete fix (or two).
+4. Keep tone warm; humor is optional and brief.
+
+Example shape:
+`Nice cleanup here. One tiny gremlin: <specific issue>. Could we <specific fix>?`
+
+Tone rules:
+- Be kind, not vague.
+- Be direct, not sharp.
+- Prefer "could we" / "suggest" over commands.
+- Avoid sarcasm.
+- Avoid bundling unrelated nits into one comment.
+
+Inline scope rules:
+- One comment = one issue.
+- Place the comment exactly on the relevant line.
+- Use top-level PR comments for larger cross-cutting concerns.
+- If blocking, state why it is blocking in one sentence.
+
+Severity labels (optional but recommended):
+- `blocker`: correctness, security, broken behavior
+- `important`: maintainability/readability risk
+- `nit`: style or polish
+
+Signature requirement for every posted review comment:
+`- Reviewed by <model>, in collaboration with <github username>`
+
+Ready-to-use template:
+`Nice improvement here. One small gremlin: <issue>. This can cause <impact>. Suggestion: <specific change>.`
+`- Reviewed by <model>, in collaboration with <github username>`
+
 ### Step 5: Re-check CI (if changes were made)
 If any fixes were pushed in Step 4, loop back to Step 2.
 

@@ -4,6 +4,10 @@ Working notes for Quest improvements that are not yet fully implemented.
 
 When an idea is implementation-ready, run `/quest "..."` and move execution evidence to `docs/quest-journal/`.
 
+Architecture source of truth now lives in `docs/architecture/`. Use this
+folder for proposals and draft spikes; promote stable direction to
+architecture docs.
+
 ## Status Legend
 - `idea`: concept captured, not scoped
 - `proposed`: concrete plan exists, not started
@@ -40,11 +44,17 @@ When an idea is implementation-ready, run `/quest "..."` and move execution evid
 ### Graduated
 | Idea | Destination |
 |---|---|
+| pr-inline-commenting-playbook | [`docs/quest-journal/pr-inline-commenting-playbook_2026-03-05.md`](../docs/quest-journal/pr-inline-commenting-playbook_2026-03-05.md) |
 | codex-quest | [`docs/guides/codex-quest-install.md`](../docs/guides/codex-quest-install.md) |
 | pr-body-hard-gate | [`docs/quest-journal/pr-body-gate_2026-02-22.md`](../docs/quest-journal/pr-body-gate_2026-02-22.md) |
 | phase4-role-relocation | [`docs/quest-journal/phase4-role-wiring_2026-02-18.md`](../docs/quest-journal/phase4-role-wiring_2026-02-18.md) |
 | quest-sequence-enforcement | Absorbed into policy roadmap and branch hardening |
 | runtime-attribution-accuracy | Fix shipped in `workflow.md`; validator tracked in policy roadmap |
+
+### Done Index
+| Status | Idea | Note |
+|---|---|---|
+| done | ~~pr-inline-commenting-playbook~~ | Kind, actionable PR inline comment playbook with signature convention. See [journal](../docs/quest-journal/pr-inline-commenting-playbook_2026-03-05.md). |
 
 ## Hygiene Rules
 - Keep one file per idea family; avoid duplicate variants.
