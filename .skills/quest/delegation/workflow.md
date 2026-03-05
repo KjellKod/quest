@@ -66,9 +66,10 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 4. Discard the full agent response -- do not retain, summarize, or process it
 5. **Deterministic precedence for missing/unparsable handoff.json:**
    - **Claude invocation (Task):** If `handoff.json` is missing/unparsable, parse text `---HANDOFF---` as fallback.
-   - **Codex invocation (`mcp__codex__codex`):** Missing/unparsable `handoff.json` is non-compliant. Re-run the same Codex role once with a strict reminder.
-   - If the second Codex attempt is still non-compliant, missing/unparsable handoff, or `blocked`, invoke the equivalent Claude `Task` fallback for that step.
-   - Only after this retry/fallback chain, if the final attempt still has no parseable `handoff.json`, parse text `---HANDOFF---` as last-resort compatibility fallback.
+   - **Codex invocation (`mcp__codex__codex`):**
+     - **Timeout (`McpError` / request timed out):** Do NOT retry. Fall back to the equivalent Claude `Task` immediately. Retrying a timed-out Codex call almost never succeeds and wastes time.
+     - **Other failures** (missing/unparsable handoff, non-compliant output, `blocked`): Re-run the same Codex role once with a strict reminder. If the second attempt still fails, invoke the equivalent Claude `Task` fallback for that step.
+   - Only after this fallback chain, if the final attempt still has no parseable `handoff.json`, parse text `---HANDOFF---` as last-resort compatibility fallback.
 
 **Expected handoff.json locations:**
 
@@ -91,10 +92,12 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 - Codex must not ask the user questions and must not return `STATUS: needs_human`.
 - If context is incomplete, Codex makes explicit assumptions in the artifact and continues.
 - If it cannot proceed safely, Codex returns `STATUS: blocked` with a concrete reason.
-- Orchestrator handling for Codex `needs_human`/non-compliant output and missing/unparsable handoff:
-  1. Re-invoke the same Codex role once with a strict reminder: "no questions, no `needs_human`, make explicit assumptions."
-  2. If the second attempt is still non-compliant, missing/unparsable handoff, or `blocked`, fall back to the equivalent Claude `Task` role for that step.
-  3. Only after retry + Claude fallback may text `---HANDOFF---` parsing be used as a last-resort compatibility path.
+- Orchestrator handling for Codex failures:
+  - **Timeout (`McpError` / request timed out):** Skip retry entirely. Fall back to the equivalent Claude `Task` role immediately.
+  - **Other failures** (`needs_human`, non-compliant output, missing/unparsable handoff, `blocked`):
+    1. Re-invoke the same Codex role once with a strict reminder: "no questions, no `needs_human`, make explicit assumptions."
+    2. If the second attempt still fails, fall back to the equivalent Claude `Task` role for that step.
+  - Only after the fallback chain may text `---HANDOFF---` parsing be used as a last-resort compatibility path.
   4. Only enter human Q&A if the Claude fallback returns `STATUS: needs_human`.
 
 **MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions. Create the `.quest/<id>/logs/` directory first if it does not exist.
@@ -303,7 +306,7 @@ gates.max_plan_iterations (default: 4)
    - Verify both review files exist (from handoff.artifacts)
    - Apply deterministic precedence from **Handoff File Polling**:
      - Claude slot may use direct text fallback when handoff.json is missing/unparsable.
-     - Codex slot must retry once, then Claude fallback, before any text fallback routing.
+     - Codex slot: on timeout, fall back to Claude Task immediately (no retry); on other failures, retry once then Claude fallback.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -468,10 +471,12 @@ After plan approval, present the plan interactively before proceeding to build.
    - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_02_implementation/handoff.json` for status/routing
    - Verify artifacts written (from handoff.artifacts)
-   - If Codex path returns `needs_human`, malformed output, missing/unparsable handoff, or `blocked`:
-     1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
-     2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="builder")`) with the same artifact-path contract.
-     3. Only ask the user questions if the Claude fallback returns `needs_human`.
+   - If Codex path fails:
+     - **Timeout (`McpError`):** Skip retry. Invoke Claude fallback (`Task(subagent_type="builder")`) immediately.
+     - **Other failures** (`needs_human`, malformed output, missing/unparsable handoff, `blocked`):
+       1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
+       2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="builder")`) with the same artifact-path contract.
+     - Only ask the user questions if the Claude fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
 4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
@@ -613,7 +618,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Verify both review files exist (from handoff.artifacts)
    - Apply deterministic precedence from **Handoff File Polling**:
      - Claude slot may use direct text fallback when handoff.json is missing/unparsable.
-     - Codex slot must retry once, then Claude fallback, before any text fallback routing.
+     - Codex slot: on timeout, fall back to Claude Task immediately (no retry); on other failures, retry once then Claude fallback.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -668,10 +673,12 @@ After plan approval, present the plan interactively before proceeding to build.
      - `NEXT: code_review`
    - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
-   - If Codex path returns `needs_human`, malformed output, missing/unparsable handoff, or `blocked`:
-     1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
-     2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="fixer")`) with the same artifact-path contract.
-     3. Only ask the user questions if the Claude fallback returns `needs_human`.
+   - If Codex path fails:
+     - **Timeout (`McpError`):** Skip retry. Invoke Claude fallback (`Task(subagent_type="fixer")`) immediately.
+     - **Other failures** (`needs_human`, malformed output, missing/unparsable handoff, `blocked`):
+       1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
+       2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="fixer")`) with the same artifact-path contract.
+     - Only ask the user questions if the Claude fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
 3. **Clear stale handoff files:** Delete any existing `handoff_code-reviewer-a.json` and `handoff_code-reviewer-b.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
@@ -858,7 +865,7 @@ After plan approval, present the plan interactively before proceeding to build.
 ## Q&A Loop Pattern (Claude-only in normal operation)
 
 Normal rule:
-- Codex paths do not enter direct human Q&A. They retry once and then fall back to Claude.
+- Codex paths do not enter direct human Q&A. On timeout they fall back to Claude immediately; on other failures they retry once then fall back to Claude.
 - Human Q&A is used when a Claude role returns `STATUS: needs_human`.
 
 If a Claude role returns `STATUS: needs_human`:
@@ -983,7 +990,8 @@ mcp__codex__codex(
 ## Error Handling
 
 - If an agent fails to produce a handoff: Extract any artifacts from the response, log the error, ask user how to proceed
-- If Codex MCP fails: retry once with strict non-interactive reminder; if failure persists, fall back to equivalent Claude role; ask user only if fallback also cannot proceed
+- If Codex MCP times out: fall back to equivalent Claude role immediately (no retry — timeouts rarely recover on retry)
+- If Codex MCP fails (non-timeout): retry once with strict non-interactive reminder; if failure persists, fall back to equivalent Claude role; ask user only if fallback also cannot proceed
 - If max iterations reached: Stop, show current state, ask user for guidance
 - If artifact file missing after agent run: Try to extract from response text and write it
 
