@@ -2,7 +2,11 @@ name: Codex CI Code Review
 
 on:
   pull_request:
-    types: [ready_for_review]
+    types: [ready_for_review, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
 
 concurrency:
   group: codex-review-${{ github.event.pull_request.number }}
@@ -10,108 +14,195 @@ concurrency:
 
 jobs:
   codex-review:
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
     environment: codex-ci-review
-    permissions:
-      contents: read
-    outputs:
-      review: ${{ steps.codex-review.outputs.final-message }}
+    timeout-minutes: 10
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Run Codex CI review
-        id: codex-review
-        uses: openai/codex-action@v1
+      - name: Check API key availability
+        id: check-key
         env:
-          PR_BODY: ${{ github.event.pull_request.body }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY is not available. Skipping review."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Gather PR context
+        if: steps.check-key.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff ${{ github.event.pull_request.number }} --patch > /tmp/pr.diff
+          gh pr view ${{ github.event.pull_request.number }} \
+            --json title,body --jq '.title + "\n\n" + (.body // "")' > /tmp/pr_description.txt
+
+      - name: Fetch existing review comments
+        if: steps.check-key.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments" \
+            --jq '[.[] | select(.user.login == "github-actions[bot]") | {path, body}]' \
+            > /tmp/existing_comments.json 2>/dev/null || echo "[]" > /tmp/existing_comments.json
+
+      - name: Build review prompt
+        if: steps.check-key.outputs.skip != 'true'
+        run: |
+          sed -e '/{PLACEHOLDER_PR_DESCRIPTION}/r /tmp/pr_description.txt' \
+              -e '/{PLACEHOLDER_PR_DESCRIPTION}/d' \
+              -e '/{PLACEHOLDER_EXISTING_COMMENTS}/r /tmp/existing_comments.json' \
+              -e '/{PLACEHOLDER_EXISTING_COMMENTS}/d' \
+              -e '/{PLACEHOLDER_DIFF}/r /tmp/pr.diff' \
+              -e '/{PLACEHOLDER_DIFF}/d' \
+              .github/codex-review-prompt.md > /tmp/review-prompt.md
+
+      - name: AI Code Review
+        if: steps.check-key.outputs.skip != 'true'
+        id: review
+        continue-on-error: true
+        uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          prompt: |
-            You are a CI code reviewer for the Quest framework repository.
-
-            ## Instructions
-
-            1. Read `.skills/ci-code-reviewer/SKILL.md` completely and follow it as your review protocol.
-            2. Read `AGENTS.md` for architecture boundaries and coding conventions.
-            3. Read `.ai/context_digest.md` for review priorities.
-
-            ## PR Context
-
-            - PR #: ${{ github.event.pull_request.number }}
-            - Title: ${{ github.event.pull_request.title }}
-            - Author: ${{ github.event.pull_request.user.login }}
-            - Base branch: ${{ github.event.pull_request.base.ref }}
-            - Head branch: ${{ github.event.pull_request.head.ref }}
-            - Base SHA: ${{ github.event.pull_request.base.sha }}
-            - Head SHA: ${{ github.event.pull_request.head.sha }}
-
-            ## PR Description
-
-            The PR description is available in the environment variable PR_BODY.
-            Read it with: `echo "$PR_BODY"`
-
-            ## Commands You Should Run
-
-            - Changed files:
-              `git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}`
-            - Summary:
-              `git diff --stat ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}`
-            - Full diff:
-              `git diff ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}`
-
-            ## Your Task
-
-            Follow `.skills/ci-code-reviewer/SKILL.md` step by step:
-            1. Validate PR description quality and implementation alignment.
-            2. Review changes for correctness, architecture boundaries, security hygiene, and test coverage.
-            3. Output findings in the skill's structured format.
-
-            Write your complete review output to stdout as your final message.
-          effort: high
+          prompt-file: /tmp/review-prompt.md
           sandbox: read-only
           safety-strategy: drop-sudo
+          effort: high
+          output-file: /tmp/review-output.json
 
-  post-review:
-    runs-on: ubuntu-latest
-    needs: codex-review
-    if: needs.codex-review.outputs.review != ''
-    permissions:
-      # issues:write is required for issues.createComment on PRs
-      issues: write
-      pull-requests: write
-
-    steps:
-      - name: Post review comment on PR
-        uses: actions/github-script@v7
+      - name: Post inline review
+        if: always() && steps.check-key.outputs.skip != 'true'
         env:
-          REVIEW_BODY: ${{ needs.codex-review.outputs.review }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const review = process.env.REVIEW_BODY || '';
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ ! -s /tmp/review-output.json ]; then
+            echo "::warning::No AI review output file produced. Skipping inline review posting."
+            exit 0
+          fi
 
-            const maxLen = 60000;
-            const bodyText = review.length > maxLen
-              ? review.substring(0, maxLen) + '\n\n---\n*Review truncated due to length.*'
-              : review;
+          python3 << 'PYEOF'
+          import json, re, sys, os
 
-            const commentBody = [
-              '## Codex CI Code Review',
-              '',
-              bodyText,
-              '',
-              '---',
-              '*Automated review by OpenAI Codex via GitHub Actions*',
-            ].join('\n');
+          raw = open("/tmp/review-output.json").read()
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body: commentBody,
-            });
+          comments = None
+
+          # Try direct JSON parse
+          try:
+              parsed = json.loads(raw)
+              if isinstance(parsed, list):
+                  comments = parsed
+          except (json.JSONDecodeError, ValueError):
+              pass
+
+          # Try stripping markdown fences
+          if comments is None:
+              stripped = re.sub(r'```[\w]*\n?', '', raw)
+              try:
+                  parsed = json.loads(stripped.strip())
+                  if isinstance(parsed, list):
+                      comments = parsed
+              except (json.JSONDecodeError, ValueError):
+                  pass
+
+          # Try extracting from fenced code blocks
+          if comments is None:
+              for fence_match in re.finditer(r'```(?:json)?\s*\n(.*?)```', raw, re.DOTALL):
+                  try:
+                      parsed = json.loads(fence_match.group(1))
+                      if isinstance(parsed, list):
+                          comments = parsed
+                          break
+                  except (json.JSONDecodeError, ValueError):
+                      continue
+
+          # Try finding any JSON array in the text
+          if comments is None:
+              for match in re.finditer(r'\[.*?\]', stripped, re.DOTALL):
+                  try:
+                      candidate = json.loads(match.group())
+                      if isinstance(candidate, list):
+                          comments = candidate
+                          break
+                  except (json.JSONDecodeError, ValueError):
+                      continue
+
+          if comments is None:
+              print("No review comments -- could not parse JSON array from output.")
+              sys.exit(0)
+
+          if not isinstance(comments, list) or not comments:
+              print("No review comments.")
+              sys.exit(0)
+
+          def is_valid_comment(c):
+              if not isinstance(c, dict):
+                  return False
+              if not (isinstance(c.get("path"), str) and c["path"]):
+                  return False
+              if not (isinstance(c.get("body"), str) and c["body"]):
+                  return False
+              try:
+                  c["line"] = int(c["line"])
+              except (TypeError, ValueError):
+                  return False
+              if c["line"] < 1:
+                  return False
+              if c.get("side") not in ("LEFT", "RIGHT"):
+                  c["side"] = "RIGHT"
+              return True
+
+          valid = [c for c in comments if is_valid_comment(c)]
+          if not valid:
+              print("No valid review comments after structural validation.")
+              sys.exit(0)
+          if len(valid) < len(comments):
+              print(f"Filtered {len(comments) - len(valid)} malformed comment(s).")
+          comments = valid
+
+          payload = {
+              "event": "COMMENT",
+              "commit_id": os.environ["COMMIT_SHA"],
+              "body": "Automated inline review by OpenAI Codex via GitHub Actions.",
+              "comments": comments
+          }
+
+          payload_path = "/tmp/review-payload.json"
+          with open(payload_path, "w") as f:
+              json.dump(payload, f)
+
+          print(f"Posting {len(comments)} inline comment(s) against commit {os.environ['COMMIT_SHA'][:8]}.")
+          PYEOF
+
+          if [ -f /tmp/review-payload.json ]; then
+            gh api -X POST \
+              "repos/${REPO}/pulls/${PR_NUMBER}/reviews" \
+              --input /tmp/review-payload.json 2>/tmp/review-api-error.txt \
+            || {
+              echo "::warning::Review API returned an error. This is usually a 422 caused by"
+              echo "::warning::a comment referencing a path or line not present in the PR diff."
+              echo "::warning::API response:"
+              cat /tmp/review-api-error.txt 2>/dev/null || true
+              echo "::warning::Comments in payload:"
+              python3 -c "
+          import json
+          p = json.load(open('/tmp/review-payload.json'))
+          for i, c in enumerate(p.get('comments', [])):
+              print(f'  [{i}] path={c.get(\"path\")} line={c.get(\"line\")} side={c.get(\"side\")}')
+          " 2>/dev/null || true
+              exit 0
+            }
+          fi
