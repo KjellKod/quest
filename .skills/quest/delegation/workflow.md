@@ -693,11 +693,18 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `phase: complete`, `status: complete`
 
-2. **Run celebration (non-blocking):**
+2. **Ask user before celebrating:**
+   - Prompt: "Quest is complete! What would you like to do?"
+     - **Celebrate!** — proceed to step 3 (run the celebration animation)
+     - **Show recap first** — display the quest summary (step 5) and context health report (step 6) *before* the celebration, then ask again: "Ready to celebrate?" (yes → step 3, skip → already shown so continue to journal)
+     - **Skip celebration** — go straight to step 4 (journal + summary, no animation)
+   - In non-interactive / CI environments, skip the prompt and run the celebration automatically
+
+3. **Run celebration (non-blocking):**
    - `bash scripts/quest_celebrate/quest-celebrate.sh --quest-dir .quest/<id> || true`
    - This is fire-and-forget: if it fails, quest completion continues
 
-3. **Create quest journal entry:**
+4. **Create quest journal entry:**
     - Create `docs/quest-journal/` directory if it doesn't exist
     - Write to `docs/quest-journal/<slug>_<YYYY-MM-DD>.md`
     - Include: quest ID, completion date, summary, files changed
@@ -707,7 +714,7 @@ After plan approval, present the plan interactively before proceeding to build.
       - Remove the idea file (e.g., `ideas/my-idea.md`)
       - Add a `done` row to `ideas/README.md` index: `| done | ~~idea-slug~~ | One-line pitch. See [journal](../docs/quest-journal/slug_date.md). |`
 
-4. **Show summary:**
+5. **Show summary:**
     - Quest ID
     - Files changed (from `git diff --name-only` and `state.json` artifact paths)
     - Total iterations (plan + fix, from `state.json`)
@@ -715,7 +722,7 @@ After plan approval, present the plan interactively before proceeding to build.
     - Location of artifacts (will be archived to `.quest/archive/<id>/`)
     - Location of journal entry
 
-5. **Context health report:**
+6. **Context health report:**
    If `.quest/<id>/logs/context_health.log` exists, display it in full:
 
    ```
