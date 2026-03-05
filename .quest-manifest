@@ -30,7 +30,9 @@
 .claude/skills/git-commit-assistant/SKILL.md
 .claude/skills/pr-assistant/SKILL.md
 .claude/skills/pr-shepherd/SKILL.md
+.claude/skills/celebrate/SKILL.md
 .claude/skills/quest/SKILL.md
+.claude/mcp.json
 .claude/AGENTS.md
 .codex/AGENTS.md
 .opencode/agents/arbiter.md
@@ -40,8 +42,10 @@
 .opencode/agents/plan-reviewer.md
 .opencode/agents/planner.md
 .opencode/agents/quest.md
+.opencode/commands/celebrate.md
 .opencode/opencode.json
 .agents/skills/README.md
+.agents/skills/celebrate/SKILL.md
 .agents/skills/quest/SKILL.md
 .skills/BOOTSTRAP.md
 .skills/README.md
@@ -54,6 +58,7 @@
 .skills/implementer/SKILL.md
 .skills/plan-maker/SKILL.md
 .skills/plan-reviewer/SKILL.md
+.skills/celebrate/SKILL.md
 .skills/quest/SKILL.md
 .skills/quest/delegation/questioner.md
 .skills/quest/delegation/router.md
@@ -62,6 +67,15 @@ scripts/validate-quest-config.sh
 scripts/validate-quest-state.sh
 scripts/validate-manifest.sh
 scripts/validate-handoff-contracts.sh
+scripts/quest_celebrate/__init__.py
+scripts/quest_celebrate/animations.py
+scripts/quest_celebrate/ascii_art.py
+scripts/quest_celebrate/celebrate.py
+scripts/quest_celebrate/config.py
+scripts/quest_celebrate/progress.py
+scripts/quest_celebrate/terminal.py
+scripts/quest_celebrate/quest_data.py
+scripts/quest_celebrate/quest-celebrate.sh
 
 [user-customized]
 # These files are NEVER overwritten - upstream changes create .quest_updated suffix

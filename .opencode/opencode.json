@@ -1,10 +1,11 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "mcp__codex": {
+    "codex": {
       "type": "local",
-      "command": ["codex", "-m", "gpt-5.3-codex", "mcp-server"],
-      "timeout": 120000
+      "command": ["npx", "-y", "codex", "mcp-server"],
+      "enabled": true,
+      "timeout": 5000
     }
   },
   "agent": {
@@ -61,7 +62,7 @@
     "plan-reviewer-b": {
       "description": "Reviews implementation plans (Reviewer B - Codex)",
       "mode": "subagent",
-      "model": "opencode/gpt-5.3-codex",
+      "model": "opencode/gpt-5.4",
       "prompt": "{file:agents/plan-reviewer.md}",
       "permission": {
         "edit": {
@@ -130,7 +131,7 @@
     "code-reviewer-b": {
       "description": "Reviews code changes (Reviewer B - Codex)",
       "mode": "subagent",
-      "model": "opencode/gpt-5.3-codex",
+      "model": "opencode/gpt-5.4",
       "prompt": "{file:agents/code-reviewer.md}",
       "permission": {
         "edit": {
@@ -176,6 +177,10 @@
       "template": "$ARGUMENTS",
       "description": "Run Quest multi-agent orchestration workflow",
       "agent": "quest"
+    },
+    "celebrate": {
+      "template": "{file:commands/celebrate.md} Quest: $ARGUMENTS",
+      "description": "Play quest completion celebration"
     }
   }
 }

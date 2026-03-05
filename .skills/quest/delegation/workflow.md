@@ -13,7 +13,13 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 - **Timebox structure discovery:** Avoid full repo inventories. Do a quick top-level scan + targeted `rg` searches instead of browsing directory-by-directory.
 - **If the user wants speed:** Offer to proceed with minimal questions + explicit assumptions (fast intake).
 
-### Codex Availability Probe (Run Once Per Session — Applies to ALL `mcp__codex__codex` calls)
+### Codex Availability Probe (Run Once Per Session — Applies to ALL Codex MCP calls)
+
+Tool naming is platform-specific:
+- Claude Code: `mcp__codex__codex`
+- OpenCode: `codex_codex`
+
+In this document, `mcp__codex__codex` means "the platform's Codex session-start MCP tool".
 
 Before the first Codex invocation, the orchestrator MUST probe for tool availability:
 
@@ -66,9 +72,10 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 4. Discard the full agent response -- do not retain, summarize, or process it
 5. **Deterministic precedence for missing/unparsable handoff.json:**
    - **Claude invocation (Task):** If `handoff.json` is missing/unparsable, parse text `---HANDOFF---` as fallback.
-   - **Codex invocation (`mcp__codex__codex`):** Missing/unparsable `handoff.json` is non-compliant. Re-run the same Codex role once with a strict reminder.
-   - If the second Codex attempt is still non-compliant, missing/unparsable handoff, or `blocked`, invoke the equivalent Claude `Task` fallback for that step.
-   - Only after this retry/fallback chain, if the final attempt still has no parseable `handoff.json`, parse text `---HANDOFF---` as last-resort compatibility fallback.
+   - **Codex invocation (`mcp__codex__codex`):**
+     - **Timeout (`McpError` / request timed out):** Do NOT retry. Fall back to the equivalent Claude `Task` immediately. Retrying a timed-out Codex call almost never succeeds and wastes time.
+     - **Other failures** (missing/unparsable handoff, non-compliant output, `blocked`): Re-run the same Codex role once with a strict reminder. If the second attempt still fails, invoke the equivalent Claude `Task` fallback for that step.
+   - Only after this fallback chain, if the final attempt still has no parseable `handoff.json`, parse text `---HANDOFF---` as last-resort compatibility fallback.
 
 **Expected handoff.json locations:**
 
@@ -91,10 +98,12 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 - Codex must not ask the user questions and must not return `STATUS: needs_human`.
 - If context is incomplete, Codex makes explicit assumptions in the artifact and continues.
 - If it cannot proceed safely, Codex returns `STATUS: blocked` with a concrete reason.
-- Orchestrator handling for Codex `needs_human`/non-compliant output and missing/unparsable handoff:
-  1. Re-invoke the same Codex role once with a strict reminder: "no questions, no `needs_human`, make explicit assumptions."
-  2. If the second attempt is still non-compliant, missing/unparsable handoff, or `blocked`, fall back to the equivalent Claude `Task` role for that step.
-  3. Only after retry + Claude fallback may text `---HANDOFF---` parsing be used as a last-resort compatibility path.
+- Orchestrator handling for Codex failures:
+  - **Timeout (`McpError` / request timed out):** Skip retry entirely. Fall back to the equivalent Claude `Task` role immediately.
+  - **Other failures** (`needs_human`, non-compliant output, missing/unparsable handoff, `blocked`):
+    1. Re-invoke the same Codex role once with a strict reminder: "no questions, no `needs_human`, make explicit assumptions."
+    2. If the second attempt still fails, fall back to the equivalent Claude `Task` role for that step.
+  - Only after the fallback chain may text `---HANDOFF---` parsing be used as a last-resort compatibility path.
   4. Only enter human Q&A if the Claude fallback returns `STATUS: needs_human`.
 
 **MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions. Create the `.quest/<id>/logs/` directory first if it does not exist.
@@ -303,7 +312,7 @@ gates.max_plan_iterations (default: 4)
    - Verify both review files exist (from handoff.artifacts)
    - Apply deterministic precedence from **Handoff File Polling**:
      - Claude slot may use direct text fallback when handoff.json is missing/unparsable.
-     - Codex slot must retry once, then Claude fallback, before any text fallback routing.
+     - Codex slot: on timeout, fall back to Claude Task immediately (no retry); on other failures, retry once then Claude fallback.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -468,10 +477,12 @@ After plan approval, present the plan interactively before proceeding to build.
    - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_02_implementation/handoff.json` for status/routing
    - Verify artifacts written (from handoff.artifacts)
-   - If Codex path returns `needs_human`, malformed output, missing/unparsable handoff, or `blocked`:
-     1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
-     2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="builder")`) with the same artifact-path contract.
-     3. Only ask the user questions if the Claude fallback returns `needs_human`.
+   - If Codex path fails:
+     - **Timeout (`McpError`):** Skip retry. Invoke Claude fallback (`Task(subagent_type="builder")`) immediately.
+     - **Other failures** (`needs_human`, malformed output, missing/unparsable handoff, `blocked`):
+       1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
+       2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="builder")`) with the same artifact-path contract.
+     - Only ask the user questions if the Claude fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
 4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
@@ -613,7 +624,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Verify both review files exist (from handoff.artifacts)
    - Apply deterministic precedence from **Handoff File Polling**:
      - Claude slot may use direct text fallback when handoff.json is missing/unparsable.
-     - Codex slot must retry once, then Claude fallback, before any text fallback routing.
+     - Codex slot: on timeout, fall back to Claude Task immediately (no retry); on other failures, retry once then Claude fallback.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -668,10 +679,12 @@ After plan approval, present the plan interactively before proceeding to build.
      - `NEXT: code_review`
    - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
-   - If Codex path returns `needs_human`, malformed output, missing/unparsable handoff, or `blocked`:
-     1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
-     2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="fixer")`) with the same artifact-path contract.
-     3. Only ask the user questions if the Claude fallback returns `needs_human`.
+   - If Codex path fails:
+     - **Timeout (`McpError`):** Skip retry. Invoke Claude fallback (`Task(subagent_type="fixer")`) immediately.
+     - **Other failures** (`needs_human`, malformed output, missing/unparsable handoff, `blocked`):
+       1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
+       2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="fixer")`) with the same artifact-path contract.
+     - Only ask the user questions if the Claude fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
 3. **Clear stale handoff files:** Delete any existing `handoff_code-reviewer-a.json` and `handoff_code-reviewer-b.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
@@ -693,25 +706,37 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `phase: complete`, `status: complete`
 
-2. **Create quest journal entry:**
-   - Create `docs/quest-journal/` directory if it doesn't exist
-   - Write to `docs/quest-journal/<slug>_<YYYY-MM-DD>.md`
-   - Include: quest ID, completion date, summary, files changed
-   - Insert a row at the top of `docs/quest-journal/README.md` index table (after the header row) with date, quest link, and one-line outcome. The table is in reverse chronological order (newest first).
-   - If quest originated from an idea file:
-     - Quote the original idea content under "This is where it all began..."
-     - Remove the idea file (e.g., `ideas/my-idea.md`)
-     - Add a `done` row to `ideas/README.md` index: `| done | ~~idea-slug~~ | One-line pitch. See [journal](../docs/quest-journal/slug_date.md). |`
+2. **Ask user before celebrating:**
+   - Prompt: "Quest is complete! What would you like to do?"
+     - **Celebrate!** — proceed to step 3 (run the celebration animation)
+     - **Skip celebration** — go straight to step 4 (journal + summary, no animation)
+   - In non-interactive / CI environments, skip the prompt and run the celebration automatically
 
-3. **Show summary:**
-   - Quest ID
-   - Files changed (from `git diff --name-only` and `state.json` artifact paths)
-   - Total iterations (plan + fix, from `state.json`)
-   - Parallel execution stats (read from `.quest/<id>/logs/parallelism.log` if it exists — show each line)
-   - Location of artifacts (will be archived to `.quest/archive/<id>/`)
-   - Location of journal entry
+3. **Run celebration (skill-first):**
+   - Invoke the `celebrate` skill and provide the quest ID/path so it reads artifacts and renders rich markdown directly
+   - Do NOT call the Python celebration script from this step in interactive agent flows
+   - Optional fallback (non-interactive/runtime-only): `python3 scripts/quest_celebrate/celebrate.py --quest-dir .quest/<id> --style epic || true`
+   - This step is fire-and-forget: if celebration fails, quest completion continues
 
-4. **Context health report:**
+4. **Create quest journal entry:**
+    - Create `docs/quest-journal/` directory if it doesn't exist
+    - Write to `docs/quest-journal/<slug>_<YYYY-MM-DD>.md`
+    - Include: quest ID, completion date, summary, files changed
+    - Insert a row at the top of `docs/quest-journal/README.md` index table (after the header row) with date, quest link, and one-line outcome. The table is in reverse chronological order (newest first).
+    - If quest originated from an idea file:
+      - Quote the original idea content under "This is where it all began..."
+      - Remove the idea file (e.g., `ideas/my-idea.md`)
+      - Add a `done` row to `ideas/README.md` index: `| done | ~~idea-slug~~ | One-line pitch. See [journal](../docs/quest-journal/slug_date.md). |`
+
+5. **Show summary:**
+    - Quest ID
+    - Files changed (from `git diff --name-only` and `state.json` artifact paths)
+    - Total iterations (plan + fix, from `state.json`)
+    - Parallel execution stats (read from `.quest/<id>/logs/parallelism.log` if it exists — show each line)
+    - Location of artifacts (will be archived to `.quest/archive/<id>/`)
+    - Location of journal entry
+
+6. **Context health report:**
    If `.quest/<id>/logs/context_health.log` exists, display it in full:
 
    ```
@@ -763,28 +788,28 @@ After plan approval, present the plan interactively before proceeding to build.
    - If compliance is 50-74%:
      "Mixed compliance. Investigate non-compliant agents. Consider upgrading to run_in_background: true for Claude Task agents."
    - If compliance is <50%:
-     "Low compliance -- discard approach is not effective. Recommend upgrading to run_in_background: true."
+      "Low compliance -- discard approach is not effective. Recommend upgrading to run_in_background: true."
 
-5. **Archive the quest working directory:**
-   - Create `.quest/archive/` if it doesn't exist
-   - Move `.quest/<id>/` to `.quest/archive/<id>/`
-   - The journal entry in `docs/quest-journal/` is the permanent record; the archive preserves raw artifacts for reference
-   - `.quest/` root should only contain active quests, `archive/`, and `audit.log`
+6. **Archive the quest working directory:**
+    - Create `.quest/archive/` if it doesn't exist
+    - Move `.quest/<id>/` to `.quest/archive/<id>/`
+    - The journal entry in `docs/quest-journal/` is the permanent record; the archive preserves raw artifacts for reference
+    - `.quest/` root should only contain active quests, `archive/`, and `audit.log`
 
-6. **Next steps suggestion:**
-   ```
-   Review changes: git diff
-   Commit: git add -p && git commit
-   ```
-   - **Draft PR:** use `.skills/pr-assistant/SKILL.md` (preserve any existing bot-managed PR sections when editing PR body)
-   - **PR review gate:** post an explicit review comment on the draft/ready PR, then merge only after NIT filtering using `AGENTS.md` rubric (readability-first, KISS/YAGNI/SRP/DRY, simple robust over complex elegance, avoid mocking-hell)
+7. **Next steps suggestion:**
+    ```
+    Review changes: git diff
+    Commit: git add -p && git commit
+    ```
+    - **Draft PR:** use `.skills/pr-assistant/SKILL.md` (preserve any existing bot-managed PR sections when editing PR body)
+    - **PR review gate:** post an explicit review comment on the draft/ready PR, then merge only after NIT filtering using `AGENTS.md` rubric (readability-first, KISS/YAGNI/SRP/DRY, simple robust over complex elegance, avoid mocking-hell)
 
-7. **Context reset suggestion:**
-   ```
-   Quest complete. Consider running /clear before your next quest to reset context.
-   ```
+8. **Context reset suggestion:**
+    ```
+    Quest complete. Consider running /clear before your next quest to reset context.
+    ```
 
-8. **Check for Quest updates:**
+9. **Check for Quest updates:**
    After the quest completes, check if a Quest update is available (if enough time has passed since the last check).
 
    **Configuration:**
@@ -847,7 +872,7 @@ After plan approval, present the plan interactively before proceeding to build.
 ## Q&A Loop Pattern (Claude-only in normal operation)
 
 Normal rule:
-- Codex paths do not enter direct human Q&A. They retry once and then fall back to Claude.
+- Codex paths do not enter direct human Q&A. On timeout they fall back to Claude immediately; on other failures they retry once then fall back to Claude.
 - Human Q&A is used when a Claude role returns `STATUS: needs_human`.
 
 If a Claude role returns `STATUS: needs_human`:
@@ -972,7 +997,8 @@ mcp__codex__codex(
 ## Error Handling
 
 - If an agent fails to produce a handoff: Extract any artifacts from the response, log the error, ask user how to proceed
-- If Codex MCP fails: retry once with strict non-interactive reminder; if failure persists, fall back to equivalent Claude role; ask user only if fallback also cannot proceed
+- If Codex MCP times out: fall back to equivalent Claude role immediately (no retry — timeouts rarely recover on retry)
+- If Codex MCP fails (non-timeout): retry once with strict non-interactive reminder; if failure persists, fall back to equivalent Claude role; ask user only if fallback also cannot proceed
 - If max iterations reached: Stop, show current state, ask user for guidance
 - If artifact file missing after agent run: Try to extract from response text and write it
 

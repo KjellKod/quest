@@ -69,11 +69,18 @@ This directory contains specialized skills for AI agents working in this reposit
 **Location:** `.skills/pr-assistant/SKILL.md`
 
 ### pr-shepherd
-**Purpose:** Push a draft PR and iterate until CI passes and review comments are resolved, then mark ready for review. Handles the full lifecycle of getting a PR merged.
+**Purpose:** Push a draft PR and iterate until CI passes and review comments are resolved, then mark ready for review. Handles the full lifecycle of getting a PR merged with inline-first review handling.
 
 **Use when:** The user wants to push a PR through CI and review, or asks to shepherd/babysit a PR until it's ready.
 
 **Location:** `.skills/pr-shepherd/SKILL.md`
+
+### celebrate
+**Purpose:** Play a rich quest completion celebration animation with block letters, achievements, impact metrics, quality score, and end credits. Runs the celebrate script or produces a manual celebration from quest artifacts.
+
+**Use when:** The user invokes `/celebrate`, asks to celebrate a quest, or when a quest reaches completion. Also triggered by the quest workflow Step 7.
+
+**Location:** `.skills/celebrate/SKILL.md`
 
 ## How Skills Work
 

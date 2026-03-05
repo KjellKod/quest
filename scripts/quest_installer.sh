@@ -120,6 +120,7 @@ EXECUTABLE_FILES=(
   ".claude/hooks/enforce-allowlist.sh"
   "scripts/validate-quest-config.sh"
   "scripts/quest_installer.sh"
+  "scripts/quest_celebrate/quest-celebrate.sh"
 )
 
 ###############################################################################
