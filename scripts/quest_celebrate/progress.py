@@ -108,3 +108,29 @@ def render_phase_progress(
         output.write(line + "\n")
 
     output.flush()
+
+
+def scroll_credits(
+    lines: List[str],
+    speed: str = "default",
+    output: TextIO = sys.stdout,
+) -> None:
+    """Print lines with per-line delay for cinematic credit scrolling.
+
+    Args:
+        lines: Credit lines to scroll.
+        speed: Scroll speed ("fast", "default", "slow").
+            fast: 0.02s/line, default: 0.15s/line, slow: 0.3s/line.
+        output: Output stream.
+    """
+    if speed == "fast":
+        delay = 0.02
+    elif speed == "slow":
+        delay = 0.3
+    else:  # default
+        delay = 0.15
+
+    for line in lines:
+        output.write(line + "\n")
+        output.flush()
+        time.sleep(delay)

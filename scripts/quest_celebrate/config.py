@@ -5,7 +5,7 @@ Configuration precedence (highest to lowest):
   2. Environment variables (QUEST_ANIMATIONS, QUEST_STYLE, QUEST_SPEED)
   3. .ai/allowlist.json quest_completion section
   4. Auto-detection (CI, TERM, pipe detection)
-  5. Defaults (style=standard, speed=default, credits=true)
+  5. Defaults (style=epic, speed=default, credits=true)
 
 Note: .quest/config.json support is deferred to a future enhancement (YAGNI).
 """
@@ -23,7 +23,7 @@ from quest_celebrate.terminal import detect_terminal_capabilities, is_safe_mode
 class CelebrationConfig:
     """Configuration for quest celebration."""
 
-    style: str = "standard"  # minimal, standard, epic, silly
+    style: str = "epic"  # minimal, standard, epic, silly
     speed: str = "default"  # fast, default, slow
     show_credits: bool = True
     show_progress: bool = True

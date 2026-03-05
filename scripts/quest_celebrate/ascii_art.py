@@ -1,6 +1,410 @@
 """ASCII art templates for quest celebrations."""
 
-from typing import List
+from typing import TYPE_CHECKING, List
+
+if TYPE_CHECKING:
+    from quest_celebrate.quest_data import Achievement, AgentInfo, QuestData
+
+
+# Minimal 5-line tall block letter font for A-Z, 0-9, space, and hyphen.
+# Each character is 6 columns wide (5 + 1 space separator).
+_BLOCK_FONT = {
+    "A": [
+        " ### ",
+        "#   #",
+        "#####",
+        "#   #",
+        "#   #",
+    ],
+    "B": [
+        "#### ",
+        "#   #",
+        "#### ",
+        "#   #",
+        "#### ",
+    ],
+    "C": [
+        " ####",
+        "#    ",
+        "#    ",
+        "#    ",
+        " ####",
+    ],
+    "D": [
+        "#### ",
+        "#   #",
+        "#   #",
+        "#   #",
+        "#### ",
+    ],
+    "E": [
+        "#####",
+        "#    ",
+        "###  ",
+        "#    ",
+        "#####",
+    ],
+    "F": [
+        "#####",
+        "#    ",
+        "###  ",
+        "#    ",
+        "#    ",
+    ],
+    "G": [
+        " ####",
+        "#    ",
+        "# ###",
+        "#   #",
+        " ####",
+    ],
+    "H": [
+        "#   #",
+        "#   #",
+        "#####",
+        "#   #",
+        "#   #",
+    ],
+    "I": [
+        "#####",
+        "  #  ",
+        "  #  ",
+        "  #  ",
+        "#####",
+    ],
+    "J": [
+        "#####",
+        "    #",
+        "    #",
+        "#   #",
+        " ### ",
+    ],
+    "K": [
+        "#   #",
+        "#  # ",
+        "###  ",
+        "#  # ",
+        "#   #",
+    ],
+    "L": [
+        "#    ",
+        "#    ",
+        "#    ",
+        "#    ",
+        "#####",
+    ],
+    "M": [
+        "#   #",
+        "## ##",
+        "# # #",
+        "#   #",
+        "#   #",
+    ],
+    "N": [
+        "#   #",
+        "##  #",
+        "# # #",
+        "#  ##",
+        "#   #",
+    ],
+    "O": [
+        " ### ",
+        "#   #",
+        "#   #",
+        "#   #",
+        " ### ",
+    ],
+    "P": [
+        "#### ",
+        "#   #",
+        "#### ",
+        "#    ",
+        "#    ",
+    ],
+    "Q": [
+        " ### ",
+        "#   #",
+        "# # #",
+        "#  # ",
+        " ## #",
+    ],
+    "R": [
+        "#### ",
+        "#   #",
+        "#### ",
+        "#  # ",
+        "#   #",
+    ],
+    "S": [
+        " ####",
+        "#    ",
+        " ### ",
+        "    #",
+        "#### ",
+    ],
+    "T": [
+        "#####",
+        "  #  ",
+        "  #  ",
+        "  #  ",
+        "  #  ",
+    ],
+    "U": [
+        "#   #",
+        "#   #",
+        "#   #",
+        "#   #",
+        " ### ",
+    ],
+    "V": [
+        "#   #",
+        "#   #",
+        "#   #",
+        " # # ",
+        "  #  ",
+    ],
+    "W": [
+        "#   #",
+        "#   #",
+        "# # #",
+        "## ##",
+        "#   #",
+    ],
+    "X": [
+        "#   #",
+        " # # ",
+        "  #  ",
+        " # # ",
+        "#   #",
+    ],
+    "Y": [
+        "#   #",
+        " # # ",
+        "  #  ",
+        "  #  ",
+        "  #  ",
+    ],
+    "Z": [
+        "#####",
+        "   # ",
+        "  #  ",
+        " #   ",
+        "#####",
+    ],
+    "0": [
+        " ### ",
+        "#   #",
+        "#   #",
+        "#   #",
+        " ### ",
+    ],
+    "1": [
+        "  #  ",
+        " ##  ",
+        "  #  ",
+        "  #  ",
+        "#####",
+    ],
+    "2": [
+        " ### ",
+        "#   #",
+        "  ## ",
+        " #   ",
+        "#####",
+    ],
+    "3": [
+        " ### ",
+        "#   #",
+        "  ## ",
+        "#   #",
+        " ### ",
+    ],
+    "4": [
+        "#   #",
+        "#   #",
+        "#####",
+        "    #",
+        "    #",
+    ],
+    "5": [
+        "#####",
+        "#    ",
+        "#### ",
+        "    #",
+        "#### ",
+    ],
+    "6": [
+        " ### ",
+        "#    ",
+        "#### ",
+        "#   #",
+        " ### ",
+    ],
+    "7": [
+        "#####",
+        "    #",
+        "   # ",
+        "  #  ",
+        "  #  ",
+    ],
+    "8": [
+        " ### ",
+        "#   #",
+        " ### ",
+        "#   #",
+        " ### ",
+    ],
+    "9": [
+        " ### ",
+        "#   #",
+        " ####",
+        "    #",
+        " ### ",
+    ],
+    " ": [
+        "     ",
+        "     ",
+        "     ",
+        "     ",
+        "     ",
+    ],
+    "-": [
+        "     ",
+        "     ",
+        "#####",
+        "     ",
+        "     ",
+    ],
+}
+
+# Character width including separator
+_CHAR_WIDTH = 6
+
+
+def block_letter_title(text: str, safe_mode: bool = False, max_width: int = 80) -> str:
+    """Render quest name in big ASCII block letters.
+
+    Falls back to a simple centered banner if the rendered title exceeds
+    max_width or if any character is not in the font.
+
+    Args:
+        text: The text to render.
+        safe_mode: If True, use ASCII-only characters (block font is always ASCII).
+        max_width: Maximum terminal width. Titles wider than this get fallback.
+
+    Returns:
+        Multi-line string with the block letter rendering.
+    """
+    upper = text.upper()
+
+    # Check if all characters are in the font
+    if not all(ch in _BLOCK_FONT for ch in upper):
+        return _fallback_banner(text, max_width)
+
+    # Check if rendered width fits
+    rendered_width = len(upper) * _CHAR_WIDTH - 1  # subtract trailing separator
+    if rendered_width > max_width:
+        return _fallback_banner(text, max_width)
+
+    # Build the 5 lines
+    rows = []
+    for row_idx in range(5):
+        parts = []
+        for ch in upper:
+            parts.append(_BLOCK_FONT[ch][row_idx])
+        rows.append(" ".join(parts))
+
+    return "\n".join(rows)
+
+
+def _fallback_banner(text: str, max_width: int) -> str:
+    """Simple centered banner for names that don't fit block letters."""
+    border = "=" * min(max_width, max(len(text) + 8, 40))
+    centered = text.center(len(border))
+    return f"{border}\n{centered}\n{border}"
+
+
+def render_achievements(
+    achievements: "List[Achievement]", safe_mode: bool = False
+) -> str:
+    """Render achievements as a formatted section."""
+    if not achievements:
+        return ""
+
+    lines = []
+    if safe_mode:
+        lines.append("ACHIEVEMENTS UNLOCKED")
+    else:
+        lines.append("\U0001f3c6 ACHIEVEMENTS UNLOCKED \U0001f3c6")
+
+    lines.append("-" * 40)
+
+    for ach in achievements:
+        if safe_mode:
+            lines.append(f"  {ach.icon} {ach.title} -- {ach.description}")
+        else:
+            lines.append(f"  \u2b50 {ach.title} -- {ach.description}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_impact_metrics(
+    quest_data: "QuestData", safe_mode: bool = False
+) -> str:
+    """Render impact metrics in a formatted grid."""
+    lines = []
+    if safe_mode:
+        lines.append("IMPACT METRICS")
+    else:
+        lines.append("\U0001f4ca IMPACT METRICS")
+
+    lines.append("-" * 40)
+
+    lines.append(f"  Agents Involved:    {len(quest_data.agents)}")
+    lines.append(f"  Files Changed:      {len(quest_data.files_changed)}")
+    lines.append(f"  Plan Iterations:    {quest_data.plan_iterations}")
+    lines.append(f"  Fix Iterations:     {quest_data.fix_iterations}")
+    lines.append(f"  Review Findings:    {len(quest_data.review_findings)}")
+    lines.append(f"  Reviews Conducted:  {quest_data.review_count}")
+
+    if quest_data.pr_number is not None:
+        lines.append(f"  PR Number:          #{quest_data.pr_number}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_quality_score(score: int, safe_mode: bool = False) -> str:
+    """Render quality score as a visual bar with letter grade."""
+    # Map score to letter grade
+    if score >= 90:
+        grade = "A"
+    elif score >= 80:
+        grade = "B"
+    elif score >= 70:
+        grade = "C"
+    elif score >= 60:
+        grade = "D"
+    else:
+        grade = "F"
+
+    bar_width = 20
+    filled = int(bar_width * score / 100)
+    empty = bar_width - filled
+
+    if safe_mode:
+        bar = "=" * filled + "-" * empty
+    else:
+        bar = "\u2588" * filled + "\u2591" * empty
+
+    lines = [
+        "QUALITY SCORE",
+        "-" * 40,
+        f"  [{bar}] {score}% (Grade: {grade})",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def trophy_art(quest_name: str, tool_count: int = 0, safe_mode: bool = False) -> str:
@@ -39,7 +443,7 @@ def banner_border(width: int = 78, safe_mode: bool = False) -> str:
     """Return a banner border line."""
     if safe_mode:
         return "=" * width
-    return "═" * width
+    return "\u2550" * width
 
 
 def box_banner(text: str, width: int = 78, safe_mode: bool = False) -> str:
@@ -49,21 +453,24 @@ def box_banner(text: str, width: int = 78, safe_mode: bool = False) -> str:
         bottom = "+" + "-" * (width - 2) + "+"
         middle = f"| {text:<{width - 4}} |"
     else:
-        top = "╔" + "═" * (width - 2) + "╗"
-        bottom = "╚" + "═" * (width - 2) + "╝"
-        middle = f"║ {text:<{width - 4}} ║"
+        top = "+" + "=" * (width - 2) + "+"
+        bottom = "+" + "=" * (width - 2) + "+"
+        middle = f"| {text:<{width - 4}} |"
 
     return f"{top}\n{middle}\n{bottom}"
 
 
 def get_credits_lines(quest_stats: dict, safe_mode: bool = False) -> List[str]:
-    """Generate end credits lines."""
+    """Generate end credits lines (legacy dict-based API).
+
+    For rich credits from QuestData, use get_movie_credits_lines() instead.
+    """
     lines = []
 
     if safe_mode:
         header = "END CREDITS"
     else:
-        header = "🎬 END CREDITS 🎬"
+        header = "\U0001f3ac END CREDITS \U0001f3ac"
 
     lines.append("")
     lines.append(header)
@@ -89,6 +496,103 @@ def get_credits_lines(quest_stats: dict, safe_mode: bool = False) -> List[str]:
     if safe_mode:
         lines.append("Thank you for using Quest!")
     else:
-        lines.append("✨ Thank you for using Quest! ✨")
+        lines.append("\u2728 Thank you for using Quest! \u2728")
+
+    return lines
+
+
+def get_movie_credits_lines(
+    quest_data: "QuestData", safe_mode: bool = False
+) -> List[str]:
+    """Generate full movie-style end credits from QuestData.
+
+    Sections: THE END banner, A QUEST PRODUCTION, quest name, STARRING
+    (agents + role titles), CREW, SPECIAL ACHIEVEMENTS, FAMOUS LAST WORDS,
+    total stats, and gremlin retirement closing.
+    """
+    lines: List[str] = []
+    sep = "=" * 58
+
+    # THE END banner
+    lines.append("")
+    lines.append(sep)
+    if safe_mode:
+        lines.append("              THE END")
+    else:
+        lines.append("              \U0001f3ac THE END \U0001f3ac")
+    lines.append(sep)
+    lines.append("")
+    lines.append("          A QUEST PRODUCTION")
+    lines.append("")
+    lines.append(f'          "{quest_data.name}"')
+    lines.append("")
+
+    # STARRING section
+    if quest_data.agents:
+        lines.append("  STARRING")
+        lines.append("")
+        for agent in quest_data.agents:
+            name_part = agent.name
+            role_part = agent.role_title
+            model_part = f"({agent.model})" if agent.model else ""
+            dots = "." * max(2, 40 - len(name_part) - len(role_part))
+            lines.append(f"    {name_part} {dots} {role_part}")
+            if model_part:
+                lines.append(f"      {model_part}")
+        lines.append("")
+
+    # CREW section
+    lines.append("  CREW")
+    lines.append("")
+    lines.append("    GitHub API ............ Comment Threader")
+    lines.append("    Quest Orchestrator .... The Director")
+    lines.append("    pytest ................ Truth Teller")
+    lines.append("")
+
+    # SPECIAL ACHIEVEMENTS
+    if quest_data.achievements:
+        lines.append("  SPECIAL ACHIEVEMENTS")
+        lines.append("")
+        for ach in quest_data.achievements:
+            lines.append(f"    {ach.icon} \"{ach.title}\" - {ach.description}")
+        lines.append("")
+
+    # FAMOUS LAST WORDS
+    # Pick the last agent summary as the quote, or use a default
+    quote = "Shipping should feel like a celebration."
+    quote_attribution = "Quest Framework"
+    if quest_data.agents:
+        last_agent = quest_data.agents[-1]
+        if last_agent.summary:
+            quote = last_agent.summary
+            quote_attribution = last_agent.name
+
+    lines.append("  FAMOUS LAST WORDS")
+    lines.append("")
+    # Wrap quote to ~55 chars
+    if len(quote) > 55:
+        quote = quote[:52] + "..."
+    lines.append(f'    "{quote}"')
+    lines.append(f"    -- {quote_attribution}")
+    lines.append("")
+
+    # Stats summary
+    lines.append(sep)
+    lines.append(f"    AGENTS DEPLOYED:   {len(quest_data.agents)}")
+    lines.append(f"    FILES CHANGED:     {len(quest_data.files_changed)}")
+    lines.append(f"    REVIEWS CONDUCTED: {quest_data.review_count}")
+    lines.append(sep)
+    lines.append("")
+
+    # Gremlin retirement closing
+    if safe_mode:
+        lines.append("  ...and the gremlin lived happily ever after")
+        lines.append("     on a farm, chasing butterflies.")
+    else:
+        lines.append("  ...and the gremlin lived happily ever after \U0001f33b")
+        lines.append("     on a farm, chasing butterflies. \U0001f98b")
+    lines.append("")
+    lines.append("THE END. REALLY. FIN.")
+    lines.append("")
 
     return lines

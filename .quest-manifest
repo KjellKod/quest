@@ -69,6 +69,7 @@ scripts/quest_celebrate/celebrate.py
 scripts/quest_celebrate/config.py
 scripts/quest_celebrate/progress.py
 scripts/quest_celebrate/terminal.py
+scripts/quest_celebrate/quest_data.py
 scripts/quest_celebrate/quest-celebrate.sh
 
 [user-customized]

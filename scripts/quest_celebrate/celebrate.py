@@ -29,6 +29,13 @@ def parse_args(argv=None):
         description="Celebrate quest completion with style",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Styles:
+  minimal   One-line summary, ideal for CI and scripts
+  standard  Boxed banner with quest stats
+  epic      Full cinematic experience: block-letter title, achievements,
+            impact metrics, quality score, movie credits (DEFAULT)
+  silly     Over-the-top celebration with gremlin battles and maximum flair
+
 Examples:
   python3 scripts/quest_celebrate/celebrate.py --quest-dir .quest/my-quest
   python3 scripts/quest_celebrate/celebrate.py --quest-dir .quest/my-quest --style epic
@@ -45,7 +52,7 @@ Examples:
         "--style",
         choices=["minimal", "standard", "epic", "silly"],
         default=None,
-        help="Animation style (overrides config and env vars)",
+        help="Animation style (default: epic). See style descriptions below",
     )
     parser.add_argument(
         "--speed",

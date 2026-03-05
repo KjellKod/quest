@@ -9,20 +9,26 @@ from pathlib import Path
 from typing import Dict, List, Optional, TextIO, Tuple
 
 from quest_celebrate.ascii_art import (
+    block_letter_title,
     box_banner,
     get_credits_lines,
+    get_movie_credits_lines,
     gremlin_battle_art,
     gremlin_retirement_art,
+    render_achievements,
+    render_impact_metrics,
+    render_quality_score,
     rocket_launch_art,
     trophy_art,
 )
 from quest_celebrate.config import CelebrationConfig
-from quest_celebrate.progress import animate_progress_bars, render_phase_progress
+from quest_celebrate.progress import animate_progress_bars, render_phase_progress, scroll_credits
+from quest_celebrate.quest_data import QuestData, load_quest_data
 
 
 @dataclass
 class QuestStats:
-    """Statistics about a completed quest."""
+    """Statistics about a completed quest (legacy, backwards-compatible)."""
 
     name: str = "Unknown Quest"
     quest_id: str = ""
@@ -201,8 +207,30 @@ def render_epic(
     stats: QuestStats,
     config: CelebrationConfig,
     output: TextIO = sys.stdout,
+    quest_data: Optional[QuestData] = None,
 ) -> None:
-    """Render epic celebration with progress bars, art, and credits."""
+    """Render epic celebration with block title, achievements, metrics, credits.
+
+    If quest_data is provided (rich data), the full cinematic experience is shown.
+    Otherwise falls back to the simpler stats-based rendering.
+    """
+    # Block-letter title
+    if quest_data is not None:
+        title_name = quest_data.name
+    else:
+        title_name = stats.name
+
+    title_block = block_letter_title(
+        title_name, safe_mode=config.is_safe, max_width=config.columns
+    )
+    output.write("\n")
+    output.write(title_block + "\n")
+    output.write("\n")
+
+    # Brief summary
+    if quest_data and quest_data.brief_summary:
+        output.write(f"  {quest_data.brief_summary}\n\n")
+
     # Phase progress bars
     if config.show_progress and stats.phases:
         phases_for_bars = []
@@ -218,42 +246,71 @@ def render_epic(
         )
         output.write("\n")
 
+    # Impact metrics (rich data only)
+    if quest_data is not None:
+        output.write(render_impact_metrics(quest_data, safe_mode=config.is_safe) + "\n")
+
+    # Achievements (rich data only)
+    if quest_data is not None and quest_data.achievements:
+        output.write(render_achievements(quest_data.achievements, safe_mode=config.is_safe) + "\n")
+
+    # Quality score (rich data only)
+    if quest_data is not None:
+        output.write(render_quality_score(quest_data.quality_score, safe_mode=config.is_safe) + "\n")
+
     # Trophy art
     if config.ascii_art:
         output.write(
-            trophy_art(stats.name, stats.tools_count, safe_mode=config.is_safe)
+            trophy_art(title_name, stats.tools_count, safe_mode=config.is_safe)
         )
         output.write("\n")
 
     # Quest complete message
     banner = box_banner("QUEST COMPLETE", width=78, safe_mode=config.is_safe)
     output.write(banner + "\n")
-    output.write(f"  {stats.name}\n\n")
+    output.write(f"  {title_name}\n\n")
 
-    # End credits
+    # End credits with scrolling
     if config.show_credits:
-        stats_dict = {
-            "name": stats.name,
-            "tools_count": stats.tools_count,
-            "tests_count": stats.tests_count,
-            "bugs_fixed": stats.bugs_fixed,
-            "pr_number": stats.pr_number,
-            "duration_hours": stats.duration_hours,
-        }
-        for line in get_credits_lines(stats_dict, safe_mode=config.is_safe):
-            output.write(line + "\n")
+        if quest_data is not None:
+            credit_lines = get_movie_credits_lines(quest_data, safe_mode=config.is_safe)
+        else:
+            stats_dict = {
+                "name": stats.name,
+                "tools_count": stats.tools_count,
+                "tests_count": stats.tests_count,
+                "bugs_fixed": stats.bugs_fixed,
+                "pr_number": stats.pr_number,
+                "duration_hours": stats.duration_hours,
+            }
+            credit_lines = get_credits_lines(stats_dict, safe_mode=config.is_safe)
+
+        scroll_credits(credit_lines, speed=config.speed, output=output)
 
 
 def render_silly(
     stats: QuestStats,
     config: CelebrationConfig,
     output: TextIO = sys.stdout,
+    quest_data: Optional[QuestData] = None,
 ) -> None:
     """Render silly over-the-top celebration."""
+    # Block-letter title
+    if quest_data is not None:
+        title_name = quest_data.name
+    else:
+        title_name = stats.name
+
+    title_block = block_letter_title(
+        title_name, safe_mode=config.is_safe, max_width=config.columns
+    )
+    output.write("\n")
+    output.write(title_block + "\n")
+    output.write("\n")
+
     # Fun intro with extra flair
     if not config.is_safe:
-        output.write("\n")
-        output.write("    🎉  🎊  🎉  🎊  🎉  🎊  🎉  🎊\n")
+        output.write("    !!!  ***  !!!  ***  !!!  ***  !!!  ***\n")
         output.write("\n")
 
     # Battle the code gremlin!
@@ -266,8 +323,8 @@ def render_silly(
         output.write("THE CODE GREMLIN HAS BEEN VANQUISHED!\n")
         output.write("Your quest is complete!\n")
     else:
-        output.write("    👾 THE CODE GREMLIN HAS BEEN VANQUISHED! 👾\n")
-        output.write("    ✨ Your quest is complete! ✨\n")
+        output.write("    THE CODE GREMLIN HAS BEEN VANQUISHED!\n")
+        output.write("    Your quest is complete!\n")
 
     output.write("\n")
 
@@ -281,6 +338,10 @@ def render_silly(
 
     output.write("\n")
 
+    # Achievements with silly descriptions (rich data)
+    if quest_data is not None and quest_data.achievements:
+        output.write(render_achievements(quest_data.achievements, safe_mode=config.is_safe) + "\n")
+
     # Rocket launch
     if config.ascii_art:
         output.write(rocket_launch_art(safe_mode=config.is_safe))
@@ -293,9 +354,14 @@ def render_silly(
         output.write(gremlin_retirement_art(safe_mode=config.is_safe))
         output.write("\n")
 
+    # Scrolling credits in silly mode too
+    if config.show_credits and quest_data is not None:
+        credit_lines = get_movie_credits_lines(quest_data, safe_mode=config.is_safe)
+        scroll_credits(credit_lines, speed=config.speed, output=output)
+
     # Final celebration
     if not config.is_safe:
-        output.write("    🎉  🎊  QUEST COMPLETE!  🎊  🎉\n")
+        output.write("    !!!  ***  QUEST COMPLETE!  ***  !!!\n")
 
 
 def render_end_credits(
@@ -336,7 +402,7 @@ def celebrate(
         print(f"Error: Quest directory not found: {quest_dir}", file=sys.stderr)
         return 1
 
-    # Load quest stats
+    # Load quest stats (legacy, lightweight)
     stats = load_quest_stats(quest_dir)
 
     # Check if animations are disabled
@@ -350,9 +416,11 @@ def celebrate(
     elif config.style == "standard":
         output.write(render_standard(stats, config) + "\n")
     elif config.style == "epic":
-        render_epic(stats, config, output)
+        quest_data = load_quest_data(quest_dir)
+        render_epic(stats, config, output, quest_data=quest_data)
     elif config.style == "silly":
-        render_silly(stats, config, output)
+        quest_data = load_quest_data(quest_dir)
+        render_silly(stats, config, output, quest_data=quest_data)
     else:
         # Fallback to standard
         output.write(render_standard(stats, config) + "\n")
