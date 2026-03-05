@@ -336,6 +336,42 @@ jobs:
                   "yes",
               )
               print("::warning::No inline comments were posted; all candidate comments failed.")
+
+              fallback_payload = {
+                  "event": "COMMENT",
+                  "body": (
+                      "Automated review generated findings, but inline posting failed for all "
+                      f"{len(comments)} candidate comment(s). "
+                      "This is advisory-only by default; check workflow logs for details."
+                  ),
+              }
+              with tempfile.NamedTemporaryFile("w", delete=False) as tf:
+                  json.dump(fallback_payload, tf)
+                  fallback_path = tf.name
+
+              fallback_result = subprocess.run(
+                  [
+                      "gh",
+                      "api",
+                      "-X",
+                      "POST",
+                      f"repos/{os.environ['REPO']}/pulls/{os.environ['PR_NUMBER']}/reviews",
+                      "--input",
+                      fallback_path,
+                  ],
+                  capture_output=True,
+                  text=True,
+                  check=False,
+              )
+              if fallback_result.returncode != 0:
+                  fallback_error = (
+                      fallback_result.stderr or fallback_result.stdout or "unknown error"
+                  ).strip()
+                  print(
+                      "::warning::Failed to post PR-visible fallback review comment: "
+                      + fallback_error[:500]
+                  )
+
               if strict:
                   print("::error::STRICT_INLINE_POSTING is enabled; failing job.")
                   sys.exit(1)
