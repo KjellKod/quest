@@ -2,6 +2,14 @@
 
 Push a draft PR and iterate until CI passes and review comments are resolved, then mark ready for review.
 
+## Default Commenting Mode
+
+Use **inline-first** commenting by default.
+
+- For code-specific feedback, always post/reply on the exact line thread.
+- Use top-level PR comments only for cross-cutting concerns that do not map to one line, or outage/fallback summaries.
+- When both are possible, choose inline.
+
 ## Procedure
 
 ### Step 1: Push & Create Draft PR
@@ -20,7 +28,7 @@ Push a draft PR and iterate until CI passes and review comments are resolved, th
 ### Step 4: Check PR Comments
 1. Fetch **inline** review comments: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
 2. Fetch **general** PR comments: `gh pr view <PR_NUMBER> --comments`
-3. For each comment, respond **on the comment itself** (threaded reply), never in the general PR discussion:
+3. For each comment, respond **on the comment itself** (threaded reply), never move an inline discussion to the general PR thread:
    - **Inline review comments** → reply via `gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies -f body="..."`
    - **General discussion comments** → reply via `gh pr comment <PR_NUMBER> --body "..."`
 4. Decision per comment:
@@ -30,6 +38,11 @@ Push a draft PR and iterate until CI passes and review comments are resolved, th
 
 ### Step 4.5: Inline Commenting Playbook
 Use this for every inline review reply so comments feel coaching-oriented and actionable.
+
+Inline posting defaults:
+- New review findings should be posted as inline PR comments (`pulls/{pr}/comments`) whenever a valid `path` + `line` exists.
+- If line mapping fails for one finding, continue posting other valid inline findings.
+- If all inline postings fail, post a single PR-visible fallback summary comment.
 
 Comment formula:
 1. Start with a small positive anchor.
