@@ -52,8 +52,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments" \
-            --jq '[.[] | select(.user.login == "github-actions[bot]") | {path, body}]' \
+          gh api --paginate --slurp "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments" \
+            --jq 'map(.[]) | map(select(.user.login == "github-actions[bot]") | {path, body})' \
             > /tmp/existing_comments.json 2>/dev/null || echo "[]" > /tmp/existing_comments.json
 
       - name: Build review prompt
@@ -173,36 +173,65 @@ jobs:
               print(f"Filtered {len(comments) - len(valid)} malformed comment(s).")
           comments = valid
 
-          payload = {
-              "event": "COMMENT",
-              "commit_id": os.environ["COMMIT_SHA"],
-              "body": "Automated inline review by OpenAI Codex via GitHub Actions.",
-              "comments": comments
-          }
+          import subprocess
+          import tempfile
 
-          payload_path = "/tmp/review-payload.json"
-          with open(payload_path, "w") as f:
-              json.dump(payload, f)
+          print(f"Posting up to {len(comments)} inline comment(s) against commit {os.environ['COMMIT_SHA'][:8]}.")
 
-          print(f"Posting {len(comments)} inline comment(s) against commit {os.environ['COMMIT_SHA'][:8]}.")
+          posted = 0
+          failed = []
+
+          for idx, c in enumerate(comments):
+              payload = {
+                  "body": c["body"],
+                  "commit_id": os.environ["COMMIT_SHA"],
+                  "path": c["path"],
+                  "line": c["line"],
+                  "side": c.get("side", "RIGHT"),
+              }
+
+              with tempfile.NamedTemporaryFile("w", delete=False) as tf:
+                  json.dump(payload, tf)
+                  temp_path = tf.name
+
+              result = subprocess.run(
+                  [
+                      "gh",
+                      "api",
+                      "-X",
+                      "POST",
+                      f"repos/{os.environ['REPO']}/pulls/{os.environ['PR_NUMBER']}/comments",
+                      "--input",
+                      temp_path,
+                  ],
+                  capture_output=True,
+                  text=True,
+                  check=False,
+              )
+
+              if result.returncode == 0:
+                  posted += 1
+              else:
+                  failed.append(
+                      {
+                          "index": idx,
+                          "path": c.get("path"),
+                          "line": c.get("line"),
+                          "side": c.get("side"),
+                          "error": (result.stderr or result.stdout or "").strip(),
+                      }
+                  )
+
+          print(f"Posted {posted} inline comment(s). Failed: {len(failed)}.")
+
+          if failed:
+              print("::warning::Some inline comments could not be posted (often invalid path/line).")
+              for f in failed:
+                  print(
+                      f"::warning::[{f['index']}] path={f['path']} line={f['line']} side={f['side']} error={f['error'][:500]}"
+                  )
+
+          if posted == 0 and comments:
+              print("::error::No inline comments were posted; all candidate comments failed.")
+              sys.exit(1)
           PYEOF
-
-          if [ -f /tmp/review-payload.json ]; then
-            gh api -X POST \
-              "repos/${REPO}/pulls/${PR_NUMBER}/reviews" \
-              --input /tmp/review-payload.json 2>/tmp/review-api-error.txt \
-            || {
-              echo "::warning::Review API returned an error. This is usually a 422 caused by"
-              echo "::warning::a comment referencing a path or line not present in the PR diff."
-              echo "::warning::API response:"
-              cat /tmp/review-api-error.txt 2>/dev/null || true
-              echo "::warning::Comments in payload:"
-              python3 -c "
-          import json
-          p = json.load(open('/tmp/review-payload.json'))
-          for i, c in enumerate(p.get('comments', [])):
-              print(f'  [{i}] path={c.get(\"path\")} line={c.get(\"line\")} side={c.get(\"side\")}')
-          " 2>/dev/null || true
-              exit 0
-            }
-          fi
