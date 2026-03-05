@@ -54,7 +54,7 @@ jobs:
         run: |
           # Fetch ALL inline review comments (bot + human) with thread info
           gh api --paginate --slurp "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments" \
-            --jq 'map(.[]) | map({id, in_reply_to_id, user: .user.login, path, body})' \
+            --jq 'map(.[]) | map({id, in_reply_to_id, user: .user.login, path, line, body})' \
             > /tmp/existing_comments.json 2>/dev/null || echo "[]" > /tmp/existing_comments.json
 
       - name: Build review prompt
