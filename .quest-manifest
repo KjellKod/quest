@@ -62,6 +62,14 @@ scripts/validate-quest-config.sh
 scripts/validate-quest-state.sh
 scripts/validate-manifest.sh
 scripts/validate-handoff-contracts.sh
+scripts/quest_celebrate/__init__.py
+scripts/quest_celebrate/animations.py
+scripts/quest_celebrate/ascii_art.py
+scripts/quest_celebrate/celebrate.py
+scripts/quest_celebrate/config.py
+scripts/quest_celebrate/progress.py
+scripts/quest_celebrate/terminal.py
+scripts/quest_celebrate/quest-celebrate.sh
 
 [user-customized]
 # These files are NEVER overwritten - upstream changes create .quest_updated suffix
