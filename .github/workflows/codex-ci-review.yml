@@ -178,39 +178,100 @@ jobs:
           import subprocess
           import tempfile
 
-          # --- Dedup: filter out comments that already exist on the PR ---
+          # --- Dedup: filter out already-discussed and resolved concerns ---
           existing = []
           try:
               existing = json.load(open("/tmp/existing_comments.json"))
           except Exception:
               pass
 
-          def is_duplicate(new_comment, existing_comments):
-              """Check if a comment on the same path with similar body already exists."""
+          # Build set of (path, line) pairs where a human already replied to a bot comment.
+          # These threads are considered resolved — never post there again.
+          bot_comment_ids = {}  # id -> {path, line}
+          for ex in existing:
+              if ex.get("user") == "github-actions[bot]":
+                  bot_comment_ids[ex.get("id")] = {
+                      "path": ex.get("path"),
+                      "line": ex.get("line"),
+                  }
+
+          resolved_locations = set()  # (path, line) tuples where human replied
+          for ex in existing:
+              reply_to = ex.get("in_reply_to_id")
+              if reply_to and ex.get("user") != "github-actions[bot]":
+                  parent = bot_comment_ids.get(reply_to)
+                  if parent:
+                      resolved_locations.add((parent["path"], parent.get("line")))
+
+          # Also build set of (path, line) where bot already commented (any wording)
+          bot_commented_locations = set()
+          for ex in existing:
+              if ex.get("user") == "github-actions[bot]" and ex.get("path"):
+                  bot_commented_locations.add((ex["path"], ex.get("line")))
+
+          def extract_keywords(body):
+              """Extract meaningful words (4+ chars) for fuzzy matching."""
+              words = set(re.findall(r'[a-z][a-z0-9_.-]{3,}', body.lower()))
+              # Remove common filler words
+              words -= {"this", "that", "with", "from", "have", "been", "should",
+                        "could", "would", "must", "which", "when", "into", "more",
+                        "than", "also", "only", "will", "does", "about", "because",
+                        "review", "automated", "openai", "codex", "comment", "file"}
+              return words
+
+          bot_concerns = []  # list of {path, line, keywords}
+          for ex in existing:
+              if ex.get("user") == "github-actions[bot]" and ex.get("body"):
+                  bot_concerns.append({
+                      "path": ex.get("path"),
+                      "line": ex.get("line"),
+                      "keywords": extract_keywords(ex["body"]),
+                  })
+
+          def is_duplicate(new_comment):
               new_path = new_comment.get("path", "")
-              new_body = new_comment.get("body", "").strip().lower()
-              # Extract first sentence as fingerprint (severity + core message)
-              new_fingerprint = new_body[:200]
-              for ex in existing_comments:
-                  if ex.get("path") != new_path:
+              new_line = new_comment.get("line")
+
+              # Hard block: human already replied on this exact location
+              if (new_path, new_line) in resolved_locations:
+                  return "resolved"
+
+              # Hard block: bot already commented on this exact path+line
+              if (new_path, new_line) in bot_commented_locations:
+                  return "already-commented"
+
+              # Fuzzy block: same path, high keyword overlap with existing bot comment
+              new_kw = extract_keywords(new_comment.get("body", ""))
+              for bc in bot_concerns:
+                  if bc["path"] != new_path:
                       continue
-                  ex_body = ex.get("body", "").strip().lower()
-                  # Exact match
-                  if new_body == ex_body:
-                      return True
-                  # Same first 200 chars (same core concern, minor wording change)
-                  if ex_body[:200] == new_fingerprint:
-                      return True
-              return False
+                  if not bc["keywords"] or not new_kw:
+                      continue
+                  overlap = len(new_kw & bc["keywords"])
+                  union = len(new_kw | bc["keywords"])
+                  if union > 0 and overlap / union > 0.4:
+                      return "similar-concern"
+
+              return None
 
           before_count = len(comments)
-          comments = [c for c in comments if not is_duplicate(c, existing)]
-          deduped = before_count - len(comments)
-          if deduped:
-              print(f"Skipped {deduped} duplicate comment(s) already posted on this PR.")
+          skipped = {"resolved": 0, "already-commented": 0, "similar-concern": 0}
+          filtered = []
+          for c in comments:
+              reason = is_duplicate(c)
+              if reason:
+                  skipped[reason] = skipped.get(reason, 0) + 1
+              else:
+                  filtered.append(c)
+          comments = filtered
+          total_skipped = before_count - len(comments)
+
+          if total_skipped:
+              parts = [f"{v} {k}" for k, v in skipped.items() if v > 0]
+              print(f"Skipped {total_skipped} comment(s): {', '.join(parts)}.")
 
           if not comments:
-              print("All comments were duplicates. Nothing new to post.")
+              print("All comments were duplicates or already resolved. Nothing new to post.")
               sys.exit(0)
 
           print(f"Posting {len(comments)} new inline comment(s) against commit {os.environ['COMMIT_SHA'][:8]}.")
