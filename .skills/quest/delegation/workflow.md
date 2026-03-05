@@ -693,25 +693,29 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `phase: complete`, `status: complete`
 
-2. **Create quest journal entry:**
-   - Create `docs/quest-journal/` directory if it doesn't exist
-   - Write to `docs/quest-journal/<slug>_<YYYY-MM-DD>.md`
-   - Include: quest ID, completion date, summary, files changed
-   - Insert a row at the top of `docs/quest-journal/README.md` index table (after the header row) with date, quest link, and one-line outcome. The table is in reverse chronological order (newest first).
-   - If quest originated from an idea file:
-     - Quote the original idea content under "This is where it all began..."
-     - Remove the idea file (e.g., `ideas/my-idea.md`)
-     - Add a `done` row to `ideas/README.md` index: `| done | ~~idea-slug~~ | One-line pitch. See [journal](../docs/quest-journal/slug_date.md). |`
+2. **Run celebration (non-blocking):**
+   - `bash scripts/quest_celebrate/quest-celebrate.sh --quest-dir .quest/<id> || true`
+   - This is fire-and-forget: if it fails, quest completion continues
 
-3. **Show summary:**
-   - Quest ID
-   - Files changed (from `git diff --name-only` and `state.json` artifact paths)
-   - Total iterations (plan + fix, from `state.json`)
-   - Parallel execution stats (read from `.quest/<id>/logs/parallelism.log` if it exists — show each line)
-   - Location of artifacts (will be archived to `.quest/archive/<id>/`)
-   - Location of journal entry
+3. **Create quest journal entry:**
+    - Create `docs/quest-journal/` directory if it doesn't exist
+    - Write to `docs/quest-journal/<slug>_<YYYY-MM-DD>.md`
+    - Include: quest ID, completion date, summary, files changed
+    - Insert a row at the top of `docs/quest-journal/README.md` index table (after the header row) with date, quest link, and one-line outcome. The table is in reverse chronological order (newest first).
+    - If quest originated from an idea file:
+      - Quote the original idea content under "This is where it all began..."
+      - Remove the idea file (e.g., `ideas/my-idea.md`)
+      - Add a `done` row to `ideas/README.md` index: `| done | ~~idea-slug~~ | One-line pitch. See [journal](../docs/quest-journal/slug_date.md). |`
 
-4. **Context health report:**
+4. **Show summary:**
+    - Quest ID
+    - Files changed (from `git diff --name-only` and `state.json` artifact paths)
+    - Total iterations (plan + fix, from `state.json`)
+    - Parallel execution stats (read from `.quest/<id>/logs/parallelism.log` if it exists — show each line)
+    - Location of artifacts (will be archived to `.quest/archive/<id>/`)
+    - Location of journal entry
+
+5. **Context health report:**
    If `.quest/<id>/logs/context_health.log` exists, display it in full:
 
    ```
@@ -763,28 +767,28 @@ After plan approval, present the plan interactively before proceeding to build.
    - If compliance is 50-74%:
      "Mixed compliance. Investigate non-compliant agents. Consider upgrading to run_in_background: true for Claude Task agents."
    - If compliance is <50%:
-     "Low compliance -- discard approach is not effective. Recommend upgrading to run_in_background: true."
+      "Low compliance -- discard approach is not effective. Recommend upgrading to run_in_background: true."
 
-5. **Archive the quest working directory:**
-   - Create `.quest/archive/` if it doesn't exist
-   - Move `.quest/<id>/` to `.quest/archive/<id>/`
-   - The journal entry in `docs/quest-journal/` is the permanent record; the archive preserves raw artifacts for reference
-   - `.quest/` root should only contain active quests, `archive/`, and `audit.log`
+6. **Archive the quest working directory:**
+    - Create `.quest/archive/` if it doesn't exist
+    - Move `.quest/<id>/` to `.quest/archive/<id>/`
+    - The journal entry in `docs/quest-journal/` is the permanent record; the archive preserves raw artifacts for reference
+    - `.quest/` root should only contain active quests, `archive/`, and `audit.log`
 
-6. **Next steps suggestion:**
-   ```
-   Review changes: git diff
-   Commit: git add -p && git commit
-   ```
-   - **Draft PR:** use `.skills/pr-assistant/SKILL.md` (preserve any existing bot-managed PR sections when editing PR body)
-   - **PR review gate:** post an explicit review comment on the draft/ready PR, then merge only after NIT filtering using `AGENTS.md` rubric (readability-first, KISS/YAGNI/SRP/DRY, simple robust over complex elegance, avoid mocking-hell)
+7. **Next steps suggestion:**
+    ```
+    Review changes: git diff
+    Commit: git add -p && git commit
+    ```
+    - **Draft PR:** use `.skills/pr-assistant/SKILL.md` (preserve any existing bot-managed PR sections when editing PR body)
+    - **PR review gate:** post an explicit review comment on the draft/ready PR, then merge only after NIT filtering using `AGENTS.md` rubric (readability-first, KISS/YAGNI/SRP/DRY, simple robust over complex elegance, avoid mocking-hell)
 
-7. **Context reset suggestion:**
-   ```
-   Quest complete. Consider running /clear before your next quest to reset context.
-   ```
+8. **Context reset suggestion:**
+    ```
+    Quest complete. Consider running /clear before your next quest to reset context.
+    ```
 
-8. **Check for Quest updates:**
+9. **Check for Quest updates:**
    After the quest completes, check if a Quest update is available (if enough time has passed since the last check).
 
    **Configuration:**
