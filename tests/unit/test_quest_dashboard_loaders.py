@@ -379,6 +379,17 @@ def test_colon_outside_bold_metadata(tmp_path):
     assert _extract_metadata(content, "quest id") == "ci-validation"
 
 
+def test_list_item_metadata_is_extracted():
+    """Test list-item metadata format used by existing journal entries."""
+    content = """- Completed: `2026-02-04`
+- Quest ID: `list-quest_2026-02-04__1532`
+- Status: `complete`
+"""
+    assert _extract_metadata(content, "completed") == "2026-02-04"
+    assert _extract_metadata(content, "quest id") == "list-quest_2026-02-04__1532"
+    assert _extract_metadata(content, "status") == "complete"
+
+
 def test_dedup_active_quests_against_journal_entries(tmp_path):
     """Test that active quests matching journal entries are excluded.
 

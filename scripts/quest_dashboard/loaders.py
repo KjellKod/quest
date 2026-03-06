@@ -217,11 +217,13 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
 
 
 def _extract_metadata(content: str, key: str) -> str | None:
-    """Extract metadata value from bold or plain markdown patterns.
+    """Extract metadata value from bold, list-item, or plain markdown patterns.
 
     Matches both:
     - **Key:** value  (colon is INSIDE the bold markers)
     - **Key**: value  (colon is OUTSIDE - less common)
+    - - Key: value     (list-item format)
+    - Key: value       (plain format)
 
     Args:
         content: Markdown content
@@ -230,16 +232,17 @@ def _extract_metadata(content: str, key: str) -> str | None:
     Returns:
         Extracted value or None
     """
-    # Primary pattern: **Key:** value (colon inside the **)
-    pattern = rf"\*\*{re.escape(key)}:\s*\*\*\s*(.+?)(?:\n|$)"
-    match = re.search(pattern, content, re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-
-    # Fallback pattern: **Key**: value (colon outside the **)
-    pattern = rf"\*\*{re.escape(key)}\*\*\s*:\s*(.+?)(?:\n|$)"
-    match = re.search(pattern, content, re.IGNORECASE)
-    return match.group(1).strip() if match else None
+    patterns = [
+        rf"\*\*{re.escape(key)}:\s*\*\*\s*(.+?)(?:\n|$)",
+        rf"\*\*{re.escape(key)}\*\*\s*:\s*(.+?)(?:\n|$)",
+        rf"^\s*[-*]\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
+        rf"^\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
+        if match:
+            return match.group(1).strip().strip("`")
+    return None
 
 
 def _extract_title(content: str) -> str | None:
