@@ -807,6 +807,7 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
             data.fix_iterations,
             len(data.review_findings),
             data.status,
+            quest_mode=data.quest_mode,
         )
 
     # Compute quality score for backward compatibility
