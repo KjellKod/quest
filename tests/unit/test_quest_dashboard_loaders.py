@@ -583,6 +583,34 @@ def test_journal_entry_ignores_invalid_quality_tier_type(tmp_path):
     assert entry.quality_tier is None
 
 
+def test_journal_entry_deduplicates_agent_models_by_normalized_label(tmp_path):
+    """Equivalent model IDs should not produce duplicate Cast labels."""
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+
+    content = textwrap.dedent("""\
+        # Quest Journal: Rich Quest
+
+        **Quest ID:** rich-quest-001
+
+        <!-- celebration-data-start -->
+        ```json
+        {
+          "agents": [
+            {"name": "planner", "model": "claude-opus-4-6", "role": "The Architect"},
+            {"name": "reviewer", "model": "anthropic/claude-opus-4-6", "role": "The Critic"}
+          ]
+        }
+        ```
+        <!-- celebration-data-end -->
+    """)
+    (journal_dir / "rich-quest.md").write_text(content)
+
+    entry = _parse_journal_entry(journal_dir / "rich-quest.md", tmp_path)
+
+    assert entry.agent_models == ("Claude Opus",)
+
+
 def test_friendly_model_name_mapping():
     assert _friendly_model_name("claude-opus-4-6") == "Claude Opus"
     assert _friendly_model_name("gpt-5.3-codex") == "Codex"

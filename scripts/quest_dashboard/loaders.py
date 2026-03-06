@@ -189,9 +189,10 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
             if not isinstance(agent, dict):
                 continue
             model = agent.get("model", "")
-            if model and model not in seen_models:
-                seen_models.add(model)
-                models.append(_friendly_model_name(model))
+            label = _friendly_model_name(model)
+            if label and label not in seen_models:
+                seen_models.add(label)
+                models.append(label)
         agent_models = tuple(models)
 
         test_count = celebration_data.get("test_count")
