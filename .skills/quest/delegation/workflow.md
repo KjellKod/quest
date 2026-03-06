@@ -721,7 +721,31 @@ After plan approval, present the plan interactively before proceeding to build.
 4. **Create quest journal entry:**
     - Create `docs/quest-journal/` directory if it doesn't exist
     - Write to `docs/quest-journal/<slug>_<YYYY-MM-DD>.md`
-    - Include: quest ID, completion date, summary, files changed
+    - Include: quest ID, completion date, summary, files changed, iterations
+    - **Include a `celebration_data` JSON block** at the end of the journal entry. This block enables future `/celebrate` invocations to replay a rich celebration from the journal alone, even after the quest archive directory is cleaned up. The block should be embedded between HTML comment markers:
+
+      ```markdown
+      ## Celebration Data
+
+      <!-- celebration-data-start -->
+      ```json
+      {
+        "agents": [{"name": "...", "model": "...", "role": "..."}],
+        "achievements": [{"icon": "⭐️", "title": "...", "desc": "..."}],
+        "metrics": [{"icon": "📊", "label": "..."}],
+        "quality": {"tier": "Gold", "icon": "🥇", "grade": "B"},
+        "quote": {"text": "...", "attribution": "..."},
+        "victory_narrative": "...",
+        "test_count": 42,
+        "tests_added": 10,
+        "files_changed": 7
+      }
+      ```
+      <!-- celebration-data-end -->
+      ```
+
+      The orchestrator should populate this from the quest artifacts it already read. Agents, achievements, and metrics should be context-aware and specific — not generic. The quality tier uses the full honest scale: Diamond/Platinum/Gold/Silver/Bronze/Tin/Cardboard/Abandoned.
+
     - Insert a row at the top of `docs/quest-journal/README.md` index table (after the header row) with date, quest link, and one-line outcome. The table is in reverse chronological order (newest first).
     - If quest originated from an idea file:
       - Quote the original idea content under "This is where it all began..."

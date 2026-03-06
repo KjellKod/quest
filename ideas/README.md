@@ -54,6 +54,7 @@ architecture docs.
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| done | ~~celebration-from-journal~~ | Quality tiers, embedded celebration_data JSON, dashboard integration. See [journal](../docs/quest-journal/celebration-from-journal_2026-03-06.md). |
 | done | ~~pr-inline-commenting-playbook~~ | Kind, actionable PR inline comment playbook with signature convention. See [journal](../docs/quest-journal/pr-inline-commenting-playbook_2026-03-05.md). |
 
 ## Hygiene Rules

@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-03-06 | [celebration-from-journal](celebration-from-journal_2026-03-06.md) | Quality tiers (Diamond→Cardboard), embedded celebration_data JSON in journals, dashboard tier badges with tooltips, agent model credits, test counts. Solo adventure. |
 | 2026-03-05 | [celebrate-v2](celebrate-v2_2026-03-05.md) | Reworked celebration system with deep artifact reading, block-letter titles, achievements, quality scores, and cinematic movie credits. |
 | 2026-03-05 | [pr-inline-commenting-playbook](pr-inline-commenting-playbook_2026-03-05.md) | Added a practical inline-commenting playbook to PR shepherd guidance, including tone, severity, and signature conventions. |
 | 2026-03-04 | [quest-completion-animations](quest-completion-animations_2026-03-04.md) | Quest Completion Animation System with 4 animation styles, 38 passing tests, and integration into quest workflow. |

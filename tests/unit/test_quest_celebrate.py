@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import textwrap
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -34,6 +35,13 @@ from quest_celebrate.ascii_art import (
     trophy_art,
 )
 from quest_celebrate.config import CelebrationConfig, load_config
+from quest_celebrate.quest_data import (
+    QUALITY_TIERS,
+    extract_celebration_data_from_journal,
+    compute_quality_tier,
+    friendly_model_name,
+    load_quest_data_from_journal,
+)
 from quest_celebrate.progress import (
     render_progress_bar,
     render_phase_progress,
@@ -1060,3 +1068,277 @@ class TestImpactMetrics:
         assert "IMPACT METRICS" in result
         assert "2" in result  # agents
         assert "3" in result  # files changed
+
+
+class TestQualityTier:
+    """Tests for the compute_quality_tier function."""
+
+    def test_diamond_zero_issues_zero_fix(self):
+        tier = compute_quality_tier(
+            plan_iterations=1, fix_iterations=0,
+            review_findings_count=0, status="complete",
+        )
+        assert tier == "Diamond"
+
+    def test_platinum_minor_issues_one_fix(self):
+        tier = compute_quality_tier(
+            plan_iterations=1, fix_iterations=1,
+            review_findings_count=2, status="complete",
+        )
+        assert tier == "Platinum"
+
+    def test_gold_two_plan_one_fix(self):
+        tier = compute_quality_tier(
+            plan_iterations=2, fix_iterations=1,
+            review_findings_count=3, status="complete",
+        )
+        assert tier == "Gold"
+
+    def test_silver_two_fix_iterations(self):
+        tier = compute_quality_tier(
+            plan_iterations=2, fix_iterations=2,
+            review_findings_count=5, status="complete",
+        )
+        assert tier == "Silver"
+
+    def test_bronze_three_fix_iterations(self):
+        """3 fix iterations (below max gate of 3) → Bronze."""
+        tier = compute_quality_tier(
+            plan_iterations=1, fix_iterations=3,
+            review_findings_count=5, status="complete",
+            max_plan_iterations=5, max_fix_iterations=4,
+        )
+        assert tier == "Bronze"
+
+    def test_tin_approaching_max_gate(self):
+        """Hit one max gate but not both → Tin."""
+        tier = compute_quality_tier(
+            plan_iterations=4, fix_iterations=2,
+            review_findings_count=5, status="complete",
+            max_plan_iterations=4, max_fix_iterations=4,
+        )
+        assert tier == "Tin"
+
+    def test_cardboard_hit_both_max_gates(self):
+        """Hit both max gates → Cardboard."""
+        tier = compute_quality_tier(
+            plan_iterations=4, fix_iterations=3,
+            review_findings_count=5, status="complete",
+            max_plan_iterations=4, max_fix_iterations=3,
+        )
+        assert tier == "Cardboard"
+
+    def test_abandoned_status(self):
+        tier = compute_quality_tier(
+            plan_iterations=1, fix_iterations=0,
+            review_findings_count=0, status="abandoned",
+        )
+        assert tier == "Abandoned"
+
+    def test_all_tiers_in_quality_tiers_dict(self):
+        """Every tier the function can return has an entry in QUALITY_TIERS."""
+        for tier_name in ["Diamond", "Platinum", "Gold", "Silver", "Bronze",
+                          "Tin", "Cardboard", "Abandoned"]:
+            assert tier_name in QUALITY_TIERS
+            icon, grade, tooltip = QUALITY_TIERS[tier_name]
+            assert icon
+            assert grade
+            assert tooltip
+
+
+class TestJournalCelebrationData:
+    """Tests for celebration_data extraction from journal markdown."""
+
+    SAMPLE_JOURNAL = textwrap.dedent("""\
+        # Quest Journal: test-quest
+
+        - Quest ID: `test-quest_2026-03-05__0643`
+        - Completed: 2026-03-05
+
+        ## What Shipped
+
+        - Something great
+
+        ## Iterations
+
+        - Plan iterations: 1
+        - Fix iterations: 1
+
+        ## Celebration Data
+
+        <!-- celebration-data-start -->
+        ```json
+        {
+          "agents": [
+            {"name": "planner", "model": "claude-opus-4-6", "role": "The Architect"},
+            {"name": "builder", "model": "gpt-5.3-codex", "role": "The Implementer"}
+          ],
+          "achievements": [
+            {"icon": "⭐️", "title": "One-Plan Wonder", "desc": "Plan approved in 1 iteration"}
+          ],
+          "metrics": [
+            {"icon": "📊", "label": "5 modules created"}
+          ],
+          "quality": {"tier": "Platinum", "icon": "🏆", "grade": "A"},
+          "quote": {
+            "text": "Clean implementation.",
+            "attribution": "Code Reviewer A"
+          },
+          "victory_narrative": "A great quest.",
+          "test_count": 42,
+          "tests_added": 15,
+          "files_changed": 7
+        }
+        ```
+        <!-- celebration-data-end -->
+    """)
+
+    def test_extract_celebration_data_finds_json(self):
+        data = extract_celebration_data_from_journal(self.SAMPLE_JOURNAL)
+        assert data is not None
+        assert data["quality"]["tier"] == "Platinum"
+        assert data["test_count"] == 42
+        assert data["tests_added"] == 15
+        assert len(data["agents"]) == 2
+
+    def test_extract_celebration_data_returns_none_for_legacy(self):
+        legacy = "# Quest Journal: old\n\n- Quest ID: `old_2026-01-01`\n"
+        data = extract_celebration_data_from_journal(legacy)
+        assert data is None
+
+    def test_extract_celebration_data_handles_malformed_json(self):
+        bad = "<!-- celebration-data-start -->\n```json\n{bad json}\n```\n<!-- celebration-data-end -->"
+        data = extract_celebration_data_from_journal(bad)
+        assert data is None
+
+    def test_extract_celebration_data_returns_none_for_non_object_root(self):
+        non_object = "<!-- celebration-data-start -->\n```json\n[]\n```\n<!-- celebration-data-end -->"
+        data = extract_celebration_data_from_journal(non_object)
+        assert data is None
+
+    def test_load_quest_data_from_journal_with_celebration_data(self, tmp_path):
+        journal_path = tmp_path / "test-quest_2026-03-05.md"
+        journal_path.write_text(self.SAMPLE_JOURNAL)
+
+        data = load_quest_data_from_journal(journal_path)
+        assert data.quest_id == "test-quest_2026-03-05__0643"
+        assert data.name == "test-quest"
+        assert data.quality_tier == "Platinum"
+        assert data.test_count == 42
+        assert data.tests_added == 15
+        assert len(data.agents) == 2
+        assert data.agents[0].name == "planner"
+        assert data.agents[0].model == "claude-opus-4-6"
+        assert len(data.achievements) == 1
+        assert data.plan_iterations == 1
+        assert data.fix_iterations == 1
+
+    def test_load_quest_data_from_journal_legacy_no_celebration_data(self, tmp_path):
+        legacy = textwrap.dedent("""\
+            # Quest Journal: old-quest
+
+            - Quest ID: `old-quest_2026-01-01__0000`
+            - Completed: 2026-01-01
+
+            ## Iterations
+
+            - Plan iterations: 2
+            - Fix iterations: 2
+        """)
+        journal_path = tmp_path / "old-quest_2026-01-01.md"
+        journal_path.write_text(legacy)
+
+        data = load_quest_data_from_journal(journal_path)
+        assert data.quest_id == "old-quest_2026-01-01__0000"
+        assert data.plan_iterations == 2
+        assert data.fix_iterations == 2
+        # Quality tier should be computed from iterations
+        assert data.quality_tier == "Silver"
+        # No agents or achievements from legacy
+        assert len(data.agents) == 0
+
+    def test_load_quest_data_from_journal_supports_existing_journal_formats(self, tmp_path):
+        legacy = textwrap.dedent("""\
+            # Quest: Dashboard Final Implementation
+
+            **Quest ID:** dashboard-final-implementation_2026-02-12__0913
+            **Status:** Abandoned (superseded by dashboard-v2)
+
+            ## Iterations
+
+            - Plan iterations: 1
+            - Fix iterations: 0
+        """)
+        journal_path = tmp_path / "dashboard-final-implementation_2026-02-12.md"
+        journal_path.write_text(legacy)
+
+        data = load_quest_data_from_journal(journal_path)
+
+        assert data.quest_id == "dashboard-final-implementation_2026-02-12__0913"
+        assert data.name == "Dashboard Final Implementation"
+        assert data.status == "abandoned"
+
+    def test_load_quest_data_from_journal_skips_invalid_json_entries(self, tmp_path):
+        journal = textwrap.dedent("""\
+            # Quest Journal: malformed-json
+
+            - Quest ID: `malformed-json_2026-03-06__1200`
+
+            <!-- celebration-data-start -->
+            ```json
+            {
+              "quality": {"tier": "Gold"},
+              "agents": ["planner", {"name": "builder", "model": "gpt-5.3-codex", "role": "The Implementer"}],
+              "achievements": ["bad", {"title": "Shipped", "desc": "Still made it"}],
+              "quote": "not-an-object"
+            }
+            ```
+            <!-- celebration-data-end -->
+        """)
+        journal_path = tmp_path / "malformed-json_2026-03-06.md"
+        journal_path.write_text(journal)
+
+        data = load_quest_data_from_journal(journal_path)
+
+        assert [agent.name for agent in data.agents] == ["builder"]
+        assert [achievement.title for achievement in data.achievements] == ["Shipped"]
+        assert data.brief_summary == ""
+
+    def test_load_quest_data_from_journal_ignores_invalid_quality_tier_type(self, tmp_path):
+        journal = textwrap.dedent("""\
+            # Quest Journal: malformed-quality
+
+            - Quest ID: `malformed-quality_2026-03-06__1200`
+
+            <!-- celebration-data-start -->
+            ```json
+            {
+              "quality": {"tier": ["Gold"]}
+            }
+            ```
+            <!-- celebration-data-end -->
+        """)
+        journal_path = tmp_path / "malformed-quality_2026-03-06.md"
+        journal_path.write_text(journal)
+
+        data = load_quest_data_from_journal(journal_path)
+
+        assert data.quality_tier == ""
+
+    def test_load_quest_data_from_journal_leaves_tier_unset_without_iterations(self, tmp_path):
+        journal = textwrap.dedent("""\
+            # Quest Journal: legacy-no-iterations
+
+            - Quest ID: `legacy-no-iterations_2026-03-06__1200`
+        """)
+        journal_path = tmp_path / "legacy-no-iterations_2026-03-06.md"
+        journal_path.write_text(journal)
+
+        data = load_quest_data_from_journal(journal_path)
+
+        assert data.quality_tier == ""
+
+    def test_load_quest_data_from_journal_nonexistent_file(self, tmp_path):
+        data = load_quest_data_from_journal(tmp_path / "nope.md")
+        assert data.quest_id == ""
+        assert data.quality_tier == ""

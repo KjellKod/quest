@@ -1127,3 +1127,122 @@ def test_doughnut_chart_counts_unknown_separately(tmp_path):
     # Doughnut data array: [in_progress, blocked, abandoned, finished, unknown]
     # Expected: [1, 1, 0, 0, 1] -- not [2, 1, 0, 0, 0]
     assert "data: [1, 1, 0, 0, 1]" in result
+
+
+def test_card_renders_quality_tier_badge(tmp_path):
+    """Test that quest cards with quality_tier render a styled badge with tooltip."""
+    entry = JournalEntry(
+        quest_id="tier-quest-001",
+        slug="tier-quest",
+        title="Tier Quest",
+        elevator_pitch="A quest with a quality tier.",
+        status="Completed",
+        completed_date=date(2026, 3, 5),
+        journal_path=Path("docs/quest-journal/tier-quest.md"),
+        quality_tier="Gold",
+    )
+
+    data = DashboardData(
+        finished_quests=[entry],
+        active_quests=[],
+        abandoned_quests=[],
+        github_repo_url="https://github.com/test/repo",
+    )
+
+    output_path = tmp_path / "dashboard.html"
+    result = render_dashboard(data, output_path, tmp_path)
+
+    # Should contain the Gold tier icon and label
+    assert "🥇" in result
+    assert "GOLD" in result
+    # Should have a tooltip
+    assert "Solid — issues caught, fixed cleanly" in result
+
+
+def test_card_renders_agent_models_cast_line(tmp_path):
+    """Test that quest cards with agent_models render a Cast line."""
+    entry = JournalEntry(
+        quest_id="cast-quest-001",
+        slug="cast-quest",
+        title="Cast Quest",
+        elevator_pitch="A quest with agent models.",
+        status="Completed",
+        completed_date=date(2026, 3, 5),
+        journal_path=Path("docs/quest-journal/cast-quest.md"),
+        agent_models=("Claude Opus", "Codex"),
+    )
+
+    data = DashboardData(
+        finished_quests=[entry],
+        active_quests=[],
+        abandoned_quests=[],
+        github_repo_url="https://github.com/test/repo",
+    )
+
+    output_path = tmp_path / "dashboard.html"
+    result = render_dashboard(data, output_path, tmp_path)
+
+    assert "<b>Cast:</b>" in result
+    assert "Claude Opus" in result
+    assert "Codex" in result
+
+
+def test_card_renders_test_count_with_tests_added(tmp_path):
+    """Test that quest cards with test_count render Tests line with new count."""
+    entry = JournalEntry(
+        quest_id="tests-quest-001",
+        slug="tests-quest",
+        title="Tests Quest",
+        elevator_pitch="A quest with tests.",
+        status="Completed",
+        completed_date=date(2026, 3, 5),
+        journal_path=Path("docs/quest-journal/tests-quest.md"),
+        test_count=42,
+        tests_added=10,
+    )
+
+    data = DashboardData(
+        finished_quests=[entry],
+        active_quests=[],
+        abandoned_quests=[],
+        github_repo_url="https://github.com/test/repo",
+    )
+
+    output_path = tmp_path / "dashboard.html"
+    result = render_dashboard(data, output_path, tmp_path)
+
+    assert "<b>Tests:</b>" in result
+    assert "42" in result
+    assert "(10 new)" in result
+
+
+def test_card_no_tier_badge_when_tier_is_none(tmp_path):
+    """Test that legacy cards without quality_tier don't render a tier badge."""
+    entry = JournalEntry(
+        quest_id="legacy-quest-001",
+        slug="legacy-quest",
+        title="Legacy Quest",
+        elevator_pitch="An old quest.",
+        status="Completed",
+        completed_date=date(2026, 1, 15),
+        journal_path=Path("docs/quest-journal/legacy-quest.md"),
+    )
+
+    data = DashboardData(
+        finished_quests=[entry],
+        active_quests=[],
+        abandoned_quests=[],
+        github_repo_url="https://github.com/test/repo",
+    )
+
+    output_path = tmp_path / "dashboard.html"
+    result = render_dashboard(data, output_path, tmp_path)
+
+    assert 'title="Flawless — zero issues, shipped clean"' not in result
+    assert 'title="Near-perfect — minor issues, one-pass fix"' not in result
+    assert 'title="Solid — issues caught, fixed cleanly"' not in result
+    assert 'title="Workable — multiple iterations but landed"' not in result
+    assert 'title="Rough ride — got through, bruised"' not in result
+    assert 'title="Dented — 3+ iterations, plan revisions"' not in result
+    assert 'title="Held together with tape. Still shipped."' not in result
+    assert 'title="Never shipped — lessons learned"' not in result

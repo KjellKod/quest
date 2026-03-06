@@ -67,6 +67,9 @@ class QuestData:
     pr_number: Optional[int] = None
     achievements: List[Achievement] = field(default_factory=list)
     quality_score: int = 0
+    quality_tier: str = ""  # Diamond/Platinum/Gold/Silver/Bronze/Tin/Cardboard/Abandoned
+    test_count: Optional[int] = None
+    tests_added: Optional[int] = None
 
 
 # Mapping from agent name patterns to cinematic role titles
@@ -398,22 +401,6 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
     """Generate achievements based on quest stats."""
     achievements: List[Achievement] = []
 
-    def friendly_model(model: str) -> str:
-        """Normalize raw model ids to readable labels."""
-        if not model:
-            return ""
-
-        lower = model.lower()
-        if "kimi" in lower:
-            return "KiMi K2.5"
-        if "opus" in lower or "claude" in lower:
-            return "Claude Opus"
-        if "codex" in lower or "gpt-" in lower:
-            return "Codex"
-
-        # Fallback to model id suffix (after provider prefix)
-        return model.split("/")[-1]
-
     def models_for_role(*role_keywords: str) -> str:
         """Get unique friendly model labels for agents matching role keywords."""
         labels: List[str] = []
@@ -422,7 +409,7 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
             name = agent.name.lower()
             if not any(keyword in name for keyword in role_keywords):
                 continue
-            label = friendly_model(agent.model)
+            label = friendly_model_name(agent.model)
             if label and label not in seen:
                 seen.add(label)
                 labels.append(label)
@@ -432,7 +419,7 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
         labels: List[str] = []
         seen = set()
         for agent in data.agents:
-            label = friendly_model(agent.model)
+            label = friendly_model_name(agent.model)
             if label and label not in seen:
                 seen.add(label)
                 labels.append(label)
@@ -541,6 +528,272 @@ def _compute_quality_score(data: QuestData) -> int:
     return max(0, min(100, score))
 
 
+# Quality tier definitions: name, icon, grade, tooltip
+QUALITY_TIERS = {
+    "Diamond": ("💎", "A+", "Flawless — zero issues, shipped clean"),
+    "Platinum": ("🏆", "A", "Near-perfect — minor issues, one-pass fix"),
+    "Gold": ("🥇", "B", "Solid — issues caught, fixed cleanly"),
+    "Silver": ("🥈", "C", "Workable — multiple iterations but landed"),
+    "Bronze": ("🥉", "D", "Rough ride — got through, bruised"),
+    "Tin": ("🥫", "D-", "Dented — 3+ iterations, plan revisions"),
+    "Cardboard": ("📦", "F", "Held together with tape. Still shipped."),
+    "Abandoned": ("💀", "Inc", "Never shipped — lessons learned"),
+}
+
+# Max iteration gates (defaults from .ai/allowlist.json)
+_DEFAULT_MAX_PLAN_ITERATIONS = 4
+_DEFAULT_MAX_FIX_ITERATIONS = 3
+
+
+def _validated_quality_tier(value: object) -> str:
+    """Return a known tier string or empty string for invalid input."""
+    return value if isinstance(value, str) and value in QUALITY_TIERS else ""
+
+
+def compute_quality_tier(
+    plan_iterations: int,
+    fix_iterations: int,
+    review_findings_count: int,
+    status: str,
+    max_plan_iterations: int = _DEFAULT_MAX_PLAN_ITERATIONS,
+    max_fix_iterations: int = _DEFAULT_MAX_FIX_ITERATIONS,
+) -> str:
+    """Compute a named quality tier from quest iteration data.
+
+    The tier is candid: smooth quests get top tiers, rough quests get
+    honest lower tiers. Every tier that isn't Abandoned still shipped.
+
+    Returns one of: Diamond, Platinum, Gold, Silver, Bronze, Tin,
+    Cardboard, Abandoned.
+    """
+    if status == "abandoned":
+        return "Abandoned"
+
+    # Check from worst to best so max-gate check uses strict equality
+
+    # Cardboard: hit or exceeded max iteration gates
+    at_plan_max = plan_iterations >= max_plan_iterations
+    at_fix_max = fix_iterations >= max_fix_iterations
+    if at_plan_max and at_fix_max:
+        return "Cardboard"
+
+    # Tin: high iterations (approaching gates but not both maxed)
+    if plan_iterations >= max_plan_iterations or fix_iterations >= max_fix_iterations:
+        return "Tin"
+
+    # Bronze: 3+ on either axis (below gate thresholds)
+    if plan_iterations >= 3 or fix_iterations >= 3:
+        return "Bronze"
+
+    # Silver: fix_iterations == 2
+    if fix_iterations == 2:
+        return "Silver"
+
+    # Gold: plan > 1 but fix == 1 (needed replanning but fixed cleanly)
+    if fix_iterations == 1 and plan_iterations > 1:
+        return "Gold"
+
+    # Diamond: plan <= 1, fix == 0, zero review issues — flawless
+    if plan_iterations <= 1 and fix_iterations == 0 and review_findings_count == 0:
+        return "Diamond"
+
+    # Platinum: plan <= 1, fix <= 1 — near-perfect (issues found or one fix pass)
+    if plan_iterations <= 1 and fix_iterations <= 1:
+        return "Platinum"
+
+    return "Gold"
+
+
+def friendly_model_name(model: str) -> str:
+    """Normalize raw model IDs to readable display names.
+
+    Shared utility used by celebrate, dashboard, and ascii_art modules.
+
+    Examples:
+        "claude-opus-4-6" -> "Claude Opus"
+        "gpt-5.3-codex" -> "Codex"
+        "kimi-k2.5" -> "KiMi K2.5"
+    """
+    if not model:
+        return ""
+    lower = model.lower()
+    if "kimi" in lower:
+        return "KiMi K2.5"
+    if "opus" in lower or "claude" in lower:
+        return "Claude Opus"
+    if "codex" in lower or "gpt-" in lower:
+        return "Codex"
+    return model.split("/")[-1]
+
+
+def extract_celebration_data_from_journal(content: str) -> Optional[dict]:
+    """Extract celebration_data JSON block from a journal markdown file.
+
+    Looks for content between <!-- celebration-data-start --> and
+    <!-- celebration-data-end --> markers, then parses the JSON code
+    block within.
+
+    Returns parsed dict or None if not found/malformed.
+    """
+    match = re.search(
+        r"<!--\s*celebration-data-start\s*-->\s*```json\s*\n(.*?)\n\s*```\s*\n\s*<!--\s*celebration-data-end\s*-->",
+        content,
+        re.DOTALL,
+    )
+    if not match:
+        return None
+
+    try:
+        parsed = json.loads(match.group(1))
+        return parsed if isinstance(parsed, dict) else None
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _extract_metadata(content: str, key: str) -> str:
+    """Extract journal metadata from bold, list-item, or plain formats."""
+    patterns = [
+        rf"\*\*{re.escape(key)}:\s*\*\*\s*(.+?)(?:\n|$)",
+        rf"\*\*{re.escape(key)}\*\*\s*:\s*(.+?)(?:\n|$)",
+        rf"^\s*[-*]\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
+        rf"^\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
+        if match:
+            return match.group(1).strip().strip("`")
+    return ""
+
+
+def _extract_journal_title(content: str) -> str:
+    """Extract a journal title from supported heading formats."""
+    for pattern in (
+        r"^#\s+Quest Journal:\s*(.+?)$",
+        r"^#\s+Quest:\s*(.+?)$",
+        r"^#\s+(.+?)$",
+    ):
+        match = re.search(pattern, content, re.MULTILINE)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def _extract_dict_items(value: object) -> list[dict]:
+    """Return only dict entries from a list-like JSON field."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def load_quest_data_from_journal(journal_path: Path) -> QuestData:
+    """Load quest data from a journal markdown file.
+
+    Extracts the embedded celebration_data JSON block if present.
+    Falls back to parsing the markdown text for basic metadata.
+    """
+    data = QuestData()
+
+    if not journal_path.exists():
+        return data
+
+    try:
+        content = journal_path.read_text(encoding="utf-8")
+    except IOError:
+        return data
+
+    # Try to extract structured celebration data
+    celebration = extract_celebration_data_from_journal(content)
+    if celebration:
+        # Populate from structured JSON
+        quality = celebration.get("quality", {})
+        if isinstance(quality, dict):
+            data.quality_tier = _validated_quality_tier(quality.get("tier"))
+        data.test_count = celebration.get("test_count")
+        data.tests_added = celebration.get("tests_added")
+
+        for agent_dict in _extract_dict_items(celebration.get("agents")):
+            data.agents.append(
+                AgentInfo(
+                    name=agent_dict.get("name", ""),
+                    model=agent_dict.get("model", ""),
+                    role_title=agent_dict.get("role", ""),
+                    summary="",
+                    phase="",
+                )
+            )
+
+        for ach_dict in _extract_dict_items(celebration.get("achievements")):
+            data.achievements.append(
+                Achievement(
+                    icon=ach_dict.get("icon", "⭐️"),
+                    title=ach_dict.get("title", ""),
+                    description=ach_dict.get("desc", ""),
+                )
+            )
+
+        quote = celebration.get("quote", {})
+        if isinstance(quote, dict) and quote:
+            data.brief_summary = f'{quote.get("text", "")} — {quote.get("attribution", "")}'
+
+        victory_narrative = celebration.get("victory_narrative")
+        if isinstance(victory_narrative, str):
+            data.plan_summary = victory_narrative
+
+    # Extract basic metadata from markdown (always, for fields not in JSON)
+    data.quest_id = _extract_metadata(content, "quest id")
+    if data.quest_id:
+        parts = data.quest_id.split("_")
+        if parts:
+            data.slug = parts[0]
+
+    # Title from heading
+    title = _extract_journal_title(content)
+    if title:
+        data.name = title
+
+    # Iterations
+    plan_match = re.search(
+        r"(?:\*\*)?[Pp]lan\s+iterations:\s*(?:\*\*)?\s*(\d+)", content
+    )
+    parsed_plan_iterations = False
+    if plan_match:
+        data.plan_iterations = int(plan_match.group(1))
+        parsed_plan_iterations = True
+
+    fix_match = re.search(
+        r"(?:\*\*)?[Ff]ix\s+iterations:\s*(?:\*\*)?\s*(\d+)", content
+    )
+    parsed_fix_iterations = False
+    if fix_match:
+        data.fix_iterations = int(fix_match.group(1))
+        parsed_fix_iterations = True
+
+    # Status
+    raw_status = _extract_metadata(content, "status")
+    if raw_status:
+        raw = raw_status.lower()
+        if raw.startswith("abandon"):
+            data.status = "abandoned"
+        else:
+            data.status = "complete"
+    else:
+        data.status = "complete"
+
+    # Compute quality tier if not already set from celebration data
+    if not data.quality_tier and parsed_plan_iterations and parsed_fix_iterations:
+        data.quality_tier = compute_quality_tier(
+            data.plan_iterations,
+            data.fix_iterations,
+            len(data.review_findings),
+            data.status,
+        )
+
+    # Compute quality score for backward compatibility
+    data.quality_score = _compute_quality_score(data)
+
+    return data
+
+
 def load_quest_data(quest_dir: Path) -> QuestData:
     """Load rich quest data from a quest directory.
 
@@ -590,5 +843,11 @@ def load_quest_data(quest_dir: Path) -> QuestData:
     # 7. Computed fields
     data.achievements = _compute_achievements(data)
     data.quality_score = _compute_quality_score(data)
+    data.quality_tier = compute_quality_tier(
+        data.plan_iterations,
+        data.fix_iterations,
+        len(data.review_findings),
+        data.status,
+    )
 
     return data

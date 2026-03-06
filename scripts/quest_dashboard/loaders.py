@@ -13,6 +13,12 @@ import subprocess
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+from quest_celebrate.quest_data import (
+    QUALITY_TIERS,
+    extract_celebration_data_from_journal as _extract_celebration_data,
+    friendly_model_name as _friendly_model_name,
+)
+
 from .models import ActiveQuest, DashboardData, JournalEntry
 
 UTC = timezone.utc
@@ -160,6 +166,38 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
     plan_iterations = _extract_iterations(content, "plan")
     fix_iterations = _extract_iterations(content, "fix")
 
+    # Extract celebration_data JSON block if present
+    celebration_data = _extract_celebration_data(content)
+    quality_tier = None
+    agent_models: tuple[str, ...] = ()
+    test_count = None
+    tests_added = None
+
+    if celebration_data:
+        quality_info = celebration_data.get("quality", {})
+        if isinstance(quality_info, dict):
+            tier = quality_info.get("tier")
+            quality_tier = tier if isinstance(tier, str) and tier in QUALITY_TIERS else None
+
+        # Extract unique model names from agents list
+        models: list[str] = []
+        seen_models: set[str] = set()
+        agents = celebration_data.get("agents", [])
+        if not isinstance(agents, list):
+            agents = []
+        for agent in agents:
+            if not isinstance(agent, dict):
+                continue
+            model = agent.get("model", "")
+            label = _friendly_model_name(model)
+            if label and label not in seen_models:
+                seen_models.add(label)
+                models.append(label)
+        agent_models = tuple(models)
+
+        test_count = celebration_data.get("test_count")
+        tests_added = celebration_data.get("tests_added")
+
     # Compute relative journal path
     journal_rel_path = journal_path.relative_to(repo_root)
 
@@ -174,15 +212,22 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
         pr_number=pr_number,
         plan_iterations=plan_iterations,
         fix_iterations=fix_iterations,
+        quality_tier=quality_tier,
+        agent_models=agent_models,
+        test_count=test_count,
+        tests_added=tests_added,
+        celebration_data=celebration_data,
     )
 
 
 def _extract_metadata(content: str, key: str) -> str | None:
-    """Extract metadata value from bold or plain markdown patterns.
+    """Extract metadata value from bold, list-item, or plain markdown patterns.
 
     Matches both:
     - **Key:** value  (colon is INSIDE the bold markers)
     - **Key**: value  (colon is OUTSIDE - less common)
+    - - Key: value     (list-item format)
+    - Key: value       (plain format)
 
     Args:
         content: Markdown content
@@ -191,16 +236,17 @@ def _extract_metadata(content: str, key: str) -> str | None:
     Returns:
         Extracted value or None
     """
-    # Primary pattern: **Key:** value (colon inside the **)
-    pattern = rf"\*\*{re.escape(key)}:\s*\*\*\s*(.+?)(?:\n|$)"
-    match = re.search(pattern, content, re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-
-    # Fallback pattern: **Key**: value (colon outside the **)
-    pattern = rf"\*\*{re.escape(key)}\*\*\s*:\s*(.+?)(?:\n|$)"
-    match = re.search(pattern, content, re.IGNORECASE)
-    return match.group(1).strip() if match else None
+    patterns = [
+        rf"\*\*{re.escape(key)}:\s*\*\*\s*(.+?)(?:\n|$)",
+        rf"\*\*{re.escape(key)}\*\*\s*:\s*(.+?)(?:\n|$)",
+        rf"^\s*[-*]\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
+        rf"^\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
+        if match:
+            return match.group(1).strip().strip("`")
+    return None
 
 
 def _extract_title(content: str) -> str | None:
@@ -208,10 +254,16 @@ def _extract_title(content: str) -> str | None:
 
     Tries in order:
     1. # Quest Journal: <title>
+    2. # Quest: <title>
     2. First # heading
     """
     # Try "# Quest Journal: <title>"
     match = re.search(r"^#\s+Quest Journal:\s*(.+?)$", content, re.MULTILINE)
+    if match:
+        return match.group(1).strip()
+
+    # Try "# Quest: <title>"
+    match = re.search(r"^#\s+Quest:\s*(.+?)$", content, re.MULTILINE)
     if match:
         return match.group(1).strip()
 
