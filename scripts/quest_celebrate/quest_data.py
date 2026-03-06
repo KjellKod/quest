@@ -545,6 +545,11 @@ _DEFAULT_MAX_PLAN_ITERATIONS = 4
 _DEFAULT_MAX_FIX_ITERATIONS = 3
 
 
+def _validated_quality_tier(value: object) -> str:
+    """Return a known tier string or empty string for invalid input."""
+    return value if isinstance(value, str) and value in QUALITY_TIERS else ""
+
+
 def compute_quality_tier(
     plan_iterations: int,
     fix_iterations: int,
@@ -701,7 +706,7 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
         # Populate from structured JSON
         quality = celebration.get("quality", {})
         if isinstance(quality, dict):
-            data.quality_tier = quality.get("tier", "")
+            data.quality_tier = _validated_quality_tier(quality.get("tier"))
         data.test_count = celebration.get("test_count")
         data.tests_added = celebration.get("tests_added")
 

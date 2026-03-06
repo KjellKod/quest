@@ -14,6 +14,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from quest_celebrate.quest_data import (
+    QUALITY_TIERS,
     extract_celebration_data_from_journal as _extract_celebration_data,
     friendly_model_name as _friendly_model_name,
 )
@@ -174,7 +175,9 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
 
     if celebration_data:
         quality_info = celebration_data.get("quality", {})
-        quality_tier = quality_info.get("tier") if isinstance(quality_info, dict) else None
+        if isinstance(quality_info, dict):
+            tier = quality_info.get("tier")
+            quality_tier = tier if isinstance(tier, str) and tier in QUALITY_TIERS else None
 
         # Extract unique model names from agents list
         models: list[str] = []

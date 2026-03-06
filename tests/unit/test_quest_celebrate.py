@@ -1299,6 +1299,27 @@ class TestJournalCelebrationData:
         assert [achievement.title for achievement in data.achievements] == ["Shipped"]
         assert data.brief_summary == ""
 
+    def test_load_quest_data_from_journal_ignores_invalid_quality_tier_type(self, tmp_path):
+        journal = textwrap.dedent("""\
+            # Quest Journal: malformed-quality
+
+            - Quest ID: `malformed-quality_2026-03-06__1200`
+
+            <!-- celebration-data-start -->
+            ```json
+            {
+              "quality": {"tier": ["Gold"]}
+            }
+            ```
+            <!-- celebration-data-end -->
+        """)
+        journal_path = tmp_path / "malformed-quality_2026-03-06.md"
+        journal_path.write_text(journal)
+
+        data = load_quest_data_from_journal(journal_path)
+
+        assert data.quality_tier == "Diamond"
+
     def test_load_quest_data_from_journal_nonexistent_file(self, tmp_path):
         data = load_quest_data_from_journal(tmp_path / "nope.md")
         assert data.quest_id == ""
