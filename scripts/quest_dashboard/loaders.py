@@ -179,7 +179,12 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
         # Extract unique model names from agents list
         models: list[str] = []
         seen_models: set[str] = set()
-        for agent in celebration_data.get("agents", []):
+        agents = celebration_data.get("agents", [])
+        if not isinstance(agents, list):
+            agents = []
+        for agent in agents:
+            if not isinstance(agent, dict):
+                continue
             model = agent.get("model", "")
             if model and model not in seen_models:
                 seen_models.add(model)
@@ -242,10 +247,16 @@ def _extract_title(content: str) -> str | None:
 
     Tries in order:
     1. # Quest Journal: <title>
+    2. # Quest: <title>
     2. First # heading
     """
     # Try "# Quest Journal: <title>"
     match = re.search(r"^#\s+Quest Journal:\s*(.+?)$", content, re.MULTILINE)
+    if match:
+        return match.group(1).strip()
+
+    # Try "# Quest: <title>"
+    match = re.search(r"^#\s+Quest:\s*(.+?)$", content, re.MULTILINE)
     if match:
         return match.group(1).strip()
 

@@ -644,6 +644,41 @@ def extract_celebration_data_from_journal(content: str) -> Optional[dict]:
         return None
 
 
+def _extract_metadata(content: str, key: str) -> str:
+    """Extract journal metadata from bold, list-item, or plain formats."""
+    patterns = [
+        rf"\*\*{re.escape(key)}:\s*\*\*\s*(.+?)(?:\n|$)",
+        rf"\*\*{re.escape(key)}\*\*\s*:\s*(.+?)(?:\n|$)",
+        rf"^\s*[-*]\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
+        rf"^\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
+        if match:
+            return match.group(1).strip().strip("`")
+    return ""
+
+
+def _extract_journal_title(content: str) -> str:
+    """Extract a journal title from supported heading formats."""
+    for pattern in (
+        r"^#\s+Quest Journal:\s*(.+?)$",
+        r"^#\s+Quest:\s*(.+?)$",
+        r"^#\s+(.+?)$",
+    ):
+        match = re.search(pattern, content, re.MULTILINE)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def _extract_dict_items(value: object) -> list[dict]:
+    """Return only dict entries from a list-like JSON field."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
 def load_quest_data_from_journal(journal_path: Path) -> QuestData:
     """Load quest data from a journal markdown file.
 
@@ -664,11 +699,13 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
     celebration = extract_celebration_data_from_journal(content)
     if celebration:
         # Populate from structured JSON
-        data.quality_tier = celebration.get("quality", {}).get("tier", "")
+        quality = celebration.get("quality", {})
+        if isinstance(quality, dict):
+            data.quality_tier = quality.get("tier", "")
         data.test_count = celebration.get("test_count")
         data.tests_added = celebration.get("tests_added")
 
-        for agent_dict in celebration.get("agents", []):
+        for agent_dict in _extract_dict_items(celebration.get("agents")):
             data.agents.append(
                 AgentInfo(
                     name=agent_dict.get("name", ""),
@@ -679,7 +716,7 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
                 )
             )
 
-        for ach_dict in celebration.get("achievements", []):
+        for ach_dict in _extract_dict_items(celebration.get("achievements")):
             data.achievements.append(
                 Achievement(
                     icon=ach_dict.get("icon", "⭐️"),
@@ -689,24 +726,24 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
             )
 
         quote = celebration.get("quote", {})
-        if quote:
+        if isinstance(quote, dict) and quote:
             data.brief_summary = f'{quote.get("text", "")} — {quote.get("attribution", "")}'
 
-        data.plan_summary = celebration.get("victory_narrative", "")
+        victory_narrative = celebration.get("victory_narrative")
+        if isinstance(victory_narrative, str):
+            data.plan_summary = victory_narrative
 
     # Extract basic metadata from markdown (always, for fields not in JSON)
-    # Quest ID
-    id_match = re.search(r"Quest ID:\s*`([^`]+)`", content)
-    if id_match:
-        data.quest_id = id_match.group(1)
+    data.quest_id = _extract_metadata(content, "quest id")
+    if data.quest_id:
         parts = data.quest_id.split("_")
         if parts:
             data.slug = parts[0]
 
     # Title from heading
-    title_match = re.search(r"^#\s+Quest Journal:\s*(.+)$", content, re.MULTILINE)
-    if title_match:
-        data.name = title_match.group(1).strip()
+    title = _extract_journal_title(content)
+    if title:
+        data.name = title
 
     # Iterations
     plan_match = re.search(
@@ -722,9 +759,9 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
         data.fix_iterations = int(fix_match.group(1))
 
     # Status
-    status_match = re.search(r"\*\*[Ss]tatus:\s*\*\*\s*(.+?)(?:\n|$)", content)
-    if status_match:
-        raw = status_match.group(1).strip().lower()
+    raw_status = _extract_metadata(content, "status")
+    if raw_status:
+        raw = raw_status.lower()
         if raw.startswith("abandon"):
             data.status = "abandoned"
         else:

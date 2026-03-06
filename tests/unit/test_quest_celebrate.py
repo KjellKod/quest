@@ -1252,6 +1252,53 @@ class TestJournalCelebrationData:
         # No agents or achievements from legacy
         assert len(data.agents) == 0
 
+    def test_load_quest_data_from_journal_supports_existing_journal_formats(self, tmp_path):
+        legacy = textwrap.dedent("""\
+            # Quest: Dashboard Final Implementation
+
+            **Quest ID:** dashboard-final-implementation_2026-02-12__0913
+            **Status:** Abandoned (superseded by dashboard-v2)
+
+            ## Iterations
+
+            - Plan iterations: 1
+            - Fix iterations: 0
+        """)
+        journal_path = tmp_path / "dashboard-final-implementation_2026-02-12.md"
+        journal_path.write_text(legacy)
+
+        data = load_quest_data_from_journal(journal_path)
+
+        assert data.quest_id == "dashboard-final-implementation_2026-02-12__0913"
+        assert data.name == "Dashboard Final Implementation"
+        assert data.status == "abandoned"
+
+    def test_load_quest_data_from_journal_skips_invalid_json_entries(self, tmp_path):
+        journal = textwrap.dedent("""\
+            # Quest Journal: malformed-json
+
+            - Quest ID: `malformed-json_2026-03-06__1200`
+
+            <!-- celebration-data-start -->
+            ```json
+            {
+              "quality": {"tier": "Gold"},
+              "agents": ["planner", {"name": "builder", "model": "gpt-5.3-codex", "role": "The Implementer"}],
+              "achievements": ["bad", {"title": "Shipped", "desc": "Still made it"}],
+              "quote": "not-an-object"
+            }
+            ```
+            <!-- celebration-data-end -->
+        """)
+        journal_path = tmp_path / "malformed-json_2026-03-06.md"
+        journal_path.write_text(journal)
+
+        data = load_quest_data_from_journal(journal_path)
+
+        assert [agent.name for agent in data.agents] == ["builder"]
+        assert [achievement.title for achievement in data.achievements] == ["Shipped"]
+        assert data.brief_summary == ""
+
     def test_load_quest_data_from_journal_nonexistent_file(self, tmp_path):
         data = load_quest_data_from_journal(tmp_path / "nope.md")
         assert data.quest_id == ""

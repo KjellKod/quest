@@ -63,6 +63,31 @@ More content here.
     assert entry.fix_iterations == 1
 
 
+def test_journal_entry_supports_quest_heading_and_plain_metadata(tmp_path):
+    """Test parser compatibility with existing journal heading/metadata variants."""
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+
+    journal_content = """# Quest: Dashboard Final Implementation
+
+**Quest ID:** dashboard-final-implementation_2026-02-12__0913
+**Status:** Abandoned (superseded by dashboard-v2)
+
+## Summary
+
+Legacy-style journal entry.
+"""
+
+    journal_path = journal_dir / "dashboard-final-implementation.md"
+    journal_path.write_text(journal_content, encoding="utf-8")
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.title == "Dashboard Final Implementation"
+    assert entry.quest_id == "dashboard-final-implementation_2026-02-12__0913"
+    assert entry.status == "Abandoned"
+
+
 def test_journal_elevator_pitch_from_summary_section(tmp_path):
     """Test that elevator pitch is extracted from Summary section, not title."""
     journal_dir = tmp_path / "docs" / "quest-journal"
@@ -489,6 +514,37 @@ def test_extract_celebration_data_returns_none_for_missing():
 def test_extract_celebration_data_returns_none_for_bad_json():
     content = "<!-- celebration-data-start -->\n```json\n{bad}\n```\n<!-- celebration-data-end -->"
     assert _extract_celebration_data(content) is None
+
+
+def test_journal_entry_skips_invalid_agent_entries_in_celebration_json(tmp_path):
+    """Test malformed agent entries do not crash journal parsing."""
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+
+    content = textwrap.dedent("""\
+        # Quest Journal: Rich Quest
+
+        **Quest ID:** rich-quest-001
+
+        <!-- celebration-data-start -->
+        ```json
+        {
+          "quality": {"tier": "Gold"},
+          "agents": ["planner", {"name": "builder", "model": "gpt-5.3-codex", "role": "The Implementer"}],
+          "test_count": 42,
+          "tests_added": 5
+        }
+        ```
+        <!-- celebration-data-end -->
+    """)
+    (journal_dir / "rich-quest.md").write_text(content)
+
+    entry = _parse_journal_entry(journal_dir / "rich-quest.md", tmp_path)
+
+    assert entry.quality_tier == "Gold"
+    assert entry.agent_models == ("Codex",)
+    assert entry.test_count == 42
+    assert entry.tests_added == 5
 
 
 def test_friendly_model_name_mapping():
