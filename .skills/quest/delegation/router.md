@@ -55,25 +55,51 @@ Any rollout, migration, or compatibility concerns?
 - **Partial:** "Should be backward compatible"
 - **Missing:** No deployment considerations
 
+## Complexity Assessment
+
+After evaluating the 7 substance dimensions, assess the **complexity** of the task:
+
+| Level | Signal | Examples |
+|-------|--------|----------|
+| **trivial** | Single file, documentation, config change, idea doc, small bug fix, adding a test | "Fix typo in README", "Add env var to config", "Write idea doc for feature X" |
+| **moderate** | Multi-file change within one module, new function/endpoint, focused refactor | "Add validation to registration form", "Refactor logger to use structured output" |
+| **substantial** | Cross-cutting changes, new module, architecture change, security-sensitive, multi-system integration | "Add OAuth2 flow", "Migrate database schema", "Implement plugin system" |
+
 ## Decision Logic
 
-**Route to `workflow`** when: The input has enough substance to produce an actionable plan with clear deliverables and success criteria. The planner would not need to make major assumptions likely to be wrong.
+### Step 1: Questioner Gate (unchanged)
 
-Routing rule: route `workflow` if confidence >= 0.70, else route `questioner`.
+Route to `questioner` first if the input lacks substance for planning. This gate runs before complexity routing.
+
+Routing rule: route `questioner` if confidence < 0.70, else proceed to Step 2.
 
 Confidence drivers (not strict math, but a clear rule):
-- `workflow` if no more than 2 dimensions are missing, AND deliverable is present, AND scope is at least partial
-- Otherwise `questioner`
+- Confidence >= 0.70 if no more than 2 dimensions are missing, AND deliverable is present, AND scope is at least partial
+- Otherwise confidence < 0.70 → `questioner`
 
-Risk adjustment: high `risk_level` should bias toward `questioner` even if the dimension count suggests `workflow`. When the task domain is inherently high-risk (migrations, security, payments, data loss scenarios), lower the confidence score or route to `questioner` to ensure thorough information gathering.
-
-**Route to `questioner`** when: Planning would require major assumptions on critical dimensions likely to produce a wrong plan. Key information gaps exist that the user can fill.
+Risk adjustment: high `risk_level` should bias toward `questioner` even if the dimension count suggests proceeding. When the task domain is inherently high-risk (migrations, security, payments, data loss scenarios), lower the confidence score or route to `questioner` to ensure thorough information gathering.
 
 Questioner signals:
 - Deliverable is vague or missing
 - Both scope and success criteria are missing
 - Input has no artifacts or references that might contain detail
 - The planner would need to guess fundamental aspects of what to build
+
+### Step 2: Complexity Routing
+
+Once confidence >= 0.70 (questioner gate passed), use the complexity × risk matrix to determine the route:
+
+| Risk \ Complexity | trivial  | moderate | substantial |
+|-------------------|----------|----------|-------------|
+| low               | manual   | solo     | workflow    |
+| medium            | solo     | solo     | workflow    |
+| high              | workflow | workflow | workflow    |
+
+- **`workflow`** (full quest): Dual plan review, arbiter, dual code review, full fix loop
+- **`solo`** (lightweight quest): Single plan reviewer, no arbiter, single code reviewer, capped fix iterations
+- **`manual`** (no pipeline): User works directly, no quest folder created
+
+The router **recommends** a route. The human always chooses (override happens in SKILL.md).
 
 **Critical rule: Prompt length is NOT a valid routing signal.** A 10-word prompt referencing a detailed spec file is rich input. A 200-word prompt with no scope, deliverables, or acceptance criteria is thin input. Length and word count must not influence the routing decision. Evaluate substance, not size.
 
@@ -85,17 +111,20 @@ Produce this JSON structure as your routing decision:
 
 ```json
 {
-  "route": "questioner | workflow",
+  "route": "questioner | workflow | solo | manual",
   "confidence": 0.0,
   "risk_level": "low | medium | high",
+  "complexity": "trivial | moderate | substantial",
   "reason": "One sentence explaining the decision",
   "missing_information": []
 }
 ```
 
-- `confidence` is a numeric float from 0.0 to 1.0. Route `workflow` if confidence >= 0.70, else route `questioner`.
+- `route` is determined by the two-step decision logic: questioner gate first, then complexity × risk matrix.
+- `confidence` is a numeric float from 0.0 to 1.0. If confidence < 0.70, route is always `questioner` regardless of complexity.
 - `risk_level` assesses inherent task risk independent of information completeness. Domains like migrations, security, payments, and data loss scenarios are typically `high`. High risk should bias toward `questioner`.
-- `missing_information` is ALWAYS an array. Use an empty array `[]` when routing to `workflow` with no gaps. Never omit this field or set it to null.
+- `complexity` assesses the scope and breadth of the change. Always populated, even for `questioner` routes (use best estimate).
+- `missing_information` is ALWAYS an array. Use an empty array `[]` when routing with no gaps. Never omit this field or set it to null.
 
 The classification MUST be recorded in the quest brief during Quest Folder Creation (see SKILL.md). The brief must contain the full JSON block — not a summary, not a paraphrase, the actual JSON. This is how risk visibility is preserved for the user and for downstream agents (planner, reviewers).
 

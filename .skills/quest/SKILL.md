@@ -43,10 +43,61 @@ Based on the router decision:
 2. Follow the questioning procedure (1-3 questions at a time, max 10 total)
 3. Collect the structured summary
 4. Re-run router (Step 2) with enriched input (original prompt + summary)
-5. If route is now "workflow": proceed to "If route = workflow" below
+5. If route is now "workflow", "solo", or "manual": proceed to the matching handler below
 6. If route is still "questioner": allow one more short questioning pass (10-question total cap still applies), then proceed to workflow regardless
 
+**If route = "manual":**
+1. Present the routing classification with override options:
+   ```
+   Quest Assessment:
+     Risk: <risk_level>
+     Complexity: <complexity>
+     Recommended: manual (no pipeline)
+
+   Options:
+     1. Just do it (recommended) — no quest pipeline
+     2. Run as solo quest — single reviewer, lightweight
+     3. Run as full quest — dual reviews, arbiter
+     4. Cancel
+   ```
+2. If user selects "just do it": exit quest system. No quest folder is created. The user works directly.
+3. If user selects "solo" or "full": proceed to the matching handler below with the overridden route.
+
+**If route = "solo":**
+1. Present the routing classification with override options:
+   ```
+   Quest Assessment:
+     Risk: <risk_level>
+     Complexity: <complexity>
+     Recommended route: solo (lightweight quest)
+
+   Options:
+     1. Run as solo quest (recommended) — single plan review, single code review
+     2. Run as full quest — dual reviews, arbiter, the works
+     3. Just do it manually — no pipeline
+     4. Cancel
+   ```
+2. If user selects "solo": create quest folder with `quest_mode: "solo"`, proceed to workflow
+3. If user selects "full": create quest folder with `quest_mode: "workflow"`, proceed to workflow
+4. If user selects "manual": exit quest system (no quest folder)
+
 **If route = "workflow":**
+1. Present the routing classification with override options:
+   ```
+   Quest Assessment:
+     Risk: <risk_level>
+     Complexity: <complexity>
+     Recommended route: full quest
+
+   Options:
+     1. Run as full quest (recommended)
+     2. Run as solo quest (lighter) — single reviewer
+     3. Cancel
+   ```
+2. If user selects "full": create quest folder with `quest_mode: "workflow"`, proceed to workflow
+3. If user selects "solo": create quest folder with `quest_mode: "solo"`, proceed to workflow
+
+**After route selection (solo or workflow):**
 1. Present the routing classification to the user (see Risk Visibility below)
 2. Create quest folder (see Quest Folder Creation below)
 3. Read `delegation/workflow.md`
@@ -87,9 +138,11 @@ Before creating the quest folder, present the routing classification to the user
      "slug": "<slug>",
      "phase": "plan",
      "status": "pending",
+     "quest_mode": "workflow",
      "plan_iteration": 0,
      "fix_iteration": 0,
      "created_at": "<timestamp>",
      "updated_at": "<timestamp>"
    }
    ```
+   Set `quest_mode` to the user's final selection: `"workflow"` (default) or `"solo"`. This field is read by `workflow.md` to determine agent dispatch and by `validate-quest-state.sh` for artifact checks.

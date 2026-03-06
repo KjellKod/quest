@@ -44,6 +44,7 @@ class QuestData:
     name: str = "Unknown Quest"
     phase: str = ""
     status: str = ""
+    quest_mode: str = ""  # "workflow", "solo", or "" (legacy/unknown)
     plan_iterations: int = 0
     fix_iterations: int = 0
     created_at: Optional[str] = None
@@ -479,6 +480,16 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
             )
         )
 
+    if data.quest_mode == "solo":
+        achievements.append(
+            Achievement(
+                icon="[SOLO]",
+                title="Solo Adventurer",
+                description="Completed quest with a single companion",
+                attribution=models_for_role("reviewer", "plan-reviewer"),
+            )
+        )
+
     if data.status == "complete":
         achievements.append(
             Achievement(
@@ -557,11 +568,15 @@ def compute_quality_tier(
     status: str,
     max_plan_iterations: int = _DEFAULT_MAX_PLAN_ITERATIONS,
     max_fix_iterations: int = _DEFAULT_MAX_FIX_ITERATIONS,
+    quest_mode: str = "",
 ) -> str:
     """Compute a named quality tier from quest iteration data.
 
     The tier is candid: smooth quests get top tiers, rough quests get
     honest lower tiers. Every tier that isn't Abandoned still shipped.
+
+    When quest_mode is "solo", the tier is capped at Gold (Diamond and
+    Platinum are not achievable with single-reviewer quests).
 
     Returns one of: Diamond, Platinum, Gold, Silver, Bronze, Tin,
     Cardboard, Abandoned.
@@ -595,13 +610,18 @@ def compute_quality_tier(
 
     # Diamond: plan <= 1, fix == 0, zero review issues — flawless
     if plan_iterations <= 1 and fix_iterations == 0 and review_findings_count == 0:
-        return "Diamond"
-
+        tier = "Diamond"
     # Platinum: plan <= 1, fix <= 1 — near-perfect (issues found or one fix pass)
-    if plan_iterations <= 1 and fix_iterations <= 1:
-        return "Platinum"
+    elif plan_iterations <= 1 and fix_iterations <= 1:
+        tier = "Platinum"
+    else:
+        tier = "Gold"
 
-    return "Gold"
+    # Solo mode ceiling: cap at Gold
+    if quest_mode == "solo" and tier in ("Diamond", "Platinum"):
+        return "Gold"
+
+    return tier
 
 
 def friendly_model_name(model: str) -> str:
@@ -705,6 +725,7 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
     celebration = extract_celebration_data_from_journal(content)
     if celebration:
         # Populate from structured JSON
+        data.quest_mode = celebration.get("quest_mode", "")
         quality = celebration.get("quality", {})
         if isinstance(quality, dict):
             data.quality_tier = _validated_quality_tier(quality.get("tier"))
@@ -811,6 +832,7 @@ def load_quest_data(quest_dir: Path) -> QuestData:
     data.slug = state.get("slug", "")
     data.phase = state.get("phase", "")
     data.status = state.get("status", "")
+    data.quest_mode = state.get("quest_mode", "")
     data.plan_iterations = state.get("plan_iteration", 0)
     data.fix_iterations = state.get("fix_iteration", 0)
     data.created_at = state.get("created_at")
@@ -848,6 +870,7 @@ def load_quest_data(quest_dir: Path) -> QuestData:
         data.fix_iterations,
         len(data.review_findings),
         data.status,
+        quest_mode=data.quest_mode,
     )
 
     return data
