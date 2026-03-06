@@ -1222,7 +1222,6 @@ class TestQualityTier:
         with patch("quest_celebrate.quest_data._load_allowlist_quality_defaults", side_effect=AssertionError("should not read live allowlist during journal replay")):
             data = load_quest_data_from_journal(journal_path)
         assert data.quality_tier == "Diamond"
-
     def test_all_tiers_in_quality_tiers_dict(self):
         """Every tier the function can return has an entry in QUALITY_TIERS."""
         for tier_name in ["Diamond", "Platinum", "Gold", "Silver", "Bronze",
