@@ -644,7 +644,8 @@ def extract_celebration_data_from_journal(content: str) -> Optional[dict]:
         return None
 
     try:
-        return json.loads(match.group(1))
+        parsed = json.loads(match.group(1))
+        return parsed if isinstance(parsed, dict) else None
     except (json.JSONDecodeError, ValueError):
         return None
 

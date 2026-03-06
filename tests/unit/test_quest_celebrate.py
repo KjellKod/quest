@@ -1211,6 +1211,11 @@ class TestJournalCelebrationData:
         data = extract_celebration_data_from_journal(bad)
         assert data is None
 
+    def test_extract_celebration_data_returns_none_for_non_object_root(self):
+        non_object = "<!-- celebration-data-start -->\n```json\n[]\n```\n<!-- celebration-data-end -->"
+        data = extract_celebration_data_from_journal(non_object)
+        assert data is None
+
     def test_load_quest_data_from_journal_with_celebration_data(self, tmp_path):
         journal_path = tmp_path / "test-quest_2026-03-05.md"
         journal_path.write_text(self.SAMPLE_JOURNAL)
