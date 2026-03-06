@@ -88,6 +88,17 @@ else
   warn "codex CLI not found — Codex MCP server will be unavailable"
 fi
 
+# --- GitHub CLI (gh) ---
+if command -v gh >/dev/null 2>&1; then
+  log "gh CLI already available"
+else
+  if apt-get install -y gh >/dev/null 2>&1; then
+    log "gh CLI installed"
+  else
+    warn "gh CLI not available — PR shepherd will be limited"
+  fi
+fi
+
 # --- Shellcheck (linter for shell scripts) ---
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck already available"
