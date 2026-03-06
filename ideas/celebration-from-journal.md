@@ -53,13 +53,14 @@ At quest archive time (Step 7), the orchestrator already reads all the artifacts
     {"icon": "🧪", "label": "69 tests passing, zero regressions"},
     {"icon": "🔧", "label": "3 bugs fixed in single fixer pass"}
   ],
-  "quality": {"tier": "Gold", "icon": "💎"},
+  "quality": {"tier": "Gold", "icon": "🥇", "grade": "B"},
   "quote": {
     "text": "All critical issues from the previous review cycle have been properly addressed.",
     "attribution": "Code Reviewer A, final verdict"
   },
   "victory_narrative": "This quest built the celebration system itself — block letters, achievements, cinematic credits. The snake eating its own tail.",
   "test_count": 69,
+  "tests_added": 31,
   "files_changed": 7
 }
 ```
@@ -73,16 +74,63 @@ At quest archive time (Step 7), the orchestrator already reads all the artifacts
 - The JSON block is compact (~20-30 lines). Not heavy.
 
 **What goes in the JSON:**
-- **Agents** with models and roles — the cast list
+- **Agents** with models and roles — the cast list (also enables model performance analytics on dashboard)
 - **Achievements** — context-aware, specific to this quest (not generic)
 - **Metrics** — domain-specific impact, not "files changed: 22"
-- **Quality tier** — Diamond/Platinum/Gold/Silver/Bronze
+- **Quality tier** — Candid, full scale from Diamond to Cardboard (see below)
 - **Quote** — a real line from a reviewer, arbiter, or fixer
-- **Victory narrative** — what this quest proved or demonstrated
-- **test_count, files_changed** — compact numbers for rendering
+- **Victory narrative** — what this quest proved or demonstrated (or survival narrative for rough ones)
+- **test_count** — total tests passing at completion
+- **tests_added** — new tests written during this quest
+- **files_changed** — number of files touched
 
 **What stays in the markdown body** (already there):
 - Quest ID, date, outcome, files changed list, iterations, "what started it" quote
+
+### Quality Tier Scale — The Full Honest Spectrum
+
+The tier must be candid. Smooth quests get celebrated. Rough quests get acknowledged with humor and respect — they still shipped.
+
+| Tier | Icon | Grade | Meaning | Criteria |
+|------|------|-------|---------|----------|
+| Diamond | 💎 | A+ | Flawless | Zero issues in first review, shipped clean |
+| Platinum | 🏆 | A | Near-perfect | Minor issues, all fixed in one pass |
+| Gold | 🥇 | B | Solid | Some issues, fixed cleanly |
+| Silver | 🥈 | C | Workable | Multiple fix iterations but landed |
+| Bronze | 🥉 | D | Rough | Got through, but bruised |
+| Tin | 🥫 | D- | Dented | 3+ fix iterations, multiple plan revisions |
+| Cardboard | 📦 | F (but passed) | Held together with tape | Barely survived, max iterations hit |
+| Abandoned | 💀 | Incomplete | Never shipped | Quest was abandoned |
+
+**The celebrate skill tone shifts per tier:**
+- Diamond → full fireworks, "perfection exists"
+- Platinum/Gold → warm celebration, real achievements
+- Silver/Bronze → honest, "got there in the end", highlight what went right
+- Tin → "dented but not broken", survivor humor
+- Cardboard → "held together with tape and dreams. But it shipped. Respect."
+- Abandoned → reflective, "lessons learned", no shame
+
+**Scoring logic** (from plan/fix iterations + review data):
+- plan_iterations=1, fix_iterations=0, zero review issues → Diamond
+- plan_iterations=1, fix_iterations=1, issues all fixed → Platinum
+- plan_iterations≤2, fix_iterations=1, issues fixed cleanly → Gold
+- plan_iterations≤2, fix_iterations=2 → Silver
+- plan_iterations≤3, fix_iterations≤3, some struggle → Bronze
+- plan_iterations>3 OR fix_iterations>3 → Tin
+- Hit max iteration gates → Cardboard
+- status=abandoned → Abandoned
+
+This replaces the existing 0-100 `quality_score` in `quest_data.py` with a named tier. The old numeric score can still be used internally but the tier is what surfaces on the dashboard and in celebrations.
+
+### Dashboard Integration: New Fields on Quest Cards
+
+Three new pieces of data appear on dashboard quest cards when `celebration_data` is present:
+
+1. **Quality Tier Badge** — A small colored badge next to the status badge (e.g., `🥇 GOLD`). Color matches the tier: green for Diamond/Platinum, blue for Gold/Silver, amber for Bronze, gray for Tin/Cardboard, red for Abandoned.
+
+2. **Agent Models** — In the meta row: `Cast: Claude Opus, Codex, KiMi K2.5`. Shows which models collaborated. Over time, this enables tracking which model combinations correlate with higher quality tiers.
+
+3. **Test Count** — In the meta row: `Tests: 69 (31 new)`. Shows total tests passing and tests added during this quest. Gives a sense of quest substance beyond "files changed".
 
 ### Change 2: Expand Celebrate Skill Resolution to Search Journals
 
@@ -124,12 +172,13 @@ The embedded approach wins because the journal is the permanent record. Archive 
 
 ### Files to Change
 
-1. **`.skills/celebrate/SKILL.md`** — Add journal resolution path, document celebration_data JSON extraction
-2. **`scripts/quest_dashboard/loaders.py`** — Add optional `celebration_data` extraction from journal markdown (extend `_parse_journal_entry`)
-3. **`scripts/quest_dashboard/models.py`** — Add optional `celebration_data: dict | None` field to `JournalEntry`
-4. **`.skills/quest/delegation/workflow.md`** (or wherever Step 7 is defined) — Document that journal writing should include celebration_data JSON block
-5. **`scripts/quest_celebrate/quest_data.py`** — Add `load_quest_data_from_journal(path)` that extracts embedded JSON
-6. **Tests** — journal loader with/without celebration_data, celebrate data reader from journal
+1. **`.skills/celebrate/SKILL.md`** — Add journal resolution path, document celebration_data JSON extraction, update quality tier definitions with full honest scale, add tone-shift guidance per tier
+2. **`scripts/quest_dashboard/loaders.py`** — Add `celebration_data` extraction from journal markdown (extend `_parse_journal_entry`), parse agents/quality/tests from the JSON block
+3. **`scripts/quest_dashboard/models.py`** — Add fields to `JournalEntry`: `celebration_data: dict | None`, `quality_tier: str | None`, `agent_models: list[str]`, `test_count: int | None`, `tests_added: int | None`
+4. **`scripts/quest_dashboard/render.py`** — Render quality tier badge, agent models cast line, and test count on quest cards when data is available
+5. **`scripts/quest_celebrate/quest_data.py`** — Replace numeric `quality_score` with named tier logic (Diamond→Cardboard scale), add `load_quest_data_from_journal(path)` that extracts embedded JSON, add `tests_added` field
+6. **`.skills/quest/delegation/workflow.md`** (or wherever Step 7 is defined) — Document that journal writing should include celebration_data JSON block
+7. **Tests** — journal loader with/without celebration_data, celebrate data reader from journal, quality tier thresholds, dashboard rendering with new fields
 
 ### Effort Estimate
 
