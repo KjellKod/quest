@@ -761,6 +761,11 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
             data.plan_summary = victory_narrative
 
     # Extract basic metadata from markdown (always, for fields not in JSON)
+    if not data.quest_mode:
+        raw_mode = _extract_metadata(content, "quest mode")
+        if raw_mode:
+            data.quest_mode = raw_mode.lower()
+
     data.quest_id = _extract_metadata(content, "quest id")
     if data.quest_id:
         parts = data.quest_id.split("_")
