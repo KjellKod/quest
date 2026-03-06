@@ -19,7 +19,7 @@ This guide explains the routing logic, what the questioning phase looks like, ho
                                 └── Enough detail  ──>  Complexity × Risk routing
                                         │
                                         ├── trivial + low risk  ──>  Exit (no quest needed)
-                                        ├── moderate complexity  ──>  Solo quest (lightweight)
+                                        ├── moderate complexity  ──>  Solo or full quest (depends on risk)
                                         └── substantial / high risk  ──>  Full quest (dual reviews)
 ```
 

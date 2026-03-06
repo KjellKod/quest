@@ -1202,6 +1202,27 @@ class TestQualityTier:
         assert max_fix == 3
         assert solo_fix == 2
 
+    def test_journal_replay_does_not_read_live_allowlist(self, tmp_path):
+        journal_path = tmp_path / "journal.md"
+        journal_path.write_text(
+            textwrap.dedent("""\
+                # Quest Journal: test-quest
+
+                - Quest ID: `test-quest_2026-03-05__0643`
+                - Status: complete
+
+                ## Iterations
+
+                - Plan iterations: 1
+                - Fix iterations: 0
+            """),
+            encoding="utf-8",
+        )
+
+        with patch("quest_celebrate.quest_data._load_allowlist_quality_defaults", side_effect=AssertionError("should not read live allowlist during journal replay")):
+            data = load_quest_data_from_journal(journal_path)
+        assert data.quality_tier == "Diamond"
+
     def test_all_tiers_in_quality_tiers_dict(self):
         """Every tier the function can return has an entry in QUALITY_TIERS."""
         for tier_name in ["Diamond", "Platinum", "Gold", "Silver", "Bronze",

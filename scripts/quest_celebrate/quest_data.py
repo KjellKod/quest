@@ -89,7 +89,12 @@ _ROLE_TITLE_MAP = {
 
 
 def _load_allowlist_quality_defaults() -> Tuple[int, int, int, str]:
-    """Read iteration and solo-tier defaults from .ai/allowlist.json."""
+    """Read live allowlist overrides for active quests.
+
+    Historical journal replay should not depend on the current repo config.
+    Callers that need reproducible replay should use the static module defaults
+    or persisted quest-local values instead of this helper.
+    """
     repo_root = Path(__file__).resolve().parents[2]
     allowlist_path = repo_root / ".ai" / "allowlist.json"
     max_plan_iterations = 4
@@ -601,13 +606,12 @@ QUALITY_TIERS = {
     "Abandoned": ("💀", "Inc", "Never shipped — lessons learned"),
 }
 
-# Max iteration gates (defaults from .ai/allowlist.json)
-(
-    _DEFAULT_MAX_PLAN_ITERATIONS,
-    _DEFAULT_MAX_FIX_ITERATIONS,
-    _DEFAULT_SOLO_MAX_FIX_ITERATIONS,
-    _DEFAULT_SOLO_QUALITY_TIER_CEILING,
-) = _load_allowlist_quality_defaults()
+# Static defaults used for replay and as fallbacks when quest-local settings
+# are unavailable.
+_DEFAULT_MAX_PLAN_ITERATIONS = 4
+_DEFAULT_MAX_FIX_ITERATIONS = 3
+_DEFAULT_SOLO_MAX_FIX_ITERATIONS = 2
+_DEFAULT_SOLO_QUALITY_TIER_CEILING = "Gold"
 
 
 def _validated_quality_tier(value: object) -> str:
@@ -949,12 +953,22 @@ def load_quest_data(quest_dir: Path) -> QuestData:
     # 7. Computed fields
     data.achievements = _compute_achievements(data)
     data.quality_score = _compute_quality_score(data)
+    (
+        max_plan_iterations,
+        max_fix_iterations,
+        solo_max_fix_iterations,
+        solo_quality_tier_ceiling,
+    ) = _load_allowlist_quality_defaults()
     data.quality_tier = compute_quality_tier(
         data.plan_iterations,
         data.fix_iterations,
         len(data.review_findings),
         data.status,
+        max_plan_iterations=max_plan_iterations,
+        max_fix_iterations=max_fix_iterations,
         quest_mode=data.quest_mode,
+        solo_max_fix_iterations=solo_max_fix_iterations,
+        solo_quality_tier_ceiling=solo_quality_tier_ceiling,
     )
 
     return data

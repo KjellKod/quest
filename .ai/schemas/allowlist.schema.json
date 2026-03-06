@@ -45,6 +45,17 @@
         }
       }
     },
+    "solo": {
+      "type": "object",
+      "properties": {
+        "max_fix_iterations": { "type": "integer", "minimum": 1 },
+        "quality_tier_ceiling": {
+          "type": "string",
+          "enum": ["Gold", "Silver", "Bronze", "Tin", "Cardboard"]
+        },
+        "notes": { "type": "string" }
+      }
+    },
     "gates": {
       "type": "object",
       "properties": {
