@@ -29,6 +29,11 @@ class JournalEntry:
     pr_number: int | None = None
     plan_iterations: int | None = None
     fix_iterations: int | None = None
+    quality_tier: str | None = None  # Diamond/Platinum/Gold/.../Cardboard/Abandoned
+    agent_models: tuple[str, ...] = ()  # ("Claude Opus", "Codex", ...)
+    test_count: int | None = None
+    tests_added: int | None = None
+    celebration_data: dict | None = None  # Raw parsed JSON block
 
 
 @dataclass(frozen=True, slots=True)

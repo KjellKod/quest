@@ -67,6 +67,9 @@ class QuestData:
     pr_number: Optional[int] = None
     achievements: List[Achievement] = field(default_factory=list)
     quality_score: int = 0
+    quality_tier: str = ""  # Diamond/Platinum/Gold/Silver/Bronze/Tin/Cardboard/Abandoned
+    test_count: Optional[int] = None
+    tests_added: Optional[int] = None
 
 
 # Mapping from agent name patterns to cinematic role titles
@@ -541,6 +544,207 @@ def _compute_quality_score(data: QuestData) -> int:
     return max(0, min(100, score))
 
 
+# Quality tier definitions: name, icon, grade, tooltip
+QUALITY_TIERS = {
+    "Diamond": ("💎", "A+", "Flawless — zero issues, shipped clean"),
+    "Platinum": ("🏆", "A", "Near-perfect — minor issues, one-pass fix"),
+    "Gold": ("🥇", "B", "Solid — issues caught, fixed cleanly"),
+    "Silver": ("🥈", "C", "Workable — multiple iterations but landed"),
+    "Bronze": ("🥉", "D", "Rough ride — got through, bruised"),
+    "Tin": ("🥫", "D-", "Dented — 3+ iterations, plan revisions"),
+    "Cardboard": ("📦", "F", "Held together with tape. Still shipped."),
+    "Abandoned": ("💀", "Inc", "Never shipped — lessons learned"),
+}
+
+# Max iteration gates (defaults from .ai/allowlist.json)
+_DEFAULT_MAX_PLAN_ITERATIONS = 4
+_DEFAULT_MAX_FIX_ITERATIONS = 3
+
+
+def compute_quality_tier(
+    plan_iterations: int,
+    fix_iterations: int,
+    review_findings_count: int,
+    status: str,
+    max_plan_iterations: int = _DEFAULT_MAX_PLAN_ITERATIONS,
+    max_fix_iterations: int = _DEFAULT_MAX_FIX_ITERATIONS,
+) -> str:
+    """Compute a named quality tier from quest iteration data.
+
+    The tier is candid: smooth quests get top tiers, rough quests get
+    honest lower tiers. Every tier that isn't Abandoned still shipped.
+
+    Returns one of: Diamond, Platinum, Gold, Silver, Bronze, Tin,
+    Cardboard, Abandoned.
+    """
+    if status == "abandoned":
+        return "Abandoned"
+
+    # Check from worst to best so max-gate check uses strict equality
+
+    # Cardboard: hit or exceeded max iteration gates
+    at_plan_max = plan_iterations >= max_plan_iterations
+    at_fix_max = fix_iterations >= max_fix_iterations
+    if at_plan_max and at_fix_max:
+        return "Cardboard"
+
+    # Tin: high iterations (approaching gates but not both maxed)
+    if plan_iterations >= max_plan_iterations or fix_iterations >= max_fix_iterations:
+        return "Tin"
+
+    # Bronze: 3+ on either axis (below gate thresholds)
+    if plan_iterations >= 3 or fix_iterations >= 3:
+        return "Bronze"
+
+    # Silver: fix_iterations == 2
+    if fix_iterations == 2:
+        return "Silver"
+
+    # Gold: plan_iterations <= 2, fix_iterations == 1
+    if fix_iterations == 1 and plan_iterations > 1:
+        return "Gold"
+
+    # Platinum: plan_iterations == 1, fix_iterations <= 1, issues found and fixed
+    if plan_iterations <= 1 and fix_iterations <= 1 and review_findings_count > 0:
+        return "Platinum"
+
+    # Diamond: plan_iterations <= 1, fix_iterations == 0, zero review issues
+    if plan_iterations <= 1 and fix_iterations == 0 and review_findings_count == 0:
+        return "Diamond"
+
+    # Default fallback: plan=1, fix=0, some findings → Platinum
+    if plan_iterations <= 1 and fix_iterations == 0:
+        return "Platinum"
+
+    return "Gold"
+
+
+def _extract_celebration_data_from_journal(content: str) -> Optional[dict]:
+    """Extract celebration_data JSON block from a journal markdown file.
+
+    Looks for content between <!-- celebration-data-start --> and
+    <!-- celebration-data-end --> markers, then parses the JSON code
+    block within.
+
+    Returns parsed dict or None if not found/malformed.
+    """
+    match = re.search(
+        r"<!--\s*celebration-data-start\s*-->\s*```json\s*\n(.*?)\n\s*```\s*\n\s*<!--\s*celebration-data-end\s*-->",
+        content,
+        re.DOTALL,
+    )
+    if not match:
+        return None
+
+    try:
+        return json.loads(match.group(1))
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def load_quest_data_from_journal(journal_path: Path) -> QuestData:
+    """Load quest data from a journal markdown file.
+
+    Extracts the embedded celebration_data JSON block if present.
+    Falls back to parsing the markdown text for basic metadata.
+    """
+    data = QuestData()
+
+    if not journal_path.exists():
+        return data
+
+    try:
+        content = journal_path.read_text(encoding="utf-8")
+    except IOError:
+        return data
+
+    # Try to extract structured celebration data
+    celebration = _extract_celebration_data_from_journal(content)
+    if celebration:
+        # Populate from structured JSON
+        data.quality_tier = celebration.get("quality", {}).get("tier", "")
+        data.test_count = celebration.get("test_count")
+        data.tests_added = celebration.get("tests_added")
+
+        for agent_dict in celebration.get("agents", []):
+            data.agents.append(
+                AgentInfo(
+                    name=agent_dict.get("name", ""),
+                    model=agent_dict.get("model", ""),
+                    role_title=agent_dict.get("role", ""),
+                    summary="",
+                    phase="",
+                )
+            )
+
+        for ach_dict in celebration.get("achievements", []):
+            data.achievements.append(
+                Achievement(
+                    icon=ach_dict.get("icon", "⭐️"),
+                    title=ach_dict.get("title", ""),
+                    description=ach_dict.get("desc", ""),
+                )
+            )
+
+        quote = celebration.get("quote", {})
+        if quote:
+            data.brief_summary = f'{quote.get("text", "")} — {quote.get("attribution", "")}'
+
+        data.plan_summary = celebration.get("victory_narrative", "")
+
+    # Extract basic metadata from markdown (always, for fields not in JSON)
+    # Quest ID
+    id_match = re.search(r"Quest ID:\s*`([^`]+)`", content)
+    if id_match:
+        data.quest_id = id_match.group(1)
+        parts = data.quest_id.split("_")
+        if parts:
+            data.slug = parts[0]
+
+    # Title from heading
+    title_match = re.search(r"^#\s+Quest Journal:\s*(.+)$", content, re.MULTILINE)
+    if title_match:
+        data.name = title_match.group(1).strip()
+
+    # Iterations
+    plan_match = re.search(
+        r"(?:\*\*)?[Pp]lan\s+iterations:\s*(?:\*\*)?\s*(\d+)", content
+    )
+    if plan_match:
+        data.plan_iterations = int(plan_match.group(1))
+
+    fix_match = re.search(
+        r"(?:\*\*)?[Ff]ix\s+iterations:\s*(?:\*\*)?\s*(\d+)", content
+    )
+    if fix_match:
+        data.fix_iterations = int(fix_match.group(1))
+
+    # Status
+    status_match = re.search(r"\*\*[Ss]tatus:\s*\*\*\s*(.+?)(?:\n|$)", content)
+    if status_match:
+        raw = status_match.group(1).strip().lower()
+        if raw.startswith("abandon"):
+            data.status = "abandoned"
+        else:
+            data.status = "complete"
+    else:
+        data.status = "complete"
+
+    # Compute quality tier if not already set from celebration data
+    if not data.quality_tier:
+        data.quality_tier = compute_quality_tier(
+            data.plan_iterations,
+            data.fix_iterations,
+            len(data.review_findings),
+            data.status,
+        )
+
+    # Compute quality score for backward compatibility
+    data.quality_score = _compute_quality_score(data)
+
+    return data
+
+
 def load_quest_data(quest_dir: Path) -> QuestData:
     """Load rich quest data from a quest directory.
 
@@ -590,5 +794,11 @@ def load_quest_data(quest_dir: Path) -> QuestData:
     # 7. Computed fields
     data.achievements = _compute_achievements(data)
     data.quality_score = _compute_quality_score(data)
+    data.quality_tier = compute_quality_tier(
+        data.plan_iterations,
+        data.fix_iterations,
+        len(data.review_findings),
+        data.status,
+    )
 
     return data

@@ -1,13 +1,16 @@
 """Unit tests for quest_dashboard.loaders module."""
 
 import json
+import textwrap
 from datetime import date, datetime
 from pathlib import Path
 
 from quest_dashboard.loaders import (
+    _extract_celebration_data,
     _extract_iterations,
     _extract_metadata,
     _extract_summary_pitch,
+    _friendly_model_name,
     _normalize_status,
     _parse_active_quest,
     _parse_journal_entry,
@@ -451,3 +454,116 @@ def test_load_dashboard_data_normalizes_none_github_url(tmp_path):
 
     assert data.github_repo_url == ""
     assert isinstance(data.github_repo_url, str)
+
+
+# --- Tests for celebration_data extraction ---
+
+
+def test_extract_celebration_data_parses_json():
+    content = textwrap.dedent("""\
+        # Quest Journal: test
+
+        <!-- celebration-data-start -->
+        ```json
+        {
+          "agents": [{"name": "planner", "model": "claude-opus-4-6", "role": "The Architect"}],
+          "quality": {"tier": "Gold", "icon": "🥇", "grade": "B"},
+          "test_count": 42,
+          "tests_added": 10
+        }
+        ```
+        <!-- celebration-data-end -->
+    """)
+    data = _extract_celebration_data(content)
+    assert data is not None
+    assert data["quality"]["tier"] == "Gold"
+    assert data["test_count"] == 42
+    assert data["tests_added"] == 10
+
+
+def test_extract_celebration_data_returns_none_for_missing():
+    content = "# Quest Journal: old\n\nNo celebration data here.\n"
+    assert _extract_celebration_data(content) is None
+
+
+def test_extract_celebration_data_returns_none_for_bad_json():
+    content = "<!-- celebration-data-start -->\n```json\n{bad}\n```\n<!-- celebration-data-end -->"
+    assert _extract_celebration_data(content) is None
+
+
+def test_friendly_model_name_mapping():
+    assert _friendly_model_name("claude-opus-4-6") == "Claude Opus"
+    assert _friendly_model_name("gpt-5.3-codex") == "Codex"
+    assert _friendly_model_name("kimi-k2.5") == "KiMi K2.5"
+    assert _friendly_model_name("moonshotai/kimi-k2.5") == "KiMi K2.5"
+    assert _friendly_model_name("") == ""
+    assert _friendly_model_name("some-unknown-model") == "some-unknown-model"
+
+
+def test_journal_entry_with_celebration_data(tmp_path):
+    """Test that journal entries with celebration_data get new fields populated."""
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+
+    content = textwrap.dedent("""\
+        # Quest Journal: Rich Quest
+
+        **Quest ID:** rich-quest-001
+        **Completed:** 2026-03-05
+        **Plan iterations:** 1
+        **Fix iterations:** 1
+
+        ## Summary
+
+        A rich quest with celebration data.
+
+        ## Celebration Data
+
+        <!-- celebration-data-start -->
+        ```json
+        {
+          "agents": [
+            {"name": "planner", "model": "claude-opus-4-6", "role": "The Architect"},
+            {"name": "builder", "model": "gpt-5.3-codex", "role": "The Implementer"},
+            {"name": "fixer", "model": "claude-opus-4-6", "role": "The Bug Slayer"}
+          ],
+          "quality": {"tier": "Platinum", "icon": "🏆", "grade": "A"},
+          "test_count": 55,
+          "tests_added": 20
+        }
+        ```
+        <!-- celebration-data-end -->
+    """)
+    (journal_dir / "rich-quest_2026-03-05.md").write_text(content)
+
+    entry = _parse_journal_entry(journal_dir / "rich-quest_2026-03-05.md", tmp_path)
+    assert entry.quality_tier == "Platinum"
+    assert entry.agent_models == ("Claude Opus", "Codex")
+    assert entry.test_count == 55
+    assert entry.tests_added == 20
+    assert entry.celebration_data is not None
+
+
+def test_journal_entry_without_celebration_data_has_none_fields(tmp_path):
+    """Legacy journal entries without celebration_data have None/empty new fields."""
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+
+    content = textwrap.dedent("""\
+        # Quest Journal: Old Quest
+
+        **Quest ID:** old-quest-001
+        **Completed:** 2026-01-15
+
+        ## Summary
+
+        An old quest without celebration data.
+    """)
+    (journal_dir / "old-quest_2026-01-15.md").write_text(content)
+
+    entry = _parse_journal_entry(journal_dir / "old-quest_2026-01-15.md", tmp_path)
+    assert entry.quality_tier is None
+    assert entry.agent_models == ()
+    assert entry.test_count is None
+    assert entry.tests_added is None
+    assert entry.celebration_data is None

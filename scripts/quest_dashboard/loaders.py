@@ -160,6 +160,30 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
     plan_iterations = _extract_iterations(content, "plan")
     fix_iterations = _extract_iterations(content, "fix")
 
+    # Extract celebration_data JSON block if present
+    celebration_data = _extract_celebration_data(content)
+    quality_tier = None
+    agent_models: tuple[str, ...] = ()
+    test_count = None
+    tests_added = None
+
+    if celebration_data:
+        quality_info = celebration_data.get("quality", {})
+        quality_tier = quality_info.get("tier") if isinstance(quality_info, dict) else None
+
+        # Extract unique model names from agents list
+        models: list[str] = []
+        seen_models: set[str] = set()
+        for agent in celebration_data.get("agents", []):
+            model = agent.get("model", "")
+            if model and model not in seen_models:
+                seen_models.add(model)
+                models.append(_friendly_model_name(model))
+        agent_models = tuple(models)
+
+        test_count = celebration_data.get("test_count")
+        tests_added = celebration_data.get("tests_added")
+
     # Compute relative journal path
     journal_rel_path = journal_path.relative_to(repo_root)
 
@@ -174,6 +198,11 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
         pr_number=pr_number,
         plan_iterations=plan_iterations,
         fix_iterations=fix_iterations,
+        quality_tier=quality_tier,
+        agent_models=agent_models,
+        test_count=test_count,
+        tests_added=tests_added,
+        celebration_data=celebration_data,
     )
 
 
@@ -449,6 +478,49 @@ def _extract_iterations(content: str, iteration_type: str) -> int | None:
     pattern = rf"(?:\*\*)?{re.escape(iteration_type)}\s+iterations:\s*(?:\*\*)?\s*(\d+)"
     match = re.search(pattern, content, re.IGNORECASE)
     return int(match.group(1)) if match else None
+
+
+def _extract_celebration_data(content: str) -> dict | None:
+    """Extract celebration_data JSON block from journal markdown.
+
+    Looks for content between <!-- celebration-data-start --> and
+    <!-- celebration-data-end --> markers, then parses the JSON code
+    block within.
+
+    Returns parsed dict or None if not found/malformed.
+    """
+    match = re.search(
+        r"<!--\s*celebration-data-start\s*-->\s*```json\s*\n(.*?)\n\s*```\s*\n\s*<!--\s*celebration-data-end\s*-->",
+        content,
+        re.DOTALL,
+    )
+    if not match:
+        return None
+
+    try:
+        return json.loads(match.group(1))
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _friendly_model_name(model: str) -> str:
+    """Normalize raw model IDs to readable display names.
+
+    Examples:
+        "claude-opus-4-6" -> "Claude Opus"
+        "gpt-5.3-codex" -> "Codex"
+        "kimi-k2.5" -> "KiMi K2.5"
+    """
+    if not model:
+        return model
+    lower = model.lower()
+    if "kimi" in lower:
+        return "KiMi K2.5"
+    if "opus" in lower or "claude" in lower:
+        return "Claude Opus"
+    if "codex" in lower or "gpt-" in lower:
+        return "Codex"
+    return model.split("/")[-1]
 
 
 def _humanize_filename(stem: str) -> str:

@@ -12,25 +12,29 @@ Play a rich, visually stunning celebration for a completed quest.
 - User types `/celebrate` or `/celebrate <quest-id>`
 - User asks to "celebrate", "play celebration", or "show the celebration" for a quest
 - Quest workflow reaches Step 7 (complete) and user chooses to celebrate
-- User points to a quest archive path and asks to celebrate it
+- User points to a quest archive path or journal entry and asks to celebrate it
 
 ## Process
 
-### Step 1: Resolve the Quest Directory
+### Step 1: Resolve the Quest Source
 
 If the user provides an argument:
 1. If it's a full path (starts with `/` or `.`), use it directly
 2. If it looks like a quest ID (e.g., `name-resolution_2026-03-04__1954`), look in:
    - `.quest/<id>/` (active quest)
    - `.quest/archive/<id>/` (archived quest)
-3. If it's a short name (e.g., `name-resolution`), find the best match in `.quest/archive/`
+   - `docs/quest-journal/` for a matching filename (journaled quest)
+3. If it's a short name (e.g., `name-resolution`), find the best match in:
+   - `.quest/archive/`
+   - `docs/quest-journal/` (match by filename prefix)
 
 If no argument is provided:
-- Find the most recently modified quest in `.quest/archive/` (or `.quest/` if no archive)
+- Find the most recently modified quest in `.quest/archive/`
+- If no archive, find the most recent entry in `docs/quest-journal/` (by filename date)
 
 ### Step 2: Read the Quest Artifacts
 
-Read these files from the quest directory to understand what happened:
+**From a quest directory** (`.quest/` or `.quest/archive/`):
 - `state.json` — plan_iterations, fix_iterations, phase history, current_phase
 - `quest_brief.md` — quest name, risk level, scope, acceptance criteria
 - `phase_01_plan/handoff_arbiter.json` — arbiter verdict and summary
@@ -39,6 +43,11 @@ Read these files from the quest directory to understand what happened:
 - `phase_03_review/handoff_code-reviewer-a.json` — reviewer verdict
 - `phase_03_review/handoff_code-reviewer-b.json` — reviewer verdict
 - `phase_03_review/handoff_fixer.json` — fixer summary, what was fixed, test counts
+
+**From a journal entry** (`docs/quest-journal/*.md`):
+1. Look for a `celebration_data` JSON block between `<!-- celebration-data-start -->` and `<!-- celebration-data-end -->` markers
+2. If found: use the structured data (agents, achievements, metrics, quality tier, quote, victory narrative)
+3. If not found (legacy entries): "wing it" from the markdown text — read the sections for iterations, files changed, outcome, and the "what started it" quote. Improvise achievements and metrics from context.
 
 ### Step 3: Generate the Celebration as Rich Markdown
 
@@ -56,9 +65,9 @@ You have all the data from the artifacts. Now **create your own celebration**. B
 - Achievements — specific to what happened in this quest
 - Impact metrics — domain-specific, not generic file counts
 - Handoff & reliability snapshot (handoffs parsed, reviewer/fixer handoffs, findings tracked, stability signal)
-- Quality tier — named: Bronze, Silver, Gold, Platinum, Diamond
+- Quality tier — named, from the full honest scale (see below)
 - A quote from the actual quest (arbiter verdict, reviewer summary, fixer handoff)
-- Victory narrative — what this quest proved or demonstrated
+- Victory narrative — what this quest proved or demonstrated (or survival narrative for rough ones)
 
 **Use markdown richly:**
 - `#` and `##` headers (they render big and bold)
@@ -127,6 +136,29 @@ Break the text across **multiple lines** — max ~5 letters per line. Each word 
 
 ---
 
+### Quality Tier Scale — The Full Honest Spectrum
+
+The tier must be candid. Smooth quests get celebrated. Rough quests get acknowledged with humor and respect — they still shipped.
+
+| Tier | Icon | Grade | Meaning | Criteria |
+|------|------|-------|---------|----------|
+| Diamond | 💎 | A+ | Flawless | Zero issues in first review, shipped clean |
+| Platinum | 🏆 | A | Near-perfect | Minor issues, all fixed in one pass |
+| Gold | 🥇 | B | Solid | Some issues, fixed cleanly |
+| Silver | 🥈 | C | Workable | Multiple fix iterations but landed |
+| Bronze | 🥉 | D | Rough | Got through, but bruised |
+| Tin | 🥫 | D- | Dented | 3+ fix iterations, multiple plan revisions |
+| Cardboard | 📦 | F (but passed) | Held together with tape | Barely survived, max iterations hit |
+| Abandoned | 💀 | Incomplete | Never shipped | Quest was abandoned |
+
+**Tone shifts per tier:**
+- Diamond → full fireworks, "perfection exists"
+- Platinum/Gold → warm celebration, real achievements
+- Silver/Bronze → honest, "got there in the end", highlight what went right
+- Tin → "dented but not broken", survivor humor
+- Cardboard → "held together with tape and dreams. But it shipped. Respect."
+- Abandoned → reflective, "lessons learned", no shame
+
 ### Key Principles
 
 **Generate specific, context-aware content — not generic filler:**
@@ -137,12 +169,7 @@ Break the text across **multiple lines** — max ~5 letters per line. Each word 
 
 - **Metrics must be domain-specific.** Read the fixer handoff for file counts, test counts, and what was built. "20 tools enhanced" is good. "Files Changed: 22" is bad. "Security model preserved" is good. "Agents Involved: 0" is bad.
 
-- **Quality tier must be named.** Based on your reading of the quest:
-  - **Diamond** — zero issues in first review, shipped perfectly
-  - **Platinum** — minor issues caught, all fixed in one pass
-  - **Gold** — some issues, fixed cleanly
-  - **Silver** — multiple fix iterations but got there
-  - **Bronze** — got through but was rough
+- **Quality tier must be named.** Use the full honest scale above. If the quest struggled, say so — Tin and Cardboard are honest, not insults.
 
 - **The quote must come from the quest.** Pull a real line from the arbiter verdict, reviewer summary, or fixer handoff. Not "Shipping should feel like a celebration."
 
@@ -154,4 +181,6 @@ Break the text across **multiple lines** — max ~5 letters per line. Each word 
 /celebrate
 /celebrate name-resolution_2026-03-04__1954
 /celebrate .quest/archive/celebrate-v2_2026-03-05__0643
+/celebrate docs/quest-journal/celebrate-v2_2026-03-05.md
+/celebrate celebrate-v2
 ```
