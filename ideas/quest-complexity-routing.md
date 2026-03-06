@@ -34,8 +34,8 @@ The router already assesses `risk_level` and `confidence`. Add a `complexity` di
 |-------|------|----------|--------|
 | `questioner` | Need more info before routing | Questions → re-route | Questioner only |
 | `workflow` | High risk OR substantial complexity | Full pipeline | Plan → dual review → arbiter → build → dual code review → fix |
-| `solo` | Medium risk, moderate scope | Lightweight pipeline | Plan → single review → build → single review |
-| `manual` | Low risk, trivial scope | No pipeline | "This is a one-person job. Just do it." |
+| `solo` | Medium risk, moderate scope | Lightweight quest | Plan → single review → build → single review (solo adventurer with companion) |
+| `manual` | Low risk, trivial scope | No pipeline | "This is a one-person job. Just do it." — exits quest system |
 
 ### Routing Logic
 
@@ -107,20 +107,20 @@ A `solo` quest has less review rigor, so its quality tier ceiling is lower:
 
 This is honest: a Diamond means "survived dual review with zero issues." If you only had one reviewer, the best you can claim is Gold — which is still great.
 
-### The `solo` Pipeline
+### The `solo` Pipeline — Solo Adventurer with Companion
 
-Lighter weight but still structured:
+A solo quest is still a real quest — just one adventurer with a single companion (reviewer) instead of a full party. Lighter weight but still structured:
 
 ```
 1. Plan (single planner, no dual review, no arbiter)
 2. Human approval (mandatory, same as workflow)
 3. Build
-4. Single code review
+4. Single code review (the companion)
 5. Fix (if needed, max 2 iterations)
 6. Journal + celebrate
 ```
 
-One reviewer, one fix pass, still journaled, still celebrated. Just less ceremony.
+One reviewer, one fix pass, still journaled, still celebrated. Just less ceremony. The solo adventurer earns their tier honestly — Gold is the ceiling because one companion can't provide the same scrutiny as a full party. But a solo Gold is nothing to sneeze at.
 
 ### The `manual` Path
 
