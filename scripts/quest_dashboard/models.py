@@ -33,7 +33,7 @@ class JournalEntry:
     agent_models: tuple[str, ...] = ()  # ("Claude Opus", "Codex", ...)
     test_count: int | None = None
     tests_added: int | None = None
-    celebration_data: dict | None = None  # Raw parsed JSON block
+    celebration_data: dict | None = None  # Raw parsed JSON block (treat as read-only)
 
 
 @dataclass(frozen=True, slots=True)

@@ -13,6 +13,11 @@ import subprocess
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+from quest_celebrate.quest_data import (
+    extract_celebration_data_from_journal as _extract_celebration_data,
+    friendly_model_name as _friendly_model_name,
+)
+
 from .models import ActiveQuest, DashboardData, JournalEntry
 
 UTC = timezone.utc
@@ -478,49 +483,6 @@ def _extract_iterations(content: str, iteration_type: str) -> int | None:
     pattern = rf"(?:\*\*)?{re.escape(iteration_type)}\s+iterations:\s*(?:\*\*)?\s*(\d+)"
     match = re.search(pattern, content, re.IGNORECASE)
     return int(match.group(1)) if match else None
-
-
-def _extract_celebration_data(content: str) -> dict | None:
-    """Extract celebration_data JSON block from journal markdown.
-
-    Looks for content between <!-- celebration-data-start --> and
-    <!-- celebration-data-end --> markers, then parses the JSON code
-    block within.
-
-    Returns parsed dict or None if not found/malformed.
-    """
-    match = re.search(
-        r"<!--\s*celebration-data-start\s*-->\s*```json\s*\n(.*?)\n\s*```\s*\n\s*<!--\s*celebration-data-end\s*-->",
-        content,
-        re.DOTALL,
-    )
-    if not match:
-        return None
-
-    try:
-        return json.loads(match.group(1))
-    except (json.JSONDecodeError, ValueError):
-        return None
-
-
-def _friendly_model_name(model: str) -> str:
-    """Normalize raw model IDs to readable display names.
-
-    Examples:
-        "claude-opus-4-6" -> "Claude Opus"
-        "gpt-5.3-codex" -> "Codex"
-        "kimi-k2.5" -> "KiMi K2.5"
-    """
-    if not model:
-        return model
-    lower = model.lower()
-    if "kimi" in lower:
-        return "KiMi K2.5"
-    if "opus" in lower or "claude" in lower:
-        return "Claude Opus"
-    if "codex" in lower or "gpt-" in lower:
-        return "Codex"
-    return model.split("/")[-1]
 
 
 def _humanize_filename(stem: str) -> str:

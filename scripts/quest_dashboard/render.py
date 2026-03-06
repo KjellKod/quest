@@ -1009,7 +1009,8 @@ def _render_quest_card(
     return f"""        <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">{html.escape(quest.title)}</h3>
-            <span class="badge badge--{badge_class}">{badge_text}</span>{tier_badge_html}
+            <div style="display:flex;gap:0.5rem">\
+<span class="badge badge--{badge_class}">{badge_text}</span>{tier_badge_html}</div>
           </div>
           <p class="quest-pitch">{html.escape(quest.elevator_pitch)}</p>
           <p class="quest-meta">

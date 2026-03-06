@@ -401,22 +401,6 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
     """Generate achievements based on quest stats."""
     achievements: List[Achievement] = []
 
-    def friendly_model(model: str) -> str:
-        """Normalize raw model ids to readable labels."""
-        if not model:
-            return ""
-
-        lower = model.lower()
-        if "kimi" in lower:
-            return "KiMi K2.5"
-        if "opus" in lower or "claude" in lower:
-            return "Claude Opus"
-        if "codex" in lower or "gpt-" in lower:
-            return "Codex"
-
-        # Fallback to model id suffix (after provider prefix)
-        return model.split("/")[-1]
-
     def models_for_role(*role_keywords: str) -> str:
         """Get unique friendly model labels for agents matching role keywords."""
         labels: List[str] = []
@@ -425,7 +409,7 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
             name = agent.name.lower()
             if not any(keyword in name for keyword in role_keywords):
                 continue
-            label = friendly_model(agent.model)
+            label = friendly_model_name(agent.model)
             if label and label not in seen:
                 seen.add(label)
                 labels.append(label)
@@ -435,7 +419,7 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
         labels: List[str] = []
         seen = set()
         for agent in data.agents:
-            label = friendly_model(agent.model)
+            label = friendly_model_name(agent.model)
             if label and label not in seen:
                 seen.add(label)
                 labels.append(label)
@@ -600,26 +584,44 @@ def compute_quality_tier(
     if fix_iterations == 2:
         return "Silver"
 
-    # Gold: plan_iterations <= 2, fix_iterations == 1
+    # Gold: plan > 1 but fix == 1 (needed replanning but fixed cleanly)
     if fix_iterations == 1 and plan_iterations > 1:
         return "Gold"
 
-    # Platinum: plan_iterations == 1, fix_iterations <= 1, issues found and fixed
-    if plan_iterations <= 1 and fix_iterations <= 1 and review_findings_count > 0:
-        return "Platinum"
-
-    # Diamond: plan_iterations <= 1, fix_iterations == 0, zero review issues
+    # Diamond: plan <= 1, fix == 0, zero review issues — flawless
     if plan_iterations <= 1 and fix_iterations == 0 and review_findings_count == 0:
         return "Diamond"
 
-    # Default fallback: plan=1, fix=0, some findings → Platinum
-    if plan_iterations <= 1 and fix_iterations == 0:
+    # Platinum: plan <= 1, fix <= 1 — near-perfect (issues found or one fix pass)
+    if plan_iterations <= 1 and fix_iterations <= 1:
         return "Platinum"
 
     return "Gold"
 
 
-def _extract_celebration_data_from_journal(content: str) -> Optional[dict]:
+def friendly_model_name(model: str) -> str:
+    """Normalize raw model IDs to readable display names.
+
+    Shared utility used by celebrate, dashboard, and ascii_art modules.
+
+    Examples:
+        "claude-opus-4-6" -> "Claude Opus"
+        "gpt-5.3-codex" -> "Codex"
+        "kimi-k2.5" -> "KiMi K2.5"
+    """
+    if not model:
+        return ""
+    lower = model.lower()
+    if "kimi" in lower:
+        return "KiMi K2.5"
+    if "opus" in lower or "claude" in lower:
+        return "Claude Opus"
+    if "codex" in lower or "gpt-" in lower:
+        return "Codex"
+    return model.split("/")[-1]
+
+
+def extract_celebration_data_from_journal(content: str) -> Optional[dict]:
     """Extract celebration_data JSON block from a journal markdown file.
 
     Looks for content between <!-- celebration-data-start --> and
@@ -659,7 +661,7 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
         return data
 
     # Try to extract structured celebration data
-    celebration = _extract_celebration_data_from_journal(content)
+    celebration = extract_celebration_data_from_journal(content)
     if celebration:
         # Populate from structured JSON
         data.quality_tier = celebration.get("quality", {}).get("tier", "")

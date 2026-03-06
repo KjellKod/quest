@@ -37,8 +37,9 @@ from quest_celebrate.ascii_art import (
 from quest_celebrate.config import CelebrationConfig, load_config
 from quest_celebrate.quest_data import (
     QUALITY_TIERS,
-    _extract_celebration_data_from_journal,
+    extract_celebration_data_from_journal,
     compute_quality_tier,
+    friendly_model_name,
     load_quest_data_from_journal,
 )
 from quest_celebrate.progress import (
@@ -1193,7 +1194,7 @@ class TestJournalCelebrationData:
     """)
 
     def test_extract_celebration_data_finds_json(self):
-        data = _extract_celebration_data_from_journal(self.SAMPLE_JOURNAL)
+        data = extract_celebration_data_from_journal(self.SAMPLE_JOURNAL)
         assert data is not None
         assert data["quality"]["tier"] == "Platinum"
         assert data["test_count"] == 42
@@ -1202,12 +1203,12 @@ class TestJournalCelebrationData:
 
     def test_extract_celebration_data_returns_none_for_legacy(self):
         legacy = "# Quest Journal: old\n\n- Quest ID: `old_2026-01-01`\n"
-        data = _extract_celebration_data_from_journal(legacy)
+        data = extract_celebration_data_from_journal(legacy)
         assert data is None
 
     def test_extract_celebration_data_handles_malformed_json(self):
         bad = "<!-- celebration-data-start -->\n```json\n{bad json}\n```\n<!-- celebration-data-end -->"
-        data = _extract_celebration_data_from_journal(bad)
+        data = extract_celebration_data_from_journal(bad)
         assert data is None
 
     def test_load_quest_data_from_journal_with_celebration_data(self, tmp_path):

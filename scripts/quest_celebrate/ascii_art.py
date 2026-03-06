@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from quest_celebrate.quest_data import Achievement, AgentInfo, QuestData
 
+from quest_celebrate.quest_data import friendly_model_name
+
 
 # Minimal 5-line tall block letter font for A-Z, 0-9, space, and hyphen.
 # Each character is 6 columns wide (5 + 1 space separator).
@@ -513,16 +515,6 @@ def get_movie_credits_lines(
     lines: List[str] = []
     sep = "=" * 72
 
-    def friendly_model(model: str) -> str:
-        lower = model.lower()
-        if "kimi" in lower:
-            return "KiMi K2.5"
-        if "opus" in lower or "claude" in lower:
-            return "Claude Opus"
-        if "codex" in lower or "gpt-" in lower:
-            return "Codex"
-        return model.split("/")[-1] if model else ""
-
     # THE END banner
     lines.append("")
     lines.append(sep)
@@ -548,7 +540,7 @@ def get_movie_credits_lines(
                 continue
             seen.add(key)
 
-            model_label = friendly_model(agent.model)
+            model_label = friendly_model_name(agent.model)
             if model_label:
                 name_part = f"{agent.name} [{model_label}]"
             else:
