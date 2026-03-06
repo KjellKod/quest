@@ -37,6 +37,7 @@ from quest_celebrate.ascii_art import (
 from quest_celebrate.config import CelebrationConfig, load_config
 from quest_celebrate.quest_data import (
     QUALITY_TIERS,
+    _load_allowlist_quality_defaults,
     extract_celebration_data_from_journal,
     compute_quality_tier,
     friendly_model_name,
@@ -1158,6 +1159,18 @@ class TestQualityTier:
             solo_quality_tier_ceiling="Silver",
         )
         assert tier == "Silver"
+
+    def test_allowlist_loader_rejects_abandoned_quality_ceiling(self):
+        fake_allowlist = json.dumps(
+            {
+                "solo": {
+                    "quality_tier_ceiling": "Abandoned",
+                }
+            }
+        )
+        with patch("pathlib.Path.read_text", return_value=fake_allowlist):
+            _, _, _, ceiling = _load_allowlist_quality_defaults()
+        assert ceiling == "Gold"
 
     def test_all_tiers_in_quality_tiers_dict(self):
         """Every tier the function can return has an entry in QUALITY_TIERS."""

@@ -126,7 +126,6 @@ def _load_allowlist_quality_defaults() -> Tuple[int, int, int, str]:
             "Bronze",
             "Tin",
             "Cardboard",
-            "Abandoned",
         }:
             solo_quality_tier_ceiling = candidate
 
