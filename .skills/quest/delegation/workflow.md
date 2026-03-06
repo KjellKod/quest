@@ -161,7 +161,7 @@ If the user provides a quest ID (matches pattern `*_YYYY-MM-DD__HHMM`):
 3. If the user also provided an instruction, route it (Step 2)
 4. If no instruction, auto-resume based on state:
    - `phase: plan` + no approval verdict → continue plan phase
-   - `phase: plan` + approved (arbiter verdict in workflow, or reviewer-a verdict with `next: "arbiter"` in solo) → proceed to Step 3.5 (Interactive Presentation)
+   - `phase: plan` + approved (arbiter verdict in workflow, or reviewer-a verdict with remapped `next: "builder"` in solo; accept legacy `next: "arbiter"` too) → proceed to Step 3.5 (Interactive Presentation)
    - `phase: plan_reviewed` → proceed to Step 3.5 (Interactive Presentation)
    - `phase: presenting` → proceed to Step 3.5 (Interactive Presentation)
    - `phase: presentation_complete` → proceed to Step 4 gate check (ask to proceed with build)

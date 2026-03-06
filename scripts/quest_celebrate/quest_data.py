@@ -88,6 +88,56 @@ _ROLE_TITLE_MAP = {
 }
 
 
+def _load_allowlist_quality_defaults() -> Tuple[int, int, int, str]:
+    """Read iteration and solo-tier defaults from .ai/allowlist.json."""
+    repo_root = Path(__file__).resolve().parents[2]
+    allowlist_path = repo_root / ".ai" / "allowlist.json"
+    max_plan_iterations = 4
+    max_fix_iterations = 3
+    solo_max_fix_iterations = 2
+    solo_quality_tier_ceiling = "Gold"
+
+    try:
+        data = json.loads(allowlist_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return (
+            max_plan_iterations,
+            max_fix_iterations,
+            solo_max_fix_iterations,
+            solo_quality_tier_ceiling,
+        )
+
+    gates = data.get("gates", {})
+    if isinstance(gates.get("max_plan_iterations"), int):
+        max_plan_iterations = gates["max_plan_iterations"]
+    if isinstance(gates.get("max_fix_iterations"), int):
+        max_fix_iterations = gates["max_fix_iterations"]
+
+    solo = data.get("solo", {})
+    if isinstance(solo.get("max_fix_iterations"), int):
+        solo_max_fix_iterations = solo["max_fix_iterations"]
+    if isinstance(solo.get("quality_tier_ceiling"), str):
+        candidate = solo["quality_tier_ceiling"]
+        if candidate in {
+            "Diamond",
+            "Platinum",
+            "Gold",
+            "Silver",
+            "Bronze",
+            "Tin",
+            "Cardboard",
+            "Abandoned",
+        }:
+            solo_quality_tier_ceiling = candidate
+
+    return (
+        max_plan_iterations,
+        max_fix_iterations,
+        solo_max_fix_iterations,
+        solo_quality_tier_ceiling,
+    )
+
+
 def _map_agent_role_title(agent_name: str) -> str:
     """Map an agent name to a cinematic role title."""
     lower = agent_name.lower()
@@ -552,8 +602,12 @@ QUALITY_TIERS = {
 }
 
 # Max iteration gates (defaults from .ai/allowlist.json)
-_DEFAULT_MAX_PLAN_ITERATIONS = 4
-_DEFAULT_MAX_FIX_ITERATIONS = 3
+(
+    _DEFAULT_MAX_PLAN_ITERATIONS,
+    _DEFAULT_MAX_FIX_ITERATIONS,
+    _DEFAULT_SOLO_MAX_FIX_ITERATIONS,
+    _DEFAULT_SOLO_QUALITY_TIER_CEILING,
+) = _load_allowlist_quality_defaults()
 
 
 def _validated_quality_tier(value: object) -> str:
@@ -569,6 +623,8 @@ def compute_quality_tier(
     max_plan_iterations: int = _DEFAULT_MAX_PLAN_ITERATIONS,
     max_fix_iterations: int = _DEFAULT_MAX_FIX_ITERATIONS,
     quest_mode: str = "",
+    solo_max_fix_iterations: int = _DEFAULT_SOLO_MAX_FIX_ITERATIONS,
+    solo_quality_tier_ceiling: str = _DEFAULT_SOLO_QUALITY_TIER_CEILING,
 ) -> str:
     """Compute a named quality tier from quest iteration data.
 
@@ -584,16 +640,25 @@ def compute_quality_tier(
     if status == "abandoned":
         return "Abandoned"
 
+    effective_max_fix_iterations = max_fix_iterations
+    if quest_mode == "solo":
+        effective_max_fix_iterations = min(
+            max_fix_iterations, solo_max_fix_iterations
+        )
+
     # Check from worst to best so max-gate check uses strict equality
 
     # Cardboard: hit or exceeded max iteration gates
     at_plan_max = plan_iterations >= max_plan_iterations
-    at_fix_max = fix_iterations >= max_fix_iterations
+    at_fix_max = fix_iterations >= effective_max_fix_iterations
     if at_plan_max and at_fix_max:
         return "Cardboard"
 
     # Tin: high iterations (approaching gates but not both maxed)
-    if plan_iterations >= max_plan_iterations or fix_iterations >= max_fix_iterations:
+    if (
+        plan_iterations >= max_plan_iterations
+        or fix_iterations >= effective_max_fix_iterations
+    ):
         return "Tin"
 
     # Bronze: 3+ on either axis (below gate thresholds)
@@ -617,9 +682,22 @@ def compute_quality_tier(
     else:
         tier = "Gold"
 
-    # Solo mode ceiling: cap at Gold
-    if quest_mode == "solo" and tier in ("Diamond", "Platinum"):
-        return "Gold"
+    # Solo mode ceiling is configurable in the allowlist.
+    if quest_mode == "solo":
+        tier_order = [
+            "Cardboard",
+            "Tin",
+            "Bronze",
+            "Silver",
+            "Gold",
+            "Platinum",
+            "Diamond",
+        ]
+        if (
+            solo_quality_tier_ceiling in tier_order
+            and tier_order.index(tier) > tier_order.index(solo_quality_tier_ceiling)
+        ):
+            return solo_quality_tier_ceiling
 
     return tier
 

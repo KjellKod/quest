@@ -1135,6 +1135,30 @@ class TestQualityTier:
         )
         assert tier == "Abandoned"
 
+    def test_solo_uses_configured_fix_iteration_cap(self):
+        tier = compute_quality_tier(
+            plan_iterations=1,
+            fix_iterations=2,
+            review_findings_count=1,
+            status="complete",
+            max_plan_iterations=4,
+            max_fix_iterations=3,
+            quest_mode="solo",
+            solo_max_fix_iterations=2,
+        )
+        assert tier == "Tin"
+
+    def test_solo_uses_configured_quality_ceiling(self):
+        tier = compute_quality_tier(
+            plan_iterations=1,
+            fix_iterations=0,
+            review_findings_count=0,
+            status="complete",
+            quest_mode="solo",
+            solo_quality_tier_ceiling="Silver",
+        )
+        assert tier == "Silver"
+
     def test_all_tiers_in_quality_tiers_dict(self):
         """Every tier the function can return has an entry in QUALITY_TIERS."""
         for tier_name in ["Diamond", "Platinum", "Gold", "Silver", "Bronze",

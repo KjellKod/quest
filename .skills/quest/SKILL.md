@@ -62,6 +62,7 @@ Based on the router decision:
    ```
 2. If user selects "just do it": exit quest system. No quest folder is created. The user works directly.
 3. If user selects "solo" or "full": proceed to the matching handler below with the overridden route.
+4. If user selects "cancel": exit quest system immediately. No quest folder, journaling, or celebration.
 
 **If route = "solo":**
 1. Present the routing classification with override options:
@@ -78,6 +79,7 @@ Based on the router decision:
    ```
 2. If user selects "solo": create quest folder with `quest_mode: "solo"`, proceed to workflow
 3. If user selects "full": create quest folder with `quest_mode: "workflow"`, proceed to workflow
+4. If user selects "cancel": exit quest system immediately. No quest folder, journaling, or celebration.
 
 **If route = "workflow":**
 1. Present the routing classification with override options:
@@ -94,6 +96,7 @@ Based on the router decision:
    ```
 2. If user selects "full": create quest folder with `quest_mode: "workflow"`, proceed to workflow
 3. If user selects "solo": create quest folder with `quest_mode: "solo"`, proceed to workflow
+4. If user selects "cancel": exit quest system immediately. No quest folder, journaling, or celebration.
 
 **After route selection (solo or workflow):**
 1. Present the routing classification to the user (see Risk Visibility below)

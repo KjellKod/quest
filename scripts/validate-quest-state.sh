@@ -32,6 +32,7 @@ PLAN_ITERATION=0
 FIX_ITERATION=0
 MAX_PLAN_ITERATIONS=4
 MAX_FIX_ITERATIONS=3
+SOLO_MAX_FIX_ITERATIONS=2
 
 # Colors for output (disabled if not a terminal)
 if [ -t 1 ]; then
@@ -96,6 +97,14 @@ read_max_iterations() {
         warn "allowlist max_fix_iterations is not a valid integer: '$val' (using default $MAX_FIX_ITERATIONS)"
       fi
     fi
+    val=$(jq -r '.solo.max_fix_iterations // empty' "$allowlist" 2>/dev/null)
+    if [ -n "$val" ]; then
+      if [[ "$val" =~ ^[0-9]+$ ]]; then
+        SOLO_MAX_FIX_ITERATIONS="$val"
+      else
+        warn "allowlist solo.max_fix_iterations is not a valid integer: '$val' (using default $SOLO_MAX_FIX_ITERATIONS)"
+      fi
+    fi
   fi
 }
 
@@ -124,6 +133,9 @@ validate_state_json() {
   QUEST_MODE=$(jq -r '.quest_mode // "workflow"' "$state_file" 2>/dev/null)
   if [ -z "$QUEST_MODE" ] || [ "$QUEST_MODE" = "null" ]; then
     QUEST_MODE="workflow"
+  fi
+  if [ "$QUEST_MODE" = "solo" ] && [ "$SOLO_MAX_FIX_ITERATIONS" -lt "$MAX_FIX_ITERATIONS" ]; then
+    MAX_FIX_ITERATIONS="$SOLO_MAX_FIX_ITERATIONS"
   fi
   local raw_plan_iter raw_fix_iter
   raw_plan_iter=$(jq -r '.plan_iteration // 0' "$state_file" 2>/dev/null)
