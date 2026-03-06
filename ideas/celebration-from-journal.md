@@ -126,7 +126,15 @@ This replaces the existing 0-100 `quality_score` in `quest_data.py` with a named
 
 Three new pieces of data appear on dashboard quest cards when `celebration_data` is present:
 
-1. **Quality Tier Badge** — A small colored badge next to the status badge (e.g., `🥇 GOLD`). Color matches the tier: green for Diamond/Platinum, blue for Gold/Silver, amber for Bronze, gray for Tin/Cardboard, red for Abandoned.
+1. **Quality Tier Badge** — A small colored badge next to the status badge (e.g., `🥇 GOLD`). Color matches the tier: green for Diamond/Platinum, blue for Gold/Silver, amber for Bronze, gray for Tin/Cardboard, red for Abandoned. **Hover tooltip** shows a one-line explanation via `title="..."` attribute — zero JS, works everywhere:
+   - 💎 → `"Flawless — zero issues, shipped clean"`
+   - 🏆 → `"Near-perfect — minor issues, one-pass fix"`
+   - 🥇 → `"Solid — issues caught, fixed cleanly"`
+   - 🥈 → `"Workable — multiple iterations but landed"`
+   - 🥉 → `"Rough ride — got through, bruised"`
+   - 🥫 → `"Dented — 3+ iterations, plan revisions"`
+   - 📦 → `"Held together with tape. Still shipped."`
+   - 💀 → `"Never shipped — lessons learned"`
 
 2. **Agent Models** — In the meta row: `Cast: Claude Opus, Codex, KiMi K2.5`. Shows which models collaborated. Over time, this enables tracking which model combinations correlate with higher quality tiers.
 
