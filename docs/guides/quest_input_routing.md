@@ -1,34 +1,41 @@
 # How Quest Routes Your Input
 
-When you run `/quest`, the system evaluates your input before deciding what to do next. Depending on how much detail you provide, Quest either asks clarifying questions first or proceeds directly to planning.
+When you run `/quest`, the system evaluates your input before deciding what to do next. Depending on how much detail you provide and how complex the task is, Quest decides whether to ask questions, which workflow mode to use, or whether you need a quest pipeline at all.
 
-This guide explains the routing logic, what the questioning phase looks like, and how you can control it.
+This guide explains the routing logic, what the questioning phase looks like, how complexity routing works, and how you can override any recommendation.
 
-## The Three Paths
+## How Quest Routes Your Input
 
-```bash
+```
 /quest "your input"
        │
        ├── Quest ID provided?  ──yes──>  Resume existing quest
        │
        └── New quest  ──>  Evaluate input substance
                                 │
-                                ├── Enough detail  ──>  Start planning
+                                ├── Gaps detected (confidence < 0.70)
+                                │       └── Ask questions first ──> Re-evaluate
                                 │
-                                └── Gaps detected  ──>  Ask questions first
+                                └── Enough detail  ──>  Complexity × Risk routing
+                                        │
+                                        ├── trivial + low risk  ──>  Exit (no quest needed)
+                                        ├── moderate complexity  ──>  Solo quest (lightweight)
+                                        └── substantial / high risk  ──>  Full quest (dual reviews)
 ```
 
 ### Path 1: Resume an Existing Quest
 
 If your argument looks like a quest ID (e.g., `feature-x_2026-02-04__1430`), Quest picks up where you left off. It reads the saved state and jumps to the right phase — whether that's planning, building, reviewing, or showing a completed summary.
 
-### Path 2: Detailed Input — Straight to Planning
+### Path 2: Detailed Input — Complexity Routing
 
-When your input has enough substance, Quest skips questioning and goes directly into the plan/build/review lifecycle.
+When your input has enough substance, Quest runs it through the complexity × risk matrix to determine which route to recommend. Depending on the task, that might be a solo quest (single reviewer, lighter process), a full quest (dual reviews, arbiter), or an exit from the pipeline entirely for trivial tasks.
 
-### Path 3: Thin Input — Questioning Phase First
+### Path 3: Thin Input — Questioning First, Then Routing
 
-When your input has significant gaps, Quest enters a structured questioning phase to gather what it needs before planning.
+When your input has significant gaps, Quest enters a structured questioning phase to gather what it needs. Once questioning is complete, the enriched input goes through the same complexity × risk routing as Path 2.
+
+When the router determines a task is trivial and low-risk, it recommends exiting the quest system entirely — no folder, no artifacts, no pipeline. You just do it directly. This isn't a quest mode; it's Quest recognizing the task doesn't need one.
 
 ## How Quest Evaluates Your Input
 
@@ -47,6 +54,79 @@ Quest assesses your input across seven dimensions:
 **What makes input "detailed enough"?** Generally: the deliverable is clear, scope is at least partially defined, and no more than two dimensions are missing. A short prompt that references a detailed spec file counts as rich input. A long prompt with no scope or acceptance criteria counts as thin input. Length doesn't matter — substance does.
 
 **Risk also matters.** High-risk domains (migrations, security, payments, data loss) bias toward questioning even when most dimensions are present, because mistakes are costlier.
+
+## Complexity Routing
+
+Once Quest has enough substance (either from your original input or after questioning), it assesses the **complexity** of the task and combines it with the **risk level** to determine the route.
+
+### Three Complexity Levels
+
+| Level | Signal | Examples |
+|-------|--------|----------|
+| **Trivial** | Single file, config change, docs, small bug fix | "Fix typo in README", "Add env var to config" |
+| **Moderate** | Multi-file change within one module, new function/endpoint, focused refactor | "Add validation to registration form", "Refactor logger to use structured output" |
+| **Substantial** | Cross-cutting changes, new module, architecture, security-sensitive | "Add OAuth2 flow", "Migrate database schema", "Implement plugin system" |
+
+### The Complexity × Risk Matrix
+
+This matrix determines which route Quest recommends:
+
+| Risk \ Complexity | Trivial | Moderate | Substantial |
+|-------------------|---------|----------|-------------|
+| **Low** | Exit | Solo | Full quest |
+| **Medium** | Solo | Solo | Full quest |
+| **High** | Full quest | Full quest | Full quest |
+
+- **Exit** — Quest suggests you skip the pipeline. No quest folder, no artifacts. You just do the work directly.
+- **Solo** — Lightweight quest: single plan reviewer, no arbiter, single code reviewer, capped fix iterations, Gold quality ceiling. Same pipeline, fewer stages.
+- **Full quest** — The works: dual reviewers (Claude + Codex), arbiter synthesis, full fix loop, no tier ceiling.
+
+## Solo Mode
+
+Solo mode is a lighter version of the same quest pipeline — not a separate system. Here's what changes:
+
+- **Single plan reviewer** (Reviewer A only — no Reviewer B)
+- **No arbiter** — Reviewer A's verdict routes directly to the next phase
+- **Single code reviewer** (Reviewer A only)
+- **Fix iterations capped** at `min(2, allowlist max)` — faster turnaround
+- **Quality tier ceiling at Gold** — Diamond and Platinum are not achievable
+
+The rationale is straightforward: lighter process, lower ceiling. The rigor that justifies higher quality tiers — dual independent reviews from different model families, arbiter synthesis — isn't present in solo mode. Gold is the highest tier a single reviewer can confidently award.
+
+## Override: You Always Choose
+
+The router **recommends** a route. You **choose**.
+
+Every route presents alternatives. When Quest recommends solo, you'll see something like:
+
+```
+Quest Assessment:
+  Risk: low
+  Complexity: moderate
+  Recommended route: solo (lightweight quest)
+
+Options:
+  1. Run as solo quest (recommended) — single plan review, single code review
+  2. Run as full quest — dual reviews, arbiter, the works
+  3. Just do it manually — no pipeline
+  4. Cancel
+```
+
+When Quest recommends the full workflow:
+
+```
+Quest Assessment:
+  Risk: high
+  Complexity: substantial
+  Recommended route: full quest
+
+Options:
+  1. Run as full quest (recommended)
+  2. Run as solo quest (lighter) — single reviewer
+  3. Cancel
+```
+
+If the router recommends exiting (trivial + low risk), you can still override into solo or full quest if you want the pipeline for any reason.
 
 ## The Questioning Phase
 
@@ -179,6 +259,24 @@ Test: integration test with Redis test container."
 # Risk biases toward gathering more information before planning
 ```
 
+**Moderate task — routes to solo:**
+
+```bash
+/quest "Add input validation to the settings form"
+# Quest Assessment: moderate complexity, low risk → solo recommended
+# Options: 1. Solo (recommended) 2. Full quest 3. Just do it 4. Cancel
+# Single reviewer, faster turnaround
+```
+
+**Override — escalate solo to full workflow:**
+
+```bash
+/quest "Refactor the notification service"
+# Quest Assessment: moderate complexity, low risk → solo recommended
+# User selects: "Run as full quest"
+# Quest creates full workflow with dual reviews and arbiter
+```
+
 ## File Structure
 
 The routing and questioning logic lives in three delegation files:
@@ -187,7 +285,7 @@ The routing and questioning logic lives in three delegation files:
 .skills/quest/
   SKILL.md                        # Entry point: resume check, classify, route
   delegation/
-    router.md                     # Evaluates input across 7 dimensions
+    router.md                     # Evaluates input across 7 dimensions + complexity routing
     questioner.md                 # Structured questioning with caps and decisions
     workflow.md                   # Full quest lifecycle (plan/build/review/fix)
 ```
