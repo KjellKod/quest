@@ -83,7 +83,7 @@ read_max_iterations() {
     local val
     val=$(jq -r '.gates.max_plan_iterations // empty' "$allowlist" 2>/dev/null)
     if [ -n "$val" ]; then
-      if [[ "$val" =~ ^[0-9]+$ ]]; then
+      if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge 1 ]; then
         MAX_PLAN_ITERATIONS="$val"
       else
         warn "allowlist max_plan_iterations is not a valid integer: '$val' (using default $MAX_PLAN_ITERATIONS)"
@@ -91,7 +91,7 @@ read_max_iterations() {
     fi
     val=$(jq -r '.gates.max_fix_iterations // empty' "$allowlist" 2>/dev/null)
     if [ -n "$val" ]; then
-      if [[ "$val" =~ ^[0-9]+$ ]]; then
+      if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge 1 ]; then
         MAX_FIX_ITERATIONS="$val"
       else
         warn "allowlist max_fix_iterations is not a valid integer: '$val' (using default $MAX_FIX_ITERATIONS)"
@@ -99,7 +99,7 @@ read_max_iterations() {
     fi
     val=$(jq -r '.solo.max_fix_iterations // empty' "$allowlist" 2>/dev/null)
     if [ -n "$val" ]; then
-      if [[ "$val" =~ ^[0-9]+$ ]]; then
+      if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge 1 ]; then
         SOLO_MAX_FIX_ITERATIONS="$val"
       else
         warn "allowlist solo.max_fix_iterations is not a valid integer: '$val' (using default $SOLO_MAX_FIX_ITERATIONS)"

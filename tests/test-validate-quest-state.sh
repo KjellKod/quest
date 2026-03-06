@@ -471,6 +471,39 @@ AEOF
   [ "$rc" -eq 0 ] && echo "$stderr_output" | grep -q "\[WARN\]" && echo "$stderr_output" | grep -qi "solo.max_fix_iterations"
 }
 
+test_zero_allowlist_iterations_are_rejected() {
+  local tmpdir stderr_file fakerepo
+  tmpdir=$(mktemp -d)
+  stderr_file=$(mktemp)
+  create_state_json "$tmpdir" "plan" 2 0
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+
+  fakerepo=$(mktemp -d)
+  git -C "$fakerepo" init --quiet
+  mkdir -p "$fakerepo/.ai" "$fakerepo/scripts"
+  cat > "$fakerepo/.ai/allowlist.json" <<AEOF
+{
+  "solo": {
+    "max_fix_iterations": 0
+  },
+  "gates": {
+    "max_plan_iterations": 0,
+    "max_fix_iterations": 0
+  }
+}
+AEOF
+  cp "$SCRIPT" "$fakerepo/scripts/validate-quest-state.sh"
+
+  local output stderr_output
+  output=$(cd "$fakerepo" && bash scripts/validate-quest-state.sh "$tmpdir" "plan" 2>"$stderr_file")
+  local rc=$?
+  stderr_output=$(cat "$stderr_file")
+  rm -f "$stderr_file"
+  rm -rf "$tmpdir" "$fakerepo"
+  [ "$rc" -eq 0 ] && echo "$stderr_output" | grep -q "\[WARN\]" && echo "$stderr_output" | grep -qi "max_plan_iterations"
+}
+
 test_validation_log_written() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -522,6 +555,7 @@ run_test test_valid_plan_reviewed_to_presenting
 run_test test_valid_presenting_to_presentation_complete
 run_test test_valid_presentation_complete_to_building
 run_test test_non_numeric_allowlist_iterations
+run_test test_zero_allowlist_iterations_are_rejected
 run_test test_validation_log_written
 
 echo ""

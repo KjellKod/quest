@@ -581,9 +581,9 @@ The fix loop continues until reviewers approve (or max iterations reached). This
 | Reviewer B | ✓ | — |
 | Arbiter | ✓ | — |
 | Builder | ✓ | ✓ |
-| Fixer | ✓ (max 3) | ✓ (max 2) |
+| Fixer | ✓ (max 3) | ✓ (configurable, default 2) |
 
-Solo mode uses the same pipeline with fewer stages. The quality tier ceiling is Gold — Diamond and Platinum require the rigor of dual independent reviews.
+Solo mode uses the same pipeline with fewer stages. Its quality tier ceiling comes from `solo.quality_tier_ceiling` in the allowlist, defaults to Gold, and cannot go above Gold — Diamond and Platinum require the rigor of dual independent reviews.
 
 ## License
 

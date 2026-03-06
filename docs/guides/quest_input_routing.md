@@ -78,7 +78,7 @@ This matrix determines which route Quest recommends:
 | **High** | Full quest | Full quest | Full quest |
 
 - **Exit** — Quest suggests you skip the pipeline. No quest folder, no artifacts. You just do the work directly.
-- **Solo** — Lightweight quest: single plan reviewer, no arbiter, single code reviewer, capped fix iterations, Gold quality ceiling. Same pipeline, fewer stages.
+- **Solo** — Lightweight quest: single plan reviewer, no arbiter, single code reviewer, capped fix iterations, configurable quality ceiling up to Gold. Same pipeline, fewer stages.
 - **Full quest** — The works: dual reviewers (Claude + Codex), arbiter synthesis, full fix loop, no tier ceiling.
 
 ## Solo Mode
@@ -88,10 +88,10 @@ Solo mode is a lighter version of the same quest pipeline — not a separate sys
 - **Single plan reviewer** (Reviewer A only — no Reviewer B)
 - **No arbiter** — Reviewer A's verdict routes directly to the next step, either forward or back for another iteration
 - **Single code reviewer** (Reviewer A only)
-- **Fix iterations capped** at `min(2, allowlist max)` — faster turnaround
-- **Quality tier ceiling at Gold** — Diamond and Platinum are not achievable
+- **Fix iterations capped** at `min(solo.max_fix_iterations, allowlist max)` — faster turnaround
+- **Quality tier ceiling from `solo.quality_tier_ceiling`** — configurable up to Gold; Diamond and Platinum are not achievable
 
-The rationale is straightforward: lighter process, lower ceiling. The rigor that justifies higher quality tiers — dual independent reviews from different model families, arbiter synthesis — isn't present in solo mode. Gold is the highest tier a single reviewer can confidently award.
+The rationale is straightforward: lighter process, lower ceiling. The rigor that justifies higher quality tiers — dual independent reviews from different model families, arbiter synthesis — isn't present in solo mode. Gold is the highest ceiling solo mode can use, and teams can configure a stricter one if they want.
 
 ## Override: You Always Choose
 
