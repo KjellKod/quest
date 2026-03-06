@@ -74,12 +74,10 @@ Based on the router decision:
    Options:
      1. Run as solo quest (recommended) — single plan review, single code review
      2. Run as full quest — dual reviews, arbiter, the works
-     3. Just do it manually — no pipeline
-     4. Cancel
+     3. Cancel
    ```
 2. If user selects "solo": create quest folder with `quest_mode: "solo"`, proceed to workflow
 3. If user selects "full": create quest folder with `quest_mode: "workflow"`, proceed to workflow
-4. If user selects "manual": exit quest system (no quest folder)
 
 **If route = "workflow":**
 1. Present the routing classification with override options:

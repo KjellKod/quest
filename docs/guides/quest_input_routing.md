@@ -108,8 +108,7 @@ Quest Assessment:
 Options:
   1. Run as solo quest (recommended) — single plan review, single code review
   2. Run as full quest — dual reviews, arbiter, the works
-  3. Just do it manually — no pipeline
-  4. Cancel
+  3. Cancel
 ```
 
 When Quest recommends the full workflow:
@@ -264,7 +263,7 @@ Test: integration test with Redis test container."
 ```bash
 /quest "Add input validation to the settings form"
 # Quest Assessment: moderate complexity, low risk → solo recommended
-# Options: 1. Solo (recommended) 2. Full quest 3. Just do it 4. Cancel
+# Options: 1. Solo (recommended) 2. Full quest 3. Cancel
 # Single reviewer, faster turnaround
 ```
 
