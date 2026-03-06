@@ -27,10 +27,12 @@ SCRIPT_NAME="$(basename "$0")"
 
 ERRORS=0
 CURRENT_PHASE=""
+QUEST_MODE="workflow"
 PLAN_ITERATION=0
 FIX_ITERATION=0
 MAX_PLAN_ITERATIONS=4
 MAX_FIX_ITERATIONS=3
+SOLO_MAX_FIX_ITERATIONS=2
 
 # Colors for output (disabled if not a terminal)
 if [ -t 1 ]; then
@@ -81,7 +83,7 @@ read_max_iterations() {
     local val
     val=$(jq -r '.gates.max_plan_iterations // empty' "$allowlist" 2>/dev/null)
     if [ -n "$val" ]; then
-      if [[ "$val" =~ ^[0-9]+$ ]]; then
+      if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge 1 ]; then
         MAX_PLAN_ITERATIONS="$val"
       else
         warn "allowlist max_plan_iterations is not a valid integer: '$val' (using default $MAX_PLAN_ITERATIONS)"
@@ -89,10 +91,18 @@ read_max_iterations() {
     fi
     val=$(jq -r '.gates.max_fix_iterations // empty' "$allowlist" 2>/dev/null)
     if [ -n "$val" ]; then
-      if [[ "$val" =~ ^[0-9]+$ ]]; then
+      if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge 1 ]; then
         MAX_FIX_ITERATIONS="$val"
       else
         warn "allowlist max_fix_iterations is not a valid integer: '$val' (using default $MAX_FIX_ITERATIONS)"
+      fi
+    fi
+    val=$(jq -r '.solo.max_fix_iterations // empty' "$allowlist" 2>/dev/null)
+    if [ -n "$val" ]; then
+      if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge 1 ]; then
+        SOLO_MAX_FIX_ITERATIONS="$val"
+      else
+        warn "allowlist solo.max_fix_iterations is not a valid integer: '$val' (using default $SOLO_MAX_FIX_ITERATIONS)"
       fi
     fi
   fi
@@ -120,6 +130,13 @@ validate_state_json() {
   pass "state.json exists and is valid JSON"
 
   CURRENT_PHASE=$(jq -r '.phase // empty' "$state_file" 2>/dev/null)
+  QUEST_MODE=$(jq -r '.quest_mode // "workflow"' "$state_file" 2>/dev/null)
+  if [ -z "$QUEST_MODE" ] || [ "$QUEST_MODE" = "null" ]; then
+    QUEST_MODE="workflow"
+  fi
+  if [ "$QUEST_MODE" = "solo" ] && [ "$SOLO_MAX_FIX_ITERATIONS" -lt "$MAX_FIX_ITERATIONS" ]; then
+    MAX_FIX_ITERATIONS="$SOLO_MAX_FIX_ITERATIONS"
+  fi
   local raw_plan_iter raw_fix_iter
   raw_plan_iter=$(jq -r '.plan_iteration // 0' "$state_file" 2>/dev/null)
   raw_fix_iter=$(jq -r '.fix_iteration // 0' "$state_file" 2>/dev/null)
@@ -180,11 +197,18 @@ validate_artifacts() {
     "plan->plan_reviewed")
       check_file "$quest_dir/phase_01_plan/plan.md"
       check_file "$quest_dir/phase_01_plan/review_plan-reviewer-a.md"
-      check_file "$quest_dir/phase_01_plan/review_plan-reviewer-b.md"
-      check_file "$quest_dir/phase_01_plan/arbiter_verdict.md"
+      if [ "$QUEST_MODE" != "solo" ]; then
+        check_file "$quest_dir/phase_01_plan/review_plan-reviewer-b.md"
+        check_file "$quest_dir/phase_01_plan/arbiter_verdict.md"
+      fi
       ;;
     "plan->plan")
-      check_file "$quest_dir/phase_01_plan/arbiter_verdict.md"
+      if [ "$QUEST_MODE" = "solo" ]; then
+        # Solo: reviewer A verdict triggers re-plan (no arbiter)
+        check_file "$quest_dir/phase_01_plan/review_plan-reviewer-a.md"
+      else
+        check_file "$quest_dir/phase_01_plan/arbiter_verdict.md"
+      fi
       ;;
     "plan_reviewed->presenting")
       check_file "$quest_dir/phase_01_plan/plan.md"
@@ -205,11 +229,15 @@ validate_artifacts() {
       ;;
     "reviewing->fixing")
       check_file "$quest_dir/phase_03_review/review_code-reviewer-a.md"
-      check_file "$quest_dir/phase_03_review/review_code-reviewer-b.md"
+      if [ "$QUEST_MODE" != "solo" ]; then
+        check_file "$quest_dir/phase_03_review/review_code-reviewer-b.md"
+      fi
       ;;
     "reviewing->complete")
       check_file "$quest_dir/phase_03_review/review_code-reviewer-a.md"
-      check_file "$quest_dir/phase_03_review/review_code-reviewer-b.md"
+      if [ "$QUEST_MODE" != "solo" ]; then
+        check_file "$quest_dir/phase_03_review/review_code-reviewer-b.md"
+      fi
       ;;
     "fixing->reviewing")
       check_file "$quest_dir/phase_03_review/review_fix_feedback_discussion.md"
@@ -250,22 +278,38 @@ validate_semantic_content() {
 
   case "${current}->${target}" in
     "plan_reviewed->building")
-      local arbiter_file="$quest_dir/phase_01_plan/handoff_arbiter.json"
-      if [ ! -f "$arbiter_file" ]; then
-        fail "Semantic check: handoff_arbiter.json not found at $arbiter_file"
-        return
-      fi
-      local next_val
-      next_val=$(jq -r '.next' "$arbiter_file" 2>/dev/null)
-      if [ "$next_val" = "builder" ]; then
-        pass "Semantic check: arbiter approved (next=builder)"
+      if [ "$QUEST_MODE" = "solo" ]; then
+        # Solo: reviewer A's verdict (remapped by workflow to next=builder)
+        local reviewer_a_file="$quest_dir/phase_01_plan/handoff_plan-reviewer-a.json"
+        if [ ! -f "$reviewer_a_file" ]; then
+          fail "Semantic check: handoff_plan-reviewer-a.json not found at $reviewer_a_file"
+          return
+        fi
+        local next_val
+        next_val=$(jq -r '.next' "$reviewer_a_file" 2>/dev/null)
+        # Workflow remaps "arbiter" → "builder" in solo mode; accept both
+        if [ "$next_val" = "builder" ] || [ "$next_val" = "arbiter" ]; then
+          pass "Semantic check: reviewer A approved for building (next=$next_val, solo mode)"
+        else
+          fail "Semantic check: reviewer A did not approve for building (next=$next_val, expected builder or arbiter)"
+        fi
       else
-        fail "Semantic check: arbiter did not approve for building (next=$next_val, expected builder)"
+        local arbiter_file="$quest_dir/phase_01_plan/handoff_arbiter.json"
+        if [ ! -f "$arbiter_file" ]; then
+          fail "Semantic check: handoff_arbiter.json not found at $arbiter_file"
+          return
+        fi
+        local next_val
+        next_val=$(jq -r '.next' "$arbiter_file" 2>/dev/null)
+        if [ "$next_val" = "builder" ]; then
+          pass "Semantic check: arbiter approved (next=builder)"
+        else
+          fail "Semantic check: arbiter did not approve for building (next=$next_val, expected builder)"
+        fi
       fi
       ;;
     "reviewing->fixing")
       local reviewer_a_file="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
-      local reviewer_b_file="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
       local has_fixer=false
 
       if [ -f "$reviewer_a_file" ]; then
@@ -275,11 +319,15 @@ validate_semantic_content() {
           has_fixer=true
         fi
       fi
-      if [ -f "$reviewer_b_file" ]; then
-        local reviewer_b_next
-        reviewer_b_next=$(jq -r '.next' "$reviewer_b_file" 2>/dev/null)
-        if [ "$reviewer_b_next" = "fixer" ]; then
-          has_fixer=true
+
+      if [ "$QUEST_MODE" != "solo" ]; then
+        local reviewer_b_file="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
+        if [ -f "$reviewer_b_file" ]; then
+          local reviewer_b_next
+          reviewer_b_next=$(jq -r '.next' "$reviewer_b_file" 2>/dev/null)
+          if [ "$reviewer_b_next" = "fixer" ]; then
+            has_fixer=true
+          fi
         fi
       fi
 
@@ -291,8 +339,7 @@ validate_semantic_content() {
       ;;
     "reviewing->complete")
       local reviewer_a_file="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
-      local reviewer_b_file="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
-      local both_clean=true
+      local all_clean=true
 
       if [ -f "$reviewer_a_file" ]; then
         local reviewer_a_next
@@ -300,26 +347,37 @@ validate_semantic_content() {
         # This is acceptable since agents always write structured handoff JSON.
         reviewer_a_next=$(jq -r '.next' "$reviewer_a_file" 2>/dev/null)
         if [ "$reviewer_a_next" != "null" ]; then
-          both_clean=false
+          all_clean=false
         fi
       else
-        both_clean=false
+        all_clean=false
       fi
 
-      if [ -f "$reviewer_b_file" ]; then
-        local reviewer_b_next
-        reviewer_b_next=$(jq -r '.next' "$reviewer_b_file" 2>/dev/null)
-        if [ "$reviewer_b_next" != "null" ]; then
-          both_clean=false
+      if [ "$QUEST_MODE" != "solo" ]; then
+        local reviewer_b_file="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
+        if [ -f "$reviewer_b_file" ]; then
+          local reviewer_b_next
+          reviewer_b_next=$(jq -r '.next' "$reviewer_b_file" 2>/dev/null)
+          if [ "$reviewer_b_next" != "null" ]; then
+            all_clean=false
+          fi
+        else
+          all_clean=false
+        fi
+      fi
+
+      if [ "$all_clean" = true ]; then
+        if [ "$QUEST_MODE" = "solo" ]; then
+          pass "Semantic check: reviewer A reports clean (next=null, solo mode)"
+        else
+          pass "Semantic check: both reviewers report clean (next=null)"
         fi
       else
-        both_clean=false
-      fi
-
-      if [ "$both_clean" = true ]; then
-        pass "Semantic check: both reviewers report clean (next=null)"
-      else
-        fail "Semantic check: reviews are not both clean (both handoff files must have next=null)"
+        if [ "$QUEST_MODE" = "solo" ]; then
+          fail "Semantic check: reviewer A is not clean (handoff file must have next=null)"
+        else
+          fail "Semantic check: reviews are not both clean (both handoff files must have next=null)"
+        fi
       fi
       ;;
   esac

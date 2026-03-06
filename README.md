@@ -53,6 +53,7 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 - Resumable state via `state.json`
 - A thin orchestrator that passes paths, not content (Context Retention Rule)
 - Structured handoff contract (`handoff.json`) between orchestrator and subagents, with text fallback for backward compatibility
+- Smart complexity routing — Quest evaluates task size and risk, then routes to solo (lightweight, single reviewer) or full workflow (dual reviews + arbiter). Trivial tasks exit the pipeline entirely. You always choose
 - State validation script that enforces phase transitions, artifact prerequisites, and semantic handoff checks (`scripts/validate-quest-state.sh`)
 - Context health logging and compliance reporting — every handoff is logged, compliance is reported at quest completion
 - Consolidated skill ownership — all quest agent wiring lives under `.skills/quest/`
@@ -84,11 +85,13 @@ Quest is very useful, but it is not currently intended to be a long term maintai
 
 ## What is Quest?
 
-Quest is a multi-agent workflow where specialized AI agents (planner, reviewers, builder) work in **isolated contexts** with **human approval gates**. Two different models (Claude + GPT) review independently, an arbiter filters nitpicks, and you approve before anything gets built.
+Quest is a multi-agent workflow where specialized AI agents (planner, reviewers, builder) work in **isolated contexts** with **human approval gates**. Two different models (Claude + GPT) review independently, an arbiter filters nitpicks, and you approve before anything gets built. For lighter tasks, solo mode uses a single reviewer — same pipeline, fewer stages, faster turnaround.
 
 **One sentence:** *"Structured AI teamwork with checks and balances."*
 
 ```
+Full workflow (complex/high-risk tasks):
+
 ┌─────────────── PLAN PHASE ───────────────┐    ┌─────────── BUILD PHASE ─────────────┐
 │                                          │    │                                     │
 │  You → Planner → Reviewers → Arbiter  ───┼────→  Builder → Reviewers → Arbiter ──→ Done 
@@ -101,6 +104,19 @@ Quest is a multi-agent workflow where specialized AI agents (planner, reviewers,
 └──────────────────────────────────────────┘  │ └─────────────────────────────────────┘ │
                                               │                                         │
                                     GATE: human approval                       GATE: human approval
+
+Solo mode (lighter tasks):
+
+┌──────── PLAN PHASE ────────┐    ┌──────── BUILD PHASE ────────┐
+│                             │    │                              │
+│  You → Planner → Reviewer ──┼────→  Builder → Reviewer ──────→ Done
+│            ▲         │      │  ▲ │              │               │ ▲
+│            └── iterate ┘    │  │ │              ▼               │ │
+│                             │  │ │           Fixer ─────────────┘ │
+│                             │  │ │         (max 2 iterations)     │
+└─────────────────────────────┘  │ └──────────────────────────────┘ │
+                                 │                                   │
+                       GATE: human approval                GATE: human approval
 ```
 
 **Where you spend your time:** The beginning and the end. During planning, you review the plan, the arbiter's trade-off discussions, and occasionally override decisions. During hardening, you validate the MVP against reality — because you don't fully understand a feature until you see it built. Most follow-up quests and v2 ideas come from this post-build validation, not from planning. Critical code paths deserve human eyes regardless — you don't need to review every line, but you choose where to look. This works when you and Quest drive with intention: good test coverage and quality as a first-class constraint, not an afterthought.
@@ -253,6 +269,11 @@ Quest scales from simple to complex — just describe what you want:
 # Large refactor
 /quest "Add weekly update checking with opt-out config"
 
+# Solo quest — lighter process for focused tasks
+/quest "Add input validation to the settings form"
+# Quest recommends: solo (moderate complexity, low risk)
+# Single reviewer, faster turnaround
+
 # Resume where you left off
 /quest feature-x_2026-02-04__1430
 
@@ -278,7 +299,7 @@ When Quest determines your input needs more detail, it asks **targeted, numbered
 - **"Just go with it"** — say this at any point to skip remaining questions and proceed with explicit assumptions
 - **Detailed input skips questioning entirely** — if your input already has clear deliverables, scope, and acceptance criteria, Quest goes straight to planning
 
-The questioning phase produces a structured summary (requirements, constraints, assumptions, unknowns) that becomes the foundation for the plan. For a deeper look at how Quest evaluates your input and routes between questioning and planning, see the [Input Routing Guide](docs/guides/quest_input_routing.md).
+The questioning phase produces a structured summary (requirements, constraints, assumptions, unknowns) that becomes the foundation for the plan. For a deeper look at how Quest evaluates your input, routes by complexity and risk, and when solo vs full workflow applies, see the [Input Routing Guide](docs/guides/quest_input_routing.md).
 
 ### Input Quality Ladder
 
@@ -430,6 +451,7 @@ This pattern works well because:
 - **Human gates** — you approve before building
 - **Artifacts saved** — full audit trail in `.quest/`
 - **Scales up** — step-by-step approach shines on large tasks (context stays manageable)
+- **Smart routing** — evaluates complexity and risk, routes to solo or full workflow. Trivial tasks skip the pipeline. Override anytime
 - **Smart intake** — Quest evaluates your input and asks structured, numbered questions when it needs more detail (max 10, usually fewer). Say "just go with it" to skip ahead anytime
 
 ## How the Orchestrator Works
@@ -477,6 +499,8 @@ The Quest Orchestrator (main Claude running `/quest`) coordinates specialized ag
 
 **Why parallel?** Both reviewers are independent (write separate files, read same inputs). Claude's API executes multiple tool calls from the same message concurrently.
 
+**Solo mode dispatch:** In solo quests, the orchestrator dispatches a single reviewer (Reviewer A only). There's no Reviewer B and no arbiter — Reviewer A's verdict routes directly to the next phase. Review phases complete faster with a single tool call instead of parallel dispatch + synthesis.
+
 ## File Structure
 
 ```
@@ -511,7 +535,7 @@ your-repo/
 - **[Quest Portfolio Dashboard](https://kjellkod.github.io/quest/)** - Live dashboard: quest outcomes, status distribution, and links to every quest journal entry
 - **[Quest Setup Guide](docs/guides/quest_setup.md)** - Detailed setup instructions
 - **[Quest Presentation](docs/guides/quest_presentation.md)** - How it works (with diagrams)
-- **[Input Routing Guide](docs/guides/quest_input_routing.md)** - How Quest evaluates your input and routes between questioning and planning
+- **[Input Routing Guide](docs/guides/quest_input_routing.md)** - How Quest evaluates your input, routes by complexity and risk, and when it uses solo vs full workflow
 - **[AGENTS.md](AGENTS.md)** - Coding rules to customize
 - **[OpenCode Field Notes](docs/guides/opencode-model-observations.md)** - Multi-model testing results, winning configurations, and architecture comparison
 - **[.ai/quest.md](.ai/quest.md)** - Quick reference
@@ -547,6 +571,19 @@ The fix loop continues until reviewers approve (or max iterations reached). This
 **Key difference from Builder:**
 - **Builder**: Implements the full plan from scratch
 - **Fixer**: Makes surgical fixes to existing implementation based on review feedback
+
+### Solo vs Full Workflow
+
+| Role | Full Workflow | Solo Mode |
+|------|:---:|:---:|
+| Planner | ✓ | ✓ |
+| Reviewer A | ✓ | ✓ |
+| Reviewer B | ✓ | — |
+| Arbiter | ✓ | — |
+| Builder | ✓ | ✓ |
+| Fixer | ✓ (max 3) | ✓ (configurable, default 2) |
+
+Solo mode uses the same pipeline with fewer stages. Its quality tier ceiling comes from `solo.quality_tier_ceiling` in the allowlist, defaults to Gold, and cannot go above Gold — Diamond and Platinum require the rigor of dual independent reviews.
 
 ## License
 

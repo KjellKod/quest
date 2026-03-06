@@ -79,6 +79,11 @@
       "bash": ["npm test", "pytest", "python", "yarn test", "make test", "shasum", "sha256sum"]
     }
   },
+  "solo": {
+    "max_fix_iterations": 2,
+    "quality_tier_ceiling": "Gold",
+    "notes": "Solo quests use single reviewer (A only), no arbiter, capped fix iterations and quality tier."
+  },
   "gates": {
     "require_approval_before_commit": true,
     "require_approval_before_push": true,

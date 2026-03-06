@@ -35,6 +35,22 @@ Before the first Codex invocation, the orchestrator MUST probe for tool availabi
 
 **Why:** MCP servers are loaded at session startup. If the Codex MCP server failed to connect (binary not on PATH, server crash, etc.), it cannot be recovered mid-session. Probing once avoids repeated failed invocations and misleading error messages.
 
+### Quest Mode Check
+
+On entry, read `quest_mode` from `.quest/<id>/state.json`. Default to `"workflow"` if missing.
+
+Quest mode determines agent dispatch and iteration limits:
+
+| Aspect              | workflow (default) | solo              |
+|---------------------|-------------------|-------------------|
+| Plan reviewers      | Dual (A + B)      | Single (A only)   |
+| Arbiter             | Yes               | No — Reviewer A's verdict is used directly |
+| Code reviewers      | Dual (A + B)      | Single (A only)   |
+| Max fix iterations  | From allowlist gates (default 3) | min(solo.max_fix_iterations, allowlist gates) |
+| Quality tier ceiling | None              | From `solo.quality_tier_ceiling` (default Gold, never above Gold) |
+
+**Solo verdict remapping:** In solo mode, Reviewer A's handoff says `next: "arbiter"` per the reviewer agent contract. The workflow remaps this: when `quest_mode == "solo"` and Reviewer A says `next: "arbiter"`, treat it as `next: "builder"` (approved). Write the remapped value to state for downstream consumers. If Reviewer A says `next: "planner"`, it means revision needed — no remapping.
+
 ### Hard Phase Gate (No Pre-Build Source Edits)
 
 Before Step 4 (Build Phase), the orchestrator and all agents MUST NOT edit source/product files.
@@ -144,8 +160,8 @@ If the user provides a quest ID (matches pattern `*_YYYY-MM-DD__HHMM`):
 2. If yes, read it and resume from the recorded phase
 3. If the user also provided an instruction, route it (Step 2)
 4. If no instruction, auto-resume based on state:
-   - `phase: plan` + no arbiter verdict → continue plan phase
-   - `phase: plan` + arbiter approved → proceed to Step 3.5 (Interactive Presentation)
+   - `phase: plan` + no approval verdict → continue plan phase
+   - `phase: plan` + approved (arbiter verdict in workflow, or reviewer-a verdict with remapped `next: "builder"` in solo; accept legacy `next: "arbiter"` too) → proceed to Step 3.5 (Interactive Presentation)
    - `phase: plan_reviewed` → proceed to Step 3.5 (Interactive Presentation)
    - `phase: presenting` → proceed to Step 3.5 (Interactive Presentation)
    - `phase: presentation_complete` → proceed to Step 4 gate check (ask to proceed with build)
@@ -215,11 +231,15 @@ gates.max_plan_iterations (default: 4)
    - `codex_context_digest_path` (default: `.ai/context_digest.md`)
    - For plan review: treat `auto` as `full`. Use `fast` only if explicitly set.
 
-4. **Invoke BOTH Plan Reviewers IN PARALLEL** (same message, one Task call + one Codex call):
+4. **Invoke Plan Reviewers:**
+
+   **If `quest_mode == "solo"`:** Invoke ONLY Reviewer A (Claude Task). Skip Reviewer B entirely. Log: `Plan review: dispatched=single (solo mode)` to `.quest/<id>/logs/parallelism.log`.
+
+   **If `quest_mode == "workflow"` (default):** Invoke BOTH Plan Reviewers IN PARALLEL (same message, one Task call + one Codex call).
 
    Two different models review independently for model diversity:
    - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
-   - **Reviewer B**: dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
+   - **Reviewer B** (workflow only): dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
 
    **Slot A — Claude Task agent** (full and fast modes):
 
@@ -322,7 +342,15 @@ gates.max_plan_iterations (default: 4)
       ```
       The wall-clock duration covers both agents. Since both calls are issued in the same message, they run concurrently by construction. Agent self-reported timestamps are unreliable and must NOT be used for parallelism verification.
 
-5. **Invoke Arbiter** (Claude `Task(subagent_type="arbiter")`):
+5. **Invoke Arbiter or use Solo verdict:**
+
+   **If `quest_mode == "solo"`:** Skip Arbiter entirely. Use Reviewer A's verdict directly with remapping:
+   - Read `.quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json`
+   - If `next: "arbiter"` → remap to `next: "builder"` (approved in solo mode)
+   - If `next: "planner"` → plan needs revision (no remapping)
+   - Log: `Plan review: arbiter=skipped (solo mode, using reviewer-a verdict)` to `.quest/<id>/logs/parallelism.log`
+
+   **If `quest_mode == "workflow"` (default):** Invoke Arbiter (Claude `Task(subagent_type="arbiter")`):
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -510,11 +538,15 @@ After plan approval, present the plan interactively before proceeding to build.
      - If file_count ≤ max_files AND loc_total ≤ max_loc → **fast**
      - Otherwise → **full**
 
-4. **Invoke BOTH Code Reviewers IN PARALLEL** (same message, one Task call + one Codex call):
+4. **Invoke Code Reviewers:**
+
+   **If `quest_mode == "solo"`:** Invoke ONLY Reviewer A (Claude Task). Skip Reviewer B entirely. Log: `Code review: dispatched=single (solo mode)` to `.quest/<id>/logs/parallelism.log`.
+
+   **If `quest_mode == "workflow"` (default):** Invoke BOTH Code Reviewers IN PARALLEL (same message, one Task call + one Codex call).
 
    Two different models review independently for model diversity:
    - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
-   - **Reviewer B**: dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
+   - **Reviewer B** (workflow only): dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
 
    **Slot A — Claude Task agent** (full and fast modes):
 
@@ -638,6 +670,18 @@ After plan approval, present the plan interactively before proceeding to build.
    - For each reviewer slot, use the `next` value obtained in step 4:
      - If handoff.json was successfully read → use its `next` and `summary` fields
      - If fallback was triggered after applying deterministic precedence (retry/fallback chain) → use `NEXT` and `SUMMARY` from parsed text `---HANDOFF---`
+
+   **If `quest_mode == "solo"`:** Only Reviewer A's verdict matters:
+   - If `next: "fixer"` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> fixing` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Issues found, proceed to Step 6
+   - If `next: null` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Review passed! Update state: `phase: complete`, go to Step 7
+   - Present summary:
+     ```
+     Review complete (solo):
+       Reviewer A: "<summary from handoff or fallback>"
+     Full review at: .quest/<id>/phase_03_review/review_code-reviewer-a.md
+     ```
+
+   **If `quest_mode == "workflow"` (default):**
    - If EITHER slot has `next: "fixer"` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> fixing` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Issues found, proceed to Step 6
    - If BOTH have `next: null` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Review passed! Update state: `phase: complete`, go to Step 7
    - Present summaries to user:
@@ -652,6 +696,10 @@ After plan approval, present the plan interactively before proceeding to build.
 ### Step 6: Fix Phase
 
 **Read allowlist:** `gates.max_fix_iterations` (default: 3)
+
+**Solo override:** `solo.max_fix_iterations` (default: 2)
+
+**Solo mode cap:** If `quest_mode == "solo"`, cap `max_fix_iterations` at `min(solo.max_fix_iterations, gates.max_fix_iterations)`.
 
 **Gate check:**
 - Read `auto_approve_phases.fix_loop` from allowlist
@@ -687,14 +735,22 @@ After plan approval, present the plan interactively before proceeding to build.
      - Only ask the user questions if the Claude fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
-3. **Clear stale handoff files:** Delete any existing `handoff_code-reviewer-a.json` and `handoff_code-reviewer-b.json` in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
+3. **Clear stale handoff files:** Delete any existing `handoff_code-reviewer-a.json` (and `handoff_code-reviewer-b.json` if workflow mode) in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
 
 4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
 
-5. **Re-invoke BOTH Code Reviewers** (same as Step 5)
+5. **Re-invoke Code Reviewers** (same dispatch rules as Step 5 — solo dispatches only Reviewer A, workflow dispatches both)
 
 6. **Check verdict (with fallback):**
    - For each reviewer slot, use the `next` value obtained in step 5 (handoff.json preferred; text fallback only after deterministic precedence)
+
+   **If `quest_mode == "solo"`:** Only Reviewer A's verdict matters:
+   - If `next: null` → Fixed! **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Proceed to Step 7
+   - If `next: "fixer"`:
+     - If `fix_iteration >= max_fix_iterations` (capped at `min(solo.max_fix_iterations, gates.max_fix_iterations)`): Warn user, ask to proceed or review manually
+     - Otherwise: Loop back to step 1
+
+   **If `quest_mode == "workflow"` (default):**
    - If BOTH have `next: null` → Fixed!
      - **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
      - Proceed to Step 7
@@ -730,6 +786,7 @@ After plan approval, present the plan interactively before proceeding to build.
       <!-- celebration-data-start -->
       ```json
       {
+        "quest_mode": "workflow",
         "agents": [{"name": "...", "model": "...", "role": "..."}],
         "achievements": [{"icon": "⭐️", "title": "...", "desc": "..."}],
         "metrics": [{"icon": "📊", "label": "..."}],
@@ -745,6 +802,11 @@ After plan approval, present the plan interactively before proceeding to build.
       ```
 
       The orchestrator should populate this from the quest artifacts it already read. Agents, achievements, and metrics should be context-aware and specific — not generic. The quality tier uses the full honest scale: Diamond/Platinum/Gold/Silver/Bronze/Tin/Cardboard/Abandoned.
+
+      **Solo mode adjustments for celebration_data:**
+      - Set `"quest_mode": "solo"` in the JSON
+      - Quality tier ceiling: cap to `solo.quality_tier_ceiling` from allowlist (default Gold, never above Gold)
+      - Solo quests will show fewer agents (expected) — note this in the context health report rather than treating it as missing data
 
     - Insert a row at the top of `docs/quest-journal/README.md` index table (after the header row) with date, quest link, and one-line outcome. The table is in reverse chronological order (newest first).
     - If quest originated from an idea file:

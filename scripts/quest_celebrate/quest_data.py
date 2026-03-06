@@ -44,6 +44,7 @@ class QuestData:
     name: str = "Unknown Quest"
     phase: str = ""
     status: str = ""
+    quest_mode: str = ""  # "workflow", "solo", or "" (legacy/unknown)
     plan_iterations: int = 0
     fix_iterations: int = 0
     created_at: Optional[str] = None
@@ -85,6 +86,56 @@ _ROLE_TITLE_MAP = {
     "fixer": "The Bug Slayer",
     "arbiter": "The Judge",
 }
+
+
+def _load_allowlist_quality_defaults() -> Tuple[int, int, int, str]:
+    """Read iteration and solo-tier defaults from .ai/allowlist.json."""
+    repo_root = Path(__file__).resolve().parents[2]
+    allowlist_path = repo_root / ".ai" / "allowlist.json"
+    max_plan_iterations = 4
+    max_fix_iterations = 3
+    solo_max_fix_iterations = 2
+    solo_quality_tier_ceiling = "Gold"
+
+    try:
+        data = json.loads(allowlist_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return (
+            max_plan_iterations,
+            max_fix_iterations,
+            solo_max_fix_iterations,
+            solo_quality_tier_ceiling,
+        )
+
+    gates = data.get("gates", {})
+    if (
+        type(gates.get("max_plan_iterations")) is int
+        and gates["max_plan_iterations"] >= 1
+    ):
+        max_plan_iterations = gates["max_plan_iterations"]
+    if type(gates.get("max_fix_iterations")) is int and gates["max_fix_iterations"] >= 1:
+        max_fix_iterations = gates["max_fix_iterations"]
+
+    solo = data.get("solo", {})
+    if type(solo.get("max_fix_iterations")) is int and solo["max_fix_iterations"] >= 1:
+        solo_max_fix_iterations = solo["max_fix_iterations"]
+    if isinstance(solo.get("quality_tier_ceiling"), str):
+        candidate = solo["quality_tier_ceiling"]
+        if candidate in {
+            "Gold",
+            "Silver",
+            "Bronze",
+            "Tin",
+            "Cardboard",
+        }:
+            solo_quality_tier_ceiling = candidate
+
+    return (
+        max_plan_iterations,
+        max_fix_iterations,
+        solo_max_fix_iterations,
+        solo_quality_tier_ceiling,
+    )
 
 
 def _map_agent_role_title(agent_name: str) -> str:
@@ -479,6 +530,16 @@ def _compute_achievements(data: QuestData) -> List[Achievement]:
             )
         )
 
+    if data.quest_mode == "solo":
+        achievements.append(
+            Achievement(
+                icon="[SOLO]",
+                title="Solo Adventurer",
+                description="Completed quest with a single companion",
+                attribution=models_for_role("reviewer", "plan-reviewer"),
+            )
+        )
+
     if data.status == "complete":
         achievements.append(
             Achievement(
@@ -541,8 +602,12 @@ QUALITY_TIERS = {
 }
 
 # Max iteration gates (defaults from .ai/allowlist.json)
-_DEFAULT_MAX_PLAN_ITERATIONS = 4
-_DEFAULT_MAX_FIX_ITERATIONS = 3
+(
+    _DEFAULT_MAX_PLAN_ITERATIONS,
+    _DEFAULT_MAX_FIX_ITERATIONS,
+    _DEFAULT_SOLO_MAX_FIX_ITERATIONS,
+    _DEFAULT_SOLO_QUALITY_TIER_CEILING,
+) = _load_allowlist_quality_defaults()
 
 
 def _validated_quality_tier(value: object) -> str:
@@ -557,11 +622,17 @@ def compute_quality_tier(
     status: str,
     max_plan_iterations: int = _DEFAULT_MAX_PLAN_ITERATIONS,
     max_fix_iterations: int = _DEFAULT_MAX_FIX_ITERATIONS,
+    quest_mode: str = "",
+    solo_max_fix_iterations: int = _DEFAULT_SOLO_MAX_FIX_ITERATIONS,
+    solo_quality_tier_ceiling: str = _DEFAULT_SOLO_QUALITY_TIER_CEILING,
 ) -> str:
     """Compute a named quality tier from quest iteration data.
 
     The tier is candid: smooth quests get top tiers, rough quests get
     honest lower tiers. Every tier that isn't Abandoned still shipped.
+
+    When quest_mode is "solo", the tier is capped at Gold (Diamond and
+    Platinum are not achievable with single-reviewer quests).
 
     Returns one of: Diamond, Platinum, Gold, Silver, Bronze, Tin,
     Cardboard, Abandoned.
@@ -569,16 +640,25 @@ def compute_quality_tier(
     if status == "abandoned":
         return "Abandoned"
 
+    effective_max_fix_iterations = max_fix_iterations
+    if quest_mode == "solo":
+        effective_max_fix_iterations = min(
+            max_fix_iterations, solo_max_fix_iterations
+        )
+
     # Check from worst to best so max-gate check uses strict equality
 
     # Cardboard: hit or exceeded max iteration gates
     at_plan_max = plan_iterations >= max_plan_iterations
-    at_fix_max = fix_iterations >= max_fix_iterations
+    at_fix_max = fix_iterations >= effective_max_fix_iterations
     if at_plan_max and at_fix_max:
         return "Cardboard"
 
     # Tin: high iterations (approaching gates but not both maxed)
-    if plan_iterations >= max_plan_iterations or fix_iterations >= max_fix_iterations:
+    if (
+        plan_iterations >= max_plan_iterations
+        or fix_iterations >= effective_max_fix_iterations
+    ):
         return "Tin"
 
     # Bronze: 3+ on either axis (below gate thresholds)
@@ -595,13 +675,31 @@ def compute_quality_tier(
 
     # Diamond: plan <= 1, fix == 0, zero review issues — flawless
     if plan_iterations <= 1 and fix_iterations == 0 and review_findings_count == 0:
-        return "Diamond"
-
+        tier = "Diamond"
     # Platinum: plan <= 1, fix <= 1 — near-perfect (issues found or one fix pass)
-    if plan_iterations <= 1 and fix_iterations <= 1:
-        return "Platinum"
+    elif plan_iterations <= 1 and fix_iterations <= 1:
+        tier = "Platinum"
+    else:
+        tier = "Gold"
 
-    return "Gold"
+    # Solo mode ceiling is configurable in the allowlist.
+    if quest_mode == "solo":
+        tier_order = [
+            "Cardboard",
+            "Tin",
+            "Bronze",
+            "Silver",
+            "Gold",
+            "Platinum",
+            "Diamond",
+        ]
+        if (
+            solo_quality_tier_ceiling in tier_order
+            and tier_order.index(tier) > tier_order.index(solo_quality_tier_ceiling)
+        ):
+            return solo_quality_tier_ceiling
+
+    return tier
 
 
 def friendly_model_name(model: str) -> str:
@@ -705,6 +803,7 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
     celebration = extract_celebration_data_from_journal(content)
     if celebration:
         # Populate from structured JSON
+        data.quest_mode = celebration.get("quest_mode", "")
         quality = celebration.get("quality", {})
         if isinstance(quality, dict):
             data.quality_tier = _validated_quality_tier(quality.get("tier"))
@@ -740,6 +839,11 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
             data.plan_summary = victory_narrative
 
     # Extract basic metadata from markdown (always, for fields not in JSON)
+    if not data.quest_mode:
+        raw_mode = _extract_metadata(content, "quest mode")
+        if raw_mode:
+            data.quest_mode = raw_mode.lower()
+
     data.quest_id = _extract_metadata(content, "quest id")
     if data.quest_id:
         parts = data.quest_id.split("_")
@@ -786,6 +890,7 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
             data.fix_iterations,
             len(data.review_findings),
             data.status,
+            quest_mode=data.quest_mode,
         )
 
     # Compute quality score for backward compatibility
@@ -811,6 +916,7 @@ def load_quest_data(quest_dir: Path) -> QuestData:
     data.slug = state.get("slug", "")
     data.phase = state.get("phase", "")
     data.status = state.get("status", "")
+    data.quest_mode = state.get("quest_mode", "")
     data.plan_iterations = state.get("plan_iteration", 0)
     data.fix_iterations = state.get("fix_iteration", 0)
     data.created_at = state.get("created_at")
@@ -848,6 +954,7 @@ def load_quest_data(quest_dir: Path) -> QuestData:
         data.fix_iterations,
         len(data.review_findings),
         data.status,
+        quest_mode=data.quest_mode,
     )
 
     return data

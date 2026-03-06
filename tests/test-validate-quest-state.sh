@@ -28,12 +28,14 @@ create_state_json() {
   local phase="$2"
   local plan_iter="${3:-1}"
   local fix_iter="${4:-0}"
+  local quest_mode="${5:-workflow}"
   cat > "$dir/state.json" <<EOF
 {
   "quest_id": "test-quest_2026-01-01__0000",
   "slug": "test-quest",
   "phase": "$phase",
   "status": "in_progress",
+  "quest_mode": "$quest_mode",
   "plan_iteration": $plan_iter,
   "fix_iteration": $fix_iter,
   "last_role": "test",
@@ -273,6 +275,39 @@ test_fix_iteration_exceeded() {
   [ "$rc" -eq 0 ] && echo "$stderr_output" | grep -q "\[WARN\]"
 }
 
+test_fix_iteration_exceeded_uses_solo_cap() {
+  local tmpdir stderr_file fakerepo
+  tmpdir=$(mktemp -d)
+  stderr_file=$(mktemp)
+  create_state_json "$tmpdir" "fixing" 1 2 "solo"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_fix_feedback_discussion.md"
+
+  fakerepo=$(mktemp -d)
+  git -C "$fakerepo" init --quiet
+  mkdir -p "$fakerepo/.ai" "$fakerepo/scripts"
+  cat > "$fakerepo/.ai/allowlist.json" <<AEOF
+{
+  "solo": {
+    "max_fix_iterations": 2
+  },
+  "gates": {
+    "max_plan_iterations": 4,
+    "max_fix_iterations": 3
+  }
+}
+AEOF
+  cp "$SCRIPT" "$fakerepo/scripts/validate-quest-state.sh"
+
+  local output stderr_output
+  output=$(cd "$fakerepo" && bash scripts/validate-quest-state.sh "$tmpdir" "reviewing" 2>"$stderr_file")
+  local rc=$?
+  stderr_output=$(cat "$stderr_file")
+  rm -f "$stderr_file"
+  rm -rf "$tmpdir" "$fakerepo"
+  [ "$rc" -eq 0 ] && echo "$stderr_output" | grep -q "max 2"
+}
+
 test_plan_iteration_within_bounds() {
   local tmpdir stderr_file
   tmpdir=$(mktemp -d)
@@ -415,6 +450,9 @@ test_non_numeric_allowlist_iterations() {
   mkdir -p "$fakerepo/.ai"
   cat > "$fakerepo/.ai/allowlist.json" <<AEOF
 {
+  "solo": {
+    "max_fix_iterations": "bad"
+  },
   "gates": {
     "max_plan_iterations": "nope",
     "max_fix_iterations": "bad"
@@ -430,6 +468,39 @@ AEOF
   rm -f "$stderr_file"
   rm -rf "$tmpdir" "$fakerepo"
   # Should still pass (warnings only, defaults used), and stderr should have WARN
+  [ "$rc" -eq 0 ] && echo "$stderr_output" | grep -q "\[WARN\]" && echo "$stderr_output" | grep -qi "solo.max_fix_iterations"
+}
+
+test_zero_allowlist_iterations_are_rejected() {
+  local tmpdir stderr_file fakerepo
+  tmpdir=$(mktemp -d)
+  stderr_file=$(mktemp)
+  create_state_json "$tmpdir" "plan" 2 0
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+
+  fakerepo=$(mktemp -d)
+  git -C "$fakerepo" init --quiet
+  mkdir -p "$fakerepo/.ai" "$fakerepo/scripts"
+  cat > "$fakerepo/.ai/allowlist.json" <<AEOF
+{
+  "solo": {
+    "max_fix_iterations": 0
+  },
+  "gates": {
+    "max_plan_iterations": 0,
+    "max_fix_iterations": 0
+  }
+}
+AEOF
+  cp "$SCRIPT" "$fakerepo/scripts/validate-quest-state.sh"
+
+  local output stderr_output
+  output=$(cd "$fakerepo" && bash scripts/validate-quest-state.sh "$tmpdir" "plan" 2>"$stderr_file")
+  local rc=$?
+  stderr_output=$(cat "$stderr_file")
+  rm -f "$stderr_file"
+  rm -rf "$tmpdir" "$fakerepo"
   [ "$rc" -eq 0 ] && echo "$stderr_output" | grep -q "\[WARN\]" && echo "$stderr_output" | grep -qi "max_plan_iterations"
 }
 
@@ -472,6 +543,7 @@ run_test test_reviewing_to_fixing_both_clean
 run_test test_invalid_transition
 run_test test_plan_iteration_exceeded
 run_test test_fix_iteration_exceeded
+run_test test_fix_iteration_exceeded_uses_solo_cap
 run_test test_plan_iteration_within_bounds
 run_test test_help_flag
 run_test test_missing_args
@@ -483,6 +555,7 @@ run_test test_valid_plan_reviewed_to_presenting
 run_test test_valid_presenting_to_presentation_complete
 run_test test_valid_presentation_complete_to_building
 run_test test_non_numeric_allowlist_iterations
+run_test test_zero_allowlist_iterations_are_rejected
 run_test test_validation_log_written
 
 echo ""
