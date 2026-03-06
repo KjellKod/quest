@@ -86,7 +86,7 @@ This matrix determines which route Quest recommends:
 Solo mode is a lighter version of the same quest pipeline — not a separate system. Here's what changes:
 
 - **Single plan reviewer** (Reviewer A only — no Reviewer B)
-- **No arbiter** — Reviewer A's verdict routes directly to the next phase
+- **No arbiter** — Reviewer A's verdict routes directly to the next step, either forward or back for another iteration
 - **Single code reviewer** (Reviewer A only)
 - **Fix iterations capped** at `min(2, allowlist max)` — faster turnaround
 - **Quality tier ceiling at Gold** — Diamond and Platinum are not achievable

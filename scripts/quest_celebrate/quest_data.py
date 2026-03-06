@@ -108,19 +108,20 @@ def _load_allowlist_quality_defaults() -> Tuple[int, int, int, str]:
         )
 
     gates = data.get("gates", {})
-    if isinstance(gates.get("max_plan_iterations"), int):
+    if (
+        type(gates.get("max_plan_iterations")) is int
+        and gates["max_plan_iterations"] >= 1
+    ):
         max_plan_iterations = gates["max_plan_iterations"]
-    if isinstance(gates.get("max_fix_iterations"), int):
+    if type(gates.get("max_fix_iterations")) is int and gates["max_fix_iterations"] >= 1:
         max_fix_iterations = gates["max_fix_iterations"]
 
     solo = data.get("solo", {})
-    if isinstance(solo.get("max_fix_iterations"), int):
+    if type(solo.get("max_fix_iterations")) is int and solo["max_fix_iterations"] >= 1:
         solo_max_fix_iterations = solo["max_fix_iterations"]
     if isinstance(solo.get("quality_tier_ceiling"), str):
         candidate = solo["quality_tier_ceiling"]
         if candidate in {
-            "Diamond",
-            "Platinum",
             "Gold",
             "Silver",
             "Bronze",

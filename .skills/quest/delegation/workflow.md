@@ -46,7 +46,7 @@ Quest mode determines agent dispatch and iteration limits:
 | Plan reviewers      | Dual (A + B)      | Single (A only)   |
 | Arbiter             | Yes               | No — Reviewer A's verdict is used directly |
 | Code reviewers      | Dual (A + B)      | Single (A only)   |
-| Max fix iterations  | From allowlist gates (default 3) | min(2, allowlist gates) |
+| Max fix iterations  | From allowlist gates (default 3) | min(solo.max_fix_iterations, allowlist gates) |
 | Quality tier ceiling | None              | Gold (Diamond/Platinum capped to Gold) |
 
 **Solo verdict remapping:** In solo mode, Reviewer A's handoff says `next: "arbiter"` per the reviewer agent contract. The workflow remaps this: when `quest_mode == "solo"` and Reviewer A says `next: "arbiter"`, treat it as `next: "builder"` (approved). Write the remapped value to state for downstream consumers. If Reviewer A says `next: "planner"`, it means revision needed — no remapping.
@@ -697,7 +697,9 @@ After plan approval, present the plan interactively before proceeding to build.
 
 **Read allowlist:** `gates.max_fix_iterations` (default: 3)
 
-**Solo mode cap:** If `quest_mode == "solo"`, cap `max_fix_iterations` at `min(2, gates.max_fix_iterations)`.
+**Solo override:** `solo.max_fix_iterations` (default: 2)
+
+**Solo mode cap:** If `quest_mode == "solo"`, cap `max_fix_iterations` at `min(solo.max_fix_iterations, gates.max_fix_iterations)`.
 
 **Gate check:**
 - Read `auto_approve_phases.fix_loop` from allowlist
@@ -745,7 +747,7 @@ After plan approval, present the plan interactively before proceeding to build.
    **If `quest_mode == "solo"`:** Only Reviewer A's verdict matters:
    - If `next: null` → Fixed! **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Proceed to Step 7
    - If `next: "fixer"`:
-     - If `fix_iteration >= max_fix_iterations` (capped at min(2, allowlist)): Warn user, ask to proceed or review manually
+     - If `fix_iteration >= max_fix_iterations` (capped at `min(solo.max_fix_iterations, gates.max_fix_iterations)`): Warn user, ask to proceed or review manually
      - Otherwise: Loop back to step 1
 
    **If `quest_mode == "workflow"` (default):**
