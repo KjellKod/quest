@@ -1238,7 +1238,11 @@ def test_card_no_tier_badge_when_tier_is_none(tmp_path):
     output_path = tmp_path / "dashboard.html"
     result = render_dashboard(data, output_path, tmp_path)
 
-    # Should not have any tier icons
-    for icon in ["💎", "🏆", "🥇", "🥈", "🥉", "🥫", "📦", "💀"]:
-        # Only check within quest cards, not elsewhere
-        assert icon not in result or "DIAMOND" not in result
+    assert 'title="Flawless — zero issues, shipped clean"' not in result
+    assert 'title="Near-perfect — minor issues, one-pass fix"' not in result
+    assert 'title="Solid — issues caught, fixed cleanly"' not in result
+    assert 'title="Workable — multiple iterations but landed"' not in result
+    assert 'title="Rough ride — got through, bruised"' not in result
+    assert 'title="Dented — 3+ iterations, plan revisions"' not in result
+    assert 'title="Held together with tape. Still shipped."' not in result
+    assert 'title="Never shipped — lessons learned"' not in result

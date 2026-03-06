@@ -754,14 +754,18 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
     plan_match = re.search(
         r"(?:\*\*)?[Pp]lan\s+iterations:\s*(?:\*\*)?\s*(\d+)", content
     )
+    parsed_plan_iterations = False
     if plan_match:
         data.plan_iterations = int(plan_match.group(1))
+        parsed_plan_iterations = True
 
     fix_match = re.search(
         r"(?:\*\*)?[Ff]ix\s+iterations:\s*(?:\*\*)?\s*(\d+)", content
     )
+    parsed_fix_iterations = False
     if fix_match:
         data.fix_iterations = int(fix_match.group(1))
+        parsed_fix_iterations = True
 
     # Status
     raw_status = _extract_metadata(content, "status")
@@ -775,7 +779,7 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
         data.status = "complete"
 
     # Compute quality tier if not already set from celebration data
-    if not data.quality_tier:
+    if not data.quality_tier and parsed_plan_iterations and parsed_fix_iterations:
         data.quality_tier = compute_quality_tier(
             data.plan_iterations,
             data.fix_iterations,

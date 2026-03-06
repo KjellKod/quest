@@ -1318,7 +1318,20 @@ class TestJournalCelebrationData:
 
         data = load_quest_data_from_journal(journal_path)
 
-        assert data.quality_tier == "Diamond"
+        assert data.quality_tier == ""
+
+    def test_load_quest_data_from_journal_leaves_tier_unset_without_iterations(self, tmp_path):
+        journal = textwrap.dedent("""\
+            # Quest Journal: legacy-no-iterations
+
+            - Quest ID: `legacy-no-iterations_2026-03-06__1200`
+        """)
+        journal_path = tmp_path / "legacy-no-iterations_2026-03-06.md"
+        journal_path.write_text(journal)
+
+        data = load_quest_data_from_journal(journal_path)
+
+        assert data.quality_tier == ""
 
     def test_load_quest_data_from_journal_nonexistent_file(self, tmp_path):
         data = load_quest_data_from_journal(tmp_path / "nope.md")

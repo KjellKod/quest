@@ -92,11 +92,7 @@ fi
 if command -v gh >/dev/null 2>&1; then
   log "gh CLI already available"
 else
-  if apt-get install -y gh >/dev/null 2>&1; then
-    log "gh CLI installed"
-  else
-    warn "gh CLI not available — PR shepherd will be limited"
-  fi
+  warn "gh CLI not available — PR shepherd will be limited"
 fi
 
 # --- Shellcheck (linter for shell scripts) ---
