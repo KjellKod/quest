@@ -24,7 +24,6 @@ All subagent prompts now reference file paths instead of inline content. Subagen
 - Added note about small metadata (file lists, git stats) being operational data, not artifact content
 
 **Supporting documentation:**
-- `ideas/quest-architecture-evolution.md` - 5-phase roadmap for Quest evolution
 - `ideas/quest-philosophy-small-core.md` - Philosophy documents and salvaged validation scripts
 
 ## Files Changed
@@ -32,7 +31,6 @@ All subagent prompts now reference file paths instead of inline content. Subagen
 ```
 .skills/quest/delegation/workflow.md
 docs/quest-journal/skill-strategy_2026-02-09.md
-ideas/quest-architecture-evolution.md
 ideas/quest-philosophy-small-core.md
 ideas/quest-philosophy-small-core/README.md
 ideas/quest-philosophy-small-core/contracts_and_verification.md
@@ -46,16 +44,6 @@ ideas/quest-philosophy-small-core/salvaged-scripts/quest_validate_handoff.py
 - No accumulation of plan text, review content, or build output
 - Subagents do targeted file reads based on quest context
 - Prepares for Phase 3 (state validation) and Phase 4 (role consolidation)
-
-## This is where it all began...
-
-From `ideas/quest-architecture-evolution.md`:
-
-> ## Phase 2: Thin Orchestrator (Pass Paths, Not Content)
->
-> **Problem:** The orchestrator's context grows with every phase. It accumulates quest briefs, plans, reviews, verdicts, build output, fix details. By the fix loop, the main session is bloated.
->
-> **Solution:** After each subagent returns, the orchestrator extracts ONE line (the SUMMARY from the handoff) and the artifact path. Nothing else enters the orchestrator's context.
 
 ## Iterations
 

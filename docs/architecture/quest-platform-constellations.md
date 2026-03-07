@@ -9,7 +9,6 @@ last_updated: 2026-03-04
 related:
   - docs/architecture/orchestration-runtime-v1.md
   - docs/guides/opencode-model-observations.md
-  - ideas/quest-architecture-evolution.md
 ---
 
 # Quest Platform Constellations
@@ -193,4 +192,3 @@ Build a platform where Quest is first among peers, not the only shape.
 Do it with a strict runtime core and file-based approach contracts.
 Keep CLI canonical. Add drag/drop as a convenience layer, never as a
 second orchestration engine.
-

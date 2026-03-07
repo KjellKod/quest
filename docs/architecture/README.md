@@ -9,7 +9,6 @@ last_updated: 2026-03-04
 related:
   - docs/architecture/quest-platform-constellations.md
   - docs/architecture/orchestration-runtime-v1.md
-  - ideas/quest-architecture-evolution.md
 ---
 
 # Architecture
@@ -41,4 +40,3 @@ Update architecture docs when any of these change:
 - orchestration model (single approach vs multi-approach/constellations),
 - runtime contracts (events, heartbeat, adapter IO),
 - authoring model (CLI-first, visual composer behavior).
-

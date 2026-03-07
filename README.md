@@ -66,7 +66,6 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 
 **The system works. The remaining ideas are either nice-to-have or insurance against unobserved failures.**
 
-See [ideas/quest-architecture-evolution.md](ideas/quest-architecture-evolution.md) for the full evolution roadmap and decision rationale.
 See [docs/architecture/quest-platform-constellations.md](docs/architecture/quest-platform-constellations.md) and [docs/architecture/orchestration-runtime-v1.md](docs/architecture/orchestration-runtime-v1.md) for the next-level platform direction and runtime contract.
 
 # Quest: A Multi-Agent Orchestration Blueprint

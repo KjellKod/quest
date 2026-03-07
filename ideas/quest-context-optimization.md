@@ -76,4 +76,4 @@ Track estimated token usage per phase. If >60% context used, proactively suggest
 
 This is the natural completion of Phase 2 (thin orchestrator). Phase 2 changed prompts to pass paths instead of content. This phase closes the remaining leaks where content still enters the orchestrator via tool results.
 
-Could be implemented as "Phase 2b" in quest-architecture-evolution.md.
+Could be implemented as "Phase 2b" in the architecture roadmap notes.
