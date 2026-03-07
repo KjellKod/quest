@@ -88,15 +88,18 @@ _ROLE_TITLE_MAP = {
 }
 
 
-def _load_allowlist_quality_defaults() -> Tuple[int, int, int, str]:
-    """Read iteration and solo-tier defaults from .ai/allowlist.json."""
+def _load_allowlist_quality_defaults() -> Tuple[int, int, int]:
+    """Read live allowlist overrides for active quests.
+
+    Historical journal replay should not depend on the current repo config.
+    Callers that need reproducible replay should use the static module defaults
+    or persisted quest-local values instead of this helper.
+    """
     repo_root = Path(__file__).resolve().parents[2]
     allowlist_path = repo_root / ".ai" / "allowlist.json"
     max_plan_iterations = 4
     max_fix_iterations = 3
     solo_max_fix_iterations = 2
-    solo_quality_tier_ceiling = "Gold"
-
     try:
         data = json.loads(allowlist_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -104,7 +107,6 @@ def _load_allowlist_quality_defaults() -> Tuple[int, int, int, str]:
             max_plan_iterations,
             max_fix_iterations,
             solo_max_fix_iterations,
-            solo_quality_tier_ceiling,
         )
 
     gates = data.get("gates", {})
@@ -119,22 +121,11 @@ def _load_allowlist_quality_defaults() -> Tuple[int, int, int, str]:
     solo = data.get("solo", {})
     if type(solo.get("max_fix_iterations")) is int and solo["max_fix_iterations"] >= 1:
         solo_max_fix_iterations = solo["max_fix_iterations"]
-    if isinstance(solo.get("quality_tier_ceiling"), str):
-        candidate = solo["quality_tier_ceiling"]
-        if candidate in {
-            "Gold",
-            "Silver",
-            "Bronze",
-            "Tin",
-            "Cardboard",
-        }:
-            solo_quality_tier_ceiling = candidate
 
     return (
         max_plan_iterations,
         max_fix_iterations,
         solo_max_fix_iterations,
-        solo_quality_tier_ceiling,
     )
 
 
@@ -601,13 +592,11 @@ QUALITY_TIERS = {
     "Abandoned": ("💀", "Inc", "Never shipped — lessons learned"),
 }
 
-# Max iteration gates (defaults from .ai/allowlist.json)
-(
-    _DEFAULT_MAX_PLAN_ITERATIONS,
-    _DEFAULT_MAX_FIX_ITERATIONS,
-    _DEFAULT_SOLO_MAX_FIX_ITERATIONS,
-    _DEFAULT_SOLO_QUALITY_TIER_CEILING,
-) = _load_allowlist_quality_defaults()
+# Static defaults used for replay and as fallbacks when quest-local settings
+# are unavailable.
+_DEFAULT_MAX_PLAN_ITERATIONS = 4
+_DEFAULT_MAX_FIX_ITERATIONS = 3
+_DEFAULT_SOLO_MAX_FIX_ITERATIONS = 2
 
 
 def _validated_quality_tier(value: object) -> str:
@@ -624,15 +613,11 @@ def compute_quality_tier(
     max_fix_iterations: int = _DEFAULT_MAX_FIX_ITERATIONS,
     quest_mode: str = "",
     solo_max_fix_iterations: int = _DEFAULT_SOLO_MAX_FIX_ITERATIONS,
-    solo_quality_tier_ceiling: str = _DEFAULT_SOLO_QUALITY_TIER_CEILING,
 ) -> str:
     """Compute a named quality tier from quest iteration data.
 
     The tier is candid: smooth quests get top tiers, rough quests get
     honest lower tiers. Every tier that isn't Abandoned still shipped.
-
-    When quest_mode is "solo", the tier is capped at Gold (Diamond and
-    Platinum are not achievable with single-reviewer quests).
 
     Returns one of: Diamond, Platinum, Gold, Silver, Bronze, Tin,
     Cardboard, Abandoned.
@@ -681,23 +666,6 @@ def compute_quality_tier(
         tier = "Platinum"
     else:
         tier = "Gold"
-
-    # Solo mode ceiling is configurable in the allowlist.
-    if quest_mode == "solo":
-        tier_order = [
-            "Cardboard",
-            "Tin",
-            "Bronze",
-            "Silver",
-            "Gold",
-            "Platinum",
-            "Diamond",
-        ]
-        if (
-            solo_quality_tier_ceiling in tier_order
-            and tier_order.index(tier) > tier_order.index(solo_quality_tier_ceiling)
-        ):
-            return solo_quality_tier_ceiling
 
     return tier
 
@@ -949,12 +917,20 @@ def load_quest_data(quest_dir: Path) -> QuestData:
     # 7. Computed fields
     data.achievements = _compute_achievements(data)
     data.quality_score = _compute_quality_score(data)
+    (
+        max_plan_iterations,
+        max_fix_iterations,
+        solo_max_fix_iterations,
+    ) = _load_allowlist_quality_defaults()
     data.quality_tier = compute_quality_tier(
         data.plan_iterations,
         data.fix_iterations,
         len(data.review_findings),
         data.status,
+        max_plan_iterations=max_plan_iterations,
+        max_fix_iterations=max_fix_iterations,
         quest_mode=data.quest_mode,
+        solo_max_fix_iterations=solo_max_fix_iterations,
     )
 
     return data

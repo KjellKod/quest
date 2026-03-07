@@ -24,7 +24,7 @@ from quest_celebrate.progress import (
     render_phase_progress,
     scroll_credits,
 )
-from quest_celebrate.quest_data import QuestData, load_quest_data
+from quest_celebrate.quest_data import QUALITY_TIERS, QuestData, load_quest_data
 
 
 @dataclass
@@ -306,17 +306,6 @@ def render_epic(
         title_name = stats.name
         quest_id = stats.quest_id
 
-    def quality_tier(score: int) -> str:
-        if score >= 95:
-            return "Diamond"
-        if score >= 85:
-            return "Platinum"
-        if score >= 75:
-            return "Gold"
-        if score >= 65:
-            return "Silver"
-        return "Bronze"
-
     def quest_quote() -> Optional[str]:
         if quest_data is None:
             return None
@@ -416,8 +405,9 @@ def render_epic(
 
     # Quality score (rich data only)
     if quest_data is not None:
-        tier = quality_tier(quest_data.quality_score)
-        output.write(f"## 💎 Quality Tier: **{tier}**\n\n")
+        tier = quest_data.quality_tier or "Unknown"
+        tier_icon = QUALITY_TIERS.get(tier, ("⭐️", "", ""))[0]
+        output.write(f"## {tier_icon} Quality Tier: **{tier}**\n\n")
         output.write(
             render_quality_score(quest_data.quality_score, safe_mode=config.is_safe)
         )

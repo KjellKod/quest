@@ -583,7 +583,7 @@ The fix loop continues until reviewers approve (or max iterations reached). This
 | Builder | ✓ | ✓ |
 | Fixer | ✓ (max 3) | ✓ (configurable, default 2) |
 
-Solo mode uses the same pipeline with fewer stages. Its quality tier ceiling comes from `solo.quality_tier_ceiling` in the allowlist, defaults to Gold, and cannot go above Gold — Diamond and Platinum require the rigor of dual independent reviews.
+Solo mode uses the same pipeline with fewer stages. It keeps the shorter fix loop via `solo.max_fix_iterations` in the allowlist, but quality tiers follow the same scoring rules as any other quest.
 
 ## License
 

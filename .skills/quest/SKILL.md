@@ -32,7 +32,7 @@ If the user says `/quest status` or `$quest status`, handle as a utility command
 If no quest ID is provided:
 1. Read `delegation/router.md`
 2. Evaluate the user's input against the 7 substance dimensions
-3. Produce the routing decision JSON: `{route, confidence (0.0-1.0), risk_level, reason, missing_information}`
+3. Produce the routing decision JSON: `{route, confidence (0.0-1.0), risk_level, complexity, reason, missing_information}`
 
 ### Step 3: Route
 

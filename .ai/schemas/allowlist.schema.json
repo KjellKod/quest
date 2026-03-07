@@ -45,6 +45,13 @@
         }
       }
     },
+    "solo": {
+      "type": "object",
+      "properties": {
+        "max_fix_iterations": { "type": "integer", "minimum": 1 },
+        "notes": { "type": "string" }
+      }
+    },
     "gates": {
       "type": "object",
       "properties": {

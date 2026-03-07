@@ -1149,41 +1149,6 @@ class TestQualityTier:
         )
         assert tier == "Tin"
 
-    def test_solo_uses_configured_quality_ceiling(self):
-        tier = compute_quality_tier(
-            plan_iterations=1,
-            fix_iterations=0,
-            review_findings_count=0,
-            status="complete",
-            quest_mode="solo",
-            solo_quality_tier_ceiling="Silver",
-        )
-        assert tier == "Silver"
-
-    def test_allowlist_loader_rejects_abandoned_quality_ceiling(self):
-        fake_allowlist = json.dumps(
-            {
-                "solo": {
-                    "quality_tier_ceiling": "Abandoned",
-                }
-            }
-        )
-        with patch("pathlib.Path.read_text", return_value=fake_allowlist):
-            _, _, _, ceiling = _load_allowlist_quality_defaults()
-        assert ceiling == "Gold"
-
-    def test_allowlist_loader_rejects_above_gold_quality_ceiling(self):
-        fake_allowlist = json.dumps(
-            {
-                "solo": {
-                    "quality_tier_ceiling": "Diamond",
-                }
-            }
-        )
-        with patch("pathlib.Path.read_text", return_value=fake_allowlist):
-            _, _, _, ceiling = _load_allowlist_quality_defaults()
-        assert ceiling == "Gold"
-
     def test_allowlist_loader_rejects_non_positive_or_bool_iteration_values(self):
         fake_allowlist = json.dumps(
             {
@@ -1197,11 +1162,31 @@ class TestQualityTier:
             }
         )
         with patch("pathlib.Path.read_text", return_value=fake_allowlist):
-            max_plan, max_fix, solo_fix, _ = _load_allowlist_quality_defaults()
+            max_plan, max_fix, solo_fix = _load_allowlist_quality_defaults()
         assert max_plan == 4
         assert max_fix == 3
         assert solo_fix == 2
 
+    def test_journal_replay_does_not_read_live_allowlist(self, tmp_path):
+        journal_path = tmp_path / "journal.md"
+        journal_path.write_text(
+            textwrap.dedent("""\
+                # Quest Journal: test-quest
+
+                - Quest ID: `test-quest_2026-03-05__0643`
+                - Status: complete
+
+                ## Iterations
+
+                - Plan iterations: 1
+                - Fix iterations: 0
+            """),
+            encoding="utf-8",
+        )
+
+        with patch("quest_celebrate.quest_data._load_allowlist_quality_defaults", side_effect=AssertionError("should not read live allowlist during journal replay")):
+            data = load_quest_data_from_journal(journal_path)
+        assert data.quality_tier == "Diamond"
     def test_all_tiers_in_quality_tiers_dict(self):
         """Every tier the function can return has an entry in QUALITY_TIERS."""
         for tier_name in ["Diamond", "Platinum", "Gold", "Silver", "Bronze",
