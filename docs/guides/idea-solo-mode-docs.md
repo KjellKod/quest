@@ -26,7 +26,6 @@ Users have no documentation explaining:
 3. **Add a "Solo Mode" section** explaining:
    - Single plan reviewer (A only), no arbiter, single code reviewer (A only)
    - Fix iterations capped at min(2, allowlist max)
-   - Quality tier ceiling at Gold (Diamond and Platinum not achievable)
    - "Solo Adventurer" achievement badge
 4. **Add an "Override" section** explaining:
    - The router recommends, the human chooses

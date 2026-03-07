@@ -1149,41 +1149,6 @@ class TestQualityTier:
         )
         assert tier == "Tin"
 
-    def test_solo_uses_configured_quality_ceiling(self):
-        tier = compute_quality_tier(
-            plan_iterations=1,
-            fix_iterations=0,
-            review_findings_count=0,
-            status="complete",
-            quest_mode="solo",
-            solo_quality_tier_ceiling="Silver",
-        )
-        assert tier == "Silver"
-
-    def test_allowlist_loader_rejects_abandoned_quality_ceiling(self):
-        fake_allowlist = json.dumps(
-            {
-                "solo": {
-                    "quality_tier_ceiling": "Abandoned",
-                }
-            }
-        )
-        with patch("pathlib.Path.read_text", return_value=fake_allowlist):
-            _, _, _, ceiling = _load_allowlist_quality_defaults()
-        assert ceiling == "Gold"
-
-    def test_allowlist_loader_rejects_above_gold_quality_ceiling(self):
-        fake_allowlist = json.dumps(
-            {
-                "solo": {
-                    "quality_tier_ceiling": "Diamond",
-                }
-            }
-        )
-        with patch("pathlib.Path.read_text", return_value=fake_allowlist):
-            _, _, _, ceiling = _load_allowlist_quality_defaults()
-        assert ceiling == "Gold"
-
     def test_allowlist_loader_rejects_non_positive_or_bool_iteration_values(self):
         fake_allowlist = json.dumps(
             {
@@ -1197,7 +1162,7 @@ class TestQualityTier:
             }
         )
         with patch("pathlib.Path.read_text", return_value=fake_allowlist):
-            max_plan, max_fix, solo_fix, _ = _load_allowlist_quality_defaults()
+            max_plan, max_fix, solo_fix = _load_allowlist_quality_defaults()
         assert max_plan == 4
         assert max_fix == 3
         assert solo_fix == 2

@@ -81,8 +81,7 @@
   },
   "solo": {
     "max_fix_iterations": 2,
-    "quality_tier_ceiling": "Gold",
-    "notes": "Solo quests use single reviewer (A only), no arbiter, capped fix iterations and quality tier."
+    "notes": "Solo quests use single reviewer (A only), no arbiter, and capped fix iterations."
   },
   "gates": {
     "require_approval_before_commit": true,

@@ -96,16 +96,12 @@ This matters for several reasons:
 | Code review | Dual (A + B) | Single | None (or optional) |
 | Fix iterations | Up to max_fix_iterations | Up to 2 | N/A |
 | Journal entry | Full celebration_data | Simplified celebration_data | Minimal or none |
-| Quality tier | Full scale (Diamond→Cardboard) | Capped at Gold (no dual review = can't claim Diamond) | N/A |
+| Quality tier | Full scale (Diamond→Cardboard) | Full scale (Diamond→Cardboard) | N/A |
 
 ### Quality Tier Implications
 
-A `solo` quest has less review rigor, so its quality tier ceiling is lower:
-- `solo` quest tier caps at **Gold** — can't claim Diamond/Platinum without dual review scrutiny
 - `manual` tasks don't get quality tiers — they're not quests
 - The celebration data should record `quest_mode: "workflow" | "solo" | "manual"` so the tier is interpreted in context
-
-This is honest: a Diamond means "survived dual review with zero issues." If you only had one reviewer, the best you can claim is Gold — which is still great.
 
 ### The `solo` Pipeline — Solo Adventurer with Companion
 
@@ -120,7 +116,7 @@ A solo quest is still a real quest — just one adventurer with a single compani
 6. Journal + celebrate
 ```
 
-One reviewer, one fix pass, still journaled, still celebrated. Just less ceremony. The solo adventurer earns their tier honestly — Gold is the ceiling because one companion can't provide the same scrutiny as a full party. But a solo Gold is nothing to sneeze at.
+One reviewer, one fix pass, still journaled, still celebrated. Just less ceremony. The solo adventurer still earns their tier honestly — the difference is the lighter process, not a separate scoring ceiling.
 
 ### The `manual` Path
 

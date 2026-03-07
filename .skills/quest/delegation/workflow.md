@@ -47,7 +47,6 @@ Quest mode determines agent dispatch and iteration limits:
 | Arbiter             | Yes               | No — Reviewer A's verdict is used directly |
 | Code reviewers      | Dual (A + B)      | Single (A only)   |
 | Max fix iterations  | From allowlist gates (default 3) | min(solo.max_fix_iterations, allowlist gates) |
-| Quality tier ceiling | None              | From `solo.quality_tier_ceiling` (default Gold, never above Gold) |
 
 **Solo verdict remapping:** In solo mode, Reviewer A's handoff says `next: "arbiter"` per the reviewer agent contract. The workflow remaps this: when `quest_mode == "solo"` and Reviewer A says `next: "arbiter"`, treat it as `next: "builder"` (approved). Write the remapped value to state for downstream consumers. If Reviewer A says `next: "planner"`, it means revision needed — no remapping.
 
@@ -805,7 +804,6 @@ After plan approval, present the plan interactively before proceeding to build.
 
       **Solo mode adjustments for celebration_data:**
       - Set `"quest_mode": "solo"` in the JSON
-      - Quality tier ceiling: cap to `solo.quality_tier_ceiling` from allowlist (default Gold, never above Gold)
       - Solo quests will show fewer agents (expected) — note this in the context health report rather than treating it as missing data
 
     - Insert a row at the top of `docs/quest-journal/README.md` index table (after the header row) with date, quest link, and one-line outcome. The table is in reverse chronological order (newest first).
