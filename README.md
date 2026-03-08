@@ -85,7 +85,7 @@ Quest is very useful, but it is not currently intended to be a long term maintai
 
 ## What is Quest?
 
-Quest is a multi-agent workflow where specialized AI agents (planner, reviewers, builder) work in **isolated contexts** with **human approval gates**. Two different models (Claude + GPT) review independently, an arbiter filters nitpicks, and you approve before anything gets built. For lighter tasks, solo mode uses a single reviewer — same pipeline, fewer stages, faster turnaround.
+Quest is a multi-agent workflow where specialized AI agents (planner, reviewers, builder) work in **isolated contexts** with **human approval gates**. Two different models (Claude + GPT) review independently, an arbiter filters makes careful choices without nitpicking, and you approve before anything gets built. For lighter tasks, solo mode uses a single reviewer — same pipeline, fewer stages, faster turnaround.
 
 **One sentence:** *"Structured AI teamwork with checks and balances."*
 
