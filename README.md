@@ -45,7 +45,7 @@ We are amplifying it by removing avoidable toil and preventing avoidable mistake
 The philosophy above is our north star. We are not there yet. Here is where we stand:
 
 **What Quest delivers today:**
-- A prompt-orchestrated pipeline built within Claude Code's skill system
+- A prompt-orchestrated pipeline built within Claude Code / GPT-Codex / OpenCode  skill systems.
 - Clear phase boundaries (plan → review → build → review → fix)
 - Explicit, auditable artifacts in `.quest/<id>/`
 - Dual-model verification (Claude + Codex reviewing independently)
