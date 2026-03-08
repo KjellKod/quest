@@ -208,6 +208,7 @@ Copy these folders to your repository root:
 - `.claude/` - Claude Code integration (agents, hooks)
 - `.cursor/` - Cursor integration
 - `.codex/` - Codex integration
+- `.opencode/` - OpenCode integration
 - `docs/guides/quest_setup.md` - Setup documentation
 - `AGENTS.md` - Coding rules (customize for your project)
 - `DOCUMENTATION_STRUCTURE.md` - Navigation guide
