@@ -45,7 +45,7 @@ We are amplifying it by removing avoidable toil and preventing avoidable mistake
 The philosophy above is our north star. We are not there yet. Here is where we stand:
 
 **What Quest delivers today:**
-- A prompt-orchestrated pipeline built within Claude Code / GPT-Codex / OpenCode  skill systems.
+- A prompt-orchestrated pipeline built within Claude Code / GPT / OpenCode  skill systems.
 - Clear phase boundaries (plan → review → build → review → fix)
 - Explicit, auditable artifacts in `.quest/<id>/`
 - Dual-model verification (Claude + Codex reviewing independently)
@@ -57,7 +57,7 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 - State validation script that enforces phase transitions, artifact prerequisites, and semantic handoff checks (`scripts/validate-quest-state.sh`)
 - Context health logging and compliance reporting — every handoff is logged, compliance is reported at quest completion
 - Consolidated skill ownership — all quest agent wiring lives under `.skills/quest/`
-- Codex orchestration (BETA): Quest runs end-to-end via `$quest` with GPT-5.3/Codex as orchestrator. Claude-orchestrated `/quest` remains the more robust path.
+- Codex orchestration (BETA): Quest runs end-to-end via `$quest` with GPT-5.x-Codex as orchestrator. Claude-orchestrated `/quest` remains the more robust path.
 - OpenCode integration: Quest runs on OpenCode with multi-model agent assignments (e.g., Opus as arbiter, Codex as builder, KiMi as reviewer). See [field notes](docs/guides/opencode-model-observations.md).
 
 **What we considered and deliberately left alone:**
