@@ -253,7 +253,7 @@ $quest "Add a loading skeleton to the user list"
 **Milestone:** Quest is now runnable directly from Codex via `$quest`.
 
 **Codex orchestration (BETA, February 2026):**
-- Codex `$quest` runs the full Quest pipeline with GPT-5.3 as the orchestrator. This works but is less reliable than Claude `/quest` — handoff protocol compliance is lower and some phases may require text-fallback parsing instead of structured `handoff.json` routing.
+- Codex `$quest` runs the full Quest pipeline with GPT-5.x as the orchestrator. This works but is less reliable than Claude `/quest` — handoff protocol compliance is lower and some phases may require text-fallback parsing instead of structured `handoff.json` routing.
 - Codex `$quest` currently requires enabling Codex `/experimental` subagents.
 - **Recommended setup:** Claude `/quest` as orchestrator with Codex MCP configured for dual-model reviews. This gives you the best of both models with the most robust orchestration.
 
@@ -363,7 +363,7 @@ Consider you have just recieved the brief, you have three alternatives to choose
 ```bash
 
 [ongoing quest/before implementation]
-"For the planning, I want to do all 3 suggestions, create 3 different slugs for them and let gpt-5.2 be the planner for all three"
+"For the planning, I want to do all 3 suggestions, create 3 different slugs for them and let gpt-5.x be the planner for all three"
 
 ```
 
@@ -378,7 +378,7 @@ Start a quest, review the plan, then re-run planning with different model config
 # After reviewing the plan, restart planning with only Claude
 /quest auth-redesign_2026-02-04__1430 "re-plan this using only claude, skip codex reviews"
 
-# Or re-plan with GPT-5.2 for a different perspective
+# Or re-plan with GPT-5.x for a different perspective
 /quest auth-redesign_2026-02-04__1430 "re-plan this using gpt-5.2"
 
 # Or merge the best of multiple plans — GPT as planner and arbiter  
@@ -548,7 +548,7 @@ Creates the implementation plan from your quest brief. Explores the codebase, id
 ### Reviewers (Claude + Codex)
 Two independent reviewers examine plans and code:
 - **Claude reviewer**: Uses Claude's understanding of the codebase
-- **Codex reviewer**: Uses GPT 5.2 for a different perspective
+- **Codex reviewer**: Uses GPT 5.x etc for a different perspective
 
 Having two different model families catches different blind spots.
 
