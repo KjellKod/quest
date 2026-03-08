@@ -140,7 +140,7 @@ npm install -g @anthropic-ai/claude-code
 
 ### Optional: Codex MCP (for dual-model reviews)
 
-Quest uses GPT 5.2 or GPT5-3-codex via Codex as a second reviewer. If you want dual-model reviews:
+Quest uses GPT5-x (5.2/5.3/5.4/etc) codex as a second reviewer. If you want dual-model reviews:
 
 ```bash
 
