@@ -196,7 +196,7 @@ The installer:
 - Tracks file checksums to detect your modifications
 - Never overwrites your customizations (uses `.quest_updated` suffix)
 - Supports `--force` for CI/automation
-- Will discreetly ask if you want to update to new available versions, as needed, once uou have completed a quest. 
+- Will check after a successful quest completion if a new version is available.  
 
 ### Option B: Manual Copy
 
