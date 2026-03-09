@@ -56,7 +56,7 @@ Use this format:
 - [ ] Another verification step
 Watch for: <known risk or edge case, if any>
 
-## Notes
+## Notes (optional — include only if there is non-obvious context)
 - Important implementation/deployment/reviewer context that is not obvious from the diff.
 - Do not repeat the Summary; only include unique, high-signal details reviewers should know.
 ```
@@ -116,14 +116,14 @@ Rules:
 - If there is a known risk or edge case worth watching, add a `Watch for:` line at the end — no checkbox, just a heads-up.
 - Keep it short. 2-5 steps is typical. If you need more, the PR may be too large.
 
-### Notes section
+### Notes section (optional)
 
-Use `## Notes` for important context reviewers should know before merge or rollout.
+Use `## Notes` for important context reviewers should know before merge or rollout. Omit the section entirely if there is nothing non-obvious to add.
 
 Rules:
 - Include only non-obvious, high-value context (e.g., follow-up work, rollout caveats, compatibility constraints, temporary limitations).
 - Do not duplicate the Summary section.
-- Keep it concise; omit the section content if there is nothing important to add.
+- Keep it concise.
 
 ### Bot-generated content
 

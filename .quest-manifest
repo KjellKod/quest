@@ -81,7 +81,6 @@ scripts/quest_celebrate/quest-celebrate.sh
 # These files are NEVER overwritten - upstream changes create .quest_updated suffix
 AGENTS.md
 .ai/allowlist.json
-.ai/context_digest.md
 
 [merge-carefully]
 # These files prompt for merge if they exist locally

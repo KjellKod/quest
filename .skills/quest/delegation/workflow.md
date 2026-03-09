@@ -227,7 +227,6 @@ gates.max_plan_iterations (default: 4)
 3. **Read review config from allowlist:**
    - `review_mode` (default: `auto`)
    - `fast_review_thresholds` (not used for plan review)
-   - `codex_context_digest_path` (default: `.ai/context_digest.md`)
    - For plan review: treat `auto` as `full`. Use `fast` only if explicitly set.
 
 4. **Invoke Plan Reviewers:**
@@ -249,7 +248,7 @@ gates.max_plan_iterations (default: 4)
      prompt: "You are Plan Reviewer A.
 
      Read your instructions: .skills/quest/agents/plan-reviewer.md
-     Read context digest: <codex_context_digest_path>
+
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
      Quest brief: .quest/<id>/quest_brief.md
@@ -268,7 +267,7 @@ gates.max_plan_iterations (default: 4)
      subagent_type: "plan-reviewer",
      prompt: "You are Plan Reviewer A.
 
-     Read context digest: <codex_context_digest_path>
+
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
@@ -291,7 +290,7 @@ gates.max_plan_iterations (default: 4)
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
      Read your instructions: .skills/quest/agents/plan-reviewer.md
-     Read context digest: <codex_context_digest_path>
+
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
      Quest brief: .quest/<id>/quest_brief.md
@@ -311,7 +310,7 @@ gates.max_plan_iterations (default: 4)
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
-     Read context digest: <codex_context_digest_path>
+
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
@@ -526,7 +525,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - `review_mode` (default: `auto`)
    - `fast_review_thresholds.max_files` (default: 5)
    - `fast_review_thresholds.max_loc` (default: 200)
-   - `codex_context_digest_path` (default: `.ai/context_digest.md`)
+
 
 3. **Build a change summary for Codex:**
    - Compute from git (the canonical source for what changed):
@@ -556,7 +555,7 @@ After plan approval, present the plan interactively before proceeding to build.
      prompt: "You are Code Reviewer A.
 
      Read your instructions: .skills/quest/agents/code-reviewer.md
-     Read context digest: <codex_context_digest_path>
+
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
      Quest: .quest/<id>/quest_brief.md
@@ -579,7 +578,7 @@ After plan approval, present the plan interactively before proceeding to build.
      subagent_type: "code-reviewer",
      prompt: "You are Code Reviewer A.
 
-     Read context digest: <codex_context_digest_path>
+
      Quest: .quest/<id>/quest_brief.md
      Plan: .quest/<id>/phase_01_plan/plan.md
 
@@ -606,7 +605,7 @@ After plan approval, present the plan interactively before proceeding to build.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
      Read your instructions: .skills/quest/agents/code-reviewer.md
-     Read context digest: <codex_context_digest_path>
+
      (Optional, full mode only, if needed) Read: .skills/BOOTSTRAP.md, AGENTS.md
 
      Quest: .quest/<id>/quest_brief.md
@@ -630,7 +629,7 @@ After plan approval, present the plan interactively before proceeding to build.
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
-     Read context digest: <codex_context_digest_path>
+
      Quest: .quest/<id>/quest_brief.md
      Plan: .quest/<id>/phase_01_plan/plan.md
 
@@ -1016,7 +1015,7 @@ This table shows default intent, not guaranteed runtime per environment. If role
 You are the <ROLE>.
 
 Read your instructions: .skills/quest/agents/<role>.md
-Read context digest: .ai/context_digest.md
+
 Optional (full mode only, if needed): .skills/BOOTSTRAP.md, AGENTS.md
 
 Quest brief: .quest/<id>/quest_brief.md

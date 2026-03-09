@@ -88,7 +88,7 @@ Copy these folders to your repository root:
     plan.md
     review.md
     pr_description.md
-  context_digest.md               # Short Codex context (review speedup)
+
 
 .skills/quest/                    # Full skill procedure (AI-agnostic)
   SKILL.md
@@ -157,7 +157,7 @@ Key sections to customize:
 | `arbiter.tool` | Set to `"claude"` to use Claude Opus instead of Codex/GPT 5.2 |
 | `review_mode` | `auto` (default), `fast`, or `full` for Codex reviews |
 | `fast_review_thresholds` | File/LOC thresholds used when `review_mode: auto` |
-| `codex_context_digest_path` | Short context file used by Codex (default: `.ai/context_digest.md`) |
+
 
 ### 2. Gitignore
 

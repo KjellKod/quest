@@ -23,13 +23,13 @@ jobs:
           script: |
             const body = context.payload.pull_request?.body || "";
 
+            // Required sections must stay in sync with .skills/pr-assistant/SKILL.md
             // Each required section maps to a list of accepted heading variants.
             // Headings can be h2 (##) or h3 (###). Matching is case-insensitive.
             const requiredSections = [
               { name: "Summary",    patterns: ["summary", "overview"] },
               { name: "Changes",    patterns: ["changes", "what changed", "key changes", "files changed"] },
               { name: "Validation", patterns: ["validation", "test plan", "testing", "how to test", "verification", "smoke test results"] },
-              { name: "Notes",      patterns: ["notes", "context", "additional context", "additional notes"] },
             ];
 
             const missing = requiredSections.filter(({ patterns }) => {
@@ -40,20 +40,6 @@ jobs:
             });
 
             if (missing.length > 0) {
-              const template = [
-                "## Summary",
-                "<What this PR does and why>",
-                "",
-                "## Changes",
-                "- Change description",
-                "",
-                "## Validation",
-                "- [ ] Verification step",
-                "",
-                "## Notes",
-                "- Reviewer context",
-              ].join("\n");
-
               core.setFailed(
                 [
                   "PR body is missing required sections:",
@@ -61,12 +47,8 @@ jobs:
                   "",
                   "Use ## or ### headings. Matching is case-insensitive.",
                   "",
-                  "Expected format:",
-                  "```",
-                  template,
-                  "```",
-                  "",
-                  "Tip: use the pr-assistant skill (`/pr-assistant`) to generate a compliant PR body.",
+                  "See .skills/pr-assistant/SKILL.md for the expected format.",
+                  "Tip: use `/pr-assistant` to generate a compliant PR body.",
                 ].join("\n")
               );
               return;

@@ -37,7 +37,6 @@
     "max_files": 5,
     "max_loc": 200
   },
-  "codex_context_digest_path": ".ai/context_digest.md",
   "update_check": {
     "enabled": true,
     "interval_days": 7
