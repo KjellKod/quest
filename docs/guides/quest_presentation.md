@@ -569,4 +569,4 @@ Quest has evolved through deliberate phases, each driven by a quest:
 5. **Phase 4** — Role wiring consolidated under `.skills/quest/` (phase4-role-wiring)
 6. **Phase 5** — Infrastructure hooks — assessed and deliberately deferred
 
-See [ideas/quest-architecture-evolution.md](../../ideas/quest-architecture-evolution.md) for the full roadmap and decision rationale.
+See [docs/architecture/quest-platform-constellations.md](../../docs/architecture/quest-platform-constellations.md) for the current architecture direction.
