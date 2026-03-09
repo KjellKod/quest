@@ -21,7 +21,7 @@ Implemented the handoff.json structured file pattern to close the remaining cont
 | `.ai/roles/fixer_agent.md` | Added `## Handoff File` section |
 | `.ai/roles/arbiter_agent.md` | Added `## Handoff File` section |
 | `.skills/quest/delegation/workflow.md` | Handoff File Polling, Context Retention Rule update, background agent discard, context health logging, health report at completion, /clear suggestion, stale cleanup |
-| `ideas/README.md` | Marked quest-context-optimization as in-progress |
+| `ideas/README.md` | Marked quest-context-optimization and quest-architecture-evolution as in-progress |
 
 ## Key Design Decisions
 
@@ -29,11 +29,13 @@ Implemented the handoff.json structured file pattern to close the remaining cont
 2. **Measure, don't assume:** Added `context_health.log` and a completion report that shows handoff.json compliance rate split by Claude vs Codex agents. Transparent about the tradeoff.
 3. **Backward compatible:** handoff.json is additive — text `---HANDOFF---` blocks remain as fallback for agents that don't write the JSON file.
 4. **Escalation path:** If compliance is low, upgrade to `run_in_background: true` for Claude Task agents.
-   
+
 ## This is where it all began...
-From `ideas/quest-context-optimization.md`:
-The Quest orchestrator accumulates ~50-80k tokens of agent output per quest despite the thin-orchestrator design. Three remaining leaks: TaskOutput transcripts, MCP Codex responses, and review file reads. The handoff.json pattern closes these leaks by having agents write a tiny status file that the orchestrator polls instead of reading full responses.
 
-From `ideas/quest-architecture-evolution.md` (Phase 2b):
+> From `ideas/quest-context-optimization.md`:
+>
+> The Quest orchestrator accumulates ~50-80k tokens of agent output per quest despite the thin-orchestrator design. Three remaining leaks: TaskOutput transcripts, MCP Codex responses, and review file reads. The handoff.json pattern closes these leaks by having agents write a tiny status file that the orchestrator polls instead of reading full responses.
 
-Close remaining context leaks. The handoff.json pattern: every agent writes a tiny handoff.json alongside artifacts. Orchestrator polls for this file instead of calling TaskOutput. All agents run in background, orchestrator never sees their output. Target: orchestrator context stays under ~30k tokens for entire quest lifecycle.
+> From `ideas/quest-architecture-evolution.md` (Phase 2b):
+>
+> Close remaining context leaks. The handoff.json pattern: every agent writes a tiny handoff.json alongside artifacts. Orchestrator polls for this file instead of calling TaskOutput. All agents run in background, orchestrator never sees their output. Target: orchestrator context stays under ~30k tokens for entire quest lifecycle.
