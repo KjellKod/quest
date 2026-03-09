@@ -75,7 +75,7 @@ Codex runtime policy for Quest:
 The Creator controls quest permissions via `.ai/allowlist.json`:
 - `auto_approve_phases` — which phases need human approval
 - `arbiter.tool` — Arbiter model (`claude` by default)
-- `model_overrides` — default role model map (`planner`, `plan_reviewer_a`, `plan_reviewer_b`, `builder`, `code_reviewer_a`, `code_reviewer_b`, `arbiter`, `fixer`)
+- `model_overrides` — default role model map (`planner`, `plan-reviewer-a`, `plan-reviewer-b`, `builder`, `code-reviewer-a`, `code-reviewer-b`, `arbiter`, `fixer`)
 - `review_mode` — `auto` (default), `fast`, or `full` for Codex reviews
 - `fast_review_thresholds` — file/LOC thresholds for auto fast mode
 
