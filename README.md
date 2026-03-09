@@ -45,7 +45,7 @@ We are amplifying it by removing avoidable toil and preventing avoidable mistake
 The philosophy above is our north star. We are not there yet. Here is where we stand:
 
 **What Quest delivers today:**
-- A prompt-orchestrated pipeline built within Claude Code's skill system
+- A prompt-orchestrated pipeline built within Claude Code / GPT / OpenCode  skill systems.
 - Clear phase boundaries (plan → review → build → review → fix)
 - Explicit, auditable artifacts in `.quest/<id>/`
 - Dual-model verification (Claude + Codex reviewing independently)
@@ -57,7 +57,7 @@ The philosophy above is our north star. We are not there yet. Here is where we s
 - State validation script that enforces phase transitions, artifact prerequisites, and semantic handoff checks (`scripts/validate-quest-state.sh`)
 - Context health logging and compliance reporting — every handoff is logged, compliance is reported at quest completion
 - Consolidated skill ownership — all quest agent wiring lives under `.skills/quest/`
-- Codex orchestration (BETA): Quest runs end-to-end via `$quest` with GPT-5.3/Codex as orchestrator. Claude-orchestrated `/quest` remains the more robust path.
+- Codex orchestration (BETA): Quest runs end-to-end via `$quest` with GPT-5.x-Codex as orchestrator. Claude-orchestrated `/quest` remains the more robust path.
 - OpenCode integration: Quest runs on OpenCode with multi-model agent assignments (e.g., Opus as arbiter, Codex as builder, KiMi as reviewer). See [field notes](docs/guides/opencode-model-observations.md).
 
 **What we considered and deliberately left alone:**
@@ -84,7 +84,7 @@ Quest is very useful, but it is not currently intended to be a long term maintai
 
 ## What is Quest?
 
-Quest is a multi-agent workflow where specialized AI agents (planner, reviewers, builder) work in **isolated contexts** with **human approval gates**. Two different models (Claude + GPT) review independently, an arbiter filters nitpicks, and you approve before anything gets built. For lighter tasks, solo mode uses a single reviewer — same pipeline, fewer stages, faster turnaround.
+Quest is a multi-agent workflow where specialized AI agents (planner, reviewers, builder) work in **isolated contexts** with **human approval gates**. Two different models (Claude + GPT) review independently, an arbiter filters makes careful choices without nitpicking, and you approve before anything gets built. For lighter tasks, solo mode uses a single reviewer — same pipeline, fewer stages, faster turnaround.
 
 **One sentence:** *"Structured AI teamwork with checks and balances."*
 
@@ -139,7 +139,7 @@ npm install -g @anthropic-ai/claude-code
 
 ### Optional: Codex MCP (for dual-model reviews)
 
-Quest uses GPT 5.2 or GPT5-3-codex via Codex as a second reviewer. If you want dual-model reviews:
+Quest uses GPT5-x (5.2/5.3/5.4/etc) codex as a second reviewer. If you want dual-model reviews:
 
 ```bash
 
@@ -195,6 +195,7 @@ The installer:
 - Tracks file checksums to detect your modifications
 - Never overwrites your customizations (uses `.quest_updated` suffix)
 - Supports `--force` for CI/automation
+- Will check after a successful quest completion if a new version is available.  
 
 ### Option B: Manual Copy
 
@@ -206,6 +207,7 @@ Copy these folders to your repository root:
 - `.claude/` - Claude Code integration (agents, hooks)
 - `.cursor/` - Cursor integration
 - `.codex/` - Codex integration
+- `.opencode/` - OpenCode integration
 - `docs/guides/quest_setup.md` - Setup documentation
 - `AGENTS.md` - Coding rules (customize for your project)
 - `DOCUMENTATION_STRUCTURE.md` - Navigation guide
@@ -252,7 +254,7 @@ $quest "Add a loading skeleton to the user list"
 **Milestone:** Quest is now runnable directly from Codex via `$quest`.
 
 **Codex orchestration (BETA, February 2026):**
-- Codex `$quest` runs the full Quest pipeline with GPT-5.3 as the orchestrator. This works but is less reliable than Claude `/quest` — handoff protocol compliance is lower and some phases may require text-fallback parsing instead of structured `handoff.json` routing.
+- Codex `$quest` runs the full Quest pipeline with GPT-5.x as the orchestrator. This works but is less reliable than Claude `/quest` — handoff protocol compliance is lower and some phases may require text-fallback parsing instead of structured `handoff.json` routing.
 - Codex `$quest` currently requires enabling Codex `/experimental` subagents.
 - **Recommended setup:** Claude `/quest` as orchestrator with Codex MCP configured for dual-model reviews. This gives you the best of both models with the most robust orchestration.
 
@@ -362,7 +364,7 @@ Consider you have just recieved the brief, you have three alternatives to choose
 ```bash
 
 [ongoing quest/before implementation]
-"For the planning, I want to do all 3 suggestions, create 3 different slugs for them and let gpt-5.2 be the planner for all three"
+"For the planning, I want to do all 3 suggestions, create 3 different slugs for them and let gpt-5.x be the planner for all three"
 
 ```
 
@@ -377,7 +379,7 @@ Start a quest, review the plan, then re-run planning with different model config
 # After reviewing the plan, restart planning with only Claude
 /quest auth-redesign_2026-02-04__1430 "re-plan this using only claude, skip codex reviews"
 
-# Or re-plan with GPT-5.2 for a different perspective
+# Or re-plan with GPT-5.x for a different perspective
 /quest auth-redesign_2026-02-04__1430 "re-plan this using gpt-5.2"
 
 # Or merge the best of multiple plans — GPT as planner and arbiter  
@@ -547,7 +549,7 @@ Creates the implementation plan from your quest brief. Explores the codebase, id
 ### Reviewers (Claude + Codex)
 Two independent reviewers examine plans and code:
 - **Claude reviewer**: Uses Claude's understanding of the codebase
-- **Codex reviewer**: Uses GPT 5.2 for a different perspective
+- **Codex reviewer**: Uses GPT 5.x etc for a different perspective
 
 Having two different model families catches different blind spots.
 
