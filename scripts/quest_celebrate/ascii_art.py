@@ -7,7 +7,6 @@ if TYPE_CHECKING:
 
 from quest_celebrate.quest_data import friendly_model_name
 
-
 # Minimal 5-line tall block letter font for A-Z, 0-9, space, and hyphen.
 # Each character is 6 columns wide (5 + 1 space separator).
 _BLOCK_FONT = {
