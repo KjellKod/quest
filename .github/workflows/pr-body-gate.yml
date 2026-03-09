@@ -30,7 +30,6 @@ jobs:
               { name: "Summary",    patterns: ["summary", "overview"] },
               { name: "Changes",    patterns: ["changes", "what changed", "key changes", "files changed"] },
               { name: "Validation", patterns: ["validation", "test plan", "testing", "how to test", "verification", "smoke test results"] },
-              { name: "Notes",      patterns: ["notes", "context", "additional context", "additional notes"] },
             ];
 
             const missing = requiredSections.filter(({ patterns }) => {
