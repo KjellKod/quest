@@ -22,15 +22,11 @@ architecture docs.
 | `quest-policy-canonicalization-and-enforcement-roadmap.md` | in-progress | Canonical plan to reduce policy drift and convert rules into enforced checks. |
 | `handoff-validation-and-failure-ux.md` | proposed | Add actionable diagnostics when handoff fallback occurs. |
 | `quest-abandon-flow.md` | proposed | Add `/quest abandon <id>` flow with state-safe transitions. |
-| `quest-completion-gate.md` | idea | Define when a quest should be considered complete. |
-| `quest-readme-auto-update.md` | idea | Auto-maintain `.quest/README.md` on quest completion. |
 
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
 |---|---|---|
 | `phase2b-context-leak-closure.md` | in-progress | Concrete closure plan and findings for remaining context leaks. |
-| `quest-context-optimization.md` | in-progress | Token/context reduction tactics for orchestrator paths. |
-| `parallel-reviewer-orchestration.md` | in-progress | Ensure reviewer phases are truly parallel and observable. |
 | `quest-file-attribution-line.md` | idea | File-level Quest attribution and license provenance line. |
 
 ### Codex and Operations Notes
