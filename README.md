@@ -254,7 +254,8 @@ $quest "Add a loading skeleton to the user list"
 **Milestone:** Quest is now runnable directly from Codex via `$quest`.
 
 **Codex orchestration (BETA, February 2026):**
-- Codex `$quest` runs the full Quest pipeline with GPT-5.x as the orchestrator. This works but is less reliable than Claude `/quest` — handoff protocol compliance is lower and some phases may require text-fallback parsing instead of structured `handoff.json` routing.
+- Codex `$quest` runs the full Quest pipeline with GPT-5.x as the orchestrator. Claude-designated slots are supported through `scripts/claude_cli_bridge.py`, while Codex-native slots stay on Codex.
+- This still remains less reliable than Claude `/quest` overall — handoff protocol compliance is lower and some phases may require text-fallback parsing instead of structured `handoff.json` routing.
 - Codex `$quest` currently requires enabling Codex `/experimental` subagents.
 - **Recommended setup:** Claude `/quest` as orchestrator with Codex MCP configured for dual-model reviews. This gives you the best of both models with the most robust orchestration.
 

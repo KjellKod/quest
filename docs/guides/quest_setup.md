@@ -192,6 +192,25 @@ If you don't have Codex or prefer Claude for all roles, set in `allowlist.json`:
 
 The plan and code reviewers will also fall back to Claude if Codex is unavailable.
 
+## Claude Bridge Setup For Codex-Led Quests
+
+If you want Codex to orchestrate Quest while still running Claude-designated slots (planner, reviewer A, arbiter, or Claude fallback paths), set up the local Claude bridge as well:
+
+```bash
+command -v claude
+claude auth status
+ls -la scripts/claude_cli_bridge.py
+python3 scripts/quest_claude_probe.py \
+  --quest-dir .quest/<id> \
+  --model opus
+```
+
+Quest probes this bridge once per Codex-led session before the first Claude-designated slot. If the probe fails, Claude-designated roles that require Claude runtime will block until the local Claude CLI/auth setup is fixed.
+
+This adapter is additive and host-specific:
+- Claude-led quests keep native Claude `Task(...)` behavior for Claude-designated roles.
+- Codex-led quests route Claude-designated roles through `scripts/quest_claude_runner.py`, which uses `scripts/claude_cli_bridge.py` as its transport layer.
+
 ## Verification
 
 After setup, verify everything is in place:

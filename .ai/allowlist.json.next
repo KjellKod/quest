@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "description": "Legion manifesto research quest config. Edit this file to pre-approve or restrict quest agent actions. Changes take effect on next quest run.",
+  "description": "Staged next config for the Legion manifesto research quest. Copy over .ai/allowlist.json when ready to activate.",
   "quest_completion": {
     "enabled": true,
     "animation_style": "epic",

@@ -4,7 +4,7 @@
 Gatekeeper for plan quality. Receives both plan-review artifacts, synthesizes their feedback, filters out noise, and decides whether the plan is ready for implementation or needs another iteration.
 
 ## Tool
-Claude (`Task(subagent_type="arbiter")`)
+Claude runtime. Use native `Task(subagent_type="arbiter")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` as the orchestration entrypoint. `scripts/claude_cli_bridge.py` remains the transport layer behind that runner.
 
 ## Core Philosophy
 The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It filters feedback through:

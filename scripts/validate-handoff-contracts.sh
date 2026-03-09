@@ -68,13 +68,29 @@ else
 fi
 
 echo ""
-echo "4. Checking workflow has Codex-only invocations..."
-TASK_COUNT=$(grep -c "Task tool with.*agent" .skills/quest/delegation/workflow.md || true)
-CODEX_COUNT=$(grep -c "mcp__codex__codex" .skills/quest/delegation/workflow.md || true)
-if [ "$TASK_COUNT" -eq 0 ]; then
-  echo "   ✅ No Task tool invocations found (Codex-only: $CODEX_COUNT)"
+echo "4. Checking workflow documents Claude bridge probe and runtime dispatch..."
+BRIDGE_SCRIPT_COUNT=$(grep -c "scripts/claude_cli_bridge.py" .skills/quest/delegation/workflow.md || true)
+BRIDGE_PROBE_COUNT=$(grep -c "claude_bridge_available" .skills/quest/delegation/workflow.md || true)
+BRIDGE_PROBE_HELPER_COUNT=$(grep -c "scripts/quest_claude_probe.py" .skills/quest/delegation/workflow.md || true)
+RUNTIME_SELECTION_COUNT=$(grep -c "selected model/runtime" .skills/quest/delegation/workflow.md || true)
+BRIDGE_RUNNER_COUNT=$(grep -c "scripts/quest_claude_runner.py" .skills/quest/delegation/workflow.md || true)
+BYPASS_PERMS_COUNT=$(grep -c "bypassPermissions" .skills/quest/delegation/workflow.md || true)
+STATE_HELPER_COUNT=$(grep -c "scripts/quest_state.py" .skills/quest/delegation/workflow.md || true)
+NATIVE_TASK_COUNT=$(grep -c 'native `Task(...)\` is available\|native `Task(...)` when available' .skills/quest/delegation/workflow.md || true)
+CODEX_HOST_COUNT=$(grep -c "orchestrator is Codex" .skills/quest/delegation/workflow.md || true)
+if [ "$BRIDGE_SCRIPT_COUNT" -gt 0 ] && [ "$BRIDGE_PROBE_COUNT" -gt 0 ] && [ "$BRIDGE_PROBE_HELPER_COUNT" -gt 0 ] && [ "$RUNTIME_SELECTION_COUNT" -gt 0 ] && [ "$BRIDGE_RUNNER_COUNT" -gt 0 ] && [ "$BYPASS_PERMS_COUNT" -gt 0 ] && [ "$STATE_HELPER_COUNT" -gt 0 ] && [ "$NATIVE_TASK_COUNT" -gt 0 ] && [ "$CODEX_HOST_COUNT" -gt 0 ]; then
+  echo "   ✅ Workflow documents bridge probing and runtime-based dispatch"
 else
-  echo "   ❌ Found $TASK_COUNT Task tool invocations (should be 0, Codex-only)"
+  echo "   ❌ Workflow is missing bridge probing or runtime-selection guidance"
+  echo "      scripts/claude_cli_bridge.py refs: $BRIDGE_SCRIPT_COUNT"
+  echo "      claude_bridge_available refs: $BRIDGE_PROBE_COUNT"
+  echo "      scripts/quest_claude_probe.py refs: $BRIDGE_PROBE_HELPER_COUNT"
+  echo "      selected model/runtime refs: $RUNTIME_SELECTION_COUNT"
+  echo "      scripts/quest_claude_runner.py refs: $BRIDGE_RUNNER_COUNT"
+  echo "      bypassPermissions refs: $BYPASS_PERMS_COUNT"
+  echo "      scripts/quest_state.py refs: $STATE_HELPER_COUNT"
+  echo "      native Task refs: $NATIVE_TASK_COUNT"
+  echo "      orchestrator is Codex refs: $CODEX_HOST_COUNT"
   ERRORS=$((ERRORS + 1))
 fi
 

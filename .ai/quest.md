@@ -39,14 +39,14 @@ The Quest Agent interprets your intent, matches brief references, and routes to 
 | Role | File | Tool | Purpose |
 |------|------|------|---------|
 | Quest Agent | (Claude Code itself) | Claude Opus (`opus`) | Orchestration, gating |
-| Planner | `.skills/quest/agents/planner.md` | Claude Opus (`opus`) | Write and refine plan artifacts |
-| Plan Reviewer (Claude) | `.skills/quest/agents/plan-reviewer.md` | Claude Opus (`opus`) | Review plans (read-only) |
+| Planner | `.skills/quest/agents/planner.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Write and refine plan artifacts |
+| Plan Reviewer (Claude) | `.skills/quest/agents/plan-reviewer.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Review plans (read-only) |
 | Plan Reviewer (Codex) | `.skills/quest/agents/plan-reviewer.md` | Codex (`gpt-5.3-codex`) | Review plans (read-only) |
-| Arbiter | `.skills/quest/agents/arbiter.md` | Claude Opus (`opus`) | Synthesize reviews, approve or iterate |
-| Builder | `.skills/quest/agents/builder.md` | Codex (`gpt-5.3-codex`) by default; Claude fallback | Implement changes |
-| Code Reviewer (Claude) | `.skills/quest/agents/code-reviewer.md` | Claude Opus (`opus`) | Review code (read-only) |
+| Arbiter | `.skills/quest/agents/arbiter.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Synthesize reviews, approve or iterate |
+| Builder | `.skills/quest/agents/builder.md` | Codex (`gpt-5.3-codex`) by default; Claude runtime fallback | Implement changes |
+| Code Reviewer (Claude) | `.skills/quest/agents/code-reviewer.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Review code (read-only) |
 | Code Reviewer (Codex) | `.skills/quest/agents/code-reviewer.md` | Codex (`gpt-5.3-codex`) | Review code (read-only) |
-| Fixer | `.skills/quest/agents/fixer.md` | Codex (`gpt-5.3-codex`) by default; Claude fallback | Fix review issues |
+| Fixer | `.skills/quest/agents/fixer.md` | Codex (`gpt-5.3-codex`) by default; Claude runtime fallback | Fix review issues |
 
 ## Plan Phase Flow
 
@@ -69,6 +69,13 @@ Codex runtime policy for Quest:
 - Codex roles run non-interactive (`no questions`, `no needs_human`).
 - If a Codex role cannot comply, Quest retries once with explicit-assumption guidance, then falls back to the equivalent Claude role.
 - Human Q&A is used only when the Claude path returns `needs_human`.
+
+Codex-led Quest note:
+- In a Codex-orchestrated session, Claude-designated roles run through the supported local bridge runtime, using `scripts/quest_claude_runner.py` as the orchestration entrypoint and `scripts/claude_cli_bridge.py` as the transport layer.
+- Native Claude-led Quest behavior is unchanged: Claude-designated roles still use native `Task(...)` execution when the orchestrator supports it.
+- The preferred helpers for Codex-led Claude slots are `scripts/quest_claude_probe.py` for bridge preflight and `scripts/quest_claude_runner.py` for real role execution; the runner uses `bypassPermissions`, adds explicit repo/quest access via `--add-dir`, polls `handoff.json`, and updates `context_health.log`.
+- The workflow now probes bridge availability once per session, routes Claude-designated slots by selected model/runtime, and logs bridge-invoked Claude roles as `runtime=claude`.
+- Bridge failures are explicit: timeout retries once, CLI/auth failures block immediately, and malformed output/missing handoff retries once before text fallback or blocking.
 
 ## Allowlist
 

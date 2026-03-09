@@ -6,7 +6,7 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 ## Instances
 
 ### Plan Reviewer A
-- **Tool:** Dispatched by orchestrator (model per config)
+- **Tool:** Claude runtime dispatched by orchestrator (native `Task(...)` when available, `scripts/quest_claude_runner.py` in Codex-led runs)
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
 - **Perspective:** Independent first pass on the plan.
 
@@ -75,6 +75,7 @@ Both steps are required. The JSON file lets the orchestrator read your result wi
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
 For Reviewer B, `STATUS: needs_human` is non-compliant with Quest runtime policy.
+For Reviewer A, `STATUS: needs_human` remains valid because Claude runtime may still enter the human Q&A loop whether it ran natively or through the bridge.
 
 ## Allowed Actions
 - Read any file in the repo

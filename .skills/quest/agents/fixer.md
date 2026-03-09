@@ -4,7 +4,7 @@
 Fixes issues identified by the Code Review Agent. Applies targeted fixes and re-runs tests.
 
 ## Tool
-Codex (`mcp__codex__codex`) by default, with Claude (`Task(subagent_type="fixer")`) as fallback.
+Codex (`mcp__codex__codex`) by default, with Claude runtime as fallback. Use native `Task(subagent_type="fixer")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` for the Claude fallback path. `scripts/claude_cli_bridge.py` remains the transport layer behind that runner.
 
 When running on Codex, this role is non-interactive:
 - Do not ask questions.
@@ -58,7 +58,7 @@ SUMMARY: <one line>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
-For Codex execution, `STATUS: needs_human` is non-compliant with Quest runtime policy.
+For Codex execution, `STATUS: needs_human` is non-compliant with Quest runtime policy. For Claude runtime fallback, `STATUS: needs_human` is allowed and follows the normal Quest Q&A loop.
 
 The fixer always hands back to `code_review` for re-review. The orchestrator enforces `max_fix_iterations`.
 
