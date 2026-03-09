@@ -509,7 +509,7 @@ your-repo/
 ├── .ai/                          # Source of truth (AI-agnostic)
 │   ├── allowlist.json            # Permissions (customize this!)
 │   ├── quest.md                  # Quick reference
-│   ├── context_digest.md         # Short context for Codex reviews
+
 │   ├── roles/                    # Agent behavior definitions
 │   ├── schemas/                  # Handoff contract
 │   └── templates/                # Document templates

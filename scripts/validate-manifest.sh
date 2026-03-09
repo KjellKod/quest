@@ -90,7 +90,7 @@ if [ $ERRORS -gt 0 ]; then
   echo ""
   echo "Sections:"
   echo "  [copy-as-is]       - Files replaced with upstream (most files)"
-  echo "  [user-customized]  - Files never overwritten (allowlist, context_digest)"
+  echo "  [user-customized]  - Files never overwritten (allowlist)"
   echo "  [merge-carefully]  - Files that prompt for merge (settings.json)"
   echo "  [directories]      - Directories to create"
   exit 1

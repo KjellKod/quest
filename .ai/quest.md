@@ -78,7 +78,7 @@ The Creator controls quest permissions via `.ai/allowlist.json`:
 - `model_overrides` — default role model map (`planner`, `plan_reviewer_a`, `plan_reviewer_b`, `builder`, `code_reviewer_a`, `code_reviewer_b`, `arbiter`, `fixer`)
 - `review_mode` — `auto` (default), `fast`, or `full` for Codex reviews
 - `fast_review_thresholds` — file/LOC thresholds for auto fast mode
-- `codex_context_digest_path` — short context file used by Codex
+
 - `role_permissions` — per-role file and bash access
 - `gates` — commit/push/delete always require approval by default
 

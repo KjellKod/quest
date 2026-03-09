@@ -33,7 +33,6 @@
         "max_loc": { "type": "integer", "minimum": 1 }
       }
     },
-    "codex_context_digest_path": { "type": "string" },
     "role_permissions": {
       "type": "object",
       "additionalProperties": {

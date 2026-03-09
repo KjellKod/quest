@@ -32,8 +32,7 @@ Do NOT use for:
 
 Before starting the review, read:
 1. `AGENTS.md` -- architecture boundaries and coding conventions
-2. `.ai/context_digest.md` -- review priorities and testing expectations
-3. `.skills/code-reviewer/SKILL.md` -- severity model and review baseline
+2. `.skills/code-reviewer/SKILL.md` -- severity model and review baseline
 
 If any file is missing, note it in the output and continue with available context.
 

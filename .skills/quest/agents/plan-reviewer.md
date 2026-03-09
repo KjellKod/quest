@@ -40,7 +40,7 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 ## Input
 - Plan artifact (`.quest/<id>/phase_01_plan/plan.md`)
 - Quest brief
-- Optional context digest (`.ai/context_digest.md`) when orchestrator supplies it
+
 
 ## Output Contract
 
