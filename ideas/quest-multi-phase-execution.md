@@ -98,9 +98,9 @@ This works when:
 - the build phase is still fundamentally one dossier-producing effort
 - review/fix loops are about improving the same artifact set, not shipping separate increments
 
-This fits the Legion manifesto work:
-- one quest can own the research/verification/synthesis passes because they all produce one coherent dossier and manifesto package
-- but actual product implementation phases derived from that manifesto should become separate quests later
+Example:
+- one quest can own the research/verification/synthesis passes because they all produce one coherent dossier package
+- but actual product implementation phases derived from that dossier should become separate quests later
 
 ## Decision Rule
 

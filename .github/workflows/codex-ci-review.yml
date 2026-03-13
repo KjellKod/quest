@@ -44,10 +44,60 @@ jobs:
         if: steps.check-key.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           gh pr diff ${{ github.event.pull_request.number }} --patch > /tmp/pr.diff
           gh pr view ${{ github.event.pull_request.number }} \
             --json title,body --jq '.title + "\n\n" + (.body // "")' > /tmp/pr_description.txt
+          gh pr view ${{ github.event.pull_request.number }} \
+            --json headRefOid --jq '.headRefOid' > /tmp/pr_head_sha.txt
+          gh pr view ${{ github.event.pull_request.number }} \
+            --json files --jq '.files[].path' > /tmp/changed_files.txt
+
+          python3 <<'PYEOF'
+          import os
+          import subprocess
+          from pathlib import Path
+          from urllib.parse import quote
+
+          repo = os.environ['REPO']
+          head_sha = Path('/tmp/pr_head_sha.txt').read_text(encoding='utf-8').strip()
+          changed_files = [
+              line.strip()
+              for line in Path('/tmp/changed_files.txt').read_text(encoding='utf-8').splitlines()
+              if line.strip()
+          ]
+
+          max_files = 12
+          max_chars = 12000
+          rendered = []
+          for path in changed_files[:max_files]:
+              encoded_path = quote(path, safe='/')
+              cmd = [
+                  'gh', 'api',
+                  '-H', 'Accept: application/vnd.github.raw',
+                  f'repos/{repo}/contents/{encoded_path}?ref={head_sha}',
+              ]
+              try:
+                  result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+                  content = result.stdout
+              except subprocess.CalledProcessError as exc:
+                  detail = exc.stderr.strip() or exc.stdout.strip() or 'unable to fetch file snapshot'
+                  content = f'[unavailable: {detail}]'
+
+              if len(content) > max_chars:
+                  content = content[:max_chars] + '\n... [truncated]\n'
+
+              rendered.append(f'## {path}\n```\n{content.rstrip()}\n```')
+
+          if len(changed_files) > max_files:
+              rendered.append(
+                  f'## Additional changed files omitted\nOnly the first {max_files} changed files are included here for context. '
+                  'Use the diff as the source of truth for the full change set.'
+              )
+
+          Path('/tmp/pr_head_files.md').write_text('\n\n'.join(rendered).strip() + '\n', encoding='utf-8')
+          PYEOF
 
       - name: Fetch existing review comments and replies
         if: steps.check-key.outputs.skip != 'true'
@@ -66,6 +116,8 @@ jobs:
               -e '/{PLACEHOLDER_PR_DESCRIPTION}/d' \
               -e '/{PLACEHOLDER_EXISTING_COMMENTS}/r /tmp/existing_comments.json' \
               -e '/{PLACEHOLDER_EXISTING_COMMENTS}/d' \
+              -e '/{PLACEHOLDER_PR_HEAD_FILES}/r /tmp/pr_head_files.md' \
+              -e '/{PLACEHOLDER_PR_HEAD_FILES}/d' \
               -e '/{PLACEHOLDER_DIFF}/r /tmp/pr.diff' \
               -e '/{PLACEHOLDER_DIFF}/d' \
               .github/codex-review-prompt.md > /tmp/review-prompt.md

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "description": "Legion manifesto research quest config. Edit this file to pre-approve or restrict quest agent actions. Changes take effect on next quest run.",
+  "description": "Creator-managed permissions for quest orchestration. Edit this file to pre-approve or restrict quest agent actions. Changes take effect on next quest run.",
   "quest_completion": {
     "enabled": true,
     "animation_style": "epic",
@@ -20,7 +20,7 @@
   },
   "arbiter": {
     "tool": "claude",
-    "notes": "Legion quest default: keep Arbiter on Claude Opus for synthesis and scope pressure-testing."
+    "notes": "Set to 'codex' to use gpt-5.3-codex as Arbiter instead of Claude. Default: claude."
   },
   "model_overrides": {
     "planner": "opus",
@@ -32,7 +32,7 @@
     "arbiter": "opus",
     "fixer": "gpt-5.3-codex"
   },
-  "review_mode": "full",
+  "review_mode": "auto",
   "fast_review_thresholds": {
     "max_files": 5,
     "max_loc": 200
@@ -63,32 +63,9 @@
       "bash": ["gh pr view.*"]
     },
     "builder_agent": {
-      "file_write": [
-        ".quest/**",
-        ".ws/legion-v2/**",
-        "scripts/**",
-        "docs/**",
-        "*.md",
-        "*.json",
-        "*.txt",
-        ".ai/**"
-      ],
+      "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "scripts/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
       "file_read": ["**"],
-      "bash": [
-        "python",
-        "python3",
-        "pytest",
-        "rg",
-        "grep",
-        "find",
-        "ls",
-        "wc",
-        "git diff",
-        "git log",
-        "git status",
-        "shasum",
-        "sha256sum"
-      ]
+      "bash": ["npm test", "npm run build", "pytest", "python", "pip", "npx", "yarn test", "make test", "shasum", "sha256sum"]
     },
     "code_review_agent": {
       "file_write": [".quest/**"],
@@ -96,32 +73,9 @@
       "bash": ["git diff", "git log", "git status", "gh pr view.*"]
     },
     "fixer_agent": {
-      "file_write": [
-        ".quest/**",
-        ".ws/legion-v2/**",
-        "scripts/**",
-        "docs/**",
-        "*.md",
-        "*.json",
-        "*.txt",
-        ".ai/**"
-      ],
+      "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
       "file_read": ["**"],
-      "bash": [
-        "python",
-        "python3",
-        "pytest",
-        "rg",
-        "grep",
-        "find",
-        "ls",
-        "wc",
-        "git diff",
-        "git log",
-        "git status",
-        "shasum",
-        "sha256sum"
-      ]
+      "bash": ["npm test", "pytest", "python", "yarn test", "make test", "shasum", "sha256sum"]
     }
   },
   "solo": {
