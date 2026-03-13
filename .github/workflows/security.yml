@@ -16,10 +16,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install gitleaks
+        run: |
+          curl -sSL             https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz             -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
+          chmod +x /tmp/gitleaks
+
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          /tmp/gitleaks dir .             --redact             --exit-code 2             --report-format sarif             --report-path results.sarif
 
   workflow-guard:
     runs-on: ubuntu-latest
