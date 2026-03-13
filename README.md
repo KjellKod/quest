@@ -156,6 +156,11 @@ The installer:
 
 Use the full [Quest Setup Guide](docs/guides/quest_setup.md) for prerequisites, allowlist customization, Codex MCP, Codex-led Claude bridge setup, and verification.
 
+That guide covers:
+- Claude Code install and authentication
+- Codex MCP setup for dual-model reviews
+- Codex-led Claude bridge setup when Codex is the Quest orchestrator
+
 ### Option B: Manual Copy
 
 Copy these folders to your repository root:
