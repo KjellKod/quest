@@ -2,6 +2,8 @@
 
 How to add the `/quest` and `$quest` multi-agent orchestration system to your repository.
 
+This is the single setup source of truth. Use the README for the quick start; use this guide for the full install and configuration path.
+
 ## Prerequisites
 
 ### Required: Claude Code CLI
@@ -20,7 +22,7 @@ claude auth
 
 ### Optional: Codex MCP (for dual-model reviews)
 
-Quest can use GPT 5.2 via OpenAI's Codex as a second reviewer. This gives you two different model families reviewing your code (different blind spots).
+Quest can use Codex as a second reviewer. This gives you two different model families reviewing your code (different blind spots).
 
 ```bash
 # Add Codex MCP server to Claude Code
@@ -169,9 +171,9 @@ Add to `.gitignore`:
 
 The `.quest/` folder contains ephemeral run state and should not be committed.
 
-## One-Time MCP Setup (if using Codex/GPT 5.2)
+## One-Time MCP Setup (if using Codex)
 
-If you want to use GPT 5.2 via Codex for reviews and arbiter:
+If you want to use Codex for reviews and arbiter:
 
 ```bash
 # Add Codex MCP server
@@ -192,7 +194,7 @@ If you don't have Codex or prefer Claude for all roles, set in `allowlist.json`:
 
 The plan and code reviewers will also fall back to Claude if Codex is unavailable.
 
-## Claude Bridge Setup For Codex-Led Quests
+## Codex-Led Claude Bridge Setup
 
 If you want Codex to orchestrate Quest while still running Claude-designated slots (planner, reviewer A, arbiter, or Claude fallback paths), set up the local Claude bridge as well:
 
@@ -210,6 +212,8 @@ Quest probes this bridge once per Codex-led session before the first Claude-desi
 This adapter is additive and host-specific:
 - Claude-led quests keep native Claude `Task(...)` behavior for Claude-designated roles.
 - Codex-led quests route Claude-designated roles through `scripts/quest_claude_runner.py`, which uses `scripts/claude_cli_bridge.py` as its transport layer.
+
+If you need Codex to discover Quest as a global skill outside the repository, see [Installing Quest for Codex](codex-quest-install.md).
 
 ## Verification
 
