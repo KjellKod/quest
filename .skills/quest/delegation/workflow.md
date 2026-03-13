@@ -4,6 +4,8 @@ When starting, say: "Now I understand the Quest." Then proceed directly with the
 
 Follow these steps in order. After each step that modifies state, update `.quest/<id>/state.json`.
 
+**State update helper:** Use `python3 scripts/quest_state.py --quest-dir .quest/<id> ...` for state mutations instead of hand-editing `state.json`. This keeps `updated_at` consistent and avoids invalid phase transitions caused by stale state.
+
 ### Defaults (Opinionated)
 
 Quest is opinionated: default to **thorough**, but be **progressive** and avoid wasted repo exploration.
@@ -26,14 +28,41 @@ Before the first Codex invocation, the orchestrator MUST probe for tool availabi
 1. Call `ToolSearch("codex")` (or platform equivalent) to discover if `mcp__codex__codex` is available.
 2. Cache the result as `codex_available` (boolean) for the rest of the session.
 3. If `codex_available` is false:
-   - Log: `"Codex MCP not available in this session — all Codex slots will use Claude Task fallback."`
-   - **Global rule:** Every `mcp__codex__codex` invocation in this workflow (Reviewer B slots, Builder, Fixer — any role) is replaced with the equivalent Claude `Task` fallback for that role. Use the same prompt (minus the non-interactive rule), the same output file paths, and the same handoff contract. Do not retry Codex. Do not treat this as an error.
+   - Log: `"Codex MCP not available in this session — all Codex slots will use Claude runtime fallback."`
+   - **Global rule:** Every `mcp__codex__codex` invocation in this workflow (Reviewer B slots, Builder, Fixer — any role) is replaced with the equivalent Claude runtime fallback for that role. Use the same prompt (minus the non-interactive rule), the same output file paths, and the same handoff contract. Do not retry Codex. Do not treat this as an error.
 4. If `codex_available` is true:
    - Proceed normally with Codex invocations per the workflow below.
 
 **This rule is global.** Individual steps do not repeat the `codex_available` check — they just say `mcp__codex__codex` and this section governs what actually happens. The orchestrator applies the substitution transparently.
 
 **Why:** MCP servers are loaded at session startup. If the Codex MCP server failed to connect (binary not on PATH, server crash, etc.), it cannot be recovered mid-session. Probing once avoids repeated failed invocations and misleading error messages.
+
+### Claude Bridge Probe And Runtime Dispatch (Run Once Per Session — Applies to Claude-designated roles when orchestrator is Codex)
+
+Quest may need to run Claude-designated roles in environments where native Claude `Task(...)` execution is unavailable. In Codex-led sessions, the supported Claude runtime adapter is `scripts/claude_cli_bridge.py`.
+
+Before the first Claude-designated role invocation in a Codex-orchestrated session, the orchestrator MUST probe bridge availability:
+
+1. Verify `scripts/claude_cli_bridge.py` exists.
+2. Verify Claude CLI is reachable, authenticated, and able to write Quest artifacts by running the real probe helper:
+   - `python3 scripts/quest_claude_probe.py --quest-dir .quest/<id> --model opus`
+   - This probe is the source of truth for bridge readiness. It writes a tiny artifact plus `probe_handoff.json` under `.quest/<id>/logs/bridge_probe/`.
+3. Cache the result as `claude_bridge_available` (boolean) for the rest of the session.
+4. If `claude_bridge_available` is false:
+   - Log: `"Claude bridge unavailable in this Codex-led session — Claude-designated slots requiring Claude runtime will block unless that step defines an explicit Codex path."`
+   - Do not keep retrying the probe for later Claude roles.
+5. If `claude_bridge_available` is true:
+   - Claude-designated roles may be invoked through the bridge with the same artifact paths and handoff contract used by native Claude execution.
+   - **Preferred Codex-led execution path:** use `python3 scripts/quest_claude_runner.py` instead of calling `scripts/claude_cli_bridge.py` directly. The helper sets `--permission-mode bypassPermissions` by default, adds explicit repo/quest filesystem access via `--add-dir`, polls `handoff.json`, and appends the `context_health.log` line for `runtime=claude`.
+
+**Global runtime-selection rule:** the workflow chooses execution path by selected model/runtime, not by role label alone.
+
+- If the selected role model/runtime is Codex, use `mcp__codex__codex` (or Codex agent tools).
+- If the selected role model/runtime is Claude and native `Task(...)` is available in the orchestrator, use `Task(...)`.
+- If the selected role model/runtime is Claude and the orchestrator is Codex, use `python3 scripts/quest_claude_runner.py` when `claude_bridge_available` is true. `scripts/claude_cli_bridge.py` stays the transport layer behind that runner.
+- If the selected role model/runtime is Claude, native `Task(...)` is unavailable, and the bridge probe failed, block that step unless the workflow section for that role defines an explicit Codex execution path.
+
+This rule is global. Individual steps below name the target runtime and artifact contract; the orchestrator applies native Claude task execution, bridge execution, or Codex execution based on the selected model/runtime and session capabilities.
 
 ### Quest Mode Check
 
@@ -60,7 +89,7 @@ Before Step 4 (Build Phase), the orchestrator and all agents MUST NOT edit sourc
 
 ### Context Retention Rule
 
-After every subagent invocation (`Task` or `mcp__codex__codex`), the orchestrator retains ONLY:
+After every subagent invocation (`Task`, `python3 scripts/quest_claude_runner.py`, or `mcp__codex__codex`), the orchestrator retains ONLY:
 1. The **artifact path(s)** from the ARTIFACTS line of the handoff
 2. The **one-line SUMMARY** from the SUMMARY line of the handoff
 3. The **STATUS** and **NEXT** values for routing decisions
@@ -86,7 +115,12 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 3. Use its `status`, `next`, `summary`, and `artifacts` fields for routing and user display
 4. Discard the full agent response -- do not retain, summarize, or process it
 5. **Deterministic precedence for missing/unparsable handoff.json:**
-   - **Claude invocation (Task):** If `handoff.json` is missing/unparsable, parse text `---HANDOFF---` as fallback.
+   - **Claude runtime invocation:**
+     - **Native Claude `Task(...)`:** If `handoff.json` is missing/unparsable, parse text `---HANDOFF---` as fallback.
+     - **Bridge-invoked Claude (`python3 scripts/quest_claude_runner.py`):**
+       - **Timeout:** Retry the same Claude role once with a reduced artifact-first prompt: no questions, no `needs_human`, read only the listed files, and write the required artifacts plus `handoff.json` before any optional commentary. If the second attempt also times out, treat the step as `blocked`.
+       - **Auth/CLI/environment failure** (for example Claude CLI missing from `PATH`, not authenticated, or bridge script missing): Do NOT retry. Treat the step as `blocked` and surface the stderr summary to the user.
+       - **Other failures** (missing/unparsable handoff, malformed output, `blocked`): Re-run the same Claude role once with a reduced artifact-first prompt and a strict reminder to write the expected artifact files and `handoff.json`. If the second attempt still fails, parse text `---HANDOFF---` as last-resort compatibility fallback; if no parseable text handoff exists, treat the step as `blocked`.
    - **Codex invocation (`mcp__codex__codex`):**
      - **Timeout (`McpError` / request timed out):** Do NOT retry. Fall back to the equivalent Claude `Task` immediately. Retrying a timed-out Codex call almost never succeeds and wastes time.
      - **Other failures** (missing/unparsable handoff, non-compliant output, `blocked`): Re-run the same Codex role once with a strict reminder. If the second attempt still fails, invoke the equivalent Claude `Task` fallback for that step.
@@ -107,6 +141,8 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 
 The orchestrator NEVER reads full review files, plan content, or build output for routing decisions. Only handoff.json (and, for Step 3.5, the plan file itself as a bounded exception).
 
+**Claude bridge response handling:** In Codex-led sessions, prefer `python3 scripts/quest_claude_runner.py` for Claude-designated roles. It polls the expected `handoff.json` file, defaults to `--permission-mode bypassPermissions`, adds explicit repo/quest filesystem access via `--add-dir`, and logs `runtime=claude` to `context_health.log`. If the helper cannot be used, a raw `python3 scripts/claude_cli_bridge.py` call is still allowed, but the orchestrator must manually perform the same file polling, filesystem access, and logging steps.
+
 **Codex MCP response handling:** After a `mcp__codex__codex` call returns, the orchestrator reads the corresponding `handoff.json` file and does NOT retain the Codex response body in working context. The response may still appear in the conversation history (platform limitation), but the orchestrator treats it as consumed and does not reference it for any subsequent decision.
 
 **Codex non-interactive contract (all `mcp__codex__codex` calls):**
@@ -119,9 +155,9 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
     1. Re-invoke the same Codex role once with a strict reminder: "no questions, no `needs_human`, make explicit assumptions."
     2. If the second attempt still fails, fall back to the equivalent Claude `Task` role for that step.
   - Only after the fallback chain may text `---HANDOFF---` parsing be used as a last-resort compatibility path.
-  4. Only enter human Q&A if the Claude fallback returns `STATUS: needs_human`.
+  4. Only enter human Q&A if the Claude runtime fallback returns `STATUS: needs_human`.
 
-**MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions. Create the `.quest/<id>/logs/` directory first if it does not exist.
+**MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions. Create the `.quest/<id>/logs/` directory first if it does not exist. `scripts/quest_claude_runner.py` already does this for bridge-invoked Claude roles.
 
 **Format:**
 ```
@@ -133,7 +169,7 @@ Set `runtime` to the runtime actually used for that invocation (`claude` or `cod
 Never infer runtime from the agent label/name (for example `plan-reviewer-a`); labels are role identifiers, not backend evidence.
 
 Runtime attribution rule (authoritative):
-- Log `runtime=claude` only when the invocation actually used Claude `Task(...)`.
+- Log `runtime=claude` only when the invocation actually used Claude `Task(...)` or `python3 scripts/quest_claude_runner.py`.
 - Log `runtime=codex` when invocation used `mcp__codex__codex` or Codex agent tools (`spawn_agent`/`worker`/`explorer`).
 - If a role expected to be Claude is executed with Codex fallback, keep the same role label but log `runtime=codex`.
 
@@ -209,7 +245,7 @@ gates.max_plan_iterations (default: 4)
 
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
-2. **Invoke Planner** (Claude `Task(subagent_type="planner")`):
+2. **Invoke Planner** (Claude runtime: native `Task(...)` when available, bridge in Codex-led sessions):
    - Prompt: Reference file paths only, do not embed artifact content:
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Arbiter verdict (iteration 2+): `.quest/<id>/phase_01_plan/arbiter_verdict.md`
@@ -219,10 +255,11 @@ gates.max_plan_iterations (default: 4)
      - Write handoff file to: `.quest/<id>/phase_01_plan/handoff.json` with schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: plan_review`
-   - Wait for Task to complete
+   - Wait for the selected Claude runtime to complete
    - Read `.quest/<id>/phase_01_plan/handoff.json` for status/routing
    - Verify `.quest/<id>/phase_01_plan/plan.md` exists (from handoff.artifacts)
-   - Fallback: if handoff.json missing or unparsable, parse text handoff from response; if plan.md not written, extract from response and write it
+   - Apply deterministic precedence from **Handoff File Polling** for native Claude task vs bridge execution
+   - Fallback: if handoff.json missing or unparsable after that precedence, parse text handoff from response; if plan.md not written, extract from response and write it
 
 3. **Read review config from allowlist:**
    - `review_mode` (default: `auto`)
@@ -231,7 +268,7 @@ gates.max_plan_iterations (default: 4)
 
 4. **Invoke Plan Reviewers:**
 
-   **If `quest_mode == "solo"`:** Invoke ONLY Reviewer A (Claude Task). Skip Reviewer B entirely. Log: `Plan review: dispatched=single (solo mode)` to `.quest/<id>/logs/parallelism.log`.
+   **If `quest_mode == "solo"`:** Invoke ONLY Reviewer A (Claude runtime). Skip Reviewer B entirely. Log: `Plan review: dispatched=single (solo mode)` to `.quest/<id>/logs/parallelism.log`.
 
    **If `quest_mode == "workflow"` (default):** Invoke BOTH Plan Reviewers IN PARALLEL (same message, one Task call + one Codex call).
 
@@ -239,7 +276,7 @@ gates.max_plan_iterations (default: 4)
    - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
    - **Reviewer B** (workflow only): dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
 
-   **Slot A — Claude Task agent** (full and fast modes):
+   **Slot A — Claude runtime** (native `Task(...)` when available, bridge in Codex-led sessions; full and fast modes):
 
    **Full mode** (default for plan review):
    ```
@@ -329,8 +366,8 @@ gates.max_plan_iterations (default: 4)
    - Read `.quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json` and `handoff_plan-reviewer-b.json`
    - Verify both review files exist (from handoff.artifacts)
    - Apply deterministic precedence from **Handoff File Polling**:
-     - Claude slot may use direct text fallback when handoff.json is missing/unparsable.
-     - Codex slot: on timeout, fall back to Claude Task immediately (no retry); on other failures, retry once then Claude fallback.
+     - Claude slot follows the Claude-runtime precedence above: native task may use direct text fallback; bridge path retries once for timeout/malformed output and blocks immediately on auth/CLI failures.
+     - Codex slot: on timeout, fall back to Claude runtime immediately (no retry); on other failures, retry once then Claude runtime fallback.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -348,7 +385,7 @@ gates.max_plan_iterations (default: 4)
    - If `next: "planner"` → plan needs revision (no remapping)
    - Log: `Plan review: arbiter=skipped (solo mode, using reviewer-a verdict)` to `.quest/<id>/logs/parallelism.log`
 
-   **If `quest_mode == "workflow"` (default):** Invoke Arbiter (Claude `Task(subagent_type="arbiter")`):
+   **If `quest_mode == "workflow"` (default):** Invoke Arbiter through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions):
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -365,13 +402,14 @@ gates.max_plan_iterations (default: 4)
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: builder (approve) or planner (iterate)
      ```
-   - Wait for Task to complete
+   - Wait for the selected Claude runtime to complete
    - Read `.quest/<id>/phase_01_plan/handoff_arbiter.json`
    - Route based on `next` field ("builder" = approved, "planner" = iterate)
-   - Fallback: if handoff.json missing or unparsable, parse text handoff from response
+   - Apply deterministic precedence from **Handoff File Polling** for native Claude task vs bridge execution
+   - Fallback: if handoff.json missing or unparsable after that precedence, parse text handoff from response
 
 6. **Check verdict:**
-   - If `NEXT: builder` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> plan_reviewed` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Plan approved! Update state: `phase: plan_reviewed`, proceed to **Step 3.5** (Interactive Presentation)
+   - If `NEXT: builder` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> plan_reviewed` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Plan approved! Immediately update state with `python3 scripts/quest_state.py --quest-dir .quest/<id> --phase plan_reviewed --status complete --last-verdict approve`, then proceed to **Step 3.5** (Interactive Presentation). Do not attempt the `presenting` transition while state still says `phase: plan`.
    - If `NEXT: planner` → Check iteration count
      - If `plan_iteration >= max_plan_iterations`: Warn user, ask to proceed anyway or review manually
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
@@ -385,7 +423,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presenting` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
 
-**On entry:** Update state: `phase: presenting`
+**On entry:** After the `presenting` validation gate passes, update state with `python3 scripts/quest_state.py --quest-dir .quest/<id> --phase presenting --status in_progress`
 
 **1. Show Brief Summary:**
    Extract a 1-3 sentence summary using this precedence:
@@ -401,7 +439,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Ask: "Would you like to see the detailed phase-by-phase walkthrough? (yes/no)"
 
 **2. Handle Response:**
-   - If user declines ("no", "n", "nope", "skip", "proceed", etc.) -> **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presentation_complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Update state: `phase: presentation_complete`, then proceed to Step 4 (Build Phase)
+   - If user declines ("no", "n", "nope", "skip", "proceed", etc.) -> **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presentation_complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Update state with `python3 scripts/quest_state.py --quest-dir .quest/<id> --phase presentation_complete --status complete`, then proceed to Step 4 (Build Phase)
    - If user accepts ("yes", "y", "yeah", "sure", "detailed", etc.) -> Continue to phase extraction
 
 **3. Extract Phases from Plan:**
@@ -450,7 +488,7 @@ After plan approval, present the plan interactively before proceeding to build.
    e. Ask: "Questions about this phase? Or changes you'd like to request? (continue/question/change)"
 
 **6. Handle Phase Response:**
-   - If "continue" (or "c", "next", "ok", "looks good", etc.) -> Move to next phase, or if last phase: **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presentation_complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Update state `phase: presentation_complete` and proceed to Step 4
+   - If "continue" (or "c", "next", "ok", "looks good", etc.) -> Move to next phase, or if last phase: **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presentation_complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Update state with `python3 scripts/quest_state.py --quest-dir .quest/<id> --phase presentation_complete --status complete` and proceed to Step 4
    - If "question" (or "q", "?", user asks a question directly) -> Answer the question using plan context, then re-ask: "Any other questions, or ready to continue? (continue/question/change)"
    - If "change" (or "modify", "revise", "update", user requests a change directly) -> Proceed to Change Handling
 
@@ -487,10 +525,10 @@ After plan approval, present the plan interactively before proceeding to build.
 
 2. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
-3. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude `Task` fallback):
+3. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude runtime fallback):
    - Read `model_overrides.builder` from allowlist (default: `gpt-5.3-codex`).
    - If builder model is Codex, invoke via `mcp__codex__codex`.
-   - If builder model is Claude, invoke via `Task(subagent_type="builder")`.
+   - If builder model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - Prompt: Reference file paths only, do not embed content:
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
      - Quest brief: `.quest/<id>/quest_brief.md`
@@ -504,11 +542,12 @@ After plan approval, present the plan interactively before proceeding to build.
    - Read `.quest/<id>/phase_02_implementation/handoff.json` for status/routing
    - Verify artifacts written (from handoff.artifacts)
    - If Codex path fails:
-     - **Timeout (`McpError`):** Skip retry. Invoke Claude fallback (`Task(subagent_type="builder")`) immediately.
+     - **Timeout (`McpError`):** Skip retry. Invoke Claude runtime fallback for builder immediately.
      - **Other failures** (`needs_human`, malformed output, missing/unparsable handoff, `blocked`):
        1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
-       2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="builder")`) with the same artifact-path contract.
-     - Only ask the user questions if the Claude fallback returns `needs_human`.
+       2. If still non-compliant, invoke Claude runtime fallback for builder with the same artifact-path contract.
+     - If the Claude runtime fallback uses the bridge, apply bridge failure handling from **Handoff File Polling**.
+     - Only ask the user questions if the Claude runtime fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
 4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
@@ -538,7 +577,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 4. **Invoke Code Reviewers:**
 
-   **If `quest_mode == "solo"`:** Invoke ONLY Reviewer A (Claude Task). Skip Reviewer B entirely. Log: `Code review: dispatched=single (solo mode)` to `.quest/<id>/logs/parallelism.log`.
+   **If `quest_mode == "solo"`:** Invoke ONLY Reviewer A (Claude runtime). Skip Reviewer B entirely. Log: `Code review: dispatched=single (solo mode)` to `.quest/<id>/logs/parallelism.log`.
 
    **If `quest_mode == "workflow"` (default):** Invoke BOTH Code Reviewers IN PARALLEL (same message, one Task call + one Codex call).
 
@@ -546,7 +585,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
    - **Reviewer B** (workflow only): dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
 
-   **Slot A — Claude Task agent** (full and fast modes):
+   **Slot A — Claude runtime** (native `Task(...)` when available, bridge in Codex-led sessions; full and fast modes):
 
    **Full mode**:
    ```
@@ -653,8 +692,8 @@ After plan approval, present the plan interactively before proceeding to build.
    - Read `.quest/<id>/phase_03_review/handoff_code-reviewer-a.json` and `handoff_code-reviewer-b.json`
    - Verify both review files exist (from handoff.artifacts)
    - Apply deterministic precedence from **Handoff File Polling**:
-     - Claude slot may use direct text fallback when handoff.json is missing/unparsable.
-     - Codex slot: on timeout, fall back to Claude Task immediately (no retry); on other failures, retry once then Claude fallback.
+     - Claude slot follows the Claude-runtime precedence above: native task may use direct text fallback; bridge path retries once for timeout/malformed output and blocks immediately on auth/CLI failures.
+     - Codex slot: on timeout, fall back to Claude runtime immediately (no retry); on other failures, retry once then Claude runtime fallback.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -707,10 +746,10 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `phase: fixing`, `fix_iteration += 1`, `last_role: fixer_agent`
 
-2. **Invoke Fixer** (default Codex `mcp__codex__codex`, Claude `Task` fallback):
+2. **Invoke Fixer** (default Codex `mcp__codex__codex`, Claude runtime fallback):
    - Read `model_overrides.fixer` from allowlist (default: `gpt-5.3-codex`).
    - If fixer model is Codex, invoke via `mcp__codex__codex`.
-   - If fixer model is Claude, invoke via `Task(subagent_type="fixer")`.
+   - If fixer model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - Prompt: Reference file paths only, do not embed content:
      - Code review A: `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
      - Code review B: `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
@@ -726,11 +765,12 @@ After plan approval, present the plan interactively before proceeding to build.
    - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
    - If Codex path fails:
-     - **Timeout (`McpError`):** Skip retry. Invoke Claude fallback (`Task(subagent_type="fixer")`) immediately.
+     - **Timeout (`McpError`):** Skip retry. Invoke Claude runtime fallback for fixer immediately.
      - **Other failures** (`needs_human`, malformed output, missing/unparsable handoff, `blocked`):
        1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
-       2. If still non-compliant, invoke Claude fallback (`Task(subagent_type="fixer")`) with the same artifact-path contract.
-     - Only ask the user questions if the Claude fallback returns `needs_human`.
+       2. If still non-compliant, invoke Claude runtime fallback for fixer with the same artifact-path contract.
+     - If the Claude runtime fallback uses the bridge, apply bridge failure handling from **Handoff File Polling**.
+     - Only ask the user questions if the Claude runtime fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
 3. **Clear stale handoff files:** Delete any existing `handoff_code-reviewer-a.json` (and `handoff_code-reviewer-b.json` if workflow mode) in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
@@ -869,7 +909,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - If compliance is 75-99%:
      "Most agents complied. <list non-compliant agents>. Consider tweaking instructions for those agents."
    - If compliance is 50-74%:
-     "Mixed compliance. Investigate non-compliant agents. Consider upgrading to run_in_background: true for Claude Task agents."
+     "Mixed compliance. Investigate non-compliant agents. Consider upgrading to run_in_background: true for native Claude Task agents."
    - If compliance is <50%:
       "Low compliance -- discard approach is not effective. Recommend upgrading to run_in_background: true."
 
@@ -952,11 +992,11 @@ After plan approval, present the plan interactively before proceeding to build.
 
 ---
 
-## Q&A Loop Pattern (Claude-only in normal operation)
+## Q&A Loop Pattern (Claude runtime only in normal operation)
 
 Normal rule:
 - Codex paths do not enter direct human Q&A. On timeout they fall back to Claude immediately; on other failures they retry once then fall back to Claude.
-- Human Q&A is used when a Claude role returns `STATUS: needs_human`.
+- Human Q&A is used when a Claude runtime role returns `STATUS: needs_human` (native `Task(...)` or bridge-invoked Claude).
 
 If a Claude role returns `STATUS: needs_human`:
 
@@ -995,14 +1035,14 @@ If a Claude role returns `STATUS: needs_human`:
 
 | Role | Tool | Model |
 |------|------|-------|
-| Planner | `Task(subagent_type="planner")` | Claude Opus (`opus`) |
-| Plan Reviewer Slot A | `Task(subagent_type="plan-reviewer")` | Claude Opus (`opus`) |
+| Planner | Claude runtime (`Task(...)` natively, `scripts/quest_claude_runner.py` in Codex-led sessions) | Claude Opus (`opus`) |
+| Plan Reviewer Slot A | Claude runtime (`Task(...)` natively, `scripts/quest_claude_runner.py` in Codex-led sessions) | Claude Opus (`opus`) |
 | Plan Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Arbiter | `Task(subagent_type="arbiter")` | Claude Opus (`opus`) |
-| Builder | `mcp__codex__codex` (default), `Task(subagent_type="builder")` (fallback) | Codex (GPT) default, Claude fallback |
-| Code Reviewer Slot A | `Task(subagent_type="code-reviewer")` | Claude Opus (`opus`) |
+| Arbiter | Claude runtime (`Task(...)` natively, `scripts/quest_claude_runner.py` in Codex-led sessions) | Claude Opus (`opus`) |
+| Builder | `mcp__codex__codex` (default), Claude runtime fallback | Codex (GPT) default, Claude fallback |
+| Code Reviewer Slot A | Claude runtime (`Task(...)` natively, `scripts/quest_claude_runner.py` in Codex-led sessions) | Claude Opus (`opus`) |
 | Code Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Fixer | `mcp__codex__codex` (default), `Task(subagent_type="fixer")` (fallback) | Codex (GPT) default, Claude fallback |
+| Fixer | `mcp__codex__codex` (default), Claude runtime fallback | Codex (GPT) default, Claude fallback |
 
 **Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Claude) synthesizes both reviews while implementation/fix defaults stay Codex-first.
 This table shows default intent, not guaranteed runtime per environment. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
@@ -1080,6 +1120,9 @@ mcp__codex__codex(
 ## Error Handling
 
 - If an agent fails to produce a handoff: Extract any artifacts from the response, log the error, ask user how to proceed
+- If a bridge-invoked Claude role times out: retry once; if it times out again, treat the step as blocked and surface the timeout
+- If a bridge-invoked Claude role fails due to CLI/auth/environment problems: block immediately and tell the user how to repair the local Claude bridge
+- If a bridge-invoked Claude role fails with malformed output or missing handoff: retry once with a strict reminder, then use text handoff fallback if possible; otherwise block
 - If Codex MCP times out: fall back to equivalent Claude role immediately (no retry — timeouts rarely recover on retry)
 - If Codex MCP fails (non-timeout): retry once with strict non-interactive reminder; if failure persists, fall back to equivalent Claude role; ask user only if fallback also cannot proceed
 - If max iterations reached: Stop, show current state, ask user for guidance

@@ -71,6 +71,14 @@ comments and human replies. Each object has:
 {PLACEHOLDER_EXISTING_COMMENTS}
 </existing_comments>
 
+## PR-Head File Snapshots
+
+The checked-out workspace is the trusted base branch, not the PR head. Use the diff below as the primary source of truth for what changed. The file snapshots in this section are fetched from the PR head SHA as read-only data so you can inspect the final changed-file contents without executing PR-controlled code.
+
+<pr_head_files>
+{PLACEHOLDER_PR_HEAD_FILES}
+</pr_head_files>
+
 ## Diff
 <diff>
 {PLACEHOLDER_DIFF}

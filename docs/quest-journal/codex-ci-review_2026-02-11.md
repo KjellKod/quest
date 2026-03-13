@@ -24,6 +24,7 @@ Ported the Codex CI code review workflow from candid_talent_edge (PR #164) to th
 - Replaced language-specific code quality checks with Quest-relevant checks (Markdown/YAML structure, shell scripts, JSON schemas)
 - Added `.quest-manifest` validation reference to the CI skill
 - Kept two-job permission split pattern, concurrency group, and read-only sandbox from source
+- The workflow is intentionally scoped to same-repo PRs opened by `KjellKod`; other contributors do not trigger this Codex review job by default
 
 ## Artifacts
 

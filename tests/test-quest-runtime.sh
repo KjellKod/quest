@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+# Test harness for Quest runtime helper scripts
+# Run: bash tests/test-quest-runtime.sh
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+STATE_SCRIPT="$REPO_ROOT/scripts/quest_state.py"
+CLAUDE_RUNNER="$REPO_ROOT/scripts/quest_claude_runner.py"
+CLAUDE_PROBE="$REPO_ROOT/scripts/quest_claude_probe.py"
+
+TESTS_RUN=0
+TESTS_PASSED=0
+TESTS_FAILED=0
+
+run_test() {
+  local name="$1"
+  TESTS_RUN=$((TESTS_RUN + 1))
+  if "$name"; then
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+    echo "[PASS] $name"
+  else
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+    echo "[FAIL] $name"
+  fi
+}
+
+test_quest_state_updates_phase_and_timestamp() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  cat > "$tmpdir/state.json" <<EOF
+{
+  "quest_id": "test_quest",
+  "slug": "test",
+  "phase": "plan",
+  "status": "pending",
+  "quest_mode": "solo",
+  "plan_iteration": 0,
+  "fix_iteration": 0,
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z"
+}
+EOF
+
+  local output
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --phase plan_reviewed --status complete --plan-iteration 1 2>&1)
+  local rc=$?
+  local phase status iter updated
+  phase=$(jq -r '.phase' "$tmpdir/state.json")
+  status=$(jq -r '.status' "$tmpdir/state.json")
+  iter=$(jq -r '.plan_iteration' "$tmpdir/state.json")
+  updated=$(jq -r '.updated_at' "$tmpdir/state.json")
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$phase" = "plan_reviewed" ] &&
+    [ "$status" = "complete" ] &&
+    [ "$iter" = "1" ] &&
+    [ "$updated" != "2026-01-01T00:00:00Z" ] &&
+    echo "$output" | grep -q '"phase": "plan_reviewed"'
+}
+
+test_quest_claude_runner_polls_handoff_and_logs_runtime() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/logs"
+  cat > "$tmpdir/fake_bridge.py" <<'EOF'
+#!/usr/bin/env python3
+import json
+import pathlib
+import sys
+
+args = sys.argv[1:]
+prompt_file = pathlib.Path(args[args.index("--prompt-file") + 1])
+argv_log = prompt_file.parent / "argv.json"
+argv_log.write_text(json.dumps(args), encoding="utf-8")
+
+if prompt_file.name == "prompt.txt":
+    review_path = prompt_file.parent / "review.md"
+    handoff_path = prompt_file.parent / "handoff.json"
+    review_path.write_text("review body\n", encoding="utf-8")
+    handoff_path.write_text(
+        json.dumps(
+            {
+                "status": "complete",
+                "artifacts": [str(review_path)],
+                "next": "arbiter",
+                "summary": "ok",
+            }
+        ),
+        encoding="utf-8",
+    )
+    print("---HANDOFF---")
+    print("STATUS: complete")
+    print(f"ARTIFACTS: {review_path}")
+    print("NEXT: arbiter")
+    print("SUMMARY: ok")
+else:
+    artifact_path = prompt_file.parent / "probe_artifact.txt"
+    handoff_path = prompt_file.parent / "probe_handoff.json"
+    artifact_path.write_text("ok", encoding="utf-8")
+    handoff_path.write_text(
+        json.dumps(
+            {
+                "status": "complete",
+                "artifacts": [str(artifact_path)],
+                "next": None,
+                "summary": "probe ok",
+            }
+        ),
+        encoding="utf-8",
+    )
+    print("---HANDOFF---")
+    print("STATUS: complete")
+    print(f"ARTIFACTS: {artifact_path}")
+    print("NEXT: null")
+    print("SUMMARY: probe ok")
+EOF
+  chmod +x "$tmpdir/fake_bridge.py"
+  cat > "$tmpdir/prompt.txt" <<EOF
+Write your review to: $tmpdir/review.md
+Write handoff file to: $tmpdir/handoff.json
+EOF
+
+  local output rc args_log log_line source
+  output=$(python3 "$CLAUDE_RUNNER" \
+    --quest-dir "$tmpdir" \
+    --phase plan_review \
+    --agent plan-reviewer-a \
+    --iter 1 \
+    --prompt-file "$tmpdir/prompt.txt" \
+    --handoff-file "$tmpdir/handoff.json" \
+    --bridge-script "$tmpdir/fake_bridge.py" \
+    --cwd "$REPO_ROOT" 2>&1)
+  rc=$?
+  args_log=$(cat "$tmpdir/argv.json")
+  log_line=$(cat "$tmpdir/logs/context_health.log")
+  source=$(printf '%s' "$output" | jq -r '.source')
+  local repo_root_escaped tmpdir_escaped
+  repo_root_escaped=$(printf '%s' "$REPO_ROOT")
+  tmpdir_escaped=$(printf '%s' "$tmpdir")
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    printf '%s' "$args_log" | grep -q 'bypassPermissions' &&
+    printf '%s' "$args_log" | grep -q "$repo_root_escaped" &&
+    printf '%s' "$args_log" | grep -q "$tmpdir_escaped" &&
+    printf '%s' "$log_line" | grep -q 'runtime=claude' &&
+    printf '%s' "$log_line" | grep -q 'source=handoff_json' &&
+    [ "$source" = "handoff_json" ]
+}
+
+test_quest_claude_probe_requires_real_artifacts() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/logs"
+  cat > "$tmpdir/fake_bridge.py" <<'EOF'
+#!/usr/bin/env python3
+import json
+import pathlib
+import sys
+
+args = sys.argv[1:]
+prompt_file = pathlib.Path(args[args.index("--prompt-file") + 1])
+argv_log = prompt_file.parent / "argv.json"
+argv_log.write_text(json.dumps(args), encoding="utf-8")
+
+artifact_path = prompt_file.parent / "probe_artifact.txt"
+handoff_path = prompt_file.parent / "probe_handoff.json"
+artifact_path.write_text("ok", encoding="utf-8")
+handoff_path.write_text(
+    json.dumps(
+        {
+            "status": "complete",
+            "artifacts": [str(artifact_path)],
+            "next": None,
+            "summary": "probe ok",
+        }
+    ),
+    encoding="utf-8",
+)
+print("---HANDOFF---")
+print("STATUS: complete")
+print(f"ARTIFACTS: {artifact_path}")
+print("NEXT: null")
+print("SUMMARY: probe ok")
+EOF
+  chmod +x "$tmpdir/fake_bridge.py"
+
+  local output rc args_log probe_artifact probe_handoff source
+  output=$(python3 "$CLAUDE_PROBE" \
+    --quest-dir "$tmpdir" \
+    --model claude-opus-4-6 \
+    --bridge-script "$tmpdir/fake_bridge.py" \
+    --cwd "$REPO_ROOT" 2>&1)
+  rc=$?
+  args_log=$(cat "$tmpdir/logs/bridge_probe/argv.json")
+  probe_artifact=$(cat "$tmpdir/logs/bridge_probe/probe_artifact.txt")
+  probe_handoff=$(jq -r '.summary' "$tmpdir/logs/bridge_probe/probe_handoff.json")
+  source=$(printf '%s' "$output" | jq -r '.source')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$probe_artifact" = "ok" ] &&
+    [ "$probe_handoff" = "probe ok" ] &&
+    printf '%s' "$args_log" | grep -q 'bypassPermissions' &&
+    printf '%s' "$args_log" | grep -q 'bridge_probe' &&
+    [ "$source" = "handoff_json" ]
+}
+
+run_test test_quest_state_updates_phase_and_timestamp
+run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
+run_test test_quest_claude_probe_requires_real_artifacts
+
+echo ""
+echo "Tests run: $TESTS_RUN"
+echo "Passed: $TESTS_PASSED"
+echo "Failed: $TESTS_FAILED"
+
+if [ "$TESTS_FAILED" -eq 0 ]; then
+  exit 0
+else
+  exit 1
+fi

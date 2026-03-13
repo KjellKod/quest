@@ -4,7 +4,7 @@
 Creates and refines implementation plans from quest briefs. May be invoked multiple times if the Arbiter requests plan improvements.
 
 ## Tool
-Claude (`Task(subagent_type="planner")`)
+Claude runtime. Use native `Task(subagent_type="planner")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` as the orchestration entrypoint. `scripts/claude_cli_bridge.py` remains the transport layer behind that runner.
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)

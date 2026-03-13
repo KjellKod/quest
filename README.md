@@ -121,49 +121,6 @@ Solo mode (lighter tasks):
 **Where you spend your time:** The beginning and the end. During planning, you review the plan, the arbiter's trade-off discussions, and occasionally override decisions. During hardening, you validate the MVP against reality — because you don't fully understand a feature until you see it built. Most follow-up quests and v2 ideas come from this post-build validation, not from planning. Critical code paths deserve human eyes regardless — you don't need to review every line, but you choose where to look. This works when you and Quest drive with intention: good test coverage and quality as a first-class constraint, not an afterthought.
 
 ## Quick Start
-Almost there [quick start instructions](https://github.com/KjellKod/quest?tab=readme-ov-file#quick-start)
-
-## Prerequisites
-
-### Required: Claude Code CLI
-
-Install Claude Code (Anthropic's official CLI):
-
-```bash
-# Install via npm
-npm install -g @anthropic-ai/claude-code
-
-# Or download from:
-# https://docs.anthropic.com/en/docs/claude-code
-```
-
-### Optional: Codex MCP (for dual-model reviews)
-
-Quest uses GPT5-x (5.2/5.3/5.4/etc) codex as a second reviewer. If you want dual-model reviews:
-
-```bash
-
-# update to gpt-5.3 
-npm install  -g @openai/codex@latest
-
-# validate you have access to it
-codex -m gpt-5.3-codex 
-
-# change the default
-vim ~/.codex/config.toml
-```
-
-```bash
-# Add Codex MCP server to Claude Code
-claude mcp add codex-cli -- npx -y codex-mcp-server   
-
-# Requires OpenAI API key configured
-# https://platform.openai.com/docs/quickstart
-```
-
-If you skip this, Quest will use Claude for all roles (still works, just single-model).
-
-## Quick Start
 
 ### Option A: Use the Installer (Recommended)
 
@@ -197,6 +154,13 @@ The installer:
 - Supports `--force` for CI/automation
 - Will check after a successful quest completion if a new version is available.  
 
+Use the full [Quest Setup Guide](docs/guides/quest_setup.md) for prerequisites, allowlist customization, Codex MCP, Codex-led Claude bridge setup, and verification.
+
+That guide covers:
+- Claude Code install and authentication
+- Codex MCP setup for dual-model reviews
+- Codex-led Claude bridge setup when Codex is the Quest orchestrator
+
 ### Option B: Manual Copy
 
 Copy these folders to your repository root:
@@ -208,32 +172,13 @@ Copy these folders to your repository root:
 - `.cursor/` - Cursor integration
 - `.codex/` - Codex integration
 - `.opencode/` - OpenCode integration
-- `docs/guides/quest_setup.md` - Setup documentation
+- `docs/guides/quest_setup.md` - Full setup documentation
 - `AGENTS.md` - Coding rules (customize for your project)
 - `DOCUMENTATION_STRUCTURE.md` - Navigation guide
 
-### Customize allowlist
+Then follow the full [Quest Setup Guide](docs/guides/quest_setup.md) for allowlist customization, `.gitignore`, Codex MCP setup, Codex-led Claude bridge setup, and verification.
 
-Edit `.ai/allowlist.json` to match your project:
-
-```json
-{
-  "role_permissions": {
-    "builder_agent": {
-      "file_write": [".quest/**", "src/**", "tests/**"],
-      "bash": ["npm test", "pytest"]
-    }
-  }
-}
-```
-
-### Add to .gitignore
-
-```
-.quest/
-```
-
-### Use it
+### Use It
 
 ```bash
 # Claude Code
@@ -254,7 +199,8 @@ $quest "Add a loading skeleton to the user list"
 **Milestone:** Quest is now runnable directly from Codex via `$quest`.
 
 **Codex orchestration (BETA, February 2026):**
-- Codex `$quest` runs the full Quest pipeline with GPT-5.x as the orchestrator. This works but is less reliable than Claude `/quest` — handoff protocol compliance is lower and some phases may require text-fallback parsing instead of structured `handoff.json` routing.
+- Codex `$quest` runs the full Quest pipeline with GPT-5.x as the orchestrator. Claude-designated slots are supported through `scripts/claude_cli_bridge.py`, while Codex-native slots stay on Codex.
+- This still remains less reliable than Claude `/quest` overall — handoff protocol compliance is lower and some phases may require text-fallback parsing instead of structured `handoff.json` routing.
 - Codex `$quest` currently requires enabling Codex `/experimental` subagents.
 - **Recommended setup:** Claude `/quest` as orchestrator with Codex MCP configured for dual-model reviews. This gives you the best of both models with the most robust orchestration.
 

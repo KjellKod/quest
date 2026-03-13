@@ -1,13 +1,18 @@
 # Codex -> Claude Shell-Out Prototypes
 
-Status: idea/prototype only (not installer-delivered)
+Status: complete
 
-> Footnote: This note supersedes the older cross-model bridge write-up. The proof-of-concept implementation here is `ideas/codex_calls_claude.py` (plus `ideas/codex_calls_claude.sh`).
+Retired from `ideas/` on 2026-03-09. The supported bridge implementation now lives at `scripts/claude_cli_bridge.py`, while the Quest-owned Codex-led runtime path uses `scripts/quest_claude_runner.py` and `scripts/quest_claude_probe.py`.
 
-This folder now contains two quick experiments for triggering Claude from a Codex-driven shell flow:
+- Supported bridge script: `scripts/claude_cli_bridge.py`
+- Prototype wrapper: `ideas/codex_calls_claude.sh`
 
+> Footnote: This note supersedes the older cross-model bridge write-up. The supported implementation now lives at `scripts/claude_cli_bridge.py`. The Bash wrapper remains a prototype in `ideas/`.
+
+This repo now contains one supported bridge and one quick experiment for triggering Claude from a Codex-driven shell flow:
+
+- `scripts/claude_cli_bridge.py` (supported Python bridge with optional JSON envelope)
 - `ideas/codex_calls_claude.sh` (minimal Bash wrapper)
-- `ideas/codex_calls_claude.py` (Python wrapper with optional JSON envelope)
 
 ## How this fits Quest
 
@@ -68,13 +73,13 @@ echo "Review this diff" | ./ideas/codex_calls_claude.sh --output-format json
 Plain passthrough output:
 
 ```bash
-python3 ideas/codex_calls_claude.py --prompt "Hello world from Codex"
+python3 scripts/claude_cli_bridge.py --prompt "Hello world from Codex"
 ```
 
 Stable JSON envelope (good for scripts):
 
 ```bash
-python3 ideas/codex_calls_claude.py \
+python3 scripts/claude_cli_bridge.py \
   --prompt "Review this patch" \
   --output-format json \
   --json-wrap

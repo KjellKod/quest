@@ -156,16 +156,20 @@ When updating an existing PR body, preserve bot-managed sections exactly:
 
 ## Trailer
 
-Append this line at the end of the PR body:
+Append this block at the end of the PR body:
 
-```
----
-Quest/Co-Authored by Claude Opus 4.6, GPT-5.3 Codex in Collaboration with <github username>
+```html
+<pre>
+     ▐▛███▜▌
+    ▝▜█████▛▘
+      ▘▘ ▝▝
+Quest/Co-Authored by <agent name and model> in Collaboration with <github username>
+</pre>
 ```
 
 Replace:
 
-- **github username** with the repository author's GitHub username (infer from git config, remote URL, or ask if unknown).
+- **agent name and model** and **github username** with the actual values.
 
 Never omit the trailer.
 
