@@ -218,6 +218,21 @@ Brevity rules:
 - Do not pad with empty PASS sections.
 - Keep total output under 30 lines when possible.
 
+## Signature
+
+Append this block at the end of every PR review comment:
+
+```html
+<pre>
+     ▐▛███▜▌
+    ▝▜█████▛▘
+      ▘▘ ▝▝
+<agent name and model> in Collaboration with <github username>
+</pre>
+```
+
+Replace agent name/model and github username with the actual values.
+
 ---
 
 ## Principles

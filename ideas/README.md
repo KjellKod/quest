@@ -28,6 +28,7 @@ architecture docs.
 |---|---|---|
 | `phase2b-context-leak-closure.md` | in-progress | Concrete closure plan and findings for remaining context leaks. |
 | `quest-file-attribution-line.md` | idea | File-level Quest attribution and license provenance line. |
+| `quest-multi-phase-execution.md` | proposed | Recommended pattern for handling large multi-phase initiatives: umbrella planning quest, then separate phase quests unless the passes still feed one bounded deliverable set. |
 
 ### Codex and Operations Notes
 | File | Status | Purpose |

@@ -156,11 +156,15 @@ When updating an existing PR body, preserve bot-managed sections exactly:
 
 ## Trailer
 
-Append this line at the end of the PR body:
+Append this block at the end of the PR body:
 
-```
----
+```html
+<pre>
+     ▐▛███▜▌
+    ▝▜█████▛▘
+      ▘▘ ▝▝
 Quest/Co-Authored by Claude Opus 4.6, GPT-5.3 Codex in Collaboration with <github username>
+</pre>
 ```
 
 Replace:

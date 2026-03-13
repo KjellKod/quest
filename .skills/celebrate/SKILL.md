@@ -55,6 +55,23 @@ If no argument is provided:
 
 You have all the data from the artifacts. Now **create your own celebration**. Be creative. Make it feel like an achievement, not a status report.
 
+### Default Presentation Style: Epic
+
+Unless the user asks for something smaller, default to an **epic** presentation:
+
+- open with large block-letter title art broken across multiple lines
+- use generous vertical spacing between major sections
+- keep sections visually chunky rather than dense
+- prefer short, high-impact lines over long packed paragraphs
+- create a slower visual cadence so the celebration feels like a procession, not a dump of text
+
+You cannot literally control client scroll speed, so simulate a **half-speed feel** by:
+
+- adding breathing room between headers and sections
+- avoiding overly dense tables or paragraphs
+- presenting achievements and metrics in short bursts
+- using separators and whitespace to pace the reveal
+
 **Required sections** (present them however you like):
 - Quest name and ID
 - Starring cast with role-specialized labels and model tags (inline):
@@ -78,10 +95,12 @@ You have all the data from the artifacts. Now **create your own celebration**. B
 - Neutral Emojis to emphesize either celebration or scary (🌪️ 🔥  ⚙️  🔧)
 - `---` horizontal rules for visual separation
 - Tables if they help present the data
+- Extra blank lines between major sections to slow the visual rhythm
 
 **Do NOT:**
 - Put too many characters on one line of block letters — max ~5 letters per line, break long names across multiple lines (one word per block, like the HELLO/WORLD example)
 - Wrap the entire celebration in a code block (kills the rich rendering)
+- Rush the pacing with dense walls of text when the user asked to celebrate
 - Use generic achievements like "Quest Complete" or "Battle Tested"
 - Use generic metrics like "Files Changed: 22" or "Agents Involved: 0"
 - Use fallback quotes like "Shipping should feel like a celebration"
@@ -108,6 +127,8 @@ You have all the data from the artifacts. Now **create your own celebration**. B
 ```
 
 Break the text across **multiple lines** — max ~5 letters per line. Each word gets its own block, like "HELLO" on one line and "WORLD" on the next. For longer words, hyphenate: "RESOL-" on one line and "UTION" on the next. This keeps it readable without horizontal overflow.
+
+Default bigger-than-before opening style is preferred. If in doubt, make the title art grander and give it more air.
 
  🎉 🎉 🎉 🎉  🙌  🎉 🎉 🎉 🎉  
 
@@ -174,6 +195,7 @@ The tier must be candid. Smooth quests get celebrated. Rough quests get acknowle
 - **The quote must come from the quest.** Pull a real line from the arbiter verdict, reviewer summary, or fixer handoff. Not "Shipping should feel like a celebration."
 
 - **Emojis render beautifully in markdown.** Use them generously: ⭐️ 🏆 🎯 💎 📊 🔧 🧪 🔒 📚 ⚡️ 🎊 🎉 🚀 🎮
+- **Pacing matters.** Big wins should feel staged. Use whitespace and section breaks to make the celebration unfold rather than blur together.
 
 ## Examples
 
