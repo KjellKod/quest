@@ -154,7 +154,9 @@ The installer:
 - Supports `--force` for CI/automation
 - Will check after a successful quest completion if a new version is available.  
 
-Use the full [Quest Setup Guide](docs/guides/quest_setup.md) for prerequisites, allowlist customization, Codex MCP, Codex-led Claude bridge setup, and verification.
+## Quest shines when multi-model agents work together: Claude + Codex.
+**Use the full [Quest Setup Guide](docs/guides/quest_setup.md)** for prerequisites, allowlist customization, Codex MCP, Codex-led Claude bridge setup, and verification.
+For each repo that you are using quest, please ensure that the mcp (ref  [Quest Setup Guide](docs/guides/quest_setup.md) is installed/enabled). 
 
 That guide covers:
 - Claude Code install and authentication
