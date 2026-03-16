@@ -75,6 +75,13 @@ This directory contains specialized skills for AI agents working in this reposit
 
 **Location:** `.skills/pr-shepherd/SKILL.md`
 
+### gpt
+**Purpose:** Delegate tasks to OpenAI Codex (GPT-5.4) via MCP. Provides structured invocation with sensible defaults for sandbox, model, and reasoning effort.
+
+**Use when:** The user invokes `/gpt`, asks to "use codex" or "ask codex", wants a second opinion from a different model, or Quest routes a role to Codex.
+
+**Location:** `.skills/gpt/SKILL.md`
+
 ### celebrate
 **Purpose:** Play a rich quest completion celebration animation with block letters, achievements, impact metrics, quality score, and end credits. Runs the celebrate script or produces a manual celebration from quest artifacts.
 

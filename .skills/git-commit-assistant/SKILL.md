@@ -70,16 +70,18 @@ Generate a single commit message from the current staged diff. Output only the f
 
 ### Trailer (required)
 
-Always append this trailer exactly:
+Always append a trailer in this format:
 
 ```bash
 
-Quest/Co-Authored by Claude Opus 4.6, GPT-5.3 Codex in Collaboration with <github username>
+Quest/Co-Authored by <claude label>, <codex label> in Collaboration with <github username>
 
 ```
 
 Replace:
 
+- **claude label** with the current Claude model label when it is known from the active session or quest artifacts; otherwise use `Claude`.
+- **codex label** with the current Codex model label when it is known from the active session, CLI invocation, or quest artifacts; otherwise use `Codex`.
 - **github username** with the repository author's GitHub username (infer from git config, remote URL, or ask if unknown).
 
 Never omit the trailer.

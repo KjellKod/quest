@@ -163,13 +163,15 @@ Append this block at the end of the PR body:
      ▐▛███▜▌
     ▝▜█████▛▘
       ▘▘ ▝▝
-Quest/Co-Authored by <agent name and model> in Collaboration with <github username>
+Quest/Co-Authored by <claude label>, <codex label> in Collaboration with <github username>
 </pre>
 ```
 
 Replace:
 
-- **agent name and model** and **github username** with the actual values.
+- **claude label** with the current Claude model label when it is known from the active session or quest artifacts; otherwise use `Claude`.
+- **codex label** with the current Codex model label when it is known from the active session, CLI invocation, or quest artifacts; otherwise use `Codex`.
+- **github username** with the actual GitHub username.
 
 Never omit the trailer.
 
