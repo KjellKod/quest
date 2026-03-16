@@ -50,7 +50,7 @@ def select_role_runtime(
     if normalized_target == "codex":
         return RuntimeSelection(
             runtime="codex",
-            entrypoint="mcp__codex__codex",
+            entrypoint="mcp__codex-cli__codex",
             reason="Codex-designated role stays on Codex tooling.",
             requires_probe=False,
         )

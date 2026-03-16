@@ -24,12 +24,27 @@ claude auth
 
 Quest can use Codex as a second reviewer. This gives you two different model families reviewing your code (different blind spots).
 
-```bash
-# Add Codex MCP server to Claude Code
-claude mcp add codex -- npx -y @anthropic/codex-mcp-server
+**Requires:**
+- [Codex CLI](https://github.com/openai/codex) installed globally (`npm install -g @openai/codex`)
+- OpenAI API key configured in your environment (`OPENAI_API_KEY`)
+
+Add the Codex MCP server to your project's `.claude/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "codex-cli": {
+      "command": "codex",
+      "args": ["mcp-server"]
+    }
+  }
+}
 ```
 
-**Requires:** OpenAI API key configured in your environment.
+This uses the Codex CLI's built-in `mcp-server` subcommand directly — no npm wrapper package needed.
+
+**Verify it works:** `claude mcp list` should show `codex-cli` as a configured server.
+
 **Documentation:** https://platform.openai.com/docs/quickstart
 
 If you skip this, Quest uses Claude for all roles (still works, just single-model).
@@ -173,14 +188,9 @@ The `.quest/` folder contains ephemeral run state and should not be committed.
 
 ## One-Time MCP Setup (if using Codex)
 
-If you want to use Codex for reviews and arbiter:
+If you want to use Codex for reviews and arbiter, add the config to `.claude/mcp.json` (see [Prerequisites](#optional-codex-mcp-for-dual-model-reviews) above).
 
-```bash
-# Add Codex MCP server
-claude mcp add codex -- npx -y @anthropic/codex-mcp-server
-```
-
-This enables the `mcp__codex__codex` tool for spawning Codex agents.
+This enables the `mcp__codex-cli__codex` tool for spawning Codex agents.
 
 If you don't have Codex or prefer Claude for all roles, set in `allowlist.json`:
 
@@ -267,8 +277,8 @@ Each agent runs in **complete isolation** — no shared conversation history:
 - Start fresh, return handoff when done
 
 **Codex agents** (code-reviewer, arbiter when configured):
-- Called via `mcp__codex__codex` MCP tool
-- Completely separate model (GPT 5.2)
+- Called via `mcp__codex-cli__codex` MCP tool
+- Completely separate model (GPT 5.x)
 - Receive assembled prompt, return handoff
 
 ### Human as Gatekeeper

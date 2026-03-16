@@ -154,12 +154,23 @@ The installer:
 - Supports `--force` for CI/automation
 - Will check after a successful quest completion if a new version is available.  
 
-Use the full [Quest Setup Guide](docs/guides/quest_setup.md) for prerequisites, allowlist customization, Codex MCP, Codex-led Claude bridge setup, and verification.
+**Optional: Dual-model reviews with Codex CLI**
 
-That guide covers:
-- Claude Code install and authentication
-- Codex MCP setup for dual-model reviews
-- Codex-led Claude bridge setup when Codex is the Quest orchestrator
+Quest can use [Codex CLI](https://developers.openai.com/codex/cli/) as a second reviewer — no separate MCP package needed, just the CLI itself:
+
+```bash
+npm i -g @openai/codex
+```
+
+Then add to your `.claude/mcp.json`:
+
+```json
+{ "mcpServers": { "codex-cli": { "command": "codex", "args": ["mcp-server"] } } }
+```
+
+Requires `OPENAI_API_KEY` in your environment. If you skip this, Quest uses Claude for all roles (still works fine).
+
+Use the full [Quest Setup Guide](docs/guides/quest_setup.md) for prerequisites, allowlist customization, Codex MCP details, Codex-led Claude bridge setup, and verification.
 
 ### Option B: Manual Copy
 
@@ -176,7 +187,7 @@ Copy these folders to your repository root:
 - `AGENTS.md` - Coding rules (customize for your project)
 - `DOCUMENTATION_STRUCTURE.md` - Navigation guide
 
-Then follow the full [Quest Setup Guide](docs/guides/quest_setup.md) for allowlist customization, `.gitignore`, Codex MCP setup, Codex-led Claude bridge setup, and verification.
+Then follow the full [Quest Setup Guide](docs/guides/quest_setup.md) for allowlist customization, `.gitignore`, Codex CLI MCP setup, Codex-led Claude bridge setup, and verification.
 
 ### Use It
 

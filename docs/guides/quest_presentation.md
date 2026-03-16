@@ -256,10 +256,10 @@ Task tool with subagent_type: general-purpose
 
 **Codex agents** (plan reviewers, code reviewers):
 ```
-mcp__codex__codex(prompt: "...")
+mcp__codex-cli__codex(prompt: "...")
   → New Codex session
   → Prompt assembled by orchestrator
-  → Completely separate model (GPT 5.2)
+  → Completely separate model (GPT 5.x)
 ```
 
 ### Parallel Review Execution
@@ -459,10 +459,12 @@ logs/
    .quest/
    ```
 
-4. **Optional: Configure Codex MCP** (if using GPT 5.2):
-   ```bash
-   claude mcp add codex -- npx -y @anthropic/codex-mcp-server
+4. **Optional: Configure Codex MCP** (if using GPT 5.x):
+   Add to `.claude/mcp.json`:
+   ```json
+   { "mcpServers": { "codex-cli": { "command": "codex", "args": ["mcp-server"] } } }
    ```
+   Requires: `npm install -g @openai/codex` and `OPENAI_API_KEY` set.
 
 5. **Test**:
    ```
