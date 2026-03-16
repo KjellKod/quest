@@ -4,7 +4,7 @@
 Fixes issues identified by the Code Review Agent. Applies targeted fixes and re-runs tests.
 
 ## Tool
-Codex (`mcp__codex__codex`) by default, with Claude runtime as fallback. Use native `Task(subagent_type="fixer")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` for the Claude fallback path. `scripts/claude_cli_bridge.py` remains the transport layer behind that runner.
+Codex (`mcp__codex-cli__codex`) by default, with Claude runtime as fallback. Use native `Task(subagent_type="fixer")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` for the Claude fallback path. `scripts/claude_cli_bridge.py` remains the transport layer behind that runner.
 
 When running on Codex, this role is non-interactive:
 - Do not ask questions.
