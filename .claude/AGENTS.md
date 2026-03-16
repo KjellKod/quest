@@ -34,6 +34,7 @@ This repository uses **layered documentation** for AI agent context management.
 
 ## Quick Navigation
 
+- **Delegate to Codex?** → Use `/gpt` command or `.skills/gpt/` skill
 - **Multi-agent orchestration?** → Use `/quest` command
 - **Celebrate a quest?** → Use `/celebrate` command or `.skills/celebrate/` skill
 - **Building a feature?** → Use `.skills/implementer/` skill
@@ -49,6 +50,7 @@ This repository uses **layered documentation** for AI agent context management.
 
 This repository uses **skills** for specialized workflows. Skills are automatically discovered and used based on task context:
 
+- **gpt:** Delegate tasks to Codex via MCP — reviews, analysis, implementation, second opinions
 - **quest:** Multi-agent orchestration for features (plan → review → build → review → fix)
 - **celebrate:** Play quest completion celebration animation with achievements, metrics, and credits
 - **plan-reviewer:** Review implementation plans and PR specifications for test coverage

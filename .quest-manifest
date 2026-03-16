@@ -31,6 +31,7 @@
 .claude/skills/pr-assistant/SKILL.md
 .claude/skills/pr-shepherd/SKILL.md
 .claude/skills/celebrate/SKILL.md
+.claude/skills/gpt/SKILL.md
 .claude/skills/quest/SKILL.md
 .claude/mcp.json
 .claude/AGENTS.md
@@ -59,6 +60,7 @@
 .skills/plan-maker/SKILL.md
 .skills/plan-reviewer/SKILL.md
 .skills/celebrate/SKILL.md
+.skills/gpt/SKILL.md
 .skills/quest/SKILL.md
 .skills/quest/delegation/questioner.md
 .skills/quest/delegation/router.md
