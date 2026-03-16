@@ -154,7 +154,10 @@ The installer:
 - Supports `--force` for CI/automation
 - Will check after a successful quest completion if a new version is available.  
 
-**Optional: Dual-model reviews with Codex CLI**
+
+## Quest shines when multi-model agents work together: Claude + Codex.
+**Use the full [Quest Setup Guide](docs/guides/quest_setup.md)** for prerequisites, allowlist customization, Codex MCP, Codex-led Claude bridge setup, and verification.
+For each repo that you are using quest, please ensure that the mcp (ref  [Quest Setup Guide](docs/guides/quest_setup.md) is installed/enabled). 
 
 Quest can use [Codex CLI](https://developers.openai.com/codex/cli/) as a second reviewer — no separate MCP package needed, just the CLI itself:
 
