@@ -25,8 +25,8 @@ claude auth
 Quest can use Codex as a second reviewer. This gives you two different model families reviewing your code (different blind spots).
 
 **Requires:**
-- [Codex CLI](https://github.com/openai/codex) installed globally (`npm install -g @openai/codex`)
-- OpenAI API key configured in your environment (`OPENAI_API_KEY`)
+- [Codex CLI](https://developers.openai.com/codex/cli/) installed globally (`npm i -g @openai/codex`)
+- Either `OPENAI_API_KEY` in your environment or a Codex login (`codex` → `/login`)
 
 Add the Codex MCP server to your project's `.claude/mcp.json`:
 

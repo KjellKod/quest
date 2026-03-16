@@ -464,7 +464,7 @@ logs/
    ```json
    { "mcpServers": { "codex-cli": { "command": "codex", "args": ["mcp-server"] } } }
    ```
-   Requires: `npm install -g @openai/codex` and `OPENAI_API_KEY` set.
+   Requires: `npm i -g @openai/codex` and either `OPENAI_API_KEY` or Codex login (`codex` → `/login`).
 
 5. **Test**:
    ```

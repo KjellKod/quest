@@ -168,7 +168,7 @@ Then add to your `.claude/mcp.json`:
 { "mcpServers": { "codex-cli": { "command": "codex", "args": ["mcp-server"] } } }
 ```
 
-Requires `OPENAI_API_KEY` in your environment. If you skip this, Quest uses Claude for all roles (still works fine).
+Requires either `OPENAI_API_KEY` in your environment or a Codex login (`codex` → `/login`). If you skip Codex entirely, Quest uses Claude for all roles (still works fine).
 
 Use the full [Quest Setup Guide](docs/guides/quest_setup.md) for prerequisites, allowlist customization, Codex MCP details, Codex-led Claude bridge setup, and verification.
 
