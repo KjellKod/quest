@@ -460,11 +460,11 @@ logs/
    ```
 
 4. **Optional: Configure Codex MCP** (if using GPT 5.x):
-   Add to `.claude/mcp.json`:
-   ```json
-   { "mcpServers": { "codex-cli": { "command": "codex", "args": ["mcp-server"] } } }
+   ```bash
+   npm i -g @openai/codex
+   claude mcp add --scope user codex-cli -- codex mcp-server
    ```
-   Requires: `npm i -g @openai/codex` and either `OPENAI_API_KEY` or Codex login (`codex` → `/login`).
+   Requires either `OPENAI_API_KEY` or Codex login (`codex` → `/login`). If Codex isn't connecting in a specific repo, also run `claude mcp add codex-cli -- codex mcp-server` inside it.
 
 5. **Test**:
    ```

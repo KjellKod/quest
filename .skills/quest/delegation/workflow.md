@@ -18,7 +18,7 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 ### Codex Availability Probe (Run Once Per Session — Applies to ALL Codex MCP calls)
 
 Tool naming is platform-specific (depends on the MCP server name in config):
-- Claude Code: `mcp__codex-cli__codex` (server name `codex-cli` in `.claude/mcp.json`)
+- Claude Code: `mcp__codex-cli__codex` (server name `codex-cli`, registered via `claude mcp add`)
 - OpenCode: `codex_codex`
 
 In this document, `mcp__codex__codex` is used as an **abstract placeholder** meaning "the platform's Codex session-start MCP tool". Substitute the actual tool name for your platform.

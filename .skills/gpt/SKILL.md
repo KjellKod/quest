@@ -16,17 +16,11 @@ Delegate tasks to OpenAI Codex via the `mcp__codex-cli__codex` MCP tool.
 
 ## Prerequisites
 
-Codex MCP server must be configured in `.claude/mcp.json`:
-```json
-{
-  "mcpServers": {
-    "codex-cli": {
-      "command": "codex",
-      "args": ["mcp-server"]
-    }
-  }
-}
+Codex MCP server must be registered. Run once globally:
+```bash
+claude mcp add --scope user codex-cli -- codex mcp-server
 ```
+If Codex isn't connecting, also run `claude mcp add codex-cli -- codex mcp-server` inside the repo.
 
 If the tool `mcp__codex-cli__codex` is not available, tell the user to add the config above and restart Claude Code.
 
