@@ -322,7 +322,7 @@ gates.max_plan_iterations (default: 4)
    **Full mode** (default for plan review):
    ```
    mcp__codex__codex(
-     model: "gpt-5.3-codex",
+     model: "gpt-5.4",
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -343,7 +343,7 @@ gates.max_plan_iterations (default: 4)
    **Fast mode** (only if `review_mode: fast`):
    ```
    mcp__codex__codex(
-     model: "gpt-5.3-codex",
+     model: "gpt-5.4",
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -526,7 +526,7 @@ After plan approval, present the plan interactively before proceeding to build.
 2. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
 3. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude runtime fallback):
-   - Read `model_overrides.builder` from allowlist (default: `gpt-5.3-codex`).
+   - Read `models.builder` from allowlist (default: `gpt-5.4`).
    - If builder model is Codex, invoke via `mcp__codex__codex`.
    - If builder model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - Prompt: Reference file paths only, do not embed content:
@@ -639,7 +639,7 @@ After plan approval, present the plan interactively before proceeding to build.
    **Full mode**:
    ```
    mcp__codex__codex(
-     model: "gpt-5.3-codex",
+     model: "gpt-5.4",
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -664,7 +664,7 @@ After plan approval, present the plan interactively before proceeding to build.
    **Fast mode**:
    ```
    mcp__codex__codex(
-     model: "gpt-5.3-codex",
+     model: "gpt-5.4",
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -747,7 +747,7 @@ After plan approval, present the plan interactively before proceeding to build.
 1. **Update state:** `phase: fixing`, `fix_iteration += 1`, `last_role: fixer_agent`
 
 2. **Invoke Fixer** (default Codex `mcp__codex__codex`, Claude runtime fallback):
-   - Read `model_overrides.fixer` from allowlist (default: `gpt-5.3-codex`).
+   - Read `models.fixer` from allowlist (default: `gpt-5.4`).
    - If fixer model is Codex, invoke via `mcp__codex__codex`.
    - If fixer model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - Prompt: Reference file paths only, do not embed content:
@@ -1104,7 +1104,7 @@ Codex MCP calls can be slower when each run must:
 **Example minimal prompt:**
 ```
 mcp__codex__codex(
-  model: "gpt-5.3-codex",
+  model: "gpt-5.4",
   prompt: "Review .quest/<id>/phase_01_plan/plan.md
 
   List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_plan-reviewer-b.md

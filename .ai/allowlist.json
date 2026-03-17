@@ -1,6 +1,15 @@
 {
   "version": 2,
-  "description": "quest allowlist. Keep scope narrow and PR-sized.",
+  "description": "Creator-managed permissions for quest orchestration. Edit this file to pre-approve or restrict quest agent actions. Changes take effect on next quest run.",
+  "quest_completion": {
+    "enabled": true,
+    "animation_style": "epic",
+    "show_end_credits": true,
+    "show_progress_bars": true,
+    "ascii_art": true,
+    "animation_speed": "default",
+    "safe_mode": "auto"
+  },
   "auto_approve_phases": {
     "plan_creation": true,
     "plan_review": true,
@@ -10,7 +19,7 @@
     "fix_loop": false
   },
   "review_mode": "full",
-  "model_overrides": {
+  "models": {
     "planner": "claude",
     "plan-reviewer-a": "claude",
     "plan-reviewer-b": "gpt-5.4",

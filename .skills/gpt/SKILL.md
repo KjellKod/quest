@@ -64,7 +64,7 @@ mcp__codex-cli__codex({
 Use `gpt-5.4` unless the user requests otherwise. The MCP tool schema may lag behind — `gpt-5.4` works even if not listed in the schema's enum.
 
 Known working models:
-`gpt-5.4`, `gpt-5.3-codex`, `gpt-5.3-codex-spark`
+`gpt-5.4`, `gpt-5.3-codex`
 
 ## Parameters
 
