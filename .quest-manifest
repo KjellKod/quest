@@ -68,6 +68,9 @@ scripts/validate-quest-config.sh
 scripts/validate-quest-state.sh
 scripts/validate-manifest.sh
 scripts/validate-handoff-contracts.sh
+scripts/claude_cli_bridge.py
+scripts/quest_claude_probe.py
+scripts/quest_claude_runner.py
 scripts/quest_celebrate/__init__.py
 scripts/quest_celebrate/animations.py
 scripts/quest_celebrate/ascii_art.py
