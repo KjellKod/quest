@@ -242,6 +242,9 @@ After setup, verify everything is in place:
    ls -la .claude/skills/quest/SKILL.md
    ls -la .claude/agents/
    ls -la .claude/hooks/enforce-allowlist.sh
+   ls -la scripts/claude_cli_bridge.py
+   ls -la scripts/quest_claude_probe.py
+   ls -la scripts/quest_claude_runner.py
    ```
 
 2. **Validate allowlist:**
