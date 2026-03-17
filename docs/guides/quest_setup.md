@@ -28,7 +28,17 @@ Quest can use Codex as a second reviewer. This gives you two different model fam
 - [Codex CLI](https://developers.openai.com/codex/cli/) installed globally (`npm i -g @openai/codex`)
 - Either `OPENAI_API_KEY` in your environment or a Codex login (`codex` → `/login`)
 
-Add the Codex MCP server to your project's `.claude/mcp.json`:
+Register the Codex MCP server globally (one-time setup):
+
+```bash
+claude mcp add --scope user codex-cli -- codex mcp-server
+```
+
+> **Note:** If a repo has its own `.claude/mcp.json`, it shadows the global config. In that case, also run `claude mcp add codex-cli -- codex mcp-server` inside that repo so the project-level config includes it too. If Codex isn't connecting for any reason, running the per-repo command is a safe first troubleshooting step — it won't break anything.
+
+This uses the Codex CLI's built-in `mcp-server` subcommand directly — no npm wrapper package needed.
+
+**Verify it works:** `claude mcp list` should show `codex-cli`. The resulting entry looks like:
 
 ```json
 {
@@ -40,10 +50,6 @@ Add the Codex MCP server to your project's `.claude/mcp.json`:
   }
 }
 ```
-
-This uses the Codex CLI's built-in `mcp-server` subcommand directly — no npm wrapper package needed.
-
-**Verify it works:** `claude mcp list` should show `codex-cli` as a configured server.
 
 **Documentation:** https://platform.openai.com/docs/quickstart
 
@@ -171,7 +177,7 @@ Key sections to customize:
 | `role_permissions.fixer_agent.file_write` | Paths where fixer can write (usually same as builder minus docs) |
 | `role_permissions.*.bash` | Shell commands each role can run (test runners, build tools) |
 | `auto_approve_phases` | Which phases run without human confirmation |
-| `arbiter.tool` | Set to `"claude"` to use Claude Opus instead of Codex/GPT 5.2 |
+| `models.arbiter` | Set to `"claude"` or `"gpt-5.4"` to choose arbiter runtime |
 | `review_mode` | `auto` (default), `fast`, or `full` for Codex reviews |
 | `fast_review_thresholds` | File/LOC thresholds used when `review_mode: auto` |
 

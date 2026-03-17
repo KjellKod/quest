@@ -18,7 +18,7 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 ### Codex Availability Probe (Run Once Per Session — Applies to ALL Codex MCP calls)
 
 Tool naming is platform-specific (depends on the MCP server name in config):
-- Claude Code: `mcp__codex-cli__codex` (server name `codex-cli` in `.claude/mcp.json`)
+- Claude Code: `mcp__codex-cli__codex` (server name `codex-cli`, registered via `claude mcp add`)
 - OpenCode: `codex_codex`
 
 In this document, `mcp__codex__codex` is used as an **abstract placeholder** meaning "the platform's Codex session-start MCP tool". Substitute the actual tool name for your platform.
@@ -63,6 +63,8 @@ Before the first Claude-designated role invocation in a Codex-orchestrated sessi
 - If the selected role model/runtime is Claude, native `Task(...)` is unavailable, and the bridge probe failed, block that step unless the workflow section for that role defines an explicit Codex execution path.
 
 This rule is global. Individual steps below name the target runtime and artifact contract; the orchestrator applies native Claude task execution, bridge execution, or Codex execution based on the selected model/runtime and session capabilities.
+
+**Role permissions:** Per-role file and bash access is enforced by `.claude/hooks/enforce-allowlist.sh`, which reads `role_permissions` from `.ai/allowlist.json` on every tool invocation. See the allowlist for the current permission grants per role.
 
 ### Quest Mode Check
 
@@ -245,7 +247,10 @@ gates.max_plan_iterations (default: 4)
 
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
-2. **Invoke Planner** (Claude runtime: native `Task(...)` when available, bridge in Codex-led sessions):
+2. **Invoke Planner:**
+   - Read `models.planner` from allowlist.
+   - If planner model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
+   - If planner model is Codex, invoke via `mcp__codex__codex`.
    - Prompt: Reference file paths only, do not embed artifact content:
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Arbiter verdict (iteration 2+): `.quest/<id>/phase_01_plan/arbiter_verdict.md`
@@ -268,15 +273,17 @@ gates.max_plan_iterations (default: 4)
 
 4. **Invoke Plan Reviewers:**
 
-   **If `quest_mode == "solo"`:** Invoke ONLY Reviewer A (Claude runtime). Skip Reviewer B entirely. Log: `Plan review: dispatched=single (solo mode)` to `.quest/<id>/logs/parallelism.log`.
+   **If `quest_mode == "solo"`:** Invoke ONLY Reviewer A. Skip Reviewer B entirely. Log: `Plan review: dispatched=single (solo mode)` to `.quest/<id>/logs/parallelism.log`.
 
-   **If `quest_mode == "workflow"` (default):** Invoke BOTH Plan Reviewers IN PARALLEL (same message, one Task call + one Codex call).
+   **If `quest_mode == "workflow"` (default):** Invoke BOTH Plan Reviewers IN PARALLEL.
+
+   Read `models.plan-reviewer-a` and `models.plan-reviewer-b` from allowlist to determine runtime for each slot. If model is Claude, use Claude runtime; if Codex, use `mcp__codex__codex`.
 
    Two different models review independently for model diversity:
    - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
    - **Reviewer B** (workflow only): dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
 
-   **Slot A — Claude runtime** (native `Task(...)` when available, bridge in Codex-led sessions; full and fast modes):
+   **Slot A** (runtime per `models.plan-reviewer-a`; full and fast modes):
 
    **Full mode** (default for plan review):
    ```
@@ -322,7 +329,7 @@ gates.max_plan_iterations (default: 4)
    **Full mode** (default for plan review):
    ```
    mcp__codex__codex(
-     model: "gpt-5.3-codex",
+     model: <models.* from allowlist>,
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -343,7 +350,7 @@ gates.max_plan_iterations (default: 4)
    **Fast mode** (only if `review_mode: fast`):
    ```
    mcp__codex__codex(
-     model: "gpt-5.3-codex",
+     model: <models.* from allowlist>,
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -385,7 +392,7 @@ gates.max_plan_iterations (default: 4)
    - If `next: "planner"` → plan needs revision (no remapping)
    - Log: `Plan review: arbiter=skipped (solo mode, using reviewer-a verdict)` to `.quest/<id>/logs/parallelism.log`
 
-   **If `quest_mode == "workflow"` (default):** Invoke Arbiter through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions):
+   **If `quest_mode == "workflow"` (default):** Read `models.arbiter` from allowlist. Invoke Arbiter through the corresponding runtime:
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -526,7 +533,7 @@ After plan approval, present the plan interactively before proceeding to build.
 2. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
 3. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude runtime fallback):
-   - Read `model_overrides.builder` from allowlist (default: `gpt-5.3-codex`).
+   - Read `models.builder` from allowlist.
    - If builder model is Codex, invoke via `mcp__codex__codex`.
    - If builder model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - Prompt: Reference file paths only, do not embed content:
@@ -563,7 +570,7 @@ After plan approval, present the plan interactively before proceeding to build.
 2. **Read review config from allowlist:**
    - `review_mode` (default: `auto`)
    - `fast_review_thresholds.max_files` (default: 5)
-   - `fast_review_thresholds.max_loc` (default: 200)
+   - `fast_review_thresholds.max_loc` (default: 300)
 
 
 3. **Build a change summary for Codex:**
@@ -577,15 +584,17 @@ After plan approval, present the plan interactively before proceeding to build.
 
 4. **Invoke Code Reviewers:**
 
-   **If `quest_mode == "solo"`:** Invoke ONLY Reviewer A (Claude runtime). Skip Reviewer B entirely. Log: `Code review: dispatched=single (solo mode)` to `.quest/<id>/logs/parallelism.log`.
+   **If `quest_mode == "solo"`:** Invoke ONLY Reviewer A. Skip Reviewer B entirely. Log: `Code review: dispatched=single (solo mode)` to `.quest/<id>/logs/parallelism.log`.
 
-   **If `quest_mode == "workflow"` (default):** Invoke BOTH Code Reviewers IN PARALLEL (same message, one Task call + one Codex call).
+   **If `quest_mode == "workflow"` (default):** Invoke BOTH Code Reviewers IN PARALLEL.
+
+   Read `models.code-reviewer-a` and `models.code-reviewer-b` from allowlist to determine runtime for each slot. If model is Claude, use Claude runtime; if Codex, use `mcp__codex__codex`.
 
    Two different models review independently for model diversity:
    - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
    - **Reviewer B** (workflow only): dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
 
-   **Slot A — Claude runtime** (native `Task(...)` when available, bridge in Codex-led sessions; full and fast modes):
+   **Slot A** (runtime per `models.code-reviewer-a`; full and fast modes):
 
    **Full mode**:
    ```
@@ -639,7 +648,7 @@ After plan approval, present the plan interactively before proceeding to build.
    **Full mode**:
    ```
    mcp__codex__codex(
-     model: "gpt-5.3-codex",
+     model: <models.* from allowlist>,
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -664,7 +673,7 @@ After plan approval, present the plan interactively before proceeding to build.
    **Fast mode**:
    ```
    mcp__codex__codex(
-     model: "gpt-5.3-codex",
+     model: <models.* from allowlist>,
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -747,7 +756,7 @@ After plan approval, present the plan interactively before proceeding to build.
 1. **Update state:** `phase: fixing`, `fix_iteration += 1`, `last_role: fixer_agent`
 
 2. **Invoke Fixer** (default Codex `mcp__codex__codex`, Claude runtime fallback):
-   - Read `model_overrides.fixer` from allowlist (default: `gpt-5.3-codex`).
+   - Read `models.fixer` from allowlist.
    - If fixer model is Codex, invoke via `mcp__codex__codex`.
    - If fixer model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - Prompt: Reference file paths only, do not embed content:
@@ -1033,19 +1042,18 @@ If a Claude role returns `STATUS: needs_human`:
 
 ### Agent-to-Tool Mapping
 
-| Role | Tool | Model |
-|------|------|-------|
-| Planner | Claude runtime (`Task(...)` natively, `scripts/quest_claude_runner.py` in Codex-led sessions) | Claude Opus (`opus`) |
-| Plan Reviewer Slot A | Claude runtime (`Task(...)` natively, `scripts/quest_claude_runner.py` in Codex-led sessions) | Claude Opus (`opus`) |
-| Plan Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Arbiter | Claude runtime (`Task(...)` natively, `scripts/quest_claude_runner.py` in Codex-led sessions) | Claude Opus (`opus`) |
-| Builder | `mcp__codex__codex` (default), Claude runtime fallback | Codex (GPT) default, Claude fallback |
-| Code Reviewer Slot A | Claude runtime (`Task(...)` natively, `scripts/quest_claude_runner.py` in Codex-led sessions) | Claude Opus (`opus`) |
-| Code Reviewer Slot B | `mcp__codex__codex` | Codex (GPT) |
-| Fixer | `mcp__codex__codex` (default), Claude runtime fallback | Codex (GPT) default, Claude fallback |
+| Role | Allowlist Key | Default | Runtime |
+|------|---------------|---------|---------|
+| Planner | `models.planner` | `claude` | Claude runtime or Codex per config |
+| Plan Reviewer A | `models.plan-reviewer-a` | `claude` | Claude runtime or Codex per config |
+| Plan Reviewer B | `models.plan-reviewer-b` | `gpt-5.4` | Claude runtime or Codex per config |
+| Arbiter | `models.arbiter` | `claude` | Claude runtime or Codex per config |
+| Builder | `models.builder` | `gpt-5.4` | Codex or Claude runtime per config |
+| Code Reviewer A | `models.code-reviewer-a` | `claude` | Claude runtime or Codex per config |
+| Code Reviewer B | `models.code-reviewer-b` | `gpt-5.4` | Claude runtime or Codex per config |
+| Fixer | `models.fixer` | `gpt-5.4` | Codex or Claude runtime per config |
 
-**Model diversity** in review phases gives independent perspectives from different model families. The Arbiter (Claude) synthesizes both reviews while implementation/fix defaults stay Codex-first.
-This table shows default intent, not guaranteed runtime per environment. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
+All role-to-model assignments are read from `.ai/allowlist.json` → `models`. The defaults above apply when a key is missing. **Model diversity** in review phases gives independent perspectives from different model families. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
 
 ### Codex MCP Prompt Pattern
 
@@ -1104,7 +1112,7 @@ Codex MCP calls can be slower when each run must:
 **Example minimal prompt:**
 ```
 mcp__codex__codex(
-  model: "gpt-5.3-codex",
+  model: <models.* from allowlist>,
   prompt: "Review .quest/<id>/phase_01_plan/plan.md
 
   List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_plan-reviewer-b.md

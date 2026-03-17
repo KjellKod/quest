@@ -41,12 +41,12 @@ The Quest Agent interprets your intent, matches brief references, and routes to 
 | Quest Agent | (Claude Code itself) | Claude Opus (`opus`) | Orchestration, gating |
 | Planner | `.skills/quest/agents/planner.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Write and refine plan artifacts |
 | Plan Reviewer (Claude) | `.skills/quest/agents/plan-reviewer.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Review plans (read-only) |
-| Plan Reviewer (Codex) | `.skills/quest/agents/plan-reviewer.md` | Codex (`gpt-5.3-codex`) | Review plans (read-only) |
+| Plan Reviewer (Codex) | `.skills/quest/agents/plan-reviewer.md` | Codex (`gpt-5.4`) | Review plans (read-only) |
 | Arbiter | `.skills/quest/agents/arbiter.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Synthesize reviews, approve or iterate |
-| Builder | `.skills/quest/agents/builder.md` | Codex (`gpt-5.3-codex`) by default; Claude runtime fallback | Implement changes |
+| Builder | `.skills/quest/agents/builder.md` | Codex (`gpt-5.4`) by default; Claude runtime fallback | Implement changes |
 | Code Reviewer (Claude) | `.skills/quest/agents/code-reviewer.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Review code (read-only) |
-| Code Reviewer (Codex) | `.skills/quest/agents/code-reviewer.md` | Codex (`gpt-5.3-codex`) | Review code (read-only) |
-| Fixer | `.skills/quest/agents/fixer.md` | Codex (`gpt-5.3-codex`) by default; Claude runtime fallback | Fix review issues |
+| Code Reviewer (Codex) | `.skills/quest/agents/code-reviewer.md` | Codex (`gpt-5.4`) | Review code (read-only) |
+| Fixer | `.skills/quest/agents/fixer.md` | Codex (`gpt-5.4`) by default; Claude runtime fallback | Fix review issues |
 
 ## Plan Phase Flow
 
@@ -81,8 +81,7 @@ Codex-led Quest note:
 
 The Creator controls quest permissions via `.ai/allowlist.json`:
 - `auto_approve_phases` — which phases need human approval
-- `arbiter.tool` — Arbiter model (`claude` by default)
-- `model_overrides` — default role model map (`planner`, `plan-reviewer-a`, `plan-reviewer-b`, `builder`, `code-reviewer-a`, `code-reviewer-b`, `arbiter`, `fixer`)
+- `models` — role-to-model map (`planner`, `plan-reviewer-a`, `plan-reviewer-b`, `builder`, `code-reviewer-a`, `code-reviewer-b`, `arbiter`, `fixer`)
 - `review_mode` — `auto` (default), `fast`, or `full` for Codex reviews
 - `fast_review_thresholds` — file/LOC thresholds for auto fast mode
 

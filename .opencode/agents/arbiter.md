@@ -15,7 +15,7 @@ You MUST NOT ask questions. Synthesize the two reviews provided and render a ver
 Begin every artifact you write with a metadata header:
 ```
 **Agent:** arbiter
-**Model:** <your actual model name, e.g. claude-opus-4-6, gpt-5.3-codex, trinity-large-preview>
+**Model:** <your actual model name, e.g. claude-opus-4-6, gpt-5.4>
 **Date:** <YYYY-MM-DD>
 **Quest ID:** <quest_id>
 ```
