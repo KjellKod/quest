@@ -30,7 +30,7 @@
     "fixer": "gpt-5.4"
   },
   "fast_review_thresholds": {
-    "max_files": 6,
+    "max_files": 5,
     "max_loc": 300
   },
   "role_permissions": {

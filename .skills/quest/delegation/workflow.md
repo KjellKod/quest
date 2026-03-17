@@ -327,7 +327,7 @@ gates.max_plan_iterations (default: 4)
    **Full mode** (default for plan review):
    ```
    mcp__codex__codex(
-     model: "gpt-5.4",
+     model: <models.* from allowlist>,
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -348,7 +348,7 @@ gates.max_plan_iterations (default: 4)
    **Fast mode** (only if `review_mode: fast`):
    ```
    mcp__codex__codex(
-     model: "gpt-5.4",
+     model: <models.* from allowlist>,
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -568,7 +568,7 @@ After plan approval, present the plan interactively before proceeding to build.
 2. **Read review config from allowlist:**
    - `review_mode` (default: `auto`)
    - `fast_review_thresholds.max_files` (default: 5)
-   - `fast_review_thresholds.max_loc` (default: 200)
+   - `fast_review_thresholds.max_loc` (default: 300)
 
 
 3. **Build a change summary for Codex:**
@@ -646,7 +646,7 @@ After plan approval, present the plan interactively before proceeding to build.
    **Full mode**:
    ```
    mcp__codex__codex(
-     model: "gpt-5.4",
+     model: <models.* from allowlist>,
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -671,7 +671,7 @@ After plan approval, present the plan interactively before proceeding to build.
    **Fast mode**:
    ```
    mcp__codex__codex(
-     model: "gpt-5.4",
+     model: <models.* from allowlist>,
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -1110,7 +1110,7 @@ Codex MCP calls can be slower when each run must:
 **Example minimal prompt:**
 ```
 mcp__codex__codex(
-  model: "gpt-5.4",
+  model: <models.* from allowlist>,
   prompt: "Review .quest/<id>/phase_01_plan/plan.md
 
   List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_plan-reviewer-b.md

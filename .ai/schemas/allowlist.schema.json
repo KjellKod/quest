@@ -30,18 +30,11 @@
         "safe_mode": { "type": "string" }
       }
     },
-    "arbiter": {
-      "type": "object",
-      "properties": {
-        "tool": { "type": "string", "enum": ["claude", "codex"] },
-        "notes": { "type": "string" }
-      }
-    },
     "models": {
       "type": "object",
       "additionalProperties": { "type": "string" }
     },
-    "review_mode": { "type": "string", "enum": ["auto", "manual", "fast", "full"] },
+    "review_mode": { "type": "string", "enum": ["auto", "fast", "full"] },
     "fast_review_thresholds": {
       "type": "object",
       "properties": {
