@@ -32,6 +32,9 @@
     },
     "models": {
       "type": "object",
+      "propertyNames": {
+        "enum": ["planner", "plan-reviewer-a", "plan-reviewer-b", "arbiter", "builder", "code-reviewer-a", "code-reviewer-b", "fixer"]
+      },
       "additionalProperties": { "type": "string" }
     },
     "review_mode": { "type": "string", "enum": ["auto", "fast", "full"] },
@@ -58,6 +61,13 @@
       "properties": {
         "max_fix_iterations": { "type": "integer", "minimum": 1 },
         "notes": { "type": "string" }
+      }
+    },
+    "update_check": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "interval_days": { "type": "integer", "minimum": 1 }
       }
     },
     "gates": {

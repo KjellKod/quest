@@ -177,7 +177,7 @@ Key sections to customize:
 | `role_permissions.fixer_agent.file_write` | Paths where fixer can write (usually same as builder minus docs) |
 | `role_permissions.*.bash` | Shell commands each role can run (test runners, build tools) |
 | `auto_approve_phases` | Which phases run without human confirmation |
-| `arbiter.tool` | Set to `"claude"` to use Claude Opus instead of Codex/GPT 5.2 |
+| `models.arbiter` | Set to `"claude"` or `"gpt-5.4"` to choose arbiter runtime |
 | `review_mode` | `auto` (default), `fast`, or `full` for Codex reviews |
 | `fast_review_thresholds` | File/LOC thresholds used when `review_mode: auto` |
 

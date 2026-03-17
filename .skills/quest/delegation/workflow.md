@@ -64,6 +64,8 @@ Before the first Claude-designated role invocation in a Codex-orchestrated sessi
 
 This rule is global. Individual steps below name the target runtime and artifact contract; the orchestrator applies native Claude task execution, bridge execution, or Codex execution based on the selected model/runtime and session capabilities.
 
+**Role permissions:** Per-role file and bash access is enforced by `.claude/hooks/enforce-allowlist.sh`, which reads `role_permissions` from `.ai/allowlist.json` on every tool invocation. See the allowlist for the current permission grants per role.
+
 ### Quest Mode Check
 
 On entry, read `quest_mode` from `.quest/<id>/state.json`. Default to `"workflow"` if missing.
@@ -246,7 +248,7 @@ gates.max_plan_iterations (default: 4)
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
 2. **Invoke Planner:**
-   - Read `models.planner` from allowlist (default: `claude`).
+   - Read `models.planner` from allowlist.
    - If planner model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - If planner model is Codex, invoke via `mcp__codex__codex`.
    - Prompt: Reference file paths only, do not embed artifact content:
@@ -390,7 +392,7 @@ gates.max_plan_iterations (default: 4)
    - If `next: "planner"` → plan needs revision (no remapping)
    - Log: `Plan review: arbiter=skipped (solo mode, using reviewer-a verdict)` to `.quest/<id>/logs/parallelism.log`
 
-   **If `quest_mode == "workflow"` (default):** Read `models.arbiter` from allowlist (default: `claude`). Invoke Arbiter through the corresponding runtime:
+   **If `quest_mode == "workflow"` (default):** Read `models.arbiter` from allowlist. Invoke Arbiter through the corresponding runtime:
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -531,7 +533,7 @@ After plan approval, present the plan interactively before proceeding to build.
 2. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
 
 3. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude runtime fallback):
-   - Read `models.builder` from allowlist (default: `gpt-5.4`).
+   - Read `models.builder` from allowlist.
    - If builder model is Codex, invoke via `mcp__codex__codex`.
    - If builder model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - Prompt: Reference file paths only, do not embed content:
@@ -754,7 +756,7 @@ After plan approval, present the plan interactively before proceeding to build.
 1. **Update state:** `phase: fixing`, `fix_iteration += 1`, `last_role: fixer_agent`
 
 2. **Invoke Fixer** (default Codex `mcp__codex__codex`, Claude runtime fallback):
-   - Read `models.fixer` from allowlist (default: `gpt-5.4`).
+   - Read `models.fixer` from allowlist.
    - If fixer model is Codex, invoke via `mcp__codex__codex`.
    - If fixer model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - Prompt: Reference file paths only, do not embed content:
