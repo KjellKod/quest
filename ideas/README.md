@@ -26,6 +26,7 @@ architecture docs.
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
 |---|---|---|
+| `generic-artifact-preparation-and-runtime-fallbacks.md` | proposed | Generic Quest plan for workspace-local artifact paths, precreated per-role artifacts, and same-runtime permission fallback before cross-runtime fallback. |
 | `phase2b-context-leak-closure.md` | in-progress | Concrete closure plan and findings for remaining context leaks. |
 | `quest-file-attribution-line.md` | idea | File-level Quest attribution and license provenance line. |
 | `quest-multi-phase-execution.md` | proposed | Recommended pattern for handling large multi-phase initiatives: umbrella planning quest, then separate phase quests unless the passes still feed one bounded deliverable set. |

@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
+from quest_runtime.artifacts import expected_artifacts_for_role
 from quest_runtime.claude_runner import run_claude_role
 
 
@@ -29,6 +30,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    artifact_paths = expected_artifacts_for_role(
+        quest_dir=args.quest_dir,
+        phase=args.phase,
+        agent=args.agent,
+    )
     result = run_claude_role(
         cwd=args.cwd,
         quest_dir=args.quest_dir,
@@ -41,6 +47,7 @@ def main() -> int:
         model=args.model,
         timeout=args.timeout,
         permission_mode=args.permission_mode,
+        artifact_paths=artifact_paths,
         add_dirs=args.add_dir,
     )
     payload = {

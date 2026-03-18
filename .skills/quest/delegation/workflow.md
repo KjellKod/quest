@@ -116,16 +116,51 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 2. Read the expected `handoff.json` file (tiny JSON, ~200 bytes)
 3. Use its `status`, `next`, `summary`, and `artifacts` fields for routing and user display
 4. Discard the full agent response -- do not retain, summarize, or process it
-5. **Deterministic precedence for missing/unparsable handoff.json:**
-   - **Claude runtime invocation:**
-     - **Native Claude `Task(...)`:** If `handoff.json` is missing/unparsable, parse text `---HANDOFF---` as fallback.
-     - **Bridge-invoked Claude (`python3 scripts/quest_claude_runner.py`):**
-       - **Timeout:** Retry the same Claude role once with a reduced artifact-first prompt: no questions, no `needs_human`, read only the listed files, and write the required artifacts plus `handoff.json` before any optional commentary. If the second attempt also times out, treat the step as `blocked`.
-       - **Auth/CLI/environment failure** (for example Claude CLI missing from `PATH`, not authenticated, or bridge script missing): Do NOT retry. Treat the step as `blocked` and surface the stderr summary to the user.
-       - **Other failures** (missing/unparsable handoff, malformed output, `blocked`): Re-run the same Claude role once with a reduced artifact-first prompt and a strict reminder to write the expected artifact files and `handoff.json`. If the second attempt still fails, parse text `---HANDOFF---` as last-resort compatibility fallback; if no parseable text handoff exists, treat the step as `blocked`.
-   - **Codex invocation (`mcp__codex__codex`):**
-     - **Timeout (`McpError` / request timed out):** Do NOT retry. Fall back to the equivalent Claude `Task` immediately. Retrying a timed-out Codex call almost never succeeds and wastes time.
-     - **Other failures** (missing/unparsable handoff, non-compliant output, `blocked`): Re-run the same Codex role once with a strict reminder. If the second attempt still fails, invoke the equivalent Claude `Task` fallback for that step.
+5. **Artifact preparation (before every role invocation):**
+   Before invoking any role, the orchestrator MUST:
+   1. Resolve artifact paths: `expected_artifacts_for_role(quest_dir, phase, agent)`
+   2. Prepare files: `prepare_artifact_files(paths)` — creates parent directories and truncates files
+   3. Include in the role prompt:
+      ```
+      Artifact files have been prepared for you. Overwrite these files directly:
+      - <path1>
+      - <path2>
+      Do not create Quest artifacts via shell redirection, heredocs, or echo.
+      ```
+   This applies to ALL orchestrators (Claude-led and Codex-led) and ALL runtimes (native Claude, bridge Claude, Codex). The preparation logic does not branch on orchestrator identity.
+
+   **Codex sandbox permissions:** The orchestrator passes `sandbox_permissions: "workspace-write"` by default for Codex invocations. Tier B may escalate to `"danger-full-access"` ONLY when the user has explicitly approved that broader access or an equivalent persisted approval exists (see below). It is never automatic.
+
+6. **Three-tier fallback ladder for missing/unparsable handoff.json:**
+
+   Use `classify_failure_kind(result, artifact_paths, workspace_root)` to determine which tier applies. Classification order: timeout → invocation → write-boundary (out-of-workspace + missing artifacts) → permission → model.
+
+   **Tier A — Normal run (already completed, failed):**
+   The initial invocation with standard permissions and artifact preparation.
+
+   **Tier B — Permission/transport retry (same runtime, same model):**
+   Triggered ONLY when failure is classified as `write_boundary` or `permission`.
+   - **Codex:** Retry with `sandbox_permissions: "danger-full-access"` only when the user has explicitly approved that broader access or an equivalent persisted approval exists. Otherwise stop and request that approval instead of silently changing the sandbox.
+   - **Bridge-invoked Claude:** Add the out-of-workspace artifact directory to `--add-dir`.
+   - **Native Claude `Task(...)`:** Widen tool permissions for the specific directory.
+   - Prompt is unchanged (same task, same contract). Only the permission posture changes.
+   - If Tier B also fails, proceed to Tier C.
+
+   **Tier C — Cross-runtime fallback or block:**
+   Triggered when:
+   - Tier B was attempted and still failed, OR
+   - Failure is NOT write-boundary/permission (timeout, model failure, invocation error)
+
+   **Claude runtime invocation (Tier C):**
+   - **Native Claude `Task(...)`:** If `handoff.json` is missing/unparsable, parse text `---HANDOFF---` as fallback.
+   - **Bridge-invoked Claude (`python3 scripts/quest_claude_runner.py`):**
+     - **Timeout:** Retry the same Claude role once with a reduced artifact-first prompt: no questions, no `needs_human`, read only the listed files, and write the required artifacts plus `handoff.json` before any optional commentary. If the second attempt also times out, treat the step as `blocked`.
+     - **Auth/CLI/environment failure** (for example Claude CLI missing from `PATH`, not authenticated, or bridge script missing): Do NOT retry. Treat the step as `blocked` and surface the stderr summary to the user.
+     - **Other failures** (missing/unparsable handoff, malformed output, `blocked`): Re-run the same Claude role once with a reduced artifact-first prompt and a strict reminder to write the expected artifact files and `handoff.json`. If the second attempt still fails, parse text `---HANDOFF---` as last-resort compatibility fallback; if no parseable text handoff exists, treat the step as `blocked`.
+
+   **Codex invocation — Tier C (`mcp__codex__codex`):**
+   - **Timeout (`McpError` / request timed out):** Do NOT retry. Fall back to the equivalent Claude `Task` immediately.
+   - **Other failures** (missing/unparsable handoff, non-compliant output, `blocked`): Re-run the same Codex role once with a strict reminder. If the second attempt still fails, invoke the equivalent Claude `Task` fallback for that step.
    - Only after this fallback chain, if the final attempt still has no parseable `handoff.json`, parse text `---HANDOFF---` as last-resort compatibility fallback.
 
 **Expected handoff.json locations:**
@@ -151,13 +186,15 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 - Codex must not ask the user questions and must not return `STATUS: needs_human`.
 - If context is incomplete, Codex makes explicit assumptions in the artifact and continues.
 - If it cannot proceed safely, Codex returns `STATUS: blocked` with a concrete reason.
-- Orchestrator handling for Codex failures:
-  - **Timeout (`McpError` / request timed out):** Skip retry entirely. Fall back to the equivalent Claude `Task` role immediately.
-  - **Other failures** (`needs_human`, non-compliant output, missing/unparsable handoff, `blocked`):
-    1. Re-invoke the same Codex role once with a strict reminder: "no questions, no `needs_human`, make explicit assumptions."
-    2. If the second attempt still fails, fall back to the equivalent Claude `Task` role for that step.
+- Orchestrator handling for Codex failures follows the **three-tier fallback ladder** (see Handoff File Polling):
+  - **Tier B** (write-boundary/permission): Same Codex runtime, `sandbox_permissions: "danger-full-access"` only with explicit user approval or an equivalent persisted approval.
+  - **Tier C** (timeout, model, or Tier B exhausted):
+    - **Timeout (`McpError`):** Skip retry. Fall back to the equivalent Claude `Task` role immediately.
+    - **Other failures** (`needs_human`, non-compliant output, missing/unparsable handoff, `blocked`):
+      1. Re-invoke the same Codex role once with a strict reminder: "no questions, no `needs_human`, make explicit assumptions."
+      2. If the second attempt still fails, fall back to the equivalent Claude `Task` role for that step.
   - Only after the fallback chain may text `---HANDOFF---` parsing be used as a last-resort compatibility path.
-  4. Only enter human Q&A if the Claude runtime fallback returns `STATUS: needs_human`.
+  - Only enter human Q&A if the Claude runtime fallback returns `STATUS: needs_human`.
 
 **MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions. Create the `.quest/<id>/logs/` directory first if it does not exist. `scripts/quest_claude_runner.py` already does this for bridge-invoked Claude roles.
 
@@ -251,16 +288,20 @@ gates.max_plan_iterations (default: 4)
    - Read `models.planner` from allowlist.
    - If planner model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - If planner model is Codex, invoke via `mcp__codex__codex`.
+   - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `plan.md` and `handoff.json` in `.quest/<id>/phase_01_plan/`.
    - Prompt: Reference file paths only, do not embed artifact content:
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Arbiter verdict (iteration 2+): `.quest/<id>/phase_01_plan/arbiter_verdict.md`
      - User feedback (if present): `.quest/<id>/phase_01_plan/user_feedback.md`
    - Require the prompt to include:
-     - Write plan to: `.quest/<id>/phase_01_plan/plan.md`
-     - Write handoff file to: `.quest/<id>/phase_01_plan/handoff.json` with schema: `{"status", "artifacts", "next", "summary"}`
+     - Artifact files have been prepared. Overwrite them directly:
+       - `.quest/<id>/phase_01_plan/plan.md`
+       - `.quest/<id>/phase_01_plan/handoff.json`
+     - Do not create Quest artifacts via shell redirection, heredocs, or echo.
+     - handoff.json schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: plan_review`
-   - Wait for the selected Claude runtime to complete
+   - Wait for the selected runtime to complete
    - Read `.quest/<id>/phase_01_plan/handoff.json` for status/routing
    - Verify `.quest/<id>/phase_01_plan/plan.md` exists (from handoff.artifacts)
    - Apply deterministic precedence from **Handoff File Polling** for native Claude task vs bridge execution
@@ -283,8 +324,9 @@ gates.max_plan_iterations (default: 4)
    - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
    - **Reviewer B** (workflow only): dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
 
-   **Slot A** (runtime per `models.plan-reviewer-a`; full and fast modes):
+   **Artifact preparation** (per Handoff File Polling §5): Before issuing reviewer calls, resolve and prepare artifacts for both Reviewer A (`review_plan-reviewer-a.md`, `handoff_plan-reviewer-a.json`) and Reviewer B (`review_plan-reviewer-b.md`, `handoff_plan-reviewer-b.json`) in `.quest/<id>/phase_01_plan/`.
 
+   **Slot A** (runtime per `models.plan-reviewer-a`; full and fast modes):
    **Full mode** (default for plan review):
    ```
    Task(
@@ -298,8 +340,10 @@ gates.max_plan_iterations (default: 4)
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
-     Write your review to: .quest/<id>/phase_01_plan/review_plan-reviewer-a.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json
+     Artifact files have been prepared for you. Overwrite these files directly:
+     - .quest/<id>/phase_01_plan/review_plan-reviewer-a.md
+     - .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json
+     Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -316,8 +360,11 @@ gates.max_plan_iterations (default: 4)
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
      List up to 5 issues, highest severity first.
-     Write your review to: .quest/<id>/phase_01_plan/review_plan-reviewer-a.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json
+
+     Artifact files have been prepared for you. Overwrite these files directly:
+     - .quest/<id>/phase_01_plan/review_plan-reviewer-a.md
+     - .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json
+     Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -329,7 +376,7 @@ gates.max_plan_iterations (default: 4)
    **Full mode** (default for plan review):
    ```
    mcp__codex__codex(
-     model: <models.* from allowlist>,
+     model: <models.plan-reviewer-b from allowlist>,
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -340,8 +387,10 @@ gates.max_plan_iterations (default: 4)
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
-     Write your review to: .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_plan-reviewer-b.json
+     Artifact files have been prepared for you. Overwrite these files directly:
+     - .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
+     - .quest/<id>/phase_01_plan/handoff_plan-reviewer-b.json
+     Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -350,7 +399,7 @@ gates.max_plan_iterations (default: 4)
    **Fast mode** (only if `review_mode: fast`):
    ```
    mcp__codex__codex(
-     model: <models.* from allowlist>,
+     model: <models.plan-reviewer-b from allowlist>,
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -359,8 +408,11 @@ gates.max_plan_iterations (default: 4)
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
      List up to 5 issues, highest severity first.
-     Write your review to: .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_plan-reviewer-b.json
+
+     Artifact files have been prepared for you. Overwrite these files directly:
+     - .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
+     - .quest/<id>/phase_01_plan/handoff_plan-reviewer-b.json
+     Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: arbiter"
@@ -372,9 +424,9 @@ gates.max_plan_iterations (default: 4)
    - Record the current wall-clock time as `dispatch_end`
    - Read `.quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json` and `handoff_plan-reviewer-b.json`
    - Verify both review files exist (from handoff.artifacts)
-   - Apply deterministic precedence from **Handoff File Polling**:
-     - Claude slot follows the Claude-runtime precedence above: native task may use direct text fallback; bridge path retries once for timeout/malformed output and blocks immediately on auth/CLI failures.
-     - Codex slot: on timeout, fall back to Claude runtime immediately (no retry); on other failures, retry once then Claude runtime fallback.
+   - Apply the **three-tier fallback ladder** from **Handoff File Polling** §6:
+     - Claude slot follows the Claude-runtime precedence: native task may use direct text fallback; bridge path applies Tier B (permission escalation via `--add-dir`) for write-boundary/permission failures, then Tier C (retry once for timeout/malformed output, block immediately on auth/CLI failures).
+     - Codex slot: classify failure via `classify_failure_kind` logic. Tier B (write-boundary/permission): retry with `sandbox_permissions: "danger-full-access"` only with explicit user approval or an equivalent persisted approval; otherwise stop and surface the approval need. Tier C (timeout, model, or Tier B exhausted): timeout → Claude runtime fallback immediately; other failures → retry once with strict non-interactive reminder, then Claude runtime fallback.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -393,6 +445,7 @@ gates.max_plan_iterations (default: 4)
    - Log: `Plan review: arbiter=skipped (solo mode, using reviewer-a verdict)` to `.quest/<id>/logs/parallelism.log`
 
    **If `quest_mode == "workflow"` (default):** Read `models.arbiter` from allowlist. Invoke Arbiter through the corresponding runtime:
+   - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `arbiter_verdict.md` and `handoff_arbiter.json` in `.quest/<id>/phase_01_plan/`.
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -404,12 +457,14 @@ gates.max_plan_iterations (default: 4)
      Review A: .quest/<id>/phase_01_plan/review_plan-reviewer-a.md
      Review B: .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
 
-     Write verdict to: .quest/<id>/phase_01_plan/arbiter_verdict.md
-     Write handoff file to: .quest/<id>/phase_01_plan/handoff_arbiter.json
+     Artifact files have been prepared for you. Overwrite these files directly:
+     - .quest/<id>/phase_01_plan/arbiter_verdict.md
+     - .quest/<id>/phase_01_plan/handoff_arbiter.json
+     Do not create Quest artifacts via shell redirection, heredocs, or echo.
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: builder (approve) or planner (iterate)
      ```
-   - Wait for the selected Claude runtime to complete
+   - Wait for the selected runtime to complete
    - Read `.quest/<id>/phase_01_plan/handoff_arbiter.json`
    - Route based on `next` field ("builder" = approved, "planner" = iterate)
    - Apply deterministic precedence from **Handoff File Polling** for native Claude task vs bridge execution
@@ -534,25 +589,33 @@ After plan approval, present the plan interactively before proceeding to build.
 
 3. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude runtime fallback):
    - Read `models.builder` from allowlist.
-   - If builder model is Codex, invoke via `mcp__codex__codex`.
+   - If builder model is Codex, invoke via `mcp__codex__codex` with `sandbox_permissions: "workspace-write"`.
    - If builder model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
+   - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `pr_description.md`, `builder_feedback_discussion.md`, and `handoff.json` in `.quest/<id>/phase_02_implementation/`.
    - Prompt: Reference file paths only, do not embed content:
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
      - Quest brief: `.quest/<id>/quest_brief.md`
    - Require the prompt to include:
      - If using Codex path: `Read your instructions: .skills/quest/agents/builder.md`
-     - Write output artifacts under: `.quest/<id>/phase_02_implementation/`
-     - Write handoff file to: `.quest/<id>/phase_02_implementation/handoff.json` with schema: `{"status", "artifacts", "next", "summary"}`
+     - Artifact files have been prepared. Overwrite them directly:
+       - `.quest/<id>/phase_02_implementation/pr_description.md`
+       - `.quest/<id>/phase_02_implementation/builder_feedback_discussion.md`
+       - `.quest/<id>/phase_02_implementation/handoff.json`
+     - Do not create Quest artifacts via shell redirection, heredocs, or echo.
+     - handoff.json schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: code_review`
    - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_02_implementation/handoff.json` for status/routing
    - Verify artifacts written (from handoff.artifacts)
-   - If Codex path fails:
-     - **Timeout (`McpError`):** Skip retry. Invoke Claude runtime fallback for builder immediately.
-     - **Other failures** (`needs_human`, malformed output, missing/unparsable handoff, `blocked`):
-       1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
-       2. If still non-compliant, invoke Claude runtime fallback for builder with the same artifact-path contract.
+   - Apply the **three-tier fallback ladder** from **Handoff File Polling** §6:
+     - Classify failure via `classify_failure_kind` logic.
+     - **Tier B** (write-boundary/permission): Codex → retry with `sandbox_permissions: "danger-full-access"` only with explicit user approval or an equivalent persisted approval. Bridge Claude → add out-of-workspace dirs via `--add-dir`. Native Claude → widen tool permissions.
+     - **Tier C** (timeout, model, invocation, or Tier B exhausted):
+       - **Timeout (`McpError`):** Skip retry. Invoke Claude runtime fallback for builder immediately.
+       - **Other failures** (`needs_human`, malformed output, missing/unparsable handoff, `blocked`):
+         1. Re-run same runtime once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
+         2. If still non-compliant, invoke Claude runtime fallback for builder with the same artifact-path contract.
      - If the Claude runtime fallback uses the bridge, apply bridge failure handling from **Handoff File Polling**.
      - Only ask the user questions if the Claude runtime fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
@@ -594,8 +657,9 @@ After plan approval, present the plan interactively before proceeding to build.
    - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
    - **Reviewer B** (workflow only): dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
 
-   **Slot A** (runtime per `models.code-reviewer-a`; full and fast modes):
+   **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `review_code-reviewer-a.md` and `handoff_code-reviewer-a.json` in `.quest/<id>/phase_03_review/`, and `review_code-reviewer-b.md` and `handoff_code-reviewer-b.json` for Reviewer B (workflow mode only).
 
+   **Slot A** (runtime per `models.code-reviewer-a`; full and fast modes):
    **Full mode**:
    ```
    Task(
@@ -613,8 +677,11 @@ After plan approval, present the plan interactively before proceeding to build.
      Diff summary: <git diff --stat>
 
      Review ONLY the files listed above. Use git diff for details.
-     Write review to: .quest/<id>/phase_03_review/review_code-reviewer-a.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_code-reviewer-a.json
+
+     Artifact files have been prepared for you. Overwrite these files directly:
+     - .quest/<id>/phase_03_review/review_code-reviewer-a.md
+     - .quest/<id>/phase_03_review/handoff_code-reviewer-a.json
+     Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -635,8 +702,11 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Review ONLY the files listed above.
      List up to 5 issues, highest severity first.
-     Write review to: .quest/<id>/phase_03_review/review_code-reviewer-a.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_code-reviewer-a.json
+
+     Artifact files have been prepared for you. Overwrite these files directly:
+     - .quest/<id>/phase_03_review/review_code-reviewer-a.md
+     - .quest/<id>/phase_03_review/handoff_code-reviewer-a.json
+     Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -648,7 +718,7 @@ After plan approval, present the plan interactively before proceeding to build.
    **Full mode**:
    ```
    mcp__codex__codex(
-     model: <models.* from allowlist>,
+     model: <models.code-reviewer-b from allowlist>,
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -663,8 +733,11 @@ After plan approval, present the plan interactively before proceeding to build.
      Diff summary: <git diff --stat>
 
      Review ONLY the files listed above. Use git diff for details.
-     Write review to: .quest/<id>/phase_03_review/review_code-reviewer-b.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_code-reviewer-b.json
+
+     Artifact files have been prepared for you. Overwrite these files directly:
+     - .quest/<id>/phase_03_review/review_code-reviewer-b.md
+     - .quest/<id>/phase_03_review/handoff_code-reviewer-b.json
+     Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -673,7 +746,7 @@ After plan approval, present the plan interactively before proceeding to build.
    **Fast mode**:
    ```
    mcp__codex__codex(
-     model: <models.* from allowlist>,
+     model: <models.code-reviewer-b from allowlist>,
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -686,8 +759,11 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Review ONLY the files listed above.
      List up to 5 issues, highest severity first.
-     Write review to: .quest/<id>/phase_03_review/review_code-reviewer-b.md
-     Write handoff file to: .quest/<id>/phase_03_review/handoff_code-reviewer-b.json
+
+     Artifact files have been prepared for you. Overwrite these files directly:
+     - .quest/<id>/phase_03_review/review_code-reviewer-b.md
+     - .quest/<id>/phase_03_review/handoff_code-reviewer-b.json
+     Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
      NEXT: fixer (if issues) or null (if clean)"
@@ -700,9 +776,9 @@ After plan approval, present the plan interactively before proceeding to build.
    - Record the current wall-clock time as `dispatch_end`
    - Read `.quest/<id>/phase_03_review/handoff_code-reviewer-a.json` and `handoff_code-reviewer-b.json`
    - Verify both review files exist (from handoff.artifacts)
-   - Apply deterministic precedence from **Handoff File Polling**:
-     - Claude slot follows the Claude-runtime precedence above: native task may use direct text fallback; bridge path retries once for timeout/malformed output and blocks immediately on auth/CLI failures.
-     - Codex slot: on timeout, fall back to Claude runtime immediately (no retry); on other failures, retry once then Claude runtime fallback.
+   - Apply the **three-tier fallback ladder** from **Handoff File Polling** §6:
+     - Claude slot follows the Claude-runtime precedence: native task may use direct text fallback; bridge path applies Tier B (permission escalation via `--add-dir`) for write-boundary/permission failures, then Tier C (retry once for timeout/malformed output, block immediately on auth/CLI failures).
+     - Codex slot: classify failure via `classify_failure_kind` logic. Tier B (write-boundary/permission): retry with `sandbox_permissions: "danger-full-access"` only with explicit user approval or an equivalent persisted approval; otherwise stop and surface the approval need. Tier C (timeout, model, or Tier B exhausted): timeout → Claude runtime fallback immediately; other failures → retry once with strict non-interactive reminder, then Claude runtime fallback.
 
    **Parallelism check (orchestrator-timed):**
    1. Create `.quest/<id>/logs/` directory if it doesn't exist
@@ -765,19 +841,26 @@ After plan approval, present the plan interactively before proceeding to build.
      - Changed files: <file list from git diff>
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Plan: `.quest/<id>/phase_01_plan/plan.md`
+   - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `review_fix_feedback_discussion.md` and `handoff_fixer.json` in `.quest/<id>/phase_03_review/`.
    - Require the prompt to include:
      - If using Codex path: `Read your instructions: .skills/quest/agents/fixer.md`
-     - Write feedback to: `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md`
-     - Write handoff file to: `.quest/<id>/phase_03_review/handoff_fixer.json` with schema: `{"status", "artifacts", "next", "summary"}`
+     - Artifact files have been prepared for you. Overwrite these files directly:
+       - `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md`
+       - `.quest/<id>/phase_03_review/handoff_fixer.json`
+     - Do not create Quest artifacts via shell redirection, heredocs, or echo.
+     - handoff.json schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: code_review`
    - Wait for selected tool call to complete
    - Read `.quest/<id>/phase_03_review/handoff_fixer.json` for status/routing
-   - If Codex path fails:
-     - **Timeout (`McpError`):** Skip retry. Invoke Claude runtime fallback for fixer immediately.
-     - **Other failures** (`needs_human`, malformed output, missing/unparsable handoff, `blocked`):
-       1. Re-run Codex once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
-       2. If still non-compliant, invoke Claude runtime fallback for fixer with the same artifact-path contract.
+   - Apply the **three-tier fallback ladder** from **Handoff File Polling** §6:
+     - Classify failure via `classify_failure_kind` logic.
+     - **Tier B** (write-boundary/permission): Codex → retry with `sandbox_permissions: "danger-full-access"` only with explicit user approval or an equivalent persisted approval. Bridge Claude → add out-of-workspace dirs via `--add-dir`. Native Claude → widen tool permissions.
+     - **Tier C** (timeout, model, invocation, or Tier B exhausted):
+       - **Timeout (`McpError`):** Skip retry. Invoke Claude runtime fallback for fixer immediately.
+       - **Other failures** (`needs_human`, malformed output, missing/unparsable handoff, `blocked`):
+         1. Re-run same runtime once with strict non-interactive reminder ("no questions, no `needs_human`, explicit assumptions").
+         2. If still non-compliant, invoke Claude runtime fallback for fixer with the same artifact-path contract.
      - If the Claude runtime fallback uses the bridge, apply bridge failure handling from **Handoff File Polling**.
      - Only ask the user questions if the Claude runtime fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
@@ -1112,7 +1195,7 @@ Codex MCP calls can be slower when each run must:
 **Example minimal prompt:**
 ```
 mcp__codex__codex(
-  model: <models.* from allowlist>,
+  model: <models.plan-reviewer-b from allowlist>,
   prompt: "Review .quest/<id>/phase_01_plan/plan.md
 
   List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
