@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import stat
+import subprocess
 from pathlib import Path
 
-from quest_runtime.claude_runner import run_claude_role, select_role_runtime
+import quest_runtime.claude_runner as claude_runner_module
+from quest_runtime.claude_runner import run_bridge_probe, run_claude_role, select_role_runtime
 
 
 def _write_executable(path: Path, body: str) -> None:
@@ -115,3 +117,42 @@ def test_run_claude_role_reports_invocation_error_result_kind(tmp_path):
     assert result.handoff_state == "missing"
     assert result.result_kind == "invocation_error"
     assert result.source is None
+
+
+def test_run_bridge_probe_treats_found_handoff_as_success_even_on_nonzero_exit(
+    tmp_path, monkeypatch
+):
+    completed = subprocess.CompletedProcess(
+        args=["bridge"],
+        returncode=1,
+        stdout="",
+        stderr="Timed out after 30.0s",
+    )
+
+    def fake_run(*args, **kwargs):
+        probe_dir = tmp_path / "logs" / "bridge_probe"
+        artifact_file = probe_dir / "probe_artifact.txt"
+        handoff_file = probe_dir / "probe_handoff.json"
+        artifact_file.write_text("ok", encoding="utf-8")
+        handoff_file.write_text(
+            '{"status":"complete","artifacts":["probe_artifact.txt"],"next":null,"summary":"probe ok"}',
+            encoding="utf-8",
+        )
+        return completed
+
+    monkeypatch.setattr(claude_runner_module.subprocess, "run", fake_run)
+
+    result = run_bridge_probe(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        bridge_script=tmp_path / "bridge.py",
+        model="opus",
+        timeout=30.0,
+        permission_mode="bypassPermissions",
+    )
+
+    assert result.exit_code == 0
+    assert result.handoff_state == "found"
+    assert result.result_kind == "handoff_json"
+    assert result.source == "handoff_json"
+    assert result.stderr == "Timed out after 30.0s"

@@ -490,11 +490,15 @@ def run_bridge_probe(
 
     handoff_state = classify_handoff_file(handoff_file)
     source = "handoff_json" if handoff_state == "found" else None
-    exit_code = 0 if cp.returncode == 0 and handoff_state == "found" else cp.returncode or 1
+    exit_code = 0 if handoff_state == "found" else cp.returncode or 1
     return RunResult(
         exit_code=exit_code,
         handoff_state=handoff_state,
-        result_kind="handoff_json" if handoff_state == "found" else classify_result_kind(exit_code, cp.stderr, handoff_state),
+        result_kind=(
+            "handoff_json"
+            if handoff_state == "found"
+            else classify_result_kind(exit_code, cp.stderr, handoff_state)
+        ),
         source=source,
         stdout=cp.stdout,
         stderr=cp.stderr,
