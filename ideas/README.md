@@ -26,7 +26,6 @@ architecture docs.
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
 |---|---|---|
-| `generic-artifact-preparation-and-runtime-fallbacks.md` | proposed | Generic Quest plan for workspace-local artifact paths, precreated per-role artifacts, and same-runtime permission fallback before cross-runtime fallback. |
 | `phase2b-context-leak-closure.md` | in-progress | Concrete closure plan and findings for remaining context leaks. |
 | `quest-file-attribution-line.md` | idea | File-level Quest attribution and license provenance line. |
 | `quest-multi-phase-execution.md` | proposed | Recommended pattern for handling large multi-phase initiatives: umbrella planning quest, then separate phase quests unless the passes still feed one bounded deliverable set. |
@@ -48,6 +47,7 @@ architecture docs.
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| done | ~~generic-artifact-preparation-and-runtime-fallbacks~~ | Implemented on `codex-artifact-staging` / PR #74. Archived at [`ideas/archive/generic-artifact-preparation-and-runtime-fallbacks.md`](archive/generic-artifact-preparation-and-runtime-fallbacks.md). |
 | done | ~~quest_dispatcher~~ | Quest now routes Codex-led Claude roles through the Quest runner/probe path with runtime logging and handoff polling. See [journal](../docs/quest-journal/quest-dispatcher_2026-03-09.md). |
 | done | ~~codex-led-claude-bridge-runtime-hardening~~ | Codex-led Claude bridge runtime path shipped, documented, and exercised in a solo smoke test. See [journal](../docs/quest-journal/codex-led-claude-bridge-runtime-hardening_2026-03-09.md). |
 | done | ~~codex-calls-claude~~ | Claude CLI bridge prototype graduated to supported script/runtime docs. See [journal](../docs/quest-journal/codex-calls-claude_2026-03-09.md). |

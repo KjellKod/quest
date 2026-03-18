@@ -1,6 +1,13 @@
 # Generic Artifact Preparation And Runtime Fallbacks
 
-Status: proposed
+Status: archived
+
+Archived: 2026-03-18
+
+Outcome:
+- Implemented on branch `codex-artifact-staging`
+- Draft PR: `#74`
+- Kept as archive context now that the active proposal has been executed
 
 ## Question
 

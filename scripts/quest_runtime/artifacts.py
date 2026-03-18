@@ -35,6 +35,17 @@ ROLE_ARTIFACTS: dict[str, tuple[str, tuple[str, ...]]] = {
 
 SOLO_DISABLED_AGENTS = frozenset({"plan-reviewer-b", "code-reviewer-b", "arbiter"})
 
+ROLE_PHASE_ALIASES: dict[str, frozenset[str]] = {
+    "planner": frozenset({"plan"}),
+    "plan-reviewer-a": frozenset({"plan_review"}),
+    "plan-reviewer-b": frozenset({"plan_review"}),
+    "arbiter": frozenset({"plan_review"}),
+    "builder": frozenset({"build", "building", "implementation"}),
+    "code-reviewer-a": frozenset({"code_review", "review", "reviewing"}),
+    "code-reviewer-b": frozenset({"code_review", "review", "reviewing"}),
+    "fixer": frozenset({"fix", "fixing"}),
+}
+
 
 def default_quest_dir(workspace_root: str | Path, quest_id: str) -> Path:
     """Return the default repo-local quest directory for a run."""
@@ -50,8 +61,6 @@ def expected_artifacts_for_role(
 ) -> list[Path]:
     """Return absolute artifact paths for the requested role invocation."""
 
-    del phase  # Role drives artifact paths; workflow phase naming is caller-facing only.
-
     normalized_agent = agent.strip()
     if quest_mode == "solo" and normalized_agent in SOLO_DISABLED_AGENTS:
         return []
@@ -60,6 +69,14 @@ def expected_artifacts_for_role(
         phase_dir, filenames = ROLE_ARTIFACTS[normalized_agent]
     except KeyError as exc:
         raise ValueError(f"Unsupported quest role: {agent}") from exc
+
+    normalized_phase = phase.strip().lower().replace("-", "_")
+    allowed_phases = ROLE_PHASE_ALIASES[normalized_agent]
+    if normalized_phase not in allowed_phases:
+        allowed = ", ".join(sorted(allowed_phases))
+        raise ValueError(
+            f"Quest role {agent} is not valid for phase {phase!r}. Allowed: {allowed}"
+        )
 
     base_dir = Path(quest_dir).resolve() / phase_dir
     return [base_dir / filename for filename in filenames]

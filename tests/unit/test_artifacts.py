@@ -51,7 +51,7 @@ class TestExpectedArtifactsForRole:
         assert all("phase_03_review" in str(p) for p in paths)
 
     def test_fixer_returns_correct_paths(self, tmp_path: Path):
-        paths = expected_artifacts_for_role(tmp_path, "review", "fixer")
+        paths = expected_artifacts_for_role(tmp_path, "fix", "fixer")
         names = [p.name for p in paths]
         assert names == ["review_fix_feedback_discussion.md", "handoff_fixer.json"]
 
@@ -68,9 +68,23 @@ class TestExpectedArtifactsForRole:
         with pytest.raises(ValueError, match="Unsupported quest role"):
             expected_artifacts_for_role(tmp_path, "plan", "nonexistent-role")
 
+    def test_invalid_phase_for_role_raises_value_error(self, tmp_path: Path):
+        with pytest.raises(ValueError, match="not valid for phase"):
+            expected_artifacts_for_role(tmp_path, "build", "planner")
+
     def test_all_roles_in_mapping_resolve(self, tmp_path: Path):
+        valid_phases = {
+            "planner": "plan",
+            "plan-reviewer-a": "plan_review",
+            "plan-reviewer-b": "plan_review",
+            "arbiter": "plan_review",
+            "builder": "implementation",
+            "code-reviewer-a": "code_review",
+            "code-reviewer-b": "code_review",
+            "fixer": "fix",
+        }
         for role in ROLE_ARTIFACTS:
-            paths = expected_artifacts_for_role(tmp_path, "any", role)
+            paths = expected_artifacts_for_role(tmp_path, valid_phases[role], role)
             assert len(paths) > 0, f"Role {role} returned no artifacts"
 
 
