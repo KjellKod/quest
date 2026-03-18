@@ -17,7 +17,12 @@ from quest_runtime.artifacts import (
     is_workspace_local,
     prepare_artifact_files,
 )
-from quest_runtime.claude_runner import RunResult, classify_failure_kind, run_claude_role
+from quest_runtime.claude_runner import (
+    RunResult,
+    classify_failure_kind,
+    classify_result_kind,
+    run_claude_role,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +264,20 @@ class TestClassifyFailureKind:
         artifact = tmp_path / "handoff.json"
         # artifact missing but path is workspace-local → not write_boundary
         result = _make_result(stderr="Error: Permission denied writing to /foo/bar")
+        assert classify_failure_kind(result, [artifact], tmp_path) == "permission"
+
+    def test_permission_denied_after_result_classification_returns_permission(
+        self, tmp_path: Path
+    ):
+        artifact = tmp_path / "handoff.json"
+        result = _make_result(
+            result_kind=classify_result_kind(
+                1,
+                "Error: Permission denied writing to /foo/bar",
+                "missing",
+            ),
+            stderr="Error: Permission denied writing to /foo/bar",
+        )
         assert classify_failure_kind(result, [artifact], tmp_path) == "permission"
 
     def test_default_is_model(self, tmp_path: Path):

@@ -184,7 +184,6 @@ def classify_result_kind(exit_code: int, stderr: str, handoff_state: str) -> str
             "not found",
             "no such file",
             "not authenticated",
-            "permission denied",
             "claude cli",
         )
     ):
