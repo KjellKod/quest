@@ -441,3 +441,32 @@ def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys
     assert exit_code == 0
     assert captured["allow_text_fallback"] is True
     assert '"result_kind": "text_fallback"' in payload
+
+
+def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
+    monkeypatch, tmp_path, capsys
+):
+    args = Namespace(
+        quest_dir=str(tmp_path / ".quest" / "qid"),
+        phase="bad_phase",
+        agent="planner",
+        iter=1,
+        prompt_file=str(tmp_path / "prompt.txt"),
+        handoff_file=str(tmp_path / "handoff.json"),
+        model="opus",
+        timeout=90.0,
+        permission_mode="bypassPermissions",
+        bridge_script="scripts/claude_cli_bridge.py",
+        cwd=str(tmp_path),
+        add_dir=[],
+    )
+
+    monkeypatch.setattr(quest_claude_runner, "parse_args", lambda: args)
+
+    exit_code = quest_claude_runner.main()
+    payload = capsys.readouterr().out.strip()
+
+    assert exit_code == 1
+    assert '"result_kind": "invocation_error"' in payload
+    assert '"handoff_state": "missing"' in payload
+    assert "not valid for phase" in payload

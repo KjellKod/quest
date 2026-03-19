@@ -30,11 +30,23 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    artifact_paths = expected_artifacts_for_role(
-        quest_dir=args.quest_dir,
-        phase=args.phase,
-        agent=args.agent,
-    )
+    try:
+        artifact_paths = expected_artifacts_for_role(
+            quest_dir=args.quest_dir,
+            phase=args.phase,
+            agent=args.agent,
+        )
+    except ValueError as exc:
+        payload = {
+            "exit_code": 1,
+            "handoff_state": "missing",
+            "result_kind": "invocation_error",
+            "source": None,
+            "stderr": str(exc),
+            "stdout": "",
+        }
+        print(json.dumps(payload, ensure_ascii=True))
+        return 1
     result = run_claude_role(
         cwd=args.cwd,
         quest_dir=args.quest_dir,
