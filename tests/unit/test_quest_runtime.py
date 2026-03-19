@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import stat
 import subprocess
+from argparse import Namespace
 from pathlib import Path
 
+import quest_claude_runner
 import quest_runtime.claude_runner as claude_runner_module
 from quest_runtime.claude_runner import run_bridge_probe, run_claude_role, select_role_runtime
 
@@ -227,3 +229,50 @@ def test_run_claude_role_does_not_short_circuit_to_text_fallback_before_retry(
     assert result.result_kind == "handoff_json"
     assert result.source == "handoff_json"
     assert "Tier B retry:" in result.stderr
+
+
+def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys):
+    args = Namespace(
+        quest_dir=str(tmp_path / ".quest" / "qid"),
+        phase="plan",
+        agent="planner",
+        iter=1,
+        prompt_file=str(tmp_path / "prompt.txt"),
+        handoff_file=str(tmp_path / "handoff.json"),
+        model="opus",
+        timeout=90.0,
+        permission_mode="bypassPermissions",
+        bridge_script="scripts/claude_cli_bridge.py",
+        cwd=str(tmp_path),
+        add_dir=[],
+    )
+    captured: dict[str, object] = {}
+
+    def fake_expected_artifacts_for_role(*, quest_dir, phase, agent):
+        return [Path(quest_dir) / "phase_01_plan" / "plan.md"]
+
+    def fake_run_claude_role(**kwargs):
+        captured.update(kwargs)
+        return claude_runner_module.RunResult(
+            exit_code=0,
+            handoff_state="missing",
+            result_kind="text_fallback",
+            source="text_fallback",
+            stdout="ok",
+            stderr="",
+        )
+
+    monkeypatch.setattr(quest_claude_runner, "parse_args", lambda: args)
+    monkeypatch.setattr(
+        quest_claude_runner,
+        "expected_artifacts_for_role",
+        fake_expected_artifacts_for_role,
+    )
+    monkeypatch.setattr(quest_claude_runner, "run_claude_role", fake_run_claude_role)
+
+    exit_code = quest_claude_runner.main()
+    payload = capsys.readouterr().out.strip()
+
+    assert exit_code == 0
+    assert captured["allow_text_fallback"] is True
+    assert '"result_kind": "text_fallback"' in payload

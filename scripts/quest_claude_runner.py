@@ -48,6 +48,7 @@ def main() -> int:
         timeout=args.timeout,
         permission_mode=args.permission_mode,
         artifact_paths=artifact_paths,
+        allow_text_fallback=True,
         add_dirs=args.add_dir,
     )
     payload = {
