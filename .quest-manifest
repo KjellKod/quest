@@ -71,6 +71,8 @@ scripts/validate-handoff-contracts.sh
 scripts/claude_cli_bridge.py
 scripts/quest_claude_probe.py
 scripts/quest_claude_runner.py
+scripts/quest_checks/__init__.py
+scripts/quest_checks/cli.py
 scripts/quest_runtime/__init__.py
 scripts/quest_runtime/artifacts.py
 scripts/quest_runtime/claude_runner.py

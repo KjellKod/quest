@@ -36,7 +36,9 @@ class RunResult:
     stderr: str
 
 
-def _effective_permission_mode(permission_mode: str, permission_escalation: bool) -> str:
+def _effective_permission_mode(
+    permission_mode: str, permission_escalation: bool
+) -> str:
     if not permission_escalation:
         return permission_mode
     if permission_mode in {"default", "auto", "plan"}:
@@ -285,9 +287,12 @@ def run_claude_role(
             failure_kind = (
                 "write_boundary"
                 if external_artifact_paths
-                else "permission"
-                if isinstance(exc, PermissionError) or "permission denied" in str(exc).lower()
-                else "invocation"
+                else (
+                    "permission"
+                    if isinstance(exc, PermissionError)
+                    or "permission denied" in str(exc).lower()
+                    else "invocation"
+                )
             )
             if failure_kind in {"write_boundary", "permission"}:
                 retry_add_dirs = list(add_dirs or [])
@@ -349,7 +354,9 @@ def run_claude_role(
         prompt_file=resolved_prompt_file,
         model=model,
         timeout=timeout,
-        permission_mode=_effective_permission_mode(permission_mode, permission_escalation),
+        permission_mode=_effective_permission_mode(
+            permission_mode, permission_escalation
+        ),
         add_dirs=default_add_dirs,
     )
     process = subprocess.Popen(
@@ -368,8 +375,9 @@ def run_claude_role(
 
     while time.monotonic() < deadline:
         handoff_state = classify_handoff_file(resolved_handoff_file)
-        artifacts_complete = not resolved_artifact_paths or not any_artifact_missing_or_empty(
-            resolved_artifact_paths
+        artifacts_complete = (
+            not resolved_artifact_paths
+            or not any_artifact_missing_or_empty(resolved_artifact_paths)
         )
         if handoff_state == "found" and artifacts_complete:
             try:
@@ -413,21 +421,32 @@ def run_claude_role(
 
     handoff_state = classify_handoff_file(resolved_handoff_file)
     text_handoff = extract_text_handoff(stdout)
-    artifacts_complete = not resolved_artifact_paths or not any_artifact_missing_or_empty(
-        resolved_artifact_paths
+    artifacts_complete = (
+        not resolved_artifact_paths
+        or not any_artifact_missing_or_empty(resolved_artifact_paths)
     )
 
     result_kind = (
         "handoff_json"
         if handoff_state == "found" and artifacts_complete
-        else "timeout"
-        if timed_out
-        else "handoff_missing"
-        if handoff_state == "found" and not artifacts_complete
-        else classify_result_kind(process.returncode or 1, stderr, handoff_state)
+        else (
+            "timeout"
+            if timed_out
+            else (
+                "handoff_missing"
+                if handoff_state == "found" and not artifacts_complete
+                else classify_result_kind(
+                    process.returncode or 1, stderr, handoff_state
+                )
+            )
+        )
     )
     source = "handoff_json" if handoff_state == "found" and artifacts_complete else None
-    exit_code = 0 if handoff_state == "found" and artifacts_complete else process.returncode or 1
+    exit_code = (
+        0
+        if handoff_state == "found" and artifacts_complete
+        else process.returncode or 1
+    )
     result = RunResult(
         exit_code=exit_code,
         handoff_state=handoff_state,
@@ -445,7 +464,9 @@ def run_claude_role(
         )
         if failure_kind in {"write_boundary", "permission"}:
             retry_add_dirs = list(add_dirs or [])
-            retry_add_dirs.extend(_retry_artifact_dirs(resolved_artifact_paths, workspace_root))
+            retry_add_dirs.extend(
+                _retry_artifact_dirs(resolved_artifact_paths, workspace_root)
+            )
             retry_note = (
                 f"Tier B retry: agent={agent} phase={phase} "
                 f"failure_kind={failure_kind} permission_escalation=True"
@@ -539,7 +560,7 @@ def run_bridge_probe(
                     "Write this exact JSON to "
                     f"{handoff_file}: "
                     '{"status":"complete","artifacts":["'
-                    f'{artifact_file}'
+                    f"{artifact_file}"
                     '"],"next":null,"summary":"probe ok"}'
                 ),
                 "Reply with exactly:",

@@ -36,4 +36,3 @@ def update_state(quest_dir: str | Path, **updates: Any) -> dict[str, Any]:
     state["updated_at"] = utc_now_iso()
     write_state(quest_dir, state)
     return state
-

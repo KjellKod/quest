@@ -1076,63 +1076,82 @@ class TestQualityTier:
 
     def test_diamond_zero_issues_zero_fix(self):
         tier = compute_quality_tier(
-            plan_iterations=1, fix_iterations=0,
-            review_findings_count=0, status="complete",
+            plan_iterations=1,
+            fix_iterations=0,
+            review_findings_count=0,
+            status="complete",
         )
         assert tier == "Diamond"
 
     def test_platinum_minor_issues_one_fix(self):
         tier = compute_quality_tier(
-            plan_iterations=1, fix_iterations=1,
-            review_findings_count=2, status="complete",
+            plan_iterations=1,
+            fix_iterations=1,
+            review_findings_count=2,
+            status="complete",
         )
         assert tier == "Platinum"
 
     def test_gold_two_plan_one_fix(self):
         tier = compute_quality_tier(
-            plan_iterations=2, fix_iterations=1,
-            review_findings_count=3, status="complete",
+            plan_iterations=2,
+            fix_iterations=1,
+            review_findings_count=3,
+            status="complete",
         )
         assert tier == "Gold"
 
     def test_silver_two_fix_iterations(self):
         tier = compute_quality_tier(
-            plan_iterations=2, fix_iterations=2,
-            review_findings_count=5, status="complete",
+            plan_iterations=2,
+            fix_iterations=2,
+            review_findings_count=5,
+            status="complete",
         )
         assert tier == "Silver"
 
     def test_bronze_three_fix_iterations(self):
         """3 fix iterations (below max gate of 3) → Bronze."""
         tier = compute_quality_tier(
-            plan_iterations=1, fix_iterations=3,
-            review_findings_count=5, status="complete",
-            max_plan_iterations=5, max_fix_iterations=4,
+            plan_iterations=1,
+            fix_iterations=3,
+            review_findings_count=5,
+            status="complete",
+            max_plan_iterations=5,
+            max_fix_iterations=4,
         )
         assert tier == "Bronze"
 
     def test_tin_approaching_max_gate(self):
         """Hit one max gate but not both → Tin."""
         tier = compute_quality_tier(
-            plan_iterations=4, fix_iterations=2,
-            review_findings_count=5, status="complete",
-            max_plan_iterations=4, max_fix_iterations=4,
+            plan_iterations=4,
+            fix_iterations=2,
+            review_findings_count=5,
+            status="complete",
+            max_plan_iterations=4,
+            max_fix_iterations=4,
         )
         assert tier == "Tin"
 
     def test_cardboard_hit_both_max_gates(self):
         """Hit both max gates → Cardboard."""
         tier = compute_quality_tier(
-            plan_iterations=4, fix_iterations=3,
-            review_findings_count=5, status="complete",
-            max_plan_iterations=4, max_fix_iterations=3,
+            plan_iterations=4,
+            fix_iterations=3,
+            review_findings_count=5,
+            status="complete",
+            max_plan_iterations=4,
+            max_fix_iterations=3,
         )
         assert tier == "Cardboard"
 
     def test_abandoned_status(self):
         tier = compute_quality_tier(
-            plan_iterations=1, fix_iterations=0,
-            review_findings_count=0, status="abandoned",
+            plan_iterations=1,
+            fix_iterations=0,
+            review_findings_count=0,
+            status="abandoned",
         )
         assert tier == "Abandoned"
 
@@ -1170,7 +1189,8 @@ class TestQualityTier:
     def test_journal_replay_does_not_read_live_allowlist(self, tmp_path):
         journal_path = tmp_path / "journal.md"
         journal_path.write_text(
-            textwrap.dedent("""\
+            textwrap.dedent(
+                """\
                 # Quest Journal: test-quest
 
                 - Quest ID: `test-quest_2026-03-05__0643`
@@ -1180,17 +1200,32 @@ class TestQualityTier:
 
                 - Plan iterations: 1
                 - Fix iterations: 0
-            """),
+            """
+            ),
             encoding="utf-8",
         )
 
-        with patch("quest_celebrate.quest_data._load_allowlist_quality_defaults", side_effect=AssertionError("should not read live allowlist during journal replay")):
+        with patch(
+            "quest_celebrate.quest_data._load_allowlist_quality_defaults",
+            side_effect=AssertionError(
+                "should not read live allowlist during journal replay"
+            ),
+        ):
             data = load_quest_data_from_journal(journal_path)
         assert data.quality_tier == "Diamond"
+
     def test_all_tiers_in_quality_tiers_dict(self):
         """Every tier the function can return has an entry in QUALITY_TIERS."""
-        for tier_name in ["Diamond", "Platinum", "Gold", "Silver", "Bronze",
-                          "Tin", "Cardboard", "Abandoned"]:
+        for tier_name in [
+            "Diamond",
+            "Platinum",
+            "Gold",
+            "Silver",
+            "Bronze",
+            "Tin",
+            "Cardboard",
+            "Abandoned",
+        ]:
             assert tier_name in QUALITY_TIERS
             icon, grade, tooltip = QUALITY_TIERS[tier_name]
             assert icon
@@ -1201,7 +1236,8 @@ class TestQualityTier:
 class TestJournalCelebrationData:
     """Tests for celebration_data extraction from journal markdown."""
 
-    SAMPLE_JOURNAL = textwrap.dedent("""\
+    SAMPLE_JOURNAL = textwrap.dedent(
+        """\
         # Quest Journal: test-quest
 
         - Quest ID: `test-quest_2026-03-05__0643`
@@ -1243,7 +1279,8 @@ class TestJournalCelebrationData:
         }
         ```
         <!-- celebration-data-end -->
-    """)
+    """
+    )
 
     def test_extract_celebration_data_finds_json(self):
         data = extract_celebration_data_from_journal(self.SAMPLE_JOURNAL)
@@ -1286,7 +1323,8 @@ class TestJournalCelebrationData:
         assert data.fix_iterations == 1
 
     def test_load_quest_data_from_journal_legacy_no_celebration_data(self, tmp_path):
-        legacy = textwrap.dedent("""\
+        legacy = textwrap.dedent(
+            """\
             # Quest Journal: old-quest
 
             - Quest ID: `old-quest_2026-01-01__0000`
@@ -1296,7 +1334,8 @@ class TestJournalCelebrationData:
 
             - Plan iterations: 2
             - Fix iterations: 2
-        """)
+        """
+        )
         journal_path = tmp_path / "old-quest_2026-01-01.md"
         journal_path.write_text(legacy)
 
@@ -1309,8 +1348,11 @@ class TestJournalCelebrationData:
         # No agents or achievements from legacy
         assert len(data.agents) == 0
 
-    def test_load_quest_data_from_journal_supports_existing_journal_formats(self, tmp_path):
-        legacy = textwrap.dedent("""\
+    def test_load_quest_data_from_journal_supports_existing_journal_formats(
+        self, tmp_path
+    ):
+        legacy = textwrap.dedent(
+            """\
             # Quest: Dashboard Final Implementation
 
             **Quest ID:** dashboard-final-implementation_2026-02-12__0913
@@ -1320,7 +1362,8 @@ class TestJournalCelebrationData:
 
             - Plan iterations: 1
             - Fix iterations: 0
-        """)
+        """
+        )
         journal_path = tmp_path / "dashboard-final-implementation_2026-02-12.md"
         journal_path.write_text(legacy)
 
@@ -1331,7 +1374,8 @@ class TestJournalCelebrationData:
         assert data.status == "abandoned"
 
     def test_load_quest_data_from_journal_skips_invalid_json_entries(self, tmp_path):
-        journal = textwrap.dedent("""\
+        journal = textwrap.dedent(
+            """\
             # Quest Journal: malformed-json
 
             - Quest ID: `malformed-json_2026-03-06__1200`
@@ -1346,7 +1390,8 @@ class TestJournalCelebrationData:
             }
             ```
             <!-- celebration-data-end -->
-        """)
+        """
+        )
         journal_path = tmp_path / "malformed-json_2026-03-06.md"
         journal_path.write_text(journal)
 
@@ -1356,8 +1401,11 @@ class TestJournalCelebrationData:
         assert [achievement.title for achievement in data.achievements] == ["Shipped"]
         assert data.brief_summary == ""
 
-    def test_load_quest_data_from_journal_ignores_invalid_quality_tier_type(self, tmp_path):
-        journal = textwrap.dedent("""\
+    def test_load_quest_data_from_journal_ignores_invalid_quality_tier_type(
+        self, tmp_path
+    ):
+        journal = textwrap.dedent(
+            """\
             # Quest Journal: malformed-quality
 
             - Quest ID: `malformed-quality_2026-03-06__1200`
@@ -1369,7 +1417,8 @@ class TestJournalCelebrationData:
             }
             ```
             <!-- celebration-data-end -->
-        """)
+        """
+        )
         journal_path = tmp_path / "malformed-quality_2026-03-06.md"
         journal_path.write_text(journal)
 
@@ -1377,12 +1426,16 @@ class TestJournalCelebrationData:
 
         assert data.quality_tier == ""
 
-    def test_load_quest_data_from_journal_leaves_tier_unset_without_iterations(self, tmp_path):
-        journal = textwrap.dedent("""\
+    def test_load_quest_data_from_journal_leaves_tier_unset_without_iterations(
+        self, tmp_path
+    ):
+        journal = textwrap.dedent(
+            """\
             # Quest Journal: legacy-no-iterations
 
             - Quest ID: `legacy-no-iterations_2026-03-06__1200`
-        """)
+        """
+        )
         journal_path = tmp_path / "legacy-no-iterations_2026-03-06.md"
         journal_path.write_text(journal)
 

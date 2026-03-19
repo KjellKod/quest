@@ -41,7 +41,11 @@ class TestExpectedArtifactsForRole:
     def test_builder_returns_correct_paths(self, tmp_path: Path):
         paths = expected_artifacts_for_role(tmp_path, "implementation", "builder")
         names = [p.name for p in paths]
-        assert names == ["pr_description.md", "builder_feedback_discussion.md", "handoff.json"]
+        assert names == [
+            "pr_description.md",
+            "builder_feedback_discussion.md",
+            "handoff.json",
+        ]
         assert all("phase_02_implementation" in str(p) for p in paths)
 
     def test_code_reviewer_a_returns_correct_paths(self, tmp_path: Path):
@@ -57,11 +61,15 @@ class TestExpectedArtifactsForRole:
 
     def test_solo_mode_excludes_disabled_agents(self, tmp_path: Path):
         for agent in SOLO_DISABLED_AGENTS:
-            paths = expected_artifacts_for_role(tmp_path, "plan", agent, quest_mode="solo")
+            paths = expected_artifacts_for_role(
+                tmp_path, "plan", agent, quest_mode="solo"
+            )
             assert paths == [], f"Expected empty for solo-disabled agent {agent}"
 
     def test_solo_mode_keeps_enabled_agents(self, tmp_path: Path):
-        paths = expected_artifacts_for_role(tmp_path, "plan", "planner", quest_mode="solo")
+        paths = expected_artifacts_for_role(
+            tmp_path, "plan", "planner", quest_mode="solo"
+        )
         assert len(paths) == 2
 
     def test_unknown_role_raises_value_error(self, tmp_path: Path):
@@ -254,14 +262,21 @@ class TestClassifyFailureKind:
         result = _make_result(result_kind="handoff_missing")
         assert classify_failure_kind(result, [artifact], tmp_path) == "model"
 
-    def test_artifacts_missing_out_of_workspace_returns_write_boundary(self, tmp_path: Path):
+    def test_artifacts_missing_out_of_workspace_returns_write_boundary(
+        self, tmp_path: Path
+    ):
         workspace = tmp_path / "repo"
         workspace.mkdir()
         external_artifact = tmp_path / "external" / "handoff.json"
         result = _make_result(result_kind="handoff_missing")
-        assert classify_failure_kind(result, [external_artifact], workspace) == "write_boundary"
+        assert (
+            classify_failure_kind(result, [external_artifact], workspace)
+            == "write_boundary"
+        )
 
-    def test_partial_write_out_of_workspace_returns_write_boundary(self, tmp_path: Path):
+    def test_partial_write_out_of_workspace_returns_write_boundary(
+        self, tmp_path: Path
+    ):
         """Arbiter-mandated: plan.md written but handoff.json missing, external path."""
         workspace = tmp_path / "repo"
         workspace.mkdir()
@@ -272,7 +287,10 @@ class TestClassifyFailureKind:
         handoff = external_dir / "handoff.json"
         # handoff.json does NOT exist
         result = _make_result(result_kind="handoff_missing")
-        assert classify_failure_kind(result, [plan, handoff], workspace) == "write_boundary"
+        assert (
+            classify_failure_kind(result, [plan, handoff], workspace)
+            == "write_boundary"
+        )
 
     def test_permission_denied_in_stderr(self, tmp_path: Path):
         artifact = tmp_path / "handoff.json"
@@ -319,7 +337,9 @@ class TestRunClaudeRole:
         def fake_prepare(paths: list[Path]) -> list[Path]:
             raise OSError("disk full")
 
-        monkeypatch.setattr(claude_runner_module, "prepare_artifact_files", fake_prepare)
+        monkeypatch.setattr(
+            claude_runner_module, "prepare_artifact_files", fake_prepare
+        )
 
         result = run_claude_role(
             cwd=tmp_path,
@@ -382,7 +402,9 @@ class TestRunClaudeRole:
             def kill(self):
                 return None
 
-        monkeypatch.setattr(claude_runner_module, "prepare_artifact_files", fake_prepare)
+        monkeypatch.setattr(
+            claude_runner_module, "prepare_artifact_files", fake_prepare
+        )
         monkeypatch.setattr(
             claude_runner_module.subprocess,
             "Popen",
@@ -518,7 +540,9 @@ class TestRunClaudeRole:
                 return FakeProcess()
             return FakeProcess(on_communicate=complete_second_attempt)
 
-        monkeypatch.setattr(claude_runner_module, "build_bridge_cmd", fake_build_bridge_cmd)
+        monkeypatch.setattr(
+            claude_runner_module, "build_bridge_cmd", fake_build_bridge_cmd
+        )
         monkeypatch.setattr(
             claude_runner_module.subprocess,
             "Popen",
@@ -581,8 +605,14 @@ class TestRunClaudeRole:
             def kill(self):
                 return None
 
-        monkeypatch.setattr(claude_runner_module, "prepare_artifact_files", fake_prepare)
-        monkeypatch.setattr(claude_runner_module.subprocess, "Popen", lambda *args, **kwargs: FakeProcess())
+        monkeypatch.setattr(
+            claude_runner_module, "prepare_artifact_files", fake_prepare
+        )
+        monkeypatch.setattr(
+            claude_runner_module.subprocess,
+            "Popen",
+            lambda *args, **kwargs: FakeProcess(),
+        )
 
         result = run_claude_role(
             cwd=tmp_path,

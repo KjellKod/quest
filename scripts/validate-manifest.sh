@@ -51,6 +51,7 @@ EXPECTED_PATTERNS=(
   "scripts/claude_cli_bridge.py"
   "scripts/quest_claude_probe.py"
   "scripts/quest_claude_runner.py"
+  "scripts/quest_checks/*.py"
   "scripts/quest_runtime/*.py"
   "scripts/validate-quest-config.sh"
 )

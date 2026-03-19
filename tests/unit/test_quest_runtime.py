@@ -9,7 +9,11 @@ from pathlib import Path
 
 import quest_claude_runner
 import quest_runtime.claude_runner as claude_runner_module
-from quest_runtime.claude_runner import run_bridge_probe, run_claude_role, select_role_runtime
+from quest_runtime.claude_runner import (
+    run_bridge_probe,
+    run_claude_role,
+    select_role_runtime,
+)
 
 
 def _write_executable(path: Path, body: str) -> None:
@@ -187,7 +191,9 @@ def test_run_claude_role_treats_found_handoff_as_success_even_after_timeout(
         def kill(self):
             return None
 
-    monkeypatch.setattr(claude_runner_module.subprocess, "Popen", lambda *args, **kwargs: FakeProcess())
+    monkeypatch.setattr(
+        claude_runner_module.subprocess, "Popen", lambda *args, **kwargs: FakeProcess()
+    )
 
     result = run_claude_role(
         cwd=tmp_path,

@@ -177,7 +177,9 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
         quality_info = celebration_data.get("quality", {})
         if isinstance(quality_info, dict):
             tier = quality_info.get("tier")
-            quality_tier = tier if isinstance(tier, str) and tier in QUALITY_TIERS else None
+            quality_tier = (
+                tier if isinstance(tier, str) and tier in QUALITY_TIERS else None
+            )
 
         # Extract unique model names from agents list
         models: list[str] = []
