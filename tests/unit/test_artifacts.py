@@ -306,6 +306,111 @@ class TestClassifyFailureKind:
 
 
 class TestRunClaudeRole:
+    def test_artifact_preparation_error_returns_structured_invocation_error(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        prompt_file = tmp_path / "prompt.txt"
+        prompt_file.write_text("prompt", encoding="utf-8")
+        handoff_file = tmp_path / "handoff.json"
+        artifact = tmp_path / "plan.md"
+
+        def fake_prepare(paths: list[Path]) -> list[Path]:
+            raise OSError("disk full")
+
+        monkeypatch.setattr(claude_runner_module, "prepare_artifact_files", fake_prepare)
+
+        result = run_claude_role(
+            cwd=tmp_path,
+            quest_dir=tmp_path,
+            phase="plan",
+            agent="planner",
+            iteration=1,
+            prompt_file=prompt_file,
+            handoff_file=handoff_file,
+            bridge_script=tmp_path / "bridge.py",
+            model="opus",
+            timeout=1.0,
+            permission_mode="bypassPermissions",
+            artifact_paths=[artifact],
+            poll_interval=0.01,
+            exit_grace_seconds=0.01,
+        )
+
+        assert result.exit_code == 1
+        assert result.handoff_state == "missing"
+        assert result.result_kind == "invocation_error"
+        assert result.source is None
+        assert "disk full" in result.stderr
+
+    def test_artifact_preparation_permission_error_retries_without_crashing(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        workspace = tmp_path / "repo"
+        workspace.mkdir()
+        prompt_file = workspace / "prompt.txt"
+        prompt_file.write_text("prompt", encoding="utf-8")
+        handoff_file = workspace / "handoff.json"
+        external_artifact = tmp_path / "external" / "plan.md"
+        prepare_calls = {"count": 0}
+
+        def fake_prepare(paths: list[Path]) -> list[Path]:
+            prepare_calls["count"] += 1
+            raise PermissionError("Permission denied")
+
+        class FakeProcess:
+            returncode = 0
+
+            def communicate(self, timeout: float | None = None):
+                external_artifact.parent.mkdir(parents=True, exist_ok=True)
+                external_artifact.write_text("ok", encoding="utf-8")
+                handoff_file.write_text(
+                    '{"status":"complete","artifacts":["plan.md"],"next":null,"summary":"ok"}',
+                    encoding="utf-8",
+                )
+                return "", ""
+
+            def poll(self):
+                return None
+
+            def terminate(self):
+                return None
+
+            def kill(self):
+                return None
+
+        monkeypatch.setattr(claude_runner_module, "prepare_artifact_files", fake_prepare)
+        monkeypatch.setattr(
+            claude_runner_module.subprocess,
+            "Popen",
+            lambda *args, **kwargs: FakeProcess(),
+        )
+
+        result = run_claude_role(
+            cwd=workspace,
+            quest_dir=workspace,
+            phase="plan",
+            agent="planner",
+            iteration=1,
+            prompt_file=prompt_file,
+            handoff_file=handoff_file,
+            bridge_script=workspace / "bridge.py",
+            model="opus",
+            timeout=1.0,
+            permission_mode="bypassPermissions",
+            artifact_paths=[external_artifact],
+            poll_interval=0.01,
+            exit_grace_seconds=0.01,
+        )
+
+        assert prepare_calls["count"] == 1
+        assert result.exit_code == 0
+        assert result.result_kind == "handoff_json"
+        assert "Tier B retry:" in result.stderr
+
     def test_handoff_without_required_artifact_content_is_not_success(
         self,
         tmp_path: Path,

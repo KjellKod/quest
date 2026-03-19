@@ -269,13 +269,71 @@ def run_claude_role(
     poll_interval: float = 0.5,
     exit_grace_seconds: float = 2.0,
 ) -> RunResult:
+    workspace_root = Path(cwd).resolve()
     resolved_quest_dir = resolve_path(cwd, quest_dir)
     resolved_prompt_file = resolve_path(cwd, prompt_file)
     resolved_handoff_file = resolve_path(cwd, handoff_file)
     resolved_artifact_paths = [resolve_path(cwd, path) for path in artifact_paths or []]
-    local_artifact_paths, _ = check_artifact_paths(resolved_artifact_paths, Path(cwd).resolve())
+    local_artifact_paths, external_artifact_paths = check_artifact_paths(
+        resolved_artifact_paths,
+        workspace_root,
+    )
     if resolved_artifact_paths and not permission_escalation:
-        prepare_artifact_files(resolved_artifact_paths)
+        try:
+            prepare_artifact_files(resolved_artifact_paths)
+        except OSError as exc:
+            failure_kind = (
+                "write_boundary"
+                if external_artifact_paths
+                else "permission"
+                if isinstance(exc, PermissionError) or "permission denied" in str(exc).lower()
+                else "invocation"
+            )
+            if failure_kind in {"write_boundary", "permission"}:
+                retry_add_dirs = list(add_dirs or [])
+                retry_add_dirs.extend(path.parent for path in external_artifact_paths)
+                retry_note = (
+                    f"Tier B retry: agent={agent} phase={phase} "
+                    f"failure_kind={failure_kind} permission_escalation=True"
+                )
+                retry_result = run_claude_role(
+                    cwd=cwd,
+                    quest_dir=resolved_quest_dir,
+                    phase=phase,
+                    agent=agent,
+                    iteration=iteration,
+                    prompt_file=resolved_prompt_file,
+                    handoff_file=resolved_handoff_file,
+                    bridge_script=bridge_script,
+                    model=model,
+                    timeout=timeout,
+                    permission_mode=permission_mode,
+                    artifact_paths=resolved_artifact_paths,
+                    permission_escalation=True,
+                    allow_text_fallback=allow_text_fallback,
+                    add_dirs=retry_add_dirs,
+                    poll_interval=poll_interval,
+                    exit_grace_seconds=exit_grace_seconds,
+                )
+                combined_stderr = retry_note
+                if retry_result.stderr:
+                    combined_stderr = f"{retry_note}\n{retry_result.stderr}"
+                return RunResult(
+                    exit_code=retry_result.exit_code,
+                    handoff_state=retry_result.handoff_state,
+                    result_kind=retry_result.result_kind,
+                    source=retry_result.source,
+                    stdout=retry_result.stdout,
+                    stderr=combined_stderr,
+                )
+            return RunResult(
+                exit_code=1,
+                handoff_state="missing",
+                result_kind="invocation_error",
+                source=None,
+                stdout="",
+                stderr=str(exc),
+            )
     default_add_dirs = [
         resolve_path(cwd, "."),
         resolved_quest_dir,
@@ -383,11 +441,11 @@ def run_claude_role(
         failure_kind = classify_failure_kind(
             result,
             resolved_artifact_paths,
-            Path(cwd).resolve(),
+            workspace_root,
         )
         if failure_kind in {"write_boundary", "permission"}:
             retry_add_dirs = list(add_dirs or [])
-            retry_add_dirs.extend(_retry_artifact_dirs(resolved_artifact_paths, Path(cwd).resolve()))
+            retry_add_dirs.extend(_retry_artifact_dirs(resolved_artifact_paths, workspace_root))
             retry_note = (
                 f"Tier B retry: agent={agent} phase={phase} "
                 f"failure_kind={failure_kind} permission_escalation=True"
