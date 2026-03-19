@@ -264,6 +264,7 @@ def run_claude_role(
     permission_mode: str,
     artifact_paths: Iterable[str | Path] | None = None,
     permission_escalation: bool = False,
+    allow_text_fallback: bool = False,
     add_dirs: Iterable[str | Path] | None = None,
     poll_interval: float = 0.5,
     exit_grace_seconds: float = 2.0,
@@ -350,31 +351,19 @@ def run_claude_role(
 
     handoff_state = classify_handoff_file(resolved_handoff_file)
     text_handoff = extract_text_handoff(stdout)
-    if text_handoff is not None:
-        append_context_health_log(
-            resolved_quest_dir,
-            phase=phase,
-            agent=agent,
-            iteration=iteration,
-            handoff_state=handoff_state,
-            source="text_fallback",
-        )
-        return RunResult(
-            exit_code=0,
-            handoff_state=handoff_state,
-            result_kind="text_fallback",
-            source="text_fallback",
-            stdout=stdout,
-            stderr=stderr,
-        )
 
-    result = RunResult(
-        exit_code=process.returncode or 1,
-        handoff_state=handoff_state,
-        result_kind="timeout"
+    result_kind = (
+        "timeout"
         if timed_out
-        else classify_result_kind(process.returncode or 1, stderr, handoff_state),
-        source=None,
+        else classify_result_kind(process.returncode or 1, stderr, handoff_state)
+    )
+    source = "handoff_json" if handoff_state == "found" else None
+    exit_code = 0 if handoff_state == "found" else process.returncode or 1
+    result = RunResult(
+        exit_code=exit_code,
+        handoff_state=handoff_state,
+        result_kind=result_kind,
+        source=source,
         stdout=stdout,
         stderr=stderr,
     )
@@ -406,6 +395,7 @@ def run_claude_role(
                 permission_mode=permission_mode,
                 artifact_paths=resolved_artifact_paths,
                 permission_escalation=True,
+                allow_text_fallback=allow_text_fallback,
                 add_dirs=retry_add_dirs,
                 poll_interval=poll_interval,
                 exit_grace_seconds=exit_grace_seconds,
@@ -421,6 +411,24 @@ def run_claude_role(
                 stdout=retry_result.stdout,
                 stderr=combined_stderr,
             )
+
+    if allow_text_fallback and text_handoff is not None:
+        append_context_health_log(
+            resolved_quest_dir,
+            phase=phase,
+            agent=agent,
+            iteration=iteration,
+            handoff_state=handoff_state,
+            source="text_fallback",
+        )
+        return RunResult(
+            exit_code=0,
+            handoff_state=handoff_state,
+            result_kind="text_fallback",
+            source="text_fallback",
+            stdout=stdout,
+            stderr=stderr,
+        )
 
     return result
 

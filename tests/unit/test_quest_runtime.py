@@ -156,3 +156,74 @@ def test_run_bridge_probe_treats_found_handoff_as_success_even_on_nonzero_exit(
     assert result.result_kind == "handoff_json"
     assert result.source == "handoff_json"
     assert result.stderr == "Timed out after 30.0s"
+
+
+def test_run_claude_role_does_not_short_circuit_to_text_fallback_before_retry(
+    tmp_path, monkeypatch
+):
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("prompt", encoding="utf-8")
+    handoff_file = tmp_path / "handoff.json"
+    artifact = tmp_path / "artifact.md"
+
+    class FakeProcess:
+        def __init__(self, *, stdout: str, stderr: str, on_communicate=None):
+            self.returncode = 1
+            self._stdout = stdout
+            self._stderr = stderr
+            self._on_communicate = on_communicate
+
+        def communicate(self, timeout: float | None = None):
+            if self._on_communicate is not None:
+                self._on_communicate()
+            return self._stdout, self._stderr
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self):
+            return None
+
+        def kill(self):
+            return None
+
+    popen_calls = {"count": 0}
+
+    def make_handoff():
+        handoff_file.write_text(
+            '{"status":"complete","artifacts":["artifact.md"],"next":null,"summary":"ok"}',
+            encoding="utf-8",
+        )
+
+    def fake_popen(*args, **kwargs):
+        popen_calls["count"] += 1
+        if popen_calls["count"] == 1:
+            return FakeProcess(
+                stdout="---HANDOFF---\nSTATUS: complete\nARTIFACTS: artifact.md\nNEXT: null\nSUMMARY: text fallback\n",
+                stderr="Error: Permission denied writing artifact",
+            )
+        return FakeProcess(stdout="", stderr="", on_communicate=make_handoff)
+
+    monkeypatch.setattr(claude_runner_module.subprocess, "Popen", fake_popen)
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "bridge.py",
+        model="opus",
+        timeout=1.0,
+        permission_mode="bypassPermissions",
+        artifact_paths=[artifact],
+        poll_interval=0.01,
+        exit_grace_seconds=0.01,
+    )
+
+    assert popen_calls["count"] == 2
+    assert result.result_kind == "handoff_json"
+    assert result.source == "handoff_json"
+    assert "Tier B retry:" in result.stderr
