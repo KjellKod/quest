@@ -306,6 +306,143 @@ class TestClassifyFailureKind:
 
 
 class TestRunClaudeRole:
+    def test_handoff_without_required_artifact_content_is_not_success(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        prompt_file = tmp_path / "prompt.txt"
+        prompt_file.write_text("prompt", encoding="utf-8")
+        handoff_file = tmp_path / "handoff.json"
+        artifact = tmp_path / "plan.md"
+
+        class FakeProcess:
+            returncode = 1
+
+            def communicate(self, timeout: float | None = None):
+                handoff_file.write_text(
+                    '{"status":"complete","artifacts":["plan.md"],"next":null,"summary":"ok"}',
+                    encoding="utf-8",
+                )
+                return "", ""
+
+            def poll(self):
+                return 1
+
+            def terminate(self):
+                return None
+
+            def kill(self):
+                return None
+
+        monkeypatch.setattr(
+            claude_runner_module.subprocess,
+            "Popen",
+            lambda *args, **kwargs: FakeProcess(),
+        )
+
+        result = run_claude_role(
+            cwd=tmp_path,
+            quest_dir=tmp_path,
+            phase="plan",
+            agent="planner",
+            iteration=1,
+            prompt_file=prompt_file,
+            handoff_file=handoff_file,
+            bridge_script=tmp_path / "bridge.py",
+            model="opus",
+            timeout=1.0,
+            permission_mode="bypassPermissions",
+            artifact_paths=[artifact],
+            poll_interval=0.01,
+            exit_grace_seconds=0.01,
+        )
+
+        assert result.exit_code != 0
+        assert result.handoff_state == "found"
+        assert result.result_kind != "handoff_json"
+        assert result.source is None
+
+    def test_external_artifact_dir_only_added_on_permission_retry(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        workspace = tmp_path / "repo"
+        workspace.mkdir()
+        prompt_file = workspace / "prompt.txt"
+        prompt_file.write_text("prompt", encoding="utf-8")
+        handoff_file = workspace / "handoff.json"
+        external_artifact = tmp_path / "external" / "plan.md"
+        captured_add_dirs: list[list[str]] = []
+        popen_calls = {"count": 0}
+
+        def fake_build_bridge_cmd(**kwargs):
+            captured_add_dirs.append(list(kwargs["add_dirs"]))
+            return ["bridge"]
+
+        class FakeProcess:
+            def __init__(self, *, on_communicate=None):
+                self.returncode = 1
+                self._on_communicate = on_communicate
+
+            def communicate(self, timeout: float | None = None):
+                if self._on_communicate is not None:
+                    self._on_communicate()
+                return "", "Permission denied writing artifact"
+
+            def poll(self):
+                return 1
+
+            def terminate(self):
+                return None
+
+            def kill(self):
+                return None
+
+        def complete_second_attempt():
+            external_artifact.write_text("ok", encoding="utf-8")
+            handoff_file.write_text(
+                '{"status":"complete","artifacts":["plan.md"],"next":null,"summary":"ok"}',
+                encoding="utf-8",
+            )
+
+        def fake_popen(*args, **kwargs):
+            popen_calls["count"] += 1
+            if popen_calls["count"] == 1:
+                return FakeProcess()
+            return FakeProcess(on_communicate=complete_second_attempt)
+
+        monkeypatch.setattr(claude_runner_module, "build_bridge_cmd", fake_build_bridge_cmd)
+        monkeypatch.setattr(
+            claude_runner_module.subprocess,
+            "Popen",
+            lambda *args, **kwargs: fake_popen(),
+        )
+
+        result = run_claude_role(
+            cwd=workspace,
+            quest_dir=workspace,
+            phase="plan",
+            agent="planner",
+            iteration=1,
+            prompt_file=prompt_file,
+            handoff_file=handoff_file,
+            bridge_script=workspace / "bridge.py",
+            model="opus",
+            timeout=1.0,
+            permission_mode="bypassPermissions",
+            artifact_paths=[external_artifact],
+            poll_interval=0.01,
+            exit_grace_seconds=0.01,
+        )
+
+        assert result.exit_code == 0
+        assert len(captured_add_dirs) == 2
+        assert external_artifact.parent.resolve() not in captured_add_dirs[0]
+        assert external_artifact.parent.resolve() in captured_add_dirs[1]
+        assert "Tier B retry:" in result.stderr
+
     def test_permission_escalation_retry_does_not_reprepare_artifacts(
         self,
         tmp_path: Path,

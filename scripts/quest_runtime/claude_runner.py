@@ -273,6 +273,7 @@ def run_claude_role(
     resolved_prompt_file = resolve_path(cwd, prompt_file)
     resolved_handoff_file = resolve_path(cwd, handoff_file)
     resolved_artifact_paths = [resolve_path(cwd, path) for path in artifact_paths or []]
+    local_artifact_paths, _ = check_artifact_paths(resolved_artifact_paths, Path(cwd).resolve())
     if resolved_artifact_paths and not permission_escalation:
         prepare_artifact_files(resolved_artifact_paths)
     default_add_dirs = [
@@ -281,7 +282,7 @@ def run_claude_role(
         resolved_prompt_file.parent,
         resolved_handoff_file.parent,
     ]
-    default_add_dirs.extend(path.parent for path in resolved_artifact_paths)
+    default_add_dirs.extend(path.parent for path in local_artifact_paths)
     if add_dirs:
         default_add_dirs.extend(add_dirs)
     cmd = build_bridge_cmd(
@@ -309,7 +310,10 @@ def run_claude_role(
 
     while time.monotonic() < deadline:
         handoff_state = classify_handoff_file(resolved_handoff_file)
-        if handoff_state == "found":
+        artifacts_complete = not resolved_artifact_paths or not any_artifact_missing_or_empty(
+            resolved_artifact_paths
+        )
+        if handoff_state == "found" and artifacts_complete:
             try:
                 stdout, stderr = process.communicate(timeout=exit_grace_seconds)
             except subprocess.TimeoutExpired:
@@ -351,16 +355,21 @@ def run_claude_role(
 
     handoff_state = classify_handoff_file(resolved_handoff_file)
     text_handoff = extract_text_handoff(stdout)
+    artifacts_complete = not resolved_artifact_paths or not any_artifact_missing_or_empty(
+        resolved_artifact_paths
+    )
 
     result_kind = (
         "handoff_json"
-        if handoff_state == "found"
+        if handoff_state == "found" and artifacts_complete
         else "timeout"
         if timed_out
+        else "handoff_missing"
+        if handoff_state == "found" and not artifacts_complete
         else classify_result_kind(process.returncode or 1, stderr, handoff_state)
     )
-    source = "handoff_json" if handoff_state == "found" else None
-    exit_code = 0 if handoff_state == "found" else process.returncode or 1
+    source = "handoff_json" if handoff_state == "found" and artifacts_complete else None
+    exit_code = 0 if handoff_state == "found" and artifacts_complete else process.returncode or 1
     result = RunResult(
         exit_code=exit_code,
         handoff_state=handoff_state,
@@ -430,6 +439,16 @@ def run_claude_role(
             source="text_fallback",
             stdout=stdout,
             stderr=stderr,
+        )
+
+    if result.source == "handoff_json":
+        append_context_health_log(
+            resolved_quest_dir,
+            phase=phase,
+            agent=agent,
+            iteration=iteration,
+            handoff_state=result.handoff_state,
+            source="handoff_json",
         )
 
     return result
