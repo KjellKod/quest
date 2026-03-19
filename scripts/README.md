@@ -8,6 +8,7 @@ Build and utility scripts for the Quest repository.
 |------------------|---------|
 | `quest_dashboard/` | Python package that generates a static HTML Quest Dashboard from journal entries and active quest state. See `quest_dashboard/README.md` for details. |
 | `quest_runtime/` | Python package with Quest orchestration helpers (state updates, Claude bridge runner, handoff polling). |
+| `quest_checks/` | Python package that provides the installed `quest-checks` CLI for running the standard Quest validation and test suite. |
 | `claude_cli_bridge.py` | Thin transport bridge from the current host into Claude CLI for Codex-led Claude-designated Quest roles. |
 | `quest_claude_probe.py` | Probes the Claude bridge by requiring a real artifact write and `handoff.json` under the quest logs directory. |
 | `quest_state.py` | Updates `.quest/<id>/state.json` consistently and refreshes `updated_at`. |
@@ -31,6 +32,9 @@ python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase plan_revi
 
 # Probe the Claude bridge with a real artifact + handoff write
 python3 scripts/quest_claude_probe.py --quest-dir .quest/<id> --model opus
+
+# Run the standard Quest validations and test suite
+quest-checks
 
 # Validate quest configuration
 bash scripts/validate-quest-config.sh

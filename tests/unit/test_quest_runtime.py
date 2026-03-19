@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 import stat
+import subprocess
+from argparse import Namespace
 from pathlib import Path
 
-from quest_runtime.claude_runner import run_claude_role, select_role_runtime
+import quest_claude_runner
+import quest_runtime.claude_runner as claude_runner_module
+from quest_runtime.claude_runner import (
+    run_bridge_probe,
+    run_claude_role,
+    select_role_runtime,
+)
 
 
 def _write_executable(path: Path, body: str) -> None:
@@ -115,3 +123,356 @@ def test_run_claude_role_reports_invocation_error_result_kind(tmp_path):
     assert result.handoff_state == "missing"
     assert result.result_kind == "invocation_error"
     assert result.source is None
+
+
+def test_run_bridge_probe_treats_found_handoff_as_success_even_on_nonzero_exit(
+    tmp_path, monkeypatch
+):
+    completed = subprocess.CompletedProcess(
+        args=["bridge"],
+        returncode=1,
+        stdout="",
+        stderr="Timed out after 30.0s",
+    )
+
+    def fake_run(*args, **kwargs):
+        probe_dir = tmp_path / "logs" / "bridge_probe"
+        artifact_file = probe_dir / "probe_artifact.txt"
+        handoff_file = probe_dir / "probe_handoff.json"
+        artifact_file.write_text("ok", encoding="utf-8")
+        handoff_file.write_text(
+            '{"status":"complete","artifacts":["probe_artifact.txt"],"next":null,"summary":"probe ok"}',
+            encoding="utf-8",
+        )
+        return completed
+
+    monkeypatch.setattr(claude_runner_module.subprocess, "run", fake_run)
+
+    result = run_bridge_probe(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        bridge_script=tmp_path / "bridge.py",
+        model="opus",
+        timeout=30.0,
+        permission_mode="bypassPermissions",
+    )
+
+    assert result.exit_code == 0
+    assert result.handoff_state == "found"
+    assert result.result_kind == "handoff_json"
+    assert result.source == "handoff_json"
+    assert result.stderr == "Timed out after 30.0s"
+
+
+def test_run_claude_role_treats_found_handoff_as_success_even_after_timeout(
+    tmp_path, monkeypatch
+):
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("timeout handoff test\n", encoding="utf-8")
+    handoff_file = tmp_path / "handoff.json"
+
+    class FakeProcess:
+        def __init__(self):
+            self.returncode = 1
+
+        def communicate(self, timeout: float | None = None):
+            handoff_file.write_text(
+                '{"status":"complete","artifacts":[],"next":null,"summary":"ok"}',
+                encoding="utf-8",
+            )
+            return "", "Timed out after 30.0s"
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            return None
+
+        def kill(self):
+            return None
+
+    monkeypatch.setattr(
+        claude_runner_module.subprocess, "Popen", lambda *args, **kwargs: FakeProcess()
+    )
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "bridge.py",
+        model="opus",
+        timeout=0.01,
+        permission_mode="bypassPermissions",
+        poll_interval=0.01,
+        exit_grace_seconds=0.01,
+    )
+
+    assert result.exit_code == 0
+    assert result.handoff_state == "found"
+    assert result.result_kind == "handoff_json"
+    assert result.source == "handoff_json"
+
+
+def test_run_claude_role_does_not_treat_found_handoff_as_success_when_artifact_empty(
+    tmp_path, monkeypatch
+):
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("timeout handoff test\n", encoding="utf-8")
+    handoff_file = tmp_path / "handoff.json"
+    artifact = tmp_path / "plan.md"
+
+    class FakeProcess:
+        def __init__(self):
+            self.returncode = 1
+
+        def communicate(self, timeout: float | None = None):
+            handoff_file.write_text(
+                '{"status":"complete","artifacts":["plan.md"],"next":null,"summary":"ok"}',
+                encoding="utf-8",
+            )
+            return "", "Timed out after 30.0s"
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            return None
+
+        def kill(self):
+            return None
+
+    monkeypatch.setattr(
+        claude_runner_module.subprocess,
+        "Popen",
+        lambda *args, **kwargs: FakeProcess(),
+    )
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "bridge.py",
+        model="opus",
+        timeout=0.01,
+        permission_mode="bypassPermissions",
+        artifact_paths=[artifact],
+        poll_interval=0.01,
+        exit_grace_seconds=0.01,
+    )
+
+    assert result.exit_code != 0
+    assert result.handoff_state == "found"
+    assert result.result_kind != "handoff_json"
+    assert result.source is None
+
+
+def test_run_claude_role_logs_context_health_for_late_handoff_success(
+    tmp_path, monkeypatch
+):
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("timeout handoff test\n", encoding="utf-8")
+    handoff_file = tmp_path / "handoff.json"
+
+    class FakeProcess:
+        def __init__(self):
+            self.returncode = 1
+
+        def communicate(self, timeout: float | None = None):
+            handoff_file.write_text(
+                '{"status":"complete","artifacts":[],"next":null,"summary":"ok"}',
+                encoding="utf-8",
+            )
+            return "", "Timed out after 30.0s"
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            return None
+
+        def kill(self):
+            return None
+
+    monkeypatch.setattr(
+        claude_runner_module.subprocess,
+        "Popen",
+        lambda *args, **kwargs: FakeProcess(),
+    )
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "bridge.py",
+        model="opus",
+        timeout=0.01,
+        permission_mode="bypassPermissions",
+        poll_interval=0.01,
+        exit_grace_seconds=0.01,
+    )
+
+    log_file = tmp_path / "logs" / "context_health.log"
+
+    assert result.exit_code == 0
+    assert log_file.exists()
+    assert "source=handoff_json" in log_file.read_text(encoding="utf-8")
+
+
+def test_run_claude_role_does_not_short_circuit_to_text_fallback_before_retry(
+    tmp_path, monkeypatch
+):
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("prompt", encoding="utf-8")
+    handoff_file = tmp_path / "handoff.json"
+    artifact = tmp_path / "artifact.md"
+
+    class FakeProcess:
+        def __init__(self, *, stdout: str, stderr: str, on_communicate=None):
+            self.returncode = 1
+            self._stdout = stdout
+            self._stderr = stderr
+            self._on_communicate = on_communicate
+
+        def communicate(self, timeout: float | None = None):
+            if self._on_communicate is not None:
+                self._on_communicate()
+            return self._stdout, self._stderr
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self):
+            return None
+
+        def kill(self):
+            return None
+
+    popen_calls = {"count": 0}
+
+    def make_handoff():
+        artifact.write_text("ok", encoding="utf-8")
+        handoff_file.write_text(
+            '{"status":"complete","artifacts":["artifact.md"],"next":null,"summary":"ok"}',
+            encoding="utf-8",
+        )
+
+    def fake_popen(*args, **kwargs):
+        popen_calls["count"] += 1
+        if popen_calls["count"] == 1:
+            return FakeProcess(
+                stdout="---HANDOFF---\nSTATUS: complete\nARTIFACTS: artifact.md\nNEXT: null\nSUMMARY: text fallback\n",
+                stderr="Error: Permission denied writing artifact",
+            )
+        return FakeProcess(stdout="", stderr="", on_communicate=make_handoff)
+
+    monkeypatch.setattr(claude_runner_module.subprocess, "Popen", fake_popen)
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "bridge.py",
+        model="opus",
+        timeout=1.0,
+        permission_mode="bypassPermissions",
+        artifact_paths=[artifact],
+        poll_interval=0.01,
+        exit_grace_seconds=0.01,
+    )
+
+    assert popen_calls["count"] == 2
+    assert result.result_kind == "handoff_json"
+    assert result.source == "handoff_json"
+    assert "Tier B retry:" in result.stderr
+
+
+def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys):
+    args = Namespace(
+        quest_dir=str(tmp_path / ".quest" / "qid"),
+        phase="plan",
+        agent="planner",
+        iter=1,
+        prompt_file=str(tmp_path / "prompt.txt"),
+        handoff_file=str(tmp_path / "handoff.json"),
+        model="opus",
+        timeout=90.0,
+        permission_mode="bypassPermissions",
+        bridge_script="scripts/claude_cli_bridge.py",
+        cwd=str(tmp_path),
+        add_dir=[],
+    )
+    captured: dict[str, object] = {}
+
+    def fake_expected_artifacts_for_role(*, quest_dir, phase, agent):
+        return [Path(quest_dir) / "phase_01_plan" / "plan.md"]
+
+    def fake_run_claude_role(**kwargs):
+        captured.update(kwargs)
+        return claude_runner_module.RunResult(
+            exit_code=0,
+            handoff_state="missing",
+            result_kind="text_fallback",
+            source="text_fallback",
+            stdout="ok",
+            stderr="",
+        )
+
+    monkeypatch.setattr(quest_claude_runner, "parse_args", lambda: args)
+    monkeypatch.setattr(
+        quest_claude_runner,
+        "expected_artifacts_for_role",
+        fake_expected_artifacts_for_role,
+    )
+    monkeypatch.setattr(quest_claude_runner, "run_claude_role", fake_run_claude_role)
+
+    exit_code = quest_claude_runner.main()
+    payload = capsys.readouterr().out.strip()
+
+    assert exit_code == 0
+    assert captured["allow_text_fallback"] is True
+    assert '"result_kind": "text_fallback"' in payload
+
+
+def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
+    monkeypatch, tmp_path, capsys
+):
+    args = Namespace(
+        quest_dir=str(tmp_path / ".quest" / "qid"),
+        phase="bad_phase",
+        agent="planner",
+        iter=1,
+        prompt_file=str(tmp_path / "prompt.txt"),
+        handoff_file=str(tmp_path / "handoff.json"),
+        model="opus",
+        timeout=90.0,
+        permission_mode="bypassPermissions",
+        bridge_script="scripts/claude_cli_bridge.py",
+        cwd=str(tmp_path),
+        add_dir=[],
+    )
+
+    monkeypatch.setattr(quest_claude_runner, "parse_args", lambda: args)
+
+    exit_code = quest_claude_runner.main()
+    payload = capsys.readouterr().out.strip()
+
+    assert exit_code == 1
+    assert '"result_kind": "invocation_error"' in payload
+    assert '"handoff_state": "missing"' in payload
+    assert "not valid for phase" in payload

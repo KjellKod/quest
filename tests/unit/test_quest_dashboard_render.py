@@ -877,39 +877,43 @@ def test_hero_has_timestamp(tmp_path):
 
 def test_kpi_row_blocked_count(tmp_path):
     """Blocked KPI shows correct count; unknown-status quests excluded from In Progress."""
-    active_quests = [
-        ActiveQuest(
-            quest_id=f"active-{i}",
-            slug=f"active-{i}",
-            title=f"Active {i}",
-            elevator_pitch="Test.",
-            status="In Progress",
-            phase="Building",
-            updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
-        )
-        for i in range(3)
-    ] + [
-        ActiveQuest(
-            quest_id=f"blocked-{i}",
-            slug=f"blocked-{i}",
-            title=f"Blocked {i}",
-            elevator_pitch="Test.",
-            status="Blocked",
-            phase="Building",
-            updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
-        )
-        for i in range(2)
-    ] + [
-        ActiveQuest(
-            quest_id="mystery-001",
-            slug="mystery",
-            title="Mystery Quest",
-            elevator_pitch="Unknown status.",
-            status="SomethingWeird",
-            phase="Unknown",
-            updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
-        ),
-    ]
+    active_quests = (
+        [
+            ActiveQuest(
+                quest_id=f"active-{i}",
+                slug=f"active-{i}",
+                title=f"Active {i}",
+                elevator_pitch="Test.",
+                status="In Progress",
+                phase="Building",
+                updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
+            )
+            for i in range(3)
+        ]
+        + [
+            ActiveQuest(
+                quest_id=f"blocked-{i}",
+                slug=f"blocked-{i}",
+                title=f"Blocked {i}",
+                elevator_pitch="Test.",
+                status="Blocked",
+                phase="Building",
+                updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
+            )
+            for i in range(2)
+        ]
+        + [
+            ActiveQuest(
+                quest_id="mystery-001",
+                slug="mystery",
+                title="Mystery Quest",
+                elevator_pitch="Unknown status.",
+                status="SomethingWeird",
+                phase="Unknown",
+                updated_at=datetime(2026, 2, 12, 10, 0, 0, tzinfo=UTC),
+            ),
+        ]
+    )
 
     data = DashboardData(
         finished_quests=[],

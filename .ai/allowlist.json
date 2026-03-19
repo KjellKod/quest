@@ -18,7 +18,6 @@
     "code_review": true,
     "fix_loop": false
   },
-  "review_mode": "full",
   "models": {
     "planner": "claude",
     "plan-reviewer-a": "claude",
@@ -29,6 +28,7 @@
     "code-reviewer-b": "gpt-5.4",
     "fixer": "gpt-5.4"
   },
+  "review_mode": "full",
   "fast_review_thresholds": {
     "max_files": 5,
     "max_loc": 300

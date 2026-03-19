@@ -11,7 +11,9 @@ from quest_runtime.claude_runner import run_bridge_probe
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Probe Quest Claude bridge via artifact write")
+    parser = argparse.ArgumentParser(
+        description="Probe Quest Claude bridge via artifact write"
+    )
     parser.add_argument("--quest-dir", required=True)
     parser.add_argument("--model", default="opus")
     parser.add_argument("--timeout", type=float, default=30.0)
