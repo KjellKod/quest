@@ -18,10 +18,6 @@
     "code_review": true,
     "fix_loop": false
   },
-  "arbiter": {
-    "tool": "claude",
-    "notes": "Set to 'codex' to use gpt-5.4 as Arbiter instead of Claude. Default: claude."
-  },
   "models": {
     "planner": "claude",
     "plan-reviewer-a": "claude",

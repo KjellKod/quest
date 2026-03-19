@@ -353,7 +353,9 @@ def run_claude_role(
     text_handoff = extract_text_handoff(stdout)
 
     result_kind = (
-        "timeout"
+        "handoff_json"
+        if handoff_state == "found"
+        else "timeout"
         if timed_out
         else classify_result_kind(process.returncode or 1, stderr, handoff_state)
     )
