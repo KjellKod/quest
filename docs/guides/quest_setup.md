@@ -208,9 +208,20 @@ If you don't have Codex or prefer Claude for all roles, set in `allowlist.json`:
 
 The plan and code reviewers will also fall back to Claude if Codex is unavailable.
 
-## Codex-Led Claude Bridge Setup
+## Codex-Led Claude Bridge
 
-If you want Codex to orchestrate Quest while still running Claude-designated slots (planner, reviewer A, arbiter, or Claude fallback paths), set up the local Claude bridge as well:
+When Codex orchestrates a quest, it automatically probes and sets up the Claude bridge before the first Claude-designated role. You don't need to run anything manually.
+
+**Prerequisites:** Claude CLI installed and authenticated (`claude auth status` should show a valid session).
+
+Quest handles the rest automatically:
+- Probes `scripts/claude_cli_bridge.py` once per session
+- Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py`
+- Claude-led quests are unaffected, they keep native `Task(...)` execution
+
+If the probe fails, Claude-designated roles will block until the CLI/auth setup is fixed.
+
+**Optional: manual verification.** If you want to test the bridge before your first Codex-led quest, you can run the probe yourself:
 
 ```bash
 command -v claude
@@ -221,11 +232,7 @@ python3 scripts/quest_claude_probe.py \
   --model opus
 ```
 
-Quest probes this bridge once per Codex-led session before the first Claude-designated slot. If the probe fails, Claude-designated roles that require Claude runtime will block until the local Claude CLI/auth setup is fixed.
-
-This adapter is additive and host-specific:
-- Claude-led quests keep native Claude `Task(...)` behavior for Claude-designated roles.
-- Codex-led quests route Claude-designated roles through `scripts/quest_claude_runner.py`, which uses `scripts/claude_cli_bridge.py` as its transport layer.
+This is the same probe Quest runs automatically. Useful for debugging if Claude-designated roles aren't connecting.
 
 If you need Codex to discover Quest as a global skill outside the repository, see [Installing Quest for Codex](codex-quest-install.md).
 
