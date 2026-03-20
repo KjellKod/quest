@@ -34,6 +34,26 @@ If no quest ID is provided:
 2. Evaluate the user's input against the 7 substance dimensions
 3. Produce the routing decision JSON: `{route, confidence (0.0-1.0), risk_level, complexity, reason, missing_information}`
 
+### Step 2b: Codex Availability Probe (New Quest Only)
+
+Before presenting route options, probe for Codex MCP availability:
+
+1. Call `ToolSearch("codex")` to check if `mcp__codex-cli__codex` (or platform equivalent) is available.
+2. Cache the result as `codex_available` (boolean).
+3. If `codex_available` is false, include a warning in every route presentation (Step 3) before the options:
+   ```
+   ⚠ Codex MCP not available — quest will run Claude-only (all roles).
+     To enable dual-model mode (Claude + Codex), run:
+       npm i -g @openai/codex          # install Codex CLI
+       codex auth                       # login to OpenAI
+       claude mcp add --scope user codex-cli -- codex mcp-server
+     Then restart this Claude Code session.
+   ```
+   Also append "(Claude-only)" to solo/full quest option labels so the user sees the limitation before choosing.
+4. If `codex_available` is true, no warning needed. Proceed normally.
+
+This probe result carries into workflow.md — do not re-probe there.
+
 ### Step 3: Route
 
 Based on the router decision:
