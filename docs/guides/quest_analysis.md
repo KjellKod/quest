@@ -142,7 +142,7 @@ This is gitignored (ephemeral), but available for debugging and learning.
 
 ### 1. Not a Marketplace Fit
 
-Quest is **not** a simple plugin. It's an orchestration framework with 7 agents, 5 skills, and structured phases. Marketplaces (VS Code extensions, npm packages) are designed for self-contained tools with UI-based setup. Quest's distribution model (installer script + copy folders) is the right fit for what it is.
+Quest is **not** a simple plugin. It's an orchestration framework with 7 agents, a rich skill library, and structured phases. Marketplaces (VS Code extensions, npm packages) are designed for self-contained tools with UI-based setup. Quest's distribution model (installer script + copy folders) is the right fit for what it is.
 
 ### 2. Zero Config, But There's Depth
 
