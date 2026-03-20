@@ -214,14 +214,32 @@ When Codex orchestrates a quest, it automatically probes and sets up the Claude 
 
 **Prerequisites:** Claude CLI installed and authenticated (`claude auth status` should show a valid session).
 
-Quest handles the rest automatically:
+### What the bridge does
+
+Quest uses a purpose-built CLI bridge (`scripts/claude_cli_bridge.py`) instead of MCP for cross-model calls. This gives Quest per-invocation control that a static MCP connection can't provide:
+
+- **Filesystem scoping**, each role gets access to only the directories it needs via `--add-dir`
+- **Permission modes**, builder runs with `bypassPermissions`, read-only roles use `plan` mode
+- **Tool restrictions**, reviewers can't write files, planners can't run arbitrary bash
+- **Handoff polling**, the runner watches for `handoff.json` on disk instead of retaining Claude's full response in the Codex orchestrator's context
+- **Context health logging**, every cross-model call is logged to `.quest/<id>/logs/context_health.log` with timestamp, phase, agent, runtime, and handoff state
+- **True isolation**, each call is a fresh `claude --print` invocation with no session state between roles
+
+The bridge script itself is Quest-agnostic, it's a generic utility for calling Claude CLI with structured options. The Quest-specific behavior (handoff polling, logging, text fallback) lives in `quest_claude_runner.py`.
+
+For the full architecture rationale, see [Why the Bridge, Not MCP](quest_presentation.md#why-the-bridge-not-mcp) in the presentation doc.
+
+### What Quest handles automatically
+
 - Probes `scripts/claude_cli_bridge.py` once per session
 - Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py`
 - Claude-led quests are unaffected, they keep native `Task(...)` execution
 
 If the probe fails, Claude-designated roles will block until the CLI/auth setup is fixed.
 
-**Optional: manual verification.** If you want to test the bridge before your first Codex-led quest, you can run the probe yourself:
+### Optional: manual verification
+
+If you want to test the bridge before your first Codex-led quest, you can run the probe yourself:
 
 ```bash
 command -v claude
@@ -232,7 +250,7 @@ python3 scripts/quest_claude_probe.py \
   --model opus
 ```
 
-This is the same probe Quest runs automatically. Useful for debugging if Claude-designated roles aren't connecting.
+This is the same probe Quest runs automatically. It asks Claude to write a real artifact and a handoff JSON, proving the bridge works end-to-end. Useful for debugging if Claude-designated roles aren't connecting.
 
 If you need Codex to discover Quest as a global skill outside the repository, see [Installing Quest for Codex](codex-quest-install.md).
 
