@@ -112,7 +112,7 @@ Quest fixes this with **specialized roles** (planner, reviewer, builder), **clea
 
 ## Under the Hood
 
-Quest leverages each runtime's native capabilities: Claude Code's Task tool for clean subagent spawning, MCP for Codex integration, and a purpose-built **Claude CLI bridge** for cross-model orchestration. The bridge gives Quest per-invocation control that MCP can't match: filesystem scoping per role, permission modes, tool restrictions, budget caps, and a complete audit trail of every cross-model call. It's also [Quest-agnostic and reusable](#why-the-bridge-not-mcp).
+Quest leverages each runtime's native capabilities: Claude Code's Task tool for clean subagent spawning, MCP for Codex integration, and a purpose-built **Claude CLI bridge** for cross-model orchestration. The bridge gives Quest per-invocation control that MCP can't match: filesystem scoping per role, permission modes, tool restrictions, support for budget caps, and a complete audit trail of every cross-model call. It's also [Quest-agnostic and reusable](#why-the-bridge-not-mcp).
 
 ### How `/quest` Executes
 
@@ -151,7 +151,7 @@ MCP is a persistent connection with static configuration. Every call goes throug
 - **Filesystem scoping** (`--add-dir`), each role gets access to only the directories it needs. A planner sees different paths than a builder.
 - **Permission modes** (`--permission-mode`), `bypassPermissions` for a trusted builder, `plan` for read-only exploration.
 - **Tool restrictions** (`--allowed-tools`, `--disallowed-tools`), a reviewer can't write files, a planner can't run arbitrary bash.
-- **Budget caps** (`--max-budget-usd`), per-call spending limits so one runaway role can't drain your account.
+- **Budget caps** (`--max-budget-usd`), the bridge supports per-call spending limits so one runaway role can't drain your account.
 - **True isolation**, each call is a fresh `claude --print` invocation. No session state leaks between roles.
 
 The bridge also enforces the **Context Retention Rule at the transport level**. Instead of returning Claude's full response into the Codex orchestrator's context (which would contaminate it), the runner polls for `handoff.json` on disk. The orchestrator only reads structured routing data, never the full response body.
