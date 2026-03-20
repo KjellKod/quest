@@ -28,7 +28,15 @@ Quest can use Codex as a second reviewer. This gives you two different model fam
 - [Codex CLI](https://developers.openai.com/codex/cli/) installed globally (`npm i -g @openai/codex`)
 - Either `OPENAI_API_KEY` in your environment or a Codex login (`codex` → `/login`)
 
-Add the Codex MCP server to your project's `.claude/mcp.json`:
+Register the Codex MCP server (this should happen automatically when Codex CLI is installed):
+
+```bash
+claude mcp add codex-cli -- codex mcp-server
+```
+
+**Verify it's registered:** `claude mcp list` should show `codex-cli` as a configured server.
+
+If it's not showing up, you can manually add it to `.claude/mcp.json` as a last resort:
 
 ```json
 {
@@ -40,10 +48,6 @@ Add the Codex MCP server to your project's `.claude/mcp.json`:
   }
 }
 ```
-
-This uses the Codex CLI's built-in `mcp-server` subcommand directly — no npm wrapper package needed.
-
-**Verify it works:** `claude mcp list` should show `codex-cli` as a configured server.
 
 **Documentation:** https://platform.openai.com/docs/quickstart
 
