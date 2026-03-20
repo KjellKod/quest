@@ -94,7 +94,7 @@ This means you can switch between Claude Code, Cursor, or Codex without rewritin
 
 ### 2. Dual-Model Review
 
-Quest runs **two different AI models in parallel** (Claude + GPT 5.2) to review both plans and code. This is genuinely clever:
+Quest runs **two different AI models in parallel** (Claude + GPT 5.x) to review both plans and code. This is genuinely clever:
 
 - Different model families have different blind spots
 - Claude might miss what GPT catches, and vice versa
@@ -142,7 +142,7 @@ This is gitignored (ephemeral), but available for debugging and learning.
 
 ### 1. Not a Marketplace Fit
 
-Quest is **not** a simple plugin. It's an orchestration framework with 7 agents, 5 skills, and structured phases. Marketplaces (VS Code extensions, npm packages) are designed for self-contained tools with UI-based setup. Quest's distribution model (installer script + copy folders) is the right fit for what it is.
+Quest is **not** a simple plugin. It's an orchestration framework with 7 agents, a rich skill library, and structured phases. Marketplaces (VS Code extensions, npm packages) are designed for self-contained tools with UI-based setup. Quest's distribution model (installer script + copy folders) is the right fit for what it is.
 
 ### 2. Zero Config, But There's Depth
 
@@ -161,7 +161,7 @@ That's it. No customization required. The `allowlist.json` ships with sensible d
 
 Quest requires:
 - **Claude Code CLI** (required) — Anthropic's official CLI
-- **Codex MCP** (optional) — For dual-model reviews with GPT 5.2
+- **Codex MCP** (optional) — For dual-model reviews with GPT 5.x
 
 If you skip Codex, Quest still works but uses Claude for all roles (single-model).
 

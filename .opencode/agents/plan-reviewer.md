@@ -17,7 +17,7 @@ Return `STATUS: blocked` only if you genuinely cannot review.
 Begin every artifact you write with a metadata header:
 ```
 **Agent:** <your slot, e.g. plan-reviewer-a or plan-reviewer-b>
-**Model:** <your actual model name, e.g. claude-opus-4-6, gpt-5.3-codex, trinity-large-preview>
+**Model:** <your actual model name, e.g. claude-opus-4-6, gpt-5.4>
 **Date:** <YYYY-MM-DD>
 **Quest ID:** <quest_id>
 ```

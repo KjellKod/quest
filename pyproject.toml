@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "Static HTML dashboard generator for Quest"
 requires-python = ">=3.10"
 
+[project.scripts]
+quest-checks = "quest_checks.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["scripts"]
 

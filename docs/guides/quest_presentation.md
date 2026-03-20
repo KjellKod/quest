@@ -1,34 +1,14 @@
 # Quest: Multi-Agent Orchestration for Claude Code
 
-A presentation on coordinated AI agents with human oversight.
+A deep dive into how Quest coordinates AI agents with human oversight.
 
----
-
-## TL;DR
-
-**Quest** is a multi-agent workflow where specialized AI agents (planner, reviewers, builder) work in **isolated contexts** with **human approval gates**. Two different models (Claude + GPT) review independently, an arbiter filters nitpicks, and you approve before anything gets built. All artifacts are saved for audit.
-
-**One sentence:** *"Structured AI teamwork with checks and balances."*
-
-```
-┌─────────────── PLAN PHASE ───────────────┐    ┌─────────── BUILD PHASE ───────────┐
-│                                          │    │                       Arbiter     │
-│  You → Planner → Reviewers → Arbiter  ───┼────→  Builder → Reviewers ──│──────────│──→ Done
-│            ▲      (Claude)      │        │    │              (Claude)  │          │
-│            │      (Codex)       │        │    │              (Codex)   │          │   
-│            └───── iterate ──────┘        │    │                 │      │          │
-│                                          │    │                 ▼      │          │
-│                                          │    │              Fixer ────┘          │
-│                                          │    │           (if issues)             │
-└──────────────────────────────────────────┘    └───────────────────────────────────┘
-                                   ▲
-                                GATE: human approval
-```
+For the quick version, see the [README](../../README.md). For setup instructions, see the [Setup Guide](quest_setup.md).
 
 ---
 
 ## How It Works
-This is the default setup, without any code changes, just asking Claude, it'll spin up more reviewers, or do dual-implementations etc. It's easy to change the default. 
+
+This is the default setup. No code changes needed, just ask Claude. You can easily spin up more reviewers, do dual implementations, or change the defaults.
 
 The point is: we don't trust the individual contributor, we trust the process of checks and balances.
 
@@ -86,8 +66,8 @@ The point is: we don't trust the individual contributor, we trust the process of
                         ▼
                    ┌─────────┐
                    │ Arbiter │
-                   │ (Claude)│               
-                   └────┬────┘               
+                   │ (Claude)│
+                   └────┬────┘
                         │
                         │
               issues? ──┴── clean?
@@ -114,111 +94,27 @@ The point is: we don't trust the individual contributor, we trust the process of
 
 ### Key Points
 
-1. **Clean context** — each agent starts fresh (no drift)
-2. **Dual-model review** — Claude + Codex review plans AND code (different blind spots)
-3. **Arbiter** — filters nitpicks, decides "good enough"
-4. **Human gates** — you approve before building
-5. **Artifacts saved** — full audit trail in `.quest/`
+1. **Clean context**, each agent starts fresh (no drift)
+2. **Dual-model review**, Claude + Codex review plans AND code (different blind spots)
+3. **Arbiter**, filters nitpicks, decides "good enough"
+4. **Human gates**, you approve before building
+5. **Artifacts saved**, full audit trail in `.quest/`
 
 ---
 
-## The Problem
+## The Problem Quest Solves
 
-### AI agents are powerful but risky
+Single-agent conversations drift, lose context, and make unreviewed decisions. Long conversations accumulate errors. Planning, reviewing, and implementing blur together. Human approval is ad-hoc or missing entirely.
 
-- Single-agent conversations drift, lose context, make unreviewed decisions
-- Long conversations accumulate errors and hallucinations
-- No separation of concerns: planning, reviewing, and implementing blur together
-- Human approval gates are ad-hoc or missing entirely
-
-### We need structure
-
-- **Specialized roles** — planner, reviewer, builder, each with clear responsibilities
-- **Clean context** — each role starts fresh, no inherited confusion
-- **Human gates** — explicit approval points before risky actions
-- **Audit trail** — all decisions and artifacts are preserved
+Quest fixes this with **specialized roles** (planner, reviewer, builder), **clean context** (each role starts fresh), **human gates** (explicit approval before risky actions), and a **full audit trail**.
 
 ---
 
-## High-Level Idea
+## Under the Hood
 
-### Multi-agent orchestration with handoffs
+Quest leverages each runtime's native capabilities: Claude Code's Task tool for clean subagent spawning, MCP for Codex integration, and a purpose-built **Claude CLI bridge** for cross-model orchestration. The bridge gives Quest per-invocation control that MCP can't match: filesystem scoping per role, permission modes, tool restrictions, support for budget caps, and a complete audit trail of every cross-model call. It's also [Quest-agnostic and reusable](#why-the-bridge-not-mcp).
 
-```
-Human
-  ↓
-Quest Agent (orchestrator)
-  ↓
-┌─────────────────────────────────────────────────┐
-│  Plan Phase                                      │
-│  ┌──────────┐    ┌──────────┐   ┌──────────┐   │
-│  │ Planner  │ →  │ Reviewer │ → │ Arbiter  │   │
-│  │ (Claude) │    │ (Claude) │   │ (Codex)  │   │
-│  └──────────┘    │ (Codex)  │   └────┬─────┘   │
-│                  └──────────┘        │         │
-│                              approve/iterate    │
-└─────────────────────────────────────────────────┘
-  ↓ (human gate)
-┌─────────────────────────────────────────────────┐
-│  Build Phase                                     │
-│  ┌──────────┐    ┌──────────┐   ┌──────────┐   │
-│  │ Builder  │ →  │ Reviewer │ → │ Fixer    │   │
-│  │ (Claude) │    │ (Claude) │   │ (Claude) │   │
-│  └──────────┘    │ (Codex)  │   └──────────┘   │
-│                  └──────────┘                   │
-└─────────────────────────────────────────────────┘
-  ↓
-Human reviews final result
-```
-
-### Key principles
-
-1. **Each agent has clean context** — starts fresh with only the artifacts it needs
-2. **Dual-model review** — Claude AND Codex review independently (different blind spots)
-3. **Arbiter prevents spin** — synthesizes feedback, enforces KISS/YAGNI, decides "good enough"
-4. **Human is the gatekeeper** — explicit approval before implementation, commits, pushes
-
----
-
-## Solution 1: Bash Orchestrator (Discarded)
-
-### What we built
-
-A 1,048-line bash script (`scripts/quest`) that:
-- Parsed natural language intent via `claude -p`
-- Spawned agents via `claude -p` and `codex exec`
-- Extracted JSON handoffs with sed/grep
-- Managed state via file existence
-
-### Why it failed
-
-| Problem | Impact |
-|---------|--------|
-| FIFO pipe race conditions | Random hangs, lost output |
-| Heredoc escaping | Prompts corrupted by special characters |
-| JSON extraction from free text | 3 fallback methods, still fragile |
-| Codex CLI flag changes | Broke on CLI updates |
-| Stdout contamination | Agent output mixed with orchestrator logs |
-
-**14 of 18 commits were fixes for bash-level problems.**
-
-The architecture was sound. The implementation medium was wrong.
-
----
-
-## Solution 2: Claude Code Native (Current)
-
-### The insight
-
-Claude Code already has:
-- **Task tool** — spawns subagents with clean context
-- **MCP integration** — calls external models (Codex/GPT 5.2)
-- **Hook system** — intercepts tool calls for permission enforcement
-- **Skill system** — packages procedures as `/commands`
-
-**Don't fight the platform. Use it.**
-
-### How it works
+### How `/quest` Executes
 
 ```
 /quest "add a loading skeleton"
@@ -238,83 +134,53 @@ Claude Code already has:
    8. Present results to human
 ```
 
----
-
-## Solution 2: Details
-
 ### Clean Context Isolation
 
 Each agent invocation starts fresh:
 
-**Claude agents** (planner, builder, fixer):
-```
-Task tool with subagent_type: general-purpose
-  → New conversation
-  → Prompt includes: BOOTSTRAP.md + AGENTS.md + role instructions + artifacts
-  → No history from orchestrator conversation
+**Claude agents** (planner, builder, fixer): spawned via Task tool with `subagent_type: general-purpose`. New conversation, prompt includes BOOTSTRAP.md + AGENTS.md + role instructions + artifacts. No history from the orchestrator.
+
+**Codex agents** (reviewers, arbiter): called via `mcp__codex-cli__codex`. Completely separate model (GPT 5.x), prompt assembled by orchestrator.
+
+### Why the Bridge, Not MCP
+
+When Codex orchestrates a quest, Claude-designated roles run through `scripts/claude_cli_bridge.py` instead of an MCP server. This is deliberate.
+
+MCP is a persistent connection with static configuration. Every call goes through the same server with the same permissions. That's fine for Codex reviews where every call needs the same access. But Quest roles have different trust levels, and the bridge gives **per-invocation control**:
+
+- **Filesystem scoping** (`--add-dir`), each role gets access to only the directories it needs. A planner sees different paths than a builder.
+- **Permission modes** (`--permission-mode`), `bypassPermissions` for a trusted builder, `plan` for read-only exploration.
+- **Tool restrictions** (`--allowed-tools`, `--disallowed-tools`), a reviewer can't write files, a planner can't run arbitrary bash.
+- **Budget caps** (`--max-budget-usd`), the bridge supports per-call spending limits so one runaway role can't drain your account.
+- **True isolation**, each call is a fresh `claude --print` invocation. No session state leaks between roles.
+
+The bridge also enforces the **Context Retention Rule at the transport level**. Instead of returning Claude's full response into the Codex orchestrator's context (which would contaminate it), the runner polls for `handoff.json` on disk. The orchestrator only reads structured routing data, never the full response body.
+
+Every invocation is logged to `context_health.log` with timestamp, phase, agent, runtime, iteration, and handoff state, giving you a complete audit trail of cross-model communication.
+
+**The bridge script itself (`claude_cli_bridge.py`) is Quest-agnostic.** It has zero Quest imports or references. It's a generic, reusable utility for calling Claude CLI with structured options. Anyone can borrow it for their own cross-model orchestration. The Quest-specific behavior (handoff polling, context health logging, text fallback extraction) lives in `quest_claude_runner.py`.
+
+**Standalone usage example:**
+
+```bash
+# Review a branch with read-only access and a $1 budget cap
+python3 scripts/claude_cli_bridge.py \
+  --prompt "Review git diff main...HEAD and summarize changes" \
+  --output-format text \
+  --model opus \
+  --permission-mode plan \
+  --add-dir "$(pwd)" \
+  --max-budget-usd 1.00 \
+  --timeout 120
 ```
 
-**Codex agents** (plan reviewers, code reviewers):
-```
-mcp__codex-cli__codex(prompt: "...")
-  → New Codex session
-  → Prompt assembled by orchestrator
-  → Completely separate model (GPT 5.x)
-```
+**Why no bridge for Codex?** Codex roles are all reviews with uniform access, so MCP's static configuration is the right fit. If Codex roles ever diversify in trust level (e.g., Codex as builder vs reviewer), a similar bridge would make sense.
 
 ### Parallel Review Execution
 
-During review phases, the orchestrator dispatches **both reviewers in a single message** to achieve parallel execution:
+During review phases, the orchestrator dispatches both reviewers in a **single message with two tool calls**. Claude's API executes multiple tool calls from one message concurrently. Each reviewer writes to a separate file (no conflicts), and the runtime waits for both to complete before the arbiter synthesizes.
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      QUEST ORCHESTRATOR                             │
-│                 (Main Claude executing /quest skill)                │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  │ Review Phase
-                                  │
-                    ┌─────────────┴─────────────┐
-                    │   SINGLE MESSAGE with     │
-                    │   TWO TOOL CALLS          │
-                    └─────────────┬─────────────┘
-                                  │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-              ▼                   │                   ▼
-┌─────────────────────────┐       │       ┌─────────────────────────┐
-│   Tool Call 1:          │       │       │   Tool Call 2:          │
-│   Reviewer A            │  PARALLEL     │   Reviewer B            │
-│   (per config)          │   EXECUTION   │   (per config)          │
-│                         │       │       │                         │
-│  → plan-reviewer or     │       │       │  → Reviews same         │
-│    code-reviewer agent  │       │       │    artifacts            │
-└───────────┬─────────────┘       │       └───────────┬─────────────┘
-            │                     │                   │
-            ▼                     │                   ▼
-   review_plan-reviewer-a.md       │          review_plan-reviewer-b.md
-                                  │
-              └───────────────────┼───────────────────┘
-                                  │
-                    ┌─────────────┴─────────────┐
-                    │   Runtime collects BOTH   │
-                    │   results, then continues │
-                    └─────────────┴─────────────┘
-                                  │
-                                  ▼
-                          Arbiter synthesizes
-```
-
-**Key points:**
-- Both tools appear in the **same Claude response message**
-- Claude's API executes multiple tool calls from one message **concurrently**
-- The runtime waits for both to complete before returning to the model
-- Each reviewer writes to a separate file (idempotent, no conflicts)
-
-**Why this works:**
-- Task tool calls spawn subagents
-- MCP tool calls invoke external servers
-- Both are `tool_use` blocks at the API level — no serialization between them
+In **solo mode**, only Reviewer A is dispatched. No Reviewer B, no arbiter. Reviewer A's verdict routes directly to the next phase.
 
 ### Human as Gatekeeper
 
@@ -323,10 +189,10 @@ The allowlist (`.ai/allowlist.json`) controls gates:
 ```json
 {
   "auto_approve_phases": {
-    "plan_creation": true,      // Auto-proceed
-    "plan_review": true,        // Auto-proceed
-    "implementation": false,    // STOP: Ask human
-    "fix_loop": false           // STOP: Ask human
+    "plan_creation": true,
+    "plan_review": true,
+    "implementation": false,
+    "fix_loop": false
   },
   "gates": {
     "require_approval_before_commit": true,
@@ -337,16 +203,28 @@ The allowlist (`.ai/allowlist.json`) controls gates:
 }
 ```
 
-**The human decides:**
-- When to proceed from planning to building
-- When to approve fixes
-- When to commit and push
+You decide when to proceed from planning to building, when to approve fixes, and when to commit and push.
 
 ### Where You Spend Your Time
 
-The human workflow is front-loaded and back-loaded. Planning is where you invest attention: reviewing the plan, reading the arbiter's reasoning, sometimes disagreeing. The middle (build, review, fix loops) runs largely on its own. Then after completion, you harden. The quest delivered an MVP that fulfills the plan — but seeing the feature built reveals implications that planning couldn't. Manual validation at this stage is where real understanding happens: you see how the plan was realized, spot hardening opportunities, and often kick off small adjustments or a v2 quest.
+The human workflow is front-loaded and back-loaded. Planning is where you invest attention: reviewing the plan, reading the arbiter's reasoning, sometimes disagreeing. The middle (build, review, fix loops) runs largely on its own. Then after completion, you harden. The quest delivered an MVP that fulfills the plan, but seeing the feature built reveals implications that planning couldn't. Manual validation at this stage is where real understanding happens: you see how the plan was realized, spot hardening opportunities, and often kick off small adjustments or a v2 quest.
 
 Not all code is equal. Critical paths, security boundaries, and architectural decisions warrant manual review even after agents approve. The system handles volume; you handle judgment. This works when you and Quest drive with intention: good test coverage and quality as a first-class constraint, not an afterthought.
+
+### Arbiter Prevents Spin
+
+The Arbiter is the gatekeeper for plan quality:
+
+- Receives both Claude and Codex reviews
+- Filters nitpicks using KISS/YAGNI/SRP principles
+- Max 5 meaningful issues per iteration
+- **Bias toward action**: when in doubt, approve
+
+```
+Iteration 1: "3 issues found, iterate"
+Iteration 2: "1 issue found, iterate"
+Iteration 3: "Remaining feedback is cosmetic, APPROVE"
+```
 
 ### Permission Enforcement
 
@@ -366,24 +244,7 @@ Hook script enforces per-role permissions:
 "file_write": [".quest/**"]
 ```
 
-Exit codes:
-- `0` = allow
-- `2` = block (message shown to user)
-
-### Arbiter Prevents Spin
-
-The Arbiter is the gatekeeper for plan quality:
-
-- Receives both Claude and Codex reviews
-- Filters nitpicks using KISS/YAGNI/SRP principles
-- Max 5 meaningful issues per iteration
-- **Bias toward action**: when in doubt, approve
-
-```
-Iteration 1: "3 issues found, iterate"
-Iteration 2: "1 issue found, iterate"
-Iteration 3: "Remaining feedback is cosmetic, APPROVE"
-```
+Exit codes: `0` = allow, `2` = block (message shown to user).
 
 ### State Persistence
 
@@ -423,99 +284,17 @@ logs/
 
 ---
 
-## Portability: Reuse in Another Repo
-
-### Files to copy
-
-```
-.ai/                              # Source of truth (AI-agnostic)
-  allowlist.json                  # Edit for your repo's paths
-  roles/*.md                      # Agent role definitions
-  schemas/                        # Handoff contract
-  templates/                      # Document templates
-
-.claude/                          # Claude Code integration
-  skills/quest/SKILL.md           # Thin wrapper → .skills/
-  agents/*.md                     # Thin wrappers → .skills/quest/agents/
-  hooks/enforce-allowlist.sh      # Permission enforcement
-
-.skills/quest/SKILL.md            # The actual skill procedure
-```
-
-### Setup steps
-
-1. **Copy folders**: `.ai/`, `.claude/`, `.skills/quest/`
-
-2. **Edit allowlist** for your project:
-   ```json
-   "builder_agent": {
-     "file_write": [".quest/**", "your-src/**", "your-tests/**"],
-     "bash": ["your-test-command", "your-build-command"]
-   }
-   ```
-
-3. **Add to .gitignore**:
-   ```
-   .quest/
-   ```
-
-4. **Optional: Configure Codex MCP** (if using GPT 5.x):
-   Add to `.claude/mcp.json`:
-   ```json
-   { "mcpServers": { "codex-cli": { "command": "codex", "args": ["mcp-server"] } } }
-   ```
-   Requires: `npm i -g @openai/codex` and either `OPENAI_API_KEY` or Codex login (`codex` → `/login`).
-
-5. **Test**:
-   ```
-   /quest "add a simple feature"
-   ```
-
-### Why it's portable
-
-| Component | Location | Why |
-|-----------|----------|-----|
-| Role definitions | `.skills/quest/agents/` (+ `.ai/roles/quest_agent.md`) | AI-agnostic, works with any tool ([README](../../.skills/quest/agents/README.md)) |
-| Permissions | `.ai/allowlist.json` | Plain JSON, human-editable |
-| Skill procedure | `.skills/quest/` | AI-agnostic, could work with other orchestrators |
-| Claude Code config | `.claude/` | Thin wrappers that delegate to `.ai/` and `.skills/` |
-
-**The source of truth is always in AI-agnostic locations.** Claude Code integration is just a thin layer on top.
-
----
-
 ## Performance Considerations
 
-### Codex MCP Latency
+Codex MCP calls are slower than Claude Task calls because Codex must read multiple files, analyze content, and write output. A direct Claude call is near-instant; a Codex review call takes 30-60 seconds.
 
-Codex MCP calls are slower than Claude Task calls because Codex must:
-1. Read multiple files (instructions, context, plan)
-2. Analyze content
-3. Write output file
-
-**Direct Claude call:** "list files" → instant
-**Codex review call:** read 5 files + analyze + write → 30-60 seconds
-
-### Tuning Options
-
-Edit `.skills/quest/SKILL.md` to customize Codex prompts:
-- **Line ~103** — Plan Reviewer (Codex) prompt
-- **Line ~177** — Code Reviewer (Codex) prompt
-
-**Speed vs thoroughness tradeoff:**
+**Tuning options** (edit `.skills/quest/SKILL.md`):
 
 | Approach | Speed | Thoroughness |
 |----------|-------|--------------|
 | Full context (default) | Slower | More thorough |
 | Minimal prompt | Faster | Bullet points only |
 | Skip Codex review | Fastest | Claude-only perspective |
-
-**Example minimal prompt:**
-```
-"Review .quest/<id>/plan.md
- List issues (max 5 bullets).
- Write to review_plan-reviewer-b.md"
-```
 
 ---
 
@@ -533,11 +312,9 @@ Edit `.skills/quest/SKILL.md` to customize Codex prompts:
 | Portability | Source of truth in .ai/ and .skills/ |
 | Customization | Edit prompts in .skills/quest/SKILL.md |
 
-**The result**: Structured, auditable, human-gated AI workflows that leverage Claude Code's native capabilities instead of fighting them.
-
 ---
 
-## Quest Portfolio & Roadmap
+## Quest Portfolio
 
 ### Live Dashboard
 
@@ -547,28 +324,28 @@ See all quest outcomes, status distribution, and drill into individual journal e
 
 ### Example Quests
 
-Every completed quest produces a journal entry with a summary, artifacts, and lessons learned. Here are some highlights showing the range of work Quest handles:
+Every completed quest produces a journal entry with a summary, artifacts, and lessons learned:
 
 | Quest | What it did | Journal |
 |-------|------------|---------|
 | **Phase 4 Role Wiring** | Relocated six Quest role files from `.ai/roles/` to `.skills/quest/agents/`, updated runtime references, validators, metadata, and docs | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/phase4-role-wiring_2026-02-18.md) |
-| **State Validation Script** | Built `validate-quest-state.sh` — the first system-enforced correctness check for Quest phase transitions, with 28-test harness and 10 workflow gates | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/state-validation-script_2026-02-15.md) |
+| **State Validation Script** | Built `validate-quest-state.sh`, the first system-enforced correctness check for Quest phase transitions, with 28-test harness and 10 workflow gates | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/state-validation-script_2026-02-15.md) |
 | **Context Leak Closure** | Implemented `handoff.json` structured file pattern so every agent writes a tiny JSON file and the orchestrator reads routing decisions without processing full responses | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/context-leak-closure_2026-02-15.md) |
-| **Dashboard Layout Redesign** | Restructured dashboard to match executive "Quest Intelligence" design — hero branding, KPI cards, side-by-side charts, card content redesign | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/dashboard-layout-redesign_2026-02-13.md) |
-| **Thin Orchestrator** | Phase 2 of architecture evolution — orchestrator passes paths not content, context stays lean | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/thin-orchestrator_2026-02-09.md) |
-| **Harden URL Rendering** | Fixed XSS vulnerability in dashboard URL rendering — added `_sanitize_url()` with scheme/pattern validation, 7 new tests | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/harden-url-rendering_2026-02-12.md) |
+| **Dashboard Layout Redesign** | Restructured dashboard to match executive "Quest Intelligence" design, hero branding, KPI cards, side-by-side charts, card content redesign | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/dashboard-layout-redesign_2026-02-13.md) |
+| **Thin Orchestrator** | Phase 2 of architecture evolution, orchestrator passes paths not content, context stays lean | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/thin-orchestrator_2026-02-09.md) |
+| **Harden URL Rendering** | Fixed XSS vulnerability in dashboard URL rendering, added `_sanitize_url()` with scheme/pattern validation, 7 new tests | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/harden-url-rendering_2026-02-12.md) |
 
 See the full [Quest Journal](https://github.com/KjellKod/quest/tree/main/docs/quest-journal) for all 21 quests, or browse them on the [dashboard](https://kjellkod.github.io/quest/).
 
-### Architecture Evolution Roadmap
+### Architecture Evolution
 
 Quest has evolved through deliberate phases, each driven by a quest:
 
-1. **Phase 1** — Delegation gate and routing (quest-delegation-gate)
-2. **Phase 2** — Thin orchestrator, paths not content (thin-orchestrator)
-3. **Phase 2b** — Context leak closure with handoff.json (context-leak-closure)
-4. **Phase 3** — State validation script with 28 tests (state-validation-script)
-5. **Phase 4** — Role wiring consolidated under `.skills/quest/` (phase4-role-wiring)
-6. **Phase 5** — Infrastructure hooks — assessed and deliberately deferred
+1. **Phase 1**, Delegation gate and routing
+2. **Phase 2**, Thin orchestrator, paths not content
+3. **Phase 2b**, Context leak closure with handoff.json
+4. **Phase 3**, State validation script with 28 tests
+5. **Phase 4**, Role wiring consolidated under `.skills/quest/`
+6. **Phase 5**, Infrastructure hooks, assessed and deliberately deferred
 
-See [docs/architecture/quest-platform-constellations.md](../../docs/architecture/quest-platform-constellations.md) for the current architecture direction.
+See [quest-platform-constellations.md](../architecture/quest-platform-constellations.md) for the current architecture direction.

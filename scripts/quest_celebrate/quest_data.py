@@ -68,7 +68,9 @@ class QuestData:
     pr_number: Optional[int] = None
     achievements: List[Achievement] = field(default_factory=list)
     quality_score: int = 0
-    quality_tier: str = ""  # Diamond/Platinum/Gold/Silver/Bronze/Tin/Cardboard/Abandoned
+    quality_tier: str = (
+        ""  # Diamond/Platinum/Gold/Silver/Bronze/Tin/Cardboard/Abandoned
+    )
     test_count: Optional[int] = None
     tests_added: Optional[int] = None
 
@@ -115,7 +117,10 @@ def _load_allowlist_quality_defaults() -> Tuple[int, int, int]:
         and gates["max_plan_iterations"] >= 1
     ):
         max_plan_iterations = gates["max_plan_iterations"]
-    if type(gates.get("max_fix_iterations")) is int and gates["max_fix_iterations"] >= 1:
+    if (
+        type(gates.get("max_fix_iterations")) is int
+        and gates["max_fix_iterations"] >= 1
+    ):
         max_fix_iterations = gates["max_fix_iterations"]
 
     solo = data.get("solo", {})
@@ -627,9 +632,7 @@ def compute_quality_tier(
 
     effective_max_fix_iterations = max_fix_iterations
     if quest_mode == "solo":
-        effective_max_fix_iterations = min(
-            max_fix_iterations, solo_max_fix_iterations
-        )
+        effective_max_fix_iterations = min(max_fix_iterations, solo_max_fix_iterations)
 
     # Check from worst to best so max-gate check uses strict equality
 
@@ -800,7 +803,9 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
 
         quote = celebration.get("quote", {})
         if isinstance(quote, dict) and quote:
-            data.brief_summary = f'{quote.get("text", "")} — {quote.get("attribution", "")}'
+            data.brief_summary = (
+                f'{quote.get("text", "")} — {quote.get("attribution", "")}'
+            )
 
         victory_narrative = celebration.get("victory_narrative")
         if isinstance(victory_narrative, str):
@@ -832,9 +837,7 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
         data.plan_iterations = int(plan_match.group(1))
         parsed_plan_iterations = True
 
-    fix_match = re.search(
-        r"(?:\*\*)?[Ff]ix\s+iterations:\s*(?:\*\*)?\s*(\d+)", content
-    )
+    fix_match = re.search(r"(?:\*\*)?[Ff]ix\s+iterations:\s*(?:\*\*)?\s*(\d+)", content)
     parsed_fix_iterations = False
     if fix_match:
         data.fix_iterations = int(fix_match.group(1))

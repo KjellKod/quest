@@ -3,7 +3,7 @@
   "title": "Quest Allowlist Configuration",
   "description": "Creator-managed permissions for quest orchestration.",
   "type": "object",
-  "required": ["version", "auto_approve_phases", "arbiter", "review_mode", "role_permissions", "gates"],
+  "required": ["version", "auto_approve_phases", "review_mode", "role_permissions", "gates"],
   "properties": {
     "version": { "type": "integer", "minimum": 1 },
     "description": { "type": "string" },
@@ -18,14 +18,26 @@
         "fix_loop": { "type": "boolean" }
       }
     },
-    "arbiter": {
+    "quest_completion": {
       "type": "object",
       "properties": {
-        "tool": { "type": "string", "enum": ["claude", "codex"] },
-        "notes": { "type": "string" }
+        "enabled": { "type": "boolean" },
+        "animation_style": { "type": "string" },
+        "show_end_credits": { "type": "boolean" },
+        "show_progress_bars": { "type": "boolean" },
+        "ascii_art": { "type": "boolean" },
+        "animation_speed": { "type": "string" },
+        "safe_mode": { "type": "string" }
       }
     },
-    "review_mode": { "type": "string", "enum": ["auto", "manual", "fast", "full"] },
+    "models": {
+      "type": "object",
+      "propertyNames": {
+        "enum": ["planner", "plan-reviewer-a", "plan-reviewer-b", "arbiter", "builder", "code-reviewer-a", "code-reviewer-b", "fixer"]
+      },
+      "additionalProperties": { "type": "string" }
+    },
+    "review_mode": { "type": "string", "enum": ["auto", "fast", "full"] },
     "fast_review_thresholds": {
       "type": "object",
       "properties": {
@@ -49,6 +61,13 @@
       "properties": {
         "max_fix_iterations": { "type": "integer", "minimum": 1 },
         "notes": { "type": "string" }
+      }
+    },
+    "update_check": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "interval_days": { "type": "integer", "minimum": 1 }
       }
     },
     "gates": {

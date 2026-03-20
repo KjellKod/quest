@@ -83,15 +83,19 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
 
+    # Resolve to absolute path once so validator subprocess and Python
+    # process both target the same state.json regardless of cwd.
+    quest_dir = str(Path(args.quest_dir).resolve())
+
     target_phase = args.transition or args.phase
 
     if args.transition:
         # Validate before mutating
-        rc, output = run_validator(args.quest_dir, args.transition)
+        rc, output = run_validator(quest_dir, args.transition)
         if rc != 0:
             current = "unknown"
             try:
-                current = load_state(args.quest_dir).get("phase", "unknown")
+                current = load_state(quest_dir).get("phase", "unknown")
             except Exception:
                 pass
             print(
@@ -102,7 +106,7 @@ def main() -> int:
             return 1
 
     state = update_state(
-        args.quest_dir,
+        quest_dir,
         phase=target_phase,
         status=args.status,
         last_role=args.last_role,

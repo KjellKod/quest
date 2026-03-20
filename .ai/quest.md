@@ -41,12 +41,12 @@ The Quest Agent interprets your intent, matches brief references, and routes to 
 | Quest Agent | (Claude Code itself) | Claude Opus (`opus`) | Orchestration, gating |
 | Planner | `.skills/quest/agents/planner.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Write and refine plan artifacts |
 | Plan Reviewer (Claude) | `.skills/quest/agents/plan-reviewer.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Review plans (read-only) |
-| Plan Reviewer (Codex) | `.skills/quest/agents/plan-reviewer.md` | Codex (`gpt-5.3-codex`) | Review plans (read-only) |
+| Plan Reviewer (Codex) | `.skills/quest/agents/plan-reviewer.md` | Codex (`gpt-5.4`) | Review plans (read-only) |
 | Arbiter | `.skills/quest/agents/arbiter.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Synthesize reviews, approve or iterate |
-| Builder | `.skills/quest/agents/builder.md` | Codex (`gpt-5.3-codex`) by default; Claude runtime fallback | Implement changes |
+| Builder | `.skills/quest/agents/builder.md` | Codex (`gpt-5.4`) by default; Claude runtime fallback | Implement changes |
 | Code Reviewer (Claude) | `.skills/quest/agents/code-reviewer.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Review code (read-only) |
-| Code Reviewer (Codex) | `.skills/quest/agents/code-reviewer.md` | Codex (`gpt-5.3-codex`) | Review code (read-only) |
-| Fixer | `.skills/quest/agents/fixer.md` | Codex (`gpt-5.3-codex`) by default; Claude runtime fallback | Fix review issues |
+| Code Reviewer (Codex) | `.skills/quest/agents/code-reviewer.md` | Codex (`gpt-5.4`) | Review code (read-only) |
+| Fixer | `.skills/quest/agents/fixer.md` | Codex (`gpt-5.4`) by default; Claude runtime fallback | Fix review issues |
 
 ## Plan Phase Flow
 
@@ -77,12 +77,47 @@ Codex-led Quest note:
 - The workflow now probes bridge availability once per session, routes Claude-designated slots by selected model/runtime, and logs bridge-invoked Claude roles as `runtime=claude`.
 - Bridge failures are explicit: timeout retries once, CLI/auth failures block immediately, and malformed output/missing handoff retries once before text fallback or blocking.
 
+## Artifact Preparation and Runtime Fallbacks
+
+### Workspace-Local Quest Paths
+
+All Quest-owned artifacts default to `<repo>/.quest/<quest_id>/...`. This keeps artifacts within the workspace root for all runtimes, avoiding sandbox write-boundary issues.
+
+Use `default_quest_dir(workspace_root, quest_id)` from `quest_runtime.artifacts` to resolve the canonical path.
+
+### Artifact Preparation Invariant
+
+Before each role invocation, the orchestrator prepares that role's expected artifact files:
+1. Resolve paths via `expected_artifacts_for_role(quest_dir, phase, agent)`
+2. Create directories and truncate files via `prepare_artifact_files(paths)`
+3. Instruct the agent to overwrite the prepared files directly (no shell redirection or heredocs)
+
+This is runtime-neutral — the same preparation runs whether the orchestrator is Claude or Codex.
+
+### Fallback Ladder
+
+When a role invocation fails (missing/unparsable handoff), Quest uses a three-tier retry strategy:
+
+- **Tier A — Normal run:** Configured runtime/model, normal permissions, with artifact preparation.
+- **Tier B — Permission/transport retry (same runtime, same model):** Triggered only for `write_boundary` or `permission` failures. Codex: escalate from `workspace-write` to `danger-full-access` only when the user has explicitly approved that broader access or an equivalent persisted approval exists. Claude bridge: add out-of-workspace dirs via `--add-dir`. Native Claude: widen tool permissions.
+- **Tier C — Cross-runtime fallback:** Triggered when Tier B is exhausted or the failure is non-write-boundary (timeout, model failure, invocation error). Codex slots fall back to Claude; Claude bridge slots fall back to Codex.
+
+`danger-full-access` is never set automatically. Escalation is explicit and exceptional.
+
+### Failure Classification
+
+`classify_failure_kind` in `quest_runtime.claude_runner` routes failures:
+- `timeout` — process timed out
+- `invocation` — CLI/auth/environment error
+- `write_boundary` — artifacts missing/empty AND paths are out-of-workspace
+- `permission` — stderr contains permission-denied signals
+- `model` — reasoning/compliance failure (default)
+
 ## Allowlist
 
 The Creator controls quest permissions via `.ai/allowlist.json`:
 - `auto_approve_phases` — which phases need human approval
-- `arbiter.tool` — Arbiter model (`claude` by default)
-- `model_overrides` — default role model map (`planner`, `plan-reviewer-a`, `plan-reviewer-b`, `builder`, `code-reviewer-a`, `code-reviewer-b`, `arbiter`, `fixer`)
+- `models` — default role model map (`planner`, `plan-reviewer-a`, `plan-reviewer-b`, `builder`, `code-reviewer-a`, `code-reviewer-b`, `arbiter`, `fixer`)
 - `review_mode` — `auto` (default), `fast`, or `full` for Codex reviews
 - `fast_review_thresholds` — file/LOC thresholds for auto fast mode
 

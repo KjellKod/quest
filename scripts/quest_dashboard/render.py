@@ -38,14 +38,54 @@ _BADGE_TEXT = {
 
 # Quality tier badge colors and tooltips
 _TIER_STYLE = {
-    "Diamond": ("rgba(56, 189, 248, 0.15)", "#38bdf8", "rgba(56, 189, 248, 0.3)", "Flawless — zero issues, shipped clean"),
-    "Platinum": ("rgba(52, 211, 153, 0.15)", "#34d399", "rgba(52, 211, 153, 0.3)", "Near-perfect — minor issues, one-pass fix"),
-    "Gold": ("rgba(96, 165, 250, 0.15)", "#60a5fa", "rgba(96, 165, 250, 0.3)", "Solid — issues caught, fixed cleanly"),
-    "Silver": ("rgba(96, 165, 250, 0.15)", "#60a5fa", "rgba(96, 165, 250, 0.3)", "Workable — multiple iterations but landed"),
-    "Bronze": ("rgba(245, 158, 11, 0.15)", "#f59e0b", "rgba(245, 158, 11, 0.3)", "Rough ride — got through, bruised"),
-    "Tin": ("rgba(148, 163, 184, 0.15)", "#94a3b8", "rgba(148, 163, 184, 0.3)", "Dented — 3+ iterations, plan revisions"),
-    "Cardboard": ("rgba(148, 163, 184, 0.15)", "#94a3b8", "rgba(148, 163, 184, 0.3)", "Held together with tape. Still shipped."),
-    "Abandoned": ("rgba(248, 113, 113, 0.15)", "#f87171", "rgba(248, 113, 113, 0.3)", "Never shipped — lessons learned"),
+    "Diamond": (
+        "rgba(56, 189, 248, 0.15)",
+        "#38bdf8",
+        "rgba(56, 189, 248, 0.3)",
+        "Flawless — zero issues, shipped clean",
+    ),
+    "Platinum": (
+        "rgba(52, 211, 153, 0.15)",
+        "#34d399",
+        "rgba(52, 211, 153, 0.3)",
+        "Near-perfect — minor issues, one-pass fix",
+    ),
+    "Gold": (
+        "rgba(96, 165, 250, 0.15)",
+        "#60a5fa",
+        "rgba(96, 165, 250, 0.3)",
+        "Solid — issues caught, fixed cleanly",
+    ),
+    "Silver": (
+        "rgba(96, 165, 250, 0.15)",
+        "#60a5fa",
+        "rgba(96, 165, 250, 0.3)",
+        "Workable — multiple iterations but landed",
+    ),
+    "Bronze": (
+        "rgba(245, 158, 11, 0.15)",
+        "#f59e0b",
+        "rgba(245, 158, 11, 0.3)",
+        "Rough ride — got through, bruised",
+    ),
+    "Tin": (
+        "rgba(148, 163, 184, 0.15)",
+        "#94a3b8",
+        "rgba(148, 163, 184, 0.3)",
+        "Dented — 3+ iterations, plan revisions",
+    ),
+    "Cardboard": (
+        "rgba(148, 163, 184, 0.15)",
+        "#94a3b8",
+        "rgba(148, 163, 184, 0.3)",
+        "Held together with tape. Still shipped.",
+    ),
+    "Abandoned": (
+        "rgba(248, 113, 113, 0.15)",
+        "#f87171",
+        "rgba(248, 113, 113, 0.3)",
+        "Never shipped — lessons learned",
+    ),
 }
 
 _TIER_ICON = {
@@ -904,10 +944,7 @@ def _render_portfolio_section(
     if not all_quests:
         cards_html = '      <div class="empty-state">No quests in this category</div>'
     else:
-        cards = [
-            _render_quest_card(quest, github_url)
-            for _, quest in all_quests
-        ]
+        cards = [_render_quest_card(quest, github_url) for _, quest in all_quests]
         cards_html = (
             f'      <div class="quest-grid">\n' + "\n".join(cards) + "\n      </div>"
         )
@@ -952,9 +989,11 @@ def _render_quest_card(
                 f'<span><b>Quest ID:</b> <a href="{journal_url}">{html.escape(quest.quest_id)}</a></span>'
             ]
         else:
-            meta_items = [f'<span><b>Quest ID:</b> {html.escape(quest.quest_id)}</span>']
+            meta_items = [
+                f"<span><b>Quest ID:</b> {html.escape(quest.quest_id)}</span>"
+            ]
     else:
-        meta_items = [f'<span><b>Quest ID:</b> {html.escape(quest.quest_id)}</span>']
+        meta_items = [f"<span><b>Quest ID:</b> {html.escape(quest.quest_id)}</span>"]
 
     if isinstance(quest, JournalEntry):
         meta_items.append(
@@ -969,7 +1008,7 @@ def _render_quest_card(
     if quest.plan_iterations is not None or quest.fix_iterations is not None:
         plan = quest.plan_iterations or 0
         fix = quest.fix_iterations or 0
-        meta_items.append(f'<span><b>Iterations:</b> plan {plan} / fix {fix}</span>')
+        meta_items.append(f"<span><b>Iterations:</b> plan {plan} / fix {fix}</span>")
 
     # Add PR link if available (JournalEntry only)
     if isinstance(quest, JournalEntry) and quest.pr_number:
@@ -981,14 +1020,14 @@ def _render_quest_card(
     # Add agent models if available (JournalEntry with celebration_data)
     if isinstance(quest, JournalEntry) and quest.agent_models:
         models_str = ", ".join(html.escape(m) for m in quest.agent_models)
-        meta_items.append(f'<span><b>Cast:</b> {models_str}</span>')
+        meta_items.append(f"<span><b>Cast:</b> {models_str}</span>")
 
     # Add test count if available (JournalEntry with celebration_data)
     if isinstance(quest, JournalEntry) and quest.test_count is not None:
         test_str = str(quest.test_count)
         if quest.tests_added is not None:
             test_str += f" ({quest.tests_added} new)"
-        meta_items.append(f'<span><b>Tests:</b> {html.escape(test_str)}</span>')
+        meta_items.append(f"<span><b>Tests:</b> {html.escape(test_str)}</span>")
 
     meta_html = "\n            ".join(meta_items)
 
@@ -1003,7 +1042,7 @@ def _render_quest_card(
             tier_badge_html = (
                 f' <span class="badge" style="background:{bg};color:{color};'
                 f'border:1px solid {border}" title="{html.escape(tooltip)}">'
-                f'{icon} {html.escape(tier.upper())}</span>'
+                f"{icon} {html.escape(tier.upper())}</span>"
             )
 
     return f"""        <article class="quest-card">

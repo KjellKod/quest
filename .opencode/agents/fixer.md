@@ -16,7 +16,7 @@ Return `STATUS: blocked` only if truly unable to proceed.
 Begin every artifact you write with a metadata header:
 ```
 **Agent:** fixer
-**Model:** <your actual model name, e.g. claude-opus-4-6, gpt-5.3-codex, trinity-large-preview>
+**Model:** <your actual model name, e.g. claude-opus-4-6, gpt-5.4>
 **Date:** <YYYY-MM-DD>
 **Quest ID:** <quest_id>
 ```

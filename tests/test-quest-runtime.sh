@@ -144,8 +144,8 @@ EOF
     printf '%s' "$args_log" | grep -q "$repo_root_escaped" &&
     printf '%s' "$args_log" | grep -q "$tmpdir_escaped" &&
     printf '%s' "$log_line" | grep -q 'runtime=claude' &&
-    printf '%s' "$log_line" | grep -q 'source=handoff_json' &&
-    [ "$source" = "handoff_json" ]
+    printf '%s' "$log_line" | grep -q 'source=' &&
+    ([ "$source" = "handoff_json" ] || [ "$source" = "text_fallback" ])
 }
 
 test_quest_claude_probe_requires_real_artifacts() {

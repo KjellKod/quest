@@ -28,7 +28,17 @@ Quest can use Codex as a second reviewer. This gives you two different model fam
 - [Codex CLI](https://developers.openai.com/codex/cli/) installed globally (`npm i -g @openai/codex`)
 - Either `OPENAI_API_KEY` in your environment or a Codex login (`codex` → `/login`)
 
-Add the Codex MCP server to your project's `.claude/mcp.json`:
+Register the Codex MCP server globally (one-time setup):
+
+```bash
+claude mcp add --scope user codex-cli -- codex mcp-server
+```
+
+> **Note:** If a repo has its own `.claude/mcp.json`, it shadows the global config. In that case, also run `claude mcp add codex-cli -- codex mcp-server` inside that repo so the project-level config includes it too. If Codex isn't connecting for any reason, running the per-repo command is a safe first troubleshooting step.
+
+**Verify it's registered:** `claude mcp list` should show `codex-cli` as a configured server.
+
+If it's not showing up, you can manually add it to `.claude/mcp.json` as a last resort:
 
 ```json
 {
@@ -40,10 +50,6 @@ Add the Codex MCP server to your project's `.claude/mcp.json`:
   }
 }
 ```
-
-This uses the Codex CLI's built-in `mcp-server` subcommand directly — no npm wrapper package needed.
-
-**Verify it works:** `claude mcp list` should show `codex-cli` as a configured server.
 
 **Documentation:** https://platform.openai.com/docs/quickstart
 
@@ -85,6 +91,8 @@ The installer:
 - Tracks file checksums to detect your modifications
 - Never overwrites customizations (uses `.quest_updated` suffix)
 - Self-updates when a newer version is available
+
+To use Quest as a global Codex skill outside a specific repo, see [Installing Quest for Codex](codex-quest-install.md).
 
 ### Option B: Manual Copy
 
@@ -171,7 +179,7 @@ Key sections to customize:
 | `role_permissions.fixer_agent.file_write` | Paths where fixer can write (usually same as builder minus docs) |
 | `role_permissions.*.bash` | Shell commands each role can run (test runners, build tools) |
 | `auto_approve_phases` | Which phases run without human confirmation |
-| `arbiter.tool` | Set to `"claude"` to use Claude Opus instead of Codex/GPT 5.2 |
+| `models.arbiter` | Set to `"claude"` or `"gpt-5.4"` to choose arbiter runtime |
 | `review_mode` | `auto` (default), `fast`, or `full` for Codex reviews |
 | `fast_review_thresholds` | File/LOC thresholds used when `review_mode: auto` |
 
@@ -204,9 +212,40 @@ If you don't have Codex or prefer Claude for all roles, set in `allowlist.json`:
 
 The plan and code reviewers will also fall back to Claude if Codex is unavailable.
 
-## Codex-Led Claude Bridge Setup
+If you want Codex to discover Quest as a global skill (outside the repository), see [Installing Quest for Codex](codex-quest-install.md).
 
-If you want Codex to orchestrate Quest while still running Claude-designated slots (planner, reviewer A, arbiter, or Claude fallback paths), set up the local Claude bridge as well:
+## Codex-Led Claude Bridge
+
+When Codex orchestrates a quest, it automatically probes and sets up the Claude bridge before the first Claude-designated role. You don't need to run anything manually.
+
+**Prerequisites:** Claude CLI installed and authenticated (`claude auth status` should show a valid session).
+
+### What the bridge does
+
+Quest uses a purpose-built CLI bridge (`scripts/claude_cli_bridge.py`) instead of MCP for cross-model calls. This gives Quest per-invocation control that a static MCP connection can't provide:
+
+- **Filesystem scoping**, each role gets access to only the directories it needs via `--add-dir`
+- **Permission modes**, builder runs with `bypassPermissions`, read-only roles use `plan` mode
+- **Tool restrictions**, reviewers can't write files, planners can't run arbitrary bash
+- **Handoff polling**, the runner watches for `handoff.json` on disk instead of retaining Claude's full response in the Codex orchestrator's context
+- **Context health logging**, every cross-model call is logged to `.quest/<id>/logs/context_health.log` with timestamp, phase, agent, runtime, and handoff state
+- **True isolation**, each call is a fresh `claude --print` invocation with no session state between roles
+
+The bridge script itself is Quest-agnostic, it's a generic utility for calling Claude CLI with structured options. The Quest-specific behavior (handoff polling, logging, text fallback) lives in `quest_claude_runner.py`.
+
+For the full architecture rationale, see [Why the Bridge, Not MCP](quest_presentation.md#why-the-bridge-not-mcp) in the presentation doc.
+
+### What Quest handles automatically
+
+- Probes `scripts/claude_cli_bridge.py` once per session
+- Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py`
+- Claude-led quests are unaffected, they keep native `Task(...)` execution
+
+If the probe fails, Claude-designated roles will block until the CLI/auth setup is fixed.
+
+### Optional: manual verification
+
+If you want to test the bridge before your first Codex-led quest, you can run the probe yourself:
 
 ```bash
 command -v claude
@@ -217,11 +256,7 @@ python3 scripts/quest_claude_probe.py \
   --model opus
 ```
 
-Quest probes this bridge once per Codex-led session before the first Claude-designated slot. If the probe fails, Claude-designated roles that require Claude runtime will block until the local Claude CLI/auth setup is fixed.
-
-This adapter is additive and host-specific:
-- Claude-led quests keep native Claude `Task(...)` behavior for Claude-designated roles.
-- Codex-led quests route Claude-designated roles through `scripts/quest_claude_runner.py`, which uses `scripts/claude_cli_bridge.py` as its transport layer.
+This is the same probe Quest runs automatically. It asks Claude to write a real artifact and a handoff JSON, proving the bridge works end-to-end. Useful for debugging if Claude-designated roles aren't connecting.
 
 If you need Codex to discover Quest as a global skill outside the repository, see [Installing Quest for Codex](codex-quest-install.md).
 
@@ -236,6 +271,9 @@ After setup, verify everything is in place:
    ls -la .claude/skills/quest/SKILL.md
    ls -la .claude/agents/
    ls -la .claude/hooks/enforce-allowlist.sh
+   ls -la scripts/claude_cli_bridge.py
+   ls -la scripts/quest_claude_probe.py
+   ls -la scripts/quest_claude_runner.py
    ```
 
 2. **Validate allowlist:**
