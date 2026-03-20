@@ -90,6 +90,8 @@ The installer:
 - Never overwrites customizations (uses `.quest_updated` suffix)
 - Self-updates when a newer version is available
 
+To use Quest as a global Codex skill outside a specific repo, see [Installing Quest for Codex](codex-quest-install.md).
+
 ### Option B: Manual Copy
 
 ## What to Copy
@@ -207,6 +209,8 @@ If you don't have Codex or prefer Claude for all roles, set in `allowlist.json`:
 ```
 
 The plan and code reviewers will also fall back to Claude if Codex is unavailable.
+
+If you want Codex to discover Quest as a global skill (outside the repository), see [Installing Quest for Codex](codex-quest-install.md).
 
 ## Codex-Led Claude Bridge
 
