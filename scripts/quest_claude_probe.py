@@ -16,7 +16,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--quest-dir", required=True)
     parser.add_argument("--model", default="opus")
-    parser.add_argument("--timeout", type=float, default=30.0)
+    parser.add_argument("--timeout", type=float, default=60.0)
     parser.add_argument("--permission-mode", default="bypassPermissions")
     parser.add_argument("--bridge-script", default="scripts/claude_cli_bridge.py")
     parser.add_argument("--cwd", default=".")

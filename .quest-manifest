@@ -86,6 +86,7 @@ scripts/quest_celebrate/progress.py
 scripts/quest_celebrate/terminal.py
 scripts/quest_celebrate/quest_data.py
 scripts/quest_celebrate/quest-celebrate.sh
+scripts/quest_preflight.sh
 
 [user-customized]
 # These files are NEVER overwritten - upstream changes create .quest_updated suffix

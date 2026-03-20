@@ -34,6 +34,25 @@ If no quest ID is provided:
 2. Evaluate the user's input against the 7 substance dimensions
 3. Produce the routing decision JSON: `{route, confidence (0.0-1.0), risk_level, complexity, reason, missing_information}`
 
+### Step 2b: Second Model Availability Probe (New Quest Only)
+
+**MANDATORY — run before Step 3.** From the repository root, execute the preflight check:
+
+```bash
+./scripts/quest_preflight.sh --orchestrator claude   # if you are Claude
+./scripts/quest_preflight.sh --orchestrator codex    # if you are Codex
+```
+
+The script is at the **repository root** (`scripts/quest_preflight.sh`), NOT inside the skill directory.
+
+1. Parse the JSON output. Cache `available` as a boolean for the session.
+2. If `available` is false:
+   - Display **every line** of the `warning` array from the JSON output as a blockquote before route options. The array contains the heading, setup commands, and instructions — show them all.
+   - Append "(Claude-only)" or "(Codex-only)" to solo/full quest option labels.
+3. If `available` is true, proceed normally.
+
+This result carries into workflow.md — do not re-probe there.
+
 ### Step 3: Route
 
 Based on the router decision:
