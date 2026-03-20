@@ -160,6 +160,20 @@ Every invocation is logged to `context_health.log` with timestamp, phase, agent,
 
 **The bridge script itself (`claude_cli_bridge.py`) is Quest-agnostic.** It has zero Quest imports or references. It's a generic, reusable utility for calling Claude CLI with structured options. Anyone can borrow it for their own cross-model orchestration. The Quest-specific behavior (handoff polling, context health logging, text fallback extraction) lives in `quest_claude_runner.py`.
 
+**Standalone usage example:**
+
+```bash
+# Review a branch with read-only access and a $1 budget cap
+python3 scripts/claude_cli_bridge.py \
+  --prompt "Review git diff main...HEAD and summarize changes" \
+  --output-format text \
+  --model opus \
+  --permission-mode plan \
+  --add-dir "$(pwd)" \
+  --max-budget-usd 1.00 \
+  --timeout 120
+```
+
 **Why no bridge for Codex?** Codex roles are all reviews with uniform access, so MCP's static configuration is the right fit. If Codex roles ever diversify in trust level (e.g., Codex as builder vs reviewer), a similar bridge would make sense.
 
 ### Parallel Review Execution
