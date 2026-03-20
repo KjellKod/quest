@@ -160,6 +160,8 @@ Every invocation is logged to `context_health.log` with timestamp, phase, agent,
 
 **The bridge script itself (`claude_cli_bridge.py`) is Quest-agnostic.** It has zero Quest imports or references. It's a generic, reusable utility for calling Claude CLI with structured options. Anyone can borrow it for their own cross-model orchestration. The Quest-specific behavior (handoff polling, context health logging, text fallback extraction) lives in `quest_claude_runner.py`.
 
+**Why no bridge for Codex?** Codex roles are all reviews with uniform access, so MCP's static configuration is the right fit. If Codex roles ever diversify in trust level (e.g., Codex as builder vs reviewer), a similar bridge would make sense.
+
 ### Parallel Review Execution
 
 During review phases, the orchestrator dispatches both reviewers in a **single message with two tool calls**. Claude's API executes multiple tool calls from one message concurrently. Each reviewer writes to a separate file (no conflicts), and the runtime waits for both to complete before the arbiter synthesizes.
