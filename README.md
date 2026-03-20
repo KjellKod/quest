@@ -87,14 +87,16 @@ For advanced patterns (phased execution, plan comparison, model mixing), see the
 
 ## The Agents
 
-| Role | What it does |
-|------|-------------|
-| **Planner** | Explores the codebase and writes the implementation plan |
-| **Reviewer A** (Claude) | Reviews plans and code from one perspective |
-| **Reviewer B** (Codex) | Reviews independently, different model, different blind spots |
-| **Arbiter** | Synthesizes reviews, filters nitpicks, decides approve or iterate |
-| **Builder** | Implements the approved plan, runs tests, produces PR description |
-| **Fixer** | Surgical fixes from review feedback without rebuilding |
+| Role | Default model | What it does |
+|------|--------------|-------------|
+| **Planner** | Claude | Explores the codebase and writes the implementation plan |
+| **Reviewer A** | Claude | Reviews plans and code from one perspective |
+| **Reviewer B** | Codex (GPT) | Reviews independently, different model, different blind spots |
+| **Arbiter** | Claude | Synthesizes reviews, filters nitpicks, decides approve or iterate |
+| **Builder** | Claude | Implements the approved plan, runs tests, produces PR description |
+| **Fixer** | Claude | Surgical fixes from review feedback without rebuilding |
+
+These are defaults, not fixed assignments. Every role can run on a different model. Update `.ai/allowlist.json` to reassign roles, or just ask the orchestrator mid-quest to swap models. Want GPT as your planner and Claude as reviewer? KiMi as arbiter? Try it. See the [OpenCode Field Notes](docs/guides/opencode-model-observations.md) for tested configurations across 30+ models.
 
 Solo mode skips Reviewer B and the Arbiter. Same pipeline, just faster.
 
