@@ -23,13 +23,20 @@ Tool naming is platform-specific (depends on the MCP server name in config):
 
 In this document, `mcp__codex__codex` is used as an **abstract placeholder** meaning "the platform's Codex session-start MCP tool". Substitute the actual tool name for your platform.
 
-If `codex_available` was already cached by the preflight script (SKILL.md Step 2b), use the cached value. Otherwise, probe now:
+If the preflight result was already cached by SKILL.md Step 2b, use the cached values. Otherwise, probe now:
 
-1. Run `scripts/quest_preflight.sh --orchestrator claude` (or `codex` if Codex-led) and parse the JSON output.
+**Claude-led sessions:**
+1. Run `scripts/quest_preflight.sh --orchestrator claude` and parse the JSON output.
 2. Cache the `available` field as `codex_available` (boolean) for the rest of the session.
 3. If `codex_available` is false:
    - Log: `"Codex MCP not available — using Claude runtime fallback for all roles."`
    - **Global rule:** Every `mcp__codex__codex` invocation in this workflow (Reviewer B slots, Builder, Fixer — any role) is replaced with the equivalent Claude runtime fallback for that role. Use the same prompt (minus the non-interactive rule), the same output file paths, and the same handoff contract. Do not retry Codex. Do not treat this as an error.
+
+**Codex-led sessions:**
+1. `codex_available` is always true (Codex is the active runtime — no MCP needed).
+2. Run `scripts/quest_preflight.sh --orchestrator codex` and parse the JSON output.
+3. Cache the `available` field as `claude_bridge_available` (boolean) for the rest of the session.
+4. If `claude_bridge_available` is false: Claude-designated roles block unless that step defines an explicit Codex fallback (see Claude Bridge Probe section below).
 4. If `codex_available` is true:
    - Proceed normally with Codex invocations per the workflow below.
 

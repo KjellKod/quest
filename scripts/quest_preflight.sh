@@ -25,7 +25,11 @@ ORCHESTRATOR=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --orchestrator)
-      ORCHESTRATOR="${2:-}"
+      if [ $# -lt 2 ] || [ -z "$2" ]; then
+        echo "Usage: quest_preflight.sh --orchestrator claude|codex" >&2
+        exit 2
+      fi
+      ORCHESTRATOR="$2"
       shift 2
       ;;
     *)
