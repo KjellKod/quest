@@ -87,19 +87,21 @@ probe_codex() {
     available="true"
   fi
 
-  # Build warning if not available
+  # Build warning lines if not available
+  local warning_lines=""
   if [ "$available" = "false" ]; then
-    local steps=""
+    warning_lines="    \"Codex MCP not available -- quest will run Claude-only (all roles).\",\n"
+    warning_lines="${warning_lines}    \"To enable dual-model mode (Claude + Codex), run:\",\n"
     if [ "$codex_cli_installed" = "false" ]; then
-      steps="npm i -g @openai/codex          # install Codex CLI\n"
+      warning_lines="${warning_lines}    \"  npm i -g @openai/codex          # install Codex CLI\",\n"
     fi
     if [ "$openai_auth" = "false" ]; then
-      steps="${steps}codex auth                       # login to OpenAI\n"
+      warning_lines="${warning_lines}    \"  codex auth                       # login to OpenAI\",\n"
     fi
     if [ "$codex_mcp_registered" = "false" ]; then
-      steps="${steps}claude mcp add --scope user codex-cli -- codex mcp-server\n"
+      warning_lines="${warning_lines}    \"  claude mcp add --scope user codex-cli -- codex mcp-server\",\n"
     fi
-    warning="Codex MCP not available — quest will run Claude-only (all roles).\nTo enable dual-model mode (Claude + Codex), run:\n  ${steps}Then restart this Claude Code session."
+    warning_lines="${warning_lines}    \"Then restart this Claude Code session.\""
   fi
 
   cat <<EOJSON
@@ -112,7 +114,7 @@ probe_codex() {
     "codex_mcp_registered": ${codex_mcp_registered},
     "openai_auth": ${openai_auth}
   },
-  "warning": $(if [ -n "$warning" ]; then printf '%s' "$warning" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))'; else echo 'null'; fi)
+  "warning": $(if [ -n "$warning_lines" ]; then printf '[\n%b\n  ]' "$warning_lines"; else echo 'null'; fi)
 }
 EOJSON
 
@@ -155,14 +157,15 @@ probe_claude_bridge() {
     rm -rf "$probe_dir"
   fi
 
-  # Build warning if not available
+  # Build warning lines if not available
+  local warning_lines=""
   if [ "$available" = "false" ]; then
-    local steps=""
+    warning_lines="    \"Claude bridge not available -- quest will run Codex-only (all roles).\",\n"
+    warning_lines="${warning_lines}    \"Ensure Claude CLI is installed and authenticated:\",\n"
     if [ "$claude_cli_installed" = "false" ]; then
-      steps="Install Claude CLI: npm i -g @anthropic-ai/claude-code\n  "
+      warning_lines="${warning_lines}    \"  npm i -g @anthropic-ai/claude-code  # install Claude CLI\",\n"
     fi
-    steps="${steps}Authenticate: claude auth"
-    warning="Claude bridge not available — quest will run Codex-only (all roles).\nEnsure Claude CLI is installed and authenticated:\n  ${steps}"
+    warning_lines="${warning_lines}    \"  claude auth                          # authenticate\""
   fi
 
   cat <<EOJSON
@@ -175,7 +178,7 @@ probe_claude_bridge() {
     "bridge_script_exists": ${bridge_script_exists},
     "bridge_reachable": ${bridge_reachable}
   },
-  "warning": $(if [ -n "$warning" ]; then printf '%s' "$warning" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))'; else echo 'null'; fi)
+  "warning": $(if [ -n "$warning_lines" ]; then printf '[\n%b\n  ]' "$warning_lines"; else echo 'null'; fi)
 }
 EOJSON
 
