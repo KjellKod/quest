@@ -64,7 +64,7 @@ Say **"just go with it"** anytime to skip questions and proceed with assumptions
 ```bash
 # Scale from simple to complex
 /quest "Add a loading spinner to the save button"
-/quest "Implement user preferences with localStorage, follow idea document <path> and our RFC outlined in <confluence link>"
+/quest "Implement user preferences with localStorage, follow idea document <path> and our RFC ..."
 /quest "Build a real-time collaboration system, plan phases first, don't implement yet"
 
 # Resume, redirect, swap models
