@@ -23,12 +23,12 @@ Tool naming is platform-specific (depends on the MCP server name in config):
 
 In this document, `mcp__codex__codex` is used as an **abstract placeholder** meaning "the platform's Codex session-start MCP tool". Substitute the actual tool name for your platform.
 
-If `codex_available` was already cached by the quest SKILL.md probe (Step 2b), skip re-probing and use the cached value. Otherwise, before the first Codex invocation, the orchestrator MUST probe for tool availability:
+If `codex_available` was already cached by the preflight script (SKILL.md Step 2b), use the cached value. Otherwise, probe now:
 
-1. Call `ToolSearch("codex")` (or platform equivalent) to discover if `mcp__codex__codex` is available.
-2. Cache the result as `codex_available` (boolean) for the rest of the session.
+1. Run `scripts/quest_preflight.sh --orchestrator claude` (or `codex` if Codex-led) and parse the JSON output.
+2. Cache the `available` field as `codex_available` (boolean) for the rest of the session.
 3. If `codex_available` is false:
-   - The user was already warned during route selection (SKILL.md Step 2b). Do not repeat the full warning — just log: `"Codex MCP not available — using Claude runtime fallback for all roles."`
+   - Log: `"Codex MCP not available — using Claude runtime fallback for all roles."`
    - **Global rule:** Every `mcp__codex__codex` invocation in this workflow (Reviewer B slots, Builder, Fixer — any role) is replaced with the equivalent Claude runtime fallback for that role. Use the same prompt (minus the non-interactive rule), the same output file paths, and the same handoff contract. Do not retry Codex. Do not treat this as an error.
 4. If `codex_available` is true:
    - Proceed normally with Codex invocations per the workflow below.

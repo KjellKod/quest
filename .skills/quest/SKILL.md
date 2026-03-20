@@ -36,34 +36,20 @@ If no quest ID is provided:
 
 ### Step 2b: Second Model Availability Probe (New Quest Only)
 
-Before presenting route options, probe for the availability of the second model:
+Before presenting route options, run the preflight check:
 
-**If the orchestrator is Claude** (Claude Code, OpenCode with Claude, etc.):
-1. Call `ToolSearch("codex")` to check if `mcp__codex-cli__codex` (or platform equivalent) is available.
-2. Cache the result as `codex_available` (boolean).
-3. If `codex_available` is false, include a warning in every route presentation (Step 3) before the options:
-   ```
-   ⚠ Codex MCP not available — quest will run Claude-only (all roles).
-     To enable dual-model mode (Claude + Codex), run:
-       npm i -g @openai/codex          # install Codex CLI
-       codex auth                       # login to OpenAI
-       claude mcp add --scope user codex-cli -- codex mcp-server
-     Then restart this Claude Code session.
-   ```
-   Also append "(Claude-only)" to solo/full quest option labels so the user sees the limitation before choosing.
-4. If `codex_available` is true, no warning needed. Proceed normally.
+```bash
+scripts/quest_preflight.sh --orchestrator claude   # if you are Claude
+scripts/quest_preflight.sh --orchestrator codex    # if you are Codex
+```
 
-**If the orchestrator is Codex:**
-1. Probe for Claude bridge availability (see workflow.md Claude Bridge Probe section).
-2. Cache the result as `claude_bridge_available` (boolean).
-3. If `claude_bridge_available` is false, include a warning before route options:
-   ```
-   ⚠ Claude bridge not available — quest will run Codex-only (all roles).
-     Ensure Claude CLI is installed and authenticated: claude auth
-   ```
-4. If `claude_bridge_available` is true, no warning needed. Proceed normally.
+1. Parse the JSON output. Cache `available` as a boolean for the session.
+2. If `available` is false:
+   - Display the `warning` field from the JSON output as a blockquote before route options.
+   - Append "(Claude-only)" or "(Codex-only)" to solo/full quest option labels.
+3. If `available` is true, proceed normally.
 
-This probe result carries into workflow.md — do not re-probe there.
+This result carries into workflow.md — do not re-probe there.
 
 ### Step 3: Route
 
