@@ -152,8 +152,8 @@ probe_claude_bridge() {
 
   # Run the real probe if both exist
   if [ "$claude_cli_installed" = "true" ] && [ "$bridge_script_exists" = "true" ]; then
-    local probe_dir=".quest/_preflight_probe"
-    mkdir -p "$probe_dir"
+    local probe_dir
+    probe_dir=$(mktemp -d 2>/dev/null || mktemp -d -t quest_preflight)
     if python3 scripts/quest_claude_probe.py --quest-dir "$probe_dir" --model opus >/dev/null 2>&1; then
       bridge_reachable="true"
       available="true"
