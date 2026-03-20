@@ -112,6 +112,8 @@ Quest fixes this with **specialized roles** (planner, reviewer, builder), **clea
 
 ## Under the Hood
 
+Quest leverages each runtime's native capabilities: Claude Code's Task tool for clean subagent spawning, MCP for Codex integration, and a purpose-built **Claude CLI bridge** for cross-model orchestration. The bridge gives Quest per-invocation control that MCP can't match: filesystem scoping per role, permission modes, tool restrictions, budget caps, and a complete audit trail of every cross-model call. It's also [Quest-agnostic and reusable](#why-the-bridge-not-mcp).
+
 ### How `/quest` Executes
 
 ```
@@ -139,6 +141,24 @@ Each agent invocation starts fresh:
 **Claude agents** (planner, builder, fixer): spawned via Task tool with `subagent_type: general-purpose`. New conversation, prompt includes BOOTSTRAP.md + AGENTS.md + role instructions + artifacts. No history from the orchestrator.
 
 **Codex agents** (reviewers, arbiter): called via `mcp__codex-cli__codex`. Completely separate model (GPT 5.x), prompt assembled by orchestrator.
+
+### Why the Bridge, Not MCP
+
+When Codex orchestrates a quest, Claude-designated roles run through `scripts/claude_cli_bridge.py` instead of an MCP server. This is deliberate.
+
+MCP is a persistent connection with static configuration. Every call goes through the same server with the same permissions. That's fine for Codex reviews where every call needs the same access. But Quest roles have different trust levels, and the bridge gives **per-invocation control**:
+
+- **Filesystem scoping** (`--add-dir`), each role gets access to only the directories it needs. A planner sees different paths than a builder.
+- **Permission modes** (`--permission-mode`), `bypassPermissions` for a trusted builder, `plan` for read-only exploration.
+- **Tool restrictions** (`--allowed-tools`, `--disallowed-tools`), a reviewer can't write files, a planner can't run arbitrary bash.
+- **Budget caps** (`--max-budget-usd`), per-call spending limits so one runaway role can't drain your account.
+- **True isolation**, each call is a fresh `claude --print` invocation. No session state leaks between roles.
+
+The bridge also enforces the **Context Retention Rule at the transport level**. Instead of returning Claude's full response into the Codex orchestrator's context (which would contaminate it), the runner polls for `handoff.json` on disk. The orchestrator only reads structured routing data, never the full response body.
+
+Every invocation is logged to `context_health.log` with timestamp, phase, agent, runtime, iteration, and handoff state, giving you a complete audit trail of cross-model communication.
+
+**The bridge script itself (`claude_cli_bridge.py`) is Quest-agnostic.** It has zero Quest imports or references. It's a generic, reusable utility for calling Claude CLI with structured options. Anyone can borrow it for their own cross-model orchestration. The Quest-specific behavior (handoff polling, context health logging, text fallback extraction) lives in `quest_claude_runner.py`.
 
 ### Parallel Review Execution
 
