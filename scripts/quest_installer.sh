@@ -1287,6 +1287,105 @@ check_self_update() {
 }
 
 ###############################################################################
+# Codex MCP Setup (Optional Second Model)
+###############################################################################
+
+offer_codex_setup() {
+  # Skip in non-interactive or dry-run modes
+  if $DRY_RUN || $FORCE_MODE || [ ! -t 0 ] || [ ! -t 1 ]; then
+    return 0
+  fi
+
+  echo ""
+  log_info "Checking for Codex MCP (optional second model for Quest)..."
+
+  # Check if codex CLI is already installed
+  if command -v codex &>/dev/null; then
+    log_success "Codex CLI found: $(command -v codex)"
+  else
+    echo ""
+    echo "  Quest can use OpenAI Codex as a second model for reviews and"
+    echo "  implementation, giving you dual-model coverage (Claude + Codex)."
+    echo ""
+    echo "  This is optional — Quest works fine with Claude only."
+    echo ""
+    if prompt_yn "Install Codex CLI? (npm i -g @openai/codex)" "n"; then
+      echo ""
+      log_info "Installing Codex CLI..."
+      if npm i -g @openai/codex 2>&1; then
+        log_success "Codex CLI installed"
+      else
+        log_warn "Codex CLI installation failed — you can install it later with: npm i -g @openai/codex"
+        return 0
+      fi
+    else
+      log_info "Skipping Codex CLI — install later with: npm i -g @openai/codex"
+      return 0
+    fi
+  fi
+
+  # Codex CLI is available — check if MCP server is registered
+  # Try to detect if claude CLI is available for MCP registration
+  if ! command -v claude &>/dev/null; then
+    log_warn "Claude CLI not found — cannot register Codex MCP server automatically"
+    echo "  After installing Claude CLI, run:"
+    echo "    claude mcp add --scope user codex-cli -- codex mcp-server"
+    return 0
+  fi
+
+  # Check if codex-cli MCP is already registered (user scope)
+  local mcp_list
+  mcp_list=$(claude mcp list 2>/dev/null || echo "")
+  if echo "$mcp_list" | grep -q "codex-cli"; then
+    log_success "Codex MCP server already registered"
+    check_openai_auth
+    return 0
+  fi
+
+  echo ""
+  echo "  The Codex MCP server needs to be registered with Claude Code so"
+  echo "  Quest can delegate tasks to Codex during reviews and builds."
+  echo ""
+  echo "  This will run:"
+  echo "    claude mcp add --scope user codex-cli -- codex mcp-server"
+  echo ""
+  if prompt_yn "Register Codex MCP server?" "y"; then
+    if claude mcp add --scope user codex-cli -- codex mcp-server 2>&1; then
+      log_success "Codex MCP server registered (user scope)"
+    else
+      log_warn "MCP registration failed — you can do it manually:"
+      echo "    claude mcp add --scope user codex-cli -- codex mcp-server"
+      return 0
+    fi
+  else
+    log_info "Skipping MCP registration — run later:"
+    echo "    claude mcp add --scope user codex-cli -- codex mcp-server"
+    return 0
+  fi
+
+  check_openai_auth
+}
+
+# Check if OpenAI authentication is set up
+check_openai_auth() {
+  if [ -n "${OPENAI_API_KEY:-}" ]; then
+    return 0
+  fi
+
+  # Check .env file
+  if [ -f ".env" ] && grep -q "OPENAI_API_KEY" ".env"; then
+    return 0
+  fi
+
+  echo ""
+  log_warn "OpenAI API key not detected"
+  echo "  Codex needs an OpenAI API key to work. Either:"
+  echo "    1. Run: codex auth       (interactive login)"
+  echo "    2. Set: export OPENAI_API_KEY=<your-key>"
+  echo "    3. Add OPENAI_API_KEY to your .env file"
+}
+
+###############################################################################
 # Next Steps
 ###############################################################################
 
@@ -1463,6 +1562,9 @@ run_install() {
 
   # Run validation
   run_validation
+
+  # Offer Codex MCP setup (optional second model)
+  offer_codex_setup
 
   # Print next steps
   print_next_steps

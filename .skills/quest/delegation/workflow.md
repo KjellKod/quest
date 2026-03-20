@@ -28,7 +28,16 @@ Before the first Codex invocation, the orchestrator MUST probe for tool availabi
 1. Call `ToolSearch("codex")` (or platform equivalent) to discover if `mcp__codex__codex` is available.
 2. Cache the result as `codex_available` (boolean) for the rest of the session.
 3. If `codex_available` is false:
-   - Log: `"Codex MCP not available in this session — all Codex slots will use Claude runtime fallback."`
+   - **Display a visible warning to the user:**
+     ```
+     ⚠ Codex MCP not available — Quest will run Claude-only (all roles).
+
+     To enable dual-model mode (Claude + Codex), run:
+       npm i -g @openai/codex          # install Codex CLI
+       codex auth                       # login to OpenAI
+       claude mcp add --scope user codex-cli -- codex mcp-server
+     Then restart this Claude Code session.
+     ```
    - **Global rule:** Every `mcp__codex__codex` invocation in this workflow (Reviewer B slots, Builder, Fixer — any role) is replaced with the equivalent Claude runtime fallback for that role. Use the same prompt (minus the non-interactive rule), the same output file paths, and the same handoff contract. Do not retry Codex. Do not treat this as an error.
 4. If `codex_available` is true:
    - Proceed normally with Codex invocations per the workflow below.
