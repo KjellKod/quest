@@ -20,17 +20,17 @@
   },
   "arbiter": {
     "tool": "claude",
-    "notes": "Set to 'codex' to use gpt-5.3-codex as Arbiter instead of Claude. Default: claude."
+    "notes": "Set to 'codex' to use gpt-5.4 as Arbiter instead of Claude. Default: claude."
   },
   "model_overrides": {
     "planner": "opus",
     "plan-reviewer-a": "opus",
-    "plan-reviewer-b": "gpt-5.3-codex",
-    "builder": "gpt-5.3-codex",
+    "plan-reviewer-b": "gpt-5.4",
+    "builder": "gpt-5.4",
     "code-reviewer-a": "opus",
-    "code-reviewer-b": "gpt-5.3-codex",
+    "code-reviewer-b": "gpt-5.4",
     "arbiter": "opus",
-    "fixer": "gpt-5.3-codex"
+    "fixer": "gpt-5.4"
   },
   "review_mode": "auto",
   "fast_review_thresholds": {

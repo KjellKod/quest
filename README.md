@@ -89,14 +89,16 @@ For advanced patterns (phased execution, plan comparison, model mixing), see the
 
 | Role | Default model | What it does |
 |------|--------------|-------------|
-| **Planner** | Claude | Explores the codebase and writes the implementation plan |
-| **Reviewer A** | Claude | Reviews plans and code from one perspective |
-| **Reviewer B** | Codex (GPT) | Reviews independently, different model, different blind spots |
-| **Arbiter** | Claude | Synthesizes reviews, filters nitpicks, decides approve or iterate |
-| **Builder** | Claude | Implements the approved plan, runs tests, produces PR description |
-| **Fixer** | Claude | Surgical fixes from review feedback without rebuilding |
+| **Planner** | Claude Opus | Explores the codebase and writes the implementation plan |
+| **Reviewer A** | Claude Opus | Reviews plans and code from one perspective |
+| **Reviewer B** | GPT-5.4 | Reviews independently, different model, different blind spots |
+| **Arbiter** | Claude Opus | Synthesizes reviews, filters nitpicks, decides approve or iterate |
+| **Builder** | GPT-5.4 | Implements the approved plan, runs tests, produces PR description |
+| **Fixer** | GPT-5.4 | Surgical fixes from review feedback without rebuilding |
 
-These are defaults, not fixed assignments. Every role can run on a different model. Update `.ai/allowlist.json` to reassign roles, or just ask the orchestrator mid-quest to swap models. Want GPT as your planner and Claude as reviewer? KiMi as arbiter? Try it. See the [OpenCode Field Notes](docs/guides/opencode-model-observations.md) for tested configurations across 30+ models.
+These defaults work with Claude (Sonnet or Opus) or GPT-5.x (5.2 or later) as the orchestrator, and across runtimes: Claude Code, Codex CLI, or Cursor IDE.
+
+Every role is swappable. Update `model_overrides` in `.ai/allowlist.json` to reassign roles, or just ask the orchestrator mid-quest to swap models. Want GPT as your planner and Claude as reviewer? KiMi as arbiter? Try it. With the installer setup you can mix and match any models you prefer. See the [OpenCode Field Notes](docs/guides/opencode-model-observations.md) for tested configurations across 30+ models.
 
 Solo mode skips Reviewer B and the Arbiter. Same pipeline, just faster.
 
