@@ -282,14 +282,6 @@ Codex MCP calls are slower than Claude Task calls because Codex must read multip
 
 ---
 
-## Historical Note: The Bash Orchestrator
-
-Quest started as a 1,048-line bash script that parsed natural language via `claude -p`, spawned agents, and extracted JSON handoffs with sed/grep. It worked conceptually but failed practically: FIFO pipe race conditions, heredoc escaping corruption, fragile JSON extraction, and Codex CLI flag changes. 14 of 18 commits were fixes for bash-level problems.
-
-The architecture was sound. The implementation medium was wrong. Claude Code's native Task tool, MCP integration, and skill system solved every problem the bash script fought.
-
----
-
 ## Summary
 
 | Aspect | How Quest Handles It |
