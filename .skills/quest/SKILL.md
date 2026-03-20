@@ -36,12 +36,14 @@ If no quest ID is provided:
 
 ### Step 2b: Second Model Availability Probe (New Quest Only)
 
-Before presenting route options, run the preflight check:
+**MANDATORY — run before Step 3.** From the repository root, execute the preflight check:
 
 ```bash
-scripts/quest_preflight.sh --orchestrator claude   # if you are Claude
-scripts/quest_preflight.sh --orchestrator codex    # if you are Codex
+./scripts/quest_preflight.sh --orchestrator claude   # if you are Claude
+./scripts/quest_preflight.sh --orchestrator codex    # if you are Codex
 ```
+
+The script is at the **repository root** (`scripts/quest_preflight.sh`), NOT inside the skill directory.
 
 1. Parse the JSON output. Cache `available` as a boolean for the session.
 2. If `available` is false:
