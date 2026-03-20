@@ -121,6 +121,7 @@ EXECUTABLE_FILES=(
   "scripts/validate-quest-config.sh"
   "scripts/quest_installer.sh"
   "scripts/quest_celebrate/quest-celebrate.sh"
+  "scripts/quest_preflight.sh"
 )
 
 ###############################################################################
