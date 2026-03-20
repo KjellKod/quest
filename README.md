@@ -104,7 +104,8 @@ Solo mode skips Reviewer B and the Arbiter. Same pipeline, just faster.
 
 ## Key Features
 
-- **Clean context**, each agent starts fresh, no drift
+- **Artifact-driven**, agents communicate through written artifacts, not conversation. No chat history, no accumulated drift, no hallucinated context. Each agent reads evidence and produces evidence
+- **Clean context**, each agent starts fresh with only the artifacts it needs
 - **Dual-model review**, different models catch different blind spots
 - **Human gates**, you approve before anything gets built
 - **Smart routing**, evaluates complexity/risk, routes to solo or full workflow
