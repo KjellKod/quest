@@ -89,10 +89,10 @@ For advanced patterns (phased execution, plan comparison, model mixing), see the
 
 | Role | Default model | What it does |
 |------|--------------|-------------|
-| **Planner** | Claude Opus | Explores the codebase and writes the implementation plan |
-| **Reviewer A** | Claude Opus | Reviews plans and code from one perspective |
+| **Planner** | Opus 4.6 | Explores the codebase and writes the implementation plan |
+| **Reviewer A** | Opus 4.6 | Reviews plans and code from one perspective |
 | **Reviewer B** | GPT-5.4 | Reviews independently, different model, different blind spots |
-| **Arbiter** | Claude Opus | Synthesizes reviews, filters nitpicks, decides approve or iterate |
+| **Arbiter** | Opus 4.6 | Synthesizes reviews, filters nitpicks, decides approve or iterate |
 | **Builder** | GPT-5.4 | Implements the approved plan, runs tests, produces PR description |
 | **Fixer** | GPT-5.4 | Surgical fixes from review feedback without rebuilding |
 
