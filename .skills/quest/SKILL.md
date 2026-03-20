@@ -34,10 +34,11 @@ If no quest ID is provided:
 2. Evaluate the user's input against the 7 substance dimensions
 3. Produce the routing decision JSON: `{route, confidence (0.0-1.0), risk_level, complexity, reason, missing_information}`
 
-### Step 2b: Codex Availability Probe (New Quest Only)
+### Step 2b: Second Model Availability Probe (New Quest Only)
 
-Before presenting route options, probe for Codex MCP availability:
+Before presenting route options, probe for the availability of the second model:
 
+**If the orchestrator is Claude** (Claude Code, OpenCode with Claude, etc.):
 1. Call `ToolSearch("codex")` to check if `mcp__codex-cli__codex` (or platform equivalent) is available.
 2. Cache the result as `codex_available` (boolean).
 3. If `codex_available` is false, include a warning in every route presentation (Step 3) before the options:
@@ -51,6 +52,16 @@ Before presenting route options, probe for Codex MCP availability:
    ```
    Also append "(Claude-only)" to solo/full quest option labels so the user sees the limitation before choosing.
 4. If `codex_available` is true, no warning needed. Proceed normally.
+
+**If the orchestrator is Codex:**
+1. Probe for Claude bridge availability (see workflow.md Claude Bridge Probe section).
+2. Cache the result as `claude_bridge_available` (boolean).
+3. If `claude_bridge_available` is false, include a warning before route options:
+   ```
+   ⚠ Claude bridge not available — quest will run Codex-only (all roles).
+     Ensure Claude CLI is installed and authenticated: claude auth
+   ```
+4. If `claude_bridge_available` is true, no warning needed. Proceed normally.
 
 This probe result carries into workflow.md — do not re-probe there.
 
