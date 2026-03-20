@@ -40,3 +40,7 @@ Requiring humans to advance every step does not scale and increases error.
 
 **We are not replacing human judgment.**
 We are amplifying it by removing avoidable toil and preventing avoidable mistakes.
+
+---
+
+*Back to the [README](../../README.md).*
