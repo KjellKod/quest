@@ -94,7 +94,7 @@ This means you can switch between Claude Code, Cursor, or Codex without rewritin
 
 ### 2. Dual-Model Review
 
-Quest runs **two different AI models in parallel** (Claude + GPT 5.2) to review both plans and code. This is genuinely clever:
+Quest runs **two different AI models in parallel** (Claude + GPT 5.x) to review both plans and code. This is genuinely clever:
 
 - Different model families have different blind spots
 - Claude might miss what GPT catches, and vice versa
@@ -161,7 +161,7 @@ That's it. No customization required. The `allowlist.json` ships with sensible d
 
 Quest requires:
 - **Claude Code CLI** (required) — Anthropic's official CLI
-- **Codex MCP** (optional) — For dual-model reviews with GPT 5.2
+- **Codex MCP** (optional) — For dual-model reviews with GPT 5.x
 
 If you skip Codex, Quest still works but uses Claude for all roles (single-model).
 
