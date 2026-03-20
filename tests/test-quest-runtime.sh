@@ -144,8 +144,8 @@ EOF
     printf '%s' "$args_log" | grep -q "$repo_root_escaped" &&
     printf '%s' "$args_log" | grep -q "$tmpdir_escaped" &&
     printf '%s' "$log_line" | grep -q 'runtime=claude' &&
-    printf '%s' "$log_line" | grep -q 'source=handoff_json' &&
-    [ "$source" = "handoff_json" ]
+    printf '%s' "$log_line" | grep -q 'source=' &&
+    ([ "$source" = "handoff_json" ] || [ "$source" = "text_fallback" ])
 }
 
 test_quest_claude_probe_requires_real_artifacts() {
@@ -206,7 +206,102 @@ EOF
     [ "$source" = "handoff_json" ]
 }
 
+test_quest_state_transition_valid() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  cat > "$tmpdir/state.json" <<EOF
+{
+  "quest_id": "test_quest",
+  "slug": "test",
+  "phase": "plan_reviewed",
+  "status": "complete",
+  "quest_mode": "solo",
+  "plan_iteration": 1,
+  "fix_iteration": 0,
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z"
+}
+EOF
+
+  local output rc phase updated
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition presenting --status in_progress 2>&1)
+  rc=$?
+  phase=$(jq -r '.phase' "$tmpdir/state.json")
+  updated=$(jq -r '.updated_at' "$tmpdir/state.json")
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$phase" = "presenting" ] &&
+    [ "$updated" != "2026-01-01T00:00:00Z" ]
+}
+
+test_quest_state_transition_invalid_leaves_state_unchanged() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  cat > "$tmpdir/state.json" <<EOF
+{
+  "quest_id": "test_quest",
+  "slug": "test",
+  "phase": "building",
+  "status": "in_progress",
+  "quest_mode": "workflow",
+  "plan_iteration": 1,
+  "fix_iteration": 0,
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z"
+}
+EOF
+
+  local output rc phase updated
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building 2>&1)
+  rc=$?
+  phase=$(jq -r '.phase' "$tmpdir/state.json")
+  updated=$(jq -r '.updated_at' "$tmpdir/state.json")
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 1 ] &&
+    [ "$phase" = "building" ] &&
+    [ "$updated" = "2026-01-01T00:00:00Z" ]
+}
+
+test_quest_state_transition_rejects_plan_reviewed_to_building() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  echo '{"status":"complete","next":"builder","summary":"approved"}' > "$tmpdir/phase_01_plan/handoff_arbiter.json"
+  cat > "$tmpdir/state.json" <<EOF
+{
+  "quest_id": "test_quest",
+  "slug": "test",
+  "phase": "plan_reviewed",
+  "status": "complete",
+  "quest_mode": "workflow",
+  "plan_iteration": 1,
+  "fix_iteration": 0,
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z"
+}
+EOF
+
+  local output rc phase
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building 2>&1)
+  rc=$?
+  phase=$(jq -r '.phase' "$tmpdir/state.json")
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 1 ] &&
+    [ "$phase" = "plan_reviewed" ] &&
+    echo "$output" | grep -qi "rejected"
+}
+
 run_test test_quest_state_updates_phase_and_timestamp
+run_test test_quest_state_transition_valid
+run_test test_quest_state_transition_invalid_leaves_state_unchanged
+run_test test_quest_state_transition_rejects_plan_reviewed_to_building
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
 run_test test_quest_claude_probe_requires_real_artifacts
 

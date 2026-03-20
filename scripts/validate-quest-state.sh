@@ -71,6 +71,8 @@ Valid target phases:
   plan, plan_reviewed, presenting, presentation_complete,
   building, reviewing, fixing, complete
 
+Note: plan_reviewed -> building is NOT allowed. Presentation is mandatory.
+
 Dependencies: bash, jq
 EOF
   exit 0
@@ -173,7 +175,6 @@ validate_transition() {
     "plan_reviewed->presenting") valid=true ;;
     "presenting->presentation_complete") valid=true ;;
     "presentation_complete->building") valid=true ;;
-    "plan_reviewed->building") valid=true ;;
     "building->reviewing") valid=true ;;
     "reviewing->fixing")   valid=true ;;
     "reviewing->complete") valid=true ;;
@@ -217,11 +218,8 @@ validate_artifacts() {
       check_file "$quest_dir/phase_01_plan/plan.md"
       ;;
     "presentation_complete->building")
-      # No arbiter semantic re-check here. The arbiter approves at plan->plan_reviewed.
-      # The presentation path only shows the plan to the user; it doesn't change approval.
-      check_file "$quest_dir/phase_01_plan/plan.md"
-      ;;
-    "plan_reviewed->building")
+      # Artifact check: plan exists. Semantic check in validate_semantic_content
+      # verifies arbiter/reviewer-A approval from the plan_reviewed phase.
       check_file "$quest_dir/phase_01_plan/plan.md"
       ;;
     "building->reviewing")
@@ -277,9 +275,8 @@ validate_semantic_content() {
   local target="$3"
 
   case "${current}->${target}" in
-    "plan_reviewed->building")
+    "presentation_complete->building")
       if [ "$QUEST_MODE" = "solo" ]; then
-        # Solo: reviewer A's verdict (remapped by workflow to next=builder)
         local reviewer_a_file="$quest_dir/phase_01_plan/handoff_plan-reviewer-a.json"
         if [ ! -f "$reviewer_a_file" ]; then
           fail "Semantic check: handoff_plan-reviewer-a.json not found at $reviewer_a_file"
@@ -287,7 +284,6 @@ validate_semantic_content() {
         fi
         local next_val
         next_val=$(jq -r '.next' "$reviewer_a_file" 2>/dev/null)
-        # Workflow remaps "arbiter" → "builder" in solo mode; accept both
         if [ "$next_val" = "builder" ] || [ "$next_val" = "arbiter" ]; then
           pass "Semantic check: reviewer A approved for building (next=$next_val, solo mode)"
         else

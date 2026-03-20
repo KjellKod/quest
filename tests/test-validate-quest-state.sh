@@ -100,7 +100,8 @@ test_missing_artifact_plan_to_plan_reviewed() {
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "review_plan-reviewer-b.md"
 }
 
-test_valid_plan_reviewed_to_building() {
+test_plan_reviewed_to_building_rejected() {
+  # plan_reviewed->building is no longer allowed; presentation is mandatory.
   local tmpdir
   tmpdir=$(mktemp -d)
   create_state_json "$tmpdir" "plan_reviewed"
@@ -111,13 +112,27 @@ test_valid_plan_reviewed_to_building() {
   output=$(bash "$SCRIPT" "$tmpdir" "building" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "Invalid transition"
+}
+
+test_presentation_complete_to_building_arbiter_approved() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "presentation_complete"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  echo '{"status":"complete","next":"builder","summary":"approved"}' > "$tmpdir/phase_01_plan/handoff_arbiter.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "building" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
   [ "$rc" -eq 0 ]
 }
 
-test_plan_reviewed_to_building_arbiter_says_iterate() {
+test_presentation_complete_to_building_arbiter_says_iterate() {
   local tmpdir
   tmpdir=$(mktemp -d)
-  create_state_json "$tmpdir" "plan_reviewed"
+  create_state_json "$tmpdir" "presentation_complete"
   mkdir -p "$tmpdir/phase_01_plan"
   touch "$tmpdir/phase_01_plan/plan.md"
   echo '{"status":"complete","next":"planner","summary":"iterate"}' > "$tmpdir/phase_01_plan/handoff_arbiter.json"
@@ -128,10 +143,10 @@ test_plan_reviewed_to_building_arbiter_says_iterate() {
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -qi "arbiter"
 }
 
-test_plan_reviewed_to_building_missing_arbiter_handoff() {
+test_presentation_complete_to_building_missing_arbiter_handoff() {
   local tmpdir
   tmpdir=$(mktemp -d)
-  create_state_json "$tmpdir" "plan_reviewed"
+  create_state_json "$tmpdir" "presentation_complete"
   mkdir -p "$tmpdir/phase_01_plan"
   touch "$tmpdir/phase_01_plan/plan.md"
   # No handoff_arbiter.json
@@ -427,6 +442,7 @@ test_valid_presentation_complete_to_building() {
   create_state_json "$tmpdir" "presentation_complete"
   mkdir -p "$tmpdir/phase_01_plan"
   touch "$tmpdir/phase_01_plan/plan.md"
+  echo '{"status":"complete","next":"builder","summary":"approved"}' > "$tmpdir/phase_01_plan/handoff_arbiter.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "building" 2>&1)
   local rc=$?
@@ -510,12 +526,11 @@ test_validation_log_written() {
   mkdir -p "$tmpdir/phase_01_plan" "$tmpdir/logs"
   echo '{"phase":"plan_reviewed","plan_iteration":1,"fix_iteration":0}' > "$tmpdir/state.json"
   echo "plan content" > "$tmpdir/phase_01_plan/plan.md"
-  echo '{"status":"complete","next":"builder","summary":"approved"}' > "$tmpdir/phase_01_plan/handoff_arbiter.json"
 
-  bash "$SCRIPT" "$tmpdir" "building" > /dev/null 2>&1
+  bash "$SCRIPT" "$tmpdir" "presenting" > /dev/null 2>&1
   local rc=$?
   local has_log=false
-  if [ -f "$tmpdir/logs/validation.log" ] && grep -q "plan_reviewed->building" "$tmpdir/logs/validation.log" && grep -q "result=pass" "$tmpdir/logs/validation.log"; then
+  if [ -f "$tmpdir/logs/validation.log" ] && grep -q "plan_reviewed->presenting" "$tmpdir/logs/validation.log" && grep -q "result=pass" "$tmpdir/logs/validation.log"; then
     has_log=true
   fi
   rm -rf "$tmpdir"
@@ -531,9 +546,10 @@ run_test test_missing_state_json
 run_test test_invalid_json
 run_test test_valid_plan_to_plan_reviewed
 run_test test_missing_artifact_plan_to_plan_reviewed
-run_test test_valid_plan_reviewed_to_building
-run_test test_plan_reviewed_to_building_arbiter_says_iterate
-run_test test_plan_reviewed_to_building_missing_arbiter_handoff
+run_test test_plan_reviewed_to_building_rejected
+run_test test_presentation_complete_to_building_arbiter_approved
+run_test test_presentation_complete_to_building_arbiter_says_iterate
+run_test test_presentation_complete_to_building_missing_arbiter_handoff
 run_test test_valid_building_to_reviewing
 run_test test_building_to_reviewing_empty_dir
 run_test test_valid_reviewing_to_complete

@@ -104,6 +104,29 @@ else
 fi
 
 echo ""
+echo "6. Checking helper scripts referenced in workflow.md exist on disk..."
+HELPER_SCRIPTS=(
+  "scripts/quest_state.py"
+  "scripts/claude_cli_bridge.py"
+  "scripts/quest_claude_runner.py"
+  "scripts/quest_claude_probe.py"
+  "scripts/validate-quest-state.sh"
+)
+MISSING_HELPERS=0
+for helper in "${HELPER_SCRIPTS[@]}"; do
+  if [ ! -f "$helper" ]; then
+    echo "   ❌ Missing helper script: $helper (referenced in workflow.md)"
+    MISSING_HELPERS=$((MISSING_HELPERS + 1))
+  fi
+done
+if [ "$MISSING_HELPERS" -eq 0 ]; then
+  echo "   ✅ All ${#HELPER_SCRIPTS[@]} referenced helper scripts exist"
+else
+  echo "   ❌ $MISSING_HELPERS helper script(s) missing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
 echo "=== Validation Complete ==="
 
 if [ $ERRORS -gt 0 ]; then
