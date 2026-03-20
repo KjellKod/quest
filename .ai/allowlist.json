@@ -18,54 +18,46 @@
     "code_review": true,
     "fix_loop": false
   },
-  "arbiter": {
-    "tool": "claude",
-    "notes": "Set to 'codex' to use gpt-5.4 as Arbiter instead of Claude. Default: claude."
-  },
-  "model_overrides": {
-    "planner": "opus",
-    "plan-reviewer-a": "opus",
+  "models": {
+    "planner": "claude",
+    "plan-reviewer-a": "claude",
     "plan-reviewer-b": "gpt-5.4",
+    "arbiter": "claude",
     "builder": "gpt-5.4",
-    "code-reviewer-a": "opus",
+    "code-reviewer-a": "claude",
     "code-reviewer-b": "gpt-5.4",
-    "arbiter": "opus",
     "fixer": "gpt-5.4"
   },
-  "review_mode": "auto",
+  "review_mode": "full",
   "fast_review_thresholds": {
     "max_files": 5,
-    "max_loc": 200
-  },
-  "update_check": {
-    "enabled": true,
-    "interval_days": 7
+    "max_loc": 300
   },
   "role_permissions": {
     "planner_agent": {
-      "file_write": [".quest/**", "docs/implementation/**"],
+      "file_write": [".quest/**", "docs/**", "ideas/**", ".ai/**", "*.md"],
       "file_read": ["**"],
-      "bash": ["find", "grep", "wc", "tree", "ls", "gh pr view.*"]
+      "bash": ["find", "rg", "grep", "wc", "ls", "tree", "git status", "git diff", "gh pr view.*"]
     },
     "plan_review_a": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
-      "bash": ["gh pr view.*"]
+      "bash": ["git status", "git diff", "gh pr view.*"]
     },
     "plan_review_b": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
-      "bash": ["gh pr view.*"]
+      "bash": ["git status", "git diff", "gh pr view.*"]
     },
     "arbiter_agent": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
-      "bash": ["gh pr view.*"]
+      "bash": ["git status", "git diff", "gh pr view.*"]
     },
     "builder_agent": {
-      "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "scripts/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
+      "file_write": [".quest/**", ".ai/**", "docs/**", "ideas/**", "scripts/**", ".skills/**", "*.md", "*.json", "*.txt", "*.sh", "*.py"],
       "file_read": ["**"],
-      "bash": ["npm test", "npm run build", "pytest", "python", "pip", "npx", "yarn test", "make test", "shasum", "sha256sum"]
+      "bash": ["python", "python3", "pytest", "bash", "git status", "git diff", "git log", "rg", "grep", "find", "ls", "wc"]
     },
     "code_review_agent": {
       "file_write": [".quest/**"],
@@ -73,14 +65,13 @@
       "bash": ["git diff", "git log", "git status", "gh pr view.*"]
     },
     "fixer_agent": {
-      "file_write": [".quest/**", "src/**", "lib/**", "tests/**", "docs/**", "*.md", "*.json", "*.txt", "LICENSE*", ".ai/**"],
+      "file_write": [".quest/**", ".ai/**", "docs/**", "ideas/**", "scripts/**", ".skills/**", "*.md", "*.json", "*.txt", "*.sh", "*.py"],
       "file_read": ["**"],
-      "bash": ["npm test", "pytest", "python", "yarn test", "make test", "shasum", "sha256sum"]
+      "bash": ["python", "python3", "pytest", "bash", "git status", "git diff", "git log", "rg", "grep", "find", "ls", "wc"]
     }
   },
   "solo": {
-    "max_fix_iterations": 2,
-    "notes": "Solo quests use single reviewer (A only), no arbiter, and capped fix iterations."
+    "max_fix_iterations": 2
   },
   "gates": {
     "require_approval_before_commit": true,

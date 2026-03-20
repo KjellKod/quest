@@ -33,7 +33,6 @@
 .claude/skills/celebrate/SKILL.md
 .claude/skills/gpt/SKILL.md
 .claude/skills/quest/SKILL.md
-.claude/mcp.json
 .claude/AGENTS.md
 .codex/AGENTS.md
 .opencode/agents/arbiter.md
@@ -69,6 +68,15 @@ scripts/validate-quest-config.sh
 scripts/validate-quest-state.sh
 scripts/validate-manifest.sh
 scripts/validate-handoff-contracts.sh
+scripts/claude_cli_bridge.py
+scripts/quest_claude_probe.py
+scripts/quest_claude_runner.py
+scripts/quest_checks/__init__.py
+scripts/quest_checks/cli.py
+scripts/quest_runtime/__init__.py
+scripts/quest_runtime/artifacts.py
+scripts/quest_runtime/claude_runner.py
+scripts/quest_runtime/state.py
 scripts/quest_celebrate/__init__.py
 scripts/quest_celebrate/animations.py
 scripts/quest_celebrate/ascii_art.py

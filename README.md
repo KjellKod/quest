@@ -89,16 +89,16 @@ For advanced patterns (phased execution, plan comparison, model mixing), see the
 
 | Role | Default model | What it does |
 |------|--------------|-------------|
-| **Planner** | Opus 4.6 | Explores the codebase and writes the implementation plan |
-| **Reviewer A** | Opus 4.6 | Reviews plans and code from one perspective |
+| **Planner** | Claude | Explores the codebase and writes the implementation plan |
+| **Reviewer A** | Claude | Reviews plans and code from one perspective |
 | **Reviewer B** | GPT-5.4 | Reviews independently, different model, different blind spots |
-| **Arbiter** | Opus 4.6 | Synthesizes reviews, filters nitpicks, decides approve or iterate |
+| **Arbiter** | Claude | Synthesizes reviews, filters nitpicks, decides approve or iterate |
 | **Builder** | GPT-5.4 | Implements the approved plan, runs tests, produces PR description |
 | **Fixer** | GPT-5.4 | Surgical fixes from review feedback without rebuilding |
 
 These defaults work with Claude (Sonnet or Opus) or GPT-5.x (5.2 or later) as the orchestrator, and across runtimes: Claude Code, Codex CLI, or Cursor IDE.
 
-Every role is swappable. Update `model_overrides` in `.ai/allowlist.json` to reassign roles, or just ask the orchestrator mid-quest to swap models. Want GPT as your planner and Claude as reviewer? KiMi as arbiter? Try it. With the installer setup you can mix and match any models you prefer. See the [OpenCode Field Notes](docs/guides/opencode-model-observations.md) for tested configurations across 30+ models.
+Every role is swappable. Update `models` in `.ai/allowlist.json` to reassign roles, or just ask the orchestrator mid-quest to swap models. Want GPT as your planner and Claude as reviewer? KiMi as arbiter? Try it. With the installer setup you can mix and match any models you prefer. See the [OpenCode Field Notes](docs/guides/opencode-model-observations.md) for tested configurations across 30+ models.
 
 Solo mode skips Reviewer B and the Arbiter. Same pipeline, just faster.
 

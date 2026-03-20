@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from quest_runtime.artifacts import (
+    any_artifact_missing_or_empty,
+    check_artifact_paths,
+    prepare_artifact_files,
+)
 from quest_runtime.state import utc_now_iso
 
 
@@ -29,6 +34,16 @@ class RunResult:
     source: str | None
     stdout: str
     stderr: str
+
+
+def _effective_permission_mode(
+    permission_mode: str, permission_escalation: bool
+) -> str:
+    if not permission_escalation:
+        return permission_mode
+    if permission_mode in {"default", "auto", "plan"}:
+        return "acceptEdits"
+    return permission_mode
 
 
 def select_role_runtime(
@@ -171,7 +186,6 @@ def classify_result_kind(exit_code: int, stderr: str, handoff_state: str) -> str
             "not found",
             "no such file",
             "not authenticated",
-            "permission denied",
             "claude cli",
         )
     ):
@@ -181,6 +195,41 @@ def classify_result_kind(exit_code: int, stderr: str, handoff_state: str) -> str
     if handoff_state == "missing":
         return "handoff_missing"
     return "error"
+
+
+def classify_failure_kind(
+    result: RunResult,
+    artifact_paths: list[Path],
+    workspace_root: Path,
+) -> str:
+    """Classify run failures for retry routing."""
+
+    if result.result_kind == "timeout":
+        return "timeout"
+    if result.result_kind == "invocation_error":
+        return "invocation"
+
+    _, external_paths = check_artifact_paths(artifact_paths, workspace_root)
+    if external_paths and any_artifact_missing_or_empty(artifact_paths):
+        return "write_boundary"
+
+    if "permission denied" in result.stderr.lower():
+        return "permission"
+
+    if artifact_paths and not any_artifact_missing_or_empty(artifact_paths):
+        return "model"
+
+    return "model"
+
+
+def _retry_artifact_dirs(
+    artifact_paths: list[Path],
+    workspace_root: Path,
+) -> list[Path]:
+    """Return out-of-workspace artifact directories for escalation retries."""
+
+    _, external_paths = check_artifact_paths(artifact_paths, workspace_root)
+    return [path.parent for path in external_paths]
 
 
 def append_context_health_log(
@@ -215,19 +264,88 @@ def run_claude_role(
     model: str,
     timeout: float,
     permission_mode: str,
+    artifact_paths: Iterable[str | Path] | None = None,
+    permission_escalation: bool = False,
+    allow_text_fallback: bool = False,
     add_dirs: Iterable[str | Path] | None = None,
     poll_interval: float = 0.5,
     exit_grace_seconds: float = 2.0,
 ) -> RunResult:
+    workspace_root = Path(cwd).resolve()
     resolved_quest_dir = resolve_path(cwd, quest_dir)
     resolved_prompt_file = resolve_path(cwd, prompt_file)
     resolved_handoff_file = resolve_path(cwd, handoff_file)
+    resolved_artifact_paths = [resolve_path(cwd, path) for path in artifact_paths or []]
+    local_artifact_paths, external_artifact_paths = check_artifact_paths(
+        resolved_artifact_paths,
+        workspace_root,
+    )
+    if resolved_artifact_paths and not permission_escalation:
+        try:
+            prepare_artifact_files(resolved_artifact_paths)
+        except OSError as exc:
+            failure_kind = (
+                "write_boundary"
+                if external_artifact_paths
+                else (
+                    "permission"
+                    if isinstance(exc, PermissionError)
+                    or "permission denied" in str(exc).lower()
+                    else "invocation"
+                )
+            )
+            if failure_kind in {"write_boundary", "permission"}:
+                retry_add_dirs = list(add_dirs or [])
+                retry_add_dirs.extend(path.parent for path in external_artifact_paths)
+                retry_note = (
+                    f"Tier B retry: agent={agent} phase={phase} "
+                    f"failure_kind={failure_kind} permission_escalation=True"
+                )
+                retry_result = run_claude_role(
+                    cwd=cwd,
+                    quest_dir=resolved_quest_dir,
+                    phase=phase,
+                    agent=agent,
+                    iteration=iteration,
+                    prompt_file=resolved_prompt_file,
+                    handoff_file=resolved_handoff_file,
+                    bridge_script=bridge_script,
+                    model=model,
+                    timeout=timeout,
+                    permission_mode=permission_mode,
+                    artifact_paths=resolved_artifact_paths,
+                    permission_escalation=True,
+                    allow_text_fallback=allow_text_fallback,
+                    add_dirs=retry_add_dirs,
+                    poll_interval=poll_interval,
+                    exit_grace_seconds=exit_grace_seconds,
+                )
+                combined_stderr = retry_note
+                if retry_result.stderr:
+                    combined_stderr = f"{retry_note}\n{retry_result.stderr}"
+                return RunResult(
+                    exit_code=retry_result.exit_code,
+                    handoff_state=retry_result.handoff_state,
+                    result_kind=retry_result.result_kind,
+                    source=retry_result.source,
+                    stdout=retry_result.stdout,
+                    stderr=combined_stderr,
+                )
+            return RunResult(
+                exit_code=1,
+                handoff_state="missing",
+                result_kind="invocation_error",
+                source=None,
+                stdout="",
+                stderr=str(exc),
+            )
     default_add_dirs = [
         resolve_path(cwd, "."),
         resolved_quest_dir,
         resolved_prompt_file.parent,
         resolved_handoff_file.parent,
     ]
+    default_add_dirs.extend(path.parent for path in local_artifact_paths)
     if add_dirs:
         default_add_dirs.extend(add_dirs)
     cmd = build_bridge_cmd(
@@ -236,7 +354,9 @@ def run_claude_role(
         prompt_file=resolved_prompt_file,
         model=model,
         timeout=timeout,
-        permission_mode=permission_mode,
+        permission_mode=_effective_permission_mode(
+            permission_mode, permission_escalation
+        ),
         add_dirs=default_add_dirs,
     )
     process = subprocess.Popen(
@@ -255,7 +375,11 @@ def run_claude_role(
 
     while time.monotonic() < deadline:
         handoff_state = classify_handoff_file(resolved_handoff_file)
-        if handoff_state == "found":
+        artifacts_complete = (
+            not resolved_artifact_paths
+            or not any_artifact_missing_or_empty(resolved_artifact_paths)
+        )
+        if handoff_state == "found" and artifacts_complete:
             try:
                 stdout, stderr = process.communicate(timeout=exit_grace_seconds)
             except subprocess.TimeoutExpired:
@@ -297,7 +421,88 @@ def run_claude_role(
 
     handoff_state = classify_handoff_file(resolved_handoff_file)
     text_handoff = extract_text_handoff(stdout)
-    if text_handoff is not None:
+    artifacts_complete = (
+        not resolved_artifact_paths
+        or not any_artifact_missing_or_empty(resolved_artifact_paths)
+    )
+
+    result_kind = (
+        "handoff_json"
+        if handoff_state == "found" and artifacts_complete
+        else (
+            "timeout"
+            if timed_out
+            else (
+                "handoff_missing"
+                if handoff_state == "found" and not artifacts_complete
+                else classify_result_kind(
+                    process.returncode or 1, stderr, handoff_state
+                )
+            )
+        )
+    )
+    source = "handoff_json" if handoff_state == "found" and artifacts_complete else None
+    exit_code = (
+        0
+        if handoff_state == "found" and artifacts_complete
+        else process.returncode or 1
+    )
+    result = RunResult(
+        exit_code=exit_code,
+        handoff_state=handoff_state,
+        result_kind=result_kind,
+        source=source,
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+    if not permission_escalation and resolved_artifact_paths:
+        failure_kind = classify_failure_kind(
+            result,
+            resolved_artifact_paths,
+            workspace_root,
+        )
+        if failure_kind in {"write_boundary", "permission"}:
+            retry_add_dirs = list(add_dirs or [])
+            retry_add_dirs.extend(
+                _retry_artifact_dirs(resolved_artifact_paths, workspace_root)
+            )
+            retry_note = (
+                f"Tier B retry: agent={agent} phase={phase} "
+                f"failure_kind={failure_kind} permission_escalation=True"
+            )
+            retry_result = run_claude_role(
+                cwd=cwd,
+                quest_dir=resolved_quest_dir,
+                phase=phase,
+                agent=agent,
+                iteration=iteration,
+                prompt_file=resolved_prompt_file,
+                handoff_file=resolved_handoff_file,
+                bridge_script=bridge_script,
+                model=model,
+                timeout=timeout,
+                permission_mode=permission_mode,
+                artifact_paths=resolved_artifact_paths,
+                permission_escalation=True,
+                allow_text_fallback=allow_text_fallback,
+                add_dirs=retry_add_dirs,
+                poll_interval=poll_interval,
+                exit_grace_seconds=exit_grace_seconds,
+            )
+            combined_stderr = retry_note
+            if retry_result.stderr:
+                combined_stderr = f"{retry_note}\n{retry_result.stderr}"
+            return RunResult(
+                exit_code=retry_result.exit_code,
+                handoff_state=retry_result.handoff_state,
+                result_kind=retry_result.result_kind,
+                source=retry_result.source,
+                stdout=retry_result.stdout,
+                stderr=combined_stderr,
+            )
+
+    if allow_text_fallback and text_handoff is not None:
         append_context_health_log(
             resolved_quest_dir,
             phase=phase,
@@ -315,16 +520,17 @@ def run_claude_role(
             stderr=stderr,
         )
 
-    return RunResult(
-        exit_code=process.returncode or 1,
-        handoff_state=handoff_state,
-        result_kind="timeout"
-        if timed_out
-        else classify_result_kind(process.returncode or 1, stderr, handoff_state),
-        source=None,
-        stdout=stdout,
-        stderr=stderr,
-    )
+    if result.source == "handoff_json":
+        append_context_health_log(
+            resolved_quest_dir,
+            phase=phase,
+            agent=agent,
+            iteration=iteration,
+            handoff_state=result.handoff_state,
+            source="handoff_json",
+        )
+
+    return result
 
 
 def run_bridge_probe(
@@ -343,6 +549,7 @@ def run_bridge_probe(
     prompt_file = probe_dir / "probe_prompt.txt"
     artifact_file = probe_dir / "probe_artifact.txt"
     handoff_file = probe_dir / "probe_handoff.json"
+    prepare_artifact_files([artifact_file, handoff_file])
 
     prompt_file.write_text(
         "\n".join(
@@ -353,7 +560,7 @@ def run_bridge_probe(
                     "Write this exact JSON to "
                     f"{handoff_file}: "
                     '{"status":"complete","artifacts":["'
-                    f'{artifact_file}'
+                    f"{artifact_file}"
                     '"],"next":null,"summary":"probe ok"}'
                 ),
                 "Reply with exactly:",
@@ -391,11 +598,15 @@ def run_bridge_probe(
 
     handoff_state = classify_handoff_file(handoff_file)
     source = "handoff_json" if handoff_state == "found" else None
-    exit_code = 0 if cp.returncode == 0 and handoff_state == "found" else cp.returncode or 1
+    exit_code = 0 if handoff_state == "found" else cp.returncode or 1
     return RunResult(
         exit_code=exit_code,
         handoff_state=handoff_state,
-        result_kind="handoff_json" if handoff_state == "found" else classify_result_kind(exit_code, cp.stderr, handoff_state),
+        result_kind=(
+            "handoff_json"
+            if handoff_state == "found"
+            else classify_result_kind(exit_code, cp.stderr, handoff_state)
+        ),
         source=source,
         stdout=cp.stdout,
         stderr=cp.stderr,
