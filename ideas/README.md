@@ -52,6 +52,7 @@ architecture docs.
 | done | ~~codex-calls-claude~~ | Claude CLI bridge prototype graduated to supported script/runtime docs. See [journal](../docs/quest-journal/codex-calls-claude_2026-03-09.md). |
 | done | ~~celebration-from-journal~~ | Quality tiers, embedded celebration_data JSON, dashboard integration. See [journal](../docs/quest-journal/celebration-from-journal_2026-03-06.md). |
 | done | ~~pr-inline-commenting-playbook~~ | Kind, actionable PR inline comment playbook with signature convention. See [journal](../docs/quest-journal/pr-inline-commenting-playbook_2026-03-05.md). |
+| done | ~~quest-state-transition-guardrails~~ | Atomic `--transition` flag, mandatory presentation gate enforced, helper-existence checks. See [PR #77](https://github.com/KjellKod/quest/pull/77). |
 
 ## Hygiene Rules
 - Keep one file per idea family; avoid duplicate variants.

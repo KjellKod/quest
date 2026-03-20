@@ -4,7 +4,7 @@ When starting, say: "Now I understand the Quest." Then proceed directly with the
 
 Follow these steps in order. After each step that modifies state, update `.quest/<id>/state.json`.
 
-**State update helper:** Use `python3 scripts/quest_state.py --quest-dir .quest/<id> ...` for state mutations instead of hand-editing `state.json`. This keeps `updated_at` consistent and avoids invalid phase transitions caused by stale state.
+**State update helper:** Use `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition <phase> ...` for state mutations instead of hand-editing `state.json`. The `--transition` flag validates the transition against `validate-quest-state.sh` before writing — if validation fails, state.json is not modified. Use `--phase` only for non-transition updates (e.g., setting status without changing phase).
 
 ### Defaults (Opinionated)
 
@@ -409,7 +409,7 @@ gates.max_plan_iterations (default: 4)
    - Fallback: if handoff.json missing or unparsable after that precedence, parse text handoff from response
 
 6. **Check verdict:**
-   - If `NEXT: builder` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> plan_reviewed` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Plan approved! Immediately update state with `python3 scripts/quest_state.py --quest-dir .quest/<id> --phase plan_reviewed --status complete --last-verdict approve`, then proceed to **Step 3.5** (Interactive Presentation). Do not attempt the `presenting` transition while state still says `phase: plan`.
+   - If `NEXT: builder` → Plan approved! Transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan_reviewed --status complete --last-verdict approve` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to **Step 3.5** (Interactive Presentation). Do not attempt the `presenting` transition while state still says `phase: plan`.
    - If `NEXT: planner` → Check iteration count
      - If `plan_iteration >= max_plan_iterations`: Warn user, ask to proceed anyway or review manually
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
@@ -421,9 +421,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 **THIS IS A MANDATORY STOP POINT.** You MUST present the plan to the human user, ask for their approval, and STOP execution until the human responds. Do not assume approval. Do not skip this step. Do not auto-approve. Do not proceed to Step 4 until the human has explicitly approved.
 
-**Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presenting` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
-
-**On entry:** After the `presenting` validation gate passes, update state with `python3 scripts/quest_state.py --quest-dir .quest/<id> --phase presenting --status in_progress`
+**On entry:** Transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presenting --status in_progress` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually.
 
 **1. Show Brief Summary:**
    Extract a 1-3 sentence summary using this precedence:
@@ -439,7 +437,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Ask: "Would you like to see the detailed phase-by-phase walkthrough? (yes/no)"
 
 **2. Handle Response:**
-   - If user declines ("no", "n", "nope", "skip", "proceed", etc.) -> **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presentation_complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Update state with `python3 scripts/quest_state.py --quest-dir .quest/<id> --phase presentation_complete --status complete`, then proceed to Step 4 (Build Phase)
+   - If user declines ("no", "n", "nope", "skip", "proceed", etc.) -> Transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presentation_complete --status complete` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to Step 4 (Build Phase)
    - If user accepts ("yes", "y", "yeah", "sure", "detailed", etc.) -> Continue to phase extraction
 
 **3. Extract Phases from Plan:**
@@ -488,7 +486,7 @@ After plan approval, present the plan interactively before proceeding to build.
    e. Ask: "Questions about this phase? Or changes you'd like to request? (continue/question/change)"
 
 **6. Handle Phase Response:**
-   - If "continue" (or "c", "next", "ok", "looks good", etc.) -> Move to next phase, or if last phase: **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> presentation_complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Update state with `python3 scripts/quest_state.py --quest-dir .quest/<id> --phase presentation_complete --status complete` and proceed to Step 4
+   - If "continue" (or "c", "next", "ok", "looks good", etc.) -> Move to next phase, or if last phase: Transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presentation_complete --status complete` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to Step 4
    - If "question" (or "q", "?", user asks a question directly) -> Answer the question using plan context, then re-ask: "Any other questions, or ready to continue? (continue/question/change)"
    - If "change" (or "modify", "revise", "update", user requests a change directly) -> Proceed to Change Handling
 
@@ -521,11 +519,9 @@ After plan approval, present the plan interactively before proceeding to build.
 
 **Build:**
 
-1. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> building` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
+1. **Atomic transition:** `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition building --status in_progress --last-role builder_agent` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually.
 
-2. **Update state:** `phase: building`, `status: in_progress`, `last_role: builder_agent`
-
-3. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude runtime fallback):
+2. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude runtime fallback):
    - Read `model_overrides.builder` from allowlist (default: `gpt-5.3-codex`).
    - If builder model is Codex, invoke via `mcp__codex__codex`.
    - If builder model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
@@ -550,11 +546,9 @@ After plan approval, present the plan interactively before proceeding to build.
      - Only ask the user questions if the Claude runtime fallback returns `needs_human`.
    - If the final selected attempt still has missing/unparsable handoff.json, parse text handoff from response as last-resort compatibility fallback.
 
-4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
+3. **Atomic transition:** `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition reviewing --status in_progress` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually.
 
-5. **Update state:** `phase: reviewing`
-
-6. Proceed to Step 5
+4. Proceed to Step 5
 
 ### Step 5: Review Phase
 
@@ -709,8 +703,8 @@ After plan approval, present the plan interactively before proceeding to build.
      - If fallback was triggered after applying deterministic precedence (retry/fallback chain) → use `NEXT` and `SUMMARY` from parsed text `---HANDOFF---`
 
    **If `quest_mode == "solo"`:** Only Reviewer A's verdict matters:
-   - If `next: "fixer"` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> fixing` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Issues found, proceed to Step 6
-   - If `next: null` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Review passed! Update state: `phase: complete`, go to Step 7
+   - If `next: "fixer"` → Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition fixing --status in_progress` — if fails, report to user and STOP. Issues found, proceed to Step 6
+   - If `next: null` → Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete` — if fails, report to user and STOP. Review passed! Go to Step 7
    - Present summary:
      ```
      Review complete (solo):
@@ -719,8 +713,8 @@ After plan approval, present the plan interactively before proceeding to build.
      ```
 
    **If `quest_mode == "workflow"` (default):**
-   - If EITHER slot has `next: "fixer"` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> fixing` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Issues found, proceed to Step 6
-   - If BOTH have `next: null` → **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Review passed! Update state: `phase: complete`, go to Step 7
+   - If EITHER slot has `next: "fixer"` → Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition fixing --status in_progress` — if fails, report to user and STOP. Issues found, proceed to Step 6
+   - If BOTH have `next: null` → Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete` — if fails, report to user and STOP. Review passed! Go to Step 7
    - Present summaries to user:
      ```
      Review complete:
@@ -775,7 +769,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 3. **Clear stale handoff files:** Delete any existing `handoff_code-reviewer-a.json` (and `handoff_code-reviewer-b.json` if workflow mode) in `.quest/<id>/phase_03_review/` to prevent stale data from the previous review iteration being read when code reviewers are re-invoked.
 
-4. **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> reviewing` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
+4. **Atomic transition:** `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition reviewing --status in_progress` — if fails, report to user and STOP. Do NOT modify state.json manually.
 
 5. **Re-invoke Code Reviewers** (same dispatch rules as Step 5 — solo dispatches only Reviewer A, workflow dispatches both)
 
@@ -783,15 +777,13 @@ After plan approval, present the plan interactively before proceeding to build.
    - For each reviewer slot, use the `next` value obtained in step 5 (handoff.json preferred; text fallback only after deterministic precedence)
 
    **If `quest_mode == "solo"`:** Only Reviewer A's verdict matters:
-   - If `next: null` → Fixed! **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json. Proceed to Step 7
+   - If `next: null` → Fixed! Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete` — if fails, report to user and STOP. Proceed to Step 7
    - If `next: "fixer"`:
      - If `fix_iteration >= max_fix_iterations` (capped at `min(solo.max_fix_iterations, gates.max_fix_iterations)`): Warn user, ask to proceed or review manually
      - Otherwise: Loop back to step 1
 
    **If `quest_mode == "workflow"` (default):**
-   - If BOTH have `next: null` → Fixed!
-     - **Validation gate:** Run `scripts/validate-quest-state.sh .quest/<id> complete` -- if non-zero, report output to user and STOP. Do NOT modify state.json.
-     - Proceed to Step 7
+   - If BOTH have `next: null` → Fixed! Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete` — if fails, report to user and STOP. Proceed to Step 7
    - If EITHER has `next: "fixer"`:
      - If `fix_iteration >= max_fix_iterations`: Warn user, ask to proceed or review manually
      - Otherwise: Loop back to step 1
