@@ -6,8 +6,8 @@
 # Usage: scripts/quest_preflight.sh [--orchestrator claude|codex]
 #
 # Exit codes:
-#   0 — second model available
-#   1 — second model unavailable (warning in JSON output)
+#   0 — probe completed (check JSON "available" field for result)
+#   1 — probe runtime error (script itself failed)
 #   2 — usage error
 
 set -euo pipefail
@@ -122,11 +122,7 @@ probe_codex() {
 }
 EOJSON
 
-  if [ "$available" = "true" ]; then
-    return 0
-  else
-    return 1
-  fi
+  return 0
 }
 
 ###############################################################################
@@ -186,11 +182,7 @@ probe_claude_bridge() {
 }
 EOJSON
 
-  if [ "$available" = "true" ]; then
-    return 0
-  else
-    return 1
-  fi
+  return 0
 }
 
 ###############################################################################
