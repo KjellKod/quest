@@ -13,16 +13,19 @@ This document defines the coding conventions and architecture boundaries for thi
 
 ## Core Principles
 
-### Code Quality
+We drive with a quality mindset in everything — planning, reviewing, and building.
+
 - **KISS** (Keep It Simple, Stupid) — Prefer simple solutions over clever ones
 - **DRY** (Don't Repeat Yourself) — Extract common patterns, but not prematurely
 - **YAGNI** (You Aren't Gonna Need It) — Don't add features until they're needed
-- **SRP** (Single Responsibility Principle) — Each module/function should do one thing
+- **SRP** (Single Responsibility Principle) — Each change, function or module should focusing on doing one thing
 
-### Change Philosophy
+## Change Discipline
+
 - Prefer minimal, focused changes
 - Avoid broad refactors unless they fix real bugs
 - Don't add "improvements" that weren't requested
+- Run linters, formatting, and tests before commits
 - Test real logic, skip trivial code (getters, imports, types)
 
 ## Testing Expectations
