@@ -149,7 +149,7 @@ def _update_readme_index(journal_dir: Path, slug: str, completion_date: date, ou
     new_row = f"| {completion_date.isoformat()} | [{slug}]({slug}_{completion_date.isoformat()}.md) | {outcome} |\n"
 
     if re.search(pattern, content):
-        content = re.sub(pattern, r"\1" + new_row, content, count=1)
+        content = re.sub(pattern, lambda m: m.group(1) + new_row, content, count=1)
     else:
         # Fallback: append to end
         content += f"\n{new_row}"
