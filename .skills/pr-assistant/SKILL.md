@@ -107,14 +107,32 @@ Rules:
 
 ### Validation section
 
-Each checkbox should be a concrete verification step — what to do and what result to expect. A reviewer reading the list should be able to pull the branch and verify without guessing.
+#### Principles
 
-Rules:
+- **Reduce reviewer ambiguity** — every step must be executable without context the reviewer doesn't have
+- **Cheapest path first** — lead with validations needing no special tooling, credentials, or setup
+- **Separate tooling requirements** — clearly distinguish local-only checks from steps needing external access
+- **Point to real files** — reference actual paths and configs in the repo, not abstract examples
+- **Truthful and bounded** — only claim what the validation actually proves; don't overstate coverage
+
+#### Rules
+
 - Use checkboxes (`- [ ]`) for every verification step.
 - Describe the action and the expected outcome in one line (e.g. "Run X, confirm Y").
-- Only include steps that a human needs to perform. Skip anything CI already covers (linting, syntax checks, type checks).
+- Only include steps that a human needs to perform. Skip anything CI already covers.
+- Order steps from cheapest to most expensive — local commands first, external integrations last.
 - If there is a known risk or edge case worth watching, add a `Watch for:` line at the end — no checkbox, just a heads-up.
 - Keep it short. 2-5 steps is typical. If you need more, the PR may be too large.
+
+#### Manual validation scenarios
+
+When a feature requires manual testing (for example external integrations, UI behavior, or end-to-end flows), each manual validation scenario must include:
+1. **Prerequisites** — what must be set up before testing (env vars, credentials, fixture files, test data, app state)
+2. **Exact command or action** — the specific command, tool call, API request, or UI action to perform. Include copy-pasteable examples when helpful.
+3. **Expected result** — what the reviewer should observe, including specific fields, files, status codes, or visible behavior.
+4. **Negative/edge cases** — include at least one when the feature introduces meaningful failure modes or graceful-degradation behavior.
+
+Do not write vague steps like "test this with the real API" or "verify the UI works". Write the setup, action, and expected outcome clearly enough that a reviewer can execute the check without guessing.
 
 ### Notes section (optional)
 
