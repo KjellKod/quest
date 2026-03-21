@@ -18,8 +18,9 @@ Use **inline-first** commenting by default.
 3. Create a **draft** PR via `gh pr create --draft`.
 
 ### Step 2: Wait for CI
-1. Sleep ~60 seconds to let CI workflows start and (hopefully) finish.
-2. Run `gh pr checks <PR_NUMBER>` to observe CI status.
+1. Run `gh pr checks <PR_NUMBER>` to get an early read.
+2. If any checks are still pending, sleep ~180 seconds.
+3. Run `gh pr checks <PR_NUMBER>` again to observe final CI status.
 
 ### Step 3: Evaluate CI Results
 - **All checks pass** → proceed to Step 4.
