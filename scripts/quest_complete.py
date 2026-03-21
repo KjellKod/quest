@@ -198,6 +198,9 @@ def main() -> int:
 
     # Determine slug and outcome
     slug = data.slug or state.get("slug", quest_dir.name.split("_")[0])
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", slug):
+        print(f"Error: invalid slug '{slug}'. Must match [a-z0-9][a-z0-9-]*", file=sys.stderr)
+        return 1
     outcome = data.brief_summary or data.plan_summary or "Completed."
     # Sanitize outcome for README markdown table: collapse newlines, escape pipes
     outcome = re.sub(r"\s*\n\s*", " ", outcome).replace("|", "\\|")

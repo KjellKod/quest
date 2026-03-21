@@ -907,34 +907,13 @@ After plan approval, present the plan interactively before proceeding to build.
    - Optional fallback (non-interactive/runtime-only): `python3 scripts/quest_celebrate/celebrate.py --quest-dir .quest/<id> --style epic || true`
    - This step is fire-and-forget: if celebration fails, quest completion continues
 
-4. **Create quest journal entry and archive** (automated via script):
-    ```bash
-    python3 scripts/quest_complete.py --quest-dir .quest/<id>
-    ```
-    This script handles all of the following automatically:
-    - Creates `docs/quest-journal/<slug>_<YYYY-MM-DD>.md` with quest metadata, summary, files changed, iterations, agent credits, and an embedded `celebration_data` JSON block (for future `/celebrate` replay)
-    - Inserts a row at the top of `docs/quest-journal/README.md` index table
-    - Moves `.quest/<id>/` to `.quest/archive/<id>/`
-
-    The script reads all quest artifacts (state.json, handoff files, quest_brief.md, plan.md, reviews) and computes quality tier, achievements, and metrics automatically.
-
-    **If the script fails**, fall back to manual creation:
-    - Write journal entry manually following the format in existing entries
-    - Move quest directory to archive manually
-
-    **Idea file cleanup** (manual, after script runs):
-    - If quest originated from an idea file:
-      - Quote the original idea content under "This is where it all began..."
-      - Remove the idea file (e.g., `ideas/my-idea.md`)
-      - Add a `done` row to `ideas/README.md` index: `| done | ~~idea-slug~~ | One-line pitch. See [journal](../docs/quest-journal/slug_date.md). |`
-
-5. **Show summary:**
+4. **Show summary** (before archiving — quest directory still exists):
     - Quest ID
     - Files changed (from `git diff --name-only` and `state.json` artifact paths)
     - Total iterations (plan + fix, from `state.json`)
     - Parallel execution stats (read from `.quest/<id>/logs/parallelism.log` if it exists — show each line)
     - Location of artifacts (will be archived to `.quest/archive/<id>/`)
-    - Location of journal entry
+    - Location of journal entry (will be created next)
 
 6. **Context health report:**
    If `.quest/<id>/logs/context_health.log` exists, display it in full:
@@ -990,12 +969,33 @@ After plan approval, present the plan interactively before proceeding to build.
    - If compliance is <50%:
       "Low compliance -- discard approach is not effective. Recommend upgrading to run_in_background: true."
 
-6. **Verify archival** (already done by `quest_complete.py` in step 4):
+6. **Create quest journal entry and archive** (automated via script):
+    ```bash
+    python3 scripts/quest_complete.py --quest-dir .quest/<id>
+    ```
+    This script handles all of the following automatically:
+    - Creates `docs/quest-journal/<slug>_<YYYY-MM-DD>.md` with quest metadata, summary, files changed, iterations, agent credits, and an embedded `celebration_data` JSON block (for future `/celebrate` replay)
+    - Inserts a row at the top of `docs/quest-journal/README.md` index table
+    - Moves `.quest/<id>/` to `.quest/archive/<id>/`
+
+    The script reads all quest artifacts (state.json, handoff files, quest_brief.md, plan.md, reviews) and computes quality tier, achievements, and metrics automatically.
+
+    **If the script fails**, fall back to manual creation:
+    - Write journal entry manually following the format in existing entries
+    - Move quest directory to archive manually
+
+    **Idea file cleanup** (manual, after script runs):
+    - If quest originated from an idea file:
+      - Quote the original idea content under "This is where it all began..."
+      - Remove the idea file (e.g., `ideas/my-idea.md`)
+      - Add a `done` row to `ideas/README.md` index: `| done | ~~idea-slug~~ | One-line pitch. See [journal](../docs/quest-journal/slug_date.md). |`
+
+7. **Verify archival:**
     - Confirm `.quest/archive/<id>/` exists
     - Confirm `.quest/<id>/` no longer exists
     - `.quest/` root should only contain active quests, `archive/`, and `audit.log`
 
-7. **Next steps suggestion:**
+8. **Next steps suggestion:**
     ```
     Review changes: git diff
     Commit: git add -p && git commit
@@ -1003,12 +1003,12 @@ After plan approval, present the plan interactively before proceeding to build.
     - **Draft PR:** use `.skills/pr-assistant/SKILL.md` (preserve any existing bot-managed PR sections when editing PR body)
     - **PR review gate:** post an explicit review comment on the draft/ready PR, then merge only after NIT filtering using `AGENTS.md` rubric (readability-first, KISS/YAGNI/SRP/DRY, simple robust over complex elegance, avoid mocking-hell)
 
-8. **Context reset suggestion:**
+9. **Context reset suggestion:**
     ```
     Quest complete. Consider running /clear before your next quest to reset context.
     ```
 
-9. **Check for Quest updates:**
+10. **Check for Quest updates:**
    After the quest completes, check if a Quest update is available (if enough time has passed since the last check).
 
    **Configuration:**
