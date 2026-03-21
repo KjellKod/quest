@@ -1332,6 +1332,7 @@ offer_codex_setup() {
   fi
 
   # Codex CLI is available — check if MCP server is registered
+  log_info "Validating agent configurations, please stand by..."
   # Try to detect if claude CLI is available for MCP registration
   if ! command -v claude &>/dev/null; then
     log_warn "Claude CLI not found — cannot register Codex MCP server automatically"
