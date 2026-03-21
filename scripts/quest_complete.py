@@ -163,7 +163,7 @@ def _archive_quest(quest_dir: Path) -> Path:
     archive_root.mkdir(exist_ok=True)
     dest = archive_root / quest_dir.name
     if dest.exists():
-        shutil.rmtree(dest)
+        raise FileExistsError(f"Archive already exists: {dest}. Remove it manually to re-archive.")
     shutil.move(str(quest_dir), str(dest))
     return dest
 
@@ -188,7 +188,9 @@ def main() -> int:
 
     state = json.loads(state_file.read_text())
     if state.get("status") != "complete":
-        print(f"Warning: quest status is '{state.get('status')}', not 'complete'", file=sys.stderr)
+        print(f"Error: quest status is '{state.get('status')}', not 'complete'. "
+              "Transition to complete or abandoned first.", file=sys.stderr)
+        return 1
 
     # Load quest data
     data = load_quest_data(quest_dir)
