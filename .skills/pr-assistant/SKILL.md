@@ -107,9 +107,14 @@ Rules:
 
 ### Validation section
 
+#### Purpose
+
+The goal of validation is not just correctness — it is comprehension. Write steps as a guided walkthrough so that a reviewer who follows them will have *used* the new functionality and built a mental model of the change, not just confirmed it didn't error.
+
 #### Principles
 
 - **Reduce reviewer ambiguity** — every step must be executable without context the reviewer doesn't have
+- **Resolve all commands and addresses** — every step must include the full runnable command or address. Never write "run the tests" — write the actual command. For services, resolve host, port, and base path from the project's configuration.
 - **Cheapest path first** — lead with validations needing no special tooling, credentials, or setup
 - **Separate tooling requirements** — clearly distinguish local-only checks from steps needing external access
 - **Point to real files** — reference actual paths and configs in the repo, not abstract examples
@@ -118,21 +123,31 @@ Rules:
 #### Rules
 
 - Use checkboxes (`- [ ]`) for every verification step.
-- Describe the action and the expected outcome in one line (e.g. "Run X, confirm Y").
 - Only include steps that a human needs to perform. Skip anything CI already covers.
 - Order steps from cheapest to most expensive — local commands first, external integrations last.
 - If there is a known risk or edge case worth watching, add a `Watch for:` line at the end — no checkbox, just a heads-up.
 - Keep it short. 2-5 steps is typical. If you need more, the PR may be too large.
 
-#### Manual validation scenarios
+#### Structured format (required for every non-CI step)
 
-When a feature requires manual testing (for example external integrations, UI behavior, or end-to-end flows), each manual validation scenario must include:
-1. **Prerequisites** — what must be set up before testing (env vars, credentials, fixture files, test data, app state)
-2. **Exact command or action** — the specific command, tool call, API request, or UI action to perform. Include copy-pasteable examples when helpful.
-3. **Expected result** — what the reviewer should observe, including specific fields, files, status codes, or visible behavior.
+Every validation step that is not a simple automated command must use this structure:
+
+1. **Prerequisites** — what must be set up before testing (env vars, credentials, running services, test data, app state)
+2. **Action** — the specific command, API request, or UI action to perform. Include full addresses and copy-pasteable commands.
+3. **Expected result** — what the reviewer should observe, including specific fields, status codes, or visible behavior.
 4. **Negative/edge cases** — include at least one when the feature introduces meaningful failure modes or graceful-degradation behavior.
 
-Do not write vague steps like "test this with the real API" or "verify the UI works". Write the setup, action, and expected outcome clearly enough that a reviewer can execute the check without guessing.
+Do not write vague steps like "test this with the real API" or "verify it works". Write the setup, action, and expected outcome clearly enough that someone unfamiliar with the project can execute the check without guessing.
+
+#### Example (illustrative — adapt to your project)
+
+Bad:
+`- [ ] Verify the new command works`
+
+Good:
+`- [ ] **Walkthrough — run the new export command**: Prerequisites: build the project (`make` or project-equivalent). Action: run `./quest export --format json --output /tmp/out.json`, then inspect `/tmp/out.json`. Expected: valid JSON containing entries matching the current quest state, with `status` and `slug` fields populated. Then run with a nonexistent quest dir (`--quest-dir /tmp/bogus`) — observe a clear error message and non-zero exit code.`
+
+The good example walks the reviewer through the feature so they understand what was built, not just whether it errors.
 
 ### Notes section (optional)
 
