@@ -31,11 +31,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="json",
         help="Claude output format (default: json)",
     )
+    # NOTE: This default is duplicated in scripts/quest_claude_runner.py.
+    # If you change it here, update it there too.
     parser.add_argument(
         "--timeout",
         type=float,
-        default=90.0,
-        help="Command timeout seconds (default: 90)",
+        default=1800.0,
+        help="Command timeout seconds (default: 1800)",
     )
     parser.add_argument(
         "--model",
