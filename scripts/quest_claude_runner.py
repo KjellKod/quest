@@ -22,7 +22,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="opus")
     # NOTE: This default is duplicated in scripts/claude_cli_bridge.py.
     # If you change it here, update it there too.
-    parser.add_argument("--timeout", type=float, default=1800.0)
+    parser.add_argument("--timeout", type=float, default=1800.0,
+                        help="Command timeout seconds (default: 1800)")
     parser.add_argument("--permission-mode", default="bypassPermissions")
     parser.add_argument("--bridge-script", default="scripts/claude_cli_bridge.py")
     parser.add_argument("--cwd", default=".")
