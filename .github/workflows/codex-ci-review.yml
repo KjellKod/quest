@@ -104,18 +104,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -o pipefail
           # Fetch ALL inline review comments (bot + human) with thread info
           # Use --paginate with --jq (no --slurp) to stream pages through jq individually.
           # Wrap output in a JSON array for downstream consumption.
-          echo "[" > /tmp/existing_comments.json
-          gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments" \
+          if gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments" \
             --jq '.[] | {id, in_reply_to_id, user: .user.login, path, line, body}' 2>/tmp/fetch_comments_err.log \
-            | awk 'NR>1{print ","} {printf "%s",$0}' >> /tmp/existing_comments.json
-          echo "]" >> /tmp/existing_comments.json
-
-          # Validate JSON; fall back to empty array if fetch failed
-          if ! python3 -c "import json; json.load(open('/tmp/existing_comments.json'))" 2>/dev/null; then
-            echo "::warning::Failed to fetch existing comments. Dedup will be skipped."
+            | awk 'NR>1{print ","} {printf "%s",$0}' > /tmp/existing_comments_body.json; then
+            # Wrap in JSON array
+            printf '[%s]' "$(cat /tmp/existing_comments_body.json)" > /tmp/existing_comments.json
+            # Validate JSON structure
+            if ! python3 -c "import json; json.load(open('/tmp/existing_comments.json'))" 2>/dev/null; then
+              echo "::warning::Fetched comments but JSON is malformed. Dedup will be skipped."
+              echo "[]" > /tmp/existing_comments.json
+            fi
+          else
+            echo "::warning::Failed to fetch existing comments (gh api exit $?). Dedup will be skipped."
             cat /tmp/fetch_comments_err.log >&2 || true
             echo "[]" > /tmp/existing_comments.json
           fi
