@@ -207,23 +207,23 @@ def main() -> int:
     if len(outcome) > 120:
         outcome = outcome[:117] + "..."
 
-    # Find journal directory (walk up to repo root)
-    repo_root = quest_dir.resolve()
-    found = False
-    for _ in range(5):
-        if (repo_root / "docs" / "quest-journal").exists():
-            found = True
-            break
-        parent = repo_root.parent
-        if parent == repo_root:
-            break
-        repo_root = parent
-    if not found:
-        print(f"Error: could not find docs/quest-journal/ above {quest_dir}", file=sys.stderr)
-        return 1
-    journal_dir = repo_root / "docs" / "quest-journal"
-
+    journal_path = None
     if not args.skip_journal:
+        # Find journal directory (walk up to repo root)
+        repo_root = quest_dir.resolve()
+        found = False
+        for _ in range(5):
+            if (repo_root / "docs" / "quest-journal").exists():
+                found = True
+                break
+            parent = repo_root.parent
+            if parent == repo_root:
+                break
+            repo_root = parent
+        if not found:
+            print(f"Error: could not find docs/quest-journal/ above {quest_dir}", file=sys.stderr)
+            return 1
+        journal_dir = repo_root / "docs" / "quest-journal"
         journal_dir.mkdir(parents=True, exist_ok=True)
         journal_file = journal_dir / f"{slug}_{completion_date.isoformat()}.md"
 
@@ -237,6 +237,7 @@ def main() -> int:
             # Update README index
             _update_readme_index(journal_dir, slug, completion_date, outcome)
             print(f"README index updated")
+        journal_path = str(journal_file)
 
     if not args.skip_archive:
         archive_path = _archive_quest(quest_dir)
@@ -244,7 +245,7 @@ def main() -> int:
 
     print(json.dumps({
         "slug": slug,
-        "journal": str(journal_dir / f"{slug}_{completion_date.isoformat()}.md"),
+        "journal": journal_path,
         "archived": not args.skip_archive,
         "quality_tier": data.quality_tier,
     }))
