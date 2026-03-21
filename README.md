@@ -119,6 +119,14 @@ Solo mode skips Reviewer B and the Arbiter. Same pipeline, just faster.
 > *Context contamination is a system failure, not a user habit.*
 > *Speed without rigor only accelerates failure.*
 
+**Engineering principles baked into every agent:**
+- **KISS** — Prefer simple solutions over clever ones
+- **DRY** — Extract common patterns, but not prematurely
+- **YAGNI** — Don't add features until they're needed
+- **SRP** — Each change, function or module should focusing on doing one thing
+
+These aren't guidelines — they're the first thing every agent reads. `AGENTS.md` shapes how agents think, plan, review, and build. The process enforces the philosophy; the philosophy produces the quality.
+
 Quest is built on a conviction: **scaling AI output without scaling engineering discipline is a dead end.** We don't trust single outputs, human or machine. We trust repeatable processes backed by evidence. The system makes correct behavior easy and incorrect behavior hard.
 
 We're not replacing human judgment. We're amplifying it.

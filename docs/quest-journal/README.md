@@ -6,6 +6,14 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-03-21 | [quest-housekeeping-blitz](quest-housekeeping-blitz_2026-03-21.md) | Forensic sweep of stale quests, missing journal entries, broken archive/celebration automation, and a Codex sandbox p... |
+| 2026-03-21 | [installer-codex-and-bridge-timeout](installer-codex-and-bridge-timeout_2026-03-21.md) | Installer handles Codex MCP setup; bridge timeout raised from 90s to 30 minutes. (PRs #78, #80) |
+| 2026-03-20 | [atomic-state-transitions](atomic-state-transitions_2026-03-20.md) | Atomic state transitions close the validate+mutate footgun; mandatory presentation gate enforced. (PR #77) |
+| 2026-03-20 | [readme-rewrite](readme-rewrite_2026-03-20.md) | README cut from 594 to ~150 lines; philosophy extracted to own doc; bridge architecture documented. (PR #76) |
+| 2026-03-19 | [artifact-staging](artifact-staging_2026-03-19.md) | Explicit artifact staging before role execution; tighter runtime fallback; workspace-local artifacts. (PR #74) |
+| 2026-03-17 | [codex-mcp-docs-cleanup](codex-mcp-docs-cleanup_2026-03-17.md) | Codex MCP docs overhauled, allowlist cleaned up, model dispatch reads from config. (PRs #70, #72, #73) |
+| 2026-03-16 | [gpt-skill](gpt-skill_2026-03-16.md) | New /gpt skill for delegating tasks to Codex via MCP; co-author trailer labels updated. (PR #71) |
+| 2026-03-13 | [codex-led-claude-runtime](codex-led-claude-runtime_2026-03-13.md) | First-class Codex-led Claude runtime path with bridge helpers and trust boundary preservation. (PR #68) |
 | 2026-03-06 | [celebration-from-journal](celebration-from-journal_2026-03-06.md) | Quality tiers (Diamond→Cardboard), embedded celebration_data JSON in journals, dashboard tier badges with tooltips, agent model credits, test counts. Solo adventure. |
 | 2026-03-05 | [celebrate-v2](celebrate-v2_2026-03-05.md) | Reworked celebration system with deep artifact reading, block-letter titles, achievements, quality scores, and cinematic movie credits. |
 | 2026-03-05 | [pr-inline-commenting-playbook](pr-inline-commenting-playbook_2026-03-05.md) | Added a practical inline-commenting playbook to PR shepherd guidance, including tone, severity, and signature conventions. |

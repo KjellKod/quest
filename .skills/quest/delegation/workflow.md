@@ -384,6 +384,7 @@ gates.max_plan_iterations (default: 4)
    ```
    mcp__codex__codex(
      model: <models.plan-reviewer-b from allowlist>,
+     sandbox_permissions: "workspace-write",
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -394,7 +395,7 @@ gates.max_plan_iterations (default: 4)
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
 
-     Artifact files have been prepared for you. Overwrite these files directly:
+     Write ONLY to these review artifact files (do NOT modify any source code):
      - .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
      - .quest/<id>/phase_01_plan/handoff_plan-reviewer-b.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
@@ -407,6 +408,7 @@ gates.max_plan_iterations (default: 4)
    ```
    mcp__codex__codex(
      model: <models.plan-reviewer-b from allowlist>,
+     sandbox_permissions: "workspace-write",
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -416,7 +418,7 @@ gates.max_plan_iterations (default: 4)
 
      List up to 5 issues, highest severity first.
 
-     Artifact files have been prepared for you. Overwrite these files directly:
+     Write ONLY to these review artifact files (do NOT modify any source code):
      - .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
      - .quest/<id>/phase_01_plan/handoff_plan-reviewer-b.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
@@ -720,6 +722,7 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    mcp__codex__codex(
      model: <models.code-reviewer-b from allowlist>,
+     sandbox_permissions: "workspace-write",
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -733,9 +736,9 @@ After plan approval, present the plan interactively before proceeding to build.
      Changed files: <file list>
      Diff summary: <git diff --stat>
 
-     Review ONLY the files listed above. Use git diff for details.
+     Review ONLY the files listed above. Use git diff for details. Do NOT modify any source code.
 
-     Artifact files have been prepared for you. Overwrite these files directly:
+     Write ONLY to these review artifact files:
      - .quest/<id>/phase_03_review/review_code-reviewer-b.md
      - .quest/<id>/phase_03_review/handoff_code-reviewer-b.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
@@ -748,6 +751,7 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    mcp__codex__codex(
      model: <models.code-reviewer-b from allowlist>,
+     sandbox_permissions: "workspace-write",
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
 
@@ -758,10 +762,10 @@ After plan approval, present the plan interactively before proceeding to build.
      Changed files: <file list>
      Diff summary: <git diff --stat>
 
-     Review ONLY the files listed above.
+     Review ONLY the files listed above. Do NOT modify any source code.
      List up to 5 issues, highest severity first.
 
-     Artifact files have been prepared for you. Overwrite these files directly:
+     Write ONLY to these review artifact files:
      - .quest/<id>/phase_03_review/review_code-reviewer-b.md
      - .quest/<id>/phase_03_review/handoff_code-reviewer-b.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
@@ -834,7 +838,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 2. **Invoke Fixer** (default Codex `mcp__codex__codex`, Claude runtime fallback):
    - Read `models.fixer` from allowlist.
-   - If fixer model is Codex, invoke via `mcp__codex__codex`.
+   - If fixer model is Codex, invoke via `mcp__codex__codex` with `sandbox_permissions: "workspace-write"`.
    - If fixer model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - Prompt: Reference file paths only, do not embed content:
      - Code review A: `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
@@ -845,7 +849,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `review_fix_feedback_discussion.md` and `handoff_fixer.json` in `.quest/<id>/phase_03_review/`.
    - Require the prompt to include:
      - If using Codex path: `Read your instructions: .skills/quest/agents/fixer.md`
-     - Artifact files have been prepared for you. Overwrite these files directly:
+     - Write ONLY to these artifact files (source code changes go through normal edits):
        - `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md`
        - `.quest/<id>/phase_03_review/handoff_fixer.json`
      - Do not create Quest artifacts via shell redirection, heredocs, or echo.
@@ -903,52 +907,13 @@ After plan approval, present the plan interactively before proceeding to build.
    - Optional fallback (non-interactive/runtime-only): `python3 scripts/quest_celebrate/celebrate.py --quest-dir .quest/<id> --style epic || true`
    - This step is fire-and-forget: if celebration fails, quest completion continues
 
-4. **Create quest journal entry:**
-    - Create `docs/quest-journal/` directory if it doesn't exist
-    - Write to `docs/quest-journal/<slug>_<YYYY-MM-DD>.md`
-    - Include: quest ID, completion date, summary, files changed, iterations
-    - **Include a `celebration_data` JSON block** at the end of the journal entry. This block enables future `/celebrate` invocations to replay a rich celebration from the journal alone, even after the quest archive directory is cleaned up. The block should be embedded between HTML comment markers:
-
-      ```markdown
-      ## Celebration Data
-
-      <!-- celebration-data-start -->
-      ```json
-      {
-        "quest_mode": "workflow",
-        "agents": [{"name": "...", "model": "...", "role": "..."}],
-        "achievements": [{"icon": "⭐️", "title": "...", "desc": "..."}],
-        "metrics": [{"icon": "📊", "label": "..."}],
-        "quality": {"tier": "Gold", "icon": "🥇", "grade": "B"},
-        "quote": {"text": "...", "attribution": "..."},
-        "victory_narrative": "...",
-        "test_count": 42,
-        "tests_added": 10,
-        "files_changed": 7
-      }
-      ```
-      <!-- celebration-data-end -->
-      ```
-
-      The orchestrator should populate this from the quest artifacts it already read. Agents, achievements, and metrics should be context-aware and specific — not generic. The quality tier uses the full honest scale: Diamond/Platinum/Gold/Silver/Bronze/Tin/Cardboard/Abandoned.
-
-      **Solo mode adjustments for celebration_data:**
-      - Set `"quest_mode": "solo"` in the JSON
-      - Solo quests will show fewer agents (expected) — note this in the context health report rather than treating it as missing data
-
-    - Insert a row at the top of `docs/quest-journal/README.md` index table (after the header row) with date, quest link, and one-line outcome. The table is in reverse chronological order (newest first).
-    - If quest originated from an idea file:
-      - Quote the original idea content under "This is where it all began..."
-      - Remove the idea file (e.g., `ideas/my-idea.md`)
-      - Add a `done` row to `ideas/README.md` index: `| done | ~~idea-slug~~ | One-line pitch. See [journal](../docs/quest-journal/slug_date.md). |`
-
-5. **Show summary:**
+4. **Show summary** (before archiving — quest directory still exists):
     - Quest ID
     - Files changed (from `git diff --name-only` and `state.json` artifact paths)
     - Total iterations (plan + fix, from `state.json`)
     - Parallel execution stats (read from `.quest/<id>/logs/parallelism.log` if it exists — show each line)
     - Location of artifacts (will be archived to `.quest/archive/<id>/`)
-    - Location of journal entry
+    - Location of journal entry (will be created next)
 
 6. **Context health report:**
    If `.quest/<id>/logs/context_health.log` exists, display it in full:
@@ -1004,13 +969,33 @@ After plan approval, present the plan interactively before proceeding to build.
    - If compliance is <50%:
       "Low compliance -- discard approach is not effective. Recommend upgrading to run_in_background: true."
 
-6. **Archive the quest working directory:**
-    - Create `.quest/archive/` if it doesn't exist
-    - Move `.quest/<id>/` to `.quest/archive/<id>/`
-    - The journal entry in `docs/quest-journal/` is the permanent record; the archive preserves raw artifacts for reference
+6. **Create quest journal entry and archive** (automated via script):
+    ```bash
+    python3 scripts/quest_complete.py --quest-dir .quest/<id>
+    ```
+    This script handles all of the following automatically:
+    - Creates `docs/quest-journal/<slug>_<YYYY-MM-DD>.md` with quest metadata, summary, files changed, iterations, agent credits, and an embedded `celebration_data` JSON block (for future `/celebrate` replay)
+    - Inserts a row at the top of `docs/quest-journal/README.md` index table
+    - Moves `.quest/<id>/` to `.quest/archive/<id>/`
+
+    The script reads all quest artifacts (state.json, handoff files, quest_brief.md, plan.md, reviews) and computes quality tier, achievements, and metrics automatically.
+
+    **If the script fails**, fall back to manual creation:
+    - Write journal entry manually following the format in existing entries
+    - Move quest directory to archive manually
+
+    **Idea file cleanup** (manual, after script runs):
+    - If quest originated from an idea file:
+      - Quote the original idea content under "This is where it all began..."
+      - Remove the idea file (e.g., `ideas/my-idea.md`)
+      - Add a `done` row to `ideas/README.md` index: `| done | ~~idea-slug~~ | One-line pitch. See [journal](../docs/quest-journal/slug_date.md). |`
+
+7. **Verify archival:**
+    - Confirm `.quest/archive/<id>/` exists
+    - Confirm `.quest/<id>/` no longer exists
     - `.quest/` root should only contain active quests, `archive/`, and `audit.log`
 
-7. **Next steps suggestion:**
+8. **Next steps suggestion:**
     ```
     Review changes: git diff
     Commit: git add -p && git commit
@@ -1018,12 +1003,12 @@ After plan approval, present the plan interactively before proceeding to build.
     - **Draft PR:** use `.skills/pr-assistant/SKILL.md` (preserve any existing bot-managed PR sections when editing PR body)
     - **PR review gate:** post an explicit review comment on the draft/ready PR, then merge only after NIT filtering using `AGENTS.md` rubric (readability-first, KISS/YAGNI/SRP/DRY, simple robust over complex elegance, avoid mocking-hell)
 
-8. **Context reset suggestion:**
+9. **Context reset suggestion:**
     ```
     Quest complete. Consider running /clear before your next quest to reset context.
     ```
 
-9. **Check for Quest updates:**
+10. **Check for Quest updates:**
    After the quest completes, check if a Quest update is available (if enough time has passed since the last check).
 
    **Configuration:**

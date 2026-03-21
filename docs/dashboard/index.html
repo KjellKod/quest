@@ -465,20 +465,20 @@
       <p class="eyebrow">QUEST INTELLIGENCE</p>
       <h1>Quest Portfolio Dashboard</h1>
       <div class="hero-subtitle">Board-level visibility into quest outcomes, execution momentum, and strategic throughput.</div>
-      <div class="meta-row"><span class="meta-label">DATA GENERATED:</span> <span class="meta-value">Feb 21, 2026, 04:40 AM UTC</span></div>
+      <div class="meta-row"><span class="meta-label">DATA GENERATED:</span> <span class="meta-value">Mar 21, 2026, 06:37 AM UTC</span></div>
     </div>
     <div class="kpi-grid">
       <article class="kpi-card">
         <p class="kpi-label">Total Quests</p>
-        <p class="kpi-value">23</p>
+        <p class="kpi-value">38</p>
       </article>
       <article class="kpi-card">
         <p class="kpi-label">Finished</p>
-        <p class="kpi-value kpi-value--finished">19</p>
+        <p class="kpi-value kpi-value--finished">36</p>
       </article>
       <article class="kpi-card">
         <p class="kpi-label">In Progress</p>
-        <p class="kpi-value kpi-value--in-progress">2</p>
+        <p class="kpi-value kpi-value--in-progress">0</p>
       </article>
       <article class="kpi-card">
         <p class="kpi-label">Blocked</p>
@@ -510,48 +510,225 @@
     <section class="quests-section" id="quest-portfolio">
       <div class="quests-header">
         <h2>Quest Portfolio</h2>
-        <p class="panel-subtitle">23 quests represented</p>
+        <p class="panel-subtitle">38 quests represented</p>
       </div>
       <div class="quest-grid">
         <article class="quest-card">
           <div class="quest-card-header">
+            <h3 class="quest-card-title">Quest Housekeeping Blitz</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span> <span class="badge" style="background:rgba(96, 165, 250, 0.15);color:#60a5fa;border:1px solid rgba(96, 165, 250, 0.3)" title="Solid — issues caught, fixed cleanly">🥇 GOLD</span></div>
+          </div>
+          <p class="quest-pitch">- Quest ID: `quest-housekeeping-blitz_2026-03-21__0600` - Completed: 2026-03-21 - Mode: solo - Quality: Gold - Outcome: Forensic sweep across stale quests, missing journals, broken automation, and a Codex sandbox permission footgun.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/quest-housekeeping-blitz_2026-03-21.md">quest-housekeeping-blitz_2026-03-21__0600</a></span>
+            <span><b>Completion Date:</b> Mar 21, 2026</span>
+            <span><b>Iterations:</b> plan 1 / fix 0</span>
+            <span><b>Cast:</b> Claude Opus</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Installer Codex Setup and Bridge Timeout</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">- PRs: #78, #80 - Merged: 2026-03-20 to 2026-03-21 - Outcome: Installer handles Codex MCP setup; bridge timeout raised to 30 minutes.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/installer-codex-and-bridge-timeout_2026-03-21.md">Installer Codex And Bridge Timeout 2026 03 21</a></span>
+            <span><b>Completion Date:</b> Mar 21, 2026</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">README Rewrite for Clarity and Brevity</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">- PR: #76 - Merged: 2026-03-20 - Outcome: Documentation cut by more than half without losing substance.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/readme-rewrite_2026-03-20.md">Readme Rewrite 2026 03 20</a></span>
+            <span><b>Completion Date:</b> Mar 20, 2026</span>
+            <span><b>PR:</b> <a href="https://github.com/KjellKod/quest/pull/76">#76</a></span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Atomic State Transitions and Presentation Gate</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">- PR: #77 - Merged: 2026-03-20 - Outcome: Closed the state-transition footgun and enforced the mandatory presentation gate.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/atomic-state-transitions_2026-03-20.md">Atomic State Transitions 2026 03 20</a></span>
+            <span><b>Completion Date:</b> Mar 20, 2026</span>
+            <span><b>PR:</b> <a href="https://github.com/KjellKod/quest/pull/77">#77</a></span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Stage Artifacts Before Runtime Fallback</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">- PR: #74 - Merged: 2026-03-19 - Outcome: Artifact preparation is now explicit and happens before role execution, not during.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/artifact-staging_2026-03-19.md">Artifact Staging 2026 03 19</a></span>
+            <span><b>Completion Date:</b> Mar 19, 2026</span>
+            <span><b>PR:</b> <a href="https://github.com/KjellKod/quest/pull/74">#74</a></span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Codex MCP Docs and Model Dispatch Cleanup</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">- PRs: #70, #72, #73 - Merged: 2026-03-16 to 2026-03-17 - Outcome: Codex MCP setup docs overhauled, allowlist cleaned up, model dispatch reads from config instead of hardcoding.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/codex-mcp-docs-cleanup_2026-03-17.md">Codex Mcp Docs Cleanup 2026 03 17</a></span>
+            <span><b>Completion Date:</b> Mar 17, 2026</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">/gpt Skill</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">- PR: #71 - Merged: 2026-03-16 - Outcome: New skill for delegating tasks to Codex via MCP.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/gpt-skill_2026-03-16.md">Gpt Skill 2026 03 16</a></span>
+            <span><b>Completion Date:</b> Mar 16, 2026</span>
+            <span><b>PR:</b> <a href="https://github.com/KjellKod/quest/pull/71">#71</a></span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Codex-Led Claude Bridge Runtime</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">- PR: #68 - Merged: 2026-03-13 - Outcome: First-class Codex-led Claude runtime path for Quest orchestration.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/codex-led-claude-runtime_2026-03-13.md">Codex Led Claude Runtime 2026 03 13</a></span>
+            <span><b>Completion Date:</b> Mar 13, 2026</span>
+            <span><b>PR:</b> <a href="https://github.com/KjellKod/quest/pull/68">#68</a></span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Quest Dispatcher</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">Retired from `ideas/` on 2026-03-09.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/quest-dispatcher_2026-03-09.md">Quest Dispatcher 2026 03 09</a></span>
+            <span><b>Completion Date:</b> Mar 09, 2026</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Codex-Led Claude Bridge Runtime Hardening</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">Status: complete</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/codex-led-claude-bridge-runtime-hardening_2026-03-09.md">Codex Led Claude Bridge Runtime Hardening 2026 03 09</a></span>
+            <span><b>Completion Date:</b> Mar 09, 2026</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">Codex -&gt; Claude Shell-Out Prototypes</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">Status: complete</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/codex-calls-claude_2026-03-09.md">Codex Calls Claude 2026 03 09</a></span>
+            <span><b>Completion Date:</b> Mar 09, 2026</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">celebration-from-journal</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span> <span class="badge" style="background:rgba(52, 211, 153, 0.15);color:#34d399;border:1px solid rgba(52, 211, 153, 0.3)" title="Near-perfect — minor issues, one-pass fix">🏆 PLATINUM</span></div>
+          </div>
+          <p class="quest-pitch">Bridged two isolated data readers (celebrate `quest_data.py` and dashboard `loaders.py`) so that `/celebrate` can replay celebrations from archived journal entries. Added an 8-tier candid quality scale where smooth quests get Diamond and rough ones get Tin or Cardboard. Dashboard cards now show quality tier badges with hover tooltips, agent model &quot;Cast&quot; lines, and test counts.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/celebration-from-journal_2026-03-06.md">celebration-from-journal_2026-03-06__1200</a></span>
+            <span><b>Completion Date:</b> Mar 06, 2026</span>
+            <span><b>Iterations:</b> plan 1 / fix 1</span>
+            <span><b>Cast:</b> human, Claude Opus</span>
+            <span><b>Tests:</b> 154 (34 new)</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">pr-inline-commenting-playbook</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">- Quest ID: `pr-inline-commenting-playbook_2026-03-05__0250` - Completed: 2026-03-05 - Outcome: Added a practical inline comment playbook to PR shepherd guidance so review replies are kind, precise, and actionable.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/pr-inline-commenting-playbook_2026-03-05.md">pr-inline-commenting-playbook_2026-03-05__0250</a></span>
+            <span><b>Completion Date:</b> Mar 05, 2026</span>
+            <span><b>Iterations:</b> plan 1 / fix 0</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">celebrate-v2</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">- Quest ID: `celebrate-v2_2026-03-05__0643` - Completed: 2026-03-05 - Outcome: Reworked quest celebration system with deep artifact reading, block-letter titles, dynamic achievements, impact metrics, quality scores, and cinematic movie-style credits.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/celebrate-v2_2026-03-05.md">celebrate-v2_2026-03-05__0643</a></span>
+            <span><b>Completion Date:</b> Mar 05, 2026</span>
+            <span><b>Iterations:</b> plan 1 / fix 1</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">quest-completion-animations</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">- Quest ID: `quest-completion-animations_2026-03-04__1953` - Completed: 2026-03-04 - Outcome: Implemented Quest Completion Animation System with 4 animation styles, 38 passing tests, and integration into quest workflow.</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/quest-completion-animations_2026-03-04.md">quest-completion-animations_2026-03-04__1953</a></span>
+            <span><b>Completion Date:</b> Mar 04, 2026</span>
+            <span><b>Iterations:</b> plan 1 / fix 1</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">OpenCode Model Suitability Guide</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">Created comprehensive documentation (`docs/guides/opencode-model-suitability.md`) mapping all 32 OpenCode models to Quest orchestration roles. The guide includes:</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/opencode-model-suitability_2026-02-28.md">opencode-model-suitability_2026-02-28__1755</a></span>
+            <span><b>Completion Date:</b> Feb 28, 2026</span>
+            <span><b>Iterations:</b> plan 1 / fix 0</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
+            <h3 class="quest-card-title">PR Body Gate</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
+          </div>
+          <p class="quest-pitch">Added `.github/workflows/pr-body-gate.yml` — a GitHub Actions workflow that validates PR bodies contain four required headings: - `## Summary` - `## Changes` - `## Validation` - `## Notes`</p>
+          <p class="quest-meta">
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/pr-body-gate_2026-02-22.md">Pr Body Gate 2026 02 22</a></span>
+            <span><b>Completion Date:</b> Feb 22, 2026</span>
+          </p>
+        </article>
+        <article class="quest-card">
+          <div class="quest-card-header">
             <h3 class="quest-card-title">Phase 4 Role Wiring</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Relocated six Quest role files from `.ai/roles/` to `.skills/quest/agents/`, then updated runtime references, validators, metadata, and docs to match the new ownership model.</p>
           <p class="quest-meta">
-            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/phase4-role-wiring_2026-02-18.md">Phase4 Role Wiring 2026 02 18</a></span>
+            <span><b>Quest ID:</b> <a href="https://github.com/KjellKod/quest/blob/main/docs/quest-journal/phase4-role-wiring_2026-02-18.md">phase4-role-wiring_2026-02-17__2218</a></span>
             <span><b>Completion Date:</b> Feb 18, 2026</span>
           </p>
         </article>
         <article class="quest-card">
           <div class="quest-card-header">
-            <h3 class="quest-card-title">Quest Brief</h3>
-            <span class="badge badge--in-progress">IN PROGRESS</span>
-          </div>
-          <p class="quest-pitch">$quest let&#x27;s implment in this branch the phase4 approach, ref ideas (own document + architecture evolution). Make sure you follow all the quests instructions to the letter, updating state, showing me the plan etc, etc. Make sure we have dual reviewers, arbiter, dual coders, arbiter etc. etc.</p>
-          <p class="quest-meta">
-            <span><b>Quest ID:</b> phase4-role-relocation_2026-02-17__2152</span>
-            <span><b>Updated:</b> Feb 18, 2026</span>
-            <span><b>Iterations:</b> plan 2 / fix 0</span>
-          </p>
-        </article>
-        <article class="quest-card">
-          <div class="quest-card-header">
-            <h3 class="quest-card-title">Quest Brief</h3>
-            <span class="badge badge--in-progress">IN PROGRESS</span>
-          </div>
-          <p class="quest-pitch">$quest Let&#x27;s analyze and review with a very candid and honest approach, pros and cons for the next possible step on the Quest architecture evolution. We want to keep a KISS approach. We don&#x27;t want to complicate things, and we absolutely want to make sure that the orchestration and agents are laser-focused. We don&#x27;t want context pollution. For suggestions on how it can be implemented, we also want to make sure that this approach works both with Codex being the orchestrator of the running sub-agents (Codex sub-agents versus cloud). If there are other approaches to solve this cleanup, then we can suggest those as well. If it&#x27;s better to leave it as is, we can be honest and mention that as well. We don&#x27;t want to make a change unless it actually makes a tangible improvement.</p>
-          <p class="quest-meta">
-            <span><b>Quest ID:</b> quest-architecture-evolution-review_2026-02-17__2129</span>
-            <span><b>Updated:</b> Feb 18, 2026</span>
-            <span><b>Iterations:</b> plan 3 / fix 0</span>
-          </p>
-        </article>
-        <article class="quest-card">
-          <div class="quest-card-header">
             <h3 class="quest-card-title">State Validation Script</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Implemented `scripts/validate-quest-state.sh` — the first system-enforced correctness check for Quest phase transitions. The shell script validates state.json integrity, phase transition legality, artifact prerequisites, semantic content checks (arbiter verdict, review outcomes via jq on handoff JSON), and iteration bounds before every phase transition.</p>
           <p class="quest-meta">
@@ -562,7 +739,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">Close Remaining Context Leaks (Phase 2b)</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Implemented the handoff.json structured file pattern to close the remaining context leaks in the Quest orchestrator. Every agent now writes a tiny JSON file (~200 bytes) alongside its artifacts, and the orchestrator reads this file for routing decisions instead of processing full agent responses.</p>
           <p class="quest-meta">
@@ -573,8 +750,8 @@
         </article>
         <article class="quest-card">
           <div class="quest-card-header">
-            <h3 class="quest-card-title">Quest: Dashboard Layout Redesign</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <h3 class="quest-card-title">Dashboard Layout Redesign</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Restructured the Quest Dashboard layout to match the target executive &quot;Quest Intelligence&quot; design from PR #21. The dashboard now features the &quot;QUEST INTELLIGENCE&quot; branding eyebrow, &quot;Quest Portfolio Dashboard&quot; title, 5 KPI cards (Total, Finished, In Progress, Blocked, Abandoned), side-by-side chart panels (Status Distribution doughnut + Final Status Over Time line chart), and a unified Quest Portfolio section with redesigned cards showing full pitch text and labeled metadata.</p>
           <p class="quest-meta">
@@ -585,7 +762,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">Harden URL Rendering</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Fixed HTML attribute injection (XSS) vulnerability in the Quest Dashboard&#x27;s URL rendering. Added `_sanitize_url()` function that validates scheme (HTTPS-only), validates GitHub URL pattern via regex, and applies HTML attribute escaping before any URL is interpolated into `href=&quot;...&quot;` attributes. Also escaped fallback relative paths, removed stderr side effect from loaders, and unified the `github_url` missing-value convention.</p>
           <p class="quest-meta">
@@ -597,7 +774,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">Dashboard Visual Polish</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Restored visual features from the PR #21 prototype that were cut during the dashboard-v2 implementation. Added ambient CSS glows (green, blue, amber blurred circles behind content), interactive Chart.js doughnut and stacked area charts, and gradient enhancements on cards and section headers. Chart.js 4.4.7 is vendored and inlined at render time — the dashboard remains a single self-contained HTML file with no external dependencies. Graceful degradation ensures the dashboard still works if the vendor file is missing.</p>
           <p class="quest-meta">
@@ -608,8 +785,8 @@
         </article>
         <article class="quest-card">
           <div class="quest-card-header">
-            <h3 class="quest-card-title">Quest: Dashboard V2</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <h3 class="quest-card-title">Dashboard V2</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Built the Quest Dashboard: a self-contained Python package that generates a static HTML dashboard from quest journal entries and active quest state files. Three status sections (Finished, In Progress, Abandoned) with dark navy theme, elevator pitch cards, journal/PR links, and muted metadata. Single-file HTML output with no external dependencies.</p>
           <p class="quest-meta">
@@ -621,7 +798,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">ci-python-quest</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Added a GitHub Actions workflow to run the Python test suite (pytest) on every push to main and PR targeting main. This ensures the 36 Quest Dashboard unit and integration tests are enforced in CI, preventing regressions from slipping through undetected.</p>
           <p class="quest-meta">
@@ -631,8 +808,8 @@
         </article>
         <article class="quest-card">
           <div class="quest-card-header">
-            <h3 class="quest-card-title">Quest: Dashboard Final Implementation</h3>
-            <span class="badge badge--abandoned">ABANDONED</span>
+            <h3 class="quest-card-title">Dashboard Final Implementation</h3>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--abandoned">ABANDONED</span></div>
           </div>
           <p class="quest-pitch">First attempt at building the Quest Dashboard. Plan was approved by arbiter after one iteration, but the build phase was interrupted when models were switched from Sonnet to Opus. Rather than resuming, a new quest (dashboard-v2) was created using this quest&#x27;s approved plan as input. Dashboard-v2 completed successfully.</p>
           <p class="quest-meta">
@@ -643,7 +820,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">codex-ci-review</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Ported the Codex CI code review workflow from candid_talent_edge (PR #164) to the Quest framework repository. Added a GitHub Actions workflow that triggers OpenAI Codex as an automated code reviewer when a PR transitions from draft to ready-for-review, a Quest-adapted CI code reviewer skill, and registered the new skill in the catalog and manifest.</p>
           <p class="quest-meta">
@@ -655,7 +832,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">thin-orchestrator</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Implemented Phase 2 of the Quest architecture evolution: the &quot;thin orchestrator&quot; principle. The Quest orchestrator now passes file paths to subagents instead of embedding content, reducing context growth from O(n*content_size) to O(n*one_line).</p>
           <p class="quest-meta">
@@ -667,7 +844,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">skill-strategy</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Analyzed how Quest should organize, manage, and distribute skills. Researched community best practices (Agent Skills standard, plugin marketplaces, distribution patterns). Produced strategic recommendations.</p>
           <p class="quest-meta">
@@ -678,7 +855,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">handoff-contract-fix</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Fixed handoff contract inconsistencies across Quest role files and workflow. Standardized all 6 role files on `---HANDOFF---` text format with STATUS/ARTIFACTS/NEXT/SUMMARY fields, removed &quot;Context Is In Your Prompt&quot; contradictions, and made workflow prompts explicitly request handoff format.</p>
           <p class="quest-meta">
@@ -690,7 +867,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">Delegation-Based Intake Gate</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Decomposed the monolithic `.skills/quest/SKILL.md` (635 lines) into a slim routing entry point (73 lines) plus three delegation files under `.skills/quest/delegation/`. The delegation pattern structurally enforces intake quality — vague input routes to a dedicated questioning phase before planning begins, while detailed input goes directly to the workflow.</p>
           <p class="quest-meta">
@@ -702,7 +879,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">Caching Strategy Exploration</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Comprehensive research exploration mapping 11 distinct caching strategies applicable to the Quest AI agent system. The quest produced two educational research documents and a quest index README — no code changes, as the research itself was the deliverable.</p>
           <p class="quest-meta">
@@ -714,7 +891,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">Weekly Update Check</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Implemented automatic weekly update checking for Quest. After a quest completes, the system checks if updates are available (respecting a configurable interval) and prompts the user to update if a newer version exists upstream.</p>
           <p class="quest-meta">
@@ -726,7 +903,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">quest-council-mode</h3>
-            <span class="badge badge--abandoned">ABANDONED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--abandoned">ABANDONED</span></div>
           </div>
           <p class="quest-pitch">Planned a dual-planning-track feature for `/quest` where users could choose between &quot;Quest&quot; (fast, single plan) and &quot;Quest Council&quot; (rigorous, two competing plans merged by arbiter). Plan was approved after 2 iterations but was never built.</p>
           <p class="quest-meta">
@@ -737,7 +914,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">validate-and-launch</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">First-ever quest run on the extracted repository. Validated that the Quest blueprint was correctly extracted from the source repo, created the `ideas/` directory for tracking future work, and updated the README with public domain messaging.</p>
           <p class="quest-meta">
@@ -749,7 +926,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">interactive-plan-presentation</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Enhanced the quest orchestration to present plans interactively rather than dumping the full plan at once. Users now see a brief summary first, then can opt into a phase-by-phase walkthrough with the ability to request changes at each step.</p>
           <p class="quest-meta">
@@ -761,7 +938,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">Installer Script</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Created a single unified installer script (`scripts/quest_installer.sh`) that installs and updates Quest in any repository.</p>
           <p class="quest-meta">
@@ -772,7 +949,7 @@
         <article class="quest-card">
           <div class="quest-card-header">
             <h3 class="quest-card-title">CI Quest Validation</h3>
-            <span class="badge badge--finished">FINISHED</span>
+            <div style="display:flex;gap:0.5rem"><span class="badge badge--finished">FINISHED</span></div>
           </div>
           <p class="quest-pitch">Implemented GitHub Actions CI and local pre-commit hooks that validate quest-related artifacts to prevent broken configurations from being committed.</p>
           <p class="quest-meta">
@@ -784,7 +961,7 @@
     </section>
 
     <footer class="footer">
-      Generated on 2026-02-21 04:40:42 UTC
+      Generated on 2026-03-21 06:37:15 UTC
     </footer>
   </div>
   <script>
@@ -797,7 +974,7 @@ document.addEventListener('DOMContentLoaded', function() {
       data: {
         labels: ['In Progress', 'Blocked', 'Abandoned', 'Finished', 'Unknown'],
         datasets: [{
-          data: [2, 0, 2, 19, 0],
+          data: [0, 0, 2, 36, 0],
           backgroundColor: [
             getComputedStyle(document.documentElement).getPropertyValue('--status-in-progress').trim(),
             getComputedStyle(document.documentElement).getPropertyValue('--status-blocked').trim(),
@@ -831,11 +1008,11 @@ document.addEventListener('DOMContentLoaded', function() {
     new Chart(timeCtx, {
       type: 'line',
       data: {
-        labels: ["2026-02"],
+        labels: ["2026-02", "2026-03"],
         datasets: [
           {
             label: 'Finished',
-            data: [19],
+            data: [21, 15],
             borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-finished').trim(),
             fill: false,
             tension: 0.25,
@@ -844,7 +1021,7 @@ document.addEventListener('DOMContentLoaded', function() {
           },
           {
             label: 'In Progress',
-            data: [2],
+            data: [0, 0],
             borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-in-progress').trim(),
             fill: false,
             tension: 0.25,
@@ -853,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', function() {
           },
           {
             label: 'Blocked',
-            data: [0],
+            data: [0, 0],
             borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-blocked').trim(),
             fill: false,
             tension: 0.25,
@@ -862,7 +1039,7 @@ document.addEventListener('DOMContentLoaded', function() {
           },
           {
             label: 'Abandoned',
-            data: [2],
+            data: [2, 0],
             borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-abandoned').trim(),
             fill: false,
             tension: 0.25,
@@ -871,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', function() {
           },
           {
             label: 'Unknown',
-            data: [0],
+            data: [0, 0],
             borderColor: getComputedStyle(document.documentElement).getPropertyValue('--status-unknown').trim(),
             fill: false,
             tension: 0.25,
