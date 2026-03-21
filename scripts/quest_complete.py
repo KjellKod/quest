@@ -199,16 +199,25 @@ def main() -> int:
     # Determine slug and outcome
     slug = data.slug or state.get("slug", quest_dir.name.split("_")[0])
     outcome = data.brief_summary or data.plan_summary or "Completed."
-    # Truncate outcome for README table
+    # Sanitize outcome for README markdown table: collapse newlines, escape pipes
+    outcome = re.sub(r"\s*\n\s*", " ", outcome).replace("|", "\\|")
     if len(outcome) > 120:
         outcome = outcome[:117] + "..."
 
-    # Find journal directory (relative to repo root)
-    repo_root = quest_dir
+    # Find journal directory (walk up to repo root)
+    repo_root = quest_dir.resolve()
+    found = False
     for _ in range(5):
         if (repo_root / "docs" / "quest-journal").exists():
+            found = True
             break
-        repo_root = repo_root.parent
+        parent = repo_root.parent
+        if parent == repo_root:
+            break
+        repo_root = parent
+    if not found:
+        print(f"Error: could not find docs/quest-journal/ above {quest_dir}", file=sys.stderr)
+        return 1
     journal_dir = repo_root / "docs" / "quest-journal"
 
     if not args.skip_journal:
