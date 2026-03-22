@@ -38,7 +38,18 @@ claude mcp add --scope user codex-cli -- codex mcp-server
 
 **Verify it's registered:** `claude mcp list` should show `codex-cli` as a configured server.
 
-If it's not showing up, you can manually add it to `.claude/mcp.json` as a last resort:
+**Add the permission** so Claude Code won't prompt on every Codex call:
+
+```bash
+# If you have jq installed:
+jq '.permissions.allow += ["mcp__codex-cli__*"]' ~/.claude/settings.json > /tmp/cs.json && mv /tmp/cs.json ~/.claude/settings.json
+```
+
+Or manually add `"mcp__codex-cli__*"` to the `permissions.allow` array in `~/.claude/settings.json`.
+
+> **Why `codex-cli` not `codex`?** The MCP server self-identifies as `codex-cli` at startup, so Claude Code names the tools `mcp__codex-cli__codex`, `mcp__codex-cli__review`, etc. — regardless of what you called it in your config.
+
+If the MCP server isn't showing up, you can manually add it to `.claude/mcp.json` as a last resort:
 
 ```json
 {

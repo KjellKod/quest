@@ -1297,6 +1297,45 @@ check_self_update() {
 # Codex MCP Setup (Optional Second Model)
 ###############################################################################
 
+# Ensure mcp__codex-cli__* is in the Claude Code user-level permissions allow list.
+# Without this, Claude Code prompts for approval on every Codex MCP tool call.
+ensure_codex_permission() {
+  local settings_file="$HOME/.claude/settings.json"
+  local perm_pattern="mcp__codex-cli__"
+
+  # If settings file doesn't exist, create minimal structure
+  if [ ! -f "$settings_file" ]; then
+    mkdir -p "$HOME/.claude"
+    cat > "$settings_file" <<'SETTINGS'
+{
+  "permissions": {
+    "allow": [
+      "mcp__codex-cli__*"
+    ]
+  }
+}
+SETTINGS
+    log_success "Created $settings_file with Codex MCP permission"
+    return 0
+  fi
+
+  # Check if permission already exists
+  if grep -q "$perm_pattern" "$settings_file" 2>/dev/null; then
+    log_success "Codex MCP permission already in settings"
+    return 0
+  fi
+
+  # Add permission using jq if available, otherwise instruct manually
+  if command -v jq &>/dev/null; then
+    local tmp_file
+    tmp_file=$(mktemp)
+    jq '.permissions.allow += ["mcp__codex-cli__*"]' "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"
+    log_success "Added mcp__codex-cli__* permission to $settings_file"
+  else
+    log_warn "jq not found — please add \"mcp__codex-cli__*\" to permissions.allow in $settings_file"
+  fi
+}
+
 offer_codex_setup() {
   # Skip in non-interactive or dry-run modes
   if $DRY_RUN || $FORCE_MODE || [ ! -t 0 ] || [ ! -t 1 ]; then
@@ -1346,6 +1385,7 @@ offer_codex_setup() {
   mcp_list=$(claude mcp list 2>/dev/null || echo "")
   if echo "$mcp_list" | grep -q "codex-cli"; then
     log_success "Codex MCP server already registered"
+    ensure_codex_permission
     check_openai_auth
     return 0
   fi
@@ -1360,6 +1400,8 @@ offer_codex_setup() {
   if prompt_yn "Register Codex MCP server?" "y"; then
     if claude mcp add --scope user codex-cli -- codex mcp-server 2>&1; then
       log_success "Codex MCP server registered (user scope)"
+      # Add permission so Claude Code won't prompt for each Codex MCP call
+      ensure_codex_permission
     else
       log_warn "MCP registration failed — you can do it manually:"
       echo "    claude mcp add --scope user codex-cli -- codex mcp-server"
