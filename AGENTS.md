@@ -42,6 +42,12 @@ We drive with a quality mindset in everything — planning, reviewing, and build
 - Input validation at trust boundaries
 - Authorization checks where required
 
+## Shell Command Hygiene
+
+- **Run CLI tools directly, not through shell wrappers.** Permission prefixes (e.g. `["gh","api"]`, `["gh","pr"]`) only match when the command is invoked directly. Wrapping in `bash -lc '...'` or `sh -c '...'` defeats prefix matching and triggers unnecessary permission prompts.
+- Prefer `gh api ...`, `gh pr ...`, `gh run ...` as direct commands.
+- Only use `bash -c` when you genuinely need shell features (pipes, redirects, variable expansion across commands).
+
 ## Documentation Requirements
 
 - Update docs when changing user-facing behavior
