@@ -48,6 +48,30 @@ quest brief
 
 ### Considerations
 
+### Fail-Closed Multi-Model Requirement
+
+The current allowlist can express a mixed-model intent, but Quest can still silently degrade to a single-runtime execution when one runtime is unavailable. That creates a truth gap: the repo appears configured for multi-model work, but the actual quest only used one model.
+
+For operator-invoked Quest, add an explicit **require real multi-model execution** mode:
+
+- If the allowlist or operator policy requires multiple models, Quest must verify that the distinct planned slots can actually run before starting the quest.
+- If the required second runtime is unavailable, Quest should **exit the quest early** instead of silently continuing in single-model mode.
+- Treat `preferred model` and `effective runtime/model` as different facts. Both should be recorded.
+
+### What Must Be Persisted
+
+For every role slot, Quest should persist at least:
+
+- preferred model from policy/allowlist
+- effective runtime used (`claude`, `codex`, etc.)
+- effective model used
+- whether fallback/degradation occurred
+- why degradation happened when it did happen
+
+### Why Memory Is Not Enough
+
+This should not rely on agent memory or informal operator expectations. The hard requirement belongs in Quest's executable policy and runtime checks so that a future session cannot drift back into silent single-model execution.
+
 - The arbiter prompt needs a new mode: "compare two plans" vs. "evaluate review feedback"
 - Plan format must be identical so the arbiter can do apples-to-apples comparison
 - Gold nugget extraction should be concise — bullet points appended to the winning plan, not a full rewrite
