@@ -178,6 +178,7 @@ When updating an existing PR body, preserve bot-managed sections exactly:
 - Create: `gh pr create --draft --title "..." --body "..."`
 - Update: `gh pr edit <number> --title "..." --body "..."`
 - Push first if the remote branch is behind: `git push -u origin HEAD`
+- Run `gh` directly — do not wrap in `bash -lc` or `sh -c`. Permission prefixes only match when `gh` is the top-level command.
 
 ### Truthfulness
 
