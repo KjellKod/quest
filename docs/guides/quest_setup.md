@@ -231,6 +231,8 @@ When Codex orchestrates a quest, it automatically probes and sets up the Claude 
 
 **Prerequisites:** Claude CLI installed and authenticated (`claude auth status` should show a valid session).
 
+If the preflight says the Claude bridge is unavailable, first run `claude auth login` in a normal shell and re-check `claude auth status`. If browser login already succeeded but preflight still reports Claude as unavailable, rerun `./scripts/quest_preflight.sh --orchestrator codex` outside any restricted sandbox before concluding the bridge is broken; some sandboxed runners cannot see the host Claude CLI auth state.
+
 ### What the bridge does
 
 Quest uses a purpose-built CLI bridge (`scripts/claude_cli_bridge.py`) instead of MCP for cross-model calls. This gives Quest per-invocation control that a static MCP connection can't provide:

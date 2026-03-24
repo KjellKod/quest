@@ -56,6 +56,44 @@ has_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
 
+json_get() {
+  local field="$1"
+  python3 -c '
+import json
+import sys
+
+field = sys.argv[1]
+
+try:
+    value = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+
+for part in field.split("."):
+    if isinstance(value, dict):
+        value = value.get(part)
+    else:
+        value = None
+        break
+
+if isinstance(value, bool):
+    print("true" if value else "false")
+elif value is None:
+    print("")
+else:
+    print(str(value))
+' "$field"
+}
+
+json_quote_or_null() {
+  local value="${1:-}"
+  if [ -z "$value" ]; then
+    echo "null"
+    return 0
+  fi
+  python3 -c 'import json, sys; print(json.dumps(sys.argv[1], ensure_ascii=True))' "$value"
+}
+
 ###############################################################################
 # Claude-led session: probe for Codex
 ###############################################################################
@@ -131,14 +169,24 @@ EOJSON
 
 probe_claude_bridge() {
   local claude_cli_installed="false"
+  local claude_auth_logged_in="false"
   local bridge_script_exists="false"
   local bridge_reachable="false"
   local available="false"
   local warning=""
+  local probe_result_kind=""
+  local probe_message=""
 
   # Check Claude CLI
   if has_cmd claude; then
     claude_cli_installed="true"
+    local auth_status
+    auth_status=$(claude auth status 2>/dev/null || true)
+    if [ -n "$auth_status" ]; then
+      if [ "$(printf '%s' "$auth_status" | json_get "loggedIn" 2>/dev/null || echo "false")" = "true" ]; then
+        claude_auth_logged_in="true"
+      fi
+    fi
   fi
 
   # Check bridge script
@@ -149,10 +197,25 @@ probe_claude_bridge() {
   # Run the real probe if both exist
   if [ "$claude_cli_installed" = "true" ] && [ "$bridge_script_exists" = "true" ]; then
     local probe_dir
+    local probe_json=""
+    local probe_exit_code=""
+    local probe_stdout=""
+    local probe_stderr=""
     probe_dir=$(mktemp -d 2>/dev/null || mktemp -d -t quest_preflight)
-    if python3 scripts/quest_claude_probe.py --quest-dir "$probe_dir" --model opus >/dev/null 2>&1; then
+    probe_json=$(python3 scripts/quest_claude_probe.py --quest-dir "$probe_dir" --model opus 2>/dev/null || true)
+    if [ -n "$probe_json" ]; then
+      probe_exit_code=$(printf '%s' "$probe_json" | json_get "exit_code" 2>/dev/null || true)
+      probe_result_kind=$(printf '%s' "$probe_json" | json_get "result_kind" 2>/dev/null || true)
+      probe_stdout=$(printf '%s' "$probe_json" | json_get "stdout" 2>/dev/null || true)
+      probe_stderr=$(printf '%s' "$probe_json" | json_get "stderr" 2>/dev/null || true)
+    fi
+    if [ "${probe_exit_code:-1}" = "0" ]; then
       bridge_reachable="true"
       available="true"
+    elif [ -n "$probe_stdout" ]; then
+      probe_message="$probe_stdout"
+    elif [ -n "$probe_stderr" ]; then
+      probe_message="$probe_stderr"
     fi
     rm -rf "$probe_dir"
   fi
@@ -161,11 +224,20 @@ probe_claude_bridge() {
   local warning_lines=""
   if [ "$available" = "false" ]; then
     warning_lines="    \"Claude bridge not available -- quest will run Codex-only (all roles).\",\n"
-    warning_lines="${warning_lines}    \"Ensure Claude CLI is installed and authenticated:\",\n"
+    warning_lines="${warning_lines}    \"Ensure Claude CLI is installed and authenticated in a normal shell:\",\n"
     if [ "$claude_cli_installed" = "false" ]; then
       warning_lines="${warning_lines}    \"  npm i -g @anthropic-ai/claude-code  # install Claude CLI\",\n"
     fi
-    warning_lines="${warning_lines}    \"  claude auth                          # authenticate\""
+    if [ "$claude_auth_logged_in" = "false" ]; then
+      warning_lines="${warning_lines}    \"  claude auth login                    # opens browser sign-in\",\n"
+      warning_lines="${warning_lines}    \"  claude auth status                   # verify the CLI sees your session\",\n"
+    fi
+    if [ -n "$probe_message" ] && printf '%s' "$probe_message" | grep -Fq "Not logged in"; then
+      warning_lines="${warning_lines}    \"  Claude CLI reported that it is not logged in.\",\n"
+    elif [ -n "$probe_result_kind" ]; then
+      warning_lines="${warning_lines}    \"  Probe result: ${probe_result_kind}\",\n"
+    fi
+    warning_lines="${warning_lines}    \"  If browser login already succeeded, rerun this preflight outside a restricted sandbox; some sandboxes cannot read Claude CLI auth state.\""
   fi
 
   cat <<EOJSON
@@ -175,8 +247,13 @@ probe_claude_bridge() {
   "available": ${available},
   "checks": {
     "claude_cli_installed": ${claude_cli_installed},
+    "claude_auth_logged_in": ${claude_auth_logged_in},
     "bridge_script_exists": ${bridge_script_exists},
     "bridge_reachable": ${bridge_reachable}
+  },
+  "diagnostic": {
+    "probe_result_kind": $(json_quote_or_null "$probe_result_kind"),
+    "probe_message": $(json_quote_or_null "$probe_message")
   },
   "warning": $(if [ -n "$warning_lines" ]; then printf '[\n%b\n  ]' "$warning_lines"; else echo 'null'; fi)
 }
