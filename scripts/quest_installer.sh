@@ -33,6 +33,7 @@ HAS_QUEST=false
 LOCAL_VERSION=""
 UPSTREAM_SHA=""
 LATEST_RELEASE=""
+QUEST_UPDATED_FILES=()
 
 # Dry-run summary counters
 DRY_RUN_WOULD_CREATE=0
@@ -40,9 +41,6 @@ DRY_RUN_WOULD_UPDATE=0
 DRY_RUN_WOULD_SKIP=0
 DRY_RUN_UP_TO_DATE=0
 DRY_RUN_MODIFIED=0
-
-# Track .quest_updated files created during installation
-QUEST_UPDATED_FILES=()
 
 ###############################################################################
 # Cleanup Trap
