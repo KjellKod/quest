@@ -17,6 +17,9 @@ set -euo pipefail
 ###############################################################################
 
 ORCHESTRATOR=""
+CACHE_TTL_SECONDS="${QUEST_PREFLIGHT_CACHE_TTL_SECONDS:-43200}"
+CLAUDE_BRIDGE_SCRIPT="${QUEST_CLAUDE_BRIDGE_SCRIPT:-scripts/claude_cli_bridge.py}"
+CLAUDE_BRIDGE_CACHE_FILE="${QUEST_PREFLIGHT_CACHE_FILE:-.quest/cache/claude_bridge_codex.json}"
 
 ###############################################################################
 # Argument Parsing
@@ -92,6 +95,87 @@ json_quote_or_null() {
     return 0
   fi
   python3 -c 'import json, sys; print(json.dumps(sys.argv[1], ensure_ascii=True))' "$value"
+}
+
+load_success_cache() {
+  local cache_file="$1"
+  local ttl_seconds="$2"
+  python3 - "$cache_file" "$ttl_seconds" <<'PY'
+import json
+import sys
+import time
+from pathlib import Path
+
+cache_file = Path(sys.argv[1])
+ttl_seconds = int(sys.argv[2])
+if ttl_seconds <= 0 or not cache_file.exists():
+    raise SystemExit(1)
+
+try:
+    wrapper = json.loads(cache_file.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(1)
+
+cached_at_epoch = wrapper.get("cached_at_epoch")
+payload = wrapper.get("payload")
+if not isinstance(cached_at_epoch, int) or not isinstance(payload, dict):
+    raise SystemExit(1)
+if payload.get("available") is not True:
+    raise SystemExit(1)
+
+if int(time.time()) > cached_at_epoch + ttl_seconds:
+    raise SystemExit(1)
+
+print(json.dumps(wrapper, ensure_ascii=True))
+PY
+}
+
+write_success_cache() {
+  local cache_file="$1"
+  local ttl_seconds="$2"
+  local payload_json="$3"
+  [ "$ttl_seconds" -gt 0 ] || return 0
+  python3 - "$cache_file" "$ttl_seconds" "$payload_json" <<'PY'
+import json
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+cache_file = Path(sys.argv[1])
+ttl_seconds = int(sys.argv[2])
+payload = json.loads(sys.argv[3])
+now = int(time.time())
+wrapper = {
+    "cached_at": datetime.fromtimestamp(now, timezone.utc).isoformat().replace("+00:00", "Z"),
+    "cached_at_epoch": now,
+    "expires_at": datetime.fromtimestamp(now + ttl_seconds, timezone.utc).isoformat().replace("+00:00", "Z"),
+    "ttl_seconds": ttl_seconds,
+    "payload": payload,
+}
+cache_file.parent.mkdir(parents=True, exist_ok=True)
+cache_file.write_text(json.dumps(wrapper, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+PY
+}
+
+cache_fallback_allowed() {
+  local auth_logged_in="$1"
+  local probe_result_kind="$2"
+  local probe_message="$3"
+
+  if [ "$auth_logged_in" = "false" ]; then
+    return 0
+  fi
+
+  if [ -n "$probe_message" ] && printf '%s' "$probe_message" | grep -Fq "Not logged in"; then
+    return 0
+  fi
+
+  if [ "$probe_result_kind" = "timeout" ]; then
+    return 0
+  fi
+
+  return 1
 }
 
 ###############################################################################
@@ -172,10 +256,14 @@ probe_claude_bridge() {
   local claude_auth_logged_in="false"
   local bridge_script_exists="false"
   local bridge_reachable="false"
+  local cache_hit="false"
   local available="false"
-  local warning=""
+  local source="live_probe"
   local probe_result_kind=""
   local probe_message=""
+  local cache_cached_at=""
+  local cache_expires_at=""
+  local runtime_requirement="host_context"
 
   # Check Claude CLI
   if has_cmd claude; then
@@ -190,7 +278,7 @@ probe_claude_bridge() {
   fi
 
   # Check bridge script
-  if [ -f "scripts/claude_cli_bridge.py" ]; then
+  if [ -f "$CLAUDE_BRIDGE_SCRIPT" ]; then
     bridge_script_exists="true"
   fi
 
@@ -202,7 +290,7 @@ probe_claude_bridge() {
     local probe_stdout=""
     local probe_stderr=""
     probe_dir=$(mktemp -d 2>/dev/null || mktemp -d -t quest_preflight)
-    probe_json=$(python3 scripts/quest_claude_probe.py --quest-dir "$probe_dir" --model opus 2>/dev/null || true)
+    probe_json=$(python3 scripts/quest_claude_probe.py --quest-dir "$probe_dir" --model opus --bridge-script "$CLAUDE_BRIDGE_SCRIPT" 2>/dev/null || true)
     if [ -n "$probe_json" ]; then
       probe_exit_code=$(printf '%s' "$probe_json" | json_get "exit_code" 2>/dev/null || true)
       probe_result_kind=$(printf '%s' "$probe_json" | json_get "result_kind" 2>/dev/null || true)
@@ -218,6 +306,22 @@ probe_claude_bridge() {
       probe_message="$probe_stderr"
     fi
     rm -rf "$probe_dir"
+  fi
+
+  if [ "$available" = "false" ] &&
+     [ "$claude_cli_installed" = "true" ] &&
+     [ "$bridge_script_exists" = "true" ] &&
+     cache_fallback_allowed "$claude_auth_logged_in" "$probe_result_kind" "$probe_message"; then
+    local cache_json=""
+    cache_json=$(load_success_cache "$CLAUDE_BRIDGE_CACHE_FILE" "$CACHE_TTL_SECONDS" 2>/dev/null || true)
+    if [ -n "$cache_json" ]; then
+      cache_hit="true"
+      source="success_cache"
+      available="true"
+      bridge_reachable="true"
+      cache_cached_at=$(printf '%s' "$cache_json" | json_get "cached_at" 2>/dev/null || true)
+      cache_expires_at=$(printf '%s' "$cache_json" | json_get "expires_at" 2>/dev/null || true)
+    fi
   fi
 
   # Build warning lines if not available
@@ -237,19 +341,29 @@ probe_claude_bridge() {
     elif [ -n "$probe_result_kind" ]; then
       warning_lines="${warning_lines}    \"  Probe result: ${probe_result_kind}\",\n"
     fi
-    warning_lines="${warning_lines}    \"  If browser login already succeeded, rerun this preflight outside a restricted sandbox; some sandboxes cannot read Claude CLI auth state.\""
+    warning_lines="${warning_lines}    \"  If browser login already succeeded, rerun this preflight outside a restricted sandbox to refresh the retained host probe cache; some sandboxes cannot read Claude CLI auth state.\""
   fi
 
-  cat <<EOJSON
+  local payload
+  payload=$(cat <<EOJSON
 {
   "orchestrator": "codex",
   "second_model": "claude",
+  "source": $(json_quote_or_null "$source"),
+  "runtime_requirement": $(json_quote_or_null "$runtime_requirement"),
   "available": ${available},
   "checks": {
     "claude_cli_installed": ${claude_cli_installed},
     "claude_auth_logged_in": ${claude_auth_logged_in},
     "bridge_script_exists": ${bridge_script_exists},
-    "bridge_reachable": ${bridge_reachable}
+    "bridge_reachable": ${bridge_reachable},
+    "cache_hit": ${cache_hit}
+  },
+  "cache": {
+    "path": $(json_quote_or_null "$CLAUDE_BRIDGE_CACHE_FILE"),
+    "ttl_seconds": ${CACHE_TTL_SECONDS},
+    "cached_at": $(json_quote_or_null "$cache_cached_at"),
+    "expires_at": $(json_quote_or_null "$cache_expires_at")
   },
   "diagnostic": {
     "probe_result_kind": $(json_quote_or_null "$probe_result_kind"),
@@ -258,6 +372,13 @@ probe_claude_bridge() {
   "warning": $(if [ -n "$warning_lines" ]; then printf '[\n%b\n  ]' "$warning_lines"; else echo 'null'; fi)
 }
 EOJSON
+)
+
+  if [ "$source" = "live_probe" ] && [ "$available" = "true" ]; then
+    write_success_cache "$CLAUDE_BRIDGE_CACHE_FILE" "$CACHE_TTL_SECONDS" "$payload"
+  fi
+
+  printf '%s\n' "$payload"
 
   return 0
 }

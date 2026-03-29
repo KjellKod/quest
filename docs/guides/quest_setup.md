@@ -227,11 +227,13 @@ If you want Codex to discover Quest as a global skill (outside the repository), 
 
 ## Codex-Led Claude Bridge
 
-When Codex orchestrates a quest, it automatically probes and sets up the Claude bridge before the first Claude-designated role. You don't need to run anything manually.
+When Codex orchestrates a quest, it probes and sets up the Claude bridge before the first Claude-designated role. For browser-login auth, Quest treats Claude availability as host-context state, not sandbox-local state.
 
 **Prerequisites:** Claude CLI installed and authenticated (`claude auth status` should show a valid session).
 
 If the preflight says the Claude bridge is unavailable, first run `claude auth login` in a normal shell and re-check `claude auth status`. If browser login already succeeded but preflight still reports Claude as unavailable, rerun `./scripts/quest_preflight.sh --orchestrator codex` outside any restricted sandbox before concluding the bridge is broken; some sandboxed runners cannot see the host Claude CLI auth state.
+
+A successful Codex-led Claude bridge probe is retained at `.quest/cache/claude_bridge_codex.json` by default for 12 hours. That avoids repeating the browser-login remediation on every quest start, but it does **not** make sandbox-local Claude auth trustworthy. Claude-designated roles still need to run in the same host-visible context that produced the successful probe. Override the retention window with `QUEST_PREFLIGHT_CACHE_TTL_SECONDS=<seconds>` or the cache path with `QUEST_PREFLIGHT_CACHE_FILE=<path>`.
 
 ### What the bridge does
 
@@ -250,8 +252,8 @@ For the full architecture rationale, see [Why the Bridge, Not MCP](quest_present
 
 ### What Quest handles automatically
 
-- Probes `scripts/claude_cli_bridge.py` once per session
-- Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py`
+- Probes `scripts/claude_cli_bridge.py` once per session and retains a recent successful host probe
+- Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py` in the same host-visible context used for the probe/cache refresh
 - Claude-led quests are unaffected, they keep native `Task(...)` execution
 
 If the probe fails, Claude-designated roles will block until the CLI/auth setup is fixed.

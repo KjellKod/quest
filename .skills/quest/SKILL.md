@@ -62,6 +62,10 @@ The script is at the **repository root** (`scripts/quest_preflight.sh`), NOT ins
    - For Claude-led sessions, use the warning lines to guide Codex MCP install/auth remediation before rerunning Step 2b.
    - Append "(Claude-only)" or "(Codex-only)" to solo/full quest option labels.
 3. If `available` is true, proceed normally.
+4. For Codex-led sessions, if the JSON includes `runtime_requirement: "host_context"`, treat that as authoritative:
+   - Claude bridge probing and Claude-designated role execution must use the same host-visible context that can see Claude CLI auth.
+   - Do not assume a sandbox-local `claude auth status` result is enough.
+   - The script retains a successful probe in `.quest/cache/claude_bridge_codex.json` by default, so a recent host-verified success can be reused across quest starts without repeating browser login.
 
 This result carries into workflow.md — do not re-probe there.
 
