@@ -12,6 +12,7 @@ COMMANDS: list[tuple[str, list[str]]] = [
     ("validate quest config", ["bash", "scripts/validate-quest-config.sh"]),
     ("validate manifest", ["bash", "scripts/validate-manifest.sh"]),
     ("python tests", [sys.executable, "-m", "pytest"]),
+    ("quest preflight shell tests", ["bash", "tests/test-quest-preflight.sh"]),
     ("quest runtime shell tests", ["bash", "tests/test-quest-runtime.sh"]),
     (
         "handoff contract shell tests",

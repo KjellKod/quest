@@ -48,8 +48,24 @@ The script is at the **repository root** (`scripts/quest_preflight.sh`), NOT ins
 1. Parse the JSON output. Cache `available` as a boolean for the session.
 2. If `available` is false:
    - Display **every line** of the `warning` array from the JSON output as a blockquote before route options. The array contains the heading, setup commands, and instructions — show them all.
+   - Then pause quest startup and offer these choices:
+     ```
+     Second-model setup is not currently available.
+
+     Options:
+       1. Fix it now and rerun preflight (recommended)
+       2. Continue with a single-model quest for this run
+       3. Cancel
+     ```
+   - If the user selects "fix it now", do not create the quest folder yet. Let them complete the remediation, then rerun Step 2b.
+   - For Codex-led sessions, prefer `claude auth login` as the default interactive fix when Claude CLI auth is missing. If the warning indicates a restricted sandbox may be hiding auth state, rerun the preflight with whatever permissions are needed to read the real Claude CLI auth state.
+   - For Claude-led sessions, use the warning lines to guide Codex MCP install/auth remediation before rerunning Step 2b.
    - Append "(Claude-only)" or "(Codex-only)" to solo/full quest option labels.
 3. If `available` is true, proceed normally.
+4. For Codex-led sessions, if the JSON includes `runtime_requirement: "host_context"`, treat that as authoritative:
+   - Claude bridge probing and Claude-designated role execution must use the same host-visible context that can see Claude CLI auth.
+   - Do not assume a sandbox-local `claude auth status` result is enough.
+   - The script retains a successful probe in `.quest/cache/claude_bridge_codex.json` by default, so a recent host-verified success can be reused across quest starts without repeating browser login.
 
 This result carries into workflow.md — do not re-probe there.
 

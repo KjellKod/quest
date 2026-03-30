@@ -67,6 +67,11 @@ These files all contain behavior rules. Some are source-of-truth, some are mirro
 - Require at least one explicit review-readiness comment before merge.
 - Enforce via workflow + branch protection check.
 
+4.5 Runtime selection and multi-model truth gate:
+- Persist both preferred model and effective runtime/model for every quest role.
+- Fail closed when operator policy requires multi-model execution but only one runtime is actually available.
+- Long-term direction: replace the Claude CLI bridge with a native Claude SDK-backed runtime adapter when capability parity exists, and demote the bridge to compatibility fallback status.
+
 5. Quest completion gate:
 - Fail completion if handoff contracts, phase-state transitions, or gate evidence are incomplete.
 - Reuse/extend existing validation scripts (`validate-quest-state`, `validate-handoff-contracts`, `validate-manifest`).
@@ -99,6 +104,7 @@ These files all contain behavior rules. Some are source-of-truth, some are mirro
 - Problem 1 (duplication): canonical pointers in `.codex/AGENTS.md` and `.agents/` done. Lint script and `Canonical Source` annotations not started.
 - Problem 2 item 3 (PR body gate): shipped. See `docs/quest-journal/pr-body-gate_2026-02-22.md`.
 - Problem 2 items 1, 2, 4, 5: not started.
+- Problem 2 item 4.5 (runtime selection truth + Claude SDK preferred over bridge): not started.
 - Rollout Phase A partially started (PR body gate runs warn-only, not yet required).
 
 ## Status

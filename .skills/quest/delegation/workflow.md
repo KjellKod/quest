@@ -36,8 +36,9 @@ If the preflight result was already cached by SKILL.md Step 2b, use the cached v
 1. `codex_available` is always true (Codex is the active runtime — no MCP needed).
 2. Run `scripts/quest_preflight.sh --orchestrator codex` and parse the JSON output.
 3. Cache the `available` field as `claude_bridge_available` (boolean) for the rest of the session.
-4. If `claude_bridge_available` is false: Claude-designated roles block unless that step defines an explicit Codex fallback (see Claude Bridge Probe section below).
-4. If `codex_available` is true:
+4. If the JSON includes `runtime_requirement: "host_context"`, Claude bridge probing and Claude-designated role execution must run in the same host-visible context that can see Claude CLI auth. A sandbox-local probe result is not authoritative by itself.
+5. If `claude_bridge_available` is false: Claude-designated roles block unless that step defines an explicit Codex fallback (see Claude Bridge Probe section below).
+6. If `codex_available` is true:
    - Proceed normally with Codex invocations per the workflow below.
 
 **This rule is global.** Individual steps do not repeat the `codex_available` check — they just say `mcp__codex__codex` and this section governs what actually happens. The orchestrator applies the substitution transparently.
@@ -51,22 +52,23 @@ Quest may need to run Claude-designated roles in environments where native Claud
 Before the first Claude-designated role invocation in a Codex-orchestrated session, the orchestrator MUST probe bridge availability:
 
 1. Verify `scripts/claude_cli_bridge.py` exists.
-2. Verify Claude CLI is reachable, authenticated, and able to write Quest artifacts by running the real probe helper:
+2. Verify Claude CLI is reachable, authenticated, and able to write Quest artifacts by running the real probe helper in a host-visible context:
    - `python3 scripts/quest_claude_probe.py --quest-dir .quest/<id> --model opus`
    - This probe is the source of truth for bridge readiness. It writes a tiny artifact plus `probe_handoff.json` under `.quest/<id>/logs/bridge_probe/`.
-3. Cache the result as `claude_bridge_available` (boolean) for the rest of the session.
-4. If `claude_bridge_available` is false:
+3. `scripts/quest_preflight.sh --orchestrator codex` retains a successful host probe in `.quest/cache/claude_bridge_codex.json` by default. A fresh sandboxed session may reuse that cache while the TTL is valid, but Claude roles still need the same host-visible execution path.
+4. Cache the result as `claude_bridge_available` (boolean) for the rest of the session.
+5. If `claude_bridge_available` is false:
    - Log: `"Claude bridge unavailable in this Codex-led session — Claude-designated slots requiring Claude runtime will block unless that step defines an explicit Codex path."`
    - Do not keep retrying the probe for later Claude roles.
-5. If `claude_bridge_available` is true:
+6. If `claude_bridge_available` is true:
    - Claude-designated roles may be invoked through the bridge with the same artifact paths and handoff contract used by native Claude execution.
-   - **Preferred Codex-led execution path:** use `python3 scripts/quest_claude_runner.py` instead of calling `scripts/claude_cli_bridge.py` directly. The helper sets `--permission-mode bypassPermissions` by default, adds explicit repo/quest filesystem access via `--add-dir`, polls `handoff.json`, and appends the `context_health.log` line for `runtime=claude`.
+   - **Preferred Codex-led execution path:** use `python3 scripts/quest_claude_runner.py` instead of calling `scripts/claude_cli_bridge.py` directly, and run that helper in the same host-visible context used for the successful probe/cache refresh. The helper sets `--permission-mode bypassPermissions` by default, adds explicit repo/quest filesystem access via `--add-dir`, polls `handoff.json`, and appends the `context_health.log` line for `runtime=claude`.
 
 **Global runtime-selection rule:** the workflow chooses execution path by selected model/runtime, not by role label alone.
 
 - If the selected role model/runtime is Codex, use `mcp__codex__codex` (or Codex agent tools).
 - If the selected role model/runtime is Claude and native `Task(...)` is available in the orchestrator, use `Task(...)`.
-- If the selected role model/runtime is Claude and the orchestrator is Codex, use `python3 scripts/quest_claude_runner.py` when `claude_bridge_available` is true. `scripts/claude_cli_bridge.py` stays the transport layer behind that runner.
+- If the selected role model/runtime is Claude and the orchestrator is Codex, use `python3 scripts/quest_claude_runner.py` in the same host-visible context used for bridge probing/cache refresh when `claude_bridge_available` is true. `scripts/claude_cli_bridge.py` stays the transport layer behind that runner.
 - If the selected role model/runtime is Claude, native `Task(...)` is unavailable, and the bridge probe failed, block that step unless the workflow section for that role defines an explicit Codex execution path.
 
 This rule is global. Individual steps below name the target runtime and artifact contract; the orchestrator applies native Claude task execution, bridge execution, or Codex execution based on the selected model/runtime and session capabilities.

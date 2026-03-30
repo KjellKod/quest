@@ -178,6 +178,7 @@ When updating an existing PR body, preserve bot-managed sections exactly:
 - Create: `gh pr create --draft --title "..." --body "..."`
 - Update: `gh pr edit <number> --title "..." --body "..."`
 - Push first if the remote branch is behind: `git push -u origin HEAD`
+- Run `gh` directly — do not wrap in `bash -lc` or `sh -c`. Permission prefixes only match when `gh` is the top-level command.
 
 ### Truthfulness
 
@@ -196,15 +197,33 @@ Append this block at the end of the PR body:
      ▐▛███▜▌
     ▝▜█████▛▘
       ▘▘ ▝▝
-Quest/Co-Authored by <claude label>, <codex label> in Collaboration with <github username>
+Quest/Co-Authored by
+<model lines — one per model that participated>
+in collaboration with <human author identity>
 </pre>
 ```
 
-Replace:
+Each model line uses standard `Co-Authored-By:` format:
 
-- **claude label** with the current Claude model label when it is known from the active session or quest artifacts; otherwise use `Claude`.
-- **codex label** with the current Codex model label when it is known from the active session, CLI invocation, or quest artifacts; otherwise use `Codex`.
-- **github username** with the actual GitHub username.
+```
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+Co-Authored-By: Codex <noreply@openai.com>
+```
+
+Rules:
+
+- **Only include models that actually participated** in the work being committed. Do not list a model that was not involved.
+- If model participation is unclear, do not ask by default. Include only the current model when it clearly participated, and omit any other model you cannot verify.
+- Use the specific model label (e.g., "Claude Opus 4.6", "Codex mini") when known from the session or quest artifacts.
+- Known model email mappings:
+  - Claude → `noreply@anthropic.com`
+  - Codex / OpenAI → `noreply@openai.com`
+  - OpenCode → `noreply@opencode.ai`
+- Resolve `<human author identity>` from local git config when available:
+  - Prefer `git config user.name` + `git config user.email` and format as `Name <email>`
+  - If only a GitHub username can be inferred from git config or the remote URL, use that username
+  - If no human identity can be verified, use `the repository author`
+- The `in collaboration with` line is always present and always last.
 
 Never omit the trailer.
 

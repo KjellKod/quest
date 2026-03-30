@@ -94,3 +94,10 @@ Inform the user the PR is ready for their review.
 - Never ignore review comments — always respond.
 - Keep fix commits small and focused; don't bundle unrelated changes.
 - If stuck in a loop (>3 fix iterations), stop and ask the user for guidance.
+
+## Command Invocation
+
+Run `gh` commands directly — not through `bash -lc`, `sh -c`, or other shell wrappers.
+Permission prefixes (e.g. `["gh","pr"]`) only match when `gh` is the top-level command.
+Wrapping in a shell defeats prefix matching and triggers repeated permission prompts.
+Use shell wrappers only when you need pipes, redirects, or multi-command composition.

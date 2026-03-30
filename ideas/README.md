@@ -33,6 +33,7 @@ architecture docs.
 ### Codex and Operations Notes
 | File | Status | Purpose |
 |---|---|---|
+| `claude-cli-login-context.md` | reference | Operational note: external `claude` CLI login must be validated in the same execution context; an open app session is not enough. |
 | `memory_bank_model.md` | reference | General memory-bank pattern note for AI-guided repos. |
 
 ### Graduated
