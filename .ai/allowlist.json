@@ -28,6 +28,11 @@
     "code-reviewer-b": "gpt-5.4",
     "fixer": "gpt-5.4"
   },
+  "quest_startup": {
+    "branch_mode": "branch",
+    "branch_prefix": "quest/",
+    "worktree_root": ".worktrees/quest"
+  },
   "review_mode": "full",
   "fast_review_thresholds": {
     "max_files": 5,

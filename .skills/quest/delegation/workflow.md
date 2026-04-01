@@ -258,7 +258,16 @@ This workflow expects to be invoked with a quest brief already prepared.
 
 1. Verify `.quest/<id>/quest_brief.md` exists
 2. If it does not exist, STOP and report error: "Quest brief not found. The routing layer should have created it before invoking workflow."
-3. If it exists, proceed to Step 2
+3. Read `.quest/<id>/state.json` and determine the source workspace root for code-bearing phases:
+   - If `worktree_path` exists and the directory is present, set `source_workspace_root = worktree_path`
+   - Otherwise set `source_workspace_root = <repo root>`
+   - All source edits plus `git status`, `git diff`, and `git log` commands in Steps 4-7 MUST run from `source_workspace_root`
+   - Quest artifacts always remain under `.quest/<id>/` in the original repo root; when `source_workspace_root != <repo root>`, prefer absolute quest artifact paths when invoking builder, reviewers, and fixer
+4. Verify branch context:
+   - If `branch` exists in state.json and `branch_mode == "branch"`, compare it to `git branch --show-current` in `source_workspace_root`
+   - If `branch_mode == "worktree"`, verify the directory at `worktree_path` still exists
+   - If verification fails, warn the user but do not block automatically; they may have switched context intentionally
+5. If the checks pass, proceed to Step 2
 
 ### Step 2: Route Intent
 
@@ -598,6 +607,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Read `models.builder` from allowlist.
    - If builder model is Codex, invoke via `mcp__codex__codex` with `sandbox_permissions: "workspace-write"`.
    - If builder model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
+   - Run the builder from `source_workspace_root`. If this quest uses a separate worktree, source changes happen there while `.quest/<id>/...` artifacts still point at the original repo root.
    - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `pr_description.md`, `builder_feedback_discussion.md`, and `handoff.json` in `.quest/<id>/phase_02_implementation/`.
    - Prompt: Reference file paths only, do not embed content:
      - Approved plan: `.quest/<id>/phase_01_plan/plan.md`
@@ -642,7 +652,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 
 3. **Build a change summary for Codex:**
-   - Compute from git (the canonical source for what changed):
+   - Compute from git in `source_workspace_root` (the canonical source for what changed):
      - File list: `git diff --name-only`
      - Diff stats: `git diff --stat`
      - LOC totals: `git diff --numstat` and sum added + deleted.
@@ -842,6 +852,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Read `models.fixer` from allowlist.
    - If fixer model is Codex, invoke via `mcp__codex__codex` with `sandbox_permissions: "workspace-write"`.
    - If fixer model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
+   - Run the fixer from `source_workspace_root`. If this quest uses a separate worktree, source fixes happen there while `.quest/<id>/...` artifacts remain in the original repo root.
    - Prompt: Reference file paths only, do not embed content:
      - Code review A: `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
      - Code review B: `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
@@ -911,11 +922,12 @@ After plan approval, present the plan interactively before proceeding to build.
 
 4. **Show summary** (before archiving — quest directory still exists):
     - Quest ID
-    - Files changed (from `git diff --name-only` and `state.json` artifact paths)
+    - Files changed (from `git diff --name-only` in `source_workspace_root` and `state.json` artifact paths)
     - Total iterations (plan + fix, from `state.json`)
     - Parallel execution stats (read from `.quest/<id>/logs/parallelism.log` if it exists — show each line)
     - Location of artifacts (will be archived to `.quest/archive/<id>/`)
     - Location of journal entry (will be created next)
+    - If `branch_mode == "worktree"` and `worktree_path` exists, remind the user that the implementation branch lives in that worktree and cleanup is manual via `git worktree remove <worktree_path>`
 
 6. **Context health report:**
    If `.quest/<id>/logs/context_health.log` exists, display it in full:
@@ -1096,6 +1108,9 @@ If a Claude role returns `STATUS: needs_human`:
   "slug": "feature-x",
   "phase": "plan | plan_reviewed | presenting | presentation_complete | building | reviewing | fixing | complete",
   "status": "pending | in_progress | complete | blocked",
+  "branch": "quest/feature-x",
+  "branch_mode": "branch | worktree | none",
+  "worktree_path": "/absolute/path/to/worktree or null",
   "plan_iteration": 2,
   "fix_iteration": 0,
   "last_role": "arbiter_agent",

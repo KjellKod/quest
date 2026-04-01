@@ -1,5 +1,6 @@
 # Quest ephemeral state
 .quest/
+.worktrees/
 
 # Workspace scratch
 .ws/
