@@ -387,7 +387,10 @@ jobs:
           for idx, c in enumerate(comments):
               severity = c.get("severity") or "none"
               print(
-                  f"[{idx}] posting path={c['path']} line={c['line']} side={c.get('side', 'RIGHT')} severity={severity}"
+                  f"[{idx}] posting path={escape_github_command_field(c['path'])} "
+                  f"line={escape_github_command_field(c['line'])} "
+                  f"side={escape_github_command_field(c.get('side', 'RIGHT'))} "
+                  f"severity={escape_github_command_field(severity)}"
               )
               payload = {
                   "body": c["body"],
