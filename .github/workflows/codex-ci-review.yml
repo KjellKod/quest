@@ -219,6 +219,14 @@ jobs:
               print("No review comments.")
               sys.exit(0)
 
+          VALID_SEVERITIES = {"blocker", "must-fix", "should-fix"}
+
+          def normalize_severity(value):
+              if not isinstance(value, str):
+                  return None
+              normalized = value.strip().lower()
+              return normalized if normalized in VALID_SEVERITIES else None
+
           def is_valid_comment(c):
               if not isinstance(c, dict):
                   return False
@@ -234,6 +242,15 @@ jobs:
                   return False
               if c.get("side") not in ("LEFT", "RIGHT"):
                   c["side"] = "RIGHT"
+              severity = c.get("severity")
+              if severity is None:
+                  return True
+              normalized_severity = normalize_severity(severity)
+              if normalized_severity is None:
+                  c.pop("severity", None)
+                  c["_severity_stripped"] = True
+              else:
+                  c["severity"] = normalized_severity
               return True
 
           valid = [c for c in comments if is_valid_comment(c)]
@@ -242,6 +259,12 @@ jobs:
               sys.exit(0)
           if len(valid) < len(comments):
               print(f"Filtered {len(comments) - len(valid)} malformed comment(s).")
+          stripped_invalid_severity = sum(1 for c in valid if c.pop("_severity_stripped", False))
+          if stripped_invalid_severity:
+              print(
+                  f"Ignored invalid structured severity on {stripped_invalid_severity} comment(s); "
+                  "preserving body-based behavior."
+              )
           comments = valid
 
           import subprocess
@@ -349,6 +372,10 @@ jobs:
           failed = []
 
           for idx, c in enumerate(comments):
+              severity = c.get("severity") or "none"
+              print(
+                  f"[{idx}] posting path={c['path']} line={c['line']} side={c.get('side', 'RIGHT')} severity={severity}"
+              )
               payload = {
                   "body": c["body"],
                   "commit_id": os.environ["COMMIT_SHA"],
@@ -385,6 +412,7 @@ jobs:
                           "path": c.get("path"),
                           "line": c.get("line"),
                           "side": c.get("side"),
+                          "severity": severity,
                           "error": (result.stderr or result.stdout or "").strip(),
                       }
                   )
@@ -395,7 +423,8 @@ jobs:
               print("::warning::Some inline comments could not be posted (often invalid path/line).")
               for f in failed:
                   print(
-                      f"::warning::[{f['index']}] path={f['path']} line={f['line']} side={f['side']} error={f['error'][:500]}"
+                      f"::warning::[{f['index']}] path={f['path']} line={f['line']} side={f['side']} "
+                      f"severity={f['severity']} error={f['error'][:500]}"
                   )
 
           if posted == 0 and comments:
