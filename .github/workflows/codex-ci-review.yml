@@ -227,6 +227,20 @@ jobs:
               normalized = value.strip().lower()
               return normalized if normalized in VALID_SEVERITIES else None
 
+          def escape_github_command_field(value):
+              if value is None:
+                  return ""
+              text = str(value)
+              return (
+                  text.replace("%", "%25")
+                  .replace("\r", "%0D")
+                  .replace("\n", "%0A")
+                  .replace(":", "%3A")
+                  .replace(",", "%2C")
+              )
+
+          severity_stats = {"stripped": 0}
+
           def is_valid_comment(c):
               if not isinstance(c, dict):
                   return False
@@ -248,7 +262,7 @@ jobs:
               normalized_severity = normalize_severity(severity)
               if normalized_severity is None:
                   c.pop("severity", None)
-                  c["_severity_stripped"] = True
+                  severity_stats["stripped"] += 1
               else:
                   c["severity"] = normalized_severity
               return True
@@ -259,10 +273,9 @@ jobs:
               sys.exit(0)
           if len(valid) < len(comments):
               print(f"Filtered {len(comments) - len(valid)} malformed comment(s).")
-          stripped_invalid_severity = sum(1 for c in valid if c.pop("_severity_stripped", False))
-          if stripped_invalid_severity:
+          if severity_stats["stripped"]:
               print(
-                  f"Ignored invalid structured severity on {stripped_invalid_severity} comment(s); "
+                  f"Ignored invalid structured severity on {severity_stats['stripped']} comment(s); "
                   "preserving body-based behavior."
               )
           comments = valid
@@ -423,8 +436,12 @@ jobs:
               print("::warning::Some inline comments could not be posted (often invalid path/line).")
               for f in failed:
                   print(
-                      f"::warning::[{f['index']}] path={f['path']} line={f['line']} side={f['side']} "
-                      f"severity={f['severity']} error={f['error'][:500]}"
+                      f"::warning::[{escape_github_command_field(f['index'])}] "
+                      f"path={escape_github_command_field(f['path'])} "
+                      f"line={escape_github_command_field(f['line'])} "
+                      f"side={escape_github_command_field(f['side'])} "
+                      f"severity={escape_github_command_field(f['severity'])} "
+                      f"error={escape_github_command_field(f['error'][:500])}"
                   )
 
           if posted == 0 and comments:
