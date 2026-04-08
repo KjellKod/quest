@@ -9,8 +9,16 @@ Supports two modes:
   Atomic validated transition (preferred):
     python3 scripts/quest_state.py --quest-dir .quest/<id> --transition building --status in_progress
 
+  With optimistic locking (recommended for multi-agent):
+    python3 scripts/quest_state.py --quest-dir .quest/<id> --transition building --status in_progress --expect-phase plan_reviewed
+
 The --transition flag calls validate-quest-state.sh before writing.
 If validation fails, state.json is not modified.
+
+The --expect-phase flag adds optimistic locking: the transition is
+rejected immediately if the current phase in state.json does not match
+the expected value, preventing TOCTOU race conditions when multiple
+agents may be updating state concurrently.
 """
 
 from __future__ import annotations
@@ -72,6 +80,15 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument("--status")
+    parser.add_argument(
+        "--expect-phase",
+        metavar="PHASE",
+        help=(
+            "Optimistic lock: reject immediately if current phase in "
+            "state.json does not match PHASE. Prevents TOCTOU races "
+            "when multiple agents update state concurrently."
+        ),
+    )
     parser.add_argument("--last-role")
     parser.add_argument("--last-verdict")
     parser.add_argument("--quest-mode")
@@ -89,17 +106,36 @@ def main() -> int:
 
     target_phase = args.transition or args.phase
 
+    if args.expect_phase and not args.transition:
+        print(
+            "--expect-phase requires --transition (ignored with --phase).",
+            file=sys.stderr,
+        )
+        return 1
+
     if args.transition:
+        # Read current phase BEFORE validation for accurate error reporting
+        current_phase = "unknown"
+        try:
+            current_phase = load_state(quest_dir).get("phase", "unknown")
+        except Exception:
+            pass
+
+        # Optimistic lock: reject if current phase doesn't match expectation
+        if args.expect_phase and current_phase != args.expect_phase:
+            print(
+                f"Optimistic lock failed: expected phase '{args.expect_phase}' "
+                f"but state.json has '{current_phase}'. Another agent may have "
+                f"modified state concurrently.",
+                file=sys.stderr,
+            )
+            return 1
+
         # Validate before mutating
         rc, output = run_validator(quest_dir, args.transition)
         if rc != 0:
-            current = "unknown"
-            try:
-                current = load_state(quest_dir).get("phase", "unknown")
-            except Exception:
-                pass
             print(
-                f"Transition {current} -> {args.transition} rejected by validator.",
+                f"Transition {current_phase} -> {args.transition} rejected by validator.",
                 file=sys.stderr,
             )
             print(output, file=sys.stderr)

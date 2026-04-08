@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-04-08 | [extract-ci-review-python](extract-ci-review-python_2026-04-08.md) | Extract the embedded Python from .github/workflows/codex-ci-review.yml into a standalone script at .github/scripts/co... |
 | 2026-04-07 | [ci-review-severity](ci-review-severity_2026-04-07.md) | User selection: full quest. |
 | 2026-03-21 | [quest-housekeeping-blitz](quest-housekeeping-blitz_2026-03-21.md) | Forensic sweep of stale quests, missing journal entries, broken archive/celebration automation, and a Codex sandbox p... |
 | 2026-03-21 | [installer-codex-and-bridge-timeout](installer-codex-and-bridge-timeout_2026-03-21.md) | Installer handles Codex MCP setup; bridge timeout raised from 90s to 30 minutes. (PRs #78, #80) |
