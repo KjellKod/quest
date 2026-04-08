@@ -16,6 +16,7 @@ Review for real design issues only:
 - If the code looks fine, return an empty array. Silence is golden.
 - Be constructive and specific. Suggest what to change, not just what is wrong.
 - Include severity in each comment body: `**Blocker**`, `**Must fix**`, `**Should fix**`.
+- Also include a structured `severity` field in each comment: `blocker`, `must-fix`, or `should-fix`.
 
 ## Severity Model
 
@@ -31,6 +32,7 @@ Return a JSON array. Each element:
   "path": "src/foo/bar.py",
   "line": 42,
   "side": "RIGHT",
+  "severity": "must-fix",
   "body": "**Must fix** - This helper duplicates logic already in `utils.fetch_data()`. Consider reusing it to keep SRP intact.\n\n*Automated review by OpenAI Codex*"
 }
 ```

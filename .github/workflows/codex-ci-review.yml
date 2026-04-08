@@ -219,6 +219,28 @@ jobs:
               print("No review comments.")
               sys.exit(0)
 
+          VALID_SEVERITIES = {"blocker", "must-fix", "should-fix"}
+
+          def normalize_severity(value):
+              if not isinstance(value, str):
+                  return None
+              normalized = value.strip().lower()
+              return normalized if normalized in VALID_SEVERITIES else None
+
+          def escape_github_command_field(value):
+              if value is None:
+                  return ""
+              text = str(value)
+              return (
+                  text.replace("%", "%25")
+                  .replace("\r", "%0D")
+                  .replace("\n", "%0A")
+                  .replace(":", "%3A")
+                  .replace(",", "%2C")
+              )
+
+          severity_stats = {"stripped": 0}
+
           def is_valid_comment(c):
               if not isinstance(c, dict):
                   return False
@@ -234,6 +256,15 @@ jobs:
                   return False
               if c.get("side") not in ("LEFT", "RIGHT"):
                   c["side"] = "RIGHT"
+              severity = c.get("severity")
+              if severity is None:
+                  return True
+              normalized_severity = normalize_severity(severity)
+              if normalized_severity is None:
+                  c.pop("severity", None)
+                  severity_stats["stripped"] += 1
+              else:
+                  c["severity"] = normalized_severity
               return True
 
           valid = [c for c in comments if is_valid_comment(c)]
@@ -242,6 +273,11 @@ jobs:
               sys.exit(0)
           if len(valid) < len(comments):
               print(f"Filtered {len(comments) - len(valid)} malformed comment(s).")
+          if severity_stats["stripped"]:
+              print(
+                  f"Ignored invalid structured severity on {severity_stats['stripped']} comment(s); "
+                  "preserving body-based behavior."
+              )
           comments = valid
 
           import subprocess
@@ -349,6 +385,13 @@ jobs:
           failed = []
 
           for idx, c in enumerate(comments):
+              severity = c.get("severity") or "none"
+              print(
+                  f"[{idx}] posting path={escape_github_command_field(c['path'])} "
+                  f"line={escape_github_command_field(c['line'])} "
+                  f"side={escape_github_command_field(c.get('side', 'RIGHT'))} "
+                  f"severity={escape_github_command_field(severity)}"
+              )
               payload = {
                   "body": c["body"],
                   "commit_id": os.environ["COMMIT_SHA"],
@@ -385,6 +428,7 @@ jobs:
                           "path": c.get("path"),
                           "line": c.get("line"),
                           "side": c.get("side"),
+                          "severity": severity,
                           "error": (result.stderr or result.stdout or "").strip(),
                       }
                   )
@@ -395,7 +439,12 @@ jobs:
               print("::warning::Some inline comments could not be posted (often invalid path/line).")
               for f in failed:
                   print(
-                      f"::warning::[{f['index']}] path={f['path']} line={f['line']} side={f['side']} error={f['error'][:500]}"
+                      f"::warning::[{escape_github_command_field(f['index'])}] "
+                      f"path={escape_github_command_field(f['path'])} "
+                      f"line={escape_github_command_field(f['line'])} "
+                      f"side={escape_github_command_field(f['side'])} "
+                      f"severity={escape_github_command_field(f['severity'])} "
+                      f"error={escape_github_command_field(f['error'][:500])}"
                   )
 
           if posted == 0 and comments:

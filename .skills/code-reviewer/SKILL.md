@@ -52,6 +52,18 @@ Classify findings using these levels, and include the level in each PR comment:
 
 Rule: Avoid comment-only “style polish” and trivial corrections. Prefer high signal feedback.
 
+### Comment Placement
+
+Default to **inline review comments** for code-specific feedback. If a finding refers to a concrete file, function, branch, or line range, attach it to that code instead of posting it in the main PR discussion.
+
+Use **top-level PR comments/reviews** only for:
+- overall assessment
+- acceptance-criteria coverage summary
+- cross-cutting concerns that do not belong to one code location
+- process notes about the review itself
+
+If a code-specific issue is fixed before you comment, do **not** repost stale feedback as a top-level comment.
+
 ---
 
 ## Review Process
