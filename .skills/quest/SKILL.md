@@ -160,8 +160,15 @@ Before creating the quest folder, present the routing classification to the user
 ### Quest Folder Creation
 
 1. Generate a slug (lowercase, hyphenated, 2-5 words) and inform the user
-2. Run quest startup branch preparation before creating the quest folder:
-   - Execute: `python3 scripts/quest_startup_branch.py --slug <slug>`
+2. **Ask the user** which workspace mode to use for this quest. Present these options:
+   - **branch** — create a `quest/<slug>` feature branch (switches away from current branch)
+   - **worktree** — create a `quest/<slug>` branch in a separate worktree (current branch stays checked out)
+   - **none** — stay on the current branch as-is
+   
+   If already on a non-default branch, inform the user and skip the prompt — the quest will use the current branch.
+
+3. Run quest startup branch preparation with the user's choice:
+   - Execute: `python3 scripts/quest_startup_branch.py --slug <slug> --mode <choice>`
    - Parse the JSON result
    - If `status` is `"blocked"`: show the returned `message`, do NOT create the quest folder yet, and stop for the user to resolve the git state or config
    - If `status` is `"created"` or `"skipped"`: continue and surface the returned `message` to the user
@@ -169,18 +176,14 @@ Before creating the quest folder, present the routing classification to the user
      - `branch`
      - `branch_mode`
      - `worktree_path` (if present)
-   - Behavior rules:
-     - Default mode comes from `.ai/allowlist.json` → `quest_startup.branch_mode` and defaults to `"branch"`
-     - When starting on the repo default branch, Quest creates either a feature branch or a worktree-backed branch from that default branch
-     - When already on a non-default branch, Quest does not create another branch/worktree and records the existing branch for the run
-3. Create `.quest/<slug>_YYYY-MM-DD__HHMM/` with subfolders:
+4. Create `.quest/<slug>_YYYY-MM-DD__HHMM/` with subfolders:
    `phase_01_plan/`, `phase_02_implementation/`, `phase_03_review/`, `logs/`
-4. Write quest brief to `.quest/<id>/quest_brief.md` including:
+5. Write quest brief to `.quest/<id>/quest_brief.md` including:
    - User input (original prompt)
    - Questioner summary (if questioning occurred)
    - **Router classification JSON** (the final routing decision that sent the quest to workflow). This is the classification produced by the most recent router evaluation — if the router ran twice (once before questioning, once after), record the second (final) classification.
-5. Copy `.ai/allowlist.json` to `.quest/<id>/logs/allowlist_snapshot.json`
-6. Initialize `state.json`:
+6. Copy `.ai/allowlist.json` to `.quest/<id>/logs/allowlist_snapshot.json`
+7. Initialize `state.json`:
    ```json
    {
      "quest_id": "<id>",

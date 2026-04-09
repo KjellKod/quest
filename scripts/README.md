@@ -30,7 +30,7 @@ python3 scripts/quest_dashboard/build_quest_dashboard.py
 python3 scripts/quest_state.py --quest-dir .quest/<id> --phase plan_reviewed --status complete
 
 # Prepare startup branch/worktree context for a new quest
-python3 scripts/quest_startup_branch.py --slug feature-x
+python3 scripts/quest_startup_branch.py --slug feature-x --mode branch
 
 # Run a Claude-designated role via the local bridge with file polling
 python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase plan_review --agent plan-reviewer-a --iter 1 --prompt-file .quest/<id>/phase_01_plan/reviewer_a_prompt.txt --handoff-file .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json

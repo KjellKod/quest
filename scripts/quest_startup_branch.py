@@ -23,6 +23,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--slug", required=True)
     parser.add_argument("--repo-root", default=".")
     parser.add_argument("--allowlist", default=".ai/allowlist.json")
+    parser.add_argument(
+        "--mode",
+        choices=["branch", "worktree", "none"],
+        default=None,
+        help="Override branch mode from allowlist (user's interactive choice).",
+    )
     return parser.parse_args()
 
 
@@ -127,7 +133,7 @@ def main() -> int:
     try:
         allowlist = load_allowlist(allowlist_path)
         startup = allowlist.get("quest_startup") or {}
-        requested_branch_mode = startup.get("branch_mode", DEFAULT_BRANCH_MODE)
+        requested_branch_mode = args.mode or startup.get("branch_mode", DEFAULT_BRANCH_MODE)
         branch_prefix = startup.get("branch_prefix", DEFAULT_BRANCH_PREFIX)
         worktree_root = startup.get("worktree_root", DEFAULT_WORKTREE_ROOT)
 
@@ -279,6 +285,14 @@ def main() -> int:
             branch_name,
             default_branch,
         )
+
+        # Symlink .quest/ into the worktree so subagents can use
+        # relative .quest/<id>/... paths without special handling.
+        quest_link = worktree_path / ".quest"
+        quest_source = repo_root / ".quest"
+        if not quest_link.exists() and quest_source.exists():
+            quest_link.symlink_to(quest_source)
+
         payload = build_result(
             status="created",
             branch=branch_name,

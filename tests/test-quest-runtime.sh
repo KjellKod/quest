@@ -398,7 +398,10 @@ test_quest_startup_branch_creates_worktree() {
   init_git_repo "$tmpdir" || return 1
   write_allowlist "$tmpdir" "worktree"
 
-  local output rc main_branch status branch_mode worktree_path worktree_branch
+  # Create .quest/ in repo root so the symlink has a target
+  mkdir -p "$tmpdir/.quest"
+
+  local output rc main_branch status branch_mode worktree_path worktree_branch quest_link
   output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-worktree 2>&1)
   rc=$?
   main_branch=$(git -C "$tmpdir" branch --show-current)
@@ -406,6 +409,9 @@ test_quest_startup_branch_creates_worktree() {
   branch_mode=$(printf '%s' "$output" | jq -r '.branch_mode')
   worktree_path=$(printf '%s' "$output" | jq -r '.worktree_path')
   worktree_branch=$(git -C "$worktree_path" branch --show-current 2>/dev/null)
+  quest_link="$worktree_path/.quest"
+  local has_symlink=false
+  [ -L "$quest_link" ] && has_symlink=true
   git -C "$tmpdir" worktree remove "$worktree_path" --force >/dev/null 2>&1 || true
   rm -rf "$tmpdir"
 
@@ -413,7 +419,8 @@ test_quest_startup_branch_creates_worktree() {
     [ "$main_branch" = "main" ] &&
     [ "$status" = "created" ] &&
     [ "$branch_mode" = "worktree" ] &&
-    [ "$worktree_branch" = "quest/startup-worktree" ]
+    [ "$worktree_branch" = "quest/startup-worktree" ] &&
+    [ "$has_symlink" = "true" ]
 }
 
 test_quest_startup_branch_none_mode_leaves_main_checked_out() {
