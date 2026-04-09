@@ -398,9 +398,7 @@ test_quest_startup_branch_creates_worktree() {
   init_git_repo "$tmpdir" || return 1
   write_allowlist "$tmpdir" "worktree"
 
-  # Create .quest/ in repo root so the symlink has a target
-  mkdir -p "$tmpdir/.quest"
-
+  # No .quest/ dir yet — symlink is created unconditionally (dangling until quest init)
   local output rc main_branch status branch_mode worktree_path worktree_branch quest_link
   output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-worktree 2>&1)
   rc=$?

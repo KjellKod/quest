@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ DEFAULT_BRANCH_MODE = "branch"
 DEFAULT_BRANCH_PREFIX = "quest/"
 DEFAULT_WORKTREE_ROOT = ".worktrees/quest"
 VALID_BRANCH_MODES = {"branch", "worktree", "none"}
+SAFE_SLUG_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -75,10 +77,8 @@ def detect_default_branch(repo_root: Path, current_branch: str) -> str:
         if git_success(repo_root, "show-ref", "--verify", "--quiet", f"refs/heads/{candidate}"):
             return candidate
 
-    if current_branch in {"main", "master"}:
-        return current_branch
-
-    return "main"
+    # Cannot determine default branch — assume current branch is it.
+    return current_branch
 
 
 def branch_exists(repo_root: Path, branch_name: str) -> bool:
@@ -124,6 +124,26 @@ def build_result(
 
 def main() -> int:
     args = parse_args()
+
+    if not SAFE_SLUG_RE.match(args.slug) or ".." in args.slug:
+        payload = build_result(
+            status="blocked",
+            branch=None,
+            branch_mode="none",
+            requested_branch_mode=DEFAULT_BRANCH_MODE,
+            current_branch=None,
+            default_branch=None,
+            branch_created=False,
+            worktree_path=None,
+            message=(
+                f"Invalid slug '{args.slug}'. "
+                "Slugs must be lowercase alphanumeric with single hyphens, "
+                "no path separators or '..'."
+            ),
+        )
+        print(json.dumps(payload, indent=2))
+        return 0
+
     repo_root = Path(args.repo_root).resolve()
     allowlist_path = Path(args.allowlist)
     if not allowlist_path.is_absolute():
@@ -288,9 +308,10 @@ def main() -> int:
 
         # Symlink .quest/ into the worktree so subagents can use
         # relative .quest/<id>/... paths without special handling.
+        # Created unconditionally (may dangle until quest folder init).
         quest_link = worktree_path / ".quest"
         quest_source = repo_root / ".quest"
-        if not quest_link.exists() and quest_source.exists():
+        if not quest_link.exists():
             quest_link.symlink_to(quest_source)
 
         payload = build_result(
