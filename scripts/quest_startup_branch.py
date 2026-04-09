@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -308,10 +309,17 @@ def main() -> int:
 
         # Symlink .quest/ into the worktree so subagents can use
         # relative .quest/<id>/... paths without special handling.
-        # Created unconditionally (may dangle until quest folder init).
+        # git worktree checkout may create a real .quest/ dir from
+        # force-tracked files — replace it with a symlink to the
+        # main repo's .quest/ so the active quest is visible.
         quest_link = worktree_path / ".quest"
         quest_source = repo_root / ".quest"
-        if not quest_link.exists():
+        if quest_link.is_symlink():
+            pass  # already a symlink, leave it
+        elif quest_link.is_dir():
+            shutil.rmtree(quest_link)
+            quest_link.symlink_to(quest_source)
+        elif not quest_link.exists():
             quest_link.symlink_to(quest_source)
 
         payload = build_result(
