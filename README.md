@@ -28,20 +28,35 @@ You → Planner → Reviewers → Arbiter ──→ Builder → Reviewers → Ar
 For lighter tasks, **solo mode** uses a single reviewer, same pipeline, fewer stages, faster turnaround.
 
 ## Quick Start
+Make sure you have claude and/or codex [installed](https://github.com/KjellKod/quest/blob/main/docs/guides/quest_setup.md). Ideally you have both, but you'll do fine with one of them.
 
+Download the installer
 ```bash
-# Download and run the installer
 curl -fsSL https://raw.githubusercontent.com/KjellKod/quest/main/scripts/quest_installer.sh -o quest_installer.sh
+```
+Give it permission to execute
+```bash
 chmod +x quest_installer.sh
-./quest_installer.sh          # preview first with --check
 ```
 
-Then start a quest:
-
+Run the installer, you can preview without changes if you add `--check`
 ```bash
-claude
+./quest_installer.sh       
+```
+
+### Then start a quest. 
+
+In claude code/cli:
+```bash
 /quest "Add a loading skeleton to the user list"
 ```
+
+In codex cli:
+```bash
+$quest "Add a loading skeleton to the user list"
+```
+
+
 
 That's it. Quest evaluates complexity, asks clarifying questions if needed, and routes to solo or full workflow. You approve at each gate.
 
