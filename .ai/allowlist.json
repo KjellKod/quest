@@ -47,12 +47,12 @@
     "plan_review_a": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
-      "bash": ["git status", "git diff", "gh pr view.*"]
+      "bash": ["python", "python3", "pytest", "bash", "git status", "git diff", "git log", "rg", "grep", "find", "ls", "wc", "uv", "gh pr view.*"]
     },
     "plan_review_b": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
-      "bash": ["git status", "git diff", "gh pr view.*"]
+      "bash": ["python", "python3", "pytest", "bash", "git status", "git diff", "git log", "rg", "grep", "find", "ls", "wc", "uv", "gh pr view.*"]
     },
     "arbiter_agent": {
       "file_write": [".quest/**"],
@@ -67,7 +67,7 @@
     "code_review_agent": {
       "file_write": [".quest/**"],
       "file_read": ["**"],
-      "bash": ["git diff", "git log", "git status", "gh pr view.*"]
+      "bash": ["python", "python3", "pytest", "bash", "git diff", "git log", "git status", "rg", "grep", "find", "ls", "wc", "uv", "gh pr view.*"]
     },
     "fixer_agent": {
       "file_write": [".quest/**", ".ai/**", "docs/**", "ideas/**", "scripts/**", ".skills/**", "*.md", "*.json", "*.txt", "*.sh", "*.py"],
