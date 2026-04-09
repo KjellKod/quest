@@ -98,7 +98,9 @@ Say **"just go with it"** anytime to skip questions and proceed with assumptions
 
 Abort anytime, resume later. State persists in `.quest/<id>/state.json`.
 
-For advanced patterns (phased execution, plan comparison, model mixing), see the [Quest Presentation](docs/guides/quest_presentation.md).
+For advanced patterns (phased execution, plan comparison, model mixing), see the [Quest Presentation](docs/guides/quest_presentation.md). 
+
+> _Kjell: My personal approach for things like [doc2md](https://github.com/KjellKod/doc2md) or the multiple MCP and CLI tools I've built, is to collect references, ideas and start with an **analysis quest** with the stated goal of creating a roadmap that delivers the `functionality` or the whole feature or app. Then use each phase in the roamap as a new quest._
 
 ## The Agents
 
@@ -154,7 +156,7 @@ Read the [full philosophy](docs/guides/philosophy.md).
 
 **Workspace umbrella (multi-repo):** Install once in a parent directory, all repos underneath inherit Quest's config. See the [Setup Guide](docs/guides/quest_setup.md).
 
-**Manual copy:** Grab `.ai/`, `.skills/`, `.agents/`, `.claude/`, `.cursor/`, `.codex/`, `.opencode/`, `AGENTS.md`, and `DOCUMENTATION_STRUCTURE.md`. See the [Setup Guide](docs/guides/quest_setup.md).
+**Not recommended, but possible is also a manual copy:** Grab `.ai/`, `.skills/`, `.agents/`, `.claude/`, `.cursor/`, `.codex/`, `.opencode/`, `AGENTS.md`, and `DOCUMENTATION_STRUCTURE.md`. See the [Setup Guide](docs/guides/quest_setup.md).
 
 ## Documentation
 
