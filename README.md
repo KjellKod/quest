@@ -100,7 +100,7 @@ Abort anytime, resume later. State persists in `.quest/<id>/state.json`.
 
 For advanced patterns (phased execution, plan comparison, model mixing), see the [Quest Presentation](docs/guides/quest_presentation.md). 
 
-> _Kjell: My personal approach for things like [doc2md](https://github.com/KjellKod/doc2md) or the multiple MCP and CLI tools I've built, is to collect references, ideas and start with an **analysis quest** with the stated goal of creating a roadmap that delivers the `functionality` or the whole feature or app. Then use each phase in the roamap as a new quest._
+> _Kjell: My personal approach for things like [doc2md](https://kjellkod.github.io/doc2md/) or the multiple MCP and CLI tools I've built, is to collect references, ideas and start with an **analysis quest** with the stated goal of creating a roadmap that delivers the `functionality` or the whole feature or app. Then use each phase in the roamap as a new quest._
 
 ## The Agents
 
