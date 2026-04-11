@@ -133,6 +133,10 @@ OLD_SCRIPT_NAMES=(
   "scripts/validate-quest-state.sh"
 )
 
+CHECKSUM_MANAGED_USER_CUSTOMIZED=(
+  "AGENTS.md"
+)
+
 ###############################################################################
 # Checksum Storage (parallel arrays for bash 3.2 compatibility)
 ###############################################################################
@@ -399,7 +403,8 @@ ${BOLD}Examples:${NC}
 
 ${BOLD}File Categories:${NC}
   - Copy as-is:      Replaced with upstream (if unmodified)
-  - User-customized: Never overwritten (.quest_updated suffix for upstream changes)
+  - User-customized: Preserve local edits; AGENTS.md auto-updates when still pristine,
+                     otherwise create .quest_updated for manual merge
   - Merge carefully: Manual merge offered for settings files
 
 ${BOLD}Troubleshooting:${NC}
@@ -649,6 +654,34 @@ is_file_pristine() {
   else
     return 1  # Modified
   fi
+}
+
+is_checksum_managed_user_customized() {
+  local target="$1"
+  local filepath
+  for filepath in "${CHECKSUM_MANAGED_USER_CUSTOMIZED[@]}"; do
+    if [ "$filepath" = "$target" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+cleanup_updated_sidecar() {
+  local filepath="$1"
+  local updated_path="${filepath}.quest_updated"
+
+  if [ ! -f "$updated_path" ]; then
+    return 0
+  fi
+
+  if $DRY_RUN; then
+    log_action "Remove stale update sidecar: $updated_path"
+    return 0
+  fi
+
+  rm -f "$updated_path"
+  log_info "Removed stale update sidecar: $updated_path"
 }
 
 ###############################################################################
@@ -1043,6 +1076,7 @@ install_user_customized_file() {
       log_success "Created: $filepath (customize as needed)"
     fi
     rm -f "$temp_file"
+    set_updated_checksum "$filepath" "$upstream_checksum"
     return 0
   fi
 
@@ -1054,17 +1088,34 @@ install_user_customized_file() {
   if [ "$local_checksum" = "$upstream_checksum" ]; then
     # No changes
     rm -f "$temp_file"
+    set_updated_checksum "$filepath" "$upstream_checksum"
+    if is_checksum_managed_user_customized "$filepath"; then
+      cleanup_updated_sidecar "$filepath"
+    fi
     return 0
   fi
 
-  # Upstream differs - create .quest_updated file
+  if is_checksum_managed_user_customized "$filepath" && is_file_pristine "$filepath"; then
+    if $DRY_RUN; then
+      log_action "Update: $filepath (matched stored Quest checksum)"
+    else
+      mv "$temp_file" "$filepath"
+      log_success "Updated: $filepath (matched stored Quest checksum)"
+    fi
+    rm -f "$temp_file"
+    set_updated_checksum "$filepath" "$upstream_checksum"
+    cleanup_updated_sidecar "$filepath"
+    return 0
+  fi
+
+  # Upstream differs - preserve local file and create .quest_updated file
   local updated_path="${filepath}.quest_updated"
   if $DRY_RUN; then
     log_action "Create: $updated_path (upstream has changes)"
   else
     mv "$temp_file" "$updated_path"
     QUEST_UPDATED_FILES+=("$updated_path")
-    log_warn "Created: $updated_path (review and merge manually)"
+    log_warn "Preserved local $filepath; created $updated_path for manual merge"
   fi
   rm -f "$temp_file"
 }

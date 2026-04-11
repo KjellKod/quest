@@ -55,6 +55,15 @@ write_allowlist() {
 EOF
 }
 
+load_installer_functions() {
+  local loader_tmp
+  loader_tmp=$(mktemp)
+  sed '/^# Store original args for re-exec after self-update/,$d' "$INSTALLER_SCRIPT" > "$loader_tmp"
+  # shellcheck disable=SC1090
+  source "$loader_tmp"
+  rm -f "$loader_tmp"
+}
+
 test_quest_state_updates_phase_and_timestamp() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -544,6 +553,89 @@ test_installer_cleans_up_renamed_scripts() {
     grep -q 'cleanup_renamed_scripts' "$INSTALLER_SCRIPT"
 }
 
+test_installer_updates_pristine_agents_file_in_place() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  printf 'old agents\n' > "$tmpdir/AGENTS.md"
+  printf 'stale sidecar\n' > "$tmpdir/AGENTS.md.quest_updated"
+  printf 'new agents\n' > "$tmpdir/upstream_AGENTS.md"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    QUEST_UPDATED_FILES=()
+    LOCAL_CHECKSUM_FILES=("AGENTS.md")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum "AGENTS.md")")
+    init_updated_checksums
+
+    fetch_file_to_temp() {
+      cp "$tmpdir/upstream_AGENTS.md" "$2"
+    }
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    install_user_customized_file "AGENTS.md"
+
+    local recorded=""
+    local i
+    for i in "${!UPDATED_CHECKSUM_FILES[@]}"; do
+      if [ "${UPDATED_CHECKSUM_FILES[$i]}" = "AGENTS.md" ]; then
+        recorded="${UPDATED_CHECKSUM_VALUES[$i]}"
+      fi
+    done
+
+    [ "$(cat AGENTS.md)" = "$(cat "$tmpdir/upstream_AGENTS.md")" ] &&
+      [ ! -e AGENTS.md.quest_updated ] &&
+      [ "$recorded" = "$(get_file_checksum "AGENTS.md")" ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_preserves_customized_agents_file_with_sidecar() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  printf 'old agents\n' > "$tmpdir/AGENTS.md"
+  printf 'new agents\n' > "$tmpdir/upstream_AGENTS.md"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    QUEST_UPDATED_FILES=()
+    LOCAL_CHECKSUM_FILES=("AGENTS.md")
+    LOCAL_CHECKSUM_VALUES=("different-stored-checksum")
+    init_updated_checksums
+
+    fetch_file_to_temp() {
+      cp "$tmpdir/upstream_AGENTS.md" "$2"
+    }
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    install_user_customized_file "AGENTS.md"
+
+    [ "$(cat AGENTS.md)" = "old agents" ] &&
+      [ -e AGENTS.md.quest_updated ] &&
+      [ "$(cat AGENTS.md.quest_updated)" = "$(cat "$tmpdir/upstream_AGENTS.md")" ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
 test_manifest_lists_prefixed_scripts() {
   grep -q '^scripts/quest_claude_bridge.py$' "$MANIFEST_FILE" &&
     grep -q '^scripts/quest_validate-handoff-contracts.sh$' "$MANIFEST_FILE" &&
@@ -616,6 +708,8 @@ run_test test_quest_startup_branch_invalid_slug_preserves_requested_mode
 run_test test_quest_startup_branch_exception_handler_tolerates_missing_git
 run_test test_workflow_documents_no_vcs_review_path
 run_test test_installer_cleans_up_renamed_scripts
+run_test test_installer_updates_pristine_agents_file_in_place
+run_test test_installer_preserves_customized_agents_file_with_sidecar
 run_test test_manifest_lists_prefixed_scripts
 run_test test_validation_hook_script_accepts_legacy_symlink_target
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime

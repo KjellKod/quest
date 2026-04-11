@@ -108,7 +108,7 @@ The `quest_installer.sh` is not a crude copy script. It implements:
 
 - **Checksum tracking**: Detects if you've modified files locally
 - **Smart updates**: Never overwrites your customizations
-- **Suffix management**: Creates `.quest_updated` files when upstream changes conflict with your edits
+- **Suffix management**: Creates `.quest_updated` files when upstream changes conflict with your edits; `AGENTS.md` is refreshed in place only while still pristine
 - **Manifest-driven**: `.quest-manifest` categorizes files into `copy-as-is`, `user-customized`, and `merge-carefully`
 - **Preview mode**: `--check` shows what would happen without changing anything
 - **CI-friendly**: `--force` for automation

@@ -92,7 +92,9 @@ scripts/quest_preflight.sh
 scripts/quest_state.py
 
 [user-customized]
-# These files are NEVER overwritten - upstream changes create .quest_updated suffix
+# These files preserve local customizations; AGENTS.md updates in place only when
+# it still matches the stored Quest checksum, otherwise upstream changes create
+# a .quest_updated suffix
 AGENTS.md
 .ai/allowlist.json
 

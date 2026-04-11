@@ -99,7 +99,7 @@ if [ $ERRORS -gt 0 ]; then
   echo ""
   echo "Sections:"
   echo "  [copy-as-is]       - Files replaced with upstream (most files)"
-  echo "  [user-customized]  - Files never overwritten (allowlist)"
+  echo "  [user-customized]  - Files that preserve local edits (AGENTS.md may auto-update if pristine)"
   echo "  [merge-carefully]  - Files that prompt for merge (settings.json)"
   echo "  [directories]      - Directories to create"
   exit 1

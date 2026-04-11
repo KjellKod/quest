@@ -100,7 +100,8 @@ chmod +x quest_installer.sh
 The installer:
 - Handles fresh installs AND updates
 - Tracks file checksums to detect your modifications
-- Never overwrites customizations (uses `.quest_updated` suffix)
+- Preserves local customizations and writes `.quest_updated` sidecars when manual merge is needed
+- Updates `AGENTS.md` in place only when it still matches the stored Quest-managed checksum
 - Self-updates when a newer version is available
 
 To use Quest as a global Codex skill outside a specific repo, see [Installing Quest for Codex](codex-quest-install.md).
