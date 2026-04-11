@@ -64,6 +64,17 @@ def load_allowlist(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def detect_requested_branch_mode(args: argparse.Namespace, allowlist_path: Path) -> str:
+    if args.mode:
+        return args.mode
+    try:
+        allowlist = load_allowlist(allowlist_path)
+    except Exception:
+        return DEFAULT_BRANCH_MODE
+    startup = allowlist.get("quest_startup") or {}
+    return str(startup.get("branch_mode", DEFAULT_BRANCH_MODE))
+
+
 def detect_default_branch(repo_root: Path, current_branch: str) -> str:
     remote_head = run_git(
         repo_root,
@@ -125,13 +136,18 @@ def build_result(
 
 def main() -> int:
     args = parse_args()
+    repo_root = Path(args.repo_root).resolve()
+    allowlist_path = Path(args.allowlist)
+    if not allowlist_path.is_absolute():
+        allowlist_path = (repo_root / allowlist_path).resolve()
+    requested_branch_mode = detect_requested_branch_mode(args, allowlist_path)
 
     if not SAFE_SLUG_RE.match(args.slug) or ".." in args.slug:
         payload = build_result(
             status="blocked",
             branch=None,
             branch_mode="none",
-            requested_branch_mode=DEFAULT_BRANCH_MODE,
+            requested_branch_mode=requested_branch_mode,
             current_branch=None,
             default_branch=None,
             branch_created=False,
@@ -144,12 +160,6 @@ def main() -> int:
         )
         print(json.dumps(payload, indent=2))
         return 0
-
-    repo_root = Path(args.repo_root).resolve()
-    allowlist_path = Path(args.allowlist)
-    if not allowlist_path.is_absolute():
-        allowlist_path = (repo_root / allowlist_path).resolve()
-    requested_branch_mode = DEFAULT_BRANCH_MODE
 
     try:
         allowlist = load_allowlist(allowlist_path)

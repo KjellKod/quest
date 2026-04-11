@@ -466,6 +466,28 @@ test_quest_startup_branch_invalid_allowlist_returns_blocked_contract() {
     echo "$message" | grep -qi "failed"
 }
 
+test_quest_startup_branch_invalid_slug_preserves_requested_mode() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  write_allowlist "$tmpdir" "worktree"
+
+  local output rc status branch_mode requested_mode message
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug bad/slug 2>&1)
+  rc=$?
+  status=$(printf '%s' "$output" | jq -r '.status')
+  branch_mode=$(printf '%s' "$output" | jq -r '.branch_mode')
+  requested_mode=$(printf '%s' "$output" | jq -r '.requested_branch_mode')
+  message=$(printf '%s' "$output" | jq -r '.message')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$status" = "blocked" ] &&
+    [ "$branch_mode" = "none" ] &&
+    [ "$requested_mode" = "worktree" ] &&
+    echo "$message" | grep -qi "invalid slug"
+}
+
 run_test test_quest_state_updates_phase_and_timestamp
 run_test test_quest_state_transition_valid
 run_test test_quest_state_transition_invalid_leaves_state_unchanged
@@ -476,6 +498,7 @@ run_test test_quest_startup_branch_blocks_dirty_default_branch_checkout
 run_test test_quest_startup_branch_creates_worktree
 run_test test_quest_startup_branch_none_mode_leaves_main_checked_out
 run_test test_quest_startup_branch_invalid_allowlist_returns_blocked_contract
+run_test test_quest_startup_branch_invalid_slug_preserves_requested_mode
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
 run_test test_quest_claude_probe_requires_real_artifacts
 

@@ -266,6 +266,7 @@ This workflow expects to be invoked with a quest brief already prepared.
 4. Verify branch context:
    - If `branch` exists in state.json and `branch_mode == "branch"`, compare it to `git branch --show-current` in `source_workspace_root`
    - If `branch_mode == "worktree"`, verify the directory at `worktree_path` still exists
+   - If `branch_mode == "worktree"` and `branch` exists in state.json, also compare it to `git branch --show-current` in `source_workspace_root`
    - If verification fails, STOP and ask the user to confirm before continuing — running in the wrong workspace defeats startup isolation
 5. If the checks pass, proceed to Step 2
 
