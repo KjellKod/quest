@@ -466,6 +466,29 @@ test_quest_startup_branch_invalid_allowlist_returns_blocked_contract() {
     echo "$message" | grep -qi "failed"
 }
 
+test_quest_startup_branch_skips_outside_git_repo() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  write_allowlist "$tmpdir" "branch"
+
+  local output rc branch status branch_mode requested_mode message
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug outside-repo 2>&1)
+  rc=$?
+  branch=$(printf '%s' "$output" | jq -r '.branch')
+  status=$(printf '%s' "$output" | jq -r '.status')
+  branch_mode=$(printf '%s' "$output" | jq -r '.branch_mode')
+  requested_mode=$(printf '%s' "$output" | jq -r '.requested_branch_mode')
+  message=$(printf '%s' "$output" | jq -r '.message')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$branch" = "null" ] &&
+    [ "$status" = "skipped" ] &&
+    [ "$branch_mode" = "none" ] &&
+    [ "$requested_mode" = "branch" ] &&
+    echo "$message" | grep -qi "not a git repository"
+}
+
 test_quest_startup_branch_invalid_slug_preserves_requested_mode() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -498,6 +521,7 @@ run_test test_quest_startup_branch_blocks_dirty_default_branch_checkout
 run_test test_quest_startup_branch_creates_worktree
 run_test test_quest_startup_branch_none_mode_leaves_main_checked_out
 run_test test_quest_startup_branch_invalid_allowlist_returns_blocked_contract
+run_test test_quest_startup_branch_skips_outside_git_repo
 run_test test_quest_startup_branch_invalid_slug_preserves_requested_mode
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
 run_test test_quest_claude_probe_requires_real_artifacts

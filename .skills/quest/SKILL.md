@@ -166,6 +166,7 @@ Before creating the quest folder, present the routing classification to the user
    - **none** — stay on the current branch as-is
    
    If already on a non-default branch, inform the user and skip the prompt — the quest will use the current branch.
+   If the current workspace is not inside a git repository, skip the prompt — Quest must use `none` and stay in the current workspace.
 
 3. Run quest startup branch preparation with the user's choice:
    - Execute: `python3 scripts/quest_startup_branch.py --slug <slug> --mode <choice>`

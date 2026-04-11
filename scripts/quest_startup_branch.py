@@ -93,6 +93,10 @@ def detect_default_branch(repo_root: Path, current_branch: str) -> str:
     return current_branch
 
 
+def is_git_repo(repo_root: Path) -> bool:
+    return git_success(repo_root, "rev-parse", "--is-inside-work-tree")
+
+
 def branch_exists(repo_root: Path, branch_name: str) -> bool:
     return git_success(repo_root, "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}")
 
@@ -181,6 +185,24 @@ def main() -> int:
                 message=(
                     "Invalid quest_startup.branch_mode in allowlist.json. "
                     "Expected one of: branch, worktree, none."
+                ),
+            )
+            print(json.dumps(payload, indent=2))
+            return 0
+
+        if not is_git_repo(repo_root):
+            payload = build_result(
+                status="skipped",
+                branch=None,
+                branch_mode="none",
+                requested_branch_mode=requested_branch_mode,
+                current_branch=None,
+                default_branch=None,
+                branch_created=False,
+                worktree_path=None,
+                message=(
+                    "Not a git repository — skipping quest startup branch/worktree creation "
+                    "and staying in the current workspace."
                 ),
             )
             print(json.dumps(payload, indent=2))
