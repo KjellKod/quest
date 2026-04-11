@@ -4,6 +4,7 @@
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 STATE_SCRIPT="$REPO_ROOT/scripts/quest_state.py"
+STARTUP_BRANCH_SCRIPT="$REPO_ROOT/scripts/quest_startup_branch.py"
 CLAUDE_RUNNER="$REPO_ROOT/scripts/quest_claude_runner.py"
 CLAUDE_PROBE="$REPO_ROOT/scripts/quest_claude_probe.py"
 
@@ -21,6 +22,34 @@ run_test() {
     TESTS_FAILED=$((TESTS_FAILED + 1))
     echo "[FAIL] $name"
   fi
+}
+
+init_git_repo() {
+  local dir="$1"
+  git init -b main "$dir" >/dev/null 2>&1 || {
+    git init "$dir" >/dev/null 2>&1 || return 1
+    git -C "$dir" checkout -b main >/dev/null 2>&1 || return 1
+  }
+  git -C "$dir" config user.name "Quest Test" >/dev/null 2>&1 || return 1
+  git -C "$dir" config user.email "quest-test@example.com" >/dev/null 2>&1 || return 1
+  printf 'seed\n' > "$dir/README.md"
+  git -C "$dir" add README.md >/dev/null 2>&1 || return 1
+  git -C "$dir" commit -m "init" >/dev/null 2>&1 || return 1
+}
+
+write_allowlist() {
+  local dir="$1"
+  local branch_mode="$2"
+  mkdir -p "$dir/.ai"
+  cat > "$dir/.ai/allowlist.json" <<EOF
+{
+  "quest_startup": {
+    "branch_mode": "$branch_mode",
+    "branch_prefix": "quest/",
+    "worktree_root": ".worktrees/quest"
+  }
+}
+EOF
 }
 
 test_quest_state_updates_phase_and_timestamp() {
@@ -298,10 +327,178 @@ EOF
     echo "$output" | grep -qi "rejected"
 }
 
+test_quest_startup_branch_defaults_to_branch_checkout() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  mkdir -p "$tmpdir/.ai"
+  echo '{}' > "$tmpdir/.ai/allowlist.json"
+
+  local output rc branch status branch_mode requested_mode
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-branch 2>&1)
+  rc=$?
+  branch=$(git -C "$tmpdir" branch --show-current)
+  status=$(printf '%s' "$output" | jq -r '.status')
+  branch_mode=$(printf '%s' "$output" | jq -r '.branch_mode')
+  requested_mode=$(printf '%s' "$output" | jq -r '.requested_branch_mode')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$branch" = "quest/startup-branch" ] &&
+    [ "$status" = "created" ] &&
+    [ "$branch_mode" = "branch" ] &&
+    [ "$requested_mode" = "branch" ]
+}
+
+test_quest_startup_branch_skips_when_already_on_feature_branch() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  write_allowlist "$tmpdir" "branch"
+  git -C "$tmpdir" checkout -b feature/existing >/dev/null 2>&1 || return 1
+
+  local output rc branch status branch_mode
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-branch 2>&1)
+  rc=$?
+  branch=$(git -C "$tmpdir" branch --show-current)
+  status=$(printf '%s' "$output" | jq -r '.status')
+  branch_mode=$(printf '%s' "$output" | jq -r '.branch_mode')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$branch" = "feature/existing" ] &&
+    [ "$status" = "skipped" ] &&
+    [ "$branch_mode" = "none" ]
+}
+
+test_quest_startup_branch_blocks_dirty_default_branch_checkout() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  write_allowlist "$tmpdir" "branch"
+  printf 'dirty\n' >> "$tmpdir/README.md"
+
+  local output rc branch status message
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-branch 2>&1)
+  rc=$?
+  branch=$(git -C "$tmpdir" branch --show-current)
+  status=$(printf '%s' "$output" | jq -r '.status')
+  message=$(printf '%s' "$output" | jq -r '.message')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$branch" = "main" ] &&
+    [ "$status" = "blocked" ] &&
+    echo "$message" | grep -qi "dirty"
+}
+
+test_quest_startup_branch_creates_worktree() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  write_allowlist "$tmpdir" "worktree"
+
+  # No .quest/ dir yet — symlink is created unconditionally (dangling until quest init)
+  local output rc main_branch status branch_mode worktree_path worktree_branch quest_link
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-worktree 2>&1)
+  rc=$?
+  main_branch=$(git -C "$tmpdir" branch --show-current)
+  status=$(printf '%s' "$output" | jq -r '.status')
+  branch_mode=$(printf '%s' "$output" | jq -r '.branch_mode')
+  worktree_path=$(printf '%s' "$output" | jq -r '.worktree_path')
+  worktree_branch=$(git -C "$worktree_path" branch --show-current 2>/dev/null)
+  quest_link="$worktree_path/.quest"
+  local has_symlink=false
+  [ -L "$quest_link" ] && has_symlink=true
+  git -C "$tmpdir" worktree remove "$worktree_path" --force >/dev/null 2>&1 || true
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$main_branch" = "main" ] &&
+    [ "$status" = "created" ] &&
+    [ "$branch_mode" = "worktree" ] &&
+    [ "$worktree_branch" = "quest/startup-worktree" ] &&
+    [ "$has_symlink" = "true" ]
+}
+
+test_quest_startup_branch_none_mode_leaves_main_checked_out() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  write_allowlist "$tmpdir" "none"
+
+  local output rc branch status branch_mode requested_mode
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-none 2>&1)
+  rc=$?
+  branch=$(git -C "$tmpdir" branch --show-current)
+  status=$(printf '%s' "$output" | jq -r '.status')
+  branch_mode=$(printf '%s' "$output" | jq -r '.branch_mode')
+  requested_mode=$(printf '%s' "$output" | jq -r '.requested_branch_mode')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$branch" = "main" ] &&
+    [ "$status" = "skipped" ] &&
+    [ "$branch_mode" = "none" ] &&
+    [ "$requested_mode" = "none" ]
+}
+
+test_quest_startup_branch_invalid_allowlist_returns_blocked_contract() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  mkdir -p "$tmpdir/.ai"
+  printf '{ invalid json\n' > "$tmpdir/.ai/allowlist.json"
+
+  local output rc status branch_mode requested_mode message
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-bad 2>&1)
+  rc=$?
+  status=$(printf '%s' "$output" | jq -r '.status')
+  branch_mode=$(printf '%s' "$output" | jq -r '.branch_mode')
+  requested_mode=$(printf '%s' "$output" | jq -r '.requested_branch_mode')
+  message=$(printf '%s' "$output" | jq -r '.message')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$status" = "blocked" ] &&
+    [ "$branch_mode" = "none" ] &&
+    [ "$requested_mode" = "branch" ] &&
+    echo "$message" | grep -qi "failed"
+}
+
+test_quest_startup_branch_invalid_slug_preserves_requested_mode() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  write_allowlist "$tmpdir" "worktree"
+
+  local output rc status branch_mode requested_mode message
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug bad/slug 2>&1)
+  rc=$?
+  status=$(printf '%s' "$output" | jq -r '.status')
+  branch_mode=$(printf '%s' "$output" | jq -r '.branch_mode')
+  requested_mode=$(printf '%s' "$output" | jq -r '.requested_branch_mode')
+  message=$(printf '%s' "$output" | jq -r '.message')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$status" = "blocked" ] &&
+    [ "$branch_mode" = "none" ] &&
+    [ "$requested_mode" = "worktree" ] &&
+    echo "$message" | grep -qi "invalid slug"
+}
+
 run_test test_quest_state_updates_phase_and_timestamp
 run_test test_quest_state_transition_valid
 run_test test_quest_state_transition_invalid_leaves_state_unchanged
 run_test test_quest_state_transition_rejects_plan_reviewed_to_building
+run_test test_quest_startup_branch_defaults_to_branch_checkout
+run_test test_quest_startup_branch_skips_when_already_on_feature_branch
+run_test test_quest_startup_branch_blocks_dirty_default_branch_checkout
+run_test test_quest_startup_branch_creates_worktree
+run_test test_quest_startup_branch_none_mode_leaves_main_checked_out
+run_test test_quest_startup_branch_invalid_allowlist_returns_blocked_contract
+run_test test_quest_startup_branch_invalid_slug_preserves_requested_mode
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
 run_test test_quest_claude_probe_requires_real_artifacts
 

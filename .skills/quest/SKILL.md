@@ -160,14 +160,30 @@ Before creating the quest folder, present the routing classification to the user
 ### Quest Folder Creation
 
 1. Generate a slug (lowercase, hyphenated, 2-5 words) and inform the user
-2. Create `.quest/<slug>_YYYY-MM-DD__HHMM/` with subfolders:
+2. **Ask the user** which workspace mode to use for this quest. Present these options:
+   - **branch** — create a `quest/<slug>` feature branch (switches away from current branch)
+   - **worktree** — create a `quest/<slug>` branch in a separate worktree (current branch stays checked out)
+   - **none** — stay on the current branch as-is
+   
+   If already on a non-default branch, inform the user and skip the prompt — the quest will use the current branch.
+
+3. Run quest startup branch preparation with the user's choice:
+   - Execute: `python3 scripts/quest_startup_branch.py --slug <slug> --mode <choice>`
+   - Parse the JSON result
+   - If `status` is `"blocked"`: show the returned `message`, do NOT create the quest folder yet, and stop for the user to resolve the git state or config
+   - If `status` is `"created"` or `"skipped"`: continue and surface the returned `message` to the user
+   - Record these fields for `state.json` initialization:
+     - `branch`
+     - `branch_mode`
+     - `worktree_path` (if present)
+4. Create `.quest/<slug>_YYYY-MM-DD__HHMM/` with subfolders:
    `phase_01_plan/`, `phase_02_implementation/`, `phase_03_review/`, `logs/`
-3. Write quest brief to `.quest/<id>/quest_brief.md` including:
+5. Write quest brief to `.quest/<id>/quest_brief.md` including:
    - User input (original prompt)
    - Questioner summary (if questioning occurred)
    - **Router classification JSON** (the final routing decision that sent the quest to workflow). This is the classification produced by the most recent router evaluation — if the router ran twice (once before questioning, once after), record the second (final) classification.
-4. Copy `.ai/allowlist.json` to `.quest/<id>/logs/allowlist_snapshot.json`
-5. Initialize `state.json`:
+6. Copy `.ai/allowlist.json` to `.quest/<id>/logs/allowlist_snapshot.json`
+7. Initialize `state.json`:
    ```json
    {
      "quest_id": "<id>",
@@ -175,6 +191,9 @@ Before creating the quest folder, present the routing classification to the user
      "phase": "plan",
      "status": "pending",
      "quest_mode": "workflow",
+     "branch": "quest/<slug> or current branch",
+     "branch_mode": "branch | worktree | none",
+     "worktree_path": "/absolute/path/to/worktree (worktree mode only)",
      "plan_iteration": 0,
      "fix_iteration": 0,
      "created_at": "<timestamp>",
@@ -182,3 +201,4 @@ Before creating the quest folder, present the routing classification to the user
    }
    ```
    Set `quest_mode` to the user's final selection: `"workflow"` (default) or `"solo"`. This field is read by `workflow.md` to determine agent dispatch and by `validate-quest-state.sh` for artifact checks.
+   `branch_mode` records the actual startup mode used for this quest run after no-op handling. If Quest starts on an existing feature branch, set `branch_mode` to `"none"` and record that branch in `branch`.

@@ -37,6 +37,17 @@
       },
       "additionalProperties": { "type": "string" }
     },
+    "quest_startup": {
+      "type": "object",
+      "properties": {
+        "branch_mode": {
+          "type": "string",
+          "enum": ["branch", "worktree", "none"]
+        },
+        "branch_prefix": { "type": "string" },
+        "worktree_root": { "type": "string" }
+      }
+    },
     "review_mode": { "type": "string", "enum": ["auto", "fast", "full"] },
     "fast_review_thresholds": {
       "type": "object",
