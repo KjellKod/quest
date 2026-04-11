@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Simple CLI bridge from Codex shell calls to Anthropic Messages API.
+"""Archived bridge prototype kept for historical reference.
+
+Superseded by the supported Quest bridge at `scripts/quest_claude_bridge.py`
+and the Codex-led runtime path documented in
+`docs/quest-journal/codex-calls-claude_2026-03-09.md`.
+
+Original prototype description:
+Simple CLI bridge from Codex shell calls to Anthropic Messages API.
 
 Examples:
   python3 scripts/claude_bridge.py --prompt "hello world"
