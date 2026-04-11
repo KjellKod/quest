@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-04-11 | [multi-cleanup](multi-cleanup_2026-04-11.md) | Multi-cleanup quest. Continuing on our existing branch. fix/quest-startup-outside-repo. In ideas, we have several thi... |
 | 2026-04-08 | [extract-ci-review-python](extract-ci-review-python_2026-04-08.md) | Extract the embedded Python from .github/workflows/codex-ci-review.yml into a standalone script at .github/scripts/co... |
 | 2026-04-07 | [ci-review-severity](ci-review-severity_2026-04-07.md) | User selection: full quest. |
 | 2026-03-21 | [quest-housekeeping-blitz](quest-housekeeping-blitz_2026-03-21.md) | Forensic sweep of stale quests, missing journal entries, broken archive/celebration automation, and a Codex sandbox p... |
@@ -23,7 +24,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 | 2026-02-28 | [opencode-model-suitability](opencode-model-suitability_2026-02-28.md) | Comprehensive model selection guide — 32 OpenCode models mapped to 6 Quest roles with evidence tags, benchmarks, and default/budget configs. |
 | 2026-02-22 | [pr-body-gate](pr-body-gate_2026-02-22.md) | PR body structure CI gate — validates required headings on PRs. Phase 1 (warn-only) shipped; branch protection enforcement is a follow-up. |
 | 2026-02-18 | [phase4-role-wiring](phase4-role-wiring_2026-02-18.md) | Relocated Quest role wiring to .skills/quest/agents with updated validators, docs, and clean dual-review completion. |
-| 2026-02-15 | [state-validation-script](state-validation-script_2026-02-15.md) | Implemented validate-quest-state.sh with 28-test harness, 10 workflow gates, and semantic handoff checks. Completes Phase 3 of architecture evolution. |
+| 2026-02-15 | [state-validation-script](state-validation-script_2026-02-15.md) | Implemented quest_validate-quest-state.sh with 28-test harness, 10 workflow gates, and semantic handoff checks. Completes Phase 3 of architecture evolution. |
 | 2026-02-15 | [context-leak-closure](context-leak-closure_2026-02-15.md) | Implemented handoff.json structured file pattern for all agents, context health logging, and completion compliance report. Completes Phase 2b of the architecture evolution. |
 | 2026-02-13 | [dashboard-layout-redesign](dashboard-layout-redesign_2026-02-13.md) | Restructured dashboard to match target executive "Quest Intelligence" design — hero branding, 5 KPI cards, side-by-side charts, unified portfolio section, card content redesign. |
 | 2026-02-12 | [dashboard-visual-polish](dashboard-visual-polish_2026-02-12.md) | Added ambient CSS glows, Chart.js doughnut and stacked area charts, gradient enhancements — dashboard goes from "works" to "looks great." |

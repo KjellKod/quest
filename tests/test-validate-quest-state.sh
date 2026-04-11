@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Test harness for scripts/validate-quest-state.sh
+# Test harness for scripts/quest_validate-quest-state.sh
 # Run: bash tests/test-validate-quest-state.sh
 # Exit 0 = all tests pass, 1 = some tests failed
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-SCRIPT="$REPO_ROOT/scripts/validate-quest-state.sh"
+SCRIPT="$REPO_ROOT/scripts/quest_validate-quest-state.sh"
 
 TESTS_RUN=0
 TESTS_PASSED=0
@@ -312,10 +312,10 @@ test_fix_iteration_exceeded_uses_solo_cap() {
   }
 }
 AEOF
-  cp "$SCRIPT" "$fakerepo/scripts/validate-quest-state.sh"
+  cp "$SCRIPT" "$fakerepo/scripts/quest_validate-quest-state.sh"
 
   local output stderr_output
-  output=$(cd "$fakerepo" && bash scripts/validate-quest-state.sh "$tmpdir" "reviewing" 2>"$stderr_file")
+  output=$(cd "$fakerepo" && bash scripts/quest_validate-quest-state.sh "$tmpdir" "reviewing" 2>"$stderr_file")
   local rc=$?
   stderr_output=$(cat "$stderr_file")
   rm -f "$stderr_file"
@@ -476,9 +476,9 @@ test_non_numeric_allowlist_iterations() {
 }
 AEOF
   mkdir -p "$fakerepo/scripts"
-  cp "$SCRIPT" "$fakerepo/scripts/validate-quest-state.sh"
+  cp "$SCRIPT" "$fakerepo/scripts/quest_validate-quest-state.sh"
   local output stderr_output
-  output=$(cd "$fakerepo" && bash scripts/validate-quest-state.sh "$tmpdir" "plan" 2>"$stderr_file")
+  output=$(cd "$fakerepo" && bash scripts/quest_validate-quest-state.sh "$tmpdir" "plan" 2>"$stderr_file")
   local rc=$?
   stderr_output=$(cat "$stderr_file")
   rm -f "$stderr_file"
@@ -509,10 +509,10 @@ test_zero_allowlist_iterations_are_rejected() {
   }
 }
 AEOF
-  cp "$SCRIPT" "$fakerepo/scripts/validate-quest-state.sh"
+  cp "$SCRIPT" "$fakerepo/scripts/quest_validate-quest-state.sh"
 
   local output stderr_output
-  output=$(cd "$fakerepo" && bash scripts/validate-quest-state.sh "$tmpdir" "plan" 2>"$stderr_file")
+  output=$(cd "$fakerepo" && bash scripts/quest_validate-quest-state.sh "$tmpdir" "plan" 2>"$stderr_file")
   local rc=$?
   stderr_output=$(cat "$stderr_file")
   rm -f "$stderr_file"

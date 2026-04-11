@@ -6,17 +6,17 @@
 
 ## Summary
 
-Implemented `scripts/validate-quest-state.sh` — the first system-enforced correctness check for Quest phase transitions. The shell script validates state.json integrity, phase transition legality, artifact prerequisites, semantic content checks (arbiter verdict, review outcomes via jq on handoff JSON), and iteration bounds before every phase transition.
+Implemented `scripts/quest_validate-quest-state.sh` — the first system-enforced correctness check for Quest phase transitions. The shell script validates state.json integrity, phase transition legality, artifact prerequisites, semantic content checks (arbiter verdict, review outcomes via jq on handoff JSON), and iteration bounds before every phase transition.
 
 This completes Phase 3 of the Quest Architecture Evolution roadmap (`ideas/quest-architecture-evolution.md`).
 
 ## Files Changed
 
-- `scripts/validate-quest-state.sh` — New, ~430 lines. Core validation script with error-counter pattern, transition table, semantic content checks, agent stop instruction on failure.
+- `scripts/quest_validate-quest-state.sh` — New, ~430 lines. Core validation script with error-counter pattern, transition table, semantic content checks, agent stop instruction on failure.
 - `tests/test-validate-quest-state.sh` — New, ~500 lines. 28 test cases covering all transitions, artifacts, semantic checks, iteration bounds, edge cases, validation logging.
 - `.skills/quest/delegation/workflow.md` — Modified. 10 validation gate callsite lines inserted before phase transitions.
 - `ideas/quest-architecture-evolution.md` — Modified. Phase 3 status updated to Done.
-- `.quest-manifest` — Modified. Added `scripts/validate-quest-state.sh` to copy-as-is section.
+- `.quest-manifest` — Modified. Added `scripts/quest_validate-quest-state.sh` to copy-as-is section.
 
 ## Key Decisions
 
@@ -36,4 +36,4 @@ This completes Phase 3 of the Quest Architecture Evolution roadmap (`ideas/quest
 >
 > **Problem:** The orchestrator is told to check state before proceeding. If it doesn't, nothing prevents a phase from starting without its prerequisites.
 >
-> **Solution:** A `scripts/validate-quest-state.sh` script that the orchestrator calls before each phase transition.
+> **Solution:** A `scripts/quest_validate-quest-state.sh` script that the orchestrator calls before each phase transition.

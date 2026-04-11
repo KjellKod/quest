@@ -33,7 +33,7 @@ EOF
 # --install: symlink script as pre-commit hook
 install_hook() {
   local hook_path="$REPO_ROOT/.git/hooks/pre-commit"
-  local script_path="$REPO_ROOT/scripts/validate-quest-config.sh"
+  local script_path="$REPO_ROOT/scripts/quest_validate-quest-config.sh"
 
   if [ -e "$hook_path" ]; then
     if [ -L "$hook_path" ]; then
@@ -46,7 +46,7 @@ install_hook() {
     fi
   fi
 
-  ln -s "../../scripts/validate-quest-config.sh" "$hook_path"
+  ln -s "../../scripts/quest_validate-quest-config.sh" "$hook_path"
   echo "Installed pre-commit hook: $hook_path -> $script_path"
   exit 0
 }
@@ -63,7 +63,7 @@ uninstall_hook() {
   if [ -L "$hook_path" ]; then
     local target
     target=$(readlink "$hook_path")
-    if [[ "$target" == *"validate-quest-config.sh" ]]; then
+    if [[ "$target" == *"quest_validate-quest-config.sh" ]] || [[ "$target" == *"validate-quest-config.sh" ]]; then
       rm "$hook_path"
       echo "Removed pre-commit hook."
       exit 0

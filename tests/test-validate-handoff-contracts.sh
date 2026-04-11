@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Test harness for scripts/validate-handoff-contracts.sh
+# Test harness for scripts/quest_validate-handoff-contracts.sh
 # Run: bash tests/test-validate-handoff-contracts.sh
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-SCRIPT="$REPO_ROOT/scripts/validate-handoff-contracts.sh"
+SCRIPT="$REPO_ROOT/scripts/quest_validate-handoff-contracts.sh"
 
 TESTS_RUN=0
 TESTS_PASSED=0

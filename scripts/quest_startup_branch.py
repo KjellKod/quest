@@ -116,6 +116,7 @@ def repo_dirty(repo_root: Path) -> bool:
 def build_result(
     *,
     status: str,
+    vcs_available: bool,
     branch: str | None,
     branch_mode: str,
     requested_branch_mode: str,
@@ -127,6 +128,7 @@ def build_result(
 ) -> dict[str, Any]:
     return {
         "status": status,
+        "vcs_available": vcs_available,
         "branch": branch,
         "branch_mode": branch_mode,
         "requested_branch_mode": requested_branch_mode,
@@ -149,6 +151,7 @@ def main() -> int:
     if not SAFE_SLUG_RE.match(args.slug) or ".." in args.slug:
         payload = build_result(
             status="blocked",
+            vcs_available=False,
             branch=None,
             branch_mode="none",
             requested_branch_mode=requested_branch_mode,
@@ -175,6 +178,7 @@ def main() -> int:
         if requested_branch_mode not in VALID_BRANCH_MODES:
             payload = build_result(
                 status="blocked",
+                vcs_available=False,
                 branch=None,
                 branch_mode="none",
                 requested_branch_mode=str(requested_branch_mode),
@@ -193,6 +197,7 @@ def main() -> int:
         if not is_git_repo(repo_root):
             payload = build_result(
                 status="skipped",
+                vcs_available=False,
                 branch=None,
                 branch_mode="none",
                 requested_branch_mode=requested_branch_mode,
@@ -212,6 +217,7 @@ def main() -> int:
         if not current_branch:
             payload = build_result(
                 status="blocked",
+                vcs_available=True,
                 branch=None,
                 branch_mode="none",
                 requested_branch_mode=requested_branch_mode,
@@ -230,6 +236,7 @@ def main() -> int:
         if current_branch != default_branch:
             payload = build_result(
                 status="skipped",
+                vcs_available=True,
                 branch=current_branch,
                 branch_mode="none",
                 requested_branch_mode=requested_branch_mode,
@@ -245,6 +252,7 @@ def main() -> int:
         if requested_branch_mode == "none":
             payload = build_result(
                 status="skipped",
+                vcs_available=True,
                 branch=current_branch,
                 branch_mode="none",
                 requested_branch_mode=requested_branch_mode,
@@ -260,6 +268,7 @@ def main() -> int:
         if branch_exists(repo_root, branch_name):
             payload = build_result(
                 status="blocked",
+                vcs_available=True,
                 branch=branch_name,
                 branch_mode="none",
                 requested_branch_mode=requested_branch_mode,
@@ -279,6 +288,7 @@ def main() -> int:
             if repo_dirty(repo_root):
                 payload = build_result(
                     status="blocked",
+                    vcs_available=True,
                     branch=current_branch,
                     branch_mode="none",
                     requested_branch_mode=requested_branch_mode,
@@ -297,6 +307,7 @@ def main() -> int:
             run_git(repo_root, "checkout", "-b", branch_name)
             payload = build_result(
                 status="created",
+                vcs_available=True,
                 branch=branch_name,
                 branch_mode="branch",
                 requested_branch_mode=requested_branch_mode,
@@ -313,6 +324,7 @@ def main() -> int:
         if worktree_path.exists():
             payload = build_result(
                 status="blocked",
+                vcs_available=True,
                 branch=branch_name,
                 branch_mode="none",
                 requested_branch_mode=requested_branch_mode,
@@ -356,6 +368,7 @@ def main() -> int:
 
         payload = build_result(
             status="created",
+            vcs_available=True,
             branch=branch_name,
             branch_mode="worktree",
             requested_branch_mode=requested_branch_mode,
@@ -370,6 +383,7 @@ def main() -> int:
     except Exception as exc:
         payload = build_result(
             status="blocked",
+            vcs_available=is_git_repo(repo_root),
             branch=None,
             branch_mode="none",
             requested_branch_mode=requested_branch_mode,

@@ -3,6 +3,10 @@
 Date: 2026-03-23
 Area: Quest orchestration preflight
 
+## Status
+
+in-progress
+
 ## Problem
 
 The current quest preflight can incorrectly report:
@@ -119,11 +123,22 @@ Better:
 
 ## Acceptance criteria for a fix
 
-- A sandbox timeout no longer produces the same classification as true Claude unavailability.
-- Warning text does not incorrectly instruct the user to authenticate when auth is already healthy.
-- Quest routing can distinguish `unavailable` from `uncertain due to sandbox timeout`.
-- A verified outside-sandbox Claude probe is treated as evidence of availability.
-- Quest logs reflect the actual fallback reason.
+- [x] A sandbox timeout no longer produces the same classification as true Claude unavailability.
+- [x] Warning text does not incorrectly instruct the user to authenticate when auth is already healthy.
+- [x] Quest routing can distinguish `unavailable` from `uncertain due to sandbox timeout`.
+- [x] A verified outside-sandbox Claude probe is treated as evidence of availability.
+- [ ] Quest logs reflect the actual fallback reason.
+
+## Progress Audit (2026-04-11)
+
+What is implemented:
+- `scripts/quest_preflight.sh` now returns `runtime_requirement: "host_context"` plus `diagnostic.probe_result_kind` and `diagnostic.probe_message`.
+- Successful host-visible Claude probe results are cached in `.quest/cache/claude_bridge_codex.json` and reused when sandbox-local probing is unreliable.
+- `.skills/quest/SKILL.md`, `.skills/quest/delegation/workflow.md`, and `tests/test-quest-preflight.sh` all reflect the host-context contract.
+
+What is still missing:
+- The preflight result still does not emit a single normalized `failure_kind` field.
+- Quest artifacts/logs do not yet persist the fallback reason as first-class quest metadata beyond the preflight JSON/diagnostic output.
 
 ## Follow-up
 

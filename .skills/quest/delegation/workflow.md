@@ -4,7 +4,7 @@ When starting, say: "Now I understand the Quest." Then proceed directly with the
 
 Follow these steps in order. After each step that modifies state, update `.quest/<id>/state.json`.
 
-**State update helper:** Use `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition <phase> ...` for state mutations instead of hand-editing `state.json`. The `--transition` flag validates the transition against `validate-quest-state.sh` before writing — if validation fails, state.json is not modified. Use `--phase` only for non-transition updates (e.g., setting status without changing phase). Add `--expect-phase <current>` for optimistic locking — the transition is rejected immediately if the on-disk phase doesn't match the expected value, preventing TOCTOU race conditions when multiple agents update state concurrently. **Recommended for all Codex-orchestrated transitions.**
+**State update helper:** Use `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition <phase> ...` for state mutations instead of hand-editing `state.json`. The `--transition` flag validates the transition against `quest_validate-quest-state.sh` before writing — if validation fails, state.json is not modified. Use `--phase` only for non-transition updates (e.g., setting status without changing phase). Add `--expect-phase <current>` for optimistic locking — the transition is rejected immediately if the on-disk phase doesn't match the expected value, preventing TOCTOU race conditions when multiple agents update state concurrently. **Recommended for all Codex-orchestrated transitions.**
 
 ### Defaults (Opinionated)
 
@@ -47,11 +47,11 @@ If the preflight result was already cached by SKILL.md Step 2b, use the cached v
 
 ### Claude Bridge Probe And Runtime Dispatch (Run Once Per Session — Applies to Claude-designated roles when orchestrator is Codex)
 
-Quest may need to run Claude-designated roles in environments where native Claude `Task(...)` execution is unavailable. In Codex-led sessions, the supported Claude runtime adapter is `scripts/claude_cli_bridge.py`.
+Quest may need to run Claude-designated roles in environments where native Claude `Task(...)` execution is unavailable. In Codex-led sessions, the supported Claude runtime adapter is `scripts/quest_claude_bridge.py`.
 
 Before the first Claude-designated role invocation in a Codex-orchestrated session, the orchestrator MUST probe bridge availability:
 
-1. Verify `scripts/claude_cli_bridge.py` exists.
+1. Verify `scripts/quest_claude_bridge.py` exists.
 2. Verify Claude CLI is reachable, authenticated, and able to write Quest artifacts by running the real probe helper in a host-visible context:
    - `python3 scripts/quest_claude_probe.py --quest-dir .quest/<id> --model opus`
    - This probe is the source of truth for bridge readiness. It writes a tiny artifact plus `probe_handoff.json` under `.quest/<id>/logs/bridge_probe/`.
@@ -62,13 +62,13 @@ Before the first Claude-designated role invocation in a Codex-orchestrated sessi
    - Do not keep retrying the probe for later Claude roles.
 6. If `claude_bridge_available` is true:
    - Claude-designated roles may be invoked through the bridge with the same artifact paths and handoff contract used by native Claude execution.
-   - **Preferred Codex-led execution path:** use `python3 scripts/quest_claude_runner.py` instead of calling `scripts/claude_cli_bridge.py` directly, and run that helper in the same host-visible context used for the successful probe/cache refresh. The helper sets `--permission-mode bypassPermissions` by default, adds explicit repo/quest filesystem access via `--add-dir`, polls `handoff.json`, and appends the `context_health.log` line for `runtime=claude`.
+   - **Preferred Codex-led execution path:** use `python3 scripts/quest_claude_runner.py` instead of calling `scripts/quest_claude_bridge.py` directly, and run that helper in the same host-visible context used for the successful probe/cache refresh. The helper sets `--permission-mode bypassPermissions` by default, adds explicit repo/quest filesystem access via `--add-dir`, polls `handoff.json`, and appends the `context_health.log` line for `runtime=claude`.
 
 **Global runtime-selection rule:** the workflow chooses execution path by selected model/runtime, not by role label alone.
 
 - If the selected role model/runtime is Codex, use `mcp__codex__codex` (or Codex agent tools).
 - If the selected role model/runtime is Claude and native `Task(...)` is available in the orchestrator, use `Task(...)`.
-- If the selected role model/runtime is Claude and the orchestrator is Codex, use `python3 scripts/quest_claude_runner.py` in the same host-visible context used for bridge probing/cache refresh when `claude_bridge_available` is true. `scripts/claude_cli_bridge.py` stays the transport layer behind that runner.
+- If the selected role model/runtime is Claude and the orchestrator is Codex, use `python3 scripts/quest_claude_runner.py` in the same host-visible context used for bridge probing/cache refresh when `claude_bridge_available` is true. `scripts/quest_claude_bridge.py` stays the transport layer behind that runner.
 - If the selected role model/runtime is Claude, native `Task(...)` is unavailable, and the bridge probe failed, block that step unless the workflow section for that role defines an explicit Codex execution path.
 
 This rule is global. Individual steps below name the target runtime and artifact contract; the orchestrator applies native Claude task execution, bridge execution, or Codex execution based on the selected model/runtime and session capabilities.
@@ -187,7 +187,7 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 
 The orchestrator NEVER reads full review files, plan content, or build output for routing decisions. Only handoff.json (and, for Step 3.5, the plan file itself as a bounded exception).
 
-**Claude bridge response handling:** In Codex-led sessions, prefer `python3 scripts/quest_claude_runner.py` for Claude-designated roles. It polls the expected `handoff.json` file, defaults to `--permission-mode bypassPermissions`, adds explicit repo/quest filesystem access via `--add-dir`, and logs `runtime=claude` to `context_health.log`. If the helper cannot be used, a raw `python3 scripts/claude_cli_bridge.py` call is still allowed, but the orchestrator must manually perform the same file polling, filesystem access, and logging steps.
+**Claude bridge response handling:** In Codex-led sessions, prefer `python3 scripts/quest_claude_runner.py` for Claude-designated roles. It polls the expected `handoff.json` file, defaults to `--permission-mode bypassPermissions`, adds explicit repo/quest filesystem access via `--add-dir`, and logs `runtime=claude` to `context_health.log`. If the helper cannot be used, a raw `python3 scripts/quest_claude_bridge.py` call is still allowed, but the orchestrator must manually perform the same file polling, filesystem access, and logging steps.
 
 **Codex MCP response handling:** After a `mcp__codex__codex` call returns, the orchestrator reads the corresponding `handoff.json` file and does NOT retain the Codex response body in working context. The response may still appear in the conversation history (platform limitation), but the orchestrator treats it as consumed and does not reference it for any subsequent decision.
 
@@ -261,7 +261,8 @@ This workflow expects to be invoked with a quest brief already prepared.
 3. Read `.quest/<id>/state.json` and determine the source workspace root for code-bearing phases:
    - If `worktree_path` exists and the directory is present, set `source_workspace_root = worktree_path`
    - Otherwise set `source_workspace_root = <repo root>`
-   - All source edits plus `git status`, `git diff`, and `git log` commands in Steps 4-7 MUST run from `source_workspace_root`
+   - All source edits plus any `git status`, `git diff`, and `git log` commands that are used in Steps 4-7 MUST run from `source_workspace_root`
+   - If `vcs_available == false`, skip git commands entirely and use the documented no-VCS fallbacks instead
    - Quest artifacts always remain under `.quest/<id>/` in the original repo root; when `source_workspace_root != <repo root>`, prefer absolute quest artifact paths when invoking builder, reviewers, and fixer
 4. Verify branch context:
    - If `branch` exists in state.json and `branch_mode == "branch"`, compare it to `git branch --show-current` in `source_workspace_root`
@@ -650,14 +651,21 @@ After plan approval, present the plan interactively before proceeding to build.
    - `review_mode` (default: `auto`)
    - `fast_review_thresholds.max_files` (default: 5)
    - `fast_review_thresholds.max_loc` (default: 300)
+   - Read `vcs_available` from `.quest/<id>/state.json` (default: `true` if missing)
 
 
 3. **Build a change summary for Codex:**
-   - Compute from git in `source_workspace_root` (the canonical source for what changed):
+   - If `vcs_available == true`, compute from git in `source_workspace_root` (the canonical source for what changed):
      - File list: `git diff --name-only`
      - Diff stats: `git diff --stat`
      - LOC totals: `git diff --numstat` and sum added + deleted.
-   - Use the LOC totals and file count for `review_mode: auto`:
+   - If `vcs_available == false`, do not run git diff commands. Instead:
+     - File list: `Changed file list unavailable (no VCS)`
+     - Diff stats: `Diff stats unavailable (no VCS)`
+     - LOC totals: unavailable
+     - Effective review mode: **full**
+     - Reviewer scope: inspect the implementation directly, using `.quest/<id>/phase_02_implementation/builder_feedback_discussion.md`, `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md` if present, the plan, and the source files themselves to determine touched areas.
+   - Use the LOC totals and file count for `review_mode: auto` only when `vcs_available == true`:
      - If file_count ≤ max_files AND loc_total ≤ max_loc → **fast**
      - Otherwise → **full**
 
@@ -688,11 +696,13 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Quest: .quest/<id>/quest_brief.md
      Plan: .quest/<id>/phase_01_plan/plan.md
+     Builder notes: .quest/<id>/phase_02_implementation/builder_feedback_discussion.md
 
      Changed files: <file list>
      Diff summary: <git diff --stat>
 
-     Review ONLY the files listed above. Use git diff for details.
+     If changed files are available, review ONLY those files and use git diff for details.
+     If changed files are unavailable (no VCS), review the implementation directly using the plan, builder notes, optional fix notes, and the source files themselves. Do NOT assume git metadata exists.
 
      Artifact files have been prepared for you. Overwrite these files directly:
      - .quest/<id>/phase_03_review/review_code-reviewer-a.md
@@ -712,11 +722,13 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Quest: .quest/<id>/quest_brief.md
      Plan: .quest/<id>/phase_01_plan/plan.md
+     Builder notes: .quest/<id>/phase_02_implementation/builder_feedback_discussion.md
 
      Changed files: <file list>
      Diff summary: <git diff --stat>
 
-     Review ONLY the files listed above.
+     If changed files are available, review ONLY those files.
+     If changed files are unavailable (no VCS), review the implementation directly using the plan, builder notes, optional fix notes, and the source files themselves.
      List up to 5 issues, highest severity first.
 
      Artifact files have been prepared for you. Overwrite these files directly:
@@ -745,11 +757,13 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Quest: .quest/<id>/quest_brief.md
      Plan: .quest/<id>/phase_01_plan/plan.md
+     Builder notes: .quest/<id>/phase_02_implementation/builder_feedback_discussion.md
 
      Changed files: <file list>
      Diff summary: <git diff --stat>
 
-     Review ONLY the files listed above. Use git diff for details. Do NOT modify any source code.
+     If changed files are available, review ONLY those files and use git diff for details.
+     If changed files are unavailable (no VCS), review the implementation directly using the plan, builder notes, optional fix notes, and the source files themselves. Do NOT modify any source code.
 
      Write ONLY to these review artifact files:
      - .quest/<id>/phase_03_review/review_code-reviewer-b.md
@@ -771,11 +785,13 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Quest: .quest/<id>/quest_brief.md
      Plan: .quest/<id>/phase_01_plan/plan.md
+     Builder notes: .quest/<id>/phase_02_implementation/builder_feedback_discussion.md
 
      Changed files: <file list>
      Diff summary: <git diff --stat>
 
-     Review ONLY the files listed above. Do NOT modify any source code.
+     If changed files are available, review ONLY those files.
+     If changed files are unavailable (no VCS), review the implementation directly using the plan, builder notes, optional fix notes, and the source files themselves. Do NOT modify any source code.
      List up to 5 issues, highest severity first.
 
      Write ONLY to these review artifact files:
@@ -787,7 +803,7 @@ After plan approval, present the plan interactively before proceeding to build.
      NEXT: fixer (if issues) or null (if clean)"
    )
    ```
-   - **Note:** The `<file list>` and `<git diff --stat>` values embedded in these prompts are intentional small metadata (summary statistics and file names, typically a few lines). This is operational data for scoping the review, not subagent artifact content, and does not conflict with the Context Retention Rule.
+   - **Note:** The `<file list>` and `<git diff --stat>` values embedded in these prompts are intentional small metadata (summary statistics and file names, typically a few lines). When `vcs_available == false`, these fields intentionally carry the explicit `no VCS` markers above. This is operational data for scoping the review, not subagent artifact content, and does not conflict with the Context Retention Rule.
    - **Before issuing the calls**, record the current wall-clock time as `dispatch_start`
    - Issue BOTH calls in the SAME message for parallel execution
    - Wait for BOTH to complete
@@ -857,9 +873,10 @@ After plan approval, present the plan interactively before proceeding to build.
    - Prompt: Reference file paths only, do not embed content:
      - Code review A: `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
      - Code review B: `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
-     - Changed files: <file list from git diff>
+     - Changed files: <prepared review scope summary>
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Plan: `.quest/<id>/phase_01_plan/plan.md`
+     - Builder notes: `.quest/<id>/phase_02_implementation/builder_feedback_discussion.md`
    - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `review_fix_feedback_discussion.md` and `handoff_fixer.json` in `.quest/<id>/phase_03_review/`.
    - Require the prompt to include:
      - If using Codex path: `Read your instructions: .skills/quest/agents/fixer.md`
@@ -923,7 +940,9 @@ After plan approval, present the plan interactively before proceeding to build.
 
 4. **Show summary** (before archiving — quest directory still exists):
     - Quest ID
-    - Files changed (from `git diff --name-only` in `source_workspace_root` and `state.json` artifact paths)
+    - Files changed
+      - If `vcs_available == true`: from `git diff --name-only` in `source_workspace_root` and `state.json` artifact paths
+      - If `vcs_available == false`: report `Changed source file list unavailable (no VCS)` and still list quest artifact paths from the handoff files/state
     - Total iterations (plan + fix, from `state.json`)
     - Parallel execution stats (read from `.quest/<id>/logs/parallelism.log` if it exists — show each line)
     - Location of artifacts (will be archived to `.quest/archive/<id>/`)
@@ -1012,8 +1031,8 @@ After plan approval, present the plan interactively before proceeding to build.
 
 8. **Next steps suggestion:**
     ```
-    Review changes: git diff
-    Commit: git add -p && git commit
+    If vcs_available: Review changes with git diff; commit with git add -p && git commit
+    If no VCS: Review files directly and initialize git only if you want versioned follow-up work
     ```
     - **Draft PR:** use `.skills/pr-assistant/SKILL.md` (preserve any existing bot-managed PR sections when editing PR body)
     - **PR review gate:** post an explicit review comment on the draft/ready PR, then merge only after NIT filtering using `AGENTS.md` rubric (readability-first, KISS/YAGNI/SRP/DRY, simple robust over complex elegance, avoid mocking-hell)
@@ -1109,6 +1128,7 @@ If a Claude role returns `STATUS: needs_human`:
   "slug": "feature-x",
   "phase": "plan | plan_reviewed | presenting | presentation_complete | building | reviewing | fixing | complete",
   "status": "pending | in_progress | complete | blocked",
+  "vcs_available": true,
   "branch": "quest/feature-x",
   "branch_mode": "branch | worktree | none",
   "worktree_path": "/absolute/path/to/worktree or null",

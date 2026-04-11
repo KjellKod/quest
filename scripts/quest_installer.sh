@@ -119,10 +119,18 @@ load_manifest() {
 # Files that need executable bit set
 EXECUTABLE_FILES=(
   ".claude/hooks/enforce-allowlist.sh"
-  "scripts/validate-quest-config.sh"
+  "scripts/quest_validate-quest-config.sh"
   "scripts/quest_installer.sh"
   "scripts/quest_celebrate/quest-celebrate.sh"
   "scripts/quest_preflight.sh"
+)
+
+OLD_SCRIPT_NAMES=(
+  "scripts/claude_cli_bridge.py"
+  "scripts/validate-handoff-contracts.sh"
+  "scripts/validate-manifest.sh"
+  "scripts/validate-quest-config.sh"
+  "scripts/validate-quest-state.sh"
 )
 
 ###############################################################################
@@ -517,6 +525,23 @@ set_updated_checksum() {
   # Not found, append
   UPDATED_CHECKSUM_FILES+=("$target")
   UPDATED_CHECKSUM_VALUES+=("$checksum")
+}
+
+remove_updated_checksum() {
+  local target="$1"
+  local i
+  local new_files=()
+  local new_values=()
+
+  for i in "${!UPDATED_CHECKSUM_FILES[@]}"; do
+    if [ "${UPDATED_CHECKSUM_FILES[$i]}" != "$target" ]; then
+      new_files+=("${UPDATED_CHECKSUM_FILES[$i]}")
+      new_values+=("${UPDATED_CHECKSUM_VALUES[$i]}")
+    fi
+  done
+
+  UPDATED_CHECKSUM_FILES=("${new_files[@]}")
+  UPDATED_CHECKSUM_VALUES=("${new_values[@]}")
 }
 
 # Initialize updated checksums from local checksums
@@ -1183,6 +1208,63 @@ set_executable_bits() {
   done
 }
 
+cleanup_renamed_scripts() {
+  local filepath
+  local stored_checksum
+  local current_checksum
+
+  for filepath in "${OLD_SCRIPT_NAMES[@]}"; do
+    remove_updated_checksum "$filepath"
+    if [ ! -e "$filepath" ]; then
+      continue
+    fi
+
+    if ! stored_checksum=$(get_stored_checksum "$filepath"); then
+      log_warn "Leaving existing non-Quest script in place: $filepath"
+      continue
+    fi
+
+    current_checksum=$(get_file_checksum "$filepath")
+    if [ "$current_checksum" != "$stored_checksum" ]; then
+      log_warn "Leaving modified legacy Quest script in place for manual cleanup: $filepath"
+      continue
+    fi
+
+    if $DRY_RUN; then
+      log_action "Remove stale renamed script: $filepath"
+      continue
+    fi
+
+    rm -f "$filepath"
+    log_success "Removed stale renamed script: $filepath"
+  done
+}
+
+migrate_legacy_validation_hook() {
+  local hook_path=".git/hooks/pre-commit"
+  local legacy_target="../../scripts/validate-quest-config.sh"
+  local new_target="../../scripts/quest_validate-quest-config.sh"
+  local target
+
+  if [ "$IS_GIT_REPO" != "true" ] || [ ! -L "$hook_path" ]; then
+    return 0
+  fi
+
+  target=$(readlink "$hook_path" 2>/dev/null || true)
+  if [ "$target" != "$legacy_target" ]; then
+    return 0
+  fi
+
+  if $DRY_RUN; then
+    log_action "Repoint legacy pre-commit hook to $new_target"
+    return 0
+  fi
+
+  rm "$hook_path"
+  ln -s "$new_target" "$hook_path"
+  log_success "Updated pre-commit hook to $new_target"
+}
+
 ###############################################################################
 # Gitignore Update
 ###############################################################################
@@ -1222,22 +1304,22 @@ update_gitignore() {
 run_validation() {
   log_info "Running validation..."
 
-  if [ ! -f "scripts/validate-quest-config.sh" ]; then
+  if [ ! -f "scripts/quest_validate-quest-config.sh" ]; then
     log_warn "Validation script not found - skipping"
     return
   fi
 
-  if [ ! -x "scripts/validate-quest-config.sh" ]; then
-    chmod +x "scripts/validate-quest-config.sh"
+  if [ ! -x "scripts/quest_validate-quest-config.sh" ]; then
+    chmod +x "scripts/quest_validate-quest-config.sh"
   fi
 
   if $DRY_RUN; then
-    log_action "Run scripts/validate-quest-config.sh"
+    log_action "Run scripts/quest_validate-quest-config.sh"
     return
   fi
 
   echo ""
-  if ./scripts/validate-quest-config.sh; then
+  if ./scripts/quest_validate-quest-config.sh; then
     log_success "Validation passed"
   else
     log_warn "Validation had issues - review output above"
@@ -1470,7 +1552,7 @@ print_next_steps() {
     echo "  2. Commit the Quest files to your repository"
     echo ""
     echo "Optional: Install pre-commit hook to validate Quest config on each commit:"
-    echo "  ./scripts/validate-quest-config.sh --install"
+    echo "  ./scripts/quest_validate-quest-config.sh --install"
     echo "  (Validates: .gitignore has .quest/, allowlist.json is valid, role files have required sections)"
     echo ""
   else
@@ -1604,6 +1686,8 @@ run_install() {
   install_copy_as_is
   install_user_customized
   install_merge_carefully
+  migrate_legacy_validation_hook
+  cleanup_renamed_scripts
 
   # Set executable bits
   set_executable_bits

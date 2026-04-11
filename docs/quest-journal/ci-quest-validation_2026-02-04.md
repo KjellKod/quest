@@ -10,7 +10,7 @@ Implemented GitHub Actions CI and local pre-commit hooks that validate quest-rel
 
 **What was built**:
 - JSON schema for `.ai/allowlist.json` validation
-- Pre-commit validation script (`scripts/validate-quest-config.sh`)
+- Pre-commit validation script (`scripts/quest_validate-quest-config.sh`)
 - GitHub Actions workflow for CI validation
 - Role markdown completeness checking
 - Quest journal system (`docs/quest-journal/`)

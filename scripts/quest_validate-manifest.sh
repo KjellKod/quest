@@ -48,13 +48,16 @@ EXPECTED_PATTERNS=(
   ".claude/agents/*.md"
   ".claude/hooks/*.sh"
   ".claude/skills/*/*.md"
-  "scripts/claude_cli_bridge.py"
+  "scripts/quest_claude_bridge.py"
   "scripts/quest_claude_probe.py"
   "scripts/quest_claude_runner.py"
   "scripts/quest_startup_branch.py"
+  "scripts/quest_validate-handoff-contracts.sh"
+  "scripts/quest_validate-manifest.sh"
+  "scripts/quest_validate-quest-config.sh"
+  "scripts/quest_validate-quest-state.sh"
   "scripts/quest_checks/*.py"
   "scripts/quest_runtime/*.py"
-  "scripts/validate-quest-config.sh"
 )
 
 # Find all files matching our patterns

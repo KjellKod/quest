@@ -237,7 +237,7 @@ A successful Codex-led Claude bridge probe is retained at `.quest/cache/claude_b
 
 ### What the bridge does
 
-Quest uses a purpose-built CLI bridge (`scripts/claude_cli_bridge.py`) instead of MCP for cross-model calls. This gives Quest per-invocation control that a static MCP connection can't provide:
+Quest uses a purpose-built CLI bridge (`scripts/quest_claude_bridge.py`) instead of MCP for cross-model calls. This gives Quest per-invocation control that a static MCP connection can't provide:
 
 - **Filesystem scoping**, each role gets access to only the directories it needs via `--add-dir`
 - **Permission modes**, builder runs with `bypassPermissions`, read-only roles use `plan` mode
@@ -252,7 +252,7 @@ For the full architecture rationale, see [Why the Bridge, Not MCP](quest_present
 
 ### What Quest handles automatically
 
-- Probes `scripts/claude_cli_bridge.py` once per session and retains a recent successful host probe
+- Probes `scripts/quest_claude_bridge.py` once per session and retains a recent successful host probe
 - Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py` in the same host-visible context used for the probe/cache refresh
 - Claude-led quests are unaffected, they keep native `Task(...)` execution
 
@@ -265,7 +265,7 @@ If you want to test the bridge before your first Codex-led quest, you can run th
 ```bash
 command -v claude
 claude auth status
-ls -la scripts/claude_cli_bridge.py
+ls -la scripts/quest_claude_bridge.py
 python3 scripts/quest_claude_probe.py \
   --quest-dir .quest/<id> \
   --model opus
@@ -286,7 +286,7 @@ After setup, verify everything is in place:
    ls -la .claude/skills/quest/SKILL.md
    ls -la .claude/agents/
    ls -la .claude/hooks/enforce-allowlist.sh
-   ls -la scripts/claude_cli_bridge.py
+   ls -la scripts/quest_claude_bridge.py
    ls -la scripts/quest_claude_probe.py
    ls -la scripts/quest_claude_runner.py
    ```

@@ -7,6 +7,9 @@ STATE_SCRIPT="$REPO_ROOT/scripts/quest_state.py"
 STARTUP_BRANCH_SCRIPT="$REPO_ROOT/scripts/quest_startup_branch.py"
 CLAUDE_RUNNER="$REPO_ROOT/scripts/quest_claude_runner.py"
 CLAUDE_PROBE="$REPO_ROOT/scripts/quest_claude_probe.py"
+INSTALLER_SCRIPT="$REPO_ROOT/scripts/quest_installer.sh"
+WORKFLOW_FILE="$REPO_ROOT/.skills/quest/delegation/workflow.md"
+MANIFEST_FILE="$REPO_ROOT/.quest-manifest"
 
 TESTS_RUN=0
 TESTS_PASSED=0
@@ -471,13 +474,14 @@ test_quest_startup_branch_skips_outside_git_repo() {
   tmpdir=$(mktemp -d)
   write_allowlist "$tmpdir" "branch"
 
-  local output rc branch status branch_mode requested_mode message
+  local output rc branch status branch_mode requested_mode message vcs_available
   output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug outside-repo 2>&1)
   rc=$?
   branch=$(printf '%s' "$output" | jq -r '.branch')
   status=$(printf '%s' "$output" | jq -r '.status')
   branch_mode=$(printf '%s' "$output" | jq -r '.branch_mode')
   requested_mode=$(printf '%s' "$output" | jq -r '.requested_branch_mode')
+  vcs_available=$(printf '%s' "$output" | jq -r '.vcs_available')
   message=$(printf '%s' "$output" | jq -r '.message')
   rm -rf "$tmpdir"
 
@@ -486,7 +490,41 @@ test_quest_startup_branch_skips_outside_git_repo() {
     [ "$status" = "skipped" ] &&
     [ "$branch_mode" = "none" ] &&
     [ "$requested_mode" = "branch" ] &&
+    [ "$vcs_available" = "false" ] &&
     echo "$message" | grep -qi "not a git repository"
+}
+
+test_workflow_documents_no_vcs_review_path() {
+  grep -q 'vcs_available' "$WORKFLOW_FILE" &&
+    grep -q 'Changed file list unavailable (no VCS)' "$WORKFLOW_FILE" &&
+    grep -q 'Diff stats unavailable (no VCS)' "$WORKFLOW_FILE" &&
+    grep -q 'review the implementation directly' "$WORKFLOW_FILE"
+}
+
+test_installer_cleans_up_renamed_scripts() {
+  grep -q 'OLD_SCRIPT_NAMES=(' "$INSTALLER_SCRIPT" &&
+    grep -q 'scripts/claude_cli_bridge.py' "$INSTALLER_SCRIPT" &&
+    grep -q 'scripts/validate-handoff-contracts.sh' "$INSTALLER_SCRIPT" &&
+    grep -q 'scripts/validate-manifest.sh' "$INSTALLER_SCRIPT" &&
+    grep -q 'scripts/validate-quest-config.sh' "$INSTALLER_SCRIPT" &&
+    grep -q 'scripts/validate-quest-state.sh' "$INSTALLER_SCRIPT" &&
+    grep -q 'get_stored_checksum' "$INSTALLER_SCRIPT" &&
+    grep -q 'Leaving existing non-Quest script in place' "$INSTALLER_SCRIPT" &&
+    grep -q 'Leaving modified legacy Quest script in place for manual cleanup' "$INSTALLER_SCRIPT" &&
+    grep -q 'migrate_legacy_validation_hook' "$INSTALLER_SCRIPT" &&
+    grep -q 'cleanup_renamed_scripts' "$INSTALLER_SCRIPT"
+}
+
+test_manifest_lists_prefixed_scripts() {
+  grep -q '^scripts/quest_claude_bridge.py$' "$MANIFEST_FILE" &&
+    grep -q '^scripts/quest_validate-handoff-contracts.sh$' "$MANIFEST_FILE" &&
+    grep -q '^scripts/quest_validate-manifest.sh$' "$MANIFEST_FILE" &&
+    grep -q '^scripts/quest_validate-quest-config.sh$' "$MANIFEST_FILE" &&
+    grep -q '^scripts/quest_validate-quest-state.sh$' "$MANIFEST_FILE"
+}
+
+test_validation_hook_script_accepts_legacy_symlink_target() {
+  grep -q '\[\[ "\$target" == \*"quest_validate-quest-config.sh" \]\] || \[\[ "\$target" == \*"validate-quest-config.sh" \]\]' "$REPO_ROOT/scripts/quest_validate-quest-config.sh"
 }
 
 test_quest_startup_branch_invalid_slug_preserves_requested_mode() {
@@ -523,6 +561,10 @@ run_test test_quest_startup_branch_none_mode_leaves_main_checked_out
 run_test test_quest_startup_branch_invalid_allowlist_returns_blocked_contract
 run_test test_quest_startup_branch_skips_outside_git_repo
 run_test test_quest_startup_branch_invalid_slug_preserves_requested_mode
+run_test test_workflow_documents_no_vcs_review_path
+run_test test_installer_cleans_up_renamed_scripts
+run_test test_manifest_lists_prefixed_scripts
+run_test test_validation_hook_script_accepts_legacy_symlink_target
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
 run_test test_quest_claude_probe_requires_real_artifacts
 
