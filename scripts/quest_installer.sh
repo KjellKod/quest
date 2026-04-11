@@ -1066,6 +1066,9 @@ install_user_customized_file() {
     return 0  # Continue with other files
   fi
 
+  local upstream_checksum
+  upstream_checksum=$(get_file_checksum "$temp_file")
+
   # Case 1: File does not exist locally - create it
   if [ ! -f "$filepath" ]; then
     ensure_parent_dir "$filepath"
@@ -1081,9 +1084,8 @@ install_user_customized_file() {
   fi
 
   # Case 2: File exists - check if upstream has changes
-  local local_checksum upstream_checksum
+  local local_checksum
   local_checksum=$(get_file_checksum "$filepath")
-  upstream_checksum=$(get_file_checksum "$temp_file")
 
   if [ "$local_checksum" = "$upstream_checksum" ]; then
     # No changes

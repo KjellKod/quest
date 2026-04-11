@@ -599,6 +599,50 @@ test_installer_updates_pristine_agents_file_in_place() {
   return $rc
 }
 
+test_installer_records_checksum_for_new_agents_file() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  printf 'new agents\n' > "$tmpdir/upstream_AGENTS.md"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    QUEST_UPDATED_FILES=()
+    LOCAL_CHECKSUM_FILES=()
+    LOCAL_CHECKSUM_VALUES=()
+    init_updated_checksums
+
+    fetch_file_to_temp() {
+      cp "$tmpdir/upstream_AGENTS.md" "$2"
+    }
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    install_user_customized_file "AGENTS.md"
+
+    local recorded=""
+    local i
+    for i in "${!UPDATED_CHECKSUM_FILES[@]}"; do
+      if [ "${UPDATED_CHECKSUM_FILES[$i]}" = "AGENTS.md" ]; then
+        recorded="${UPDATED_CHECKSUM_VALUES[$i]}"
+      fi
+    done
+
+    [ -f AGENTS.md ] &&
+      [ "$(cat AGENTS.md)" = "$(cat "$tmpdir/upstream_AGENTS.md")" ] &&
+      [ "$recorded" = "$(get_file_checksum "AGENTS.md")" ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
 test_installer_preserves_customized_agents_file_with_sidecar() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -709,6 +753,7 @@ run_test test_quest_startup_branch_exception_handler_tolerates_missing_git
 run_test test_workflow_documents_no_vcs_review_path
 run_test test_installer_cleans_up_renamed_scripts
 run_test test_installer_updates_pristine_agents_file_in_place
+run_test test_installer_records_checksum_for_new_agents_file
 run_test test_installer_preserves_customized_agents_file_with_sidecar
 run_test test_manifest_lists_prefixed_scripts
 run_test test_validation_hook_script_accepts_legacy_symlink_target
