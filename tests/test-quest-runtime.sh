@@ -469,6 +469,35 @@ test_quest_startup_branch_invalid_allowlist_returns_blocked_contract() {
     echo "$message" | grep -qi "failed"
 }
 
+test_quest_startup_branch_invalid_mode_keeps_vcs_available_true() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  mkdir -p "$tmpdir/.ai"
+  cat > "$tmpdir/.ai/allowlist.json" <<EOF
+{
+  "quest_startup": {
+    "branch_mode": "banana"
+  }
+}
+EOF
+
+  local output rc status vcs_available requested_mode message
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-bad-mode 2>&1)
+  rc=$?
+  status=$(printf '%s' "$output" | jq -r '.status')
+  vcs_available=$(printf '%s' "$output" | jq -r '.vcs_available')
+  requested_mode=$(printf '%s' "$output" | jq -r '.requested_branch_mode')
+  message=$(printf '%s' "$output" | jq -r '.message')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$status" = "blocked" ] &&
+    [ "$vcs_available" = "true" ] &&
+    [ "$requested_mode" = "banana" ] &&
+    echo "$message" | grep -qi "expected one of"
+}
+
 test_quest_startup_branch_skips_outside_git_repo() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -549,6 +578,28 @@ test_quest_startup_branch_invalid_slug_preserves_requested_mode() {
     echo "$message" | grep -qi "invalid slug"
 }
 
+test_quest_startup_branch_exception_handler_tolerates_missing_git() {
+  local tmpdir python_bin
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  mkdir -p "$tmpdir/.ai" "$tmpdir/empty-path"
+  printf '{ invalid json\n' > "$tmpdir/.ai/allowlist.json"
+  python_bin=$(command -v python3) || return 1
+
+  local output rc status vcs_available message
+  output=$(PATH="$tmpdir/empty-path" "$python_bin" "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-no-git 2>&1)
+  rc=$?
+  status=$(printf '%s' "$output" | jq -r '.status')
+  vcs_available=$(printf '%s' "$output" | jq -r '.vcs_available')
+  message=$(printf '%s' "$output" | jq -r '.message')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$status" = "blocked" ] &&
+    [ "$vcs_available" = "false" ] &&
+    echo "$message" | grep -qi "failed"
+}
+
 run_test test_quest_state_updates_phase_and_timestamp
 run_test test_quest_state_transition_valid
 run_test test_quest_state_transition_invalid_leaves_state_unchanged
@@ -559,8 +610,10 @@ run_test test_quest_startup_branch_blocks_dirty_default_branch_checkout
 run_test test_quest_startup_branch_creates_worktree
 run_test test_quest_startup_branch_none_mode_leaves_main_checked_out
 run_test test_quest_startup_branch_invalid_allowlist_returns_blocked_contract
+run_test test_quest_startup_branch_invalid_mode_keeps_vcs_available_true
 run_test test_quest_startup_branch_skips_outside_git_repo
 run_test test_quest_startup_branch_invalid_slug_preserves_requested_mode
+run_test test_quest_startup_branch_exception_handler_tolerates_missing_git
 run_test test_workflow_documents_no_vcs_review_path
 run_test test_installer_cleans_up_renamed_scripts
 run_test test_manifest_lists_prefixed_scripts

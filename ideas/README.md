@@ -21,7 +21,7 @@ architecture docs.
 |---|---|---|
 | `quest-policy-canonicalization-and-enforcement-roadmap.md` | in-progress | Canonical plan to reduce policy drift and convert rules into enforced checks. |
 | `extract-codex-review-python.md` | in-progress | CI review Python was extracted into a real script with tests; the workflow still has one large heredoc block to finish removing. |
-| `handoff-validation-and-failure-ux.md` | proposed | Add actionable diagnostics when handoff fallback occurs. |
+| `handoff-validation-and-failure-ux.md` | in-progress | Add actionable diagnostics when handoff fallback occurs. |
 | `opencode-integration-deferred-items.md` | in-progress | Follow-up list from the first OpenCode rollout; some permission/alignment items are now resolved, others remain. |
 
 ### Architecture and Workflow Evolution

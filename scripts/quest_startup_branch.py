@@ -97,6 +97,13 @@ def is_git_repo(repo_root: Path) -> bool:
     return git_success(repo_root, "rev-parse", "--is-inside-work-tree")
 
 
+def safe_is_git_repo(repo_root: Path) -> bool:
+    try:
+        return is_git_repo(repo_root)
+    except Exception:
+        return False
+
+
 def branch_exists(repo_root: Path, branch_name: str) -> bool:
     return git_success(repo_root, "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}")
 
@@ -151,7 +158,7 @@ def main() -> int:
     if not SAFE_SLUG_RE.match(args.slug) or ".." in args.slug:
         payload = build_result(
             status="blocked",
-            vcs_available=False,
+            vcs_available=safe_is_git_repo(repo_root),
             branch=None,
             branch_mode="none",
             requested_branch_mode=requested_branch_mode,
@@ -178,7 +185,7 @@ def main() -> int:
         if requested_branch_mode not in VALID_BRANCH_MODES:
             payload = build_result(
                 status="blocked",
-                vcs_available=False,
+                vcs_available=safe_is_git_repo(repo_root),
                 branch=None,
                 branch_mode="none",
                 requested_branch_mode=str(requested_branch_mode),
@@ -383,7 +390,7 @@ def main() -> int:
     except Exception as exc:
         payload = build_result(
             status="blocked",
-            vcs_available=is_git_repo(repo_root),
+            vcs_available=safe_is_git_repo(repo_root),
             branch=None,
             branch_mode="none",
             requested_branch_mode=requested_branch_mode,
