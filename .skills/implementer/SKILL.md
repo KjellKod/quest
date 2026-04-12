@@ -84,7 +84,11 @@ Stop and ask a question if any of these are unclear:
 - error semantics and retryability
 - cross-system integration expectations
 
-If the uncertainty is not impactful, choose the simplest interpretation and record it in the Decision Log.
+If the uncertainty is not impactful, choose the simplest interpretation and record it in the Decision Log with an `ASSUMPTION` tag so reviewers can validate it:
+
+- Assumption: [what you assumed]
+  - context: [what in the plan was ambiguous]
+  - alternative: [what else you considered]
 
 ### Rule 7: Ask before deviating from repo standards
 
@@ -116,6 +120,21 @@ Decision Log format:
   - impact: what this affects
   - followups: planned cleanup/risks
 
+### Rule 8: Scope discipline
+
+Before touching any file, confirm the change is within the approved scope. If you notice something that should be fixed but is out of scope:
+
+1. Do NOT fix it
+2. Record it using the NOTICED pattern in the discussion file:
+
+```
+NOTICED: [file or issue]
+DESCRIPTION: [what you saw]
+RECOMMENDATION: [fix in follow-up quest / add to backlog]
+```
+
+This preserves the observation without polluting the current diff.
+
 ---
 
 ## Implementation Process
@@ -143,3 +162,12 @@ Before starting the next step, verify:
 - tests are deterministic and meaningful
 - no secrets/sensitive data are logged or returned
 - changes are minimal and reviewable
+
+---
+
+## Common Pitfalls
+
+| Shortcut | Why It Fails | Red Flag |
+|----------|-------------|----------|
+| "I'll add tests after I finish the logic" | Bugs compound — a bug in step 1 makes steps 2-5 wrong. Tests written after the fact test implementation, not behavior. | Code files growing without corresponding test files appearing |
+| "Fixing one more thing while I'm here" | Diff grows, review slows, risk compounds. Mixed refactors and features make both harder to review and debug. | Commit message mentions unrelated cleanup |

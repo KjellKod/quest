@@ -26,8 +26,9 @@ When running on Codex, this role is non-interactive:
 1. Read the code review notes
 2. Apply targeted fixes for each identified issue
 3. Run tests to verify fixes don't introduce regressions
-4. Record fix decisions, touched files, and tests run in `.quest/<quest_id>/phase_03_review/review_fix_feedback_discussion.md`
-5. Do NOT make unrelated changes — fix only what the review identified
+4. For bug fixes: follow the prove-it pattern from `AGENTS.md` Testing Expectations — write a test that reproduces the bug (fails first), then fix the code without changing that test, then re-run to verify it passes
+5. Record fix decisions, touched files, and tests run in `.quest/<quest_id>/phase_03_review/review_fix_feedback_discussion.md`
+6. Do NOT make unrelated changes — fix only what the review identified
 
 ## Input
 - Code review (`.quest/<id>/phase_03_review/review_code-reviewer-a.md`)

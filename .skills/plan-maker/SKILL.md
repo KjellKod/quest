@@ -194,6 +194,15 @@ Use Small Plan template, add:
 
 ---
 
+## Common Pitfalls
+
+| Shortcut | Why It Fails | Red Flag |
+|----------|-------------|----------|
+| Listing files without specifying change type | Builder guesses wrong about create vs modify | File list with no "Add/Modify/Delete" annotations |
+| Writing acceptance criteria after the implementation section | Criteria shaped to match the solution, not the problem | AC section reads like a commit description |
+
+---
+
 ## Self-Review Checklist
 
 Before human review:
@@ -233,3 +242,23 @@ Before human review:
 8. Actionable (concrete enough to start)
 9. Shippable not perfect (stop conditions)
 10. No hallucination (flag ambiguity)
+
+---
+
+## Vertical Slicing (Prefer Over Horizontal)
+
+Decompose plans into vertical slices that each deliver observable value end-to-end, rather than horizontal layers that only work when all layers are complete.
+
+**Good (vertical):**
+1. Add "create widget" endpoint + model + one test (proves the slice works)
+2. Add "list widgets" endpoint + query + test
+3. Add validation rules + error test
+
+**Bad (horizontal):**
+1. Create all database models
+2. Create all API endpoints
+3. Write all tests
+
+Each step in a vertical plan can be validated independently. If step 1 works, you have confidence in the pattern before building steps 2-3.
+
+If a step must be horizontal (e.g., database migration before any feature code), note why.
