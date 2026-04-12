@@ -4,7 +4,7 @@
 Fixes issues identified by the Code Review Agent. Applies targeted fixes and re-runs tests.
 
 ## Tool
-Codex (`mcp__codex-cli__codex`) by default, with Claude runtime as fallback. Use native `Task(subagent_type="fixer")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` for the Claude fallback path. `scripts/claude_cli_bridge.py` remains the transport layer behind that runner.
+Codex (`mcp__codex-cli__codex`) by default, with Claude runtime as fallback. Use native `Task(subagent_type="fixer")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` for the Claude fallback path. `scripts/quest_claude_bridge.py` remains the transport layer behind that runner.
 
 When running on Codex, this role is non-interactive:
 - Do not ask questions.
@@ -19,19 +19,21 @@ When running on Codex, this role is non-interactive:
 - Code review artifacts (issues to fix):
   - `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
   - `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
-- Changed files from `git diff --name-only`
+- Changed files from `git diff --name-only` when VCS is available
+- `.quest/<id>/phase_02_implementation/builder_feedback_discussion.md` for touched files/tests when VCS is unavailable
 
 ## Responsibilities
 1. Read the code review notes
 2. Apply targeted fixes for each identified issue
 3. Run tests to verify fixes don't introduce regressions
-4. Record fix decisions in `.quest/<quest_id>/phase_03_review/review_fix_feedback_discussion.md`
+4. Record fix decisions, touched files, and tests run in `.quest/<quest_id>/phase_03_review/review_fix_feedback_discussion.md`
 5. Do NOT make unrelated changes — fix only what the review identified
 
 ## Input
 - Code review (`.quest/<id>/phase_03_review/review_code-reviewer-a.md`)
 - Code review (`.quest/<id>/phase_03_review/review_code-reviewer-b.md`)
-- Changed files (`git diff --name-only`)
+- Changed files (`git diff --name-only`) when available
+- Builder notes when changed-file metadata is unavailable
 - Quest brief and approved plan
 
 ## Output Contract

@@ -69,7 +69,7 @@ fi
 
 echo ""
 echo "4. Checking workflow documents Claude bridge probe and runtime dispatch..."
-BRIDGE_SCRIPT_COUNT=$(grep -c "scripts/claude_cli_bridge.py" .skills/quest/delegation/workflow.md || true)
+BRIDGE_SCRIPT_COUNT=$(grep -c "scripts/quest_claude_bridge.py" .skills/quest/delegation/workflow.md || true)
 BRIDGE_PROBE_COUNT=$(grep -c "claude_bridge_available" .skills/quest/delegation/workflow.md || true)
 BRIDGE_PROBE_HELPER_COUNT=$(grep -c "scripts/quest_claude_probe.py" .skills/quest/delegation/workflow.md || true)
 RUNTIME_SELECTION_COUNT=$(grep -c "selected model/runtime" .skills/quest/delegation/workflow.md || true)
@@ -82,7 +82,7 @@ if [ "$BRIDGE_SCRIPT_COUNT" -gt 0 ] && [ "$BRIDGE_PROBE_COUNT" -gt 0 ] && [ "$BR
   echo "   ✅ Workflow documents bridge probing and runtime-based dispatch"
 else
   echo "   ❌ Workflow is missing bridge probing or runtime-selection guidance"
-  echo "      scripts/claude_cli_bridge.py refs: $BRIDGE_SCRIPT_COUNT"
+  echo "      scripts/quest_claude_bridge.py refs: $BRIDGE_SCRIPT_COUNT"
   echo "      claude_bridge_available refs: $BRIDGE_PROBE_COUNT"
   echo "      scripts/quest_claude_probe.py refs: $BRIDGE_PROBE_HELPER_COUNT"
   echo "      selected model/runtime refs: $RUNTIME_SELECTION_COUNT"
@@ -107,10 +107,10 @@ echo ""
 echo "6. Checking helper scripts referenced in workflow.md exist on disk..."
 HELPER_SCRIPTS=(
   "scripts/quest_state.py"
-  "scripts/claude_cli_bridge.py"
+  "scripts/quest_claude_bridge.py"
   "scripts/quest_claude_runner.py"
   "scripts/quest_claude_probe.py"
-  "scripts/validate-quest-state.sh"
+  "scripts/quest_validate-quest-state.sh"
 )
 MISSING_HELPERS=0
 for helper in "${HELPER_SCRIPTS[@]}"; do

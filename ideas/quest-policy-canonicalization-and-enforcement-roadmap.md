@@ -100,11 +100,14 @@ These files all contain behavior rules. Some are source-of-truth, some are mirro
 - CI-enforced compliance for gate order, runtime attribution, and PR quality rules.
 - Lower chance of "instructions said X but run did Y" failures.
 
-## Progress (2026-02-22)
+## Progress (2026-04-11)
 - Problem 1 (duplication): canonical pointers in `.codex/AGENTS.md` and `.agents/` done. Lint script and `Canonical Source` annotations not started.
 - Problem 2 item 3 (PR body gate): shipped. See `docs/quest-journal/pr-body-gate_2026-02-22.md`.
-- Problem 2 items 1, 2, 4, 5: not started.
-- Problem 2 item 4.5 (runtime selection truth + Claude SDK preferred over bridge): not started.
+- Problem 2 item 1: partially shipped. `quest_validate-quest-state.sh` and `python3 scripts/quest_state.py --transition ...` enforce phase sequencing, but there is still no validator that scans the workspace for pre-build source edits outside `.quest/**`.
+- Problem 2 item 2: partially shipped. `context_health.log` records runtime per invocation and Quest documents require runtime logging, but there is not yet a standalone validator that enforces runtime attribution quality as a blocking check.
+- Problem 2 item 4: partially shipped in process/docs, not enforced as a dedicated merge gate in this repo.
+- Problem 2 item 5: partially shipped. We have `quest_validate-quest-state.sh`, `quest_validate-handoff-contracts.sh`, and `quest_validate-manifest.sh`, but there is no single completion gate that validates a finished quest end-to-end.
+- Problem 2 item 4.5 (runtime selection truth + Claude SDK preferred over bridge): partially shipped. Host-context probe caching and runtime logging exist, but preferred vs effective runtime/model is still not persisted per role slot as a first-class quest artifact.
 - Rollout Phase A partially started (PR body gate runs warn-only, not yet required).
 
 ## Status

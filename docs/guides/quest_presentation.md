@@ -144,7 +144,7 @@ Each agent invocation starts fresh:
 
 ### Why the Bridge, Not MCP
 
-When Codex orchestrates a quest, Claude-designated roles run through `scripts/claude_cli_bridge.py` instead of an MCP server. This is deliberate.
+When Codex orchestrates a quest, Claude-designated roles run through `scripts/quest_claude_bridge.py` instead of an MCP server. This is deliberate.
 
 MCP is a persistent connection with static configuration. Every call goes through the same server with the same permissions. That's fine for Codex reviews where every call needs the same access. But Quest roles have different trust levels, and the bridge gives **per-invocation control**:
 
@@ -158,13 +158,13 @@ The bridge also enforces the **Context Retention Rule at the transport level**. 
 
 Every invocation is logged to `context_health.log` with timestamp, phase, agent, runtime, iteration, and handoff state, giving you a complete audit trail of cross-model communication.
 
-**The bridge script itself (`claude_cli_bridge.py`) is Quest-agnostic.** It has zero Quest imports or references. It's a generic, reusable utility for calling Claude CLI with structured options. Anyone can borrow it for their own cross-model orchestration. The Quest-specific behavior (handoff polling, context health logging, text fallback extraction) lives in `quest_claude_runner.py`.
+**The bridge script itself (`quest_claude_bridge.py`) is Quest-agnostic.** It has zero Quest imports or references. It's a generic, reusable utility for calling Claude CLI with structured options. Anyone can borrow it for their own cross-model orchestration. The Quest-specific behavior (handoff polling, context health logging, text fallback extraction) lives in `quest_claude_runner.py`.
 
 **Standalone usage example:**
 
 ```bash
 # Review a branch with read-only access and a $1 budget cap
-python3 scripts/claude_cli_bridge.py \
+python3 scripts/quest_claude_bridge.py \
   --prompt "Review git diff main...HEAD and summarize changes" \
   --output-format text \
   --model opus \
@@ -329,7 +329,7 @@ Every completed quest produces a journal entry with a summary, artifacts, and le
 | Quest | What it did | Journal |
 |-------|------------|---------|
 | **Phase 4 Role Wiring** | Relocated six Quest role files from `.ai/roles/` to `.skills/quest/agents/`, updated runtime references, validators, metadata, and docs | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/phase4-role-wiring_2026-02-18.md) |
-| **State Validation Script** | Built `validate-quest-state.sh`, the first system-enforced correctness check for Quest phase transitions, with 28-test harness and 10 workflow gates | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/state-validation-script_2026-02-15.md) |
+| **State Validation Script** | Built `quest_validate-quest-state.sh`, the first system-enforced correctness check for Quest phase transitions, with 28-test harness and 10 workflow gates | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/state-validation-script_2026-02-15.md) |
 | **Context Leak Closure** | Implemented `handoff.json` structured file pattern so every agent writes a tiny JSON file and the orchestrator reads routing decisions without processing full responses | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/context-leak-closure_2026-02-15.md) |
 | **Dashboard Layout Redesign** | Restructured dashboard to match executive "Quest Intelligence" design, hero branding, KPI cards, side-by-side charts, card content redesign | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/dashboard-layout-redesign_2026-02-13.md) |
 | **Thin Orchestrator** | Phase 2 of architecture evolution, orchestrator passes paths not content, context stays lean | [journal](https://github.com/KjellKod/quest/blob/main/docs/quest-journal/thin-orchestrator_2026-02-09.md) |

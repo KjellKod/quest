@@ -12,7 +12,7 @@ Supports two modes:
   With optimistic locking (recommended for multi-agent):
     python3 scripts/quest_state.py --quest-dir .quest/<id> --transition building --status in_progress --expect-phase plan_reviewed
 
-The --transition flag calls validate-quest-state.sh before writing.
+The --transition flag calls quest_validate-quest-state.sh before writing.
 If validation fails, state.json is not modified.
 
 The --expect-phase flag adds optimistic locking: the transition is
@@ -34,13 +34,13 @@ from quest_runtime.state import load_state, update_state
 
 
 def find_validator() -> Path:
-    """Locate validate-quest-state.sh relative to this script."""
+    """Locate quest_validate-quest-state.sh relative to this script."""
     script_dir = Path(__file__).resolve().parent
-    validator = script_dir / "validate-quest-state.sh"
+    validator = script_dir / "quest_validate-quest-state.sh"
     if validator.is_file():
         return validator
     raise FileNotFoundError(
-        f"validate-quest-state.sh not found at {validator}"
+        f"quest_validate-quest-state.sh not found at {validator}"
     )
 
 

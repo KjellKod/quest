@@ -16,7 +16,7 @@ In practice, that pushes operators into manual `state.json` edits during live qu
 There is also a policy/runtime mismatch:
 
 - `workflow.md` says interactive plan presentation is a mandatory stop before build.
-- `validate-quest-state.sh` still allows direct `plan_reviewed -> building`.
+- `quest_validate-quest-state.sh` still allows direct `plan_reviewed -> building`.
 
 So the documented contract is stricter than the enforced state machine.
 
@@ -102,7 +102,7 @@ The current middle state creates false confidence.
 
 ### 4. Strengthen Quest’s self-validation
 
-`scripts/validate-handoff-contracts.sh` currently checks that `workflow.md` mentions `scripts/quest_state.py`, but it does not verify that the script exists.
+`scripts/quest_validate-handoff-contracts.sh` currently checks that `workflow.md` mentions `scripts/quest_state.py`, but it does not verify that the script exists.
 
 Add checks that:
 
@@ -115,7 +115,7 @@ This would have caught the missing helper before runtime.
 
 The current timeout defaults are duplicated across:
 
-- `scripts/claude_cli_bridge.py`
+- `scripts/quest_claude_bridge.py`
 - `scripts/quest_claude_runner.py`
 - `scripts/quest_claude_probe.py`
 
@@ -126,7 +126,7 @@ Move that to one shared constant or config source so timeout policy changes do n
 1. add `scripts/quest_state.py`
 2. switch `workflow.md` references to the real helper
 3. add atomic validated transitions
-4. tighten `validate-handoff-contracts.sh`
+4. tighten `quest_validate-handoff-contracts.sh`
 5. decide whether presentation is actually mandatory, then align validator and workflow
 6. centralize timeout defaults
 

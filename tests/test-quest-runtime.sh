@@ -7,6 +7,9 @@ STATE_SCRIPT="$REPO_ROOT/scripts/quest_state.py"
 STARTUP_BRANCH_SCRIPT="$REPO_ROOT/scripts/quest_startup_branch.py"
 CLAUDE_RUNNER="$REPO_ROOT/scripts/quest_claude_runner.py"
 CLAUDE_PROBE="$REPO_ROOT/scripts/quest_claude_probe.py"
+INSTALLER_SCRIPT="$REPO_ROOT/scripts/quest_installer.sh"
+WORKFLOW_FILE="$REPO_ROOT/.skills/quest/delegation/workflow.md"
+MANIFEST_FILE="$REPO_ROOT/.quest-manifest"
 
 TESTS_RUN=0
 TESTS_PASSED=0
@@ -50,6 +53,15 @@ write_allowlist() {
   }
 }
 EOF
+}
+
+load_installer_functions() {
+  local loader_tmp
+  loader_tmp=$(mktemp)
+  sed '/^# Store original args for re-exec after self-update/,$d' "$INSTALLER_SCRIPT" > "$loader_tmp"
+  # shellcheck disable=SC1090
+  source "$loader_tmp"
+  rm -f "$loader_tmp"
 }
 
 test_quest_state_updates_phase_and_timestamp() {
@@ -466,6 +478,220 @@ test_quest_startup_branch_invalid_allowlist_returns_blocked_contract() {
     echo "$message" | grep -qi "failed"
 }
 
+test_quest_startup_branch_invalid_mode_keeps_vcs_available_true() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  mkdir -p "$tmpdir/.ai"
+  cat > "$tmpdir/.ai/allowlist.json" <<EOF
+{
+  "quest_startup": {
+    "branch_mode": "banana"
+  }
+}
+EOF
+
+  local output rc status vcs_available requested_mode message
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-bad-mode 2>&1)
+  rc=$?
+  status=$(printf '%s' "$output" | jq -r '.status')
+  vcs_available=$(printf '%s' "$output" | jq -r '.vcs_available')
+  requested_mode=$(printf '%s' "$output" | jq -r '.requested_branch_mode')
+  message=$(printf '%s' "$output" | jq -r '.message')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$status" = "blocked" ] &&
+    [ "$vcs_available" = "true" ] &&
+    [ "$requested_mode" = "banana" ] &&
+    echo "$message" | grep -qi "expected one of"
+}
+
+test_quest_startup_branch_skips_outside_git_repo() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  write_allowlist "$tmpdir" "branch"
+
+  local output rc branch status branch_mode requested_mode message vcs_available
+  output=$(python3 "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug outside-repo 2>&1)
+  rc=$?
+  branch=$(printf '%s' "$output" | jq -r '.branch')
+  status=$(printf '%s' "$output" | jq -r '.status')
+  branch_mode=$(printf '%s' "$output" | jq -r '.branch_mode')
+  requested_mode=$(printf '%s' "$output" | jq -r '.requested_branch_mode')
+  vcs_available=$(printf '%s' "$output" | jq -r '.vcs_available')
+  message=$(printf '%s' "$output" | jq -r '.message')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$branch" = "null" ] &&
+    [ "$status" = "skipped" ] &&
+    [ "$branch_mode" = "none" ] &&
+    [ "$requested_mode" = "branch" ] &&
+    [ "$vcs_available" = "false" ] &&
+    echo "$message" | grep -qi "not a git repository"
+}
+
+test_workflow_documents_no_vcs_review_path() {
+  grep -q 'vcs_available' "$WORKFLOW_FILE" &&
+    grep -q 'Changed file list unavailable (no VCS)' "$WORKFLOW_FILE" &&
+    grep -q 'Diff stats unavailable (no VCS)' "$WORKFLOW_FILE" &&
+    grep -q 'review the implementation directly' "$WORKFLOW_FILE"
+}
+
+test_installer_cleans_up_renamed_scripts() {
+  grep -q 'OLD_SCRIPT_NAMES=(' "$INSTALLER_SCRIPT" &&
+    grep -q 'scripts/claude_cli_bridge.py' "$INSTALLER_SCRIPT" &&
+    grep -q 'scripts/validate-handoff-contracts.sh' "$INSTALLER_SCRIPT" &&
+    grep -q 'scripts/validate-manifest.sh' "$INSTALLER_SCRIPT" &&
+    grep -q 'scripts/validate-quest-config.sh' "$INSTALLER_SCRIPT" &&
+    grep -q 'scripts/validate-quest-state.sh' "$INSTALLER_SCRIPT" &&
+    grep -q 'get_stored_checksum' "$INSTALLER_SCRIPT" &&
+    grep -q 'Leaving existing non-Quest script in place' "$INSTALLER_SCRIPT" &&
+    grep -q 'Leaving modified legacy Quest script in place for manual cleanup' "$INSTALLER_SCRIPT" &&
+    grep -q 'migrate_legacy_validation_hook' "$INSTALLER_SCRIPT" &&
+    grep -q 'cleanup_renamed_scripts' "$INSTALLER_SCRIPT"
+}
+
+test_installer_updates_pristine_agents_file_in_place() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  printf 'old agents\n' > "$tmpdir/AGENTS.md"
+  printf 'stale sidecar\n' > "$tmpdir/AGENTS.md.quest_updated"
+  printf 'new agents\n' > "$tmpdir/upstream_AGENTS.md"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    QUEST_UPDATED_FILES=()
+    LOCAL_CHECKSUM_FILES=("AGENTS.md")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum "AGENTS.md")")
+    init_updated_checksums
+
+    fetch_file_to_temp() {
+      cp "$tmpdir/upstream_AGENTS.md" "$2"
+    }
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    install_user_customized_file "AGENTS.md"
+
+    local recorded=""
+    local i
+    for i in "${!UPDATED_CHECKSUM_FILES[@]}"; do
+      if [ "${UPDATED_CHECKSUM_FILES[$i]}" = "AGENTS.md" ]; then
+        recorded="${UPDATED_CHECKSUM_VALUES[$i]}"
+      fi
+    done
+
+    [ "$(cat AGENTS.md)" = "$(cat "$tmpdir/upstream_AGENTS.md")" ] &&
+      [ ! -e AGENTS.md.quest_updated ] &&
+      [ "$recorded" = "$(get_file_checksum "AGENTS.md")" ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_records_checksum_for_new_agents_file() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  printf 'new agents\n' > "$tmpdir/upstream_AGENTS.md"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    QUEST_UPDATED_FILES=()
+    LOCAL_CHECKSUM_FILES=()
+    LOCAL_CHECKSUM_VALUES=()
+    init_updated_checksums
+
+    fetch_file_to_temp() {
+      cp "$tmpdir/upstream_AGENTS.md" "$2"
+    }
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    install_user_customized_file "AGENTS.md"
+
+    local recorded=""
+    local i
+    for i in "${!UPDATED_CHECKSUM_FILES[@]}"; do
+      if [ "${UPDATED_CHECKSUM_FILES[$i]}" = "AGENTS.md" ]; then
+        recorded="${UPDATED_CHECKSUM_VALUES[$i]}"
+      fi
+    done
+
+    [ -f AGENTS.md ] &&
+      [ "$(cat AGENTS.md)" = "$(cat "$tmpdir/upstream_AGENTS.md")" ] &&
+      [ "$recorded" = "$(get_file_checksum "AGENTS.md")" ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_preserves_customized_agents_file_with_sidecar() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  printf 'old agents\n' > "$tmpdir/AGENTS.md"
+  printf 'new agents\n' > "$tmpdir/upstream_AGENTS.md"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    QUEST_UPDATED_FILES=()
+    LOCAL_CHECKSUM_FILES=("AGENTS.md")
+    LOCAL_CHECKSUM_VALUES=("different-stored-checksum")
+    init_updated_checksums
+
+    fetch_file_to_temp() {
+      cp "$tmpdir/upstream_AGENTS.md" "$2"
+    }
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    install_user_customized_file "AGENTS.md"
+
+    [ "$(cat AGENTS.md)" = "old agents" ] &&
+      [ -e AGENTS.md.quest_updated ] &&
+      [ "$(cat AGENTS.md.quest_updated)" = "$(cat "$tmpdir/upstream_AGENTS.md")" ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_manifest_lists_prefixed_scripts() {
+  grep -q '^scripts/quest_claude_bridge.py$' "$MANIFEST_FILE" &&
+    grep -q '^scripts/quest_validate-handoff-contracts.sh$' "$MANIFEST_FILE" &&
+    grep -q '^scripts/quest_validate-manifest.sh$' "$MANIFEST_FILE" &&
+    grep -q '^scripts/quest_validate-quest-config.sh$' "$MANIFEST_FILE" &&
+    grep -q '^scripts/quest_validate-quest-state.sh$' "$MANIFEST_FILE"
+}
+
+test_validation_hook_script_accepts_legacy_symlink_target() {
+  grep -q '\[\[ "\$target" == \*"quest_validate-quest-config.sh" \]\] || \[\[ "\$target" == \*"validate-quest-config.sh" \]\]' "$REPO_ROOT/scripts/quest_validate-quest-config.sh"
+}
+
 test_quest_startup_branch_invalid_slug_preserves_requested_mode() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -488,6 +714,28 @@ test_quest_startup_branch_invalid_slug_preserves_requested_mode() {
     echo "$message" | grep -qi "invalid slug"
 }
 
+test_quest_startup_branch_exception_handler_tolerates_missing_git() {
+  local tmpdir python_bin
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  mkdir -p "$tmpdir/.ai" "$tmpdir/empty-path"
+  printf '{ invalid json\n' > "$tmpdir/.ai/allowlist.json"
+  python_bin=$(command -v python3) || return 1
+
+  local output rc status vcs_available message
+  output=$(PATH="$tmpdir/empty-path" "$python_bin" "$STARTUP_BRANCH_SCRIPT" --repo-root "$tmpdir" --allowlist "$tmpdir/.ai/allowlist.json" --slug startup-no-git 2>&1)
+  rc=$?
+  status=$(printf '%s' "$output" | jq -r '.status')
+  vcs_available=$(printf '%s' "$output" | jq -r '.vcs_available')
+  message=$(printf '%s' "$output" | jq -r '.message')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$status" = "blocked" ] &&
+    [ "$vcs_available" = "false" ] &&
+    echo "$message" | grep -qi "failed"
+}
+
 run_test test_quest_state_updates_phase_and_timestamp
 run_test test_quest_state_transition_valid
 run_test test_quest_state_transition_invalid_leaves_state_unchanged
@@ -498,7 +746,17 @@ run_test test_quest_startup_branch_blocks_dirty_default_branch_checkout
 run_test test_quest_startup_branch_creates_worktree
 run_test test_quest_startup_branch_none_mode_leaves_main_checked_out
 run_test test_quest_startup_branch_invalid_allowlist_returns_blocked_contract
+run_test test_quest_startup_branch_invalid_mode_keeps_vcs_available_true
+run_test test_quest_startup_branch_skips_outside_git_repo
 run_test test_quest_startup_branch_invalid_slug_preserves_requested_mode
+run_test test_quest_startup_branch_exception_handler_tolerates_missing_git
+run_test test_workflow_documents_no_vcs_review_path
+run_test test_installer_cleans_up_renamed_scripts
+run_test test_installer_updates_pristine_agents_file_in_place
+run_test test_installer_records_checksum_for_new_agents_file
+run_test test_installer_preserves_customized_agents_file_with_sidecar
+run_test test_manifest_lists_prefixed_scripts
+run_test test_validation_hook_script_accepts_legacy_symlink_target
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
 run_test test_quest_claude_probe_requires_real_artifacts
 

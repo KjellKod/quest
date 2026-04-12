@@ -26,18 +26,18 @@ This was an ownership cleanup with no intended behavior change to planning, revi
 - Runtime wrappers: `.claude/agents/*.md`
 - Orchestration prompts: `.skills/quest/delegation/workflow.md`
 - Validation scripts:
-  - `scripts/validate-quest-config.sh`
-  - `scripts/validate-handoff-contracts.sh`
-  - `scripts/validate-manifest.sh` (validated as part of rollout)
+  - `scripts/quest_validate-quest-config.sh`
+  - `scripts/quest_validate-handoff-contracts.sh`
+  - `scripts/quest_validate-manifest.sh` (validated as part of rollout)
 - Metadata/docs: `.quest-manifest`, `.ai/quest.md`, `CONTRIBUTING.md`, `README.md`, `PROVENANCE.md`, setup/presentation guides, and related idea docs.
 
 ## Validation
 
 Executed after relocation:
 
-- `bash scripts/validate-quest-config.sh` -> pass
-- `bash scripts/validate-handoff-contracts.sh` -> pass
-- `bash scripts/validate-manifest.sh` -> pass
+- `bash scripts/quest_validate-quest-config.sh` -> pass
+- `bash scripts/quest_validate-handoff-contracts.sh` -> pass
+- `bash scripts/quest_validate-manifest.sh` -> pass
 
 ## Notes
 

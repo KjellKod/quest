@@ -26,8 +26,8 @@ jobs:
 
       - name: Run validation script
         run: |
-          chmod +x scripts/validate-quest-config.sh
-          ./scripts/validate-quest-config.sh
+          chmod +x scripts/quest_validate-quest-config.sh
+          ./scripts/quest_validate-quest-config.sh
 
       - name: Validate allowlist against schema
         run: |
@@ -35,13 +35,13 @@ jobs:
 
       - name: Validate manifest completeness
         run: |
-          chmod +x scripts/validate-manifest.sh
-          ./scripts/validate-manifest.sh
+          chmod +x scripts/quest_validate-manifest.sh
+          ./scripts/quest_validate-manifest.sh
 
       - name: Validate handoff contracts
         run: |
-          chmod +x scripts/validate-handoff-contracts.sh
-          ./scripts/validate-handoff-contracts.sh
+          chmod +x scripts/quest_validate-handoff-contracts.sh
+          ./scripts/quest_validate-handoff-contracts.sh
 
       - name: Run state validation tests
         run: |

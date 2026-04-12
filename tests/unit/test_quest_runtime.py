@@ -413,7 +413,7 @@ def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys
         model="opus",
         timeout=90.0,
         permission_mode="bypassPermissions",
-        bridge_script="scripts/claude_cli_bridge.py",
+        bridge_script="scripts/quest_claude_bridge.py",
         cwd=str(tmp_path),
         add_dir=[],
     )
@@ -462,7 +462,7 @@ def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
         model="opus",
         timeout=90.0,
         permission_mode="bypassPermissions",
-        bridge_script="scripts/claude_cli_bridge.py",
+        bridge_script="scripts/quest_claude_bridge.py",
         cwd=str(tmp_path),
         add_dir=[],
     )

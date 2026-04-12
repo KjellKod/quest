@@ -119,10 +119,22 @@ load_manifest() {
 # Files that need executable bit set
 EXECUTABLE_FILES=(
   ".claude/hooks/enforce-allowlist.sh"
-  "scripts/validate-quest-config.sh"
+  "scripts/quest_validate-quest-config.sh"
   "scripts/quest_installer.sh"
   "scripts/quest_celebrate/quest-celebrate.sh"
   "scripts/quest_preflight.sh"
+)
+
+OLD_SCRIPT_NAMES=(
+  "scripts/claude_cli_bridge.py"
+  "scripts/validate-handoff-contracts.sh"
+  "scripts/validate-manifest.sh"
+  "scripts/validate-quest-config.sh"
+  "scripts/validate-quest-state.sh"
+)
+
+CHECKSUM_MANAGED_USER_CUSTOMIZED=(
+  "AGENTS.md"
 )
 
 ###############################################################################
@@ -391,7 +403,8 @@ ${BOLD}Examples:${NC}
 
 ${BOLD}File Categories:${NC}
   - Copy as-is:      Replaced with upstream (if unmodified)
-  - User-customized: Never overwritten (.quest_updated suffix for upstream changes)
+  - User-customized: Preserve local edits; AGENTS.md auto-updates when still pristine,
+                     otherwise create .quest_updated for manual merge
   - Merge carefully: Manual merge offered for settings files
 
 ${BOLD}Troubleshooting:${NC}
@@ -519,6 +532,23 @@ set_updated_checksum() {
   UPDATED_CHECKSUM_VALUES+=("$checksum")
 }
 
+remove_updated_checksum() {
+  local target="$1"
+  local i
+  local new_files=()
+  local new_values=()
+
+  for i in "${!UPDATED_CHECKSUM_FILES[@]}"; do
+    if [ "${UPDATED_CHECKSUM_FILES[$i]}" != "$target" ]; then
+      new_files+=("${UPDATED_CHECKSUM_FILES[$i]}")
+      new_values+=("${UPDATED_CHECKSUM_VALUES[$i]}")
+    fi
+  done
+
+  UPDATED_CHECKSUM_FILES=("${new_files[@]}")
+  UPDATED_CHECKSUM_VALUES=("${new_values[@]}")
+}
+
 # Initialize updated checksums from local checksums
 init_updated_checksums() {
   UPDATED_CHECKSUM_FILES=("${LOCAL_CHECKSUM_FILES[@]}")
@@ -624,6 +654,34 @@ is_file_pristine() {
   else
     return 1  # Modified
   fi
+}
+
+is_checksum_managed_user_customized() {
+  local target="$1"
+  local filepath
+  for filepath in "${CHECKSUM_MANAGED_USER_CUSTOMIZED[@]}"; do
+    if [ "$filepath" = "$target" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+cleanup_updated_sidecar() {
+  local filepath="$1"
+  local updated_path="${filepath}.quest_updated"
+
+  if [ ! -f "$updated_path" ]; then
+    return 0
+  fi
+
+  if $DRY_RUN; then
+    log_action "Remove stale update sidecar: $updated_path"
+    return 0
+  fi
+
+  rm -f "$updated_path"
+  log_info "Removed stale update sidecar: $updated_path"
 }
 
 ###############################################################################
@@ -1008,6 +1066,9 @@ install_user_customized_file() {
     return 0  # Continue with other files
   fi
 
+  local upstream_checksum
+  upstream_checksum=$(get_file_checksum "$temp_file")
+
   # Case 1: File does not exist locally - create it
   if [ ! -f "$filepath" ]; then
     ensure_parent_dir "$filepath"
@@ -1018,28 +1079,45 @@ install_user_customized_file() {
       log_success "Created: $filepath (customize as needed)"
     fi
     rm -f "$temp_file"
+    set_updated_checksum "$filepath" "$upstream_checksum"
     return 0
   fi
 
   # Case 2: File exists - check if upstream has changes
-  local local_checksum upstream_checksum
+  local local_checksum
   local_checksum=$(get_file_checksum "$filepath")
-  upstream_checksum=$(get_file_checksum "$temp_file")
 
   if [ "$local_checksum" = "$upstream_checksum" ]; then
     # No changes
     rm -f "$temp_file"
+    set_updated_checksum "$filepath" "$upstream_checksum"
+    if is_checksum_managed_user_customized "$filepath"; then
+      cleanup_updated_sidecar "$filepath"
+    fi
     return 0
   fi
 
-  # Upstream differs - create .quest_updated file
+  if is_checksum_managed_user_customized "$filepath" && is_file_pristine "$filepath"; then
+    if $DRY_RUN; then
+      log_action "Update: $filepath (matched stored Quest checksum)"
+    else
+      mv "$temp_file" "$filepath"
+      log_success "Updated: $filepath (matched stored Quest checksum)"
+    fi
+    rm -f "$temp_file"
+    set_updated_checksum "$filepath" "$upstream_checksum"
+    cleanup_updated_sidecar "$filepath"
+    return 0
+  fi
+
+  # Upstream differs - preserve local file and create .quest_updated file
   local updated_path="${filepath}.quest_updated"
   if $DRY_RUN; then
     log_action "Create: $updated_path (upstream has changes)"
   else
     mv "$temp_file" "$updated_path"
     QUEST_UPDATED_FILES+=("$updated_path")
-    log_warn "Created: $updated_path (review and merge manually)"
+    log_warn "Preserved local $filepath; created $updated_path for manual merge"
   fi
   rm -f "$temp_file"
 }
@@ -1183,6 +1261,63 @@ set_executable_bits() {
   done
 }
 
+cleanup_renamed_scripts() {
+  local filepath
+  local stored_checksum
+  local current_checksum
+
+  for filepath in "${OLD_SCRIPT_NAMES[@]}"; do
+    remove_updated_checksum "$filepath"
+    if [ ! -e "$filepath" ]; then
+      continue
+    fi
+
+    if ! stored_checksum=$(get_stored_checksum "$filepath"); then
+      log_warn "Leaving existing non-Quest script in place: $filepath"
+      continue
+    fi
+
+    current_checksum=$(get_file_checksum "$filepath")
+    if [ "$current_checksum" != "$stored_checksum" ]; then
+      log_warn "Leaving modified legacy Quest script in place for manual cleanup: $filepath"
+      continue
+    fi
+
+    if $DRY_RUN; then
+      log_action "Remove stale renamed script: $filepath"
+      continue
+    fi
+
+    rm -f "$filepath"
+    log_success "Removed stale renamed script: $filepath"
+  done
+}
+
+migrate_legacy_validation_hook() {
+  local hook_path=".git/hooks/pre-commit"
+  local legacy_target="../../scripts/validate-quest-config.sh"
+  local new_target="../../scripts/quest_validate-quest-config.sh"
+  local target
+
+  if [ "$IS_GIT_REPO" != "true" ] || [ ! -L "$hook_path" ]; then
+    return 0
+  fi
+
+  target=$(readlink "$hook_path" 2>/dev/null || true)
+  if [ "$target" != "$legacy_target" ]; then
+    return 0
+  fi
+
+  if $DRY_RUN; then
+    log_action "Repoint legacy pre-commit hook to $new_target"
+    return 0
+  fi
+
+  rm "$hook_path"
+  ln -s "$new_target" "$hook_path"
+  log_success "Updated pre-commit hook to $new_target"
+}
+
 ###############################################################################
 # Gitignore Update
 ###############################################################################
@@ -1222,22 +1357,22 @@ update_gitignore() {
 run_validation() {
   log_info "Running validation..."
 
-  if [ ! -f "scripts/validate-quest-config.sh" ]; then
+  if [ ! -f "scripts/quest_validate-quest-config.sh" ]; then
     log_warn "Validation script not found - skipping"
     return
   fi
 
-  if [ ! -x "scripts/validate-quest-config.sh" ]; then
-    chmod +x "scripts/validate-quest-config.sh"
+  if [ ! -x "scripts/quest_validate-quest-config.sh" ]; then
+    chmod +x "scripts/quest_validate-quest-config.sh"
   fi
 
   if $DRY_RUN; then
-    log_action "Run scripts/validate-quest-config.sh"
+    log_action "Run scripts/quest_validate-quest-config.sh"
     return
   fi
 
   echo ""
-  if ./scripts/validate-quest-config.sh; then
+  if ./scripts/quest_validate-quest-config.sh; then
     log_success "Validation passed"
   else
     log_warn "Validation had issues - review output above"
@@ -1470,7 +1605,7 @@ print_next_steps() {
     echo "  2. Commit the Quest files to your repository"
     echo ""
     echo "Optional: Install pre-commit hook to validate Quest config on each commit:"
-    echo "  ./scripts/validate-quest-config.sh --install"
+    echo "  ./scripts/quest_validate-quest-config.sh --install"
     echo "  (Validates: .gitignore has .quest/, allowlist.json is valid, role files have required sections)"
     echo ""
   else
@@ -1604,6 +1739,8 @@ run_install() {
   install_copy_as_is
   install_user_customized
   install_merge_carefully
+  migrate_legacy_validation_hook
+  cleanup_renamed_scripts
 
   # Set executable bits
   set_executable_bits

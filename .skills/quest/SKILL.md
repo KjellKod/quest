@@ -166,6 +166,7 @@ Before creating the quest folder, present the routing classification to the user
    - **none** — stay on the current branch as-is
    
    If already on a non-default branch, inform the user and skip the prompt — the quest will use the current branch.
+   If the current workspace is not inside a git repository, skip the prompt — Quest must stay in the current workspace with `vcs_available: false`.
 
 3. Run quest startup branch preparation with the user's choice:
    - Execute: `python3 scripts/quest_startup_branch.py --slug <slug> --mode <choice>`
@@ -173,6 +174,7 @@ Before creating the quest folder, present the routing classification to the user
    - If `status` is `"blocked"`: show the returned `message`, do NOT create the quest folder yet, and stop for the user to resolve the git state or config
    - If `status` is `"created"` or `"skipped"`: continue and surface the returned `message` to the user
    - Record these fields for `state.json` initialization:
+     - `vcs_available`
      - `branch`
      - `branch_mode`
      - `worktree_path` (if present)
@@ -191,6 +193,7 @@ Before creating the quest folder, present the routing classification to the user
      "phase": "plan",
      "status": "pending",
      "quest_mode": "workflow",
+     "vcs_available": true,
      "branch": "quest/<slug> or current branch",
      "branch_mode": "branch | worktree | none",
      "worktree_path": "/absolute/path/to/worktree (worktree mode only)",
@@ -201,4 +204,5 @@ Before creating the quest folder, present the routing classification to the user
    }
    ```
    Set `quest_mode` to the user's final selection: `"workflow"` (default) or `"solo"`. This field is read by `workflow.md` to determine agent dispatch and by `validate-quest-state.sh` for artifact checks.
+   `vcs_available` must be copied directly from `scripts/quest_startup_branch.py` output. Do not infer it from `branch_mode`.
    `branch_mode` records the actual startup mode used for this quest run after no-op handling. If Quest starts on an existing feature branch, set `branch_mode` to `"none"` and record that branch in `branch`.

@@ -7,14 +7,14 @@
 Install the validation hook to catch configuration errors before commit:
 
 ```bash
-./scripts/validate-quest-config.sh --install
+./scripts/quest_validate-quest-config.sh --install
 ```
 
 This creates a symlink so the hook stays in sync with script updates.
 
 To remove:
 ```bash
-./scripts/validate-quest-config.sh --uninstall
+./scripts/quest_validate-quest-config.sh --uninstall
 ```
 
 ### Manual Validation
@@ -22,7 +22,7 @@ To remove:
 Run validation without installing the hook:
 
 ```bash
-./scripts/validate-quest-config.sh
+./scripts/quest_validate-quest-config.sh
 ```
 
 ### Optional Dependencies

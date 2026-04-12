@@ -20,20 +20,23 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
 - `.skills/code-reviewer/SKILL.md` (review skill)
-- Changed files from `git diff --name-only`
-- Optional diff summary from `git diff --stat`
+- Changed files from `git diff --name-only` when VCS is available
+- Optional diff summary from `git diff --stat` when VCS is available
+- `.quest/<id>/phase_02_implementation/builder_feedback_discussion.md` for touched files/tests when VCS is unavailable
+- `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md` when present
 - Quest brief (for acceptance criteria reference)
 
 ## Responsibilities
-1. Read all changed files provided by the orchestrator (from git diff)
+1. Read all changed files provided by the orchestrator, or determine the touched area from builder/fixer notes when VCS metadata is unavailable
 2. Check code quality, security, and patterns against `AGENTS.md`
 3. Verify test coverage for new/changed code
 4. Identify bugs, logic errors, or architectural violations
 5. Write review to the assigned artifact path for the current slot
 
 ## Input
-- Changed files (`git diff --name-only`)
-- Diff summary (`git diff --stat`, optional)
+- Changed files (`git diff --name-only`) when available
+- Diff summary (`git diff --stat`, optional) when available
+- Builder/fixer notes when changed-file metadata is unavailable
 - Quest brief and plan
 
 ## Output Contract

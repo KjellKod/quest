@@ -48,13 +48,16 @@ EXPECTED_PATTERNS=(
   ".claude/agents/*.md"
   ".claude/hooks/*.sh"
   ".claude/skills/*/*.md"
-  "scripts/claude_cli_bridge.py"
+  "scripts/quest_claude_bridge.py"
   "scripts/quest_claude_probe.py"
   "scripts/quest_claude_runner.py"
   "scripts/quest_startup_branch.py"
+  "scripts/quest_validate-handoff-contracts.sh"
+  "scripts/quest_validate-manifest.sh"
+  "scripts/quest_validate-quest-config.sh"
+  "scripts/quest_validate-quest-state.sh"
   "scripts/quest_checks/*.py"
   "scripts/quest_runtime/*.py"
-  "scripts/validate-quest-config.sh"
 )
 
 # Find all files matching our patterns
@@ -96,7 +99,7 @@ if [ $ERRORS -gt 0 ]; then
   echo ""
   echo "Sections:"
   echo "  [copy-as-is]       - Files replaced with upstream (most files)"
-  echo "  [user-customized]  - Files never overwritten (allowlist)"
+  echo "  [user-customized]  - Files that preserve local edits (AGENTS.md may auto-update if pristine)"
   echo "  [merge-carefully]  - Files that prompt for merge (settings.json)"
   echo "  [directories]      - Directories to create"
   exit 1

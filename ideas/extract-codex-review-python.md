@@ -1,6 +1,6 @@
 # Extract Codex CI Review Python from YAML
 
-**Status:** proposed
+**Status:** in-progress
 
 ## Problem
 
@@ -44,7 +44,17 @@ Constraints:
 ## Acceptance Criteria
 
 - [ ] No Python heredocs remain in `codex-ci-review.yml`
-- [ ] `python3 .github/scripts/codex_review.py` runs successfully in CI
-- [ ] `pytest tests/test_codex_review.py -v` passes with tests for normalization, validation, escaping
-- [ ] CI `codex-review` check passes end-to-end
+- [x] `python3 .github/scripts/codex_review.py` runs successfully in CI
+- [x] `pytest tests/test_codex_review.py -v` passes with tests for normalization, validation, escaping
+- [ ] CI `codex-review` check passes end-to-end with the YAML delegating to the extracted script only
 - [ ] PR #84 description updated with the new test command
+
+## Progress Audit (2026-04-11)
+
+What is implemented:
+- `.github/scripts/codex_review.py` exists and contains the extracted normalization, escaping, validation, and posting logic.
+- `tests/unit/test_codex_review.py` exists and covers the functions called out in this idea.
+
+What is still missing:
+- `.github/workflows/codex-ci-review.yml` still contains a large embedded Python heredoc, so the workflow is not yet reduced to thin glue.
+- Because the workflow still embeds logic, the core acceptance criterion of "no heredocs remain" is not met.

@@ -4,7 +4,7 @@
 Implements the approved plan. Writes code, runs tests, produces a PR description.
 
 ## Tool
-Codex (`mcp__codex-cli__codex`) by default, with Claude runtime as fallback. Use native `Task(subagent_type="builder")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` for the Claude fallback path. `scripts/claude_cli_bridge.py` remains the transport layer behind that runner.
+Codex (`mcp__codex-cli__codex`) by default, with Claude runtime as fallback. Use native `Task(subagent_type="builder")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` for the Claude fallback path. `scripts/quest_claude_bridge.py` remains the transport layer behind that runner.
 
 When running on Codex, this role is non-interactive:
 - Do not ask questions.
@@ -24,7 +24,7 @@ When running on Codex, this role is non-interactive:
 2. Implement changes following the plan step by step
 3. Run tests after each significant change
 4. Write PR description to `.quest/<quest_id>/phase_02_implementation/pr_description.md` following the format in `.skills/pr-assistant/SKILL.md`
-5. Record decisions in `.quest/<quest_id>/phase_02_implementation/builder_feedback_discussion.md`
+5. Record decisions, touched files, and tests run in `.quest/<quest_id>/phase_02_implementation/builder_feedback_discussion.md`
 
 ## Input
 - Approved plan (`.quest/<id>/phase_01_plan/plan.md`)

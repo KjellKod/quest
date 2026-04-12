@@ -41,7 +41,7 @@ These should stop being operator instructions and become Quest-owned defaults:
 
 - `scripts/quest_claude_probe.py` runs automatically before first bridge-backed Claude role
 - `scripts/quest_claude_runner.py` is the canonical Claude dispatch path for Codex-led runs
-- `scripts/claude_cli_bridge.py` is the transport layer, not the orchestration entrypoint
+- `scripts/quest_claude_bridge.py` is the transport layer, not the orchestration entrypoint
 - Claude bridge roles run with:
   - `bypassPermissions`
   - explicit repo access

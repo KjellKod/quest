@@ -2,7 +2,7 @@
 # Quest state validation script
 # Validates state.json and artifact prerequisites before phase transitions.
 #
-# Usage: validate-quest-state.sh <quest-dir> <target-phase>
+# Usage: quest_validate-quest-state.sh <quest-dir> <target-phase>
 # Exit codes: 0 = valid, 1 = validation failed, 2 = usage error
 #
 # Checks:

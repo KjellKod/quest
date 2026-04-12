@@ -1,6 +1,6 @@
 # Handoff Validation and Failure UX
 
-## Status: proposed
+## Status: in-progress
 
 ## Problem
 
@@ -88,6 +88,16 @@ three-part signal: source + reason + timestamp.
 - Edit: `.skills/quest/delegation/workflow.md` (Handoff File Polling section,
   context health logging section)
 - No new files, scripts, or config entries required.
+
+## Progress Audit (2026-04-11)
+
+What is implemented:
+- The runtime now has deterministic failure classification via `scripts/quest_runtime/claude_runner.py::classify_failure_kind`.
+- The workflow documents a three-tier fallback ladder keyed off those failure kinds.
+
+What is still missing:
+- `context_health.log` is still binary (`source=handoff_json|text_fallback`) and does not record a structured fallback reason.
+- There is still no post-read schema validation step in the documented workflow for `handoff.json` beyond parseability.
 
 ## Relationship to Other Ideas
 
