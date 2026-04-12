@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-04-12 | [caveman-review](caveman-review_2026-04-12.md) | Review completed. Decision: NO ACTION. |
 | 2026-04-11 | [multi-cleanup](multi-cleanup_2026-04-11.md) | Multi-cleanup quest. Continuing on our existing branch. fix/quest-startup-outside-repo. In ideas, we have several thi... |
 | 2026-04-08 | [extract-ci-review-python](extract-ci-review-python_2026-04-08.md) | Extract the embedded Python from .github/workflows/codex-ci-review.yml into a standalone script at .github/scripts/co... |
 | 2026-04-07 | [ci-review-severity](ci-review-severity_2026-04-07.md) | User selection: full quest. |
