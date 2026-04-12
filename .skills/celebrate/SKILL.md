@@ -51,7 +51,7 @@ If no argument is provided:
 
 ### Step 3: Generate the Celebration as Rich Markdown
 
-**IMPORTANT: Write the celebration directly as your response text. Do NOT run a script. Do NOT wrap the entire celebration in a code block. The UI renders agent markdown beautifully, but ASCII/block-letter title art must be emitted as plain text lines rather than markdown headers or list items.**
+**IMPORTANT: Write the celebration directly as your response text. Do NOT run a script. Do NOT wrap the entire celebration in a code block. The UI renders agent markdown beautifully, but ASCII/block-letter title art must be wrapped in `<pre>...</pre>` so spacing is preserved without turning the whole celebration into a code block.**
 
 You have all the data from the artifacts. Now **create your own celebration**. Be creative. Make it feel like an achievement, not a status report.
 
@@ -80,14 +80,16 @@ You have all the data from the artifacts. Now **create your own celebration**. B
 - Tables if they help present the data
 
 **ASCII/block-letter title rules:**
-- Emit block-letter rows as plain text lines only.
+- Wrap the block-letter title art in `<pre>` and `</pre>`.
+- Inside that `<pre>` block, emit block-letter rows as plain text lines only.
 - Do **not** prefix block-letter rows with `#`, `-`, `>`, or any other markdown marker.
 - Keep the title art contiguous with no blank separator inserted inside the rows.
-- After the title art, leave one normal blank line before the rest of the celebration.
+- After `</pre>`, leave one normal blank line before the rest of the celebration.
 
 **Do NOT:**
 - Put too many characters on one line of block letters — max ~5 letters per line, break long names across multiple lines (one word per block, like the HELLO/WORLD example)
 - Wrap the entire celebration in a code block (kills the rich rendering)
+- Leave block-letter title art outside `<pre>...</pre>` when it depends on ASCII spacing
 - Prefix ASCII title art with markdown header markers such as `#`
 - Use generic achievements like "Quest Complete" or "Battle Tested"
 - Use generic metrics like "Files Changed: 22" or "Agents Involved: 0"
@@ -98,7 +100,7 @@ You have all the data from the artifacts. Now **create your own celebration**. B
 
 ---
 
-```
+<pre>
 ██╗  ██╗███████╗██╗     ██╗      ██████╗
 ██║  ██║██╔════╝██║     ██║     ██╔═══██╗
 ███████║█████╗  ██║     ██║     ██║   ██║
@@ -112,7 +114,7 @@ You have all the data from the artifacts. Now **create your own celebration**. B
 ██║███╗██║██║   ██║██╔══██╗██║     ██║  ██║
 ╚███╔███╔╝╚██████╔╝██║  ██║███████╗██████╔╝
  ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═════╝
-```
+</pre>
 
 Break the text across **multiple lines** — max ~5 letters per line. Each word gets its own block, like "HELLO" on one line and "WORLD" on the next. For longer words, hyphenate: "RESOL-" on one line and "UTION" on the next. This keeps it readable without horizontal overflow.
 
