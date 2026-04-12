@@ -163,6 +163,21 @@ Deep CI prompt should explicitly instruct the model:
   - first-run vs second-run bugs
   - fallback paths that now disagree with the primary path
 
+## Observed Review Examples
+
+Examples of the bug class this mode should catch:
+
+- a create path persists a value before that value has been assigned
+- a fallback branch writes a state flag that disagrees with the real runtime
+  environment
+- an exception handler calls a helper that can itself throw, so the safety path
+  is not actually safe
+- a change updates an implementation file but leaves an index or status file out
+  of sync
+
+These are all examples where the changed line can look locally reasonable while
+the resulting file behavior is still wrong.
+
 ## Minimum Viable Implementation
 
 1. Add a second review workflow or second pass in the existing review workflow.
