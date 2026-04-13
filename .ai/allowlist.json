@@ -19,7 +19,7 @@
     "fix_loop": true
   },
   "models": {
-    "planner": "claude",
+    "planner": "gpt-5.4",
     "plan-reviewer-a": "claude",
     "plan-reviewer-b": "gpt-5.4",
     "arbiter": "claude",
