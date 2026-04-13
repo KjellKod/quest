@@ -55,7 +55,7 @@ claude -p "Reply with exactly: OK" --output-format text --permission-mode bypass
 Observed:
 
 ```text
-Not logged in · Please run /login
+Not logged in - Please run /login
 ```
 
 ## Interpretation

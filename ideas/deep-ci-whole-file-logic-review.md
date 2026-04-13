@@ -40,7 +40,7 @@ When a PR changes a code file, Deep CI should:
 3. review the changed logic in the context of the whole file
 4. ask "how does this file behave now?" instead of only "does this patch line
    look reasonable?"
-5. Only request changes for files modified by the current PR. Check the PR’s diff against its base branch to determine modified files. For findings in unmodified/pre-existing files, mark them as out of scope for the PR and recommend a follow-up PR against main.
+5. Only request changes for files modified by the current PR. Check the PR's diff against its base branch to determine modified files. For findings in unmodified/pre-existing files, mark them as out of scope for the PR and recommend a follow-up PR against main.
 
 
 This should focus on:

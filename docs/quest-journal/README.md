@@ -6,6 +6,8 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-04-13 | [feedback-intent-routing](feedback-intent-routing_2026-04-13.md) | Consolidate the Quest routing and feedback-intent ideas into one canonical delegation proposal. Use `ideas/2026-04-13... |
+| 2026-04-13 | [prompt-surface-consolidation](prompt-surface-consolidation_2026-04-13.md) | > 3. Prompt Surface / Instruction Architecture > > Consolidate Quest prompt-surface improvement docs into one canonic... |
 | 2026-04-12 | [caveman-review](caveman-review_2026-04-12.md) | Review completed. Decision: NO ACTION. |
 | 2026-04-11 | [multi-cleanup](multi-cleanup_2026-04-11.md) | Multi-cleanup quest. Continuing on our existing branch. fix/quest-startup-outside-repo. In ideas, we have several thi... |
 | 2026-04-08 | [extract-ci-review-python](extract-ci-review-python_2026-04-08.md) | Extract the embedded Python from .github/workflows/codex-ci-review.yml into a standalone script at .github/scripts/co... |

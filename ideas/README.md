@@ -30,6 +30,8 @@ architecture docs.
 | File | Status | Purpose |
 |---|---|---|
 | `dual-model-planning.md` | proposed | Explore parallel plan generation with arbiter synthesis instead of a single planner output. |
+| `2026-04-13-instruction-architecture.md` | proposed | Unified proposal for Quest instruction architecture: selective rule-pack loading, canonical policy ownership, workflow-first skill structure, prompt assembly/debugging, and migration plan. Supersedes focused-rule-packs and orchestration-improvement-workflow. |
+| `2026-04-13-quest-memory-architecture.md` | proposed | Canonical memory architecture proposal: operational and reflective memory layers, structured records, narrow retrieval, freshness model, and strict guardrails. |
 | `quest-file-attribution-line.md` | idea | File-level Quest attribution and license provenance line. |
 | `quest-multi-phase-execution.md` | proposed | Recommended pattern for handling large multi-phase initiatives: umbrella planning quest, then separate phase quests unless the passes still feed one bounded deliverable set. |
 | `quest-preflight-sandbox-false-negative-bugfix.md` | in-progress | Host-context probe caching and diagnostics shipped; fallback classification/reporting is still not fully explicit. |
@@ -62,6 +64,8 @@ architecture docs.
 | done | ~~celebration-from-journal~~ | Quality tiers, embedded celebration_data JSON, dashboard integration. See [journal](../docs/quest-journal/celebration-from-journal_2026-03-06.md). |
 | done | ~~pr-inline-commenting-playbook~~ | Kind, actionable PR inline comment playbook with signature convention. See [journal](../docs/quest-journal/pr-inline-commenting-playbook_2026-03-05.md). |
 | done | ~~quest-state-transition-guardrails~~ | Atomic `--transition` flag, mandatory presentation gate enforced, helper-existence checks. Archived at [`ideas/archive/quest-state-transition-guardrails.md`](archive/quest-state-transition-guardrails.md). |
+| done | ~~2026-04-13-quest-memory-retrieval-and-freshness.md~~ | Retired and merged into `2026-04-13-quest-memory-architecture.md`; moved to `.ws/`. |
+| done | ~~2026-04-13-query-driven-review-memory.md~~ | Retired and merged into `2026-04-13-quest-memory-architecture.md`; moved to `.ws/`. |
 
 ## Hygiene Rules
 - Keep one file per idea family; avoid duplicate variants.

@@ -4,7 +4,7 @@
 
 ## Problem
 
-`.github/workflows/codex-ci-review.yml` is 496 lines, ~400 of which are embedded Python in two heredoc blocks. This makes the logic untestable, unlintable, and hard to review — diffs mix workflow plumbing with business logic.
+`.github/workflows/codex-ci-review.yml` is 496 lines, ~400 of which are embedded Python in two heredoc blocks. This makes the logic untestable, unlintable, and hard to review -- diffs mix workflow plumbing with business logic.
 
 ## Goal
 
@@ -32,11 +32,11 @@ Requirements:
    - is_valid_comment: missing severity accepted, invalid severity stripped, valid severity normalized
    - escape_github_command_field: escapes %, CR, LF, :, and comma
    - Comment structural validation (missing path/body/line rejected)
-4. Ensure CI still passes — the codex-review workflow must behave identically
+4. Ensure CI still passes -- the codex-review workflow must behave identically
 5. Update the PR #84 description validation section to replace the code-review checklist with: `pytest tests/test_codex_review.py -v` and expect all tests to pass
 
 Constraints:
-- Do NOT change any behavioral logic — this is a pure extract-and-test refactor
+- Do NOT change any behavioral logic -- this is a pure extract-and-test refactor
 - Keep the same env var interface between YAML and Python
 - The script must work when called from the workflow working directory (repo root)
 ```
