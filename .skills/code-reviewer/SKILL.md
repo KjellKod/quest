@@ -233,3 +233,12 @@ A good code review should:
 - ✅ Ensure tests map to acceptance criteria
 - ✅ Prevent secret leaks and basic security failures
 - ✅ Provide actionable feedback with severity
+
+---
+
+## Common Pitfalls
+
+| Shortcut | Why It Fails | Red Flag |
+|----------|-------------|----------|
+| "While you're here, also change..." | Scope creep disguised as review feedback. Refactor suggestions unrelated to the PR add noise and expand scope. | Review comments referencing code outside the diff |
+| Marking missing AC tests as "Should fix" | Untested acceptance criteria ship to production. If an AC exists but has no test, that is a "Must fix", not a suggestion. | AC exists but test coverage column is empty |
