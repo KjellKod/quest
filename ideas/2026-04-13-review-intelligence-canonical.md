@@ -26,8 +26,9 @@ This canonical proposal keeps scope tight and defines one review-intelligence ba
 |---|---|---|
 | `2026-04-13-quest-memory-architecture.md` | Cross-referenced | Defines the canonical memory architecture, retrieval rules, and memory-layer record design. This document remains the schema authority for finding structure. |
 | `2026-04-13-quest-memory-evaluation-loop.md` | Left as-is | Benchmarks memory quality; not part of review finding/decision/validation/loop mechanics. |
-| `2026-04-13-feedback-aware-delegation-keywords.md` | Left as-is | Focused on feedback classification/routing, not review intelligence mechanics. |
-| `2026-04-13-intent-anchored-example-prompts.md` | Left as-is | Prompt examples guidance; no direct overlap with review intelligence mechanics. |
+| `2026-04-13-feedback-intent-routing.md` | Cross-referenced | Canonical feedback-routing proposal for clarify/replan/second-opinion/escalation behavior. Relevant adjacent design, but still outside this document's review-intelligence scope. |
+| `.ws/2026-04-13-feedback-aware-delegation-keywords.md` | Historical working note | Earlier routing-specific draft retained only as background material after consolidation into `2026-04-13-feedback-intent-routing.md`. |
+| `.ws/2026-04-13-intent-anchored-example-prompts.md` | Historical working note | Earlier prompt-authoring draft retained only as background material after consolidation into `2026-04-13-feedback-intent-routing.md`. |
 
 ## Section 1: Canonical Finding Schema
 

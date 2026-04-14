@@ -24,15 +24,17 @@ architecture docs.
 | `deep-ci-whole-file-logic-review.md` | proposed | Add a bounded Deep CI mode that reviews whole changed code files for resulting behavior, not just diff hunks. |
 | `extract-codex-review-python.md` | in-progress | CI review Python was extracted into a real script with tests; the workflow still has one large heredoc block to finish removing. |
 | `handoff-validation-and-failure-ux.md` | in-progress | Add actionable diagnostics when handoff fallback occurs. |
-| `opencode-integration-deferred-items.md` | in-progress | Follow-up list from the first OpenCode rollout; some permission/alignment items are now resolved, others remain. |
 
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
 |---|---|---|
 | `dual-model-planning.md` | proposed | Explore parallel plan generation with arbiter synthesis instead of a single planner output. |
-| `2026-04-13-codex-companion-runtime.md` | proposed | Phased prove-it roadmap for a shared Codex runtime serving both human `gpt:*` commands and Quest orchestration, with strict go/no-go criteria after the minimum slice. |
+| `2026-04-13-codex-companion-runtime.md` | proposed | Phased prove-it roadmap for a shared Codex runtime serving both the human `/gpt` command surface and Quest orchestration, with strict go/no-go criteria after the minimum slice. |
+| `2026-04-13-feedback-intent-routing.md` | proposed | Canonical feedback-routing proposal: classify live quest feedback by intent and route to clarify, replan, second-opinion, or escalation paths deliberately. |
 | `2026-04-13-instruction-architecture.md` | proposed | Unified proposal for Quest instruction architecture: selective rule-pack loading, canonical policy ownership, workflow-first skill structure, prompt assembly/debugging, and migration plan. Supersedes focused-rule-packs and orchestration-improvement-workflow. |
 | `2026-04-13-quest-memory-architecture.md` | proposed | Canonical memory architecture proposal: operational and reflective memory layers, structured records, narrow retrieval, freshness model, and strict guardrails. |
+| `2026-04-13-quest-memory-evaluation-loop.md` | proposed | Local benchmark design for proving whether Quest memory retrieval actually improves relevance, efficiency, and hallucination resistance versus plain filesystem exploration. |
+| `2026-04-13-review-intelligence-canonical.md` | proposed | Canonical review-intelligence baseline: normalized findings, review decisions, targeted validation, bounded loops, and guarded memory use during review. |
 | `quest-file-attribution-line.md` | idea | File-level Quest attribution and license provenance line. |
 | `quest-multi-phase-execution.md` | proposed | Recommended pattern for handling large multi-phase initiatives: umbrella planning quest, then separate phase quests unless the passes still feed one bounded deliverable set. |
 | `quest-preflight-sandbox-false-negative-bugfix.md` | in-progress | Host-context probe caching and diagnostics shipped; fallback classification/reporting is still not fully explicit. |

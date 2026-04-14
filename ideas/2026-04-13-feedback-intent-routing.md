@@ -5,8 +5,8 @@ audience: Quest maintainers
 status: proposed
 date: 2026-04-13
 supersedes:
-  - 2026-04-13-feedback-aware-delegation-keywords.md
-  - 2026-04-13-intent-anchored-example-prompts.md
+  - .ws/2026-04-13-feedback-aware-delegation-keywords.md
+  - .ws/2026-04-13-intent-anchored-example-prompts.md
 related:
   - .skills/quest/delegation/workflow.md
   - .skills/gpt/SKILL.md
@@ -107,6 +107,12 @@ Important scope constraint:
 
 The first version should be a cheap deterministic classifier based on a short intent table.
 
+Current-state clarification:
+
+- today, the repo-local `/gpt` skill is a human-facing skill with an explicit confirmation step
+- Quest should not invoke that current skill contract verbatim from inside an automated feedback loop
+- if Quest adds `second_opinion`, it should use a Quest-owned Codex review path or a future shared runtime adapter with explicit policy for when human confirmation is or is not required
+
 ## 3. Supported intents and routing behavior
 
 The initial intent set should stay intentionally small.
@@ -115,7 +121,7 @@ The initial intent set should stay intentionally small.
 |---|---|---|
 | `clarify` | "explain", "expand", "what do you mean", "I don't understand" | Route to a clarify-only response. Do not generate a fresh plan revision. Write the answer to a feedback response artifact for the user. |
 | `replan` | "this is wrong", "try again", "rethink this", "that's not right" | Route back into the normal planner iteration with verdict plus feedback. |
-| `second_opinion` | "second opinion", "ask codex", "what does gpt think", "other model" | Dispatch a narrow second-opinion review using the existing `gpt` skill and feed that result into the next arbiter decision. |
+| `second_opinion` | "second opinion", "ask codex", "what does gpt think", "other model" | Dispatch a narrow second-opinion review through a Quest-owned Codex path and feed that result into the next arbiter decision. Do not shell out to today's human-confirmation `/gpt` skill from inside the loop. |
 | `escalate` | "we're stuck", "still wrong", "we've been here before", "stop looping" | Stop the silent loop and bring the issue back to the user explicitly. |
 | `unknown` | anything ambiguous or weakly matched | Fall back to current behavior. Do not invent a new route. |
 
@@ -129,7 +135,7 @@ Quest should do something explicit and narrow:
 
 1. classify the feedback as `second_opinion`
 2. announce the routing decision to the user
-3. run the `gpt` skill against:
+3. run a Quest-owned Codex second-opinion review against:
    - the quest brief
    - the current plan
    - the existing plan reviews
@@ -148,6 +154,7 @@ Keep the mechanism simple:
 - the orchestrator checks it before choosing the next action
 - ambiguous matches use `unknown`
 - `unknown` means current behavior
+- Quest may later share transport/runtime code with an expanded `/gpt` command family, but the existing user-facing `/gpt` skill remains separate from this automated routing path until that contract is explicitly redesigned
 
 This is not the place to build:
 

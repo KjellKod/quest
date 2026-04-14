@@ -1,6 +1,6 @@
 ---
 title: Codex Companion Runtime -- Minimum Prove-It Roadmap
-purpose: Phased proposal for a shared Codex runtime that serves both human `gpt:*` commands and Quest orchestration, with explicit proof gates before expansion
+purpose: Phased proposal for a shared Codex runtime that serves both the human `/gpt` command surface and Quest orchestration, with explicit proof gates before expansion
 audience: Quest maintainers
 status: proposed
 date: 2026-04-13
@@ -43,6 +43,12 @@ If that proof is strong, continue in phases.
 
 Today, Quest uses Codex mainly through MCP.
 
+Current state:
+
+- the shipped human-facing interface is the `/gpt` skill
+- Quest does not currently route through `/gpt`
+- references to `gpt:*` in this note are shorthand for a possible future expansion of the `/gpt` user surface into named operations, not a second live command interface that already exists
+
 That is good at:
 - simple transport
 - low complexity
@@ -82,15 +88,16 @@ This proposal does **not** mean:
 Build **one shared Codex runtime adapter**.
 
 Two consumers use it:
-- human-facing `gpt:*` commands
+- human-facing `/gpt` command surface
 - Quest orchestration internals
 
-Do **not** make Quest orchestration shell out to user-facing `gpt:*` commands.
+Do **not** make Quest orchestration shell out to the current user-facing `/gpt` skill.
+If the `/gpt` surface later expands into named operations, that human UX layer should still remain separate from Quest orchestration.
 
 Correct layering:
 
 ```text
-human gpt:* commands ----+
+human /gpt UX ----------+
                          +--> codex_runtime adapter --> backend
 Quest orchestration -----+
 ```
@@ -155,10 +162,10 @@ Build the smallest real feature that is:
 ### Scope
 
 Implement only:
-- `gpt:setup`
-- `gpt:review`
-- `gpt:status`
-- `gpt:result`
+- `/gpt setup`
+- `/gpt review`
+- `/gpt status`
+- `/gpt result`
 
 Backed by:
 - a minimal `codex_runtime` adapter
@@ -193,10 +200,13 @@ It avoids:
 ### Proposed Human UX
 
 Commands:
-- `gpt:setup`
-- `gpt:review [--base <ref>] [--background]`
-- `gpt:status [job-id]`
-- `gpt:result [job-id]`
+- `/gpt setup`
+- `/gpt review [--base <ref>] [--background]`
+- `/gpt status [job-id]`
+- `/gpt result [job-id]`
+
+These are proposed future operations under the existing `/gpt` surface.
+They are not live commands today.
 
 ### Proposed Quest Use
 
@@ -234,7 +244,7 @@ Minimum persisted fields:
 
 Phase 1 is successful only if all of the following are true:
 
-1. A human can run `gpt:review`, then later inspect it with `gpt:status` and `gpt:result`.
+1. A human can run `/gpt review`, then later inspect it with `/gpt status` and `/gpt result`.
 2. Quest can use the same runtime for one Codex review slot without special-case shell glue.
 3. The app-server path is at least not worse than MCP on reliability for the chosen benchmark.
 4. Measured UX is clearly better in at least one of:
@@ -330,7 +340,7 @@ Phase 3 succeeds if:
 - humans can launch and inspect task jobs cleanly
 - Quest can use the runtime for one bounded non-review Codex role
 - stored results and touched-files data are useful
-- operational friction is lower than today’s generic `/gpt`
+- operational friction is lower than today's generic `/gpt`
 
 ### Stop Condition
 
@@ -386,7 +396,7 @@ Only after earlier proof:
 ### Suggested Policy Direction
 
 Likely shape:
-- human `gpt:*` flows: prefer `app_server`
+- human `/gpt` flows: prefer `app_server`
 - Quest review roles: use whichever benchmarked better, likely `app_server` if background/status/result matter
 - Quest builder/fixer roles: only switch after explicit proof
 - MCP remains as fallback and maybe as default for some simple single-turn paths
@@ -405,10 +415,10 @@ If we start this work, do it in this order:
 1. benchmark baseline
 2. implement `codex_runtime` adapter skeleton
 3. implement `app_server` backend only
-4. implement `gpt:setup`
-5. implement `gpt:review`
-6. implement `gpt:status`
-7. implement `gpt:result`
+4. implement `/gpt setup`
+5. implement `/gpt review`
+6. implement `/gpt status`
+7. implement `/gpt result`
 8. wire one Quest review slot to the same runtime
 9. measure and decide go/no-go
 
@@ -460,10 +470,10 @@ Mitigations:
 Do this as a prove-it experiment, not a platform rewrite.
 
 The minimum meaningful slice is:
-- `gpt:setup`
-- `gpt:review`
-- `gpt:status`
-- `gpt:result`
+- `/gpt setup`
+- `/gpt review`
+- `/gpt status`
+- `/gpt result`
 - one shared `app_server` runtime
 - one Quest review slot using the same engine
 
