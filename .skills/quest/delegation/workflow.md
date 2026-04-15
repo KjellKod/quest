@@ -304,10 +304,10 @@ gates.max_plan_iterations (default: 4)
 
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
-2. **Invoke Planner:**
+2. **Invoke Planner** (default Codex `mcp__codex__codex`, Claude runtime fallback):
    - Read `models.planner` from allowlist.
+   - If planner model is Codex, invoke via `mcp__codex__codex` with `sandbox_permissions: "workspace-write"`.
    - If planner model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
-   - If planner model is Codex, invoke via `mcp__codex__codex`.
    - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `plan.md` and `handoff.json` in `.quest/<id>/phase_01_plan/`.
    - Prompt: Reference file paths only, do not embed artifact content:
      - Quest brief: `.quest/<id>/quest_brief.md`

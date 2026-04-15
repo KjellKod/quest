@@ -125,7 +125,7 @@ Decision Log format:
 Before touching any file, confirm the change is within the approved scope. If you notice something that should be fixed but is out of scope:
 
 1. Do NOT fix it
-2. Record it using the NOTICED pattern in the discussion file:
+2. Record it using the NOTICED pattern in your Decision Log (Rule 6):
 
 ```
 NOTICED: [file or issue]
