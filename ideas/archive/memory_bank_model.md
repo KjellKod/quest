@@ -1,9 +1,19 @@
 # AI Memory Bank Model (Super Brief)
 
-## What it is
-A **memory bank** is a small curated set of repo docs that acts as the AI’s **authoritative mental model** of the system.
+## Status: archived
 
-Instead of the model inferring architecture by scanning thousands of files, you provide a compressed “map” of:
+> **Archived 2026-04-13.** Pre-canonical primer on the generic "memory bank"
+> pattern (hand-curated prose docs like `architecture.md`, `domain.md`,
+> `gotchas.md`). Superseded by
+> `ideas/2026-04-13-quest-memory-architecture.md`, which proposes a
+> Quest-specific, generated-from-artifacts memory layer instead of
+> hand-curated docs. Retained only as a historical breadcrumb showing the
+> earlier framing that inspired the canonical proposal.
+
+## What it is
+A **memory bank** is a small curated set of repo docs that acts as the AI's **authoritative mental model** of the system.
+
+Instead of the model inferring architecture by scanning thousands of files, you provide a compressed "map" of:
 - domain vocabulary and invariants
 - module boundaries and responsibilities
 - key workflows and data flows
@@ -27,7 +37,7 @@ With a memory bank, the model:
 - routes tasks to the correct code areas fast
 - reasons consistently about the domain
 - produces changes aligned with existing architecture
-- reduces “clever but wrong” refactors
+- reduces "clever but wrong" refactors
 
 It upgrades AI from **autocomplete** to **engineer who understands the system**.
 
@@ -44,13 +54,13 @@ Core entities, invariants, vocabulary, lifecycle rules.
 
 ### 3. `code-map.md`
 Routing table:  
-“If you need X, go to Y.”
+"If you need X, go to Y."
 
 ### 4. `conventions.md`
 Patterns, preferred libraries, style rules, test practices.
 
 ### 5. `gotchas.md`
-Known landmines, legacy constraints, “do not touch” zones.
+Known landmines, legacy constraints, "do not touch" zones.
 
 ---
 

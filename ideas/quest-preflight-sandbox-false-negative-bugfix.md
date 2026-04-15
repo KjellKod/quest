@@ -68,7 +68,7 @@ Quest preflight should distinguish at least these outcomes:
 4. `claude_bridge_unreachable`
 5. `claude_bridge_available`
 
-At minimum, sandbox timeout must not be silently translated into “Claude unavailable”.
+At minimum, sandbox timeout must not be silently translated into "Claude unavailable".
 
 ## Recommended fix
 

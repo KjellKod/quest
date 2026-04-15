@@ -1,6 +1,6 @@
 in a memory filr from claude
 
-⏺ ---
+ ---
   name: Codex CLI for cross-model reviews
   description: How to call OpenAI Codex (GPT-5.4) from Claude Code via codex exec CLI for multi-model PR reviews
   type: reference
@@ -11,7 +11,7 @@ in a memory filr from claude
   Codex CLI is installed at `/Users/kjell/.nvm/versions/node/v22.17.0/bin/codex` (v0.112.0+).
 
   ### MCP Server
-  Configured in `.claude/mcp.json` as `codex` → `codex mcp-server`. However, the MCP tools may not always be discoverable via
+  Configured in `.claude/mcp.json` as `codex` -> `codex mcp-server`. However, the MCP tools may not always be discoverable via
   ToolSearch. Fallback to CLI.
 
   ### CLI Usage (preferred for reviews)

@@ -60,9 +60,9 @@
       "bash": ["git status", "git diff", "gh pr view.*"]
     },
     "builder_agent": {
-      "file_write": [".quest/**", ".ai/**", "docs/**", "ideas/**", "scripts/**", ".skills/**", "*.md", "*.json", "*.txt", "*.sh", "*.py"],
+      "file_write": [".quest/**", ".ai/**", ".github/**", "docs/**", "ideas/**", "scripts/**", "tests/**", ".skills/**", "*.md", "*.json", "*.txt", "*.sh", "*.py"],
       "file_read": ["**"],
-      "bash": ["python", "python3", "pytest", "bash", "git status", "git diff", "git log", "rg", "grep", "find", "ls", "wc"]
+      "bash": ["python", "python3", "python3 -m unittest", "pytest", "bash", "git status", "git diff", "git log", "npm test", "rg", "grep", "find", "ls", "wc"]
     },
     "code_review_agent": {
       "file_write": [".quest/**"],
@@ -70,9 +70,9 @@
       "bash": ["python", "python3", "pytest", "git diff", "git log", "git status", "rg", "grep", "find", "ls", "wc", "uv", "gh pr view.*"]
     },
     "fixer_agent": {
-      "file_write": [".quest/**", ".ai/**", "docs/**", "ideas/**", "scripts/**", ".skills/**", "*.md", "*.json", "*.txt", "*.sh", "*.py"],
+      "file_write": [".quest/**", ".ai/**", ".github/**", "docs/**", "ideas/**", "scripts/**", "tests/**", ".skills/**", "*.md", "*.json", "*.txt", "*.sh", "*.py"],
       "file_read": ["**"],
-      "bash": ["python", "python3", "pytest", "bash", "git status", "git diff", "git log", "rg", "grep", "find", "ls", "wc"]
+      "bash": ["python", "python3", "python3 -m unittest", "pytest", "bash", "git status", "git diff", "git log", "npm test", "rg", "grep", "find", "ls", "wc"]
     }
   },
   "solo": {

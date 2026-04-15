@@ -24,12 +24,17 @@ architecture docs.
 | `deep-ci-whole-file-logic-review.md` | proposed | Add a bounded Deep CI mode that reviews whole changed code files for resulting behavior, not just diff hunks. |
 | `extract-codex-review-python.md` | in-progress | CI review Python was extracted into a real script with tests; the workflow still has one large heredoc block to finish removing. |
 | `handoff-validation-and-failure-ux.md` | in-progress | Add actionable diagnostics when handoff fallback occurs. |
-| `opencode-integration-deferred-items.md` | in-progress | Follow-up list from the first OpenCode rollout; some permission/alignment items are now resolved, others remain. |
 
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
 |---|---|---|
 | `dual-model-planning.md` | proposed | Explore parallel plan generation with arbiter synthesis instead of a single planner output. |
+| `2026-04-13-codex-companion-runtime.md` | proposed | Phased prove-it roadmap for a shared Codex runtime serving both the human `/gpt` command surface and Quest orchestration, with strict go/no-go criteria after the minimum slice. |
+| `2026-04-13-feedback-intent-routing.md` | proposed | Canonical feedback-routing proposal: classify live quest feedback by intent and route to clarify, replan, second-opinion, or escalation paths deliberately. |
+| `2026-04-13-instruction-architecture.md` | proposed | Unified proposal for Quest instruction architecture: selective rule-pack loading, canonical policy ownership, workflow-first skill structure, prompt assembly/debugging, and migration plan. Supersedes focused-rule-packs and orchestration-improvement-workflow. |
+| `2026-04-13-quest-memory-architecture.md` | proposed | Canonical memory architecture proposal: operational and reflective memory layers, structured records, narrow retrieval, freshness model, and strict guardrails. |
+| `2026-04-13-quest-memory-evaluation-loop.md` | proposed | Local benchmark design for proving whether Quest memory retrieval actually improves relevance, efficiency, and hallucination resistance versus plain filesystem exploration. |
+| `2026-04-13-review-intelligence-canonical.md` | proposed | Canonical review-intelligence baseline: normalized findings, review decisions, targeted validation, bounded loops, and guarded memory use during review. |
 | `quest-file-attribution-line.md` | idea | File-level Quest attribution and license provenance line. |
 | `quest-multi-phase-execution.md` | proposed | Recommended pattern for handling large multi-phase initiatives: umbrella planning quest, then separate phase quests unless the passes still feed one bounded deliverable set. |
 | `quest-preflight-sandbox-false-negative-bugfix.md` | in-progress | Host-context probe caching and diagnostics shipped; fallback classification/reporting is still not fully explicit. |
@@ -41,7 +46,6 @@ architecture docs.
 | `claude-bridge-timeout-diagnosis-2026-03-23.md` | reference | Incident record showing sandbox-local Claude bridge probes can fail even when host execution is healthy. |
 | `claude-cli-login-context.md` | reference | Operational note: external `claude` CLI login must be validated in the same execution context; an open app session is not enough. |
 | `codex_calls_claude.sh` | reference | Older experimental bash bridge prototype retained as a reference alongside the supported Python bridge. |
-| `memory_bank_model.md` | reference | General memory-bank pattern note for AI-guided repos. |
 
 ### Graduated
 | Idea | Destination |
@@ -62,6 +66,9 @@ architecture docs.
 | done | ~~celebration-from-journal~~ | Quality tiers, embedded celebration_data JSON, dashboard integration. See [journal](../docs/quest-journal/celebration-from-journal_2026-03-06.md). |
 | done | ~~pr-inline-commenting-playbook~~ | Kind, actionable PR inline comment playbook with signature convention. See [journal](../docs/quest-journal/pr-inline-commenting-playbook_2026-03-05.md). |
 | done | ~~quest-state-transition-guardrails~~ | Atomic `--transition` flag, mandatory presentation gate enforced, helper-existence checks. Archived at [`ideas/archive/quest-state-transition-guardrails.md`](archive/quest-state-transition-guardrails.md). |
+| done | ~~2026-04-13-quest-memory-retrieval-and-freshness.md~~ | Retired and merged into `2026-04-13-quest-memory-architecture.md`; moved to `.ws/`. |
+| done | ~~2026-04-13-query-driven-review-memory.md~~ | Retired and merged into `2026-04-13-quest-memory-architecture.md`; moved to `.ws/`. |
+| archived | ~~memory_bank_model~~ | Pre-canonical generic memory-bank primer; superseded by `2026-04-13-quest-memory-architecture.md`. Archived at [`ideas/archive/memory_bank_model.md`](archive/memory_bank_model.md). |
 
 ## Hygiene Rules
 - Keep one file per idea family; avoid duplicate variants.

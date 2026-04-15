@@ -7,7 +7,7 @@
 The Quest workflow specifies that agents must write `handoff.json` files and that
 the orchestrator should fall back to parsing `---HANDOFF---` text blocks when the
 file is missing or unparsable. In practice, when fallback triggers there is no
-diagnosis of *why* — the orchestrator silently continues and the only evidence is
+diagnosis of *why* -- the orchestrator silently continues and the only evidence is
 a `source=text_fallback` entry in `context_health.log`. This makes it hard to
 tell whether the agent never wrote the file, wrote it to the wrong path, or
 produced invalid JSON.
@@ -17,8 +17,8 @@ produced invalid JSON.
 Two targeted improvements that strengthen the existing handoff contract without
 adding new configuration surface area:
 
-1. **Post-agent JSON schema validation** — catch malformed handoffs immediately.
-2. **Diagnostic failure logging** — when fallback triggers, record the reason so
+1. **Post-agent JSON schema validation** -- catch malformed handoffs immediately.
+2. **Diagnostic failure logging** -- when fallback triggers, record the reason so
    failures are actionable.
 
 ## Proposed Changes
@@ -71,13 +71,13 @@ three-part signal: source + reason + timestamp.
 
 - **Faster debugging:** When a quest run has low handoff compliance, the log
   immediately tells you whether agents are skipping the file, writing bad JSON,
-  or using wrong paths — no guesswork.
+  or using wrong paths -- no guesswork.
 - **No new config knobs:** Works within the existing workflow. No toggles, no
   compliance thresholds to tune, no retry machinery.
 - **Foundation for strict mode:** If we later decide to hard-fail on missing
   handoffs (as proposed in the strict-handoff-proposal), the diagnostic
   categories are already in place. Strict mode becomes: "treat any reason other
-  than `handoff_json` as a phase failure" — a one-line policy change rather than
+  than `handoff_json` as a phase failure" -- a one-line policy change rather than
   a new subsystem.
 - **Better compliance reporting:** The Step 7 completion summary can surface
   failure reasons alongside the compliance percentage, giving the user actionable

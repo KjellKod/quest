@@ -42,8 +42,8 @@ This was operator error, but the framework made the mistake easy:
 
 1. Make the correct phase transition path the easiest path.
 2. Remove the need for manual `state.json` edits during normal quest operation.
-3. Align enforced transitions with the “mandatory” workflow gates.
-4. Catch broken helper references in Quest’s own validation scripts.
+3. Align enforced transitions with the "mandatory" workflow gates.
+4. Catch broken helper references in Quest's own validation scripts.
 5. Reduce duplicated timeout defaults in the Claude bridge path.
 
 ## Proposed Changes
@@ -84,7 +84,7 @@ That command should:
 3. fail with a clear error if the transition is invalid
 4. write the new state only if validation succeeds
 
-This removes the split-brain workflow of “validate first, then mutate separately.”
+This removes the split-brain workflow of "validate first, then mutate separately."
 
 ### 3. Enforce the presentation gate if it is truly mandatory
 
@@ -100,7 +100,7 @@ Choose one:
 
 The current middle state creates false confidence.
 
-### 4. Strengthen Quest’s self-validation
+### 4. Strengthen Quest's self-validation
 
 `scripts/quest_validate-handoff-contracts.sh` currently checks that `workflow.md` mentions `scripts/quest_state.py`, but it does not verify that the script exists.
 
@@ -147,4 +147,4 @@ Move that to one shared constant or config source so timeout policy changes do n
 
 ## Why This Matters
 
-This is not polish. State progression is Quest’s control plane. If the documented helper is missing and the enforced state machine differs from the documented workflow, operators will keep falling into avoidable bookkeeping failures even when the underlying coding work is correct.
+This is not polish. State progression is Quest's control plane. If the documented helper is missing and the enforced state machine differs from the documented workflow, operators will keep falling into avoidable bookkeeping failures even when the underlying coding work is correct.
