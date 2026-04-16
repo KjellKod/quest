@@ -59,7 +59,7 @@ def _extract_journal_completed_date(journal_path: Path) -> date | None:
     return None
 
 
-def _archive_completion_date(archive_dir: Path) -> date:
+def _archive_completion_date(archive_dir: Path) -> date | None:
     data = load_quest_data(archive_dir)
     for value in (data.updated_at, data.created_at):
         if not value:
@@ -68,7 +68,7 @@ def _archive_completion_date(archive_dir: Path) -> date:
             return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC).date()
         except ValueError:
             continue
-    return datetime.now(UTC).date()
+    return None
 
 
 def _find_matching_journal(
@@ -87,8 +87,12 @@ def _find_matching_journal(
     if data.quest_id in journal_by_quest_id:
         return journal_by_quest_id[data.quest_id], None
 
-    completion_date = _archive_completion_date(archive_dir).isoformat()
-    fallback_candidates = sorted(journal_dir.glob(f"{data.slug}_{completion_date}*.md"))
+    completion_date = _archive_completion_date(archive_dir)
+    if completion_date is None:
+        return None, f"{archive_dir.name}: missing or invalid completion date; cannot use slug/date fallback"
+
+    completion_date_str = completion_date.isoformat()
+    fallback_candidates = sorted(journal_dir.glob(f"{data.slug}_{completion_date_str}*.md"))
     if len(fallback_candidates) > 1:
         return None, (
             f"{archive_dir.name}: ambiguous slug/date fallback "

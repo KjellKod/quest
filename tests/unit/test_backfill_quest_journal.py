@@ -207,6 +207,26 @@ def test_backfill_skips_unmatched_archive(tmp_path):
     assert any("no matching journal entry found" in warning for warning in result["skipped"])
 
 
+def test_backfill_skips_slug_date_fallback_when_archive_date_is_unknown(tmp_path):
+    repo_root = tmp_path
+    archive_dir = repo_root / ".quest" / "archive" / "unknown-date_2026-04-13__1701"
+    journal_dir = repo_root / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    _write_archive_quest(archive_dir, "unknown-date_2026-04-13__1701", "unknown-date")
+    _write_journal(journal_dir / "unknown-date_2026-04-13.md", "different-quest-id_2026-04-13__1701")
+
+    state_path = archive_dir / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["created_at"] = "not-a-date"
+    state["updated_at"] = "still-not-a-date"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    result = backfill_journal_entries(repo_root)
+
+    assert result["patched"] == []
+    assert any("cannot use slug/date fallback" in warning for warning in result["skipped"])
+
+
 def test_backfill_handles_missing_archive_directory(tmp_path):
     repo_root = tmp_path
     (repo_root / ".quest").mkdir(parents=True)
