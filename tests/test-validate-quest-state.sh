@@ -154,6 +154,7 @@ test_valid_plan_to_plan_reviewed() {
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
   touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
   write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "clean"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
@@ -190,6 +191,22 @@ test_missing_artifact_plan_to_plan_reviewed() {
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "review_plan-reviewer-b.md"
+}
+
+test_plan_to_plan_reviewed_requires_canonical_artifacts_in_workflow_mode() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review_findings.json" && echo "$output" | grep -q "review_backlog.json"
 }
 
 test_plan_reviewed_to_building_rejected() {
@@ -341,6 +358,38 @@ test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff() {
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "code-reviewer-a requested fixes"
+}
+
+test_reviewing_to_complete_requires_reviewer_handoffs() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "handoff_code-reviewer-a.json" && echo "$output" | grep -q "handoff_code-reviewer-b.json"
+}
+
+test_reviewing_to_complete_rejects_invalid_reviewer_handoff_json() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo 'not-json' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "handoff is not valid JSON"
 }
 
 test_valid_reviewing_to_fixing() {
@@ -677,6 +726,7 @@ run_test test_invalid_json
 run_test test_valid_plan_to_plan_reviewed
 run_test test_valid_plan_to_plan_reviewed_solo_without_findings
 run_test test_missing_artifact_plan_to_plan_reviewed
+run_test test_plan_to_plan_reviewed_requires_canonical_artifacts_in_workflow_mode
 run_test test_plan_reviewed_to_building_rejected
 run_test test_presentation_complete_to_building_arbiter_approved
 run_test test_presentation_complete_to_building_arbiter_says_iterate
@@ -687,6 +737,8 @@ run_test test_valid_reviewing_to_complete
 run_test test_reviewing_to_complete_has_issues
 run_test test_reviewing_to_complete_blocked_by_needs_human_decision
 run_test test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff
+run_test test_reviewing_to_complete_requires_reviewer_handoffs
+run_test test_reviewing_to_complete_rejects_invalid_reviewer_handoff_json
 run_test test_valid_reviewing_to_fixing
 run_test test_reviewing_to_fixing_both_clean
 run_test test_invalid_transition

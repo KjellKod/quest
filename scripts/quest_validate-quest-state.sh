@@ -203,6 +203,8 @@ validate_artifacts() {
       if [ "$QUEST_MODE" != "solo" ]; then
         check_file "$quest_dir/phase_01_plan/review_plan-reviewer-b.md"
         check_file "$quest_dir/phase_01_plan/arbiter_verdict.md"
+        check_file "$quest_dir/phase_01_plan/review_findings.json"
+        check_file "$quest_dir/phase_01_plan/review_backlog.json"
       fi
       ;;
     "plan->plan")
@@ -237,8 +239,10 @@ validate_artifacts() {
     "reviewing->complete")
       check_file "$quest_dir/phase_03_review/review_code-reviewer-a.md"
       check_file "$quest_dir/phase_03_review/review_backlog.json"
+      check_file "$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
       if [ "$QUEST_MODE" != "solo" ]; then
         check_file "$quest_dir/phase_03_review/review_code-reviewer-b.md"
+        check_file "$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
       fi
       ;;
     "fixing->reviewing")
@@ -273,6 +277,43 @@ validate_review_findings_schema() {
   else
     fail "Semantic check: review findings schema invalid ($findings_file): $validation_output"
   fi
+}
+
+validate_review_backlog_schema() {
+  local backlog_file="$1"
+  local original_actionable="$REVIEW_BACKLOG_ACTIONABLE_COUNT"
+  local original_human="$REVIEW_BACKLOG_HUMAN_DECISION_COUNT"
+
+  if ! read_review_backlog_actionable_count "$backlog_file"; then
+    return 1
+  fi
+
+  REVIEW_BACKLOG_ACTIONABLE_COUNT="$original_actionable"
+  REVIEW_BACKLOG_HUMAN_DECISION_COUNT="$original_human"
+  pass "Semantic check: review backlog is valid ($backlog_file)"
+}
+
+read_required_handoff_next() {
+  local handoff_file="$1"
+  local next_value=""
+
+  if [ ! -f "$handoff_file" ]; then
+    fail "Semantic check: handoff not found at $handoff_file"
+    return 1
+  fi
+
+  if ! jq empty "$handoff_file" 2>/dev/null; then
+    fail "Semantic check: handoff is not valid JSON ($handoff_file)"
+    return 1
+  fi
+
+  next_value=$(jq -r '.next // ""' "$handoff_file" 2>/dev/null)
+  if [ "$next_value" = "null" ]; then
+    next_value=""
+  fi
+
+  REQUIRED_HANDOFF_NEXT="$next_value"
+  return 0
 }
 
 check_dir_nonempty() {
@@ -336,9 +377,11 @@ validate_semantic_content() {
 
   case "${current}->${target}" in
     "plan->plan_reviewed")
-      local findings_file="$quest_dir/phase_01_plan/review_findings.json"
-      if [ -f "$findings_file" ]; then
+      if [ "$QUEST_MODE" != "solo" ]; then
+        local findings_file="$quest_dir/phase_01_plan/review_findings.json"
+        local backlog_file="$quest_dir/phase_01_plan/review_backlog.json"
         validate_review_findings_schema "$findings_file"
+        validate_review_backlog_schema "$backlog_file"
       fi
       ;;
     "presentation_complete->building")
@@ -405,21 +448,24 @@ validate_semantic_content() {
 
       # Safety check: block completion if any reviewer handoff requested fixes
       local reviewer_a_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
-      if [ -f "$reviewer_a_handoff" ]; then
-        local next_a
-        next_a=$(jq -r '.next // ""' "$reviewer_a_handoff" 2>/dev/null)
-        if [ "$next_a" = "fixer" ]; then
-          fail "Semantic check: code-reviewer-a requested fixes (next=fixer) but completion attempted"
-        fi
+      local next_a
+      if ! read_required_handoff_next "$reviewer_a_handoff"; then
+        return
       fi
+      next_a="$REQUIRED_HANDOFF_NEXT"
+      if [ "$next_a" = "fixer" ]; then
+        fail "Semantic check: code-reviewer-a requested fixes (next=fixer) but completion attempted"
+      fi
+
       if [ "$QUEST_MODE" != "solo" ]; then
         local reviewer_b_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
-        if [ -f "$reviewer_b_handoff" ]; then
-          local next_b
-          next_b=$(jq -r '.next // ""' "$reviewer_b_handoff" 2>/dev/null)
-          if [ "$next_b" = "fixer" ]; then
-            fail "Semantic check: code-reviewer-b requested fixes (next=fixer) but completion attempted"
-          fi
+        local next_b
+        if ! read_required_handoff_next "$reviewer_b_handoff"; then
+          return
+        fi
+        next_b="$REQUIRED_HANDOFF_NEXT"
+        if [ "$next_b" = "fixer" ]; then
+          fail "Semantic check: code-reviewer-b requested fixes (next=fixer) but completion attempted"
         fi
       fi
       ;;
