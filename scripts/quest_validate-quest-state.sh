@@ -324,37 +324,37 @@ validate_review_backlog_schema() {
       (.items // []) | to_entries[] |
       . as $entry |
       (required_item_fields[] as $field | select(($entry.value | has($field)) | not) | "[\($entry.key)] missing field \($field)"),
-      (if (($entry.value.decision // null) != null and (($entry.value.decision | type) != "string" or ((allowed_decisions | index($entry.value.decision)) == null))) then
+      (if (($entry.value | has("decision")) and (($entry.value.decision | type) != "string" or ((allowed_decisions | index($entry.value.decision)) == null))) then
         "[\($entry.key)] invalid decision"
       else empty end),
-      (if (($entry.value.decision_confidence // null) != null and (($entry.value.decision_confidence | type) != "string" or ((allowed_confidence | index($entry.value.decision_confidence)) == null))) then
+      (if (($entry.value | has("decision_confidence")) and (($entry.value.decision_confidence | type) != "string" or ((allowed_confidence | index($entry.value.decision_confidence)) == null))) then
         "[\($entry.key)] invalid decision_confidence"
       else empty end),
-      (if (($entry.value.reason // null) != null and (($entry.value.reason | type) != "string" or ($entry.value.reason | length) == 0)) then
+      (if (($entry.value | has("reason")) and (($entry.value.reason | type) != "string" or ($entry.value.reason | length) == 0)) then
         "[\($entry.key)] invalid reason"
       else empty end),
-      (if (($entry.value.owner // null) != null and (($entry.value.owner | type) != "string" or ($entry.value.owner | length) == 0)) then
+      (if (($entry.value | has("owner")) and (($entry.value.owner | type) != "string" or ($entry.value.owner | length) == 0)) then
         "[\($entry.key)] invalid owner"
       else empty end),
-      (if (($entry.value.batch // null) != null and (($entry.value.batch | type) != "string" or ($entry.value.batch | length) == 0)) then
+      (if (($entry.value | has("batch")) and (($entry.value.batch | type) != "string" or ($entry.value.batch | length) == 0)) then
         "[\($entry.key)] invalid batch"
       else empty end),
-      (if (($entry.value.needs_validation // null) != null and (($entry.value.needs_validation | type) != "array" or ([($entry.value.needs_validation[]? | strings)] | length) != ($entry.value.needs_validation | length))) then
+      (if (($entry.value | has("needs_validation")) and (($entry.value.needs_validation | type) != "array" or ([($entry.value.needs_validation[]? | strings)] | length) != ($entry.value.needs_validation | length))) then
         "[\($entry.key)] invalid needs_validation"
       else empty end),
-      (if (($entry.value.evidence // null) != null and (($entry.value.evidence | type) != "array" or ([($entry.value.evidence[]? | strings)] | length) != ($entry.value.evidence | length))) then
+      (if (($entry.value | has("evidence")) and (($entry.value.evidence | type) != "array" or ([($entry.value.evidence[]? | strings)] | length) != ($entry.value.evidence | length))) then
         "[\($entry.key)] invalid evidence"
       else empty end),
-      (if (($entry.value.write_scope // null) != null and (($entry.value.write_scope | type) != "array" or ([($entry.value.write_scope[]? | strings)] | length) != ($entry.value.write_scope | length))) then
+      (if (($entry.value | has("write_scope")) and (($entry.value.write_scope | type) != "array" or ([($entry.value.write_scope[]? | strings)] | length) != ($entry.value.write_scope | length))) then
         "[\($entry.key)] invalid write_scope"
       else empty end),
-      (if (($entry.value.related_acceptance_criteria // null) != null and (($entry.value.related_acceptance_criteria | type) != "array" or ([($entry.value.related_acceptance_criteria[]? | strings)] | length) != ($entry.value.related_acceptance_criteria | length))) then
+      (if (($entry.value | has("related_acceptance_criteria")) and (($entry.value.related_acceptance_criteria | type) != "array" or ([($entry.value.related_acceptance_criteria[]? | strings)] | length) != ($entry.value.related_acceptance_criteria | length))) then
         "[\($entry.key)] invalid related_acceptance_criteria"
       else empty end),
-      (if (($entry.value.needs_test // null) != null and (($entry.value.needs_test | type) != "boolean")) then
+      (if (($entry.value | has("needs_test")) and (($entry.value.needs_test | type) != "boolean")) then
         "[\($entry.key)] invalid needs_test"
       else empty end),
-      (if (($entry.value.line // null) != null and (($entry.value.line | type) != "number" or (($entry.value.line | floor) != $entry.value.line) or ($entry.value.line < 1))) then
+      (if (($entry.value | has("line")) and ($entry.value.line != null) and (($entry.value.line | type) != "number" or (($entry.value.line | floor) != $entry.value.line) or ($entry.value.line < 1))) then
         "[\($entry.key)] invalid line"
       else empty end)
     ] | .[]' "$backlog_file" 2>/dev/null)
