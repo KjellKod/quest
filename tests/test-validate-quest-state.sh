@@ -509,7 +509,36 @@ PY
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -q "invalid decision" && echo "$output" | grep -q "invalid line"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "invalid decision" && echo "$output" | grep -q "field 'line' must be null or an integer >= 1"
+}
+
+test_plan_to_plan_reviewed_rejects_invalid_backlog_finding_fields() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "clean"
+  python3 - <<'PY' "$tmpdir/phase_01_plan/review_backlog.json"
+import json
+import sys
+path = sys.argv[1]
+data = json.loads(open(path, encoding="utf-8").read())
+data["items"][0]["severity"] = "bogus"
+data["items"][0]["summary"] = ""
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(data, handle, indent=2)
+    handle.write("\n")
+PY
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review backlog schema invalid" && echo "$output" | grep -q "field 'severity'" && echo "$output" | grep -q "field 'summary'"
 }
 
 test_valid_reviewing_to_fixing() {
@@ -907,6 +936,7 @@ run_test test_valid_presenting_to_presentation_complete
 run_test test_valid_presentation_complete_to_building
 run_test test_plan_to_plan_reviewed_rejects_invalid_backlog_item_schema
 run_test test_plan_to_plan_reviewed_rejects_false_typed_backlog_fields
+run_test test_plan_to_plan_reviewed_rejects_invalid_backlog_finding_fields
 run_test test_non_numeric_allowlist_iterations
 run_test test_zero_allowlist_iterations_are_rejected
 run_test test_validation_log_written

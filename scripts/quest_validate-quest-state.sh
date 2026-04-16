@@ -283,36 +283,25 @@ validate_review_backlog_schema() {
   local backlog_file="$1"
   local original_actionable="$REVIEW_BACKLOG_ACTIONABLE_COUNT"
   local original_human="$REVIEW_BACKLOG_HUMAN_DECISION_COUNT"
+  local validator="$REPO_ROOT/scripts/quest_review_intelligence.py"
 
   if ! read_review_backlog_actionable_count "$backlog_file"; then
     return 1
   fi
 
+  if [ ! -f "$validator" ]; then
+    fail "Semantic check: review findings validator not found at $validator"
+    return 1
+  fi
+
+  local findings_validation_output
+  findings_validation_output=$(python3 "$validator" validate-findings --input "$backlog_file" 2>&1)
+  local findings_rc=$?
+
   local item_errors
   item_errors=$(jq -r '
-    def required_item_fields:
-      [
-        "finding_id",
-        "source",
-        "kind",
-        "severity",
-        "confidence",
-        "path",
-        "line",
-        "summary",
-        "why_it_matters",
-        "evidence",
-        "action",
-        "needs_test",
-        "write_scope",
-        "related_acceptance_criteria",
-        "decision",
-        "decision_confidence",
-        "reason",
-        "needs_validation",
-        "owner",
-        "batch"
-      ];
+    def required_decision_fields:
+      ["decision", "decision_confidence", "reason", "needs_validation", "owner", "batch"];
     def allowed_decisions:
       ["fix_now", "verify_first", "defer", "drop", "needs_human_decision"];
     def allowed_confidence:
@@ -323,7 +312,7 @@ validate_review_backlog_schema() {
       else empty end,
       (.items // []) | to_entries[] |
       . as $entry |
-      (required_item_fields[] as $field | select(($entry.value | has($field)) | not) | "[\($entry.key)] missing field \($field)"),
+      (required_decision_fields[] as $field | select(($entry.value | has($field)) | not) | "[\($entry.key)] missing field \($field)"),
       (if (($entry.value | has("decision")) and (($entry.value.decision | type) != "string" or ((allowed_decisions | index($entry.value.decision)) == null))) then
         "[\($entry.key)] invalid decision"
       else empty end),
@@ -353,14 +342,24 @@ validate_review_backlog_schema() {
       else empty end),
       (if (($entry.value | has("needs_test")) and (($entry.value.needs_test | type) != "boolean")) then
         "[\($entry.key)] invalid needs_test"
-      else empty end),
-      (if (($entry.value | has("line")) and ($entry.value.line != null) and (($entry.value.line | type) != "number" or (($entry.value.line | floor) != $entry.value.line) or ($entry.value.line < 1))) then
-        "[\($entry.key)] invalid line"
       else empty end)
     ] | .[]' "$backlog_file" 2>/dev/null)
 
+  local combined_errors=""
+  if [ "$findings_rc" -ne 0 ]; then
+    combined_errors="$findings_validation_output"
+  fi
   if [ -n "$item_errors" ]; then
-    fail "Semantic check: review backlog schema invalid ($backlog_file): $item_errors"
+    if [ -n "$combined_errors" ]; then
+      combined_errors="$combined_errors
+$item_errors"
+    else
+      combined_errors="$item_errors"
+    fi
+  fi
+
+  if [ -n "$combined_errors" ]; then
+    fail "Semantic check: review backlog schema invalid ($backlog_file): $combined_errors"
     return 1
   fi
 
