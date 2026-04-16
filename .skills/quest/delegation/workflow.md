@@ -86,7 +86,7 @@ Quest mode determines agent dispatch and iteration limits:
 | Plan reviewers      | Dual (A + B)      | Single (A only)   |
 | Arbiter             | Yes               | No — Reviewer A's verdict is used directly |
 | Code reviewers      | Dual (A + B)      | Single (A only)   |
-| Max fix iterations  | default target: 2, hard cap: 3 (supplements allowlist gates) | min(2 default target, solo cap, allowlist gates), hard cap: 3 |
+| Max fix iterations  | From allowlist gates (default 3) | min(solo.max_fix_iterations, allowlist gates) |
 
 **Solo verdict remapping:** In solo mode, Reviewer A's handoff says `next: "arbiter"` per the reviewer agent contract. The workflow remaps this: when `quest_mode == "solo"` and Reviewer A says `next: "arbiter"`, treat it as `next: "builder"` (approved). Write the remapped value to state for downstream consumers. If Reviewer A says `next: "planner"`, it means revision needed — no remapping.
 
@@ -880,16 +880,11 @@ After plan approval, present the plan interactively before proceeding to build.
 
 ### Step 6: Fix Phase
 
-**Loop policy:** default review-loop target is 2 iterations, hard max is 3.
-
 **Read allowlist:** `gates.max_fix_iterations` (default: 3)
 
 **Solo override:** `solo.max_fix_iterations` (default: 2)
 
-**Effective cap rule:** This supplements existing gates:
-- start with default target `2`
-- enforce hard max `3`
-- cap by allowlist/solo limits: `min(3, gates.max_fix_iterations, solo.max_fix_iterations in solo mode)`
+**Solo mode cap:** If `quest_mode == "solo"`, cap `max_fix_iterations` at `min(solo.max_fix_iterations, gates.max_fix_iterations)`.
 
 **Gate check:**
 - Read `auto_approve_phases.fix_loop` from allowlist
@@ -949,13 +944,12 @@ After plan approval, present the plan interactively before proceeding to build.
      - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete --expect-phase reviewing`
      - Proceed to Step 7
    - If actionable items remain:
-     - If `fix_iteration < 2`: loop back to step 1 (within default review-loop budget)
-     - If `fix_iteration == 2`: warn that default budget is exhausted; continue only with explicit approval
-     - If `fix_iteration >= 3` (hard cap):
+     - If `fix_iteration < max_fix_iterations`: loop back to step 1
+     - If `fix_iteration >= max_fix_iterations`:
        - Rebuild backlog using at-cap policy (`--at-loop-cap`)
        - Convert remaining findings to `defer` (accepted debt rationale) or `needs_human_decision`
        - Append `defer` entries to `.quest/backlog/deferred_findings.jsonl`
-       - Stop looping; ask user to choose manual follow-up for `needs_human_decision` items
+       - Warn user, ask to proceed manually or accept remaining items as deferred debt
 
 ### Step 7: Complete
 

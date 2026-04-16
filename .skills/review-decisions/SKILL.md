@@ -12,7 +12,7 @@ Shared policy for Arbiter and PR shepherd style decision-making after review fin
 Use this skill when:
 - Converting canonical review findings into backlog decisions
 - Enforcing allowed decision taxonomy
-- Applying loop-cap policy (default 2 review loops, hard cap 3)
+- Applying loop-cap policy (governed by `gates.max_fix_iterations` in allowlist)
 - Appending deferred findings to `.quest/backlog/deferred_findings.jsonl`
 
 ## Canonical Decision Set
