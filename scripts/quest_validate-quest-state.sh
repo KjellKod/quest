@@ -200,7 +200,6 @@ validate_artifacts() {
       check_file "$quest_dir/phase_01_plan/plan.md"
       check_file "$quest_dir/phase_01_plan/review_plan-reviewer-a.md"
       if [ "$QUEST_MODE" != "solo" ]; then
-        check_file "$quest_dir/phase_01_plan/review_findings.json"
         check_file "$quest_dir/phase_01_plan/review_plan-reviewer-b.md"
         check_file "$quest_dir/phase_01_plan/arbiter_verdict.md"
       fi

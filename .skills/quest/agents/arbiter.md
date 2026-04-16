@@ -38,10 +38,8 @@ The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It fi
 7. Synthesize canonical findings from both review markdown artifacts and write:
    - `.quest/<id>/phase_01_plan/review_findings.json`
    - If no actionable findings exist, write an empty array (`[]`) instead of skipping the file
-8. Build a canonical decision backlog and write both:
+8. Build a canonical decision backlog and write:
    - `.quest/<id>/phase_01_plan/review_backlog.json`
-   - `.quest/<id>/phase_01_plan/arbiter_backlog.json` (compatibility alias)
-9. Keep `review_backlog.json` and `arbiter_backlog.json` content-equivalent
 
 ## Decision Criteria for "Good Enough"
 A plan is ready when:
@@ -79,8 +77,7 @@ A plan is NOT ready when:
   "artifacts": [
     ".quest/<id>/phase_01_plan/arbiter_verdict.md",
     ".quest/<id>/phase_01_plan/review_findings.json",
-    ".quest/<id>/phase_01_plan/review_backlog.json",
-    ".quest/<id>/phase_01_plan/arbiter_backlog.json"
+    ".quest/<id>/phase_01_plan/review_backlog.json"
   ],
   "next": "planner | builder",
   "summary": "Iteration <N>: <approve|iterate> — <reason>"
@@ -91,7 +88,7 @@ A plan is NOT ready when:
 ```text
 ---HANDOFF---
 STATUS: complete | needs_human | blocked
-ARTIFACTS: .quest/<id>/phase_01_plan/arbiter_verdict.md, .quest/<id>/phase_01_plan/review_findings.json, .quest/<id>/phase_01_plan/review_backlog.json, .quest/<id>/phase_01_plan/arbiter_backlog.json
+ARTIFACTS: .quest/<id>/phase_01_plan/arbiter_verdict.md, .quest/<id>/phase_01_plan/review_findings.json, .quest/<id>/phase_01_plan/review_backlog.json
 NEXT: planner | builder
 SUMMARY: Iteration <N>: <approve|iterate> — <reason>
 ```

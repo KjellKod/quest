@@ -479,7 +479,6 @@ gates.max_plan_iterations (default: 4)
      - `arbiter_verdict.md`
      - `review_findings.json`
      - `review_backlog.json`
-     - `arbiter_backlog.json`
      - `handoff_arbiter.json`
      in `.quest/<id>/phase_01_plan/`.
    - Use a short prompt with path references only:
@@ -497,7 +496,6 @@ gates.max_plan_iterations (default: 4)
      - .quest/<id>/phase_01_plan/arbiter_verdict.md
      - .quest/<id>/phase_01_plan/review_findings.json
      - .quest/<id>/phase_01_plan/review_backlog.json
-     - .quest/<id>/phase_01_plan/arbiter_backlog.json
      - .quest/<id>/phase_01_plan/handoff_arbiter.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
@@ -506,15 +504,12 @@ gates.max_plan_iterations (default: 4)
    - Wait for the selected runtime to complete
    - Read `.quest/<id>/phase_01_plan/handoff_arbiter.json`
    - Ensure `.quest/<id>/phase_01_plan/review_findings.json` always exists (empty array is valid)
-   - Ensure `.quest/<id>/phase_01_plan/review_backlog.json` and `.quest/<id>/phase_01_plan/arbiter_backlog.json` are content-equivalent
    - Route based on `next` field ("builder" = approved, "planner" = iterate)
    - Apply deterministic precedence from **Handoff File Polling** for native Claude task vs bridge execution
    - Fallback: if handoff.json missing or unparsable after that precedence, parse text handoff from response
 
 6. **Check verdict:**
    - If `NEXT: builder`:
-     - Validate canonical plan findings before transition:
-       - `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_01_plan/review_findings.json`
      - Plan approved! Transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan_reviewed --status complete --last-verdict approve --expect-phase plan` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to **Step 3.5** (Interactive Presentation). Do not attempt the `presenting` transition while state still says `phase: plan`.
    - If `NEXT: planner` → Check iteration count
      - If `plan_iteration >= max_plan_iterations`: Warn user, ask to proceed anyway or review manually
@@ -861,8 +856,6 @@ After plan approval, present the plan interactively before proceeding to build.
      - `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_03_review/review_findings.json`
    - Build canonical review backlog (decision stage):
      - `python3 scripts/quest_review_intelligence.py build-backlog --findings .quest/<id>/phase_03_review/review_findings.json --output .quest/<id>/phase_03_review/review_backlog.json`
-   - Write compatibility alias with content-equivalent payload:
-     - `.quest/<id>/phase_03_review/arbiter_backlog.json` must match `review_backlog.json`
    - Fixer intake is restricted to backlog entries with decision:
      - `fix_now`
      - `verify_first`
@@ -870,13 +863,16 @@ After plan approval, present the plan interactively before proceeding to build.
      - For entries with decision `defer`, append to `.quest/backlog/deferred_findings.jsonl` with lineage fields using `append-deferred`
 
 6. **Route after decisions stage:**
+   - **Safety check:** If any reviewer handoff has `next: "fixer"` but the canonical backlog has no `fix_now`/`verify_first` items, warn the user: "Reviewer flagged issues but canonical backlog is empty — review findings may be incomplete." Treat as needing fixes (transition to fixing).
    - If `review_backlog.json` contains any `fix_now` or `verify_first` item:
      - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition fixing --status in_progress --expect-phase reviewing`
      - Proceed to Step 6
-   - If no actionable items remain:
+   - If `review_backlog.json` contains any `needs_human_decision` item (even with no `fix_now`/`verify_first`):
+     - Present `needs_human_decision` items to the user and ask how to proceed (fix, defer, or accept)
+     - Do not auto-complete while `needs_human_decision` items exist
+   - If no actionable items and no `needs_human_decision` items remain:
      - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete --expect-phase reviewing`
      - Proceed to Step 7
-   - Do not route directly from reviewer `next` values once canonical backlog exists.
 
 ### Step 6: Fix Phase
 

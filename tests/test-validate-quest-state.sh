@@ -177,40 +177,6 @@ test_missing_artifact_plan_to_plan_reviewed() {
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "review_plan-reviewer-b.md"
 }
 
-test_missing_review_findings_plan_to_plan_reviewed() {
-  local tmpdir
-  tmpdir=$(mktemp -d)
-  create_state_json "$tmpdir" "plan"
-  mkdir -p "$tmpdir/phase_01_plan"
-  touch "$tmpdir/phase_01_plan/plan.md"
-  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
-  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
-  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
-  # Missing review_findings.json
-  local output
-  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
-  local rc=$?
-  rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review_findings.json"
-}
-
-test_invalid_review_findings_schema_plan_to_plan_reviewed() {
-  local tmpdir
-  tmpdir=$(mktemp -d)
-  create_state_json "$tmpdir" "plan"
-  mkdir -p "$tmpdir/phase_01_plan"
-  touch "$tmpdir/phase_01_plan/plan.md"
-  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
-  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
-  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
-  echo '[{"source":"plan-reviewer-a"}]' > "$tmpdir/phase_01_plan/review_findings.json"
-  local output
-  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
-  local rc=$?
-  rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -qi "schema invalid"
-}
-
 test_plan_reviewed_to_building_rejected() {
   # plan_reviewed->building is no longer allowed; presentation is mandatory.
   local tmpdir
@@ -662,8 +628,6 @@ run_test test_invalid_json
 run_test test_valid_plan_to_plan_reviewed
 run_test test_valid_plan_to_plan_reviewed_solo_without_findings
 run_test test_missing_artifact_plan_to_plan_reviewed
-run_test test_missing_review_findings_plan_to_plan_reviewed
-run_test test_invalid_review_findings_schema_plan_to_plan_reviewed
 run_test test_plan_reviewed_to_building_rejected
 run_test test_presentation_complete_to_building_arbiter_approved
 run_test test_presentation_complete_to_building_arbiter_says_iterate

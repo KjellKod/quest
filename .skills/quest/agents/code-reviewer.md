@@ -39,6 +39,10 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 Canonical findings schema (required fields per finding):
 `finding_id, source, kind, severity, confidence, path, line, summary, why_it_matters, evidence, action, needs_test, write_scope, related_acceptance_criteria`
 
+Allowed enum values:
+- `severity`: `critical`, `high`, `medium`, `low`, `info`
+- `confidence`: `high`, `medium`, `low`
+
 ## Input
 - Changed files (`git diff --name-only`) when available
 - Diff summary (`git diff --stat`, optional) when available

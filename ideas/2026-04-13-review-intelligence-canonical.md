@@ -159,7 +159,7 @@ Optional PR-flow temp artifact:
   "finding_id": "review-a-003",
   "source": "code-reviewer-a",
   "kind": "correctness",
-  "severity": "must_fix",
+  "severity": "critical",
   "confidence": "high",
   "path": "src/auth/session.ts",
   "line": 84,

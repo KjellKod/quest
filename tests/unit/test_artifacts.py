@@ -70,7 +70,6 @@ class TestExpectedArtifactsForRole:
             "arbiter_verdict.md",
             "review_findings.json",
             "review_backlog.json",
-            "arbiter_backlog.json",
             "handoff_arbiter.json",
         ]
 
