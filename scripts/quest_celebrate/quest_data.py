@@ -37,6 +37,14 @@ class Achievement:
 
 
 @dataclass
+class CarryoverFindings:
+    """Artifact-backed carry-over findings surfaced in celebrations."""
+
+    count: int = 0
+    summaries: List[str] = field(default_factory=list)
+
+
+@dataclass
 class QuestData:
     """Rich structured data extracted from a quest directory."""
 
@@ -66,6 +74,10 @@ class QuestData:
     # From review*.md files
     review_findings: List[str] = field(default_factory=list)
     review_count: int = 0
+    inherited_findings_used: CarryoverFindings = field(default_factory=CarryoverFindings)
+    findings_left_for_future_quests: CarryoverFindings = field(
+        default_factory=CarryoverFindings
+    )
 
     # Computed
     files_changed: List[str] = field(default_factory=list)
@@ -451,6 +463,81 @@ def _collect_review_findings(quest_dir: Path) -> Tuple[List[str], int]:
     return findings, review_count
 
 
+def _normalize_summary(value: object) -> str:
+    """Return a compact one-line summary or empty string for invalid input."""
+    if not isinstance(value, str):
+        return ""
+    summary = re.sub(r"\s+", " ", value).strip()
+    return summary
+
+
+def _build_carryover_findings(records: object) -> CarryoverFindings:
+    """Extract count + up to three summaries from finding-like records."""
+    if not isinstance(records, list):
+        return CarryoverFindings()
+
+    summaries: List[str] = []
+    count = 0
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        summary = _normalize_summary(record.get("summary"))
+        if not summary:
+            continue
+        count += 1
+        if len(summaries) < 3:
+            summaries.append(summary)
+
+    return CarryoverFindings(count=count, summaries=summaries)
+
+
+def _read_inherited_findings_used(quest_dir: Path) -> CarryoverFindings:
+    """Read deferred backlog matches captured during planner startup."""
+    matches_path = quest_dir / "phase_01_plan" / "deferred_backlog_matches.json"
+    if not matches_path.exists():
+        return CarryoverFindings()
+
+    try:
+        payload = json.loads(matches_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, ValueError):
+        return CarryoverFindings()
+
+    return _build_carryover_findings(payload)
+
+
+def _read_findings_left_for_future_quests(
+    quest_dir: Path, quest_id: str
+) -> CarryoverFindings:
+    """Read deferred findings recorded for the current quest."""
+    if not quest_id:
+        return CarryoverFindings()
+
+    repo_root = Path(__file__).resolve().parents[2]
+    backlog_path = repo_root / ".quest" / "backlog" / "deferred_findings.jsonl"
+    if not backlog_path.exists():
+        return CarryoverFindings()
+
+    records: List[dict] = []
+    try:
+        for raw_line in backlog_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if (
+                isinstance(record, dict)
+                and record.get("deferred_by_quest") == quest_id
+            ):
+                records.append(record)
+    except OSError:
+        return CarryoverFindings()
+
+    return _build_carryover_findings(records)
+
+
 def _find_pr_number(
     quest_dir: Path, state: dict, agents: List[AgentInfo]
 ) -> Optional[int]:
@@ -812,6 +899,31 @@ def _extract_dict_items(value: object) -> list[dict]:
     return [item for item in value if isinstance(item, dict)]
 
 
+def _extract_carryover_findings(value: object) -> CarryoverFindings:
+    """Parse carry-over findings from celebration JSON."""
+    if not isinstance(value, dict):
+        return CarryoverFindings()
+
+    raw_count = value.get("count")
+    count = (
+        raw_count
+        if isinstance(raw_count, int) and not isinstance(raw_count, bool) and raw_count >= 0
+        else 0
+    )
+    summaries = []
+    raw_summaries = value.get("summaries")
+    if isinstance(raw_summaries, list):
+        for item in raw_summaries:
+            summary = _normalize_summary(item)
+            if summary:
+                summaries.append(summary)
+
+    if count == 0 and summaries:
+        count = len(summaries)
+
+    return CarryoverFindings(count=count, summaries=summaries[:3])
+
+
 def load_quest_data_from_journal(journal_path: Path) -> QuestData:
     """Load quest data from a journal markdown file.
 
@@ -868,6 +980,13 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
         victory_narrative = celebration.get("victory_narrative")
         if isinstance(victory_narrative, str):
             data.plan_summary = victory_narrative
+
+        data.inherited_findings_used = _extract_carryover_findings(
+            celebration.get("inherited_findings_used")
+        )
+        data.findings_left_for_future_quests = _extract_carryover_findings(
+            celebration.get("findings_left_for_future_quests")
+        )
 
     # Extract basic metadata from markdown (always, for fields not in JSON)
     if not data.quest_mode:
@@ -973,6 +1092,10 @@ def load_quest_data(quest_dir: Path) -> QuestData:
 
     # 5. review*.md
     data.review_findings, data.review_count = _collect_review_findings(quest_dir)
+    data.inherited_findings_used = _read_inherited_findings_used(quest_dir)
+    data.findings_left_for_future_quests = _read_findings_left_for_future_quests(
+        quest_dir, data.quest_id
+    )
 
     # 6. PR number
     data.pr_number = _find_pr_number(quest_dir, state, data.agents)

@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-04-16 | [celebration-review-intel](celebration-review-intel_2026-04-16.md) | Add two narrow, artifact-backed carry-over sections to Quest celebration/journal output so Phase 1 review intelligenc... |
 | 2026-04-16 | [review-intelligence-canonical](review-intelligence-canonical_2026-04-16.md) | Implement Phase 1 of review-intelligence-canonical: normalize review findings and add a review-decisions stage betwee... |
 | 2026-04-16 | [quest-dashboard-briefs](quest-dashboard-briefs_2026-04-16.md) | Dashboard quest detail pages now include the brief and celebration context, and archived journal pages were backfill... |
 | 2026-04-15 | [claude-insights-ideas](claude-insights-ideas_2026-04-15.md) | > review ~/Documents/Evaluations/2026-04-15-claude-insights.html (you can also see the markdown, 2026-04-15-claude-in... |
