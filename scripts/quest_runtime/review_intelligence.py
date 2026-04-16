@@ -253,6 +253,9 @@ def select_decision(finding: dict[str, Any], *, at_loop_cap: bool) -> dict[str, 
         if severity in {"critical", "high"} and confidence == "high":
             decision = "fix_now"
             reason = "High-severity and high-confidence finding."
+        elif severity in {"critical", "high"}:
+            decision = "verify_first"
+            reason = "High-severity finding needs verification before fixing."
         elif confidence == "low" or evidence_count <= 1:
             decision = "verify_first"
             reason = "Evidence or confidence is limited and needs verification."

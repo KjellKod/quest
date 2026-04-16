@@ -80,12 +80,10 @@ Use the canonical findings path for your assigned slot:
 ```text
 ---HANDOFF---
 STATUS: complete | needs_human | blocked
-ARTIFACTS: <assigned slot artifact path>
+ARTIFACTS: <assigned slot review path>, <assigned slot findings path>
 NEXT: fixer | null
 SUMMARY: <one line>
 ```
-
-`ARTIFACTS` must list both files for the slot: markdown review and canonical findings JSON.
 
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 

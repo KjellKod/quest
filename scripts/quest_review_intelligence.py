@@ -42,11 +42,8 @@ def _cmd_validate_findings(args: argparse.Namespace) -> int:
     findings = _extract_findings(_load_json(Path(args.input)))
     errors = validate_findings(findings)
     payload = {"ok": not errors, "count": len(findings), "errors": errors}
-    if errors:
-        print(json.dumps(payload, indent=2, sort_keys=True))
-        return 1
     print(json.dumps(payload, indent=2, sort_keys=True))
-    return 0
+    return 1 if errors else 0
 
 
 def _cmd_merge_findings(args: argparse.Namespace) -> int:
