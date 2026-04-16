@@ -863,7 +863,7 @@ After plan approval, present the plan interactively before proceeding to build.
      - For entries with decision `defer`, append to `.quest/backlog/deferred_findings.jsonl` with lineage fields using `append-deferred`
 
 6. **Route after decisions stage:**
-   - **Safety check:** If any reviewer handoff has `next: "fixer"` but the canonical backlog has no `fix_now`/`verify_first` items, warn the user: "Reviewer flagged issues but canonical backlog is empty — review findings may be incomplete." Treat as needing fixes (transition to fixing).
+   - **Safety check:** If any reviewer handoff has `next: "fixer"` but the canonical backlog has no `fix_now`/`verify_first` items, warn the user: "Reviewer flagged issues but canonical backlog is empty — review findings may be incomplete." Ask the user how to proceed (re-review, manually inspect, or accept as-is). Do not auto-transition to fixing with an empty actionable backlog.
    - If `review_backlog.json` contains any `fix_now` or `verify_first` item:
      - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition fixing --status in_progress --expect-phase reviewing`
      - Proceed to Step 6
