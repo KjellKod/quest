@@ -187,3 +187,21 @@ def test_generate_journal_entry_includes_carryover_sections_and_payload():
     payload = json.loads(entry[start:end])
     assert payload["inherited_findings_used"]["count"] == 2
     assert payload["findings_left_for_future_quests"]["count"] == 1
+
+
+def test_generate_journal_entry_includes_empty_carryover_status_when_absent():
+    data = QuestData(
+        quest_id="carryover-empty_2026-04-16__1200",
+        slug="carryover-empty",
+        name="Carryover Empty",
+    )
+
+    entry = build_journal_entry(
+        data,
+        date(2026, 4, 16),
+        Path("docs/quest-journal/carryover-empty_2026-04-16.md"),
+    )
+
+    assert "## Carry-Over Findings" in entry
+    assert "nothing was inherited from earlier quests" in entry
+    assert "## Inherited Findings Used" not in entry

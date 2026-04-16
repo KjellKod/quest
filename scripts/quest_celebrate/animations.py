@@ -188,12 +188,24 @@ def _carryover_sections_markdown(quest_data: Optional[QuestData]) -> str:
     if quest_data is None:
         return ""
 
+    inherited = quest_data.inherited_findings_used
+    future = quest_data.findings_left_for_future_quests
+    if inherited.count <= 0 and future.count <= 0:
+        return "\n".join(
+            [
+                "## Carry-Over Findings",
+                "",
+                "- No carry-over findings this round; nothing was inherited from earlier quests and nothing needs to be saved for the next one.",
+                "",
+            ]
+        )
+
     sections: List[str] = []
     carryover_sets = (
-        ("Inherited Findings Used", quest_data.inherited_findings_used),
+        ("Inherited Findings Used", inherited),
         (
             "Findings Left For Future Quests",
-            quest_data.findings_left_for_future_quests,
+            future,
         ),
     )
     for title, carryover in carryover_sets:
@@ -214,12 +226,21 @@ def _carryover_lines_standard(quest_data: Optional[QuestData]) -> List[str]:
     if quest_data is None:
         return []
 
+    inherited = quest_data.inherited_findings_used
+    future = quest_data.findings_left_for_future_quests
+    if inherited.count <= 0 and future.count <= 0:
+        return [
+            "    Carry-Over Findings",
+            "    No carry-over findings this round; nothing was inherited from earlier quests and nothing needs to be saved for the next one.",
+            "",
+        ]
+
     lines: List[str] = []
     carryover_sets = (
-        ("Inherited Findings Used", quest_data.inherited_findings_used),
+        ("Inherited Findings Used", inherited),
         (
             "Findings Left For Future Quests",
-            quest_data.findings_left_for_future_quests,
+            future,
         ),
     )
     for title, carryover in carryover_sets:

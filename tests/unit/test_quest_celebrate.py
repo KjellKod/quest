@@ -153,6 +153,18 @@ class TestRenderStandard:
         assert "Count: 2" in result
         assert "Findings Left For Future Quests" in result
 
+    def test_render_standard_shows_empty_carryover_status_when_absent(self):
+        """Standard style shows an explicit empty-state carry-over message."""
+        stats = QuestStats(name="Carryover Quest")
+        config = CelebrationConfig(style="standard", is_safe=True)
+        quest_data = QuestData(name="Carryover Quest")
+
+        result = render_standard(stats, config, quest_data=quest_data)
+
+        assert "Carry-Over Findings" in result
+        assert "nothing was inherited from earlier quests" in result
+        assert "Inherited Findings Used" not in result
+
 
 class TestRenderEpic:
     """Tests for epic style rendering (AC3)."""
@@ -264,6 +276,21 @@ class TestRenderEpic:
         assert "## Inherited Findings Used" in result
         assert "## Findings Left For Future Quests" in result
 
+    def test_render_epic_shows_empty_carryover_status_when_absent(self):
+        """Epic style shows the explicit empty-state carry-over message."""
+        stats = QuestStats(name="Carryover Quest")
+        config = CelebrationConfig(style="epic", is_safe=True)
+        quest_data = QuestData(name="Carryover Quest")
+        output = StringIO()
+
+        with patch("time.sleep"):
+            render_epic(stats, config, output, quest_data=quest_data)
+
+        result = output.getvalue()
+        assert "## Carry-Over Findings" in result
+        assert "nothing needs to be saved for the next one" in result
+        assert "## Inherited Findings Used" not in result
+
 
 class TestRenderSilly:
     """Tests for silly style rendering (AC4)."""
@@ -318,6 +345,20 @@ class TestRenderSilly:
 
         result = output.getvalue()
         assert "## Inherited Findings Used" in result
+
+    def test_render_silly_shows_empty_carryover_status_when_absent(self):
+        """Silly style shows the explicit empty-state carry-over message."""
+        stats = QuestStats(name="Silly Quest")
+        config = CelebrationConfig(style="silly", is_safe=True, ascii_art=False)
+        quest_data = QuestData(name="Silly Quest")
+        output = StringIO()
+
+        with patch("time.sleep"):
+            render_silly(stats, config, output, quest_data=quest_data)
+
+        result = output.getvalue()
+        assert "## Carry-Over Findings" in result
+        assert "nothing was inherited from earlier quests" in result
 
 
 class TestEnvironmentOverrides:

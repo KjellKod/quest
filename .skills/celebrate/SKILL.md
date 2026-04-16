@@ -51,7 +51,23 @@ If no argument is provided:
 2. If found: use the structured data (agents, achievements, metrics, quality tier, quote, victory narrative, carry-over findings)
 3. If not found (legacy entries): "wing it" from the markdown text — read the sections for iterations, files changed, outcome, and the "what started it" quote. Improvise achievements and metrics from context.
 
-### Step 3: Generate the Celebration as Rich Markdown
+### Step 3: Verify Carry-Over Section Visibility
+
+Before rendering, explicitly decide whether the celebration should show the carry-over sections:
+
+1. Check `phase_01_plan/deferred_backlog_matches.json`
+   - If the file is missing, unreadable, or empty, treat `Inherited Findings Used` as count `0`
+   - If present, count only records with a usable short summary
+2. Check `.quest/backlog/deferred_findings.jsonl`
+   - Filter entries where `deferred_by_quest` matches the current quest ID
+   - If the file is missing, unreadable, or no matching records exist, treat `Findings Left For Future Quests` as count `0`
+3. Render each carry-over section only when its artifact-backed count is greater than `0`
+4. If both counts are `0`, include one short empty-state section instead:
+   - `Carry-Over Findings`
+   - `No carry-over findings this round; nothing was inherited from earlier quests and nothing needs to be saved for the next one.`
+5. Do not replace this with vague filler, "no baggage", or inferred planner insights
+
+### Step 4: Generate the Celebration as Rich Markdown
 
 **IMPORTANT: Write the celebration directly as your response text. Do NOT run a script. Do NOT wrap the entire celebration in a code block. The UI renders agent markdown beautifully, but ASCII/block-letter title art must be wrapped in a fenced code block (triple backticks) so spacing is preserved without turning the whole celebration into a code block.**
 
@@ -71,13 +87,14 @@ You have all the data from the artifacts. Now **create your own celebration**. B
 - A quote from the actual quest (arbiter verdict, reviewer summary, fixer handoff)
 - Victory narrative — what this quest proved or demonstrated (or survival narrative for rough ones)
 
-**Conditional carry-over sections** (include only when artifact-backed count > 0):
+**Carry-over sections**:
 - `Inherited Findings Used`
   - source: `phase_01_plan/deferred_backlog_matches.json`
-  - show count plus up to 3 short summaries
+  - when count > 0, show count plus up to 3 short summaries
 - `Findings Left For Future Quests`
   - source: `.quest/backlog/deferred_findings.jsonl` entries where `deferred_by_quest == current quest ID`
-  - show count plus up to 3 short summaries
+  - when count > 0, show count plus up to 3 short summaries
+- If both counts are `0`, show the explicit empty-state `Carry-Over Findings` note above instead of these sections
 
 **Use markdown richly:**
 - `#` and `##` headers (they render big and bold)

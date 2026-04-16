@@ -132,6 +132,18 @@ def _build_carryover_journal_section(title: str, count: int, summaries: list[str
     return "\n".join(lines)
 
 
+def _build_empty_carryover_journal_section() -> str:
+    """Build the explicit empty-state carry-over section."""
+    return "\n".join(
+        [
+            "## Carry-Over Findings",
+            "",
+            "- No carry-over findings this round; nothing was inherited from earlier quests and nothing needs to be saved for the next one.",
+            "",
+        ]
+    )
+
+
 def build_celebration_data_section(data: QuestData) -> str:
     """Build the machine-readable celebration payload section."""
     celebration = _build_celebration_json(data)
@@ -224,6 +236,9 @@ def build_journal_entry(
     )
     if carryforward_section:
         lines.append(carryforward_section.rstrip())
+        lines.append("")
+    elif data.inherited_findings_used.count <= 0:
+        lines.append(_build_empty_carryover_journal_section().rstrip())
         lines.append("")
 
     celebration_section = build_celebration_section(journal_rel_path)
