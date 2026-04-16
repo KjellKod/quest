@@ -1,18 +1,20 @@
 # Code Review Agent
 
 ## Overview
-There are **two** Code Review Agent invocations on each review pass. They run **in parallel** using different model families for independent perspectives, writing to `review_code-reviewer-a.md` and `review_code-reviewer-b.md`.
+There are **two** Code Review Agent invocations on each review pass. They run **in parallel** using different model families for independent perspectives, writing both markdown review artifacts and canonical findings JSON artifacts.
 
 ## Instances
 
 ### Code Reviewer A
 - **Tool:** Claude runtime dispatched by orchestrator (native `Task(...)` when available, `scripts/quest_claude_runner.py` in Codex-led runs)
 - **Artifact path:** `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
+- **Canonical findings path:** `.quest/<id>/phase_03_review/review_findings_code-reviewer-a.json`
 - **Perspective:** Independent first pass on the implementation diff.
 
 ### Code Reviewer B
 - **Tool:** Dispatched by orchestrator (model per config)
 - **Artifact path:** `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
+- **Canonical findings path:** `.quest/<id>/phase_03_review/review_findings_code-reviewer-b.json`
 - **Perspective:** Independent second pass on the same implementation diff (different model family for diversity).
 - **Non-interactive rule:** Do not ask questions and do not return `needs_human`. Use explicit assumptions; if unsafe, return `blocked`.
 
@@ -31,7 +33,11 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 2. Check code quality, security, and patterns against `AGENTS.md`
 3. Verify test coverage for new/changed code
 4. Identify bugs, logic errors, or architectural violations
-5. Write review to the assigned artifact path for the current slot
+5. Write markdown review to the assigned artifact path for the current slot
+6. Write canonical findings JSON to the assigned findings path for the current slot
+
+Canonical findings schema (required fields per finding):
+`finding_id, source, kind, severity, confidence, path, line, summary, why_it_matters, evidence, action, needs_test, write_scope, related_acceptance_criteria`
 
 ## Input
 - Changed files (`git diff --name-only`) when available
@@ -48,7 +54,10 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 ```json
 {
   "status": "complete | needs_human | blocked",
-  "artifacts": [".quest/<id>/phase_03_review/review_code-reviewer-a.md or review_code-reviewer-b.md"],
+  "artifacts": [
+    ".quest/<id>/phase_03_review/review_code-reviewer-a.md or review_code-reviewer-b.md",
+    ".quest/<id>/phase_03_review/review_findings_code-reviewer-a.json or review_findings_code-reviewer-b.json"
+  ],
   "next": "fixer | null",
   "summary": "One line describing what you accomplished"
 }
@@ -57,6 +66,10 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 Use the artifact path for your assigned slot:
 - Reviewer A: `review_code-reviewer-a.md`
 - Reviewer B: `review_code-reviewer-b.md`
+
+Use the canonical findings path for your assigned slot:
+- Reviewer A: `review_findings_code-reviewer-a.json`
+- Reviewer B: `review_findings_code-reviewer-b.json`
 
 **Step 2 — Output text handoff block** (must match the JSON above):
 
@@ -67,6 +80,8 @@ ARTIFACTS: <assigned slot artifact path>
 NEXT: fixer | null
 SUMMARY: <one line>
 ```
+
+`ARTIFACTS` must list both files for the slot: markdown review and canonical findings JSON.
 
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 

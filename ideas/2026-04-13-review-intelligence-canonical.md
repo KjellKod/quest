@@ -1,6 +1,9 @@
 # Quest Review Intelligence Canonical Proposal
 
-## Status: in-progress
+## Status: done (Phase 1)
+
+Phase 1 shipped via quest `review-intelligence-canonical_2026-04-16__0218`.
+See [journal entry](../docs/quest-journal/review-intelligence-canonical_2026-04-16.md).
 
 ## Quest Prompt (Phase 1 -- Ready to Execute)
 

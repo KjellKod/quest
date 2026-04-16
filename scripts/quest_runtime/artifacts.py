@@ -14,18 +14,35 @@ ROLE_ARTIFACTS: dict[str, tuple[str, tuple[str, ...]]] = {
         "phase_01_plan",
         ("review_plan-reviewer-b.md", "handoff_plan-reviewer-b.json"),
     ),
-    "arbiter": ("phase_01_plan", ("arbiter_verdict.md", "handoff_arbiter.json")),
+    "arbiter": (
+        "phase_01_plan",
+        (
+            "arbiter_verdict.md",
+            "review_findings.json",
+            "review_backlog.json",
+            "arbiter_backlog.json",
+            "handoff_arbiter.json",
+        ),
+    ),
     "builder": (
         "phase_02_implementation",
         ("pr_description.md", "builder_feedback_discussion.md", "handoff.json"),
     ),
     "code-reviewer-a": (
         "phase_03_review",
-        ("review_code-reviewer-a.md", "handoff_code-reviewer-a.json"),
+        (
+            "review_code-reviewer-a.md",
+            "review_findings_code-reviewer-a.json",
+            "handoff_code-reviewer-a.json",
+        ),
     ),
     "code-reviewer-b": (
         "phase_03_review",
-        ("review_code-reviewer-b.md", "handoff_code-reviewer-b.json"),
+        (
+            "review_code-reviewer-b.md",
+            "review_findings_code-reviewer-b.json",
+            "handoff_code-reviewer-b.json",
+        ),
     ),
     "fixer": (
         "phase_03_review",

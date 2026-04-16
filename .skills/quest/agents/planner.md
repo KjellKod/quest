@@ -18,16 +18,18 @@ When running on Codex, this role is non-interactive:
 - `.skills/plan-maker/SKILL.md` (planning skill)
 - Quest brief
 - Relevant architecture docs (as needed)
+- Deferred backlog match artifact when present: `.quest/<id>/phase_01_plan/deferred_backlog_matches.json`
 - **On iteration 2+:** Arbiter verdict with synthesized feedback (`.quest/<id>/phase_01_plan/arbiter_verdict.md`)
 
 ## Responsibilities
 
 ### First invocation
 1. Read the quest brief and acceptance criteria
-2. Explore the codebase to understand current state
-3. Write a structured implementation plan
-4. Include: scope, approach, file changes, acceptance criteria, test strategy
-5. Write plan to `.quest/<quest_id>/phase_01_plan/plan.md` — the first lines MUST be your self-ID header (Agent/Model/Date/Quest ID) before any other content
+2. If `.quest/<id>/phase_01_plan/deferred_backlog_matches.json` exists, review it before planning and account for relevant deferred findings
+3. Explore the codebase to understand current state
+4. Write a structured implementation plan
+5. Include: scope, approach, file changes, acceptance criteria, test strategy
+6. Write plan to `.quest/<quest_id>/phase_01_plan/plan.md` — the first lines MUST be your self-ID header (Agent/Model/Date/Quest ID) before any other content
 
 ### Subsequent invocations (refinement)
 1. Read the Arbiter's verdict and synthesized feedback

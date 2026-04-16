@@ -86,7 +86,7 @@ Quest mode determines agent dispatch and iteration limits:
 | Plan reviewers      | Dual (A + B)      | Single (A only)   |
 | Arbiter             | Yes               | No — Reviewer A's verdict is used directly |
 | Code reviewers      | Dual (A + B)      | Single (A only)   |
-| Max fix iterations  | From allowlist gates (default 3) | min(solo.max_fix_iterations, allowlist gates) |
+| Max fix iterations  | default target: 2, hard cap: 3 (supplements allowlist gates) | min(2 default target, solo cap, allowlist gates), hard cap: 3 |
 
 **Solo verdict remapping:** In solo mode, Reviewer A's handoff says `next: "arbiter"` per the reviewer agent contract. The workflow remaps this: when `quest_mode == "solo"` and Reviewer A says `next: "arbiter"`, treat it as `next: "builder"` (approved). Write the remapped value to state for downstream consumers. If Reviewer A says `next: "planner"`, it means revision needed — no remapping.
 
@@ -304,6 +304,13 @@ gates.max_plan_iterations (default: 4)
 
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
+1.5 **Planner startup deferred-backlog scan (exact path match):**
+   - Candidate paths come from path-like tokens in `.quest/<id>/quest_brief.md`
+   - Run:
+     - `python3 scripts/quest_review_intelligence.py scan-backlog --jsonl .quest/backlog/deferred_findings.jsonl --paths <candidate-paths...> --output .quest/<id>/phase_01_plan/deferred_backlog_matches.json`
+   - If the JSONL file is missing, treat it as empty backlog (no error).
+   - If matches exist, surface: `N deferred findings touch this code -- pull into scope?`
+
 2. **Invoke Planner** (default Codex `mcp__codex__codex`, Claude runtime fallback):
    - Read `models.planner` from allowlist.
    - If planner model is Codex, invoke via `mcp__codex__codex` with `sandbox_permissions: "workspace-write"`.
@@ -311,6 +318,7 @@ gates.max_plan_iterations (default: 4)
    - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `plan.md` and `handoff.json` in `.quest/<id>/phase_01_plan/`.
    - Prompt: Reference file paths only, do not embed artifact content:
      - Quest brief: `.quest/<id>/quest_brief.md`
+     - Deferred backlog matches (if present): `.quest/<id>/phase_01_plan/deferred_backlog_matches.json`
      - Arbiter verdict (iteration 2+): `.quest/<id>/phase_01_plan/arbiter_verdict.md`
      - User feedback (if present): `.quest/<id>/phase_01_plan/user_feedback.md`
    - Require the prompt to include:
@@ -467,7 +475,13 @@ gates.max_plan_iterations (default: 4)
    - Log: `Plan review: arbiter=skipped (solo mode, using reviewer-a verdict)` to `.quest/<id>/logs/parallelism.log`
 
    **If `quest_mode == "workflow"` (default):** Read `models.arbiter` from allowlist. Invoke Arbiter through the corresponding runtime:
-   - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `arbiter_verdict.md` and `handoff_arbiter.json` in `.quest/<id>/phase_01_plan/`.
+   - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare:
+     - `arbiter_verdict.md`
+     - `review_findings.json`
+     - `review_backlog.json`
+     - `arbiter_backlog.json`
+     - `handoff_arbiter.json`
+     in `.quest/<id>/phase_01_plan/`.
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -481,6 +495,9 @@ gates.max_plan_iterations (default: 4)
 
      Artifact files have been prepared for you. Overwrite these files directly:
      - .quest/<id>/phase_01_plan/arbiter_verdict.md
+     - .quest/<id>/phase_01_plan/review_findings.json
+     - .quest/<id>/phase_01_plan/review_backlog.json
+     - .quest/<id>/phase_01_plan/arbiter_backlog.json
      - .quest/<id>/phase_01_plan/handoff_arbiter.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
@@ -488,12 +505,17 @@ gates.max_plan_iterations (default: 4)
      ```
    - Wait for the selected runtime to complete
    - Read `.quest/<id>/phase_01_plan/handoff_arbiter.json`
+   - Ensure `.quest/<id>/phase_01_plan/review_findings.json` always exists (empty array is valid)
+   - Ensure `.quest/<id>/phase_01_plan/review_backlog.json` and `.quest/<id>/phase_01_plan/arbiter_backlog.json` are content-equivalent
    - Route based on `next` field ("builder" = approved, "planner" = iterate)
    - Apply deterministic precedence from **Handoff File Polling** for native Claude task vs bridge execution
    - Fallback: if handoff.json missing or unparsable after that precedence, parse text handoff from response
 
 6. **Check verdict:**
-   - If `NEXT: builder` → Plan approved! Transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan_reviewed --status complete --last-verdict approve --expect-phase plan` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to **Step 3.5** (Interactive Presentation). Do not attempt the `presenting` transition while state still says `phase: plan`.
+   - If `NEXT: builder`:
+     - Validate canonical plan findings before transition:
+       - `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_01_plan/review_findings.json`
+     - Plan approved! Transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan_reviewed --status complete --last-verdict approve --expect-phase plan` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to **Step 3.5** (Interactive Presentation). Do not attempt the `presenting` transition while state still says `phase: plan`.
    - If `NEXT: planner` → Check iteration count
      - If `plan_iteration >= max_plan_iterations`: Warn user, ask to proceed anyway or review manually
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
@@ -681,7 +703,10 @@ After plan approval, present the plan interactively before proceeding to build.
    - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
    - **Reviewer B** (workflow only): dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
 
-   **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `review_code-reviewer-a.md` and `handoff_code-reviewer-a.json` in `.quest/<id>/phase_03_review/`, and `review_code-reviewer-b.md` and `handoff_code-reviewer-b.json` for Reviewer B (workflow mode only).
+   **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare:
+   - Reviewer A: `review_code-reviewer-a.md`, `review_findings_code-reviewer-a.json`, `handoff_code-reviewer-a.json`
+   - Reviewer B: `review_code-reviewer-b.md`, `review_findings_code-reviewer-b.json`, `handoff_code-reviewer-b.json`
+   in `.quest/<id>/phase_03_review/` (Reviewer B only in workflow mode).
 
    **Slot A** (runtime per `models.code-reviewer-a`; full and fast modes):
    **Full mode**:
@@ -706,6 +731,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Artifact files have been prepared for you. Overwrite these files directly:
      - .quest/<id>/phase_03_review/review_code-reviewer-a.md
+     - .quest/<id>/phase_03_review/review_findings_code-reviewer-a.json
      - .quest/<id>/phase_03_review/handoff_code-reviewer-a.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
@@ -733,6 +759,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Artifact files have been prepared for you. Overwrite these files directly:
      - .quest/<id>/phase_03_review/review_code-reviewer-a.md
+     - .quest/<id>/phase_03_review/review_findings_code-reviewer-a.json
      - .quest/<id>/phase_03_review/handoff_code-reviewer-a.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
@@ -767,6 +794,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Write ONLY to these review artifact files:
      - .quest/<id>/phase_03_review/review_code-reviewer-b.md
+     - .quest/<id>/phase_03_review/review_findings_code-reviewer-b.json
      - .quest/<id>/phase_03_review/handoff_code-reviewer-b.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
@@ -796,6 +824,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
      Write ONLY to these review artifact files:
      - .quest/<id>/phase_03_review/review_code-reviewer-b.md
+     - .quest/<id>/phase_03_review/review_findings_code-reviewer-b.json
      - .quest/<id>/phase_03_review/handoff_code-reviewer-b.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
 
@@ -822,40 +851,45 @@ After plan approval, present the plan interactively before proceeding to build.
       ```
       The wall-clock duration covers both agents. Since both calls are issued in the same message, they run concurrently by construction. Agent self-reported timestamps are unreliable and must NOT be used for parallelism verification.
 
-5. **Check verdicts via handoff.json (with fallback):**
-   - For each reviewer slot, use the `next` value obtained in step 4:
-     - If handoff.json was successfully read → use its `next` and `summary` fields
-     - If fallback was triggered after applying deterministic precedence (retry/fallback chain) → use `NEXT` and `SUMMARY` from parsed text `---HANDOFF---`
+5. **Merge canonical findings and build decisions backlog:**
+   - Merge per-slot canonical findings into phase-level findings:
+     - Workflow mode:
+       - `python3 scripts/quest_review_intelligence.py merge-findings --inputs .quest/<id>/phase_03_review/review_findings_code-reviewer-a.json .quest/<id>/phase_03_review/review_findings_code-reviewer-b.json --output .quest/<id>/phase_03_review/review_findings.json`
+     - Solo mode:
+       - `python3 scripts/quest_review_intelligence.py merge-findings --inputs .quest/<id>/phase_03_review/review_findings_code-reviewer-a.json --output .quest/<id>/phase_03_review/review_findings.json`
+   - Validate merged findings:
+     - `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_03_review/review_findings.json`
+   - Build canonical review backlog (decision stage):
+     - `python3 scripts/quest_review_intelligence.py build-backlog --findings .quest/<id>/phase_03_review/review_findings.json --output .quest/<id>/phase_03_review/review_backlog.json`
+   - Write compatibility alias with content-equivalent payload:
+     - `.quest/<id>/phase_03_review/arbiter_backlog.json` must match `review_backlog.json`
+   - Fixer intake is restricted to backlog entries with decision:
+     - `fix_now`
+     - `verify_first`
+   - Deferred backlog handling:
+     - For entries with decision `defer`, append to `.quest/backlog/deferred_findings.jsonl` with lineage fields using `append-deferred`
 
-   **If `quest_mode == "solo"`:** Only Reviewer A's verdict matters:
-   - If `next: "fixer"` → Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition fixing --status in_progress --expect-phase reviewing` — if fails, report to user and STOP. Issues found, proceed to Step 6
-   - If `next: null` → Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete --expect-phase reviewing` — if fails, report to user and STOP. Review passed! Go to Step 7
-   - Present summary:
-     ```
-     Review complete (solo):
-       Reviewer A: "<summary from handoff or fallback>"
-     Full review at: .quest/<id>/phase_03_review/review_code-reviewer-a.md
-     ```
-
-   **If `quest_mode == "workflow"` (default):**
-   - If EITHER slot has `next: "fixer"` → Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition fixing --status in_progress --expect-phase reviewing` — if fails, report to user and STOP. Issues found, proceed to Step 6
-   - If BOTH have `next: null` → Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete --expect-phase reviewing` — if fails, report to user and STOP. Review passed! Go to Step 7
-   - Present summaries to user:
-     ```
-     Review complete:
-       Claude: "<summary from handoff or fallback>"
-       Codex: "<summary from handoff or fallback (after retry/fallback precedence)>"
-     Full reviews at: .quest/<id>/phase_03_review/review_code-reviewer-a.md, .quest/<id>/phase_03_review/review_code-reviewer-b.md
-     ```
-   - Do NOT read the full review files for routing or status display
+6. **Route after decisions stage:**
+   - If `review_backlog.json` contains any `fix_now` or `verify_first` item:
+     - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition fixing --status in_progress --expect-phase reviewing`
+     - Proceed to Step 6
+   - If no actionable items remain:
+     - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete --expect-phase reviewing`
+     - Proceed to Step 7
+   - Do not route directly from reviewer `next` values once canonical backlog exists.
 
 ### Step 6: Fix Phase
+
+**Loop policy:** default review-loop target is 2 iterations, hard max is 3.
 
 **Read allowlist:** `gates.max_fix_iterations` (default: 3)
 
 **Solo override:** `solo.max_fix_iterations` (default: 2)
 
-**Solo mode cap:** If `quest_mode == "solo"`, cap `max_fix_iterations` at `min(solo.max_fix_iterations, gates.max_fix_iterations)`.
+**Effective cap rule:** This supplements existing gates:
+- start with default target `2`
+- enforce hard max `3`
+- cap by allowlist/solo limits: `min(3, gates.max_fix_iterations, solo.max_fix_iterations in solo mode)`
 
 **Gate check:**
 - Read `auto_approve_phases.fix_loop` from allowlist
@@ -873,6 +907,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Prompt: Reference file paths only, do not embed content:
      - Code review A: `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
      - Code review B: `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
+     - Decisions backlog: `.quest/<id>/phase_03_review/review_backlog.json`
      - Changed files: <prepared review scope summary>
      - Quest brief: `.quest/<id>/quest_brief.md`
      - Plan: `.quest/<id>/phase_01_plan/plan.md`
@@ -883,6 +918,7 @@ After plan approval, present the plan interactively before proceeding to build.
      - Write ONLY to these artifact files (source code changes go through normal edits):
        - `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md`
        - `.quest/<id>/phase_03_review/handoff_fixer.json`
+     - Implement only backlog entries with decisions `fix_now` and `verify_first`
      - Do not create Quest artifacts via shell redirection, heredocs, or echo.
      - handoff.json schema: `{"status", "artifacts", "next", "summary"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
@@ -907,20 +943,19 @@ After plan approval, present the plan interactively before proceeding to build.
 
 5. **Re-invoke Code Reviewers** (same dispatch rules as Step 5 — solo dispatches only Reviewer A, workflow dispatches both)
 
-6. **Check verdict (with fallback):**
-   - For each reviewer slot, use the `next` value obtained in step 5 (handoff.json preferred; text fallback only after deterministic precedence)
-
-   **If `quest_mode == "solo"`:** Only Reviewer A's verdict matters:
-   - If `next: null` → Fixed! Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete --expect-phase reviewing` — if fails, report to user and STOP. Proceed to Step 7
-   - If `next: "fixer"`:
-     - If `fix_iteration >= max_fix_iterations` (capped at `min(solo.max_fix_iterations, gates.max_fix_iterations)`): Warn user, ask to proceed or review manually
-     - Otherwise: Loop back to step 1
-
-   **If `quest_mode == "workflow"` (default):**
-   - If BOTH have `next: null` → Fixed! Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete --expect-phase reviewing` — if fails, report to user and STOP. Proceed to Step 7
-   - If EITHER has `next: "fixer"`:
-     - If `fix_iteration >= max_fix_iterations`: Warn user, ask to proceed or review manually
-     - Otherwise: Loop back to step 1
+6. **Rebuild decisions backlog and enforce loop bounds:**
+   - Re-run Step 5 decisions stage (merge findings -> validate -> build `review_backlog.json` + alias).
+   - If backlog has no `fix_now`/`verify_first` items:
+     - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete --expect-phase reviewing`
+     - Proceed to Step 7
+   - If actionable items remain:
+     - If `fix_iteration < 2`: loop back to step 1 (within default review-loop budget)
+     - If `fix_iteration == 2`: warn that default budget is exhausted; continue only with explicit approval
+     - If `fix_iteration >= 3` (hard cap):
+       - Rebuild backlog using at-cap policy (`--at-loop-cap`)
+       - Convert remaining findings to `defer` (accepted debt rationale) or `needs_human_decision`
+       - Append `defer` entries to `.quest/backlog/deferred_findings.jsonl`
+       - Stop looping; ask user to choose manual follow-up for `needs_human_decision` items
 
 ### Step 7: Complete
 

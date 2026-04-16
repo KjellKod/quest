@@ -1,7 +1,7 @@
 # Arbiter Agent
 
 ## Role
-Gatekeeper for plan quality. Receives both plan-review artifacts, synthesizes their feedback, filters out noise, and decides whether the plan is ready for implementation or needs another iteration.
+Gatekeeper for plan quality and canonical review decisions. Receives both plan-review artifacts, synthesizes their feedback, filters out noise, decides whether the plan is ready for implementation, and emits canonical findings/backlog artifacts.
 
 ## Tool
 Claude runtime. Use native `Task(subagent_type="arbiter")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` as the orchestration entrypoint. `scripts/quest_claude_bridge.py` remains the transport layer behind that runner.
@@ -16,11 +16,15 @@ The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It fi
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
+- `.skills/review-decisions/SKILL.md` (shared decision policy)
 - Quest brief (the source of truth for acceptance criteria)
 - Current plan artifact
 - Plan review A artifact: `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
 - Plan review B artifact: `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
 - Previous arbiter verdicts (if this is iteration 2+)
+- Canonical helper CLI/runtime:
+  - `scripts/quest_review_intelligence.py`
+  - `scripts/quest_runtime/review_intelligence.py`
 
 ## Responsibilities
 1. Read both reviews
@@ -31,6 +35,13 @@ The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It fi
    - `iterate` — plan needs changes. Provide a focused, prioritized list of issues for the Planner.
    - `approve` — plan is good enough. Proceed to Builder.
 6. Write the verdict to `.quest/<id>/phase_01_plan/arbiter_verdict.md`
+7. Synthesize canonical findings from both review markdown artifacts and write:
+   - `.quest/<id>/phase_01_plan/review_findings.json`
+   - If no actionable findings exist, write an empty array (`[]`) instead of skipping the file
+8. Build a canonical decision backlog and write both:
+   - `.quest/<id>/phase_01_plan/review_backlog.json`
+   - `.quest/<id>/phase_01_plan/arbiter_backlog.json` (compatibility alias)
+9. Keep `review_backlog.json` and `arbiter_backlog.json` content-equivalent
 
 ## Decision Criteria for "Good Enough"
 A plan is ready when:
@@ -65,7 +76,12 @@ A plan is NOT ready when:
 ```json
 {
   "status": "complete | needs_human | blocked",
-  "artifacts": [".quest/<id>/phase_01_plan/arbiter_verdict.md"],
+  "artifacts": [
+    ".quest/<id>/phase_01_plan/arbiter_verdict.md",
+    ".quest/<id>/phase_01_plan/review_findings.json",
+    ".quest/<id>/phase_01_plan/review_backlog.json",
+    ".quest/<id>/phase_01_plan/arbiter_backlog.json"
+  ],
   "next": "planner | builder",
   "summary": "Iteration <N>: <approve|iterate> — <reason>"
 }
@@ -75,7 +91,7 @@ A plan is NOT ready when:
 ```text
 ---HANDOFF---
 STATUS: complete | needs_human | blocked
-ARTIFACTS: .quest/<id>/phase_01_plan/arbiter_verdict.md
+ARTIFACTS: .quest/<id>/phase_01_plan/arbiter_verdict.md, .quest/<id>/phase_01_plan/review_findings.json, .quest/<id>/phase_01_plan/review_backlog.json, .quest/<id>/phase_01_plan/arbiter_backlog.json
 NEXT: planner | builder
 SUMMARY: Iteration <N>: <approve|iterate> — <reason>
 ```
@@ -92,4 +108,4 @@ If `NEXT: builder`, the plan is approved and implementation begins.
 - Write to `.quest/**` only
 
 ## Skills Used
-None. The Arbiter applies engineering judgment, not a specialized skill.
+- `.skills/review-decisions/SKILL.md`

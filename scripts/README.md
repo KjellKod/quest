@@ -8,6 +8,7 @@ Build and utility scripts for the Quest repository.
 |------------------|---------|
 | `quest_dashboard/` | Python package that generates a static HTML Quest Dashboard from journal entries and active quest state. See `quest_dashboard/README.md` for details. |
 | `quest_runtime/` | Python package with Quest orchestration helpers (state updates, Claude bridge runner, handoff polling). |
+| `quest_runtime/review_intelligence.py` | Canonical review-finding schema validation, dedupe/merge helpers, decision backlog policy, deferred JSONL append, and planner backlog scan matching. |
 | `quest_checks/` | Python package that provides the installed `quest-checks` CLI for running the standard Quest validation and test suite. |
 | `quest_claude_bridge.py` | Thin transport bridge from the current host into Claude CLI for Codex-led Claude-designated Quest roles. |
 | `quest_preflight.sh` | Checks second-model readiness before quest routing. Codex-led Claude probes now retain a recent successful host probe under `.quest/cache/` so later quest starts can reuse it. |
@@ -15,6 +16,7 @@ Build and utility scripts for the Quest repository.
 | `quest_state.py` | Updates `.quest/<id>/state.json` consistently and refreshes `updated_at`. |
 | `quest_startup_branch.py` | Creates the startup branch or worktree for a new quest from `.ai/allowlist.json` and returns machine-readable branch context JSON. |
 | `quest_claude_runner.py` | Runs Claude-designated Quest roles through the additive Codex-host Claude adapter, using `scripts/quest_claude_bridge.py` as transport plus `bypassPermissions`, explicit `--add-dir` access, handoff polling, and `context_health.log` updates. Native Claude-led Quest behavior stays on `Task(...)`. |
+| `quest_review_intelligence.py` | Thin CLI wrapper around `quest_runtime/review_intelligence.py` (`validate-findings`, `merge-findings`, `build-backlog`, `append-deferred`, `scan-backlog`). |
 | `quest_installer.sh` | Installs and updates Quest in any repository. Handles fresh installs, updates, and checksum-based change detection. |
 | `quest_validate-quest-config.sh` | Validates quest configuration files (allowlist JSON schema, role markdown completeness). Used by pre-commit hooks and CI. |
 | `quest_validate-handoff-contracts.sh` | Validates that role files use the correct handoff contract format (`---HANDOFF---` with STATUS/ARTIFACTS/NEXT/SUMMARY). |
@@ -37,6 +39,9 @@ python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase plan_revi
 
 # Probe the Claude bridge with a real artifact + handoff write
 python3 scripts/quest_claude_probe.py --quest-dir .quest/<id> --model opus
+
+# Validate canonical findings JSON
+python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_03_review/review_findings.json
 
 # Run the standard Quest validations and test suite
 quest-checks

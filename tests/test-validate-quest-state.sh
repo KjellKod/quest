@@ -45,6 +45,67 @@ create_state_json() {
 EOF
 }
 
+write_valid_review_findings() {
+  local filepath="$1"
+  cat > "$filepath" <<EOF
+[
+  {
+    "finding_id": "PF-001",
+    "source": "plan-reviewer-a",
+    "kind": "plan_review",
+    "severity": "medium",
+    "confidence": "medium",
+    "path": "phase_01_plan/plan.md",
+    "line": null,
+    "summary": "Clarify acceptance criteria mapping.",
+    "why_it_matters": "Planner/builder alignment depends on explicit AC mapping.",
+    "evidence": ["Reviewer note"],
+    "action": "Add explicit AC coverage lines.",
+    "needs_test": false,
+    "write_scope": ["phase_01_plan/plan.md"],
+    "related_acceptance_criteria": ["AC-1"]
+  }
+]
+EOF
+}
+
+write_review_backlog() {
+  local filepath="$1"
+  local mode="$2"
+
+  if [ "$mode" = "actionable" ]; then
+    cat > "$filepath" <<EOF
+{
+  "version": 1,
+  "counts": {
+    "fix_now": 1
+  },
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "decision": "fix_now"
+    }
+  ]
+}
+EOF
+  else
+    cat > "$filepath" <<EOF
+{
+  "version": 1,
+  "counts": {
+    "fix_now": 0
+  },
+  "items": [
+    {
+      "finding_id": "RF-002",
+      "decision": "drop"
+    }
+  ]
+}
+EOF
+  fi
+}
+
 # ---- Test Cases ----
 
 test_missing_state_json() {
@@ -77,6 +138,21 @@ test_valid_plan_to_plan_reviewed() {
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
   touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
+}
+
+test_valid_plan_to_plan_reviewed_solo_without_findings() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "solo"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
@@ -93,11 +169,46 @@ test_missing_artifact_plan_to_plan_reviewed() {
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
   # Missing review_plan-reviewer-b.md
   touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "review_plan-reviewer-b.md"
+}
+
+test_missing_review_findings_plan_to_plan_reviewed() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  # Missing review_findings.json
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review_findings.json"
+}
+
+test_invalid_review_findings_schema_plan_to_plan_reviewed() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  echo '[{"source":"plan-reviewer-a"}]' > "$tmpdir/phase_01_plan/review_findings.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -qi "schema invalid"
 }
 
 test_plan_reviewed_to_building_rejected() {
@@ -190,6 +301,7 @@ test_valid_reviewing_to_complete() {
   mkdir -p "$tmpdir/phase_03_review"
   touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
   touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
   echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
   echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
   local output
@@ -206,13 +318,14 @@ test_reviewing_to_complete_has_issues() {
   mkdir -p "$tmpdir/phase_03_review"
   touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
   touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
-  echo '{"status":"complete","next":"fixer","summary":"found issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "actionable"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
   echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -qi "clean"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -qi "actionable"
 }
 
 test_valid_reviewing_to_fixing() {
@@ -222,7 +335,8 @@ test_valid_reviewing_to_fixing() {
   mkdir -p "$tmpdir/phase_03_review"
   touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
   touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
-  echo '{"status":"complete","next":"fixer","summary":"found issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "actionable"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
   echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
@@ -238,7 +352,8 @@ test_reviewing_to_fixing_both_clean() {
   mkdir -p "$tmpdir/phase_03_review"
   touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
   touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
-  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo '{"status":"complete","next":"fixer","summary":"found issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
   echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
@@ -288,6 +403,22 @@ test_fix_iteration_exceeded() {
   rm -f "$stderr_file"
   rm -rf "$tmpdir"
   [ "$rc" -eq 0 ] && echo "$stderr_output" | grep -q "\[WARN\]"
+}
+
+test_fix_iteration_reaches_default_review_loop_target() {
+  local tmpdir stderr_file
+  tmpdir=$(mktemp -d)
+  stderr_file=$(mktemp)
+  create_state_json "$tmpdir" "fixing" 1 2
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_fix_feedback_discussion.md"
+  local output stderr_output
+  output=$(bash "$SCRIPT" "$tmpdir" "reviewing" 2>"$stderr_file")
+  local rc=$?
+  stderr_output=$(cat "$stderr_file")
+  rm -f "$stderr_file"
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ] && echo "$stderr_output" | grep -qi "default review-loop target 2"
 }
 
 test_fix_iteration_exceeded_uses_solo_cap() {
@@ -545,7 +676,10 @@ echo ""
 run_test test_missing_state_json
 run_test test_invalid_json
 run_test test_valid_plan_to_plan_reviewed
+run_test test_valid_plan_to_plan_reviewed_solo_without_findings
 run_test test_missing_artifact_plan_to_plan_reviewed
+run_test test_missing_review_findings_plan_to_plan_reviewed
+run_test test_invalid_review_findings_schema_plan_to_plan_reviewed
 run_test test_plan_reviewed_to_building_rejected
 run_test test_presentation_complete_to_building_arbiter_approved
 run_test test_presentation_complete_to_building_arbiter_says_iterate
@@ -559,6 +693,7 @@ run_test test_reviewing_to_fixing_both_clean
 run_test test_invalid_transition
 run_test test_plan_iteration_exceeded
 run_test test_fix_iteration_exceeded
+run_test test_fix_iteration_reaches_default_review_loop_target
 run_test test_fix_iteration_exceeded_uses_solo_cap
 run_test test_plan_iteration_within_bounds
 run_test test_help_flag
