@@ -119,7 +119,7 @@ def validate_finding(finding: dict[str, Any]) -> list[str]:
             errors.append(f"field '{field}' must be a non-empty string")
 
     line_value = finding.get("line")
-    if line_value is not None and (not isinstance(line_value, int) or line_value < 1):
+    if line_value is not None and (isinstance(line_value, bool) or not isinstance(line_value, int) or line_value < 1):
         errors.append("field 'line' must be null or an integer >= 1")
 
     if not isinstance(finding.get("needs_test"), bool):
@@ -270,7 +270,12 @@ def select_decision(finding: dict[str, Any], *, at_loop_cap: bool) -> dict[str, 
             reason = "Non-urgent finding deferred for later follow-up."
 
     decision_confidence = confidence
-    needs_validation = bool(finding["needs_test"] or decision in {"fix_now", "verify_first"})
+    needs_validation: list[str] = []
+    if finding["needs_test"]:
+        needs_validation.append("unit_test")
+    if decision in {"fix_now", "verify_first"}:
+        needs_validation.append("typecheck")
+        needs_validation.append("lint")
 
     return {
         "decision": decision,
