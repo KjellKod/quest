@@ -47,6 +47,19 @@ architecture docs.
 | `claude-cli-login-context.md` | reference | Operational note: external `claude` CLI login must be validated in the same execution context; an open app session is not enough. |
 | `codex_calls_claude.sh` | reference | Older experimental bash bridge prototype retained as a reference alongside the supported Python bridge. |
 
+### Execution Discipline and Observability
+| File | Status | Purpose |
+|---|---|---|
+| `2026-04-15-claude-insights-priorities.md` | proposed | Canonical Tier/Skip index mapping evaluation suggestions to sanity-checked Quest proposals. |
+| `2026-04-15-pretooluse-branch-dir-verification-hook.md` | proposed | Safe branch/directory verification hook strategy with non-git and existing-hook compatibility. |
+| `2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md` | proposed | CLAUDE.md context-confirmation rule to reduce wrong-repo/branch edits. |
+| `2026-04-15-claude-rule-never-dismiss-acceptance-criteria.md` | proposed | Guardrail against rejecting explicit acceptance criteria as optional. |
+| `2026-04-15-pr-create-checklist-via-pr-assistant.md` | proposed | PR checklist workflow via existing `pr-assistant` to avoid duplicate skill drift. |
+| `2026-04-15-precommit-status-diffstat-discipline.md` | proposed | Pre-commit staging verification discipline with optional bounded hook. |
+| `2026-04-15-subagent-path-constraints-hardening.md` | proposed | Hardening plan for sub-agent path constraints and output-path validation. |
+| `2026-04-15-tool-failure-two-attempt-cap.md` | proposed | Two-attempt cap rule for failing tool investigations to limit rabbit-holing. |
+| `2026-04-15-autonomous-pr-shepherd-headless.md` | idea | Long-horizon autonomous PR shepherd design with strict safety boundaries. |
+
 ### Graduated
 | Idea | Destination |
 |---|---|

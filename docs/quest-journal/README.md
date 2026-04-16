@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-04-15 | [claude-insights-ideas](claude-insights-ideas_2026-04-15.md) | > review ~/Documents/Evaluations/2026-04-15-claude-insights.html (you can also see the markdown, 2026-04-15-claude-in... |
 | 2026-04-13 | [feedback-intent-routing](feedback-intent-routing_2026-04-13.md) | Consolidate the Quest routing and feedback-intent ideas into one canonical delegation proposal. Use `ideas/2026-04-13... |
 | 2026-04-13 | [prompt-surface-consolidation](prompt-surface-consolidation_2026-04-13.md) | > 3. Prompt Surface / Instruction Architecture > > Consolidate Quest prompt-surface improvement docs into one canonic... |
 | 2026-04-12 | [caveman-review](caveman-review_2026-04-12.md) | Review completed. Decision: NO ACTION. |
