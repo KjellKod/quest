@@ -428,6 +428,33 @@ test_reviewing_to_complete_rejects_missing_next_in_handoff() {
   [ "$rc" -eq 1 ] && echo "$output" | grep -q 'handoff next must be explicitly present'
 }
 
+test_reviewing_to_complete_rejects_invalid_review_backlog_schema() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  cat > "$tmpdir/phase_03_review/review_backlog.json" <<EOF
+{
+  "version": 1,
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "decision": "drop"
+    }
+  ]
+}
+EOF
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review backlog schema invalid"
+}
+
 test_plan_to_plan_reviewed_rejects_invalid_backlog_item_schema() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -500,6 +527,33 @@ test_valid_reviewing_to_fixing() {
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 0 ]
+}
+
+test_reviewing_to_fixing_rejects_invalid_review_backlog_schema() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  cat > "$tmpdir/phase_03_review/review_backlog.json" <<EOF
+{
+  "version": 1,
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "decision": "fix_now"
+    }
+  ]
+}
+EOF
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review backlog schema invalid"
 }
 
 test_reviewing_to_fixing_both_clean() {
@@ -833,7 +887,9 @@ run_test test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff
 run_test test_reviewing_to_complete_requires_reviewer_handoffs
 run_test test_reviewing_to_complete_rejects_invalid_reviewer_handoff_json
 run_test test_reviewing_to_complete_rejects_missing_next_in_handoff
+run_test test_reviewing_to_complete_rejects_invalid_review_backlog_schema
 run_test test_valid_reviewing_to_fixing
+run_test test_reviewing_to_fixing_rejects_invalid_review_backlog_schema
 run_test test_reviewing_to_fixing_both_clean
 run_test test_invalid_transition
 run_test test_plan_iteration_exceeded

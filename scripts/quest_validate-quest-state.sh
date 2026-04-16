@@ -497,6 +497,9 @@ validate_semantic_content() {
     "reviewing->fixing")
       local backlog_file="$quest_dir/phase_03_review/review_backlog.json"
       local actionable_count
+      if ! validate_review_backlog_schema "$backlog_file"; then
+        return
+      fi
       if ! read_review_backlog_actionable_count "$backlog_file"; then
         return
       fi
@@ -511,6 +514,9 @@ validate_semantic_content() {
     "reviewing->complete")
       local backlog_file="$quest_dir/phase_03_review/review_backlog.json"
       local actionable_count
+      if ! validate_review_backlog_schema "$backlog_file"; then
+        return
+      fi
       if ! read_review_backlog_actionable_count "$backlog_file"; then
         return
       fi
