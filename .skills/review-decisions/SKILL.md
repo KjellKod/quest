@@ -41,8 +41,8 @@ Each backlog item must include:
 
 ## Loop-Cap Rules
 
-- Default review-loop budget is 2.
-- Hard cap is 3 total iterations.
+- Max fix iterations are governed by `gates.max_fix_iterations` in the allowlist (default 3).
+- Solo mode uses `min(solo.max_fix_iterations, gates.max_fix_iterations)`.
 - At cap, unresolved findings must be converted to:
   - `defer` (with accepted-debt rationale), or
   - `needs_human_decision`

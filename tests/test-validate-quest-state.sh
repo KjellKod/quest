@@ -405,22 +405,6 @@ test_fix_iteration_exceeded() {
   [ "$rc" -eq 0 ] && echo "$stderr_output" | grep -q "\[WARN\]"
 }
 
-test_fix_iteration_reaches_default_review_loop_target() {
-  local tmpdir stderr_file
-  tmpdir=$(mktemp -d)
-  stderr_file=$(mktemp)
-  create_state_json "$tmpdir" "fixing" 1 2
-  mkdir -p "$tmpdir/phase_03_review"
-  touch "$tmpdir/phase_03_review/review_fix_feedback_discussion.md"
-  local output stderr_output
-  output=$(bash "$SCRIPT" "$tmpdir" "reviewing" 2>"$stderr_file")
-  local rc=$?
-  stderr_output=$(cat "$stderr_file")
-  rm -f "$stderr_file"
-  rm -rf "$tmpdir"
-  [ "$rc" -eq 0 ] && echo "$stderr_output" | grep -qi "default review-loop target 2"
-}
-
 test_fix_iteration_exceeded_uses_solo_cap() {
   local tmpdir stderr_file fakerepo
   tmpdir=$(mktemp -d)
@@ -693,7 +677,6 @@ run_test test_reviewing_to_fixing_both_clean
 run_test test_invalid_transition
 run_test test_plan_iteration_exceeded
 run_test test_fix_iteration_exceeded
-run_test test_fix_iteration_reaches_default_review_loop_target
 run_test test_fix_iteration_exceeded_uses_solo_cap
 run_test test_plan_iteration_within_bounds
 run_test test_help_flag

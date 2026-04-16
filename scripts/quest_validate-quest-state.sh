@@ -33,8 +33,6 @@ FIX_ITERATION=0
 MAX_PLAN_ITERATIONS=4
 MAX_FIX_ITERATIONS=3
 SOLO_MAX_FIX_ITERATIONS=2
-DEFAULT_REVIEW_LOOP_TARGET=2
-HARD_MAX_FIX_ITERATIONS=3
 REVIEW_BACKLOG_ACTIONABLE_COUNT=""
 
 # Colors for output (disabled if not a terminal)
@@ -97,12 +95,7 @@ read_max_iterations() {
     val=$(jq -r '.gates.max_fix_iterations // empty' "$allowlist" 2>/dev/null)
     if [ -n "$val" ]; then
       if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge 1 ]; then
-        if [ "$val" -gt "$HARD_MAX_FIX_ITERATIONS" ]; then
-          warn "allowlist max_fix_iterations exceeds hard max $HARD_MAX_FIX_ITERATIONS: '$val' (using $HARD_MAX_FIX_ITERATIONS)"
-          MAX_FIX_ITERATIONS="$HARD_MAX_FIX_ITERATIONS"
-        else
-          MAX_FIX_ITERATIONS="$val"
-        fi
+        MAX_FIX_ITERATIONS="$val"
       else
         warn "allowlist max_fix_iterations is not a valid integer: '$val' (using default $MAX_FIX_ITERATIONS)"
       fi
@@ -110,12 +103,7 @@ read_max_iterations() {
     val=$(jq -r '.solo.max_fix_iterations // empty' "$allowlist" 2>/dev/null)
     if [ -n "$val" ]; then
       if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge 1 ]; then
-        if [ "$val" -gt "$HARD_MAX_FIX_ITERATIONS" ]; then
-          warn "allowlist solo.max_fix_iterations exceeds hard max $HARD_MAX_FIX_ITERATIONS: '$val' (using $HARD_MAX_FIX_ITERATIONS)"
-          SOLO_MAX_FIX_ITERATIONS="$HARD_MAX_FIX_ITERATIONS"
-        else
-          SOLO_MAX_FIX_ITERATIONS="$val"
-        fi
+        SOLO_MAX_FIX_ITERATIONS="$val"
       else
         warn "allowlist solo.max_fix_iterations is not a valid integer: '$val' (using default $SOLO_MAX_FIX_ITERATIONS)"
       fi
@@ -424,9 +412,6 @@ validate_iteration_bounds() {
     "reviewing")
       # Only check fix iteration if coming from fixing (check source phase, not counter value)
       if [ "$CURRENT_PHASE" = "fixing" ]; then
-        if [ "$fix_iter" -ge "$DEFAULT_REVIEW_LOOP_TARGET" ]; then
-          warn "Fix iteration $fix_iter reached default review-loop target $DEFAULT_REVIEW_LOOP_TARGET"
-        fi
         if [ "$fix_iter" -ge "$MAX_FIX_ITERATIONS" ]; then
           warn "Fix iteration $fix_iter >= max $MAX_FIX_ITERATIONS (iteration bounds exceeded)"
         else
@@ -435,9 +420,6 @@ validate_iteration_bounds() {
       fi
       ;;
     "fixing")
-      if [ "$fix_iter" -ge "$DEFAULT_REVIEW_LOOP_TARGET" ]; then
-        warn "Fix iteration $fix_iter reached default review-loop target $DEFAULT_REVIEW_LOOP_TARGET"
-      fi
       if [ "$fix_iter" -ge "$MAX_FIX_ITERATIONS" ]; then
         warn "Fix iteration $fix_iter >= max $MAX_FIX_ITERATIONS (iteration bounds exceeded)"
       else
