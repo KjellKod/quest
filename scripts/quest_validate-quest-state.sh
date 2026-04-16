@@ -34,6 +34,7 @@ MAX_PLAN_ITERATIONS=4
 MAX_FIX_ITERATIONS=3
 SOLO_MAX_FIX_ITERATIONS=2
 REVIEW_BACKLOG_ACTIONABLE_COUNT=""
+REVIEW_BACKLOG_HUMAN_DECISION_COUNT=0
 
 # Colors for output (disabled if not a terminal)
 if [ -t 1 ]; then
@@ -318,6 +319,12 @@ read_review_backlog_actionable_count() {
   fi
 
   REVIEW_BACKLOG_ACTIONABLE_COUNT="$actionable_count"
+
+  REVIEW_BACKLOG_HUMAN_DECISION_COUNT=$(jq '[.items[]? | select((.decision // "") == "needs_human_decision")] | length' "$backlog_file" 2>/dev/null)
+  if ! [[ "$REVIEW_BACKLOG_HUMAN_DECISION_COUNT" =~ ^[0-9]+$ ]]; then
+    REVIEW_BACKLOG_HUMAN_DECISION_COUNT=0
+  fi
+
   return 0
 }
 
@@ -389,6 +396,31 @@ validate_semantic_content() {
         pass "Semantic check: review backlog has no actionable findings"
       else
         fail "Semantic check: review backlog still has actionable findings; cannot complete"
+      fi
+
+      # Block completion while needs_human_decision items remain
+      if [ "$REVIEW_BACKLOG_HUMAN_DECISION_COUNT" -gt 0 ]; then
+        fail "Semantic check: review backlog has $REVIEW_BACKLOG_HUMAN_DECISION_COUNT needs_human_decision item(s); cannot auto-complete"
+      fi
+
+      # Safety check: block completion if any reviewer handoff requested fixes
+      local reviewer_a_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
+      if [ -f "$reviewer_a_handoff" ]; then
+        local next_a
+        next_a=$(jq -r '.next // ""' "$reviewer_a_handoff" 2>/dev/null)
+        if [ "$next_a" = "fixer" ]; then
+          fail "Semantic check: code-reviewer-a requested fixes (next=fixer) but completion attempted"
+        fi
+      fi
+      if [ "$QUEST_MODE" != "solo" ]; then
+        local reviewer_b_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
+        if [ -f "$reviewer_b_handoff" ]; then
+          local next_b
+          next_b=$(jq -r '.next // ""' "$reviewer_b_handoff" 2>/dev/null)
+          if [ "$next_b" = "fixer" ]; then
+            fail "Semantic check: code-reviewer-b requested fixes (next=fixer) but completion attempted"
+          fi
+        fi
       fi
       ;;
   esac

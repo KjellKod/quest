@@ -88,6 +88,21 @@ write_review_backlog() {
   ]
 }
 EOF
+  elif [ "$mode" = "human_decision" ]; then
+    cat > "$filepath" <<EOF
+{
+  "version": 1,
+  "counts": {
+    "needs_human_decision": 1
+  },
+  "items": [
+    {
+      "finding_id": "RF-003",
+      "decision": "needs_human_decision"
+    }
+  ]
+}
+EOF
   else
     cat > "$filepath" <<EOF
 {
@@ -292,6 +307,40 @@ test_reviewing_to_complete_has_issues() {
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -qi "actionable"
+}
+
+test_reviewing_to_complete_blocked_by_needs_human_decision() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "human_decision"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "needs_human_decision"
+}
+
+test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo '{"status":"complete","next":"fixer","summary":"found issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "code-reviewer-a requested fixes"
 }
 
 test_valid_reviewing_to_fixing() {
@@ -636,6 +685,8 @@ run_test test_valid_building_to_reviewing
 run_test test_building_to_reviewing_empty_dir
 run_test test_valid_reviewing_to_complete
 run_test test_reviewing_to_complete_has_issues
+run_test test_reviewing_to_complete_blocked_by_needs_human_decision
+run_test test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff
 run_test test_valid_reviewing_to_fixing
 run_test test_reviewing_to_fixing_both_clean
 run_test test_invalid_transition
