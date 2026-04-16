@@ -59,7 +59,7 @@ DELIVERABLES
 
 INTEGRATION TOUCHPOINTS
 
-- .skills/quest/agents/arbiter.md -- require arbiter_backlog.json output
+- .skills/quest/agents/arbiter.md -- require review_backlog.json output
   alongside arbiter_verdict.md
 - .skills/quest/agents/code-reviewer.md -- emit findings in the canonical
   schema
@@ -280,9 +280,9 @@ PR response flow:
 For plan and code review phases, arbiter must produce both:
 
 - `arbiter_verdict.md`
-- `arbiter_backlog.json`
+- `review_backlog.json`
 
-Minimum `arbiter_backlog.json` fields:
+Minimum `review_backlog.json` fields:
 
 - merged findings
 - deduped findings
