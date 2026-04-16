@@ -118,6 +118,32 @@ More content.
     assert "first paragraph after the title" not in entry.elevator_pitch
 
 
+def test_journal_elevator_pitch_skips_list_item_metadata_without_summary(tmp_path):
+    """Fallback pitch extraction should ignore list-item metadata blocks."""
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+
+    journal_content = """# Quest Journal: Test Quest
+
+- Quest ID: `test-quest_2026-04-13__1701`
+- Completed: 2026-04-13
+- Outcome: Preserve the actual first paragraph.
+
+This is the real elevator pitch after metadata.
+
+## What Shipped
+
+More content.
+"""
+
+    journal_path = journal_dir / "test.md"
+    journal_path.write_text(journal_content, encoding="utf-8")
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.elevator_pitch == "This is the real elevator pitch after metadata."
+
+
 def test_journal_entry_detects_abandoned_status(tmp_path):
     """Test that abandoned status is correctly detected and normalized."""
     journal_dir = tmp_path / "docs" / "quest-journal"
@@ -233,6 +259,84 @@ Some requirements here.
         == "This is the elevator pitch from the original prompt section."
     )
     assert len(quest_warnings) == 0
+
+
+def test_active_quest_pitch_supports_original_request_variant(tmp_path):
+    """Active quest cards should support legacy Original Request sections."""
+    quest_dir = tmp_path / ".quest" / "legacy-request"
+    quest_dir.mkdir(parents=True)
+
+    state = {
+        "quest_id": "legacy-request",
+        "slug": "legacy-request",
+        "status": "in_progress",
+        "phase": "plan",
+        "updated_at": "2026-02-12T10:00:00Z",
+    }
+    (quest_dir / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Legacy Request\n\n"
+        "## Original Request\n\n"
+        "Recover this prompt for active quest cards.\n",
+        encoding="utf-8",
+    )
+
+    quest, warnings = _parse_active_quest(quest_dir / "state.json")
+
+    assert quest.elevator_pitch == "Recover this prompt for active quest cards."
+    assert warnings == []
+
+
+def test_active_quest_pitch_supports_user_request_variant(tmp_path):
+    """Active quest cards should support legacy User Request sections."""
+    quest_dir = tmp_path / ".quest" / "legacy-user-request"
+    quest_dir.mkdir(parents=True)
+
+    state = {
+        "quest_id": "legacy-user-request",
+        "slug": "legacy-user-request",
+        "status": "in_progress",
+        "phase": "plan",
+        "updated_at": "2026-02-12T10:00:00Z",
+    }
+    (quest_dir / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Legacy User Request\n\n"
+        "## User Request\n\n"
+        "Recover this prompt variant for active quest cards.\n",
+        encoding="utf-8",
+    )
+
+    quest, warnings = _parse_active_quest(quest_dir / "state.json")
+
+    assert quest.elevator_pitch == "Recover this prompt variant for active quest cards."
+    assert warnings == []
+
+
+def test_active_quest_pitch_supports_original_user_input_variant(tmp_path):
+    """Active quest cards should support legacy Original User Input sections."""
+    quest_dir = tmp_path / ".quest" / "legacy-original-user-input"
+    quest_dir.mkdir(parents=True)
+
+    state = {
+        "quest_id": "legacy-original-user-input",
+        "slug": "legacy-original-user-input",
+        "status": "in_progress",
+        "phase": "plan",
+        "updated_at": "2026-02-12T10:00:00Z",
+    }
+    (quest_dir / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Legacy Original User Input\n\n"
+        "## Original User Input\n\n"
+        "Recover this original user input for active quest cards.\n",
+        encoding="utf-8",
+    )
+
+    quest, warnings = _parse_active_quest(quest_dir / "state.json")
+
+    assert quest.elevator_pitch == "Recover this original user input for active quest cards."
+    assert warnings == []
 
 
 def test_malformed_state_json_produces_warning(tmp_path):

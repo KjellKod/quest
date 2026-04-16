@@ -34,9 +34,16 @@ Reviewed `.ws/caveman`, captured the useful learnings, and explicitly decided no
 
 - **The Implementer** (builder): 
 
-## This is where it all began...
+## Quest Brief
 
-> `$quest review .ws/caveman. I don't like the full caveman approach but I'm wondering if there are some learnings we can make here? create in .ws your findings, your opinion about their approach and...
+`$quest review .ws/caveman. I don't like the full caveman approach but I'm wondering if there are some learnings we can make here? create in .ws your findings, your opinion about their approach and your recommendation going forward`
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/caveman-review_2026-04-12.md`
 
 ## Celebration Data
 

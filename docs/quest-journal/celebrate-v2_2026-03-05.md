@@ -35,8 +35,83 @@
 - Plan iterations: 1
 - Fix iterations: 1 (3 issues: dead safe_mode branches, broad PR regex, duplicate data loading)
 
-## This is where it all began...
+## Quest Brief
 
-> The current quest_celebrate implementation is a stripped-down v1 that doesn't match the vision in ideas/quest-completion-animations.md. Rework the epic and silly renderers to deliver the full experience described in the idea file.
->
-> "Shipping should feel like a celebration, not a status update."
+The current quest_celebrate implementation is a stripped-down v1 that doesn't match the vision in ideas/quest-completion-animations.md. Rework the epic and silly renderers to deliver the full experience described in the idea file: big ASCII block-letter quest title, achievements unlocked section (dynamically generated from quest stats), impact metrics, quality score, full movie-style end credits with starring/crew/achievements/quote sections, and gremlin battle + retirement art.
+
+Additional requirements from user:
+- The celebration should dig into ALL quest artifacts: reviews, findings, handovers, the plan, what was achieved
+- Show what the plan was and what was accomplished
+- Show PR info if available — PR number, comments posted
+- Scrolling credits should be SLOWER than current implementation (more cinematic)
+- `epic` should be the default style (not `standard`)
+- `--quest-dir` required, everything else optional with sensible defaults
+- `--help` should show all options with clear descriptions of each style
+- Keep the existing config/terminal detection/safe-mode infrastructure, just make the output match the idea
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/celebrate-v2_2026-03-05.md`
+
+## Celebration Data
+
+<!-- celebration-data-start -->
+```json
+{
+  "quest_mode": "unknown",
+  "agents": [
+    {
+      "name": "arbiter",
+      "model": "",
+      "role": "The Judge"
+    },
+    {
+      "name": "builder",
+      "model": "",
+      "role": "The Implementer"
+    }
+  ],
+  "achievements": [
+    {
+      "icon": "[BUG]",
+      "title": "Gremlin Slayer",
+      "desc": "Tackled 13 review findings"
+    },
+    {
+      "icon": "[TEST]",
+      "title": "Battle Tested",
+      "desc": "Survived 7 reviews"
+    },
+    {
+      "icon": "[WIN]",
+      "title": "Quest Complete",
+      "desc": "All phases finished successfully"
+    }
+  ],
+  "metrics": [
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 1"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 1"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 7"
+    }
+  ],
+  "quality": {
+    "tier": "Platinum",
+    "grade": "P"
+  },
+  "test_count": null,
+  "tests_added": null,
+  "files_changed": 16
+}
+```
+<!-- celebration-data-end -->

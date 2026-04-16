@@ -4,8 +4,7 @@
 - Completed: 2026-04-15
 - Mode: solo
 - Quality: Platinum
-- Outcome: > review ~/Documents/Evaluations/2026-04-15-claude-insights.html (you can also see the markdown, 2026-04-15-claude-insights.md but it's not as visual)
-> create very clear, super technical ideas doc...
+- Outcome: Turned the Claude insights evaluation into sanity-checked technical idea documents with clear prioritization.
 
 ## What Shipped
 
@@ -43,10 +42,20 @@
 
 - **The Implementer** (builder): 
 
-## This is where it all began...
+## Quest Brief
 
-> > review ~/Documents/Evaluations/2026-04-15-claude-insights.html (you can also see the markdown, 2026-04-15-claude-insights.md but it's not as visual)
-> create very clear, super technical ideas doc...
+> review ~/Documents/Evaluations/2026-04-15-claude-insights.html (you can also see the markdown, 2026-04-15-claude-insights.md but it's not as visual)
+> create very clear, super technical ideas documents in the ideas folder and rank them in priority of what to try.
+>
+> Sanity check the suggestions, keeping in mind that Quest is used both inside the quest repo itself, but typically used in other repos (or outside other repos operating outside-in).
+> Let's create actionable, easy to understand steps. I believe the suggestions they have are almost verbatim what should be copied into the ideas but we need to sanity check it.
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/claude-insights-ideas_2026-04-15.md`
 
 ## Celebration Data
 

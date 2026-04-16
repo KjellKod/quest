@@ -64,8 +64,74 @@ Environment variables: `QUEST_ANIMATIONS`, `QUEST_STYLE`, `QUEST_SPEED`, `QUEST_
 - Plan iterations: 1
 - Fix iterations: 1 (config path, CI speed override, TERM=dumb behavior)
 
-## This is where it all began...
+## Quest Brief
 
 > Make quest completion feel like an achievement, not just a checkbox. ASCII animations, progress bars, and end credits create memorable conclusions to multi-agent workflows.
 >
 > "Shipping should feel like a celebration, not a status update."
+
+### Archived Brief
+
+Implement `quest-completion-animations.md` - ASCII art animations and celebration displays for completed quests.
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/quest-completion-animations_2026-03-04.md`
+
+## Celebration Data
+
+<!-- celebration-data-start -->
+```json
+{
+  "quest_mode": "unknown",
+  "agents": [
+    {
+      "name": "arbiter",
+      "model": "",
+      "role": "The Judge"
+    }
+  ],
+  "achievements": [
+    {
+      "icon": "[BUG]",
+      "title": "Gremlin Slayer",
+      "desc": "Tackled 4 review findings"
+    },
+    {
+      "icon": "[TEST]",
+      "title": "Battle Tested",
+      "desc": "Survived 4 reviews"
+    },
+    {
+      "icon": "[WIN]",
+      "title": "Quest Complete",
+      "desc": "All phases finished successfully"
+    }
+  ],
+  "metrics": [
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 1"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 1"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 4"
+    }
+  ],
+  "quality": {
+    "tier": "Platinum",
+    "grade": "P"
+  },
+  "test_count": null,
+  "tests_added": null,
+  "files_changed": 5
+}
+```
+<!-- celebration-data-end -->

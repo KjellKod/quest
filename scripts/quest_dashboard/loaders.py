@@ -16,6 +16,7 @@ from pathlib import Path
 from quest_celebrate.quest_data import (
     QUALITY_TIERS,
     extract_celebration_data_from_journal as _extract_celebration_data,
+    extract_metadata_value as _extract_metadata,
     friendly_model_name as _friendly_model_name,
 )
 
@@ -221,36 +222,6 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
         celebration_data=celebration_data,
     )
 
-
-def _extract_metadata(content: str, key: str) -> str | None:
-    """Extract metadata value from bold, list-item, or plain markdown patterns.
-
-    Matches both:
-    - **Key:** value  (colon is INSIDE the bold markers)
-    - **Key**: value  (colon is OUTSIDE - less common)
-    - - Key: value     (list-item format)
-    - Key: value       (plain format)
-
-    Args:
-        content: Markdown content
-        key: Metadata key (case-insensitive)
-
-    Returns:
-        Extracted value or None
-    """
-    patterns = [
-        rf"\*\*{re.escape(key)}:\s*\*\*\s*(.+?)(?:\n|$)",
-        rf"\*\*{re.escape(key)}\*\*\s*:\s*(.+?)(?:\n|$)",
-        rf"^\s*[-*]\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
-        rf"^\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
-        if match:
-            return match.group(1).strip().strip("`")
-    return None
-
-
 def _extract_title(content: str) -> str | None:
     """Extract title from journal heading.
 
@@ -405,7 +376,7 @@ def _extract_summary_pitch(content: str) -> str | None:
 def _extract_first_paragraph(content: str) -> str:
     """Extract the first non-empty paragraph from content.
 
-    Skips headings, metadata lines (**Key:** value), and empty lines.
+    Skips headings, metadata lines (`**Key:** value` and `- Key: value`), and empty lines.
     Preserves paragraphs that start with bold text that is not a metadata key.
     """
     lines = content.split("\n")
@@ -424,6 +395,12 @@ def _extract_first_paragraph(content: str) -> str:
         if re.match(r"\*\*[^*]+:\s*\*\*", stripped) or re.match(
             r"\*\*[^*]+\*\*\s*:", stripped
         ):
+            if paragraph_lines:
+                break
+            continue
+
+        # Skip list-style metadata lines: - Key: value / * Key: value
+        if re.match(r"^[-*]\s+[^:]+:\s+", stripped):
             if paragraph_lines:
                 break
             continue
@@ -655,16 +632,22 @@ def _extract_brief_pitch(content: str) -> str | None:
     3. First paragraph of entire brief
     """
     # Try Original Prompt section
-    match = re.search(
-        r"^##\s+User Input \(Original Prompt\)\s*$(.+?)(?=^##|\Z)",
-        content,
-        re.MULTILINE | re.DOTALL,
-    )
-    if match:
-        section = match.group(1).strip()
-        pitch = _extract_first_paragraph(section)
-        if pitch:
-            return pitch
+    for pattern in (
+        r"^##\s+User Input(?:\s+\(Original Prompt\))?\s*$(.+?)(?=^##|\Z)",
+        r"^##\s+User Request\s*$(.+?)(?=^##|\Z)",
+        r"^##\s+Original User Input\s*$(.+?)(?=^##|\Z)",
+        r"^##\s+Original Request\s*$(.+?)(?=^##|\Z)",
+    ):
+        match = re.search(
+            pattern,
+            content,
+            re.IGNORECASE | re.MULTILINE | re.DOTALL,
+        )
+        if match:
+            section = match.group(1).strip()
+            pitch = _extract_first_paragraph(section)
+            if pitch:
+                return pitch
 
     # Try Requirements section
     match = re.search(
