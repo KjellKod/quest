@@ -44,7 +44,7 @@ This quest addressed inconsistencies discovered during the thin-orchestrator que
 - Codex-only subagent topology established (gpt-5.3-codex for all non-orchestrator agents)
 - Prepares for Phase 4 (role file elimination)
 
-## This is where it all began...
+## Quest Brief
 
 From the investigation that triggered this quest:
 
@@ -62,6 +62,10 @@ From `ideas/handoff-fix-plan.md`:
 > - No role file claims a JSON-only contract
 > - No "Context Is In Your Prompt" text that contradicts the thin orchestrator
 > - Claude Task tool prompts explicitly ask for the handoff
+
+### Archived Brief
+
+"implement plan ideas/handoff-fix-plan.md using only gpt-5.3-codex agents in all locations except the orchestrator"
 
 ## Iterations
 
@@ -93,3 +97,100 @@ This quest is transitional and Phase-4-compatible. Phase 4 will:
 - Keep only arbiter and quest-agent roles
 
 The handoff contract established here will be preserved when Phase 4 eliminates the role files.
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/handoff-contract-fix_2026-02-09.md`
+
+## Celebration Data
+
+<!-- celebration-data-start -->
+```json
+{
+  "quest_mode": "unknown",
+  "agents": [
+    {
+      "name": "arbiter",
+      "model": "",
+      "role": "The Judge"
+    },
+    {
+      "name": "plan-reviewer-a",
+      "model": "anthropic/claude-opus",
+      "role": "The A Plan Critic"
+    },
+    {
+      "name": "plan-reviewer-b",
+      "model": "openai/gpt-5.3-codex",
+      "role": "The B Plan Critic"
+    },
+    {
+      "name": "builder",
+      "model": "",
+      "role": "The Implementer"
+    },
+    {
+      "name": "code-reviewer-a",
+      "model": "anthropic/claude-opus",
+      "role": "The A Code Critic"
+    },
+    {
+      "name": "code-reviewer-b",
+      "model": "openai/gpt-5.3-codex",
+      "role": "The B Code Critic"
+    }
+  ],
+  "achievements": [
+    {
+      "icon": "[BUG]",
+      "title": "Gremlin Slayer",
+      "desc": "Tackled 9 review findings"
+    },
+    {
+      "icon": "[TEST]",
+      "title": "Battle Tested",
+      "desc": "Survived 5 reviews"
+    },
+    {
+      "icon": "[PLAN]",
+      "title": "Plan Perfectionist",
+      "desc": "Iterated plan 3 times"
+    },
+    {
+      "icon": "[TEAM]",
+      "title": "Full Squad",
+      "desc": "6 agents collaborated"
+    },
+    {
+      "icon": "[WIN]",
+      "title": "Quest Complete",
+      "desc": "All phases finished successfully"
+    }
+  ],
+  "metrics": [
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 3"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 1"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 5"
+    }
+  ],
+  "quality": {
+    "tier": "Bronze",
+    "grade": "B"
+  },
+  "test_count": null,
+  "tests_added": null,
+  "files_changed": 0
+}
+```
+<!-- celebration-data-end -->

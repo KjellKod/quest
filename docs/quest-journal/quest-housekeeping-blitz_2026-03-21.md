@@ -27,9 +27,18 @@
 - Plan iterations: 1
 - Fix iterations: 0
 
-## This is where it all began...
+## Quest Brief
 
-> "take a look at the .quests and take a look at archived quests and took a look at our portfolio dashboard, did we archive things that didn't get into the dashboard?"
+Full original prompt was not recorded for this quest. This is the best available brief context.
+
+Forensic sweep of stale quests, missing journal entries, broken archive/celebration automation, and a Codex sandbox permission footgun. Archive completed quests, backfill journals for 10 invisible PRs, fix sandbox_permissions on all Codex reviewer/fixer invocations, and automate Step 7 completion flow with a new script.
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/quest-housekeeping-blitz_2026-03-21.md`
 
 ## Celebration Data
 
@@ -37,29 +46,40 @@
 ```json
 {
   "quest_mode": "solo",
-  "agents": [
-    {"name": "claude-opus-4.6", "model": "claude-opus-4-6", "role": "The Investigator & Fixer"}
-  ],
+  "agents": [],
   "achievements": [
-    {"icon": "🕵️", "title": "Archaeology Badge", "desc": "Excavated 8 orphaned quests from .quest/ graveyard"},
-    {"icon": "📝", "title": "Journal Scribe", "desc": "Wrote 7 journal entries covering 10 invisible PRs"},
-    {"icon": "🔓", "title": "Permission Exorcist", "desc": "Found missing sandbox_permissions across 5 Codex invocations"},
-    {"icon": "🤖", "title": "Automation Bootstrapper", "desc": "Built quest_complete.py to replace manual Step 7"},
-    {"icon": "🎯", "title": "Root Cause Triple", "desc": "Diagnosed 3 separate issues in one session"}
+    {
+      "icon": "[SOLO]",
+      "title": "Solo Adventurer",
+      "desc": "Completed quest with a single companion"
+    },
+    {
+      "icon": "[WIN]",
+      "title": "Quest Complete",
+      "desc": "All phases finished successfully"
+    }
   ],
   "metrics": [
-    {"icon": "📊", "label": "Dashboard: 23 to 37 quests"},
-    {"icon": "🧹", "label": "8 orphaned quests archived"},
-    {"icon": "🔧", "label": "5 Codex invocations patched"},
-    {"icon": "📝", "label": "7 journal entries backfilled"}
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 1"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 0"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 0"
+    }
   ],
   "quality": {
-    "tier": "Gold",
-    "grade": "B"
+    "tier": "Diamond",
+    "grade": "D"
   },
   "test_count": null,
   "tests_added": null,
-  "files_changed": 12
+  "files_changed": 0
 }
 ```
 <!-- celebration-data-end -->

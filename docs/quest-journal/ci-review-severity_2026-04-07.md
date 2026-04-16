@@ -33,9 +33,18 @@
 - **The Judge** (arbiter): 
 - **The Implementer** (builder): 
 
-## This is where it all began...
+## Quest Brief
 
-> User selection: full quest.
+```
+$quest review our ideas for CI improvements, see docs/security, docs/implementation any idea documents and this # Severity-Based Automated PR Review: Analysis and Adoption Plan
+```
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/ci-review-severity_2026-04-07.md`
 
 ## Celebration Data
 

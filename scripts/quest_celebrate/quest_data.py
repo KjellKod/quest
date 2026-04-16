@@ -6,6 +6,8 @@ try/except for graceful degradation -- missing or malformed files produce
 empty defaults, never crashes.
 """
 
+from __future__ import annotations
+
 import json
 import re
 from dataclasses import dataclass, field
@@ -52,6 +54,8 @@ class QuestData:
 
     # From quest_brief.md
     brief_summary: str = ""
+    brief_body: str = ""
+    brief_source: str = ""
 
     # From plan.md
     plan_summary: str = ""
@@ -172,18 +176,15 @@ def _read_state_json(quest_dir: Path) -> dict:
         return {}
 
 
-def _read_quest_brief(quest_dir: Path) -> Tuple[str, str]:
-    """Extract name and summary from quest_brief.md.
-
-    Returns (name, summary). Falls back to empty strings.
-    """
+def _read_quest_brief(quest_dir: Path) -> Tuple[str, str, str, str]:
+    """Extract name, summary, full body, and source from quest_brief.md."""
     brief_path = quest_dir / "quest_brief.md"
     if not brief_path.exists():
-        return "", ""
+        return "", "", "", ""
     try:
         text = brief_path.read_text(encoding="utf-8")
     except IOError:
-        return "", ""
+        return "", "", "", ""
 
     name = ""
     # Try "# Quest Brief: <title>"
@@ -196,24 +197,74 @@ def _read_quest_brief(quest_dir: Path) -> Tuple[str, str]:
         if heading_match:
             name = heading_match.group(1).strip()
 
-    # Extract summary: look for "## User Input" section, or first paragraph
-    summary = ""
-    user_input_match = re.search(
-        r"## User Input\s*\n+(.+?)(?:\n\n|\n##|\Z)", text, re.DOTALL
+    def extract_section(heading_patterns: tuple[str, ...]) -> str:
+        for heading_pattern in heading_patterns:
+            match = re.search(
+                rf"{heading_pattern}\s*\n+(.+?)(?=^##\s+|\Z)",
+                text,
+                re.IGNORECASE | re.MULTILINE | re.DOTALL,
+            )
+            if match:
+                section = match.group(1).strip()
+                if section:
+                    return section
+        return ""
+
+    def first_level_two_section() -> str:
+        matches = list(re.finditer(r"^##\s+(.+?)\s*$", text, re.MULTILINE))
+        for idx, match in enumerate(matches):
+            heading = match.group(1).strip().lower()
+            if heading == "router classification":
+                continue
+            start = match.end()
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+            section = text[start:end].strip()
+            if section:
+                return section
+        return ""
+
+    def summarize(markdown: str) -> str:
+        cleaned_lines: list[str] = []
+        in_code_block = False
+        for raw_line in markdown.splitlines():
+            stripped = raw_line.strip()
+            if stripped.startswith("```"):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
+            stripped = re.sub(r"^\s*>\s?", "", stripped)
+            if stripped:
+                cleaned_lines.append(stripped)
+        summary = re.sub(r"\s+", " ", " ".join(cleaned_lines)).strip()
+        if len(summary) > 200:
+            summary = summary[:197] + "..."
+        return summary
+
+    brief_body = extract_section(
+        (
+            r"^##\s+User Input(?:\s+\(Original Prompt\))?\s*$",
+            r"^##\s+User Request\s*$",
+            r"^##\s+Original User Input\s*$",
+            r"^##\s+Original Request\s*$",
+        )
     )
-    if user_input_match:
-        summary = user_input_match.group(1).strip()
-    else:
-        # First non-heading paragraph
+    brief_source = "original_prompt" if brief_body else ""
+
+    if not brief_body:
+        brief_body = first_level_two_section()
+        if brief_body:
+            brief_source = "brief_section"
+
+    if not brief_body:
         para_match = re.search(r"\n\n([^#\n].+?)(?:\n\n|\Z)", text, re.DOTALL)
         if para_match:
-            summary = para_match.group(1).strip()
+            brief_body = para_match.group(1).strip()
+            brief_source = "brief_paragraph"
 
-    # Truncate summary to first ~200 chars for display
-    if len(summary) > 200:
-        summary = summary[:197] + "..."
+    brief_summary = summarize(brief_body) if brief_body else ""
 
-    return name, summary
+    return name, brief_summary, brief_body, brief_source
 
 
 def _read_plan_summary(quest_dir: Path) -> str:
@@ -719,7 +770,7 @@ def extract_celebration_data_from_journal(content: str) -> Optional[dict]:
         return None
 
 
-def _extract_metadata(content: str, key: str) -> str:
+def extract_metadata_value(content: str, key: str) -> str | None:
     """Extract journal metadata from bold, list-item, or plain formats."""
     patterns = [
         rf"\*\*{re.escape(key)}:\s*\*\*\s*(.+?)(?:\n|$)",
@@ -731,6 +782,13 @@ def _extract_metadata(content: str, key: str) -> str:
         match = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
         if match:
             return match.group(1).strip().strip("`")
+    return None
+
+
+def _extract_metadata(content: str, key: str) -> str:
+    value = extract_metadata_value(content, key)
+    if value is not None:
+        return value
     return ""
 
 
@@ -900,10 +958,12 @@ def load_quest_data(quest_dir: Path) -> QuestData:
             data.name = parts[0].replace("-", " ").title()
 
     # 2. quest_brief.md
-    brief_name, brief_summary = _read_quest_brief(quest_dir)
+    brief_name, brief_summary, brief_body, brief_source = _read_quest_brief(quest_dir)
     if brief_name:
         data.name = brief_name
     data.brief_summary = brief_summary
+    data.brief_body = brief_body
+    data.brief_source = brief_source
 
     # 3. plan.md
     data.plan_summary = _read_plan_summary(quest_dir)

@@ -4,9 +4,7 @@
 - Completed: 2026-04-13
 - Mode: solo
 - Quality: Platinum
-- Outcome: > 3. Prompt Surface / Instruction Architecture
->
-> Consolidate Quest prompt-surface improvement docs into one canonical instruction architecture proposal. Merge `ideas/2026-04-13-focused-rule-packs...
+- Outcome: Consolidated overlapping Quest prompt-surface proposals into one canonical instruction architecture document.
 
 ## What Shipped
 
@@ -29,11 +27,35 @@
 - Plan iterations: 1
 - Fix iterations: 0
 
-## This is where it all began...
+## Quest Brief
 
-> > 3. Prompt Surface / Instruction Architecture
+> 3. Prompt Surface / Instruction Architecture
 >
-> Consolidate Quest prompt-surface improvement docs into one canonical instruction architecture proposal. Merge `ideas/2026-04-13-focused-rule-packs...
+> Consolidate Quest prompt-surface improvement docs into one canonical instruction architecture proposal. Merge `ideas/2026-04-13-focused-rule-packs.md` and `ideas/2026-04-13-orchestration-improvement-workflow.md` into a single successor doc, keeping the scope strictly at the proposal/documentation level. The merged doc must clearly separate:
+>
+> 1. selective rule-pack loading
+> 2. canonical ownership of policy families
+> 3. workflow-first skill structure
+> 4. prompt assembly/debugging model
+> 5. migration plan
+>
+> It must explicitly preserve these rules:
+> - this only matters if runtime prompt loading actually changes
+> - avoid pack explosion
+> - keep role wiring separate from policy packs
+> - use workflows as short executable recipes with entry/exit conditions
+> - prefer one medium-value coherent proposal over two overlapping documentation-shape ideas
+>
+> This quest should only produce cleaned-up proposal docs, not implementation changes. Create a new successor document in `ideas/`, retire superseded working docs to `.ws/`, and update `ideas/README.md` plus cross-references so nothing goes stale.
+>
+> Note: Other agents are working with other docs. Don't trip them up. If any document is missing then check the `.ws/` folder as it might have been moved there.
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/prompt-surface-consolidation_2026-04-13.md`
 
 ## Celebration Data
 

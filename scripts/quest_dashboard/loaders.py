@@ -16,6 +16,7 @@ from pathlib import Path
 from quest_celebrate.quest_data import (
     QUALITY_TIERS,
     extract_celebration_data_from_journal as _extract_celebration_data,
+    extract_metadata_value as _extract_metadata,
     friendly_model_name as _friendly_model_name,
 )
 
@@ -154,9 +155,12 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
     # Extract completed date
     completed_date = _extract_date(content, journal_path)
 
-    # Extract elevator pitch from Summary section
-    elevator_pitch = _extract_summary_pitch(content) or _extract_first_paragraph(
-        content
+    # Extract elevator pitch from Summary section first, then Outcome metadata,
+    # then the first real paragraph as a last resort.
+    elevator_pitch = (
+        _extract_summary_pitch(content)
+        or _extract_outcome_pitch(content)
+        or _extract_first_paragraph(content)
     )
 
     # Extract PR number
@@ -220,36 +224,6 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
         tests_added=tests_added,
         celebration_data=celebration_data,
     )
-
-
-def _extract_metadata(content: str, key: str) -> str | None:
-    """Extract metadata value from bold, list-item, or plain markdown patterns.
-
-    Matches both:
-    - **Key:** value  (colon is INSIDE the bold markers)
-    - **Key**: value  (colon is OUTSIDE - less common)
-    - - Key: value     (list-item format)
-    - Key: value       (plain format)
-
-    Args:
-        content: Markdown content
-        key: Metadata key (case-insensitive)
-
-    Returns:
-        Extracted value or None
-    """
-    patterns = [
-        rf"\*\*{re.escape(key)}:\s*\*\*\s*(.+?)(?:\n|$)",
-        rf"\*\*{re.escape(key)}\*\*\s*:\s*(.+?)(?:\n|$)",
-        rf"^\s*[-*]\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
-        rf"^\s*{re.escape(key)}:\s*`?(.+?)`?\s*$",
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
-        if match:
-            return match.group(1).strip().strip("`")
-    return None
-
 
 def _extract_title(content: str) -> str | None:
     """Extract title from journal heading.
@@ -402,10 +376,59 @@ def _extract_summary_pitch(content: str) -> str | None:
     return _extract_first_paragraph(section)
 
 
+def _extract_outcome_pitch(content: str) -> str | None:
+    """Extract a normalized pitch from the journal Outcome metadata."""
+    match = re.search(
+        r"(?m)^\s*[-*]\s*Outcome:\s*`?(.+?)`?\s*$|^\s*\*\*Outcome:\s*\*\*\s*(.+?)$|^\s*\*\*Outcome\*\*\s*:\s*(.+?)$|^\s*Outcome:\s*`?(.+?)`?\s*$",
+        content,
+    )
+    if not match:
+        return None
+
+    lines = content.splitlines()
+    start_idx = None
+    first_line = ""
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        metadata_match = re.match(r"^[-*]\s+Outcome:\s*(.+)$", stripped)
+        if not metadata_match:
+            metadata_match = re.match(r"^\*\*Outcome:\s*\*\*\s*(.+)$", stripped)
+        if not metadata_match:
+            metadata_match = re.match(r"^\*\*Outcome\*\*\s*:\s*(.+)$", stripped)
+        if not metadata_match:
+            metadata_match = re.match(r"^Outcome:\s*(.+)$", stripped)
+        if metadata_match:
+            start_idx = idx
+            first_line = metadata_match.group(1).strip().strip("`")
+            break
+
+    if start_idx is None:
+        return None
+
+    outcome_lines = [first_line]
+    for line in lines[start_idx + 1 :]:
+        stripped = line.strip()
+        if not stripped:
+            break
+        if stripped.startswith("#"):
+            break
+        if re.match(r"^[-*]\s+[^:]+:\s+", stripped):
+            break
+        if re.match(r"^\*\*[^*]+:\s*\*\*", stripped) or re.match(r"^\*\*[^*]+\*\*\s*:", stripped):
+            break
+        if not stripped.startswith(">"):
+            break
+        outcome_lines.append(stripped)
+
+    cleaned = re.sub(r"(?m)^\s*>\s?", "", "\n".join(outcome_lines))
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned or None
+
+
 def _extract_first_paragraph(content: str) -> str:
     """Extract the first non-empty paragraph from content.
 
-    Skips headings, metadata lines (**Key:** value), and empty lines.
+    Skips headings, metadata lines (`**Key:** value` and `- Key: value`), and empty lines.
     Preserves paragraphs that start with bold text that is not a metadata key.
     """
     lines = content.split("\n")
@@ -424,6 +447,12 @@ def _extract_first_paragraph(content: str) -> str:
         if re.match(r"\*\*[^*]+:\s*\*\*", stripped) or re.match(
             r"\*\*[^*]+\*\*\s*:", stripped
         ):
+            if paragraph_lines:
+                break
+            continue
+
+        # Skip list-style metadata lines: - Key: value / * Key: value
+        if re.match(r"^[-*]\s+[^:]+:\s+", stripped):
             if paragraph_lines:
                 break
             continue
@@ -539,7 +568,8 @@ def load_active_quests(quest_dir: Path) -> tuple[list[ActiveQuest], list[str]]:
 
         try:
             quest, quest_warnings = _parse_active_quest(state_path)
-            quests.append(quest)
+            if quest is not None:
+                quests.append(quest)
             warnings.extend(quest_warnings)
         except Exception as e:
             warnings.append(f"Failed to parse quest state {state_path}: {e}")
@@ -555,7 +585,7 @@ def load_active_quests(quest_dir: Path) -> tuple[list[ActiveQuest], list[str]]:
     return quests, warnings
 
 
-def _parse_active_quest(state_path: Path) -> tuple[ActiveQuest, list[str]]:
+def _parse_active_quest(state_path: Path) -> tuple[ActiveQuest | None, list[str]]:
     """Parse a single quest state.json and quest_brief.md into an ActiveQuest.
 
     Args:
@@ -577,6 +607,15 @@ def _parse_active_quest(state_path: Path) -> tuple[ActiveQuest, list[str]]:
     updated_at_str = state_data.get("updated_at")
     plan_iteration = state_data.get("plan_iteration")
     fix_iteration = state_data.get("fix_iteration")
+
+    # Completed quests should already be journaled/archived and should not show up
+    # in the active dashboard lane even if a stale .quest directory remains locally.
+    if str(raw_status).lower() in {"complete", "completed", "done"} or str(raw_phase).lower() in {
+        "complete",
+        "completed",
+        "done",
+    }:
+        return None, warnings
 
     # Normalize status and phase for display
     status = _normalize_display_label(raw_status)
@@ -655,16 +694,22 @@ def _extract_brief_pitch(content: str) -> str | None:
     3. First paragraph of entire brief
     """
     # Try Original Prompt section
-    match = re.search(
-        r"^##\s+User Input \(Original Prompt\)\s*$(.+?)(?=^##|\Z)",
-        content,
-        re.MULTILINE | re.DOTALL,
-    )
-    if match:
-        section = match.group(1).strip()
-        pitch = _extract_first_paragraph(section)
-        if pitch:
-            return pitch
+    for pattern in (
+        r"^##\s+User Input(?:\s+\(Original Prompt\))?\s*$(.+?)(?=^##|\Z)",
+        r"^##\s+User Request\s*$(.+?)(?=^##|\Z)",
+        r"^##\s+Original User Input\s*$(.+?)(?=^##|\Z)",
+        r"^##\s+Original Request\s*$(.+?)(?=^##|\Z)",
+    ):
+        match = re.search(
+            pattern,
+            content,
+            re.IGNORECASE | re.MULTILINE | re.DOTALL,
+        )
+        if match:
+            section = match.group(1).strip()
+            pitch = _extract_first_paragraph(section)
+            if pitch:
+                return pitch
 
     # Try Requirements section
     match = re.search(

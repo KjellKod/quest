@@ -77,3 +77,140 @@ These should stop being operator instructions and become Quest-owned defaults:
 Do not solve this by writing longer user prompts or more operator checklists.
 
 That only hides the orchestration gap instead of fixing it.
+
+## Quest Brief
+
+Implement Codex-led Claude bridge runtime hardening as a solo quest.
+
+Primary context:
+- ideas/codex-led-claude-bridge-runtime-hardening.md
+
+Problem:
+- The Claude bridge works, but Codex-led Quest still does not "just work".
+- Operators still have to restate runtime rules in the prompt:
+  - run the bridge probe first
+  - use the correct Claude runner
+  - use bypassPermissions
+  - grant repo/quest access
+  - enforce non-interactive behavior
+  - prohibit needs_human
+  - use handoff.json polling
+  - use scripts/quest_state.py
+  - respect solo dispatch rules
+- We want those rules to become native Quest behavior.
+
+Goal:
+- Make Codex-led Quest dispatch Claude-designated roles through the native Quest Claude bridge/runtime path without prompt-level babysitting.
+- Make the runner own process waiting, handoff polling, timeout handling, and final status normalization.
+- Eliminate orchestrator wait-state narration like "the planner bridge call is still running".
+
+Required behavior:
+- Before the first Claude-designated role in a Codex-led quest, run scripts/quest_claude_probe.py automatically.
+- For Claude-designated roles in Codex-led runs, dispatch through scripts/quest_claude_runner.py.
+- scripts/claude_cli_bridge.py is the transport layer, not the orchestration entrypoint.
+- The runner must own:
+  - subprocess waiting
+  - handoff.json polling
+  - timeout handling
+  - auth / invocation failure normalization
+  - final structured status return
+- Codex should route from the runner result, not by ad hoc polling or process babysitting.
+- Claude bridge roles must run non-interactive by policy:
+  - no questions
+  - no needs_human
+  - explicit assumptions if context is incomplete
+- Solo mode should be mechanical:
+  - planner
+  - reviewer A
+  - builder
+  - no arbiter
+  - no reviewer B
+
+Implementation expectations:
+- Update Quest orchestration/runtime code and docs, not just prompts.
+- Prefer workflow- and script-owned defaults over operator instructions.
+- Preserve existing handoff.json contracts and context_health.log semantics.
+- Keep the scope focused on Codex-led Claude bridge runtime hardening.
+
+Suggested files to inspect first:
+- .skills/quest/delegation/workflow.md
+- .skills/quest/SKILL.md
+- .skills/quest/agents/*.md
+- scripts/quest_claude_probe.py
+- scripts/quest_claude_runner.py
+- scripts/quest_state.py
+- scripts/claude_cli_bridge.py
+- .ai/quest.md
+- docs/guides/codex-quest-install.md
+- ideas/codex-led-claude-bridge-runtime-hardening.md
+
+Acceptance criteria:
+- A Codex-led solo quest can run a trivial Claude-designated role without the operator restating bridge mechanics.
+- The bridge probe is automatic before first Claude dispatch.
+- Claude dispatch goes through scripts/quest_claude_runner.py automatically.
+- The runner returns a structured final result and owns waiting/polling.
+- Codex no longer improvises bridge wait-state narration.
+- runtime=claude is logged correctly for bridge-backed Claude roles.
+- Workflow/docs make this behavior explicit and native.
+- Native Claude execution remains unchanged for Claude/Opus-orchestrated quests.
+- The bridge runtime activates only when the orchestrator is Codex and the target role is Claude-designated.
+- Tests/documentation cover both host modes:
+  - Claude-led quest -> native Claude path
+  - Codex-led quest -> Claude bridge path
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/codex-led-claude-bridge-runtime-hardening_2026-03-09.md`
+
+## Celebration Data
+
+<!-- celebration-data-start -->
+```json
+{
+  "quest_mode": "solo",
+  "agents": [
+    {
+      "name": "builder",
+      "model": "",
+      "role": "The Implementer"
+    }
+  ],
+  "achievements": [
+    {
+      "icon": "[TEST]",
+      "title": "Battle Tested",
+      "desc": "Survived 1 reviews"
+    },
+    {
+      "icon": "[SOLO]",
+      "title": "Solo Adventurer",
+      "desc": "Completed quest with a single companion"
+    }
+  ],
+  "metrics": [
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 1"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 0"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 1"
+    }
+  ],
+  "quality": {
+    "tier": "Abandoned",
+    "grade": "A"
+  },
+  "test_count": null,
+  "tests_added": null,
+  "files_changed": 4
+}
+```
+<!-- celebration-data-end -->
