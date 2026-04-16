@@ -39,14 +39,16 @@ If no argument is provided:
 - `quest_brief.md` — quest name, risk level, scope, acceptance criteria
 - `phase_01_plan/handoff_arbiter.json` — arbiter verdict and summary
 - `phase_01_plan/handoff.json` — planner summary
+- `phase_01_plan/deferred_backlog_matches.json` — prior deferred findings resurfaced for this quest, if present
 - `phase_02_implementation/handoff.json` — builder summary, files changed
 - `phase_03_review/handoff_code-reviewer-a.json` — reviewer verdict
 - `phase_03_review/handoff_code-reviewer-b.json` — reviewer verdict
 - `phase_03_review/handoff_fixer.json` — fixer summary, what was fixed, test counts
+- `.quest/backlog/deferred_findings.jsonl` — repo-level deferred findings backlog; filter entries where `deferred_by_quest` matches the current quest ID
 
 **From a journal entry** (`docs/quest-journal/*.md`):
 1. Look for a `celebration_data` JSON block between `<!-- celebration-data-start -->` and `<!-- celebration-data-end -->` markers
-2. If found: use the structured data (agents, achievements, metrics, quality tier, quote, victory narrative)
+2. If found: use the structured data (agents, achievements, metrics, quality tier, quote, victory narrative, carry-over findings)
 3. If not found (legacy entries): "wing it" from the markdown text — read the sections for iterations, files changed, outcome, and the "what started it" quote. Improvise achievements and metrics from context.
 
 ### Step 3: Generate the Celebration as Rich Markdown
@@ -68,6 +70,14 @@ You have all the data from the artifacts. Now **create your own celebration**. B
 - Quality tier — named, from the full honest scale (see below)
 - A quote from the actual quest (arbiter verdict, reviewer summary, fixer handoff)
 - Victory narrative — what this quest proved or demonstrated (or survival narrative for rough ones)
+
+**Conditional carry-over sections** (include only when artifact-backed count > 0):
+- `Inherited Findings Used`
+  - source: `phase_01_plan/deferred_backlog_matches.json`
+  - show count plus up to 3 short summaries
+- `Findings Left For Future Quests`
+  - source: `.quest/backlog/deferred_findings.jsonl` entries where `deferred_by_quest == current quest ID`
+  - show count plus up to 3 short summaries
 
 **Use markdown richly:**
 - `#` and `##` headers (they render big and bold)
@@ -95,6 +105,7 @@ You have all the data from the artifacts. Now **create your own celebration**. B
 - Use generic achievements like "Quest Complete" or "Battle Tested"
 - Use generic metrics like "Files Changed: 22" or "Agents Involved: 0"
 - Use fallback quotes like "Shipping should feel like a celebration"
+- Invent carry-over "insights" not backed by the artifacts above
 - Follow a rigid template — reimagine the presentation each time
 
 **Example of the kind of output that looks amazing** (but don't copy this — create your own based on what you read):
