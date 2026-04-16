@@ -63,7 +63,7 @@ Reference: ideas/2026-04-13-review-intelligence-canonical.md
 
 ### Integration Touchpoints
 
-- .skills/quest/agents/arbiter.md -- require arbiter_backlog.json output alongside arbiter_verdict.md
+- .skills/quest/agents/arbiter.md -- require review_backlog.json output alongside arbiter_verdict.md
 - .skills/quest/agents/code-reviewer.md -- emit findings in the canonical schema
 - .skills/quest/agents/planner.md -- add the backlog-scan step to planner startup
 - .skills/quest/delegation/workflow.md -- document the decisions stage and the loop caps
