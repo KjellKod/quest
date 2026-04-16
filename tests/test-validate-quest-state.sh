@@ -72,53 +72,72 @@ EOF
 write_review_backlog() {
   local filepath="$1"
   local mode="$2"
+  local decision="drop"
+  local needs_validation='[]'
+  local needs_test='false'
 
-  if [ "$mode" = "actionable" ]; then
-    cat > "$filepath" <<EOF
+  case "$mode" in
+    actionable)
+      decision="fix_now"
+      needs_validation='["unit_test"]'
+      needs_test='true'
+      ;;
+    human_decision)
+      decision="needs_human_decision"
+      ;;
+    clean)
+      decision="drop"
+      ;;
+    *)
+      decision="drop"
+      ;;
+  esac
+
+  cat > "$filepath" <<EOF
 {
   "version": 1,
+  "generated_at": "2026-04-16T00:00:00Z",
+  "at_loop_cap": false,
+  "allowed_decisions": [
+    "fix_now",
+    "verify_first",
+    "defer",
+    "drop",
+    "needs_human_decision"
+  ],
   "counts": {
-    "fix_now": 1
+    "fix_now": $([ "$decision" = "fix_now" ] && echo 1 || echo 0),
+    "verify_first": 0,
+    "defer": 0,
+    "drop": $([ "$decision" = "drop" ] && echo 1 || echo 0),
+    "needs_human_decision": $([ "$decision" = "needs_human_decision" ] && echo 1 || echo 0)
   },
   "items": [
     {
       "finding_id": "RF-001",
-      "decision": "fix_now"
+      "source": "code-reviewer-a",
+      "kind": "correctness",
+      "severity": "medium",
+      "confidence": "medium",
+      "path": "scripts/example.py",
+      "line": 10,
+      "summary": "Example review backlog item.",
+      "why_it_matters": "Used to validate backlog contract handling.",
+      "evidence": ["Example evidence"],
+      "action": "Add targeted coverage.",
+      "needs_test": $needs_test,
+      "write_scope": ["scripts/example.py"],
+      "related_acceptance_criteria": ["AC-1"],
+      "decision": "$decision",
+      "decision_confidence": "medium",
+      "reason": "Example reason",
+      "needs_validation": $needs_validation,
+      "owner": "scripts",
+      "batch": "scripts/example.py"
     }
   ]
 }
 EOF
-  elif [ "$mode" = "human_decision" ]; then
-    cat > "$filepath" <<EOF
-{
-  "version": 1,
-  "counts": {
-    "needs_human_decision": 1
-  },
-  "items": [
-    {
-      "finding_id": "RF-003",
-      "decision": "needs_human_decision"
-    }
-  ]
-}
-EOF
-  else
-    cat > "$filepath" <<EOF
-{
-  "version": 1,
-  "counts": {
-    "fix_now": 0
-  },
-  "items": [
-    {
-      "finding_id": "RF-002",
-      "decision": "drop"
-    }
-  ]
-}
-EOF
-  fi
 }
 
 # ---- Test Cases ----
@@ -390,6 +409,51 @@ test_reviewing_to_complete_rejects_invalid_reviewer_handoff_json() {
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "handoff is not valid JSON"
+}
+
+test_reviewing_to_complete_rejects_missing_next_in_handoff() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo '{"status":"complete","summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q 'handoff next must be explicitly present'
+}
+
+test_plan_to_plan_reviewed_rejects_invalid_backlog_item_schema() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  cat > "$tmpdir/phase_01_plan/review_backlog.json" <<EOF
+{
+  "version": 1,
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "decision": "bogus"
+    }
+  ]
+}
+EOF
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review backlog schema invalid"
 }
 
 test_valid_reviewing_to_fixing() {
@@ -739,6 +803,7 @@ run_test test_reviewing_to_complete_blocked_by_needs_human_decision
 run_test test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff
 run_test test_reviewing_to_complete_requires_reviewer_handoffs
 run_test test_reviewing_to_complete_rejects_invalid_reviewer_handoff_json
+run_test test_reviewing_to_complete_rejects_missing_next_in_handoff
 run_test test_valid_reviewing_to_fixing
 run_test test_reviewing_to_fixing_both_clean
 run_test test_invalid_transition
@@ -755,6 +820,7 @@ run_test test_non_numeric_iteration_fields
 run_test test_valid_plan_reviewed_to_presenting
 run_test test_valid_presenting_to_presentation_complete
 run_test test_valid_presentation_complete_to_building
+run_test test_plan_to_plan_reviewed_rejects_invalid_backlog_item_schema
 run_test test_non_numeric_allowlist_iterations
 run_test test_zero_allowlist_iterations_are_rejected
 run_test test_validation_log_written

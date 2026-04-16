@@ -288,6 +288,82 @@ validate_review_backlog_schema() {
     return 1
   fi
 
+  local item_errors
+  item_errors=$(jq -r '
+    def required_item_fields:
+      [
+        "finding_id",
+        "source",
+        "kind",
+        "severity",
+        "confidence",
+        "path",
+        "line",
+        "summary",
+        "why_it_matters",
+        "evidence",
+        "action",
+        "needs_test",
+        "write_scope",
+        "related_acceptance_criteria",
+        "decision",
+        "decision_confidence",
+        "reason",
+        "needs_validation",
+        "owner",
+        "batch"
+      ];
+    def allowed_decisions:
+      ["fix_now", "verify_first", "defer", "drop", "needs_human_decision"];
+    def allowed_confidence:
+      ["high", "medium", "low"];
+    [
+      if (.items | type) != "array" then
+        "top-level items must be an array"
+      else empty end,
+      (.items // []) | to_entries[] |
+      . as $entry |
+      (required_item_fields[] as $field | select(($entry.value | has($field)) | not) | "[\($entry.key)] missing field \($field)"),
+      (if (($entry.value.decision // null) != null and (($entry.value.decision | type) != "string" or ((allowed_decisions | index($entry.value.decision)) == null))) then
+        "[\($entry.key)] invalid decision"
+      else empty end),
+      (if (($entry.value.decision_confidence // null) != null and (($entry.value.decision_confidence | type) != "string" or ((allowed_confidence | index($entry.value.decision_confidence)) == null))) then
+        "[\($entry.key)] invalid decision_confidence"
+      else empty end),
+      (if (($entry.value.reason // null) != null and (($entry.value.reason | type) != "string" or ($entry.value.reason | length) == 0)) then
+        "[\($entry.key)] invalid reason"
+      else empty end),
+      (if (($entry.value.owner // null) != null and (($entry.value.owner | type) != "string" or ($entry.value.owner | length) == 0)) then
+        "[\($entry.key)] invalid owner"
+      else empty end),
+      (if (($entry.value.batch // null) != null and (($entry.value.batch | type) != "string" or ($entry.value.batch | length) == 0)) then
+        "[\($entry.key)] invalid batch"
+      else empty end),
+      (if (($entry.value.needs_validation // null) != null and (($entry.value.needs_validation | type) != "array" or ([($entry.value.needs_validation[]? | strings)] | length) != ($entry.value.needs_validation | length))) then
+        "[\($entry.key)] invalid needs_validation"
+      else empty end),
+      (if (($entry.value.evidence // null) != null and (($entry.value.evidence | type) != "array" or ([($entry.value.evidence[]? | strings)] | length) != ($entry.value.evidence | length))) then
+        "[\($entry.key)] invalid evidence"
+      else empty end),
+      (if (($entry.value.write_scope // null) != null and (($entry.value.write_scope | type) != "array" or ([($entry.value.write_scope[]? | strings)] | length) != ($entry.value.write_scope | length))) then
+        "[\($entry.key)] invalid write_scope"
+      else empty end),
+      (if (($entry.value.related_acceptance_criteria // null) != null and (($entry.value.related_acceptance_criteria | type) != "array" or ([($entry.value.related_acceptance_criteria[]? | strings)] | length) != ($entry.value.related_acceptance_criteria | length))) then
+        "[\($entry.key)] invalid related_acceptance_criteria"
+      else empty end),
+      (if (($entry.value.needs_test // null) != null and (($entry.value.needs_test | type) != "boolean")) then
+        "[\($entry.key)] invalid needs_test"
+      else empty end),
+      (if (($entry.value.line // null) != null and (($entry.value.line | type) != "number" or (($entry.value.line | floor) != $entry.value.line) or ($entry.value.line < 1))) then
+        "[\($entry.key)] invalid line"
+      else empty end)
+    ] | .[]' "$backlog_file" 2>/dev/null)
+
+  if [ -n "$item_errors" ]; then
+    fail "Semantic check: review backlog schema invalid ($backlog_file): $item_errors"
+    return 1
+  fi
+
   REVIEW_BACKLOG_ACTIONABLE_COUNT="$original_actionable"
   REVIEW_BACKLOG_HUMAN_DECISION_COUNT="$original_human"
   pass "Semantic check: review backlog is valid ($backlog_file)"
@@ -307,7 +383,12 @@ read_required_handoff_next() {
     return 1
   fi
 
-  next_value=$(jq -r '.next // ""' "$handoff_file" 2>/dev/null)
+  if ! jq -e 'has("next") and (.next == null or .next == "fixer")' "$handoff_file" >/dev/null 2>&1; then
+    fail "Semantic check: handoff next must be explicitly present and be null or \"fixer\" ($handoff_file)"
+    return 1
+  fi
+
+  next_value=$(jq -r '.next' "$handoff_file" 2>/dev/null)
   if [ "$next_value" = "null" ]; then
     next_value=""
   fi
