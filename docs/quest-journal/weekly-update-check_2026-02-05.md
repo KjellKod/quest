@@ -29,7 +29,7 @@ Implemented automatic weekly update checking for Quest. After a quest completes,
 - [x] AC7: `.quest-last-check` added to `.gitignore`
 - [x] AC8: Idea file status updated to `implemented`
 
-## This is where it all began...
+## Quest Brief
 
 > **From `ideas/weekly-update-check.md`:**
 >
@@ -41,8 +41,101 @@ Implemented automatic weekly update checking for Quest. After a quest completes,
 > - Opt-in update: user decides whether to apply
 > - "Set it and forget it" experience for adopters
 
+### Archived Brief
+
+Full original prompt was not recorded for this quest. This is the best available brief context.
+
+Implement automatic weekly update checking for Quest that notifies users when updates are available after a quest completes.
+
 ## Artifacts
 
 - Plan: `.quest/weekly-update-check_2026-02-04__2349/phase_01_plan/plan.md`
 - Reviews: `.quest/weekly-update-check_2026-02-04__2349/phase_01_plan/review_claude.md`
 - Code Review: `.quest/weekly-update-check_2026-02-04__2349/phase_03_review/review_claude.md`
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/weekly-update-check_2026-02-05.md`
+
+## Celebration Data
+
+<!-- celebration-data-start -->
+```json
+{
+  "quest_mode": "unknown",
+  "agents": [
+    {
+      "name": "arbiter",
+      "model": "",
+      "role": "The Judge"
+    },
+    {
+      "name": "plan-reviewer-a",
+      "model": "anthropic/claude-opus",
+      "role": "The A Plan Critic"
+    },
+    {
+      "name": "builder",
+      "model": "",
+      "role": "The Implementer"
+    },
+    {
+      "name": "code-reviewer-a",
+      "model": "anthropic/claude-opus",
+      "role": "The A Code Critic"
+    }
+  ],
+  "achievements": [
+    {
+      "icon": "[BUG]",
+      "title": "Gremlin Slayer",
+      "desc": "Tackled 4 review findings"
+    },
+    {
+      "icon": "[TEST]",
+      "title": "Battle Tested",
+      "desc": "Survived 2 reviews"
+    },
+    {
+      "icon": "[PLAN]",
+      "title": "Plan Perfectionist",
+      "desc": "Iterated plan 2 times"
+    },
+    {
+      "icon": "[TEAM]",
+      "title": "Full Squad",
+      "desc": "4 agents collaborated"
+    },
+    {
+      "icon": "[WIN]",
+      "title": "Quest Complete",
+      "desc": "All phases finished successfully"
+    }
+  ],
+  "metrics": [
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 2"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 0"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 2"
+    }
+  ],
+  "quality": {
+    "tier": "Gold",
+    "grade": "G"
+  },
+  "test_count": null,
+  "tests_added": null,
+  "files_changed": 0
+}
+```
+<!-- celebration-data-end -->

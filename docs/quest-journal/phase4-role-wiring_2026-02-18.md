@@ -43,3 +43,99 @@ Executed after relocation:
 
 - This journal entry records the shipped state and replaces draft planning text that was copied into earlier working notes.
 - Historical entries that reference old paths were not rewritten because they document earlier repository states.
+
+## Quest Brief
+
+`$quest implement ideas/phase4_plan_updated_by_kjell.md`
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/phase4-role-wiring_2026-02-18.md`
+
+## Celebration Data
+
+<!-- celebration-data-start -->
+```json
+{
+  "quest_mode": "unknown",
+  "agents": [
+    {
+      "name": "arbiter",
+      "model": "",
+      "role": "The Judge"
+    },
+    {
+      "name": "plan-reviewer-a",
+      "model": "anthropic/claude-opus",
+      "role": "The A Plan Critic"
+    },
+    {
+      "name": "plan-reviewer-b",
+      "model": "openai/gpt-5.3-codex",
+      "role": "The B Plan Critic"
+    },
+    {
+      "name": "code-reviewer-a",
+      "model": "anthropic/claude-opus",
+      "role": "The A Code Critic"
+    },
+    {
+      "name": "code-reviewer-b",
+      "model": "openai/gpt-5.3-codex",
+      "role": "The B Code Critic"
+    }
+  ],
+  "achievements": [
+    {
+      "icon": "[BUG]",
+      "title": "Gremlin Slayer",
+      "desc": "Tackled 7 review findings"
+    },
+    {
+      "icon": "[TEST]",
+      "title": "Battle Tested",
+      "desc": "Survived 5 reviews"
+    },
+    {
+      "icon": "[PLAN]",
+      "title": "Plan Perfectionist",
+      "desc": "Iterated plan 2 times"
+    },
+    {
+      "icon": "[TEAM]",
+      "title": "Full Squad",
+      "desc": "5 agents collaborated"
+    },
+    {
+      "icon": "[WIN]",
+      "title": "Quest Complete",
+      "desc": "All phases finished successfully"
+    }
+  ],
+  "metrics": [
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 2"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 1"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 5"
+    }
+  ],
+  "quality": {
+    "tier": "Gold",
+    "grade": "G"
+  },
+  "test_count": null,
+  "tests_added": null,
+  "files_changed": 25
+}
+```
+<!-- celebration-data-end -->

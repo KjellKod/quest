@@ -19,7 +19,7 @@
 - Plan iterations: 1
 - Fix iterations: 0
 
-## This is where it all began...
+## Quest Brief
 
 > # PR Inline Commenting Playbook (Kind + Useful + Slightly Funny)
 >
@@ -77,3 +77,64 @@
 > `Nice improvement here. One small gremlin: <issue>. This can cause <impact>. Suggestion: <specific change>.`
 >
 > `- Reviewed by <model>, in collaboration with <github username>`
+
+### Archived Brief
+
+`/quest let's implement ideas/pr-inline-commenting-playbook.md`
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/pr-inline-commenting-playbook_2026-03-05.md`
+
+## Celebration Data
+
+<!-- celebration-data-start -->
+```json
+{
+  "quest_mode": "unknown",
+  "agents": [
+    {
+      "name": "arbiter",
+      "model": "",
+      "role": "The Judge"
+    }
+  ],
+  "achievements": [
+    {
+      "icon": "[TEST]",
+      "title": "Battle Tested",
+      "desc": "Survived 4 reviews"
+    },
+    {
+      "icon": "[WIN]",
+      "title": "Quest Complete",
+      "desc": "All phases finished successfully"
+    }
+  ],
+  "metrics": [
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 1"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 0"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 4"
+    }
+  ],
+  "quality": {
+    "tier": "Diamond",
+    "grade": "D"
+  },
+  "test_count": null,
+  "tests_added": null,
+  "files_changed": 8
+}
+```
+<!-- celebration-data-end -->

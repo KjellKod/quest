@@ -1,6 +1,96 @@
 # Quest Review Intelligence Canonical Proposal
 
-## Status: proposed
+## Status: in-progress
+
+## Quest Prompt (Phase 1 -- Ready to Execute)
+
+This expanded prompt supersedes the original Quest 1 suggestion at the bottom of this document.
+It adds the deferred-findings backlog and planner-startup scan discussed during prioritization.
+
+```text
+/quest "Implement Phase 1 of review-intelligence-canonical: normalize review
+findings and add a review-decisions stage between review and fixer.
+
+Reference: ideas/2026-04-13-review-intelligence-canonical.md
+
+DELIVERABLES
+
+1. Canonical review_findings.json schema (reference Section 1). One JSON shape
+   plus a validator. Written to
+   .quest/<id>/phase_01_plan/review_findings.json and
+   .quest/<id>/phase_03_review/review_findings.json. Required fields:
+   finding_id, source, kind, severity, confidence, path, line, summary,
+   why_it_matters, evidence, action, needs_test, write_scope,
+   related_acceptance_criteria.
+
+2. review_backlog.json artifact (reference Section 2) produced by the arbiter
+   after dual review. Records one decision per finding from the allowed set:
+   fix_now, verify_first, defer, drop, needs_human_decision. Each entry
+   includes decision_confidence, reason, needs_validation, owner, batch. The
+   fixer receives only fix_now and verify_first items.
+
+3. Reusable .skills/review-decisions/SKILL.md so the Quest arbiter and
+   pr-shepherd share one decision policy. Encodes the default decision rules
+   from reference Section 2.
+
+4. Bounded review-loop rules (reference Section 4): 2 iterations default,
+   3 max. At cap, every remaining finding MUST be tagged defer,
+   needs_human_decision, or accepted debt. No silent looping.
+
+5. Deferred findings backlog at .quest/backlog/deferred_findings.jsonl
+   (repo-level, NOT per-quest). On a defer decision, the arbiter appends a
+   record that inherits the canonical finding schema plus four lineage
+   fields: deferred_by_quest, deferred_at (ISO8601), defer_reason,
+   proposed_followup. Append-only JSONL.
+
+6. Planner-startup backlog scan. Before planning, the planner reads
+   deferred_findings.jsonl and surfaces any entry whose write_scope
+   intersects the upcoming quest's likely scope. Present to the user as:
+   'N deferred findings touch this code -- pull into scope?' Use
+   conservative matching in v1 (exact path match only).
+
+7. Focused tests under tests/ covering: finding-schema validation (valid /
+   missing required fields / wrong types), decision-rule selection,
+   merge-and-dedupe across sources, JSONL append correctness, planner
+   backlog-scan match logic.
+
+INTEGRATION TOUCHPOINTS
+
+- .skills/quest/agents/arbiter.md -- require arbiter_backlog.json output
+  alongside arbiter_verdict.md
+- .skills/quest/agents/code-reviewer.md -- emit findings in the canonical
+  schema
+- .skills/quest/agents/planner.md -- add the backlog-scan step to planner
+  startup
+- .skills/quest/delegation/workflow.md -- document the decisions stage and
+  the loop caps
+- Validators live under scripts/ and are invoked from phase-transition
+  checks
+
+OUT OF SCOPE (explicit)
+
+- Memory retrieval (ideas/2026-04-13-quest-memory-architecture.md)
+- CI workflow changes (reference Phase 3)
+- Targeted validation / test selector (reference Phase 2)
+- pr-shepherd batching rules (reference Phase 2)
+- Backlog staleness / retention sweeps (follow-up chore)
+- Triage tooling for the backlog
+
+KILL CRITERIA (from reference doc)
+
+Roll back if reviewers emit more structured data but decisions do not
+improve; if fix loops grow in iteration count without reducing escaped
+issues; if test selection always escalates to full suite.
+
+Ship one coherent bundle: schema + decisions + deferred backlog + planner
+scan. Do not expand into memory, CI, or pr-shepherd batching in this quest."
+```
+
+### What this prompt adds beyond the original Quest 1
+
+- **Item 5 (deferred backlog file)** -- makes `defer` a real decision with a persistent home, not a dead-letter category
+- **Item 6 (planner backlog scan)** -- closes the feedback loop so deferred items resurface opportunistically when we're already touching that code
+- **Explicit kill criteria and out-of-scope sections** -- prevents scope creep into Phase 2/3
 
 ## Why this note exists
 
@@ -454,9 +544,7 @@ Do not keep any part of this if it causes one of these:
 
 ### Quest 1: finding contract and review decisions
 
-```text
-/quest "Implement review finding normalization and review decisions for Quest. Add a canonical review_findings.json contract, a review_backlog.json artifact, and a bounded review-decision stage between review and fixer. In Quest review phases, make arbiter own review-decision output. In PR and CI response flows, make pr-shepherd reuse the same review-decision rules. Add a reusable .skills/review-decisions/SKILL.md policy file, validators, and focused tests. Keep scope limited to artifact generation, merge/dedupe, decisions, and handoff integration. Do not add memory retrieval in this quest."
-```
+**Superseded** -- see expanded prompt at top of this document under "Quest Prompt (Phase 1 -- Ready to Execute)". The expanded version adds deferred-findings backlog (item 5), planner-startup scan (item 6), and explicit scope/kill-criteria sections.
 
 ### Quest 2: targeted validation and PR shepherd batching
 

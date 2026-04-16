@@ -63,7 +63,77 @@ def _build_celebration_json(data: QuestData) -> dict:
     }
 
 
-def _generate_journal_entry(data: QuestData, completion_date: date) -> str:
+def _journal_outcome(data: QuestData) -> str:
+    """Return the best short journal outcome summary."""
+    plan_summary = data.plan_summary.strip()
+    preferred = (
+        plan_summary
+        if plan_summary and not re.match(r"^\*{0,2}problem\*{0,2}:", plan_summary, re.IGNORECASE)
+        else (data.brief_summary or "Completed successfully.")
+    )
+    collapsed = re.sub(r"(?m)^\s*>\s?", "", preferred)
+    return re.sub(r"\s+", " ", collapsed).strip()
+
+
+def build_quest_brief_section(data: QuestData) -> str:
+    """Build the reader-facing quest brief section."""
+    body = (data.brief_body or data.brief_summary).strip()
+    if not body:
+        return ""
+
+    lines = ["## Quest Brief", ""]
+    if data.brief_source != "original_prompt":
+        lines.append(
+            "Full original prompt was not recorded for this quest. "
+            "This is the best available brief context."
+        )
+        lines.append("")
+    lines.append(body)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def build_celebration_section(journal_rel_path: Path | None) -> str:
+    """Build the reader-facing celebration section."""
+    if journal_rel_path is None:
+        return ""
+
+    journal_ref = journal_rel_path.as_posix()
+    return "\n".join(
+        [
+            "## Celebration",
+            "",
+            "This journal embeds the celebration payload used by `/celebrate`.",
+            "",
+            "- [Jump to Celebration Data](#celebration-data)",
+            f"- Replay locally: `/celebrate {journal_ref}`",
+            "",
+        ]
+    )
+
+
+def build_celebration_data_section(data: QuestData) -> str:
+    """Build the machine-readable celebration payload section."""
+    celebration = _build_celebration_json(data)
+    return "\n".join(
+        [
+            "## Celebration Data",
+            "",
+            "<!-- celebration-data-start -->",
+            "```json",
+            json.dumps(celebration, indent=2, ensure_ascii=False),
+            "```",
+            "<!-- celebration-data-end -->",
+            "",
+        ]
+    )
+
+
+def build_journal_entry(
+    data: QuestData,
+    completion_date: date,
+    journal_rel_path: Path | None = None,
+) -> str:
     """Generate a markdown journal entry from quest data."""
     lines = []
 
@@ -79,7 +149,7 @@ def _generate_journal_entry(data: QuestData, completion_date: date) -> str:
         lines.append(f"- Mode: {data.quest_mode}")
     if data.quality_tier:
         lines.append(f"- Quality: {data.quality_tier}")
-    lines.append(f"- Outcome: {data.brief_summary or data.plan_summary or 'Completed successfully.'}")
+    lines.append(f"- Outcome: {_journal_outcome(data)}")
     lines.append("")
 
     # What shipped
@@ -113,22 +183,17 @@ def _generate_journal_entry(data: QuestData, completion_date: date) -> str:
             lines.append(f"- **{agent.role_title}** ({agent.name}): {model_label}")
         lines.append("")
 
-    # Brief as origin quote
-    if data.brief_summary:
-        lines.append("## This is where it all began...")
-        lines.append("")
-        lines.append(f"> {data.brief_summary}")
+    quest_brief_section = build_quest_brief_section(data)
+    if quest_brief_section:
+        lines.append(quest_brief_section.rstrip())
         lines.append("")
 
-    # Celebration data JSON block
-    celebration = _build_celebration_json(data)
-    lines.append("## Celebration Data")
-    lines.append("")
-    lines.append("<!-- celebration-data-start -->")
-    lines.append("```json")
-    lines.append(json.dumps(celebration, indent=2, ensure_ascii=False))
-    lines.append("```")
-    lines.append("<!-- celebration-data-end -->")
+    celebration_section = build_celebration_section(journal_rel_path)
+    if celebration_section:
+        lines.append(celebration_section.rstrip())
+        lines.append("")
+
+    lines.append(build_celebration_data_section(data).rstrip())
     lines.append("")
 
     return "\n".join(lines)
@@ -201,7 +266,7 @@ def main() -> int:
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", slug):
         print(f"Error: invalid slug '{slug}'. Must match [a-z0-9][a-z0-9-]*", file=sys.stderr)
         return 1
-    outcome = data.brief_summary or data.plan_summary or "Completed."
+    outcome = _journal_outcome(data)
     # Sanitize outcome for README markdown table: collapse newlines, escape pipes
     outcome = re.sub(r"\s*\n\s*", " ", outcome).replace("|", "\\|")
     if len(outcome) > 120:
@@ -226,11 +291,12 @@ def main() -> int:
         journal_dir = repo_root / "docs" / "quest-journal"
         journal_dir.mkdir(parents=True, exist_ok=True)
         journal_file = journal_dir / f"{slug}_{completion_date.isoformat()}.md"
+        journal_rel_path = journal_file.relative_to(repo_root)
 
         if journal_file.exists():
             print(f"Journal entry already exists: {journal_file}")
         else:
-            entry = _generate_journal_entry(data, completion_date)
+            entry = build_journal_entry(data, completion_date, journal_rel_path)
             journal_file.write_text(entry)
             print(f"Journal entry created: {journal_file}")
 

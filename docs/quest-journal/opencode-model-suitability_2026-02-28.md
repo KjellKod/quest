@@ -40,3 +40,69 @@ Created comprehensive documentation (`docs/guides/opencode-model-suitability.md`
 ## Context Health
 
 See full report in quest logs. Overall handoff.json compliance: mixed due to agent output variance.
+
+## Quest Brief
+
+Create docs/guides/opencode-model-suitability.md that documents which models available in opencode (from 'opencode models' output) are suitable or unsuitable for each Quest orchestration role (orchestrator, planner, reviewer, arbiter, builder, fixer). For each model, web search/research its actual capabilities — run 'opencode models' to get the full list, then check publicly known benchmarks and characteristics relevant to each role's requirements. DO NOT USE EXA as it might not be available, if that's the case use other ways. See the role requirements on .skills/quest/agents/ definitions. Cross-reference with our testing observations in docs/guides/opencode-model-observations.md where available. Include a recommended default configuration and a budget-friendly free-tier configuration. The document should help future users pick the right model for each slot.
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/opencode-model-suitability_2026-02-28.md`
+
+## Celebration Data
+
+<!-- celebration-data-start -->
+```json
+{
+  "quest_mode": "unknown",
+  "agents": [
+    {
+      "name": "builder",
+      "model": "opencode/gpt-5.3-codex",
+      "role": "The Implementer"
+    }
+  ],
+  "achievements": [
+    {
+      "icon": "[BUG]",
+      "title": "Gremlin Slayer",
+      "desc": "Tackled 1 review findings"
+    },
+    {
+      "icon": "[TEST]",
+      "title": "Battle Tested",
+      "desc": "Survived 2 reviews"
+    },
+    {
+      "icon": "[WIN]",
+      "title": "Quest Complete",
+      "desc": "All phases finished successfully"
+    }
+  ],
+  "metrics": [
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 1"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 0"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 2"
+    }
+  ],
+  "quality": {
+    "tier": "Platinum",
+    "grade": "P"
+  },
+  "test_count": null,
+  "tests_added": null,
+  "files_changed": 7
+}
+```
+<!-- celebration-data-end -->

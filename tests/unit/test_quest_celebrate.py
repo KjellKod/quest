@@ -752,6 +752,53 @@ class TestQuestDataLoading:
 
         assert data.name == "My Test Feature"
         assert "great feature" in data.brief_summary.lower()
+        assert "Build a great feature." in data.brief_body
+        assert data.brief_source == "original_prompt"
+
+    def test_load_quest_data_reads_original_request_variant(self, tmp_path):
+        """Verifies legacy Original Request headings are treated as full prompt content."""
+        quest_dir = self._make_quest_dir(tmp_path)
+        (quest_dir / "quest_brief.md").write_text(
+            "# Quest Brief: My Test Feature\n\n"
+            "## Original Request\n\n"
+            "> Recover the original request in full.\n",
+            encoding="utf-8",
+        )
+
+        data = load_quest_data(quest_dir)
+
+        assert "Recover the original request in full." in data.brief_body
+        assert data.brief_source == "original_prompt"
+
+    def test_load_quest_data_reads_user_request_variant(self, tmp_path):
+        """Verifies User Request headings are treated as full prompt content."""
+        quest_dir = self._make_quest_dir(tmp_path)
+        (quest_dir / "quest_brief.md").write_text(
+            "# Quest Brief: My Test Feature\n\n"
+            "## User Request\n\n"
+            "Recover the user request in full.\n",
+            encoding="utf-8",
+        )
+
+        data = load_quest_data(quest_dir)
+
+        assert "Recover the user request in full." in data.brief_body
+        assert data.brief_source == "original_prompt"
+
+    def test_load_quest_data_reads_original_user_input_variant(self, tmp_path):
+        """Verifies Original User Input headings are treated as full prompt content."""
+        quest_dir = self._make_quest_dir(tmp_path)
+        (quest_dir / "quest_brief.md").write_text(
+            "# Quest Brief: My Test Feature\n\n"
+            "## Original User Input\n\n"
+            "Recover the original user input in full.\n",
+            encoding="utf-8",
+        )
+
+        data = load_quest_data(quest_dir)
+
+        assert "Recover the original user input in full." in data.brief_body
+        assert data.brief_source == "original_prompt"
 
     def test_load_quest_data_reads_plan_summary(self, tmp_path):
         """Verifies plan overview extracted."""

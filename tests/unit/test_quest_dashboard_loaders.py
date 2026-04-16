@@ -9,6 +9,7 @@ from quest_dashboard.loaders import (
     _extract_celebration_data,
     _extract_iterations,
     _extract_metadata,
+    _extract_outcome_pitch,
     _extract_summary_pitch,
     _friendly_model_name,
     _normalize_status,
@@ -116,6 +117,71 @@ More content.
         == "This is the correct elevator pitch from the Summary section."
     )
     assert "first paragraph after the title" not in entry.elevator_pitch
+
+
+def test_journal_elevator_pitch_prefers_outcome_metadata_over_fallback_paragraph(tmp_path):
+    """Outcome metadata should win over later paragraph fallback when Summary is absent."""
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+
+    journal_content = """# Quest Journal: Test Quest
+
+- Quest ID: `test-quest_2026-04-13__1701`
+- Completed: 2026-04-13
+- Outcome: Preserve the actual first paragraph.
+
+This is the real elevator pitch after metadata.
+
+## What Shipped
+
+More content.
+"""
+
+    journal_path = journal_dir / "test.md"
+    journal_path.write_text(journal_content, encoding="utf-8")
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.elevator_pitch == "Preserve the actual first paragraph."
+
+
+def test_journal_elevator_pitch_prefers_outcome_metadata_without_summary(tmp_path):
+    """Outcome metadata should beat file-list fallback when Summary is absent."""
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+
+    journal_content = """# Quest Journal: Test Quest
+
+- Quest ID: `test-quest_2026-04-13__1701`
+- Completed: 2026-04-13
+- Outcome: Dashboard quest detail pages now include the brief and celebration context.
+
+## Files Changed
+
+- `scripts/quest_complete.py`
+- `scripts/quest_dashboard/loaders.py`
+"""
+
+    journal_path = journal_dir / "test.md"
+    journal_path.write_text(journal_content, encoding="utf-8")
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert (
+        entry.elevator_pitch
+        == "Dashboard quest detail pages now include the brief and celebration context."
+    )
+
+
+def test_extract_outcome_pitch_normalizes_blockquote_markers():
+    content = """- Outcome: > Consolidated overlapping proposals
+> into one canonical instruction architecture document.
+"""
+
+    assert (
+        _extract_outcome_pitch(content)
+        == "Consolidated overlapping proposals into one canonical instruction architecture document."
+    )
 
 
 def test_journal_entry_detects_abandoned_status(tmp_path):
@@ -235,6 +301,84 @@ Some requirements here.
     assert len(quest_warnings) == 0
 
 
+def test_active_quest_pitch_supports_original_request_variant(tmp_path):
+    """Active quest cards should support legacy Original Request sections."""
+    quest_dir = tmp_path / ".quest" / "legacy-request"
+    quest_dir.mkdir(parents=True)
+
+    state = {
+        "quest_id": "legacy-request",
+        "slug": "legacy-request",
+        "status": "in_progress",
+        "phase": "plan",
+        "updated_at": "2026-02-12T10:00:00Z",
+    }
+    (quest_dir / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Legacy Request\n\n"
+        "## Original Request\n\n"
+        "Recover this prompt for active quest cards.\n",
+        encoding="utf-8",
+    )
+
+    quest, warnings = _parse_active_quest(quest_dir / "state.json")
+
+    assert quest.elevator_pitch == "Recover this prompt for active quest cards."
+    assert warnings == []
+
+
+def test_active_quest_pitch_supports_user_request_variant(tmp_path):
+    """Active quest cards should support legacy User Request sections."""
+    quest_dir = tmp_path / ".quest" / "legacy-user-request"
+    quest_dir.mkdir(parents=True)
+
+    state = {
+        "quest_id": "legacy-user-request",
+        "slug": "legacy-user-request",
+        "status": "in_progress",
+        "phase": "plan",
+        "updated_at": "2026-02-12T10:00:00Z",
+    }
+    (quest_dir / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Legacy User Request\n\n"
+        "## User Request\n\n"
+        "Recover this prompt variant for active quest cards.\n",
+        encoding="utf-8",
+    )
+
+    quest, warnings = _parse_active_quest(quest_dir / "state.json")
+
+    assert quest.elevator_pitch == "Recover this prompt variant for active quest cards."
+    assert warnings == []
+
+
+def test_active_quest_pitch_supports_original_user_input_variant(tmp_path):
+    """Active quest cards should support legacy Original User Input sections."""
+    quest_dir = tmp_path / ".quest" / "legacy-original-user-input"
+    quest_dir.mkdir(parents=True)
+
+    state = {
+        "quest_id": "legacy-original-user-input",
+        "slug": "legacy-original-user-input",
+        "status": "in_progress",
+        "phase": "plan",
+        "updated_at": "2026-02-12T10:00:00Z",
+    }
+    (quest_dir / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Legacy Original User Input\n\n"
+        "## Original User Input\n\n"
+        "Recover this original user input for active quest cards.\n",
+        encoding="utf-8",
+    )
+
+    quest, warnings = _parse_active_quest(quest_dir / "state.json")
+
+    assert quest.elevator_pitch == "Recover this original user input for active quest cards."
+    assert warnings == []
+
+
 def test_malformed_state_json_produces_warning(tmp_path):
     """Test that malformed state.json produces a warning without crashing."""
     quest_dir = tmp_path / ".quest" / "bad-quest"
@@ -273,6 +417,27 @@ def test_missing_quest_brief_produces_warning(tmp_path):
     assert quests[0].elevator_pitch == ""
     assert len(warnings) == 1
     assert "quest_brief.md" in warnings[0].lower() or "missing" in warnings[0].lower()
+
+
+def test_completed_active_quest_is_skipped_without_missing_brief_warning(tmp_path):
+    """Completed stale quest dirs should not appear in active results or warn."""
+    quest_dir = tmp_path / ".quest" / "completed-stale-quest"
+    quest_dir.mkdir(parents=True)
+
+    state = {
+        "quest_id": "completed-stale-quest",
+        "slug": "completed-stale-quest",
+        "status": "complete",
+        "phase": "complete",
+        "updated_at": "2026-02-12T10:00:00Z",
+    }
+    (quest_dir / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    # No quest_brief.md on purpose
+
+    quests, warnings = load_active_quests(tmp_path / ".quest")
+
+    assert quests == []
+    assert warnings == []
 
 
 def test_active_quests_sorted_by_phase_then_date(tmp_path):

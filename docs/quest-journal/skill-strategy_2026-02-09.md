@@ -20,3 +20,55 @@ Analyzed how Quest should organize, manage, and distribute skills. Researched co
 ## Artifacts
 
 - Analysis: `.quest/skill-strategy_2026-02-09__1200/phase_01_plan/plan.md`
+
+## Quest Brief
+
+Full original prompt was not recorded for this quest. This is the best available brief context.
+
+Analyze how Quest should organize, manage, and distribute skills and customizations. Determine best practices for a drop-in AI orchestration tool that accumulates skills over time.
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/skill-strategy_2026-02-09.md`
+
+## Celebration Data
+
+<!-- celebration-data-start -->
+```json
+{
+  "quest_mode": "unknown",
+  "agents": [],
+  "achievements": [
+    {
+      "icon": "[WIN]",
+      "title": "Quest Complete",
+      "desc": "All phases finished successfully"
+    }
+  ],
+  "metrics": [
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 1"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 0"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 0"
+    }
+  ],
+  "quality": {
+    "tier": "Diamond",
+    "grade": "D"
+  },
+  "test_count": null,
+  "tests_added": null,
+  "files_changed": 0
+}
+```
+<!-- celebration-data-end -->

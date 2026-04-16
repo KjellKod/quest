@@ -87,6 +87,7 @@ scripts/quest_celebrate/progress.py
 scripts/quest_celebrate/terminal.py
 scripts/quest_celebrate/quest_data.py
 scripts/quest_celebrate/quest-celebrate.sh
+scripts/backfill_quest_journal.py
 scripts/quest_complete.py
 scripts/quest_preflight.sh
 scripts/quest_state.py

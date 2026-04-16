@@ -27,3 +27,106 @@ Made the quest system more collaborative — users aren't surprised by what gets
 - Plan iterations: 2
 - Fix iterations: 3
 - Review verdict: Approved
+
+## Quest Brief
+
+Full original prompt was not recorded for this quest. This is the best available brief context.
+
+Enhance the quest orchestration system to provide an interactive plan presentation flow that gives users control over how much detail they see and allows them to provide feedback phase-by-phase.
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/interactive-plan-presentation_2026-02-04.md`
+
+## Celebration Data
+
+<!-- celebration-data-start -->
+```json
+{
+  "quest_mode": "unknown",
+  "agents": [
+    {
+      "name": "arbiter",
+      "model": "",
+      "role": "The Judge"
+    },
+    {
+      "name": "plan-reviewer-a",
+      "model": "anthropic/claude-opus",
+      "role": "The A Plan Critic"
+    },
+    {
+      "name": "plan-reviewer-b",
+      "model": "openai/gpt-5.3-codex",
+      "role": "The B Plan Critic"
+    },
+    {
+      "name": "builder",
+      "model": "",
+      "role": "The Implementer"
+    },
+    {
+      "name": "code-reviewer-a",
+      "model": "anthropic/claude-opus",
+      "role": "The A Code Critic"
+    },
+    {
+      "name": "code-reviewer-b",
+      "model": "openai/gpt-5.3-codex",
+      "role": "The B Code Critic"
+    }
+  ],
+  "achievements": [
+    {
+      "icon": "[BUG]",
+      "title": "Gremlin Slayer",
+      "desc": "Tackled 20 review findings"
+    },
+    {
+      "icon": "[TEST]",
+      "title": "Battle Tested",
+      "desc": "Survived 13 reviews"
+    },
+    {
+      "icon": "[PLAN]",
+      "title": "Plan Perfectionist",
+      "desc": "Iterated plan 2 times"
+    },
+    {
+      "icon": "[TEAM]",
+      "title": "Full Squad",
+      "desc": "6 agents collaborated"
+    },
+    {
+      "icon": "[WIN]",
+      "title": "Quest Complete",
+      "desc": "All phases finished successfully"
+    }
+  ],
+  "metrics": [
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 2"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 3"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 13"
+    }
+  ],
+  "quality": {
+    "tier": "Tin",
+    "grade": "T"
+  },
+  "test_count": null,
+  "tests_added": null,
+  "files_changed": 0
+}
+```
+<!-- celebration-data-end -->
