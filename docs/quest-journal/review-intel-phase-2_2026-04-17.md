@@ -4,6 +4,8 @@
 - Completed: 2026-04-17
 - Mode: workflow
 - Quality: Gold
+- PR: [#94](https://github.com/KjellKod/quest/pull/94)
+- Celebration: [`celebrations/review-intel-phase-2_2026-04-17.md`](celebrations/review-intel-phase-2_2026-04-17.md)
 - Outcome: Phase 2 of review-intelligence-canonical shipped. pr-shepherd now normalizes incoming review items into the canonical Phase 1 contract, decides per-finding action via the shared review-decisions policy, batches actionable fixes by write_scope + validation scope, runs the smallest falsifying checks (Level 0/1/2), and pushes once per validated batch with explicit bounded stop conditions.
 
 ## What Shipped
