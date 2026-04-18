@@ -863,12 +863,12 @@ After plan approval, present the plan interactively before proceeding to build.
      - For entries with decision `defer`, append to `.quest/backlog/deferred_findings.jsonl` with lineage fields using `append-deferred`
 
 6. **Route after decisions stage:**
-   - **Safety check:** If any reviewer handoff has `next: "fixer"` but the canonical backlog has no `fix_now`/`verify_first` items, warn the user: "Reviewer flagged issues but canonical backlog is empty — review findings may be incomplete." Ask the user how to proceed (re-review, manually inspect, or accept as-is). Do not auto-transition to fixing with an empty actionable backlog.
+   - **Safety check:** If any reviewer handoff has `next: "fixer"` but the canonical backlog has no `fix_now`/`verify_first` items, warn the user: "Reviewer flagged issues but canonical backlog is empty — review findings may be incomplete." Ask the user how to proceed (re-review or manually inspect and repair the findings/handoffs). Do not auto-transition to fixing with an empty actionable backlog, and do not offer `accept as-is` unless an explicit waiver path is added to the validator contract.
    - If `review_backlog.json` contains any `fix_now` or `verify_first` item:
      - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition fixing --status in_progress --expect-phase reviewing`
      - Proceed to Step 6
    - If `review_backlog.json` contains any `needs_human_decision` item (even with no `fix_now`/`verify_first`):
-     - Present `needs_human_decision` items to the user and ask how to proceed (fix, defer, or accept)
+     - Present `needs_human_decision` items to the user and ask how to proceed (fix now, defer with rationale, or explicitly reclassify the items so the backlog no longer requires human decision)
      - Do not auto-complete while `needs_human_decision` items exist
    - If no actionable items and no `needs_human_decision` items remain:
      - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete --expect-phase reviewing`
