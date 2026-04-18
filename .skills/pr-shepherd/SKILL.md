@@ -37,6 +37,32 @@ Use **inline-first** commenting by default.
    - **Disagree?** → Reply on the comment with clear reasoning explaining why.
    - **Question/clarification?** → Reply on the comment with the answer.
 
+### Step 4.4: Canonical Intake → Decisions → Batches → Validation → Push
+Run the review loop through the canonical review-intelligence pipeline:
+
+1. Collect one intake payload per cycle:
+   - `ci_checks`
+   - `inline_comments`
+   - `general_comments`
+   - `existing_findings`
+2. Normalize intake to canonical findings:
+   - `python3 scripts/quest_review_intelligence.py normalize-pr-intake --input <intake.json> --output <review_findings.json>`
+3. Build decision backlog with shared policy:
+   - `python3 scripts/quest_review_intelligence.py build-backlog --findings <review_findings.json> --output <review_backlog.json>`
+4. Build actionable non-overlapping batches:
+   - `python3 scripts/quest_review_intelligence.py build-fix-batches --backlog <review_backlog.json> --output <fix_batches.json>`
+5. Select concrete validation per actionable finding:
+   - `python3 scripts/quest_select_tests.py --finding <finding.json> [--repo-inventory <repo_inventory.json>]`
+   - Persist returned `validation_steps` on backlog items before batching so validation scope is stable.
+6. Execute one batch at a time:
+   - Apply only that batch’s `fix_now` / `verify_first` items.
+   - Run validation steps in order (Level 0 → Level 1 → Level 2 when present).
+   - Push once after that batch validates.
+7. Classify loop stop after each cycle:
+   - `python3 scripts/quest_review_intelligence.py classify-pr-stop --ci-state <green|failing|pending|unknown> --actionable <count> --iteration <n> --backlog <review_backlog.json>`
+   - If cap is enforced, classification handles in-place retagging and deferred backlog append for newly deferred findings.
+   - Continue only when classification outcome is `continue`.
+
 ### Step 4.5: Inline Commenting Playbook
 Use this for every inline review reply so comments feel coaching-oriented and actionable.
 
@@ -99,7 +125,7 @@ Inform the user the PR is ready for their review.
 - Never mark ready-for-review while CI is failing.
 - Never ignore review comments — always respond.
 - Keep fix commits small and focused; don't bundle unrelated changes.
-- If stuck in a loop (>3 fix iterations), stop and ask the user for guidance.
+- Use `classify-pr-stop` for loop-cap enforcement; do not prompt the user before cap retagging is applied. Prompt only if post-retag items still require `needs_human_decision`.
 
 ## Command Invocation
 
