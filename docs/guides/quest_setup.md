@@ -137,8 +137,12 @@ Copy these folders to your repository root:
     code-reviewer.md
     fixer.md
 
-.agents/skills/quest/             # Codex thin wrapper layer
-  SKILL.md                        # Thin wrapper → .skills/quest/
+.agents/skills/                   # Codex thin wrapper layer for repo-local user-invocable skills
+  quest/SKILL.md                  # Thin wrapper → .skills/quest/
+  celebrate/SKILL.md              # Thin wrapper → .skills/celebrate/
+  pr-assistant/SKILL.md           # Thin wrapper → .skills/pr-assistant/
+  pr-shepherd/SKILL.md            # Thin wrapper → .skills/pr-shepherd/
+  git-commit-assistant/SKILL.md   # Thin wrapper → .skills/git-commit-assistant/
 
 .claude/                          # Claude Code integration layer
   skills/quest/SKILL.md           # Thin wrapper → .skills/quest/

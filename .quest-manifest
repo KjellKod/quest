@@ -46,6 +46,9 @@
 .opencode/opencode.json
 .agents/skills/README.md
 .agents/skills/celebrate/SKILL.md
+.agents/skills/git-commit-assistant/SKILL.md
+.agents/skills/pr-assistant/SKILL.md
+.agents/skills/pr-shepherd/SKILL.md
 .agents/skills/quest/SKILL.md
 .skills/BOOTSTRAP.md
 .skills/README.md
@@ -95,6 +98,7 @@ scripts/quest_complete.py
 scripts/quest_preflight.sh
 scripts/quest_state.py
 tests/unit/test_review_intelligence.py
+tests/unit/test_codex_skill_wrappers.py
 
 [user-customized]
 # These files preserve local customizations; AGENTS.md updates in place only when
