@@ -138,20 +138,87 @@ Alternative order: celebration fires FIRST, journal is written SECOND with the c
 - Auto-publishing celebrations anywhere external
 - Changing the tier scale or the ASCII art rules
 
-## Open Questions
+## Decided Defaults (2026-04-18)
 
-1. **Ordering:** does the celebration fire before or after the journal write? The cleaner path is celebration-first (journal references a real file), but celebration is currently user-triggered (`/celebrate`). Options: auto-celebrate at Step 7 (default on) with an opt-out; or leave celebration user-triggered but have the journal write a placeholder that fills in on next celebration.
-2. **Auto-trigger on quest complete:** should Step 7 invoke `/celebrate` automatically? This raises the question of what happens if the user does not want a celebration (e.g., small fix quests). Leaning: yes for `workflow` mode, optional for `solo`, with an allowlist gate.
-3. **Backfill of existing quests:** there are ~10 archived quests without celebrations. A one-time `scripts/quest_backfill_celebrations.py` similar to the existing `quest_backfill_journal.py` could generate them. Worth its own small quest slice.
-4. **Dashboard surfacing:** should the dashboard embed the celebration (heavy) or just link to it (light)? Light link is safer; avoid inflating dashboard payload.
-5. **Filename collisions:** if two quests complete on the same date with the same slug root (rare but possible with solo vs workflow re-runs), include the `__HHMM` part of the quest ID in the celebration filename. Align with whatever the journal naming already does.
+1. **Ordering — celebration-first, journal-second.** At Step 7, generate the celebration *before* the journal is written so the journal's `Celebration:` link always points to an existing file. No placeholder pattern.
+
+2. **Auto-trigger — allowlist-gated, solo always asks.** Add an `allowlist.celebration.auto` boolean:
+   - `celebration.auto: true` → run automatically at Step 7 (render + persist).
+   - `celebration.auto: false` → *always prompt* "celebrate now?" at Step 7. Never silently skip.
+   - **Solo mode override:** always prompt regardless of the flag. Solo quests are often polish-only and do not deserve auto-ceremony.
+   - The celebration *file is always written* when the skill runs. The allowlist flag controls whether it *renders in chat* automatically or waits for the prompt.
+
+3. **Backfill — manual only (user-driven).** No batch script in the first pass. User will run `/celebrate <archived-id>` for past quests on demand. A backfill script can be promoted later if the batch need emerges. See the list of backfill candidates below.
+
+4. **Dashboard — link only.** A `Celebration:` line per quest that links to the file. No inline excerpts, no full rendering. The dashboard is a navigation surface, not a reader.
+
+5. **Filename — `<slug>_<date>.md` (matches journal).** When re-running `/celebrate` on a quest that already has a celebration file:
+   - Render the new celebration and show it to the user.
+   - Prompt: "Replace existing celebration at `<path>`? (y/n)"
+   - On yes, overwrite.
+   - On no, abort without saving.
+   - No `__v2` suffix files; overwrite is the right behavior for a regenerable artifact (git preserves history).
+
+## Backfill Candidates (as of 2026-04-18)
+
+35 archived quests under `.quest/archive/` lack a celebration file. User can invoke `/celebrate <id>` on any of these when they feel like reminiscing.
+
+See [Appendix A](#appendix-a-backfill-candidates) at the bottom of this doc for the full list.
+
+## Appendix A: Backfill Candidates
+
+These 35 quests exist under `.quest/archive/` with no matching celebration file. Listed newest-first for convenience. Run `/celebrate <quest-id>` on any that feel worth preserving.
+
+Journal-backed quests (richer source material for the celebration) are marked `✓`. Celebrations can still be generated for quests without a journal — the skill will fall back to the archive handoffs and quest_brief.
+
+| Quest ID | Journal |
+|---|---|
+| `review-intelligence-canonical_2026-04-16__0218` | ✓ |
+| `celebration-review-intel_2026-04-16__0828` | ✓ |
+| `claude-insights-ideas_2026-04-15__1629` | ✓ |
+| `quest-dashboard-briefs_2026-04-15__2048` | — |
+| `feedback-intent-routing_2026-04-13__1101` | ✓ |
+| `prompt-surface-consolidation_2026-04-13__1701` | ✓ |
+| `caveman-review_2026-04-12__1353` | ✓ |
+| `multi-cleanup_2026-04-11__1049` | ✓ |
+| `ci-review-severity_2026-04-06__1820` | — |
+| `quest-housekeeping-blitz_2026-03-21__0600` | ✓ |
+| `artifact-runtime-fallbacks_2026-03-17__1416` | — |
+| `artifact-prep-runtime_2026-03-17__0518` | — |
+| `legion-manifesto-review_2026-03-09__1314` | — |
+| `codex-led-claude-bridge-runtime-hardening_2026-03-09__1039` | ✓ |
+| `claude-runtime-dispatch_2026-03-09__1236` | — |
+| `codex-bridge-smoke_2026-03-09__1032` | — |
+| `codex-bridge-smoke-v2_2026-03-09__1021` | — |
+| `codex-bridge-smoke_2026-03-09__1012` | — |
+| `codex-claude-bridge_2026-03-09__0935` | — |
+| `celebrate-v2_2026-03-05__0643` | ✓ |
+| `pr-inline-commenting-playbook_2026-03-05__0250` | ✓ |
+| `quest-next-architecture_2026-03-05__2353` | — |
+| `quest-completion-animations_2026-03-04__1953` | ✓ |
+| `opencode-model-suitability_2026-02-28__1755` | ✓ |
+| `model-suitability-guide_2026-02-28__2016` | — |
+| `phase4-role-wiring_2026-02-17__2218` | — |
+| `quest-dashboard_2026-02-11__0936` | — |
+| `handoff-contract-fix_2026-02-09__2228` | ✓ |
+| `thin-orchestrator_2026-02-09__1845` | ✓ |
+| `skill-strategy_2026-02-09__1200` | ✓ |
+| `installer-script_2026-02-04__1841` | ✓ |
+| `ci-quest-validation_2026-02-04__1532` | ✓ |
+| `interactive-plan-presentation_2026-02-04__1516` | ✓ |
+| `validate-and-launch_2026-02-04__1045` | ✓ |
+| `weekly-update-check_2026-02-04__2349` | — |
+
+Totals: **35** archived quests without celebrations; **21** have journals, **14** do not.
+
+The three `codex-bridge-smoke*` quests and `codex-claude-bridge` look like rapid re-runs during the Codex bridge work on 2026-03-09 — only the last (or `codex-led-claude-bridge-runtime-hardening`, which has a journal) is worth celebrating. Safe to skip the smoke-test duplicates.
 
 ## Follow-Up Quest Prompt (Draft)
 
 ```text
 /quest "Persist quest celebrations to disk with embedded brief and journal cross-links.
 
-Reference: ideas/2026-04-17-persisted-celebrations-and-brief-in-cheers.md
+Reference: ideas/2026-04-17-persisted-celebrations-and-brief-in-cheers.md (see Decided Defaults)
 Pattern reference (light): ../doc2md/docs/journal/ + docs/quest-journal/ directory structure.
 
 DELIVERABLES
@@ -163,31 +230,40 @@ DELIVERABLES
 2. Persist the rendered celebration to
    docs/quest-journal/celebrations/<slug>_<date>.md with frontmatter
    (quest-id, pr, style=celebration, quality-tier, date, journal pointer).
-   Re-runs are idempotent (overwrite, do not append).
+   When the file already exists: render the new celebration, show it to the
+   user, and prompt 'Replace existing celebration at <path>? (y/n)'. No
+   __v2 suffix files.
 
-3. Update .skills/quest/delegation/workflow.md Step 7 to include a
-   'Celebration: <path>' link in the journal header when a celebration file
-   exists or is about to be produced.
+3. Update .skills/quest/delegation/workflow.md Step 7 to:
+   (a) run the celebration BEFORE writing the journal (celebration-first order)
+       so the journal's Celebration link always points at a real file;
+   (b) include a 'Celebration: <path>' line in the journal header;
+   (c) gate auto-run on allowlist.celebration.auto:
+       - true  -> run automatically (render + persist);
+       - false -> always prompt 'celebrate now?' (never silently skip);
+       - solo  -> always prompt regardless of the flag.
 
-4. New helper scripts/quest_celebrate/persist.py (or equivalent) that takes
+4. Add allowlist.celebration.auto (boolean, default true) to .ai/allowlist.json
+   schema. Document it in the allowlist reference.
+
+5. New helper scripts/quest_celebrate/persist.py (or equivalent) that takes
    the rendered markdown plus quest archive path and writes the celebration
    file with correct frontmatter.
 
-5. Dashboard integration: scripts/quest_dashboard/ surfaces the celebration
-   link per quest by reading the journal's Celebration line. Read-only — do not
-   embed full content.
-
-6. Backfill script scripts/quest_backfill_celebrations.py that walks
-   .quest/archive/ and generates missing celebration files from available
-   handoffs and the brief. Optional companion to quest_backfill_journal.py.
+6. Dashboard integration: scripts/quest_dashboard/ surfaces the celebration
+   as a link per quest by reading the journal's Celebration line.
+   **Link only, no inline embedding.**
 
 7. Focused tests under tests/ for: brief extraction edge cases (no heading,
-   one-line prompt, Problem+Impact pair), celebration persistence (idempotent
-   overwrite, frontmatter shape), journal↔celebration link pairing,
-   backfill script happy path + skipping cases.
+   one-line prompt, Problem+Impact pair), celebration persistence (overwrite
+   prompt, frontmatter shape), journal<->celebration link pairing, allowlist
+   flag behavior (auto-run vs prompt vs solo override), overwrite-prompt
+   accept/decline flows.
 
 OUT OF SCOPE
 
+- Backfill script for archived quests (user does this manually via /celebrate
+  <archived-id>; promote to script only if batch need emerges).
 - Dual-persona voices (no Dexter-style requiem).
 - Dashboard content embedding (links only).
 - External publishing of celebrations.
