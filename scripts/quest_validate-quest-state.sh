@@ -368,7 +368,7 @@ $item_errors"
   pass "Semantic check: review backlog is valid ($backlog_file)"
 }
 
-read_required_handoff_next() {
+read_required_reviewer_handoff() {
   local handoff_file="$1"
   local next_value=""
 
@@ -379,6 +379,11 @@ read_required_handoff_next() {
 
   if ! jq empty "$handoff_file" 2>/dev/null; then
     fail "Semantic check: handoff is not valid JSON ($handoff_file)"
+    return 1
+  fi
+
+  if ! jq -e 'has("status") and .status == "complete"' "$handoff_file" >/dev/null 2>&1; then
+    fail "Semantic check: reviewer handoff status must be explicitly present and equal \"complete\" ($handoff_file)"
     return 1
   fi
 
@@ -509,6 +514,18 @@ validate_semantic_content() {
       else
         fail "Semantic check: review backlog has no actionable findings for fixing"
       fi
+
+      local reviewer_a_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
+      if ! read_required_reviewer_handoff "$reviewer_a_handoff"; then
+        return
+      fi
+
+      if [ "$QUEST_MODE" != "solo" ]; then
+        local reviewer_b_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
+        if ! read_required_reviewer_handoff "$reviewer_b_handoff"; then
+          return
+        fi
+      fi
       ;;
     "reviewing->complete")
       local backlog_file="$quest_dir/phase_03_review/review_backlog.json"
@@ -535,7 +552,7 @@ validate_semantic_content() {
       # Safety check: block completion if any reviewer handoff requested fixes
       local reviewer_a_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
       local next_a
-      if ! read_required_handoff_next "$reviewer_a_handoff"; then
+      if ! read_required_reviewer_handoff "$reviewer_a_handoff"; then
         return
       fi
       next_a="$REQUIRED_HANDOFF_NEXT"
@@ -546,7 +563,7 @@ validate_semantic_content() {
       if [ "$QUEST_MODE" != "solo" ]; then
         local reviewer_b_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
         local next_b
-        if ! read_required_handoff_next "$reviewer_b_handoff"; then
+        if ! read_required_reviewer_handoff "$reviewer_b_handoff"; then
           return
         fi
         next_b="$REQUIRED_HANDOFF_NEXT"

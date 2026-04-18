@@ -428,6 +428,40 @@ test_reviewing_to_complete_rejects_missing_next_in_handoff() {
   [ "$rc" -eq 1 ] && echo "$output" | grep -q 'handoff next must be explicitly present'
 }
 
+test_reviewing_to_complete_rejects_blocked_reviewer_handoff_status() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo '{"status":"blocked","next":null,"summary":"stopped"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q 'reviewer handoff status must be explicitly present and equal "complete"'
+}
+
+test_reviewing_to_complete_rejects_needs_human_reviewer_handoff_status() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo '{"status":"needs_human","next":null,"summary":"need input"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q 'reviewer handoff status must be explicitly present and equal "complete"'
+}
+
 test_reviewing_to_complete_rejects_invalid_review_backlog_schema() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -600,6 +634,40 @@ test_reviewing_to_fixing_both_clean() {
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]"
+}
+
+test_reviewing_to_fixing_rejects_blocked_reviewer_handoff_status() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "actionable"
+  echo '{"status":"blocked","next":"fixer","summary":"stopped"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q 'reviewer handoff status must be explicitly present and equal "complete"'
+}
+
+test_reviewing_to_fixing_rejects_needs_human_reviewer_handoff_status() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "actionable"
+  echo '{"status":"needs_human","next":"fixer","summary":"need input"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q 'reviewer handoff status must be explicitly present and equal "complete"'
 }
 
 test_invalid_transition() {
@@ -916,10 +984,14 @@ run_test test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff
 run_test test_reviewing_to_complete_requires_reviewer_handoffs
 run_test test_reviewing_to_complete_rejects_invalid_reviewer_handoff_json
 run_test test_reviewing_to_complete_rejects_missing_next_in_handoff
+run_test test_reviewing_to_complete_rejects_blocked_reviewer_handoff_status
+run_test test_reviewing_to_complete_rejects_needs_human_reviewer_handoff_status
 run_test test_reviewing_to_complete_rejects_invalid_review_backlog_schema
 run_test test_valid_reviewing_to_fixing
 run_test test_reviewing_to_fixing_rejects_invalid_review_backlog_schema
 run_test test_reviewing_to_fixing_both_clean
+run_test test_reviewing_to_fixing_rejects_blocked_reviewer_handoff_status
+run_test test_reviewing_to_fixing_rejects_needs_human_reviewer_handoff_status
 run_test test_invalid_transition
 run_test test_plan_iteration_exceeded
 run_test test_fix_iteration_exceeded
