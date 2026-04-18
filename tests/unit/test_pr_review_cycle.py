@@ -770,3 +770,17 @@ def test_cli_classify_pr_stop_honors_backlog_repo_allowlist_from_unrelated_cwd(
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["outcome"] == "continue", payload
+
+
+def test_allowlist_path_from_context_accepts_repo_root_directory(tmp_path: Path) -> None:
+    from quest_runtime.pr_review_cycle import allowlist_path_from_context
+
+    repo = tmp_path / "repo"
+    (repo / ".ai").mkdir(parents=True)
+    allowlist = repo / ".ai" / "allowlist.json"
+    allowlist.write_text(json.dumps({"gates": {"max_fix_iterations": 9}}), encoding="utf-8")
+
+    # Passing the repo root directory itself should discover the allowlist at
+    # <repo>/.ai/allowlist.json, not skip past the repo root and fall back
+    # to cwd.
+    assert allowlist_path_from_context(repo) == allowlist

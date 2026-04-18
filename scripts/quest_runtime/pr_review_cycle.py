@@ -46,10 +46,13 @@ def allowlist_path_from_context(context_path: Path | None) -> Path:
     if context_path is None:
         return _ALLOWLIST_PATH
     try:
-        resolved_parents = context_path.resolve().parents
+        resolved = context_path.resolve()
     except (OSError, RuntimeError):
         return _ALLOWLIST_PATH
-    for ancestor in resolved_parents:
+    # Include the resolved path itself in the candidate chain so passing a
+    # directory (e.g. the repo root) finds .ai/allowlist.json at that level,
+    # not only under ancestors above it.
+    for ancestor in [resolved, *resolved.parents]:
         candidate = ancestor / ".ai" / "allowlist.json"
         if candidate.exists():
             return candidate
