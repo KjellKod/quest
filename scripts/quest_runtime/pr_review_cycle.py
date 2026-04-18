@@ -29,6 +29,7 @@ CI_FAILURE_STATES = (
     "cancelled",
     "timed_out",
     "action_required",
+    "startup_failure",
 )
 
 
