@@ -10,7 +10,7 @@ Use this page only if:
 
 ## Why Quest May Not Show Up
 
-Quest installed in a repository (`.agents/skills/quest`) is not automatically visible in Codex's global skill list. Codex discovers global skills from `~/.codex/skills` plus system skills.
+Quest installed in a repository (`.agents/skills/`) is not automatically visible in Codex's global skill list. Codex discovers global skills from `~/.codex/skills` plus system skills. The repo-local wrapper layer can expose multiple project skills to Codex inside the repository, but the global install example below is intentionally only for the `quest` entrypoint.
 
 ## Install As A Global Codex Skill
 

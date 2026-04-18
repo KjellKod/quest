@@ -79,6 +79,12 @@ Ready-to-use template:
 `Nice improvement here. One small gremlin: <issue>. This can cause <impact>. Suggestion: <specific change>.`
 `- Reviewed by <model>, in collaboration with <github username>`
 
+### Step 4.6: Decision Policy Alignment
+When reducing findings to actionable buckets, align with `.skills/review-decisions/SKILL.md`:
+- Use only `fix_now`, `verify_first`, `defer`, `drop`, `needs_human_decision`
+- Keep reasoning explicit for deferred and dropped findings
+- At loop cap, convert unresolved items to `defer` (accepted debt) or `needs_human_decision`
+
 ### Step 5: Re-check CI (if changes were made)
 If any fixes were pushed in Step 4, loop back to Step 2.
 

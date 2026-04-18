@@ -75,6 +75,13 @@ This directory contains specialized skills for AI agents working in this reposit
 
 **Location:** `.skills/pr-shepherd/SKILL.md`
 
+### review-decisions
+**Purpose:** Shared policy for translating canonical review findings into deterministic backlog decisions (`fix_now`, `verify_first`, `defer`, `drop`, `needs_human_decision`) including loop-cap behavior and deferred backlog lineage.
+
+**Use when:** Arbiter or automation needs to produce `review_backlog.json`, enforce the review-loop cap, or append deferred findings to `.quest/backlog/deferred_findings.jsonl`.
+
+**Location:** `.skills/review-decisions/SKILL.md`
+
 ### gpt
 **Purpose:** Delegate tasks to OpenAI Codex (GPT-5.4) via MCP. Provides structured invocation with sensible defaults for sandbox, model, and reasoning effort.
 

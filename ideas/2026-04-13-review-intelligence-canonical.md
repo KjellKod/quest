@@ -1,6 +1,9 @@
 # Quest Review Intelligence Canonical Proposal
 
-## Status: in-progress
+## Status: done (Phase 1)
+
+Phase 1 shipped via quest `review-intelligence-canonical_2026-04-16__0218`.
+See [journal entry](../docs/quest-journal/review-intelligence-canonical_2026-04-16.md).
 
 ## Quest Prompt (Phase 1 -- Ready to Execute)
 
@@ -56,7 +59,7 @@ DELIVERABLES
 
 INTEGRATION TOUCHPOINTS
 
-- .skills/quest/agents/arbiter.md -- require arbiter_backlog.json output
+- .skills/quest/agents/arbiter.md -- require review_backlog.json output
   alongside arbiter_verdict.md
 - .skills/quest/agents/code-reviewer.md -- emit findings in the canonical
   schema
@@ -156,7 +159,7 @@ Optional PR-flow temp artifact:
   "finding_id": "review-a-003",
   "source": "code-reviewer-a",
   "kind": "correctness",
-  "severity": "must_fix",
+  "severity": "critical",
   "confidence": "high",
   "path": "src/auth/session.ts",
   "line": 84,
@@ -277,9 +280,9 @@ PR response flow:
 For plan and code review phases, arbiter must produce both:
 
 - `arbiter_verdict.md`
-- `arbiter_backlog.json`
+- `review_backlog.json`
 
-Minimum `arbiter_backlog.json` fields:
+Minimum `review_backlog.json` fields:
 
 - merged findings
 - deduped findings

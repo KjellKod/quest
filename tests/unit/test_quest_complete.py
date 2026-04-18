@@ -1,6 +1,7 @@
 """Unit tests for quest_complete journal rendering."""
 
 from datetime import date
+import json
 from pathlib import Path
 
 from quest_complete import build_journal_entry
@@ -151,3 +152,56 @@ def test_generate_journal_entry_falls_back_to_best_available_brief_context():
 
     assert "Legacy brief details from the first recorded section." in entry
     assert "Full original prompt was not recorded for this quest." in entry
+
+
+def test_generate_journal_entry_includes_carryover_sections_and_payload():
+    data = QuestData(
+        quest_id="carryover_2026-04-16__1200",
+        slug="carryover",
+        name="Carryover",
+    )
+    data.inherited_findings_used.count = 2
+    data.inherited_findings_used.summaries = [
+        "Deferred auth cleanup was pulled into scope.",
+        "Legacy validation gap was revisited.",
+    ]
+    data.findings_left_for_future_quests.count = 1
+    data.findings_left_for_future_quests.summaries = [
+        "Follow up on dashboard backlog rendering.",
+    ]
+
+    entry = build_journal_entry(
+        data,
+        date(2026, 4, 16),
+        Path("docs/quest-journal/carryover_2026-04-16.md"),
+    )
+
+    assert "## Inherited Findings Used" in entry
+    assert "- Count: **2**" in entry
+    assert "Deferred auth cleanup was pulled into scope." in entry
+    assert "## Findings Left For Future Quests" in entry
+    assert "Follow up on dashboard backlog rendering." in entry
+
+    start = entry.index("```json\n") + len("```json\n")
+    end = entry.index("\n```", start)
+    payload = json.loads(entry[start:end])
+    assert payload["inherited_findings_used"]["count"] == 2
+    assert payload["findings_left_for_future_quests"]["count"] == 1
+
+
+def test_generate_journal_entry_includes_empty_carryover_status_when_absent():
+    data = QuestData(
+        quest_id="carryover-empty_2026-04-16__1200",
+        slug="carryover-empty",
+        name="Carryover Empty",
+    )
+
+    entry = build_journal_entry(
+        data,
+        date(2026, 4, 16),
+        Path("docs/quest-journal/carryover-empty_2026-04-16.md"),
+    )
+
+    assert "## Carry-Over Findings" in entry
+    assert "nothing was inherited from earlier quests" in entry
+    assert "## Inherited Findings Used" not in entry

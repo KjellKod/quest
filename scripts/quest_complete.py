@@ -57,6 +57,14 @@ def _build_celebration_json(data: QuestData) -> dict:
             "tier": data.quality_tier,
             "grade": data.quality_tier[0] if data.quality_tier else "?",
         },
+        "inherited_findings_used": {
+            "count": data.inherited_findings_used.count,
+            "summaries": data.inherited_findings_used.summaries,
+        },
+        "findings_left_for_future_quests": {
+            "count": data.findings_left_for_future_quests.count,
+            "summaries": data.findings_left_for_future_quests.summaries,
+        },
         "test_count": data.test_count,
         "tests_added": data.tests_added,
         "files_changed": len(data.files_changed),
@@ -107,6 +115,30 @@ def build_celebration_section(journal_rel_path: Path | None) -> str:
             "",
             "- [Jump to Celebration Data](#celebration-data)",
             f"- Replay locally: `/celebrate {journal_ref}`",
+            "",
+        ]
+    )
+
+
+def _build_carryover_journal_section(title: str, count: int, summaries: list[str]) -> str:
+    """Build one reader-facing carry-over findings section."""
+    if count <= 0:
+        return ""
+
+    lines = [f"## {title}", "", f"- Count: **{count}**"]
+    for summary in summaries[:3]:
+        lines.append(f"- {summary}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _build_empty_carryover_journal_section() -> str:
+    """Build the explicit empty-state carry-over section."""
+    return "\n".join(
+        [
+            "## Carry-Over Findings",
+            "",
+            "- No carry-over findings this round; nothing was inherited from earlier quests and nothing needs to be saved for the next one.",
             "",
         ]
     )
@@ -186,6 +218,27 @@ def build_journal_entry(
     quest_brief_section = build_quest_brief_section(data)
     if quest_brief_section:
         lines.append(quest_brief_section.rstrip())
+        lines.append("")
+
+    inherited_section = _build_carryover_journal_section(
+        "Inherited Findings Used",
+        data.inherited_findings_used.count,
+        data.inherited_findings_used.summaries,
+    )
+    if inherited_section:
+        lines.append(inherited_section.rstrip())
+        lines.append("")
+
+    carryforward_section = _build_carryover_journal_section(
+        "Findings Left For Future Quests",
+        data.findings_left_for_future_quests.count,
+        data.findings_left_for_future_quests.summaries,
+    )
+    if carryforward_section:
+        lines.append(carryforward_section.rstrip())
+        lines.append("")
+    elif data.inherited_findings_used.count <= 0:
+        lines.append(_build_empty_carryover_journal_section().rstrip())
         lines.append("")
 
     celebration_section = build_celebration_section(journal_rel_path)

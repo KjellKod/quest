@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backfill_quest_journal import backfill_journal_entries
+from quest_backfill_journal import backfill_journal_entries
 
 
 def _write_archive_quest(

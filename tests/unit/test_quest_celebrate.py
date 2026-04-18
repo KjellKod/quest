@@ -37,6 +37,7 @@ from quest_celebrate.ascii_art import (
 from quest_celebrate.config import CelebrationConfig, load_config
 from quest_celebrate.quest_data import (
     QUALITY_TIERS,
+    CarryoverFindings,
     _load_allowlist_quality_defaults,
     extract_celebration_data_from_journal,
     compute_quality_tier,
@@ -127,6 +128,43 @@ class TestRenderStandard:
             "plan" in result.lower() or "iteration" in result.lower()
         )
 
+    def test_render_standard_shows_carryover_findings_when_present(self):
+        """Standard style surfaces artifact-backed carry-over findings."""
+        stats = QuestStats(name="Carryover Quest")
+        config = CelebrationConfig(style="standard", is_safe=True)
+        quest_data = QuestData(
+            name="Carryover Quest",
+            inherited_findings_used=CarryoverFindings(
+                count=2,
+                summaries=[
+                    "Deferred auth cleanup was pulled into scope.",
+                    "Legacy validation gap was revisited.",
+                ],
+            ),
+            findings_left_for_future_quests=CarryoverFindings(
+                count=1,
+                summaries=["Follow up on dashboard backlog rendering."],
+            ),
+        )
+
+        result = render_standard(stats, config, quest_data=quest_data)
+
+        assert "Inherited Findings Used" in result
+        assert "Count: 2" in result
+        assert "Findings Left For Future Quests" in result
+
+    def test_render_standard_shows_empty_carryover_status_when_absent(self):
+        """Standard style shows an explicit empty-state carry-over message."""
+        stats = QuestStats(name="Carryover Quest")
+        config = CelebrationConfig(style="standard", is_safe=True)
+        quest_data = QuestData(name="Carryover Quest")
+
+        result = render_standard(stats, config, quest_data=quest_data)
+
+        assert "Carry-Over Findings" in result
+        assert "nothing was inherited from earlier quests" in result
+        assert "Inherited Findings Used" not in result
+
 
 class TestRenderEpic:
     """Tests for epic style rendering (AC3)."""
@@ -211,6 +249,48 @@ class TestRenderEpic:
         result = output.getvalue()
         assert "Basic Quest" in result
 
+    def test_render_epic_shows_carryover_findings_when_present(self):
+        """Epic style surfaces artifact-backed carry-over findings."""
+        stats = QuestStats(name="Carryover Quest")
+        config = CelebrationConfig(style="epic", is_safe=True)
+        quest_data = QuestData(
+            name="Carryover Quest",
+            inherited_findings_used=CarryoverFindings(
+                count=1,
+                summaries=["Deferred auth cleanup was pulled into scope."],
+            ),
+            findings_left_for_future_quests=CarryoverFindings(
+                count=2,
+                summaries=[
+                    "Follow up on dashboard backlog rendering.",
+                    "Keep the planner reminder narrow.",
+                ],
+            ),
+        )
+        output = StringIO()
+
+        with patch("time.sleep"):
+            render_epic(stats, config, output, quest_data=quest_data)
+
+        result = output.getvalue()
+        assert "## Inherited Findings Used" in result
+        assert "## Findings Left For Future Quests" in result
+
+    def test_render_epic_shows_empty_carryover_status_when_absent(self):
+        """Epic style shows the explicit empty-state carry-over message."""
+        stats = QuestStats(name="Carryover Quest")
+        config = CelebrationConfig(style="epic", is_safe=True)
+        quest_data = QuestData(name="Carryover Quest")
+        output = StringIO()
+
+        with patch("time.sleep"):
+            render_epic(stats, config, output, quest_data=quest_data)
+
+        result = output.getvalue()
+        assert "## Carry-Over Findings" in result
+        assert "nothing needs to be saved for the next one" in result
+        assert "## Inherited Findings Used" not in result
+
 
 class TestRenderSilly:
     """Tests for silly style rendering (AC4)."""
@@ -246,6 +326,39 @@ class TestRenderSilly:
 
         result = output.getvalue()
         assert "3" in result or "tools" in result.lower() or "forged" in result.lower()
+
+    def test_render_silly_shows_carryover_findings_when_present(self):
+        """Silly style also surfaces artifact-backed carry-over findings."""
+        stats = QuestStats(name="Silly Quest")
+        config = CelebrationConfig(style="silly", is_safe=True, ascii_art=False)
+        quest_data = QuestData(
+            name="Silly Quest",
+            inherited_findings_used=CarryoverFindings(
+                count=1,
+                summaries=["Deferred auth cleanup was pulled into scope."],
+            ),
+        )
+        output = StringIO()
+
+        with patch("time.sleep"):
+            render_silly(stats, config, output, quest_data=quest_data)
+
+        result = output.getvalue()
+        assert "## Inherited Findings Used" in result
+
+    def test_render_silly_shows_empty_carryover_status_when_absent(self):
+        """Silly style shows the explicit empty-state carry-over message."""
+        stats = QuestStats(name="Silly Quest")
+        config = CelebrationConfig(style="silly", is_safe=True, ascii_art=False)
+        quest_data = QuestData(name="Silly Quest")
+        output = StringIO()
+
+        with patch("time.sleep"):
+            render_silly(stats, config, output, quest_data=quest_data)
+
+        result = output.getvalue()
+        assert "## Carry-Over Findings" in result
+        assert "nothing was inherited from earlier quests" in result
 
 
 class TestEnvironmentOverrides:
@@ -862,6 +975,63 @@ class TestQuestDataLoading:
         assert data.brief_summary == ""
         assert data.plan_summary == ""
         assert data.agents == []
+        assert data.inherited_findings_used.count == 0
+        assert data.findings_left_for_future_quests.count == 0
+
+    def test_load_quest_data_reads_carryover_finding_artifacts(self, tmp_path):
+        """Deferred backlog artifacts populate the carry-over fields."""
+        quest_dir = self._make_quest_dir(tmp_path)
+        (quest_dir / "phase_01_plan" / "deferred_backlog_matches.json").write_text(
+            json.dumps(
+                [
+                    {"summary": "Deferred auth cleanup was pulled into scope."},
+                    {"summary": "Legacy validation gap was revisited."},
+                    {"summary": "Dashboard state drift needs follow-up."},
+                    {"summary": "A fourth match should only affect the count."},
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        backlog_dir = Path(__file__).resolve().parents[2] / ".quest" / "backlog"
+        backlog_dir.mkdir(parents=True, exist_ok=True)
+        backlog_path = backlog_dir / "deferred_findings.jsonl"
+        original = backlog_path.read_text(encoding="utf-8") if backlog_path.exists() else None
+        try:
+            backlog_path.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "deferred_by_quest": "test-quest_2026-01-01__1200",
+                                "summary": "Follow up on dashboard backlog rendering.",
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "deferred_by_quest": "other-quest_2026-01-01__1200",
+                                "summary": "Should not be included.",
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            data = load_quest_data(quest_dir)
+        finally:
+            if original is None:
+                backlog_path.unlink(missing_ok=True)
+            else:
+                backlog_path.write_text(original, encoding="utf-8")
+
+        assert data.inherited_findings_used.count == 4
+        assert len(data.inherited_findings_used.summaries) == 3
+        assert data.findings_left_for_future_quests.count == 1
+        assert data.findings_left_for_future_quests.summaries == [
+            "Follow up on dashboard backlog rendering."
+        ]
 
     def test_load_quest_data_handles_empty_quest_dir(self, tmp_path):
         """Minimal output for empty directory."""
@@ -1369,6 +1539,46 @@ class TestJournalCelebrationData:
         assert data.plan_iterations == 1
         assert data.fix_iterations == 1
 
+    def test_load_quest_data_from_journal_reads_carryover_findings(self, tmp_path):
+        journal = textwrap.dedent(
+            """\
+            # Quest Journal: carryover
+
+            - Quest ID: `carryover_2026-04-16__1200`
+
+            <!-- celebration-data-start -->
+            ```json
+            {
+              "quality": {"tier": "Gold"},
+              "inherited_findings_used": {
+                "count": 2,
+                "summaries": [
+                  "Deferred auth cleanup was pulled into scope.",
+                  "Legacy validation gap was revisited."
+                ]
+              },
+              "findings_left_for_future_quests": {
+                "count": 1,
+                "summaries": [
+                  "Follow up on dashboard backlog rendering."
+                ]
+              }
+            }
+            ```
+            <!-- celebration-data-end -->
+            """
+        )
+        journal_path = tmp_path / "carryover_2026-04-16.md"
+        journal_path.write_text(journal)
+
+        data = load_quest_data_from_journal(journal_path)
+
+        assert data.inherited_findings_used.count == 2
+        assert data.inherited_findings_used.summaries[0] == (
+            "Deferred auth cleanup was pulled into scope."
+        )
+        assert data.findings_left_for_future_quests.count == 1
+
     def test_load_quest_data_from_journal_legacy_no_celebration_data(self, tmp_path):
         legacy = textwrap.dedent(
             """\
@@ -1472,6 +1682,37 @@ class TestJournalCelebrationData:
         data = load_quest_data_from_journal(journal_path)
 
         assert data.quality_tier == ""
+
+    def test_load_quest_data_from_journal_rejects_boolean_carryover_count(
+        self, tmp_path
+    ):
+        journal = textwrap.dedent(
+            """\
+            # Quest Journal: malformed-carryover
+
+            - Quest ID: `malformed-carryover_2026-03-06__1200`
+
+            <!-- celebration-data-start -->
+            ```json
+            {
+              "inherited_findings_used": {
+                "count": true,
+                "summaries": ["Deferred auth cleanup was pulled into scope."]
+              }
+            }
+            ```
+            <!-- celebration-data-end -->
+        """
+        )
+        journal_path = tmp_path / "malformed-carryover_2026-03-06.md"
+        journal_path.write_text(journal)
+
+        data = load_quest_data_from_journal(journal_path)
+
+        assert data.inherited_findings_used.count == 1
+        assert data.inherited_findings_used.summaries == [
+            "Deferred auth cleanup was pulled into scope."
+        ]
 
     def test_load_quest_data_from_journal_leaves_tier_unset_without_iterations(
         self, tmp_path

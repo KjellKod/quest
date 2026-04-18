@@ -51,13 +51,27 @@ class TestExpectedArtifactsForRole:
     def test_code_reviewer_a_returns_correct_paths(self, tmp_path: Path):
         paths = expected_artifacts_for_role(tmp_path, "review", "code-reviewer-a")
         names = [p.name for p in paths]
-        assert names == ["review_code-reviewer-a.md", "handoff_code-reviewer-a.json"]
+        assert names == [
+            "review_code-reviewer-a.md",
+            "review_findings_code-reviewer-a.json",
+            "handoff_code-reviewer-a.json",
+        ]
         assert all("phase_03_review" in str(p) for p in paths)
 
     def test_fixer_returns_correct_paths(self, tmp_path: Path):
         paths = expected_artifacts_for_role(tmp_path, "fix", "fixer")
         names = [p.name for p in paths]
         assert names == ["review_fix_feedback_discussion.md", "handoff_fixer.json"]
+
+    def test_arbiter_includes_findings_and_backlog_artifacts(self, tmp_path: Path):
+        paths = expected_artifacts_for_role(tmp_path, "plan_review", "arbiter")
+        names = [p.name for p in paths]
+        assert names == [
+            "arbiter_verdict.md",
+            "review_findings.json",
+            "review_backlog.json",
+            "handoff_arbiter.json",
+        ]
 
     def test_solo_mode_excludes_disabled_agents(self, tmp_path: Path):
         for agent in SOLO_DISABLED_AGENTS:

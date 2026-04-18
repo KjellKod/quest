@@ -1,5 +1,4 @@
 ---
 name: README.md
-description: This directory has information about the `quest` skill. For more available skills, see this repository's root directory in `.skills`
+description: This directory contains Codex thin wrappers for repo-local user-invocable project skills. For the full skill catalog, see `.skills`.
 ---
-

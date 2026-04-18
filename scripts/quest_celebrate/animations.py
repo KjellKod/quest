@@ -183,6 +183,78 @@ def _build_reliability_lines(quest_data: Optional[QuestData]) -> List[str]:
     ]
 
 
+def _carryover_sections_markdown(quest_data: Optional[QuestData]) -> str:
+    """Render artifact-backed carry-over findings for markdown-first outputs."""
+    if quest_data is None:
+        return ""
+
+    inherited = quest_data.inherited_findings_used
+    future = quest_data.findings_left_for_future_quests
+    if inherited.count <= 0 and future.count <= 0:
+        return "\n".join(
+            [
+                "## Carry-Over Findings",
+                "",
+                "- No carry-over findings this round; nothing was inherited from earlier quests and nothing needs to be saved for the next one.",
+                "",
+            ]
+        )
+
+    sections: List[str] = []
+    carryover_sets = (
+        ("Inherited Findings Used", inherited),
+        (
+            "Findings Left For Future Quests",
+            future,
+        ),
+    )
+    for title, carryover in carryover_sets:
+        if carryover.count <= 0:
+            continue
+        sections.append(f"## {title}")
+        sections.append("")
+        sections.append(f"- Count: **{carryover.count}**")
+        for summary in carryover.summaries[:3]:
+            sections.append(f"- {summary}")
+        sections.append("")
+
+    return "\n".join(sections)
+
+
+def _carryover_lines_standard(quest_data: Optional[QuestData]) -> List[str]:
+    """Render artifact-backed carry-over findings for standard text output."""
+    if quest_data is None:
+        return []
+
+    inherited = quest_data.inherited_findings_used
+    future = quest_data.findings_left_for_future_quests
+    if inherited.count <= 0 and future.count <= 0:
+        return [
+            "    Carry-Over Findings",
+            "    No carry-over findings this round; nothing was inherited from earlier quests and nothing needs to be saved for the next one.",
+            "",
+        ]
+
+    lines: List[str] = []
+    carryover_sets = (
+        ("Inherited Findings Used", inherited),
+        (
+            "Findings Left For Future Quests",
+            future,
+        ),
+    )
+    for title, carryover in carryover_sets:
+        if carryover.count <= 0:
+            continue
+        lines.append(f"    {title}")
+        lines.append(f"    Count: {carryover.count}")
+        for summary in carryover.summaries[:3]:
+            lines.append(f"    - {summary}")
+        lines.append("")
+
+    return lines
+
+
 def render_minimal(stats: QuestStats, config: CelebrationConfig) -> str:
     """Render minimal one-line celebration."""
     emoji_check = "" if config.is_safe else ""
@@ -246,6 +318,10 @@ def render_standard(
         for line in reliability_lines:
             lines.append(f"    - {line}")
         lines.append("")
+
+    carryover_lines = _carryover_lines_standard(quest_data)
+    if carryover_lines:
+        lines.extend(carryover_lines)
 
     lines.append("    QUEST STATS" if config.is_safe else "    📊 QUEST STATS")
     lines.append("")
@@ -403,6 +479,10 @@ def render_epic(
             output.write(f"- {line}\n")
         output.write("\n")
 
+    carryover_sections = _carryover_sections_markdown(quest_data)
+    if carryover_sections:
+        output.write(carryover_sections)
+
     # Quality score (rich data only)
     if quest_data is not None:
         tier = quest_data.quality_tier or "Unknown"
@@ -544,6 +624,10 @@ def render_silly(
         for line in reliability_lines:
             output.write(f"- {line}\n")
         output.write("\n")
+
+    carryover_sections = _carryover_sections_markdown(quest_data)
+    if carryover_sections:
+        output.write(carryover_sections)
 
     # Rocket launch
     if config.ascii_art:

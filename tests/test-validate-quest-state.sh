@@ -45,6 +45,101 @@ create_state_json() {
 EOF
 }
 
+write_valid_review_findings() {
+  local filepath="$1"
+  cat > "$filepath" <<EOF
+[
+  {
+    "finding_id": "PF-001",
+    "source": "plan-reviewer-a",
+    "kind": "plan_review",
+    "severity": "medium",
+    "confidence": "medium",
+    "path": "phase_01_plan/plan.md",
+    "line": null,
+    "summary": "Clarify acceptance criteria mapping.",
+    "why_it_matters": "Planner/builder alignment depends on explicit AC mapping.",
+    "evidence": ["Reviewer note"],
+    "action": "Add explicit AC coverage lines.",
+    "needs_test": false,
+    "write_scope": ["phase_01_plan/plan.md"],
+    "related_acceptance_criteria": ["AC-1"]
+  }
+]
+EOF
+}
+
+write_review_backlog() {
+  local filepath="$1"
+  local mode="$2"
+  local decision="drop"
+  local needs_validation='[]'
+  local needs_test='false'
+
+  case "$mode" in
+    actionable)
+      decision="fix_now"
+      needs_validation='["unit_test"]'
+      needs_test='true'
+      ;;
+    human_decision)
+      decision="needs_human_decision"
+      ;;
+    clean)
+      decision="drop"
+      ;;
+    *)
+      decision="drop"
+      ;;
+  esac
+
+  cat > "$filepath" <<EOF
+{
+  "version": 1,
+  "generated_at": "2026-04-16T00:00:00Z",
+  "at_loop_cap": false,
+  "allowed_decisions": [
+    "fix_now",
+    "verify_first",
+    "defer",
+    "drop",
+    "needs_human_decision"
+  ],
+  "counts": {
+    "fix_now": $([ "$decision" = "fix_now" ] && echo 1 || echo 0),
+    "verify_first": 0,
+    "defer": 0,
+    "drop": $([ "$decision" = "drop" ] && echo 1 || echo 0),
+    "needs_human_decision": $([ "$decision" = "needs_human_decision" ] && echo 1 || echo 0)
+  },
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "source": "code-reviewer-a",
+      "kind": "correctness",
+      "severity": "medium",
+      "confidence": "medium",
+      "path": "scripts/example.py",
+      "line": 10,
+      "summary": "Example review backlog item.",
+      "why_it_matters": "Used to validate backlog contract handling.",
+      "evidence": ["Example evidence"],
+      "action": "Add targeted coverage.",
+      "needs_test": $needs_test,
+      "write_scope": ["scripts/example.py"],
+      "related_acceptance_criteria": ["AC-1"],
+      "decision": "$decision",
+      "decision_confidence": "medium",
+      "reason": "Example reason",
+      "needs_validation": $needs_validation,
+      "owner": "scripts",
+      "batch": "scripts/example.py"
+    }
+  ]
+}
+EOF
+}
+
 # ---- Test Cases ----
 
 test_missing_state_json() {
@@ -77,6 +172,22 @@ test_valid_plan_to_plan_reviewed() {
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
   touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "clean"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
+}
+
+test_valid_plan_to_plan_reviewed_solo_without_findings() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "solo"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
@@ -93,11 +204,28 @@ test_missing_artifact_plan_to_plan_reviewed() {
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
   # Missing review_plan-reviewer-b.md
   touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "review_plan-reviewer-b.md"
+}
+
+test_plan_to_plan_reviewed_requires_canonical_artifacts_in_workflow_mode() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review_findings.json" && echo "$output" | grep -q "review_backlog.json"
 }
 
 test_plan_reviewed_to_building_rejected() {
@@ -190,6 +318,7 @@ test_valid_reviewing_to_complete() {
   mkdir -p "$tmpdir/phase_03_review"
   touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
   touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
   echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
   echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
   local output
@@ -206,13 +335,244 @@ test_reviewing_to_complete_has_issues() {
   mkdir -p "$tmpdir/phase_03_review"
   touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
   touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "actionable"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -qi "actionable"
+}
+
+test_reviewing_to_complete_blocked_by_needs_human_decision() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "human_decision"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "needs_human_decision"
+}
+
+test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
   echo '{"status":"complete","next":"fixer","summary":"found issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
   echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -qi "clean"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "code-reviewer-a requested fixes"
+}
+
+test_reviewing_to_complete_requires_reviewer_handoffs() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "handoff_code-reviewer-a.json" && echo "$output" | grep -q "handoff_code-reviewer-b.json"
+}
+
+test_reviewing_to_complete_rejects_invalid_reviewer_handoff_json() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo 'not-json' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "handoff is not valid JSON"
+}
+
+test_reviewing_to_complete_rejects_missing_next_in_handoff() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo '{"status":"complete","summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q 'handoff next must be explicitly present'
+}
+
+test_reviewing_to_complete_rejects_blocked_reviewer_handoff_status() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo '{"status":"blocked","next":null,"summary":"stopped"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q 'reviewer handoff status must be explicitly present and equal "complete"'
+}
+
+test_reviewing_to_complete_rejects_needs_human_reviewer_handoff_status() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo '{"status":"needs_human","next":null,"summary":"need input"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q 'reviewer handoff status must be explicitly present and equal "complete"'
+}
+
+test_reviewing_to_complete_rejects_invalid_review_backlog_schema() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  cat > "$tmpdir/phase_03_review/review_backlog.json" <<EOF
+{
+  "version": 1,
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "decision": "drop"
+    }
+  ]
+}
+EOF
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review backlog schema invalid"
+}
+
+test_plan_to_plan_reviewed_rejects_invalid_backlog_item_schema() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  cat > "$tmpdir/phase_01_plan/review_backlog.json" <<EOF
+{
+  "version": 1,
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "decision": "bogus"
+    }
+  ]
+}
+EOF
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review backlog schema invalid"
+}
+
+test_plan_to_plan_reviewed_rejects_false_typed_backlog_fields() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "clean"
+  python3 - <<'PY' "$tmpdir/phase_01_plan/review_backlog.json"
+import json
+import sys
+path = sys.argv[1]
+data = json.loads(open(path, encoding="utf-8").read())
+data["items"][0]["decision"] = False
+data["items"][0]["line"] = False
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(data, handle, indent=2)
+    handle.write("\n")
+PY
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "invalid decision" && echo "$output" | grep -q "field 'line' must be null or an integer >= 1"
+}
+
+test_plan_to_plan_reviewed_rejects_invalid_backlog_finding_fields() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "clean"
+  python3 - <<'PY' "$tmpdir/phase_01_plan/review_backlog.json"
+import json
+import sys
+path = sys.argv[1]
+data = json.loads(open(path, encoding="utf-8").read())
+data["items"][0]["severity"] = "bogus"
+data["items"][0]["summary"] = ""
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(data, handle, indent=2)
+    handle.write("\n")
+PY
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review backlog schema invalid" && echo "$output" | grep -q "field 'severity'" && echo "$output" | grep -q "field 'summary'"
 }
 
 test_valid_reviewing_to_fixing() {
@@ -222,13 +582,41 @@ test_valid_reviewing_to_fixing() {
   mkdir -p "$tmpdir/phase_03_review"
   touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
   touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
-  echo '{"status":"complete","next":"fixer","summary":"found issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "actionable"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
   echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 0 ]
+}
+
+test_reviewing_to_fixing_rejects_invalid_review_backlog_schema() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  cat > "$tmpdir/phase_03_review/review_backlog.json" <<EOF
+{
+  "version": 1,
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "decision": "fix_now"
+    }
+  ]
+}
+EOF
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review backlog schema invalid"
 }
 
 test_reviewing_to_fixing_both_clean() {
@@ -238,13 +626,48 @@ test_reviewing_to_fixing_both_clean() {
   mkdir -p "$tmpdir/phase_03_review"
   touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
   touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
-  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo '{"status":"complete","next":"fixer","summary":"found issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
   echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]"
+}
+
+test_reviewing_to_fixing_rejects_blocked_reviewer_handoff_status() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "actionable"
+  echo '{"status":"blocked","next":"fixer","summary":"stopped"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q 'reviewer handoff status must be explicitly present and equal "complete"'
+}
+
+test_reviewing_to_fixing_rejects_needs_human_reviewer_handoff_status() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "actionable"
+  echo '{"status":"needs_human","next":"fixer","summary":"need input"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "fixing" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q 'reviewer handoff status must be explicitly present and equal "complete"'
 }
 
 test_invalid_transition() {
@@ -545,7 +968,9 @@ echo ""
 run_test test_missing_state_json
 run_test test_invalid_json
 run_test test_valid_plan_to_plan_reviewed
+run_test test_valid_plan_to_plan_reviewed_solo_without_findings
 run_test test_missing_artifact_plan_to_plan_reviewed
+run_test test_plan_to_plan_reviewed_requires_canonical_artifacts_in_workflow_mode
 run_test test_plan_reviewed_to_building_rejected
 run_test test_presentation_complete_to_building_arbiter_approved
 run_test test_presentation_complete_to_building_arbiter_says_iterate
@@ -554,8 +979,19 @@ run_test test_valid_building_to_reviewing
 run_test test_building_to_reviewing_empty_dir
 run_test test_valid_reviewing_to_complete
 run_test test_reviewing_to_complete_has_issues
+run_test test_reviewing_to_complete_blocked_by_needs_human_decision
+run_test test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff
+run_test test_reviewing_to_complete_requires_reviewer_handoffs
+run_test test_reviewing_to_complete_rejects_invalid_reviewer_handoff_json
+run_test test_reviewing_to_complete_rejects_missing_next_in_handoff
+run_test test_reviewing_to_complete_rejects_blocked_reviewer_handoff_status
+run_test test_reviewing_to_complete_rejects_needs_human_reviewer_handoff_status
+run_test test_reviewing_to_complete_rejects_invalid_review_backlog_schema
 run_test test_valid_reviewing_to_fixing
+run_test test_reviewing_to_fixing_rejects_invalid_review_backlog_schema
 run_test test_reviewing_to_fixing_both_clean
+run_test test_reviewing_to_fixing_rejects_blocked_reviewer_handoff_status
+run_test test_reviewing_to_fixing_rejects_needs_human_reviewer_handoff_status
 run_test test_invalid_transition
 run_test test_plan_iteration_exceeded
 run_test test_fix_iteration_exceeded
@@ -570,6 +1006,9 @@ run_test test_non_numeric_iteration_fields
 run_test test_valid_plan_reviewed_to_presenting
 run_test test_valid_presenting_to_presentation_complete
 run_test test_valid_presentation_complete_to_building
+run_test test_plan_to_plan_reviewed_rejects_invalid_backlog_item_schema
+run_test test_plan_to_plan_reviewed_rejects_false_typed_backlog_fields
+run_test test_plan_to_plan_reviewed_rejects_invalid_backlog_finding_fields
 run_test test_non_numeric_allowlist_iterations
 run_test test_zero_allowlist_iterations_are_rejected
 run_test test_validation_log_written

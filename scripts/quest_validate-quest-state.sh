@@ -33,6 +33,8 @@ FIX_ITERATION=0
 MAX_PLAN_ITERATIONS=4
 MAX_FIX_ITERATIONS=3
 SOLO_MAX_FIX_ITERATIONS=2
+REVIEW_BACKLOG_ACTIONABLE_COUNT=""
+REVIEW_BACKLOG_HUMAN_DECISION_COUNT=0
 
 # Colors for output (disabled if not a terminal)
 if [ -t 1 ]; then
@@ -201,6 +203,8 @@ validate_artifacts() {
       if [ "$QUEST_MODE" != "solo" ]; then
         check_file "$quest_dir/phase_01_plan/review_plan-reviewer-b.md"
         check_file "$quest_dir/phase_01_plan/arbiter_verdict.md"
+        check_file "$quest_dir/phase_01_plan/review_findings.json"
+        check_file "$quest_dir/phase_01_plan/review_backlog.json"
       fi
       ;;
     "plan->plan")
@@ -227,14 +231,18 @@ validate_artifacts() {
       ;;
     "reviewing->fixing")
       check_file "$quest_dir/phase_03_review/review_code-reviewer-a.md"
+      check_file "$quest_dir/phase_03_review/review_backlog.json"
       if [ "$QUEST_MODE" != "solo" ]; then
         check_file "$quest_dir/phase_03_review/review_code-reviewer-b.md"
       fi
       ;;
     "reviewing->complete")
       check_file "$quest_dir/phase_03_review/review_code-reviewer-a.md"
+      check_file "$quest_dir/phase_03_review/review_backlog.json"
+      check_file "$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
       if [ "$QUEST_MODE" != "solo" ]; then
         check_file "$quest_dir/phase_03_review/review_code-reviewer-b.md"
+        check_file "$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
       fi
       ;;
     "fixing->reviewing")
@@ -250,6 +258,147 @@ check_file() {
   else
     fail "Missing artifact: $filepath"
   fi
+}
+
+validate_review_findings_schema() {
+  local findings_file="$1"
+  local validator="$REPO_ROOT/scripts/quest_review_intelligence.py"
+
+  if [ ! -f "$validator" ]; then
+    fail "Semantic check: review findings validator not found at $validator"
+    return
+  fi
+
+  local validation_output
+  validation_output=$(python3 "$validator" validate-findings --input "$findings_file" 2>&1)
+  local rc=$?
+  if [ "$rc" -eq 0 ]; then
+    pass "Semantic check: review findings schema valid ($findings_file)"
+  else
+    fail "Semantic check: review findings schema invalid ($findings_file): $validation_output"
+  fi
+}
+
+validate_review_backlog_schema() {
+  local backlog_file="$1"
+  local original_actionable="$REVIEW_BACKLOG_ACTIONABLE_COUNT"
+  local original_human="$REVIEW_BACKLOG_HUMAN_DECISION_COUNT"
+  local validator="$REPO_ROOT/scripts/quest_review_intelligence.py"
+
+  if ! read_review_backlog_actionable_count "$backlog_file"; then
+    return 1
+  fi
+
+  if [ ! -f "$validator" ]; then
+    fail "Semantic check: review findings validator not found at $validator"
+    return 1
+  fi
+
+  local findings_validation_output
+  findings_validation_output=$(python3 "$validator" validate-findings --input "$backlog_file" 2>&1)
+  local findings_rc=$?
+
+  local item_errors
+  item_errors=$(jq -r '
+    def required_decision_fields:
+      ["decision", "decision_confidence", "reason", "needs_validation", "owner", "batch"];
+    def allowed_decisions:
+      ["fix_now", "verify_first", "defer", "drop", "needs_human_decision"];
+    def allowed_confidence:
+      ["high", "medium", "low"];
+    [
+      if (.items | type) != "array" then
+        "top-level items must be an array"
+      else empty end,
+      (.items // []) | to_entries[] |
+      . as $entry |
+      (required_decision_fields[] as $field | select(($entry.value | has($field)) | not) | "[\($entry.key)] missing field \($field)"),
+      (if (($entry.value | has("decision")) and (($entry.value.decision | type) != "string" or ((allowed_decisions | index($entry.value.decision)) == null))) then
+        "[\($entry.key)] invalid decision"
+      else empty end),
+      (if (($entry.value | has("decision_confidence")) and (($entry.value.decision_confidence | type) != "string" or ((allowed_confidence | index($entry.value.decision_confidence)) == null))) then
+        "[\($entry.key)] invalid decision_confidence"
+      else empty end),
+      (if (($entry.value | has("reason")) and (($entry.value.reason | type) != "string" or ($entry.value.reason | length) == 0)) then
+        "[\($entry.key)] invalid reason"
+      else empty end),
+      (if (($entry.value | has("owner")) and (($entry.value.owner | type) != "string" or ($entry.value.owner | length) == 0)) then
+        "[\($entry.key)] invalid owner"
+      else empty end),
+      (if (($entry.value | has("batch")) and (($entry.value.batch | type) != "string" or ($entry.value.batch | length) == 0)) then
+        "[\($entry.key)] invalid batch"
+      else empty end),
+      (if (($entry.value | has("needs_validation")) and (($entry.value.needs_validation | type) != "array" or ([($entry.value.needs_validation[]? | strings)] | length) != ($entry.value.needs_validation | length))) then
+        "[\($entry.key)] invalid needs_validation"
+      else empty end),
+      (if (($entry.value | has("evidence")) and (($entry.value.evidence | type) != "array" or ([($entry.value.evidence[]? | strings)] | length) != ($entry.value.evidence | length))) then
+        "[\($entry.key)] invalid evidence"
+      else empty end),
+      (if (($entry.value | has("write_scope")) and (($entry.value.write_scope | type) != "array" or ([($entry.value.write_scope[]? | strings)] | length) != ($entry.value.write_scope | length))) then
+        "[\($entry.key)] invalid write_scope"
+      else empty end),
+      (if (($entry.value | has("related_acceptance_criteria")) and (($entry.value.related_acceptance_criteria | type) != "array" or ([($entry.value.related_acceptance_criteria[]? | strings)] | length) != ($entry.value.related_acceptance_criteria | length))) then
+        "[\($entry.key)] invalid related_acceptance_criteria"
+      else empty end),
+      (if (($entry.value | has("needs_test")) and (($entry.value.needs_test | type) != "boolean")) then
+        "[\($entry.key)] invalid needs_test"
+      else empty end)
+    ] | .[]' "$backlog_file" 2>/dev/null)
+
+  local combined_errors=""
+  if [ "$findings_rc" -ne 0 ]; then
+    combined_errors="$findings_validation_output"
+  fi
+  if [ -n "$item_errors" ]; then
+    if [ -n "$combined_errors" ]; then
+      combined_errors="$combined_errors
+$item_errors"
+    else
+      combined_errors="$item_errors"
+    fi
+  fi
+
+  if [ -n "$combined_errors" ]; then
+    fail "Semantic check: review backlog schema invalid ($backlog_file): $combined_errors"
+    return 1
+  fi
+
+  REVIEW_BACKLOG_ACTIONABLE_COUNT="$original_actionable"
+  REVIEW_BACKLOG_HUMAN_DECISION_COUNT="$original_human"
+  pass "Semantic check: review backlog is valid ($backlog_file)"
+}
+
+read_required_reviewer_handoff() {
+  local handoff_file="$1"
+  local next_value=""
+
+  if [ ! -f "$handoff_file" ]; then
+    fail "Semantic check: handoff not found at $handoff_file"
+    return 1
+  fi
+
+  if ! jq empty "$handoff_file" 2>/dev/null; then
+    fail "Semantic check: handoff is not valid JSON ($handoff_file)"
+    return 1
+  fi
+
+  if ! jq -e 'has("status") and .status == "complete"' "$handoff_file" >/dev/null 2>&1; then
+    fail "Semantic check: reviewer handoff status must be explicitly present and equal \"complete\" ($handoff_file)"
+    return 1
+  fi
+
+  if ! jq -e 'has("next") and (.next == null or .next == "fixer")' "$handoff_file" >/dev/null 2>&1; then
+    fail "Semantic check: handoff next must be explicitly present and be null or \"fixer\" ($handoff_file)"
+    return 1
+  fi
+
+  next_value=$(jq -r '.next' "$handoff_file" 2>/dev/null)
+  if [ "$next_value" = "null" ]; then
+    next_value=""
+  fi
+
+  REQUIRED_HANDOFF_NEXT="$next_value"
+  return 0
 }
 
 check_dir_nonempty() {
@@ -268,13 +417,58 @@ check_dir_nonempty() {
   fi
 }
 
-# Semantic content checks on handoff JSON files
+read_review_backlog_actionable_count() {
+  local backlog_file="$1"
+
+  if [ ! -f "$backlog_file" ]; then
+    fail "Semantic check: review backlog not found at $backlog_file"
+    return 1
+  fi
+
+  if ! jq empty "$backlog_file" 2>/dev/null; then
+    fail "Semantic check: review backlog is not valid JSON ($backlog_file)"
+    return 1
+  fi
+
+  local has_items_array
+  has_items_array=$(jq -r 'if (.items | type) == "array" then "yes" else "no" end' "$backlog_file" 2>/dev/null)
+  if [ "$has_items_array" != "yes" ]; then
+    fail "Semantic check: review backlog must contain an items array ($backlog_file)"
+    return 1
+  fi
+
+  local actionable_count
+  actionable_count=$(jq '[.items[]? | select((.decision // "") == "fix_now" or (.decision // "") == "verify_first")] | length' "$backlog_file" 2>/dev/null)
+  if ! [[ "$actionable_count" =~ ^[0-9]+$ ]]; then
+    fail "Semantic check: review backlog actionable count is invalid ($backlog_file)"
+    return 1
+  fi
+
+  REVIEW_BACKLOG_ACTIONABLE_COUNT="$actionable_count"
+
+  REVIEW_BACKLOG_HUMAN_DECISION_COUNT=$(jq '[.items[]? | select((.decision // "") == "needs_human_decision")] | length' "$backlog_file" 2>/dev/null)
+  if ! [[ "$REVIEW_BACKLOG_HUMAN_DECISION_COUNT" =~ ^[0-9]+$ ]]; then
+    REVIEW_BACKLOG_HUMAN_DECISION_COUNT=0
+  fi
+
+  return 0
+}
+
+# Semantic content checks on handoff/backlog artifacts
 validate_semantic_content() {
   local quest_dir="$1"
   local current="$2"
   local target="$3"
 
   case "${current}->${target}" in
+    "plan->plan_reviewed")
+      if [ "$QUEST_MODE" != "solo" ]; then
+        local findings_file="$quest_dir/phase_01_plan/review_findings.json"
+        local backlog_file="$quest_dir/phase_01_plan/review_backlog.json"
+        validate_review_findings_schema "$findings_file"
+        validate_review_backlog_schema "$backlog_file"
+      fi
+      ;;
     "presentation_complete->building")
       if [ "$QUEST_MODE" = "solo" ]; then
         local reviewer_a_file="$quest_dir/phase_01_plan/handoff_plan-reviewer-a.json"
@@ -305,74 +499,76 @@ validate_semantic_content() {
       fi
       ;;
     "reviewing->fixing")
-      local reviewer_a_file="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
-      local has_fixer=false
+      local backlog_file="$quest_dir/phase_03_review/review_backlog.json"
+      local actionable_count
+      if ! validate_review_backlog_schema "$backlog_file"; then
+        return
+      fi
+      if ! read_review_backlog_actionable_count "$backlog_file"; then
+        return
+      fi
+      actionable_count="$REVIEW_BACKLOG_ACTIONABLE_COUNT"
 
-      if [ -f "$reviewer_a_file" ]; then
-        local reviewer_a_next
-        reviewer_a_next=$(jq -r '.next' "$reviewer_a_file" 2>/dev/null)
-        if [ "$reviewer_a_next" = "fixer" ]; then
-          has_fixer=true
-        fi
+      if [[ "$actionable_count" =~ ^[0-9]+$ ]] && [ "$actionable_count" -gt 0 ]; then
+        pass "Semantic check: review backlog has actionable findings (fix_now/verify_first)"
+      else
+        fail "Semantic check: review backlog has no actionable findings for fixing"
+      fi
+
+      local reviewer_a_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
+      if ! read_required_reviewer_handoff "$reviewer_a_handoff"; then
+        return
       fi
 
       if [ "$QUEST_MODE" != "solo" ]; then
-        local reviewer_b_file="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
-        if [ -f "$reviewer_b_file" ]; then
-          local reviewer_b_next
-          reviewer_b_next=$(jq -r '.next' "$reviewer_b_file" 2>/dev/null)
-          if [ "$reviewer_b_next" = "fixer" ]; then
-            has_fixer=true
-          fi
+        local reviewer_b_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
+        if ! read_required_reviewer_handoff "$reviewer_b_handoff"; then
+          return
         fi
-      fi
-
-      if [ "$has_fixer" = true ]; then
-        pass "Semantic check: at least one reviewer indicates issues (next=fixer)"
-      else
-        fail "Semantic check: no reviewer indicates issues requiring fixing"
       fi
       ;;
     "reviewing->complete")
-      local reviewer_a_file="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
-      local all_clean=true
+      local backlog_file="$quest_dir/phase_03_review/review_backlog.json"
+      local actionable_count
+      if ! validate_review_backlog_schema "$backlog_file"; then
+        return
+      fi
+      if ! read_review_backlog_actionable_count "$backlog_file"; then
+        return
+      fi
+      actionable_count="$REVIEW_BACKLOG_ACTIONABLE_COUNT"
 
-      if [ -f "$reviewer_a_file" ]; then
-        local reviewer_a_next
-        # Note: jq -r outputs "null" for both JSON null and missing .next field.
-        # This is acceptable since agents always write structured handoff JSON.
-        reviewer_a_next=$(jq -r '.next' "$reviewer_a_file" 2>/dev/null)
-        if [ "$reviewer_a_next" != "null" ]; then
-          all_clean=false
-        fi
+      if [[ "$actionable_count" =~ ^[0-9]+$ ]] && [ "$actionable_count" -eq 0 ]; then
+        pass "Semantic check: review backlog has no actionable findings"
       else
-        all_clean=false
+        fail "Semantic check: review backlog still has actionable findings; cannot complete"
+      fi
+
+      # Block completion while needs_human_decision items remain
+      if [ "$REVIEW_BACKLOG_HUMAN_DECISION_COUNT" -gt 0 ]; then
+        fail "Semantic check: review backlog has $REVIEW_BACKLOG_HUMAN_DECISION_COUNT needs_human_decision item(s); cannot auto-complete"
+      fi
+
+      # Safety check: block completion if any reviewer handoff requested fixes
+      local reviewer_a_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
+      local next_a
+      if ! read_required_reviewer_handoff "$reviewer_a_handoff"; then
+        return
+      fi
+      next_a="$REQUIRED_HANDOFF_NEXT"
+      if [ "$next_a" = "fixer" ]; then
+        fail "Semantic check: code-reviewer-a requested fixes (next=fixer) but completion attempted"
       fi
 
       if [ "$QUEST_MODE" != "solo" ]; then
-        local reviewer_b_file="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
-        if [ -f "$reviewer_b_file" ]; then
-          local reviewer_b_next
-          reviewer_b_next=$(jq -r '.next' "$reviewer_b_file" 2>/dev/null)
-          if [ "$reviewer_b_next" != "null" ]; then
-            all_clean=false
-          fi
-        else
-          all_clean=false
+        local reviewer_b_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
+        local next_b
+        if ! read_required_reviewer_handoff "$reviewer_b_handoff"; then
+          return
         fi
-      fi
-
-      if [ "$all_clean" = true ]; then
-        if [ "$QUEST_MODE" = "solo" ]; then
-          pass "Semantic check: reviewer A reports clean (next=null, solo mode)"
-        else
-          pass "Semantic check: both reviewers report clean (next=null)"
-        fi
-      else
-        if [ "$QUEST_MODE" = "solo" ]; then
-          fail "Semantic check: reviewer A is not clean (handoff file must have next=null)"
-        else
-          fail "Semantic check: reviews are not both clean (both handoff files must have next=null)"
+        next_b="$REQUIRED_HANDOFF_NEXT"
+        if [ "$next_b" = "fixer" ]; then
+          fail "Semantic check: code-reviewer-b requested fixes (next=fixer) but completion attempted"
         fi
       fi
       ;;
