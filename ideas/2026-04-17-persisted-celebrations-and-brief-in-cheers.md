@@ -152,12 +152,23 @@ Alternative order: celebration fires FIRST, journal is written SECOND with the c
 
 4. **Dashboard — link only.** A `Celebration:` line per quest that links to the file. No inline excerpts, no full rendering. The dashboard is a navigation surface, not a reader.
 
-5. **Filename — `<slug>_<date>.md` (matches journal).** When re-running `/celebrate` on a quest that already has a celebration file:
-   - Render the new celebration and show it to the user.
-   - Prompt: "Replace existing celebration at `<path>`? (y/n)"
-   - On yes, overwrite.
-   - On no, abort without saving.
-   - No `__v2` suffix files; overwrite is the right behavior for a regenerable artifact (git preserves history).
+5. **Filename and overwrite — context-aware, additive by default.** The filename is `<slug>_<date>.md` (matches journal). But "just overwrite" is wrong once you consider *who* is regenerating:
+
+   - **Original write at Step 7** (context-rich): the orchestrator that just completed the quest has full in-session context (handoffs, commit diffs, what happened in chat). The celebration it produces is authoritative.
+   - **Cold regen from archive** (context-thin): a fresh Claude/Codex instance running `/celebrate <archived-id>` later only has the archive files. Its celebration is reconstructed, not relived. Silently replacing a Step-7 original with a cold-regen would erode quality.
+   - **Post-review regen** (context-enriched): after a long PR review cycle with multiple fix iterations, merged state, or follow-up commits, a revised celebration is legitimate — there's new material the original did not know about.
+
+   **Rule:**
+   - Frontmatter carries an `origin:` marker: `step7-original` | `cold-regen` | `post-pr-revision`.
+   - `/celebrate` on a quest that has no file yet: write as `step7-original` (or `cold-regen` if invoked on an archived quest without a prior Step-7 write).
+   - `/celebrate` on a quest that has a `step7-original` file:
+     - Detect meaningful context change since the original (new commits on branch, PR comments, merged/closed state). Cheap checks only — `git log`, `gh pr view`.
+     - **No new context** → warn "original celebration is authoritative and nothing meaningful has changed since; the current regeneration has less context than the original. Overwrite anyway? (y/N)" with default **no**.
+     - **New context exists** → offer a revision mode: append `## Revision: <date>` section to the existing file *or* write a sibling `<slug>_<date>__revision-<YYYYMMDD>.md`. Pick per invocation. Mark the revision's `origin:` as `post-pr-revision` and add a `revision-of:` frontmatter pointer.
+   - `/celebrate` on a quest that has a `cold-regen` file: normal overwrite prompt (cold can replace cold).
+   - In all cases, *render the proposed celebration before any write* so the user can see what they'd be replacing.
+
+   This preserves git history for free (commits still snapshot each revision) while making "don't clobber the context-rich original with a thin one" the default.
 
 ## Backfill Candidates (as of 2026-04-18)
 
@@ -229,10 +240,23 @@ DELIVERABLES
 
 2. Persist the rendered celebration to
    docs/quest-journal/celebrations/<slug>_<date>.md with frontmatter
-   (quest-id, pr, style=celebration, quality-tier, date, journal pointer).
-   When the file already exists: render the new celebration, show it to the
-   user, and prompt 'Replace existing celebration at <path>? (y/n)'. No
-   __v2 suffix files.
+   (quest-id, pr, style=celebration, quality-tier, date, journal pointer,
+   origin={step7-original|cold-regen|post-pr-revision}, and
+   revision-of=<path> when applicable). Always render the celebration
+   before any write so the user can see what would be saved.
+
+   Overwrite policy (context-aware, additive by default):
+   - If no prior file exists: write fresh; origin=step7-original when
+     invoked at Step 7, else cold-regen.
+   - If prior file has origin=step7-original and no meaningful context
+     change (no new commits on branch, no new PR activity): default to
+     NOT overwriting; warn that the current run has less context.
+     Require explicit 'overwrite anyway' confirmation.
+   - If prior file has origin=step7-original AND new context exists:
+     offer revision mode — append '## Revision: <date>' section OR
+     write sibling <slug>_<date>__revision-<YYYYMMDD>.md, user chooses.
+     Mark origin=post-pr-revision and set revision-of.
+   - If prior file has origin=cold-regen: normal overwrite prompt.
 
 3. Update .skills/quest/delegation/workflow.md Step 7 to:
    (a) run the celebration BEFORE writing the journal (celebration-first order)
@@ -254,11 +278,20 @@ DELIVERABLES
    as a link per quest by reading the journal's Celebration line.
    **Link only, no inline embedding.**
 
-7. Focused tests under tests/ for: brief extraction edge cases (no heading,
-   one-line prompt, Problem+Impact pair), celebration persistence (overwrite
-   prompt, frontmatter shape), journal<->celebration link pairing, allowlist
-   flag behavior (auto-run vs prompt vs solo override), overwrite-prompt
-   accept/decline flows.
+7. Focused tests under tests/ for:
+   - brief extraction edge cases (no heading, one-line prompt,
+     Problem+Impact pair)
+   - frontmatter shape (all fields including origin and revision-of)
+   - journal <-> celebration link pairing
+   - allowlist flag behavior (auto-run vs prompt vs solo override)
+   - overwrite policy matrix:
+     - no prior file at Step 7 -> writes origin=step7-original
+     - no prior file via /celebrate <archived-id> -> writes origin=cold-regen
+     - prior step7-original + no new context -> default declines overwrite
+     - prior step7-original + new commits/PR activity -> offers revision mode
+     - prior cold-regen -> normal overwrite prompt
+   - context-change detection (new commits on branch, new PR comments,
+     merged/closed state) without requiring a live gh call in tests.
 
 OUT OF SCOPE
 
