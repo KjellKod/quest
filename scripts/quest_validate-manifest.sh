@@ -51,6 +51,8 @@ EXPECTED_PATTERNS=(
   "scripts/quest_claude_bridge.py"
   "scripts/quest_claude_probe.py"
   "scripts/quest_claude_runner.py"
+  "scripts/quest_review_intelligence.py"
+  "scripts/quest_select_tests.py"
   "scripts/quest_startup_branch.py"
   "scripts/quest_validate-handoff-contracts.sh"
   "scripts/quest_validate-manifest.sh"

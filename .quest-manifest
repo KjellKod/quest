@@ -76,6 +76,7 @@ scripts/quest_claude_bridge.py
 scripts/quest_claude_probe.py
 scripts/quest_claude_runner.py
 scripts/quest_review_intelligence.py
+scripts/quest_select_tests.py
 scripts/quest_startup_branch.py
 scripts/quest_checks/__init__.py
 scripts/quest_checks/cli.py

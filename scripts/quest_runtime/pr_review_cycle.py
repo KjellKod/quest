@@ -21,6 +21,15 @@ _BLOCKER_TOKEN_STRIP = ".,:;!?()[]{}\"'"
 FALLBACK_LOOP_CAP = 3
 _ALLOWLIST_PATH = Path(".ai/allowlist.json")
 CI_GREEN_STATES = ("green",)
+CI_FAILURE_STATES = (
+    "failing",
+    "failure",
+    "failed",
+    "error",
+    "cancelled",
+    "timed_out",
+    "action_required",
+)
 
 
 def resolve_loop_cap(allowlist_path: Path | None = None) -> int:
@@ -97,7 +106,10 @@ def normalize_pr_review_intake(intake: dict[str, list[dict[str, Any]]]) -> list[
     for check in ci_checks:
         job = str(check.get("job") or "unknown-job").strip() or "unknown-job"
         state = str(check.get("state") or "unknown").strip().lower() or "unknown"
-        if state in CI_GREEN_STATES:
+        if state not in CI_FAILURE_STATES:
+            # Skip green, pending, in-progress, unknown, and any other
+            # non-actionable state. Only confirmed failures become findings;
+            # transient/unknown states should not produce fix_now work.
             continue
 
         ci_counter += 1

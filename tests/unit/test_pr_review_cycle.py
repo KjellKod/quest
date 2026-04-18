@@ -567,3 +567,101 @@ def test_select_validation_steps_finds_root_level_nearest_tests() -> None:
     steps = select_validation_steps(finding, repo_inventory=inventory)
     level1 = [step for step in steps if step["level"] == 1]
     assert any("test_setup.py" in step["target"] for step in level1), steps
+
+
+def test_normalize_pr_review_intake_skips_pending_and_unknown_ci_states() -> None:
+    intake = {
+        "ci_checks": [
+            {"job": "unit", "state": "green"},
+            {"job": "lint", "state": "pending"},
+            {"job": "typecheck", "state": "unknown"},
+            {"job": "in-progress-runner", "state": "in_progress"},
+            {"job": "flaky", "state": "failing", "failed_path": "scripts/foo.py"},
+            {"job": "build", "state": "error", "failed_path": "Makefile", "kind_hint": "build_failure"},
+        ]
+    }
+
+    findings = normalize_pr_review_intake(intake)
+    ci_findings = [finding for finding in findings if finding["finding_id"].startswith("pr-ci-")]
+
+    sources = sorted(finding["source"] for finding in ci_findings)
+    assert sources == ["pr-ci:build", "pr-ci:flaky"], ci_findings
+
+
+def test_cli_classify_pr_stop_derives_deferred_jsonl_from_backlog_when_cwd_unrelated(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+
+    # Repo root with the real backlog; we will run the CLI from a separate cwd
+    repo = tmp_path / "repo"
+    quest_id = "cross-cwd-quest_2026-04-18__0001"
+    backlog_dir = repo / ".quest" / quest_id / "phase_03_review"
+    backlog_dir.mkdir(parents=True, exist_ok=True)
+    backlog_path = backlog_dir / "review_backlog.json"
+
+    backlog_payload = {
+        "version": 1,
+        "generated_at": "2026-04-18T00:00:00Z",
+        "at_loop_cap": False,
+        "allowed_decisions": [
+            "fix_now",
+            "verify_first",
+            "defer",
+            "drop",
+            "needs_human_decision",
+        ],
+        "counts": {
+            "fix_now": 1,
+            "verify_first": 0,
+            "defer": 0,
+            "drop": 0,
+            "needs_human_decision": 0,
+        },
+        "items": [
+            _backlog_item(
+                "F-001",
+                decision="fix_now",
+                severity="medium",
+                confidence="medium",
+                write_scope=["scripts/a.py"],
+            ),
+        ],
+    }
+    backlog_path.write_text(json.dumps(backlog_payload), encoding="utf-8")
+
+    # Unrelated working directory the CLI runs from
+    cwd_dir = tmp_path / "unrelated_cwd"
+    cwd_dir.mkdir()
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "classify-pr-stop",
+            "--ci-state",
+            "failing",
+            "--actionable",
+            "1",
+            "--iteration",
+            "3",
+            "--cap",
+            "3",
+            "--backlog",
+            str(backlog_path),
+        ],
+        cwd=cwd_dir,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    # Deferred record landed under the REPO's .quest/, not under cwd_dir
+    expected_deferred = repo / ".quest" / "backlog" / "deferred_findings.jsonl"
+    cwd_deferred = cwd_dir / ".quest" / "backlog" / "deferred_findings.jsonl"
+    assert expected_deferred.exists()
+    assert not cwd_deferred.exists()
+    first_record = json.loads(expected_deferred.read_text(encoding="utf-8").splitlines()[0])
+    assert first_record["deferred_by_quest"] == quest_id

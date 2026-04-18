@@ -55,6 +55,22 @@ def _quest_id_from_backlog_path(backlog_path: Path) -> str:
     return "unknown-quest"
 
 
+def _deferred_jsonl_from_backlog(backlog_path: Path) -> Path:
+    """Derive the repo-local deferred findings JSONL path from a backlog path.
+
+    The backlog typically lives at ``<repo>/.quest/<quest-id>/phase_*/review_backlog.json``.
+    The deferred reservoir is ``<repo>/.quest/backlog/deferred_findings.jsonl``.
+    Walk up the backlog's ancestors to find the ``.quest`` directory and emit
+    the sibling ``backlog/deferred_findings.jsonl`` under it. Falls back to a
+    cwd-relative default if no ``.quest`` ancestor exists.
+    """
+
+    for ancestor in backlog_path.resolve().parents:
+        if ancestor.name == ".quest":
+            return ancestor / "backlog" / "deferred_findings.jsonl"
+    return Path(".quest/backlog/deferred_findings.jsonl")
+
+
 def _cmd_validate_findings(args: argparse.Namespace) -> int:
     findings = _extract_findings(_load_json(Path(args.input)))
     errors = validate_findings(findings)
@@ -145,6 +161,11 @@ def _cmd_classify_pr_stop(args: argparse.Namespace) -> int:
             and str(item.get("finding_id") or "") not in existing_defer_ids
         ]
         if deferred_items:
+            if args.deferred_jsonl is not None:
+                deferred_path = Path(args.deferred_jsonl)
+            else:
+                deferred_path = _deferred_jsonl_from_backlog(backlog_path)
+
             lineage = {
                 "deferred_by_quest": args.deferred_by_quest
                 or _quest_id_from_backlog_path(backlog_path),
@@ -153,7 +174,7 @@ def _cmd_classify_pr_stop(args: argparse.Namespace) -> int:
                 "proposed_followup": args.proposed_followup,
             }
             deferred_count = append_deferred_findings(
-                Path(args.deferred_jsonl),
+                deferred_path,
                 deferred_items,
                 lineage,
             )
@@ -259,8 +280,14 @@ def parse_args() -> argparse.Namespace:
     )
     classify.add_argument(
         "--deferred-jsonl",
-        default=".quest/backlog/deferred_findings.jsonl",
-        help="Deferred findings JSONL path for newly deferred findings",
+        default=None,
+        help=(
+            "Deferred findings JSONL path (default: derived from --backlog, "
+            "walking to the enclosing .quest/ dir and writing to "
+            "<.quest>/backlog/deferred_findings.jsonl; falls back to "
+            ".quest/backlog/deferred_findings.jsonl relative to cwd when no "
+            "backlog is supplied)"
+        ),
     )
     classify.add_argument(
         "--deferred-by-quest",
