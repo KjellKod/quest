@@ -665,3 +665,108 @@ def test_cli_classify_pr_stop_derives_deferred_jsonl_from_backlog_when_cwd_unrel
     assert not cwd_deferred.exists()
     first_record = json.loads(expected_deferred.read_text(encoding="utf-8").splitlines()[0])
     assert first_record["deferred_by_quest"] == quest_id
+
+
+def test_classify_pr_loop_stop_resolves_cap_from_context_path(tmp_path: Path) -> None:
+    from quest_runtime.pr_review_cycle import allowlist_path_from_context
+
+    repo = tmp_path / "repo"
+    (repo / ".ai").mkdir(parents=True)
+    (repo / ".ai" / "allowlist.json").write_text(
+        json.dumps({"gates": {"max_fix_iterations": 7}}),
+        encoding="utf-8",
+    )
+    backlog_path = repo / ".quest" / "q" / "phase_03_review" / "review_backlog.json"
+    backlog_path.parent.mkdir(parents=True)
+    backlog_path.write_text("{}", encoding="utf-8")
+
+    allowlist = allowlist_path_from_context(backlog_path)
+    assert allowlist == repo / ".ai" / "allowlist.json"
+
+    assert (
+        classify_pr_loop_stop("failing", 1, 6, allowlist_path=allowlist)["outcome"]
+        == "continue"
+    )
+    assert (
+        classify_pr_loop_stop("failing", 1, 7, allowlist_path=allowlist)["outcome"]
+        == "cap_enforced"
+    )
+
+
+def test_cli_classify_pr_stop_honors_backlog_repo_allowlist_from_unrelated_cwd(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+
+    repo = tmp_path / "repo"
+    (repo / ".ai").mkdir(parents=True)
+    # Target repo caps iterations at 5
+    (repo / ".ai" / "allowlist.json").write_text(
+        json.dumps({"gates": {"max_fix_iterations": 5}}),
+        encoding="utf-8",
+    )
+
+    quest_id = "cap-context-quest_2026-04-18__0002"
+    backlog_dir = repo / ".quest" / quest_id / "phase_03_review"
+    backlog_dir.mkdir(parents=True)
+    backlog_path = backlog_dir / "review_backlog.json"
+    backlog_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "at_loop_cap": False,
+                "allowed_decisions": [
+                    "fix_now",
+                    "verify_first",
+                    "defer",
+                    "drop",
+                    "needs_human_decision",
+                ],
+                "counts": {
+                    "fix_now": 1,
+                    "verify_first": 0,
+                    "defer": 0,
+                    "drop": 0,
+                    "needs_human_decision": 0,
+                },
+                "items": [
+                    _backlog_item(
+                        "F-001",
+                        decision="fix_now",
+                        severity="medium",
+                        confidence="medium",
+                        write_scope=["scripts/a.py"],
+                    ),
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # Unrelated cwd with no .ai/allowlist.json — must NOT determine cap
+    cwd = tmp_path / "unrelated_cwd"
+    cwd.mkdir()
+
+    # iteration=4 with cap=5 should continue; classifier must pick up the repo's gate
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "classify-pr-stop",
+            "--ci-state",
+            "failing",
+            "--actionable",
+            "1",
+            "--iteration",
+            "4",
+            "--backlog",
+            str(backlog_path),
+        ],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["outcome"] == "continue", payload

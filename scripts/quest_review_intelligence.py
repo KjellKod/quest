@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from quest_runtime.pr_review_cycle import (
+    allowlist_path_from_context,
     build_fix_batches,
     classify_pr_loop_stop,
     normalize_pr_review_intake,
@@ -127,11 +128,14 @@ def _cmd_build_fix_batches(args: argparse.Namespace) -> int:
 
 
 def _cmd_classify_pr_stop(args: argparse.Namespace) -> int:
+    context_for_allowlist = Path(args.backlog) if args.backlog else None
+    allowlist_path = allowlist_path_from_context(context_for_allowlist)
     classification = classify_pr_loop_stop(
         args.ci_state,
         args.actionable,
         args.iteration,
         cap=args.cap,
+        allowlist_path=allowlist_path,
     )
 
     deferred_count = 0

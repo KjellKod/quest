@@ -32,6 +32,29 @@ CI_FAILURE_STATES = (
 )
 
 
+def allowlist_path_from_context(context_path: Path | None) -> Path:
+    """Find ``.ai/allowlist.json`` in the enclosing repo of ``context_path``.
+
+    Walks up from ``context_path`` (a path known to live inside the target
+    repo, typically the backlog or a quest artifact) and returns the first
+    ancestor that contains ``.ai/allowlist.json``. Falls back to the
+    module-level cwd-relative default when no context is given or no
+    enclosing repo is found.
+    """
+
+    if context_path is None:
+        return _ALLOWLIST_PATH
+    try:
+        resolved_parents = context_path.resolve().parents
+    except (OSError, RuntimeError):
+        return _ALLOWLIST_PATH
+    for ancestor in resolved_parents:
+        candidate = ancestor / ".ai" / "allowlist.json"
+        if candidate.exists():
+            return candidate
+    return _ALLOWLIST_PATH
+
+
 def resolve_loop_cap(allowlist_path: Path | None = None) -> int:
     """Resolve the PR fix-loop cap from the allowlist; fall back to FALLBACK_LOOP_CAP."""
 
@@ -611,11 +634,17 @@ def classify_pr_loop_stop(
     iteration: int,
     *,
     cap: int | None = None,
+    allowlist_path: Path | None = None,
 ) -> dict[str, Any]:
     """Classify whether the PR fix loop should stop and whether retagging is required.
 
-    When ``cap`` is ``None`` the value is resolved from ``.ai/allowlist.json``
-    (``gates.max_fix_iterations``), falling back to ``FALLBACK_LOOP_CAP``.
+    When ``cap`` is ``None`` the value is resolved from the allowlist at
+    ``allowlist_path`` (``gates.max_fix_iterations``), falling back to
+    ``FALLBACK_LOOP_CAP``. When ``allowlist_path`` is ``None`` the module
+    default (``.ai/allowlist.json`` relative to cwd) is used; callers that
+    know the target repo context should pass an explicit path (see
+    ``allowlist_path_from_context``) so cap enforcement honors that repo's
+    configured gate regardless of cwd.
     """
 
     normalized_state = (ci_state or "").strip().lower()
@@ -624,7 +653,7 @@ def classify_pr_loop_stop(
 
     actionable = max(0, int(actionable_count))
     current_iteration = max(0, int(iteration))
-    resolved_cap = cap if cap is not None else resolve_loop_cap()
+    resolved_cap = cap if cap is not None else resolve_loop_cap(allowlist_path)
     max_iterations = max(1, int(resolved_cap))
 
     if normalized_state == "green" and actionable == 0 and current_iteration <= max_iterations:
