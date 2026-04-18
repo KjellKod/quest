@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from quest_runtime.pr_review_cycle import (
-    DEFAULT_LOOP_CAP,
     build_fix_batches,
     classify_pr_loop_stop,
     normalize_pr_review_intake,
@@ -242,7 +241,12 @@ def parse_args() -> argparse.Namespace:
     )
     classify.add_argument("--actionable", required=True, type=int, help="Open actionable backlog count")
     classify.add_argument("--iteration", required=True, type=int, help="Current iteration number")
-    classify.add_argument("--cap", default=DEFAULT_LOOP_CAP, type=int, help="Iteration cap")
+    classify.add_argument(
+        "--cap",
+        default=None,
+        type=int,
+        help="Iteration cap (default: allowlist gates.max_fix_iterations)",
+    )
     classify.add_argument(
         "--backlog",
         default=None,

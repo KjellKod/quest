@@ -196,13 +196,20 @@ def test_build_fix_batches_detects_parent_child_prefix_overlap() -> None:
         ),
         _backlog_item(
             "F-002",
-            write_scope=["scripts/quest_runtime/pr_review_cycle.py"],
+            write_scope=[
+                "scripts/quest_runtime",
+                "scripts/quest_runtime/pr_review_cycle.py",
+            ],
             validation_steps=_validation_step("tests/unit/test_one.py"),
         ),
     ]
 
     batches = build_fix_batches(items)
     assert len(batches) == 2
+    assert {batch["batch_id"] for batch in batches} == {
+        "scripts/quest_runtime-1",
+        "scripts/quest_runtime-2",
+    }
 
 
 def test_build_fix_batches_normalizes_trailing_slash_for_overlap() -> None:
@@ -214,13 +221,20 @@ def test_build_fix_batches_normalizes_trailing_slash_for_overlap() -> None:
         ),
         _backlog_item(
             "F-002",
-            write_scope=["scripts/quest_runtime/pr_review_cycle.py"],
+            write_scope=[
+                "scripts/quest_runtime/",
+                "scripts/quest_runtime/pr_review_cycle.py",
+            ],
             validation_steps=_validation_step("tests/unit/test_one.py"),
         ),
     ]
 
     batches = build_fix_batches(items)
     assert len(batches) == 2
+    assert {batch["batch_id"] for batch in batches} == {
+        "scripts/quest_runtime/-1",
+        "scripts/quest_runtime/-2",
+    }
 
 
 def test_build_fix_batches_is_deterministic_for_shuffled_input() -> None:
@@ -461,3 +475,95 @@ def test_cli_classify_pr_stop_round_trip(tmp_path: Path) -> None:
     assert deferred_path.exists()
     first_record = json.loads(deferred_path.read_text(encoding="utf-8").splitlines()[0])
     assert first_record["deferred_by_quest"] == quest_id
+
+
+def test_normalize_pr_review_intake_tokenized_blocker_upgrade() -> None:
+    intake = {
+        "inline_comments": [
+            {
+                "commenter": "alice",
+                "body": "Happy to ship this; its a nonblocking improvement.",
+                "path": "scripts/foo.py",
+                "line": 10,
+            },
+            {
+                "commenter": "bob",
+                "body": "This is a blocker: session can leak.",
+                "path": "scripts/foo.py",
+                "line": 20,
+            },
+            {
+                "commenter": "carol",
+                "body": "Absolutely critical! Fix before merge.",
+                "path": "scripts/foo.py",
+                "line": 30,
+            },
+        ]
+    }
+
+    findings = normalize_pr_review_intake(intake)
+    by_commenter = {finding["source"]: finding for finding in findings}
+
+    assert by_commenter["pr-inline:alice"]["severity"] == "medium"
+    assert by_commenter["pr-inline:bob"]["severity"] == "high"
+    assert by_commenter["pr-inline:carol"]["severity"] == "high"
+
+
+def test_classify_pr_loop_stop_resolves_cap_from_allowlist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    allowlist = tmp_path / "allowlist.json"
+    allowlist.write_text(
+        json.dumps({"gates": {"max_fix_iterations": 5}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "quest_runtime.pr_review_cycle._ALLOWLIST_PATH",
+        allowlist,
+    )
+
+    assert classify_pr_loop_stop("failing", 1, 3)["outcome"] == "continue"
+    assert classify_pr_loop_stop("failing", 1, 5)["outcome"] == "cap_enforced"
+
+
+def test_classify_pr_loop_stop_falls_back_to_fallback_cap_when_allowlist_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "quest_runtime.pr_review_cycle._ALLOWLIST_PATH",
+        tmp_path / "does-not-exist.json",
+    )
+
+    assert classify_pr_loop_stop("failing", 1, 2)["outcome"] == "continue"
+    assert classify_pr_loop_stop("failing", 1, 3)["outcome"] == "cap_enforced"
+
+
+def test_select_validation_steps_finds_root_level_nearest_tests() -> None:
+    from quest_runtime.pr_review_cycle import select_validation_steps
+
+    finding = {
+        "finding_id": "F-root",
+        "source": "reviewer",
+        "kind": "correctness",
+        "severity": "medium",
+        "confidence": "medium",
+        "path": "setup.py",
+        "line": 1,
+        "summary": "Root-level module gets nearest-test lookup.",
+        "why_it_matters": "Root-level files should not silently skip Level 1.",
+        "evidence": ["repro"],
+        "action": "Verify near-test resolution for root path.",
+        "needs_test": False,
+        "write_scope": ["setup.py"],
+        "related_acceptance_criteria": [],
+    }
+
+    inventory = {
+        "format_command": "fmt",
+        "lint_command": "lint",
+        "typecheck_command": "typecheck",
+        "pytest_command": "pytest",
+        "test_paths": ["test_setup.py", "tests/unit/test_other.py"],
+    }
+
+    steps = select_validation_steps(finding, repo_inventory=inventory)
+    level1 = [step for step in steps if step["level"] == 1]
+    assert any("test_setup.py" in step["target"] for step in level1), steps

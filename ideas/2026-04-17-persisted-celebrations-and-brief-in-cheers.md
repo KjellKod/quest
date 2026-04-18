@@ -164,7 +164,7 @@ Alternative order: celebration fires FIRST, journal is written SECOND with the c
    - `/celebrate` on a quest that has a `step7-original` file:
      - Detect meaningful context change since the original (new commits on branch, PR comments, merged/closed state). Cheap checks only — `git log`, `gh pr view`.
      - **No new context** → warn "original celebration is authoritative and nothing meaningful has changed since; the current regeneration has less context than the original. Overwrite anyway? (y/N)" with default **no**.
-     - **New context exists** → offer a revision mode: append `## Revision: <date>` section to the existing file *or* write a sibling `<slug>_<date>__revision-<YYYYMMDD>.md`. Pick per invocation. Mark the revision's `origin:` as `post-pr-revision` and add a `revision-of:` frontmatter pointer.
+     - **New context exists** → offer a revision mode: append `## Revision: <date>` to the existing file (keep the original frontmatter intact; include revision metadata — date, reason, author — inline in the section body) *or* write a sibling `<slug>_<date>__revision-<YYYYMMDD>.md` with `origin: post-pr-revision` and `revision-of: <original-path>` in its own frontmatter. Pick per invocation.
    - `/celebrate` on a quest that has a `cold-regen` file: normal overwrite prompt (cold can replace cold).
    - In all cases, *render the proposed celebration before any write* so the user can see what they'd be replacing.
 
@@ -220,7 +220,7 @@ Journal-backed quests (richer source material for the celebration) are marked `�
 | `validate-and-launch_2026-02-04__1045` | ✓ |
 | `weekly-update-check_2026-02-04__2349` | — |
 
-Totals: **35** archived quests without celebrations; **21** have journals, **14** do not.
+Totals: **35** archived quests without celebrations; **20** have journals, **15** do not.
 
 The three `codex-bridge-smoke*` quests and `codex-claude-bridge` look like rapid re-runs during the Codex bridge work on 2026-03-09 — only the last (or `codex-led-claude-bridge-runtime-hardening`, which has a journal) is worth celebrating. Safe to skip the smoke-test duplicates.
 

@@ -53,7 +53,7 @@ Run the review loop through the canonical review-intelligence pipeline:
    - `python3 scripts/quest_review_intelligence.py build-fix-batches --backlog <review_backlog.json> --output <fix_batches.json>`
 5. Select concrete validation per actionable finding:
    - `python3 scripts/quest_select_tests.py --finding <finding.json> [--repo-inventory <repo_inventory.json>]`
-   - Persist returned `validation_steps` on backlog items before batching so validation scope is stable.
+   - Persist returned `validation_steps` on backlog items so validation scope is stable for execution.
 6. Execute one batch at a time:
    - Apply only that batch’s `fix_now` / `verify_first` items.
    - Run validation steps in order (Level 0 → Level 1 → Level 2 when present).

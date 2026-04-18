@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -16,8 +17,27 @@ from quest_runtime.review_intelligence import (
 
 INTAKE_SOURCES = ("ci_check", "inline_comment", "general_comment", "existing_finding")
 BLOCKER_KEYWORDS = ("blocker", "blocking", "critical")
-DEFAULT_LOOP_CAP = 3
+_BLOCKER_TOKEN_STRIP = ".,:;!?()[]{}\"'"
+FALLBACK_LOOP_CAP = 3
+_ALLOWLIST_PATH = Path(".ai/allowlist.json")
 CI_GREEN_STATES = ("green",)
+
+
+def resolve_loop_cap(allowlist_path: Path | None = None) -> int:
+    """Resolve the PR fix-loop cap from the allowlist; fall back to FALLBACK_LOOP_CAP."""
+
+    path = allowlist_path if allowlist_path is not None else _ALLOWLIST_PATH
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return FALLBACK_LOOP_CAP
+    gates = data.get("gates") if isinstance(data, dict) else None
+    if not isinstance(gates, dict):
+        return FALLBACK_LOOP_CAP
+    value = gates.get("max_fix_iterations")
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return FALLBACK_LOOP_CAP
+    return value
 
 _ACTIONABLE_DECISIONS = {"fix_now", "verify_first"}
 _SHARED_INFRA_KINDS = {"build_failure", "shared_infrastructure", "cross_cutting"}
@@ -121,11 +141,11 @@ def normalize_pr_review_intake(intake: dict[str, list[dict[str, Any]]]) -> list[
         path = str(comment.get("path") or "").strip() or "pr/inline"
         line = _finding_line(comment.get("line"))
         body_lower = body.lower()
-        severity = (
-            "high"
-            if any(keyword in body_lower for keyword in BLOCKER_KEYWORDS)
-            else "medium"
-        )
+        tokens = {
+            token.strip(_BLOCKER_TOKEN_STRIP)
+            for token in body_lower.split()
+        }
+        severity = "high" if tokens & set(BLOCKER_KEYWORDS) else "medium"
         summary = body[:120].strip() or f"Inline review feedback from {commenter}."
 
         normalized_findings.append(
@@ -401,10 +421,7 @@ def _nearest_test_targets(finding: dict[str, Any], test_paths: list[str]) -> lis
 
     for source_path in _candidate_source_paths(finding):
         source_dir = str(PurePosixPath(source_path).parent)
-        if source_dir == ".":
-            source_dir = ""
-
-        current = PurePosixPath(source_dir) if source_dir else None
+        current: PurePosixPath | None = PurePosixPath(source_dir or ".")
         while current is not None:
             current_dir = "" if str(current) == "." else str(current)
             mirrored_prefix = f"tests/{current_dir}" if current_dir else ""
@@ -581,9 +598,13 @@ def classify_pr_loop_stop(
     actionable_count: int,
     iteration: int,
     *,
-    cap: int = DEFAULT_LOOP_CAP,
+    cap: int | None = None,
 ) -> dict[str, Any]:
-    """Classify whether the PR fix loop should stop and whether retagging is required."""
+    """Classify whether the PR fix loop should stop and whether retagging is required.
+
+    When ``cap`` is ``None`` the value is resolved from ``.ai/allowlist.json``
+    (``gates.max_fix_iterations``), falling back to ``FALLBACK_LOOP_CAP``.
+    """
 
     normalized_state = (ci_state or "").strip().lower()
     if normalized_state not in {"green", "failing", "pending", "unknown"}:
@@ -591,7 +612,8 @@ def classify_pr_loop_stop(
 
     actionable = max(0, int(actionable_count))
     current_iteration = max(0, int(iteration))
-    max_iterations = max(1, int(cap))
+    resolved_cap = cap if cap is not None else resolve_loop_cap()
+    max_iterations = max(1, int(resolved_cap))
 
     if normalized_state == "green" and actionable == 0 and current_iteration <= max_iterations:
         return {
