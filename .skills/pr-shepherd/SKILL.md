@@ -37,8 +37,8 @@ Use **inline-first** commenting by default.
    - **Disagree?** → Reply on the comment with clear reasoning explaining why.
    - **Question/clarification?** → Reply on the comment with the answer.
 
-### Step 4.4: Canonical Intake → Decisions → Batches → Validation → Push
-Run the review loop through the canonical review-intelligence pipeline:
+### Step 4.4: Canonical Intake → Decisions → Validation → Batches → Push
+Run the review loop through the canonical review-intelligence pipeline. **Order matters:** validation steps must be attached to backlog items before batching, otherwise `build-fix-batches` falls back to one-item batches keyed by `finding_id` and the "batched PR response" behavior is lost.
 
 1. Collect one intake payload per cycle:
    - `ci_checks`
@@ -49,13 +49,15 @@ Run the review loop through the canonical review-intelligence pipeline:
    - `python3 scripts/quest_review_intelligence.py normalize-pr-intake --input <intake.json> --output <review_findings.json>`
 3. Build decision backlog with shared policy:
    - `python3 scripts/quest_review_intelligence.py build-backlog --findings <review_findings.json> --output <review_backlog.json>`
-4. Build actionable non-overlapping batches:
+4. Select concrete validation per actionable finding and persist onto the backlog:
+   - `python3 scripts/quest_review_intelligence.py select-batch-validation --backlog <review_backlog.json> [--repo-inventory <repo_inventory.json>]`
+   - Updates each actionable item's `validation_steps` in place so batching sees real signatures.
+   - Single-finding preview (debugging only): `python3 scripts/quest_select_tests.py --finding <finding.json> [--repo-inventory <repo_inventory.json>]`.
+5. Build actionable non-overlapping batches:
    - `python3 scripts/quest_review_intelligence.py build-fix-batches --backlog <review_backlog.json> --output <fix_batches.json>`
-5. Select concrete validation per actionable finding:
-   - `python3 scripts/quest_select_tests.py --finding <finding.json> [--repo-inventory <repo_inventory.json>]`
-   - Persist returned `validation_steps` on backlog items so validation scope is stable for execution.
+   - Items sharing `batch_key` + `validation_scope` signature group together, split by write-scope overlap as needed.
 6. Execute one batch at a time:
-   - Apply only that batch’s `fix_now` / `verify_first` items.
+   - Apply only that batch's `fix_now` / `verify_first` items.
    - Run validation steps in order (Level 0 → Level 1 → Level 2 when present).
    - Push once after that batch validates.
 7. Classify loop stop after each cycle:

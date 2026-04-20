@@ -784,3 +784,216 @@ def test_allowlist_path_from_context_accepts_repo_root_directory(tmp_path: Path)
     # <repo>/.ai/allowlist.json, not skip past the repo root and fall back
     # to cwd.
     assert allowlist_path_from_context(repo) == allowlist
+
+
+def test_canonical_pipeline_order_yields_multi_item_batches(tmp_path: Path) -> None:
+    """Reproduces the bug caught on PR #94: build-fix-batches before
+    select-batch-validation forces one-item batches by bucketing
+    items with missing validation_steps by finding_id.
+
+    After the fix, running select-batch-validation populates real
+    validation signatures on actionable items so build-fix-batches
+    can group two non-overlapping items under one batch.
+    """
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+
+    backlog_path = tmp_path / "review_backlog.json"
+    batches_path = tmp_path / "fix_batches.json"
+    inventory_path = tmp_path / "repo_inventory.json"
+    inventory_path.write_text(
+        json.dumps(
+            {
+                "format_command": "ruff format",
+                "lint_command": "ruff check",
+                "typecheck_command": "mypy",
+                "pytest_command": "python3 -m pytest",
+                "test_paths": ["tests/unit/test_foo.py"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # Two fix_now items:
+    # - Same batch_key ("module/a.py" via _batch_from_finding's path fallback)
+    # - Non-overlapping write_scopes (both empty -> no overlap)
+    # - Identical derived validation_steps (same finding shape -> same selector output)
+    # This is the shape that SHOULD group into one batch. Under the old
+    # (broken) ordering these items would fall into separate groups
+    # because validation_steps was missing and finding_id became the
+    # group key.
+    backlog_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "at_loop_cap": False,
+                "allowed_decisions": [
+                    "fix_now",
+                    "verify_first",
+                    "defer",
+                    "drop",
+                    "needs_human_decision",
+                ],
+                "counts": {
+                    "fix_now": 2,
+                    "verify_first": 0,
+                    "defer": 0,
+                    "drop": 0,
+                    "needs_human_decision": 0,
+                },
+                "items": [
+                    _backlog_item(
+                        "F-001",
+                        decision="fix_now",
+                        severity="medium",
+                        confidence="medium",
+                        path="module/a.py",
+                        write_scope=[],
+                        validation_steps=None,
+                    ),
+                    _backlog_item(
+                        "F-002",
+                        decision="fix_now",
+                        severity="medium",
+                        confidence="medium",
+                        path="module/a.py",
+                        write_scope=[],
+                        validation_steps=None,
+                    ),
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # Drop the test-helper default validation_steps so we really start
+    # with items where validation_steps is absent/empty (the bug case).
+    raw = json.loads(backlog_path.read_text(encoding="utf-8"))
+    for item in raw["items"]:
+        item.pop("validation_steps", None)
+    backlog_path.write_text(json.dumps(raw), encoding="utf-8")
+
+    def run(*args: str) -> subprocess.CompletedProcess[str]:
+        result = subprocess.run(
+            [sys.executable, str(script), *args],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, (args, result.stderr)
+        return result
+
+    # --- Step 4 (fixed order): select validation BEFORE batching ---
+    run(
+        "select-batch-validation",
+        "--backlog",
+        str(backlog_path),
+        "--repo-inventory",
+        str(inventory_path),
+    )
+
+    updated = json.loads(backlog_path.read_text(encoding="utf-8"))
+    for item in updated["items"]:
+        assert isinstance(item.get("validation_steps"), list)
+        assert any(step["level"] == 0 for step in item["validation_steps"])
+
+    # --- Step 5: batch ---
+    run("build-fix-batches", "--backlog", str(backlog_path), "--output", str(batches_path))
+
+    batches = json.loads(batches_path.read_text(encoding="utf-8"))
+    # With the fixed order, the two fix_now items share batch_key
+    # (derived from their common path) and share an identical
+    # validation signature (same selector output for identical inputs),
+    # with non-overlapping write_scopes (both empty) => one batch, two items.
+    assert len(batches) == 1, batches
+    assert len(batches[0]["items"]) == 2, batches[0]
+
+
+def test_skipping_select_batch_validation_forces_one_item_batches_regression_guard(
+    tmp_path: Path,
+) -> None:
+    """Regression guard: running build-fix-batches WITHOUT first running
+    select-batch-validation reproduces the PR #94 bug (items with missing
+    validation_steps are bucketed by finding_id into one-item batches).
+
+    Documents the hazard so a future refactor that silently removes the
+    select-batch-validation step gets caught by a failing test.
+    """
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+
+    backlog_path = tmp_path / "review_backlog.json"
+    batches_path = tmp_path / "fix_batches.json"
+
+    # Same shape as the positive test: two fix_now items that SHOULD batch
+    # together when validation_steps is populated.
+    backlog_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "at_loop_cap": False,
+                "allowed_decisions": [
+                    "fix_now",
+                    "verify_first",
+                    "defer",
+                    "drop",
+                    "needs_human_decision",
+                ],
+                "counts": {
+                    "fix_now": 2,
+                    "verify_first": 0,
+                    "defer": 0,
+                    "drop": 0,
+                    "needs_human_decision": 0,
+                },
+                "items": [
+                    _backlog_item(
+                        "F-001",
+                        decision="fix_now",
+                        path="module/a.py",
+                        write_scope=[],
+                        validation_steps=None,
+                    ),
+                    _backlog_item(
+                        "F-002",
+                        decision="fix_now",
+                        path="module/a.py",
+                        write_scope=[],
+                        validation_steps=None,
+                    ),
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    raw = json.loads(backlog_path.read_text(encoding="utf-8"))
+    for item in raw["items"]:
+        item.pop("validation_steps", None)
+    backlog_path.write_text(json.dumps(raw), encoding="utf-8")
+
+    # Deliberately skip select-batch-validation and go straight to batching.
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "build-fix-batches",
+            "--backlog",
+            str(backlog_path),
+            "--output",
+            str(batches_path),
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    batches = json.loads(batches_path.read_text(encoding="utf-8"))
+    # Without validation_steps, _validation_scope_signature returns (),
+    # which triggers the unknown_scope_bucket=finding_id fallback in
+    # build_fix_batches. Two items -> two one-item batches.
+    assert len(batches) == 2, batches
+    for batch in batches:
+        assert len(batch["items"]) == 1, batch

@@ -14,6 +14,7 @@ from quest_runtime.pr_review_cycle import (
     classify_pr_loop_stop,
     normalize_pr_review_intake,
     retag_backlog_at_cap,
+    select_validation_steps,
 )
 from quest_runtime.review_intelligence import (
     append_deferred_findings,
@@ -107,6 +108,45 @@ def _cmd_normalize_pr_intake(args: argparse.Namespace) -> int:
     findings = normalize_pr_review_intake(payload)
     _write_json(Path(args.output), findings)
     print(json.dumps({"ok": True, "count": len(findings), "output": args.output}, sort_keys=True))
+    return 0
+
+
+def _cmd_select_batch_validation(args: argparse.Namespace) -> int:
+    backlog_path = Path(args.backlog)
+    payload = _load_json(backlog_path)
+    if not isinstance(payload, dict):
+        raise ValueError("backlog must be a JSON object")
+    items = payload.get("items")
+    if not isinstance(items, list):
+        raise ValueError("backlog JSON object must contain an 'items' list")
+
+    inventory: dict[str, Any] | None = None
+    if args.repo_inventory:
+        inventory_payload = _load_json(Path(args.repo_inventory))
+        if not isinstance(inventory_payload, dict):
+            raise ValueError("repo inventory must be a JSON object")
+        inventory = inventory_payload
+
+    actionable_decisions = {"fix_now", "verify_first"}
+    annotated = 0
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if item.get("decision") not in actionable_decisions:
+            continue
+        item["validation_steps"] = select_validation_steps(
+            item, repo_inventory=inventory
+        )
+        annotated += 1
+
+    output_path = Path(args.output) if args.output else backlog_path
+    _write_json(output_path, payload)
+    print(
+        json.dumps(
+            {"ok": True, "annotated": annotated, "output": str(output_path)},
+            sort_keys=True,
+        )
+    )
     return 0
 
 
@@ -245,6 +285,30 @@ def parse_args() -> argparse.Namespace:
     backlog.add_argument("--output", required=True, help="Path to backlog output JSON")
     backlog.add_argument("--at-loop-cap", action="store_true", help="Apply loop-cap decision policy")
     backlog.set_defaults(func=_cmd_build_backlog)
+
+    select_validation = subparsers.add_parser(
+        "select-batch-validation",
+        help=(
+            "For every actionable backlog item, select Level 0/1/2 "
+            "validation_steps and persist them in place on the backlog. "
+            "Must run before build-fix-batches so batching sees real "
+            "validation signatures."
+        ),
+    )
+    select_validation.add_argument(
+        "--backlog", required=True, help="Input review_backlog.json path (updated in place unless --output is given)"
+    )
+    select_validation.add_argument(
+        "--repo-inventory",
+        default=None,
+        help="Optional repo inventory JSON used by select_validation_steps",
+    )
+    select_validation.add_argument(
+        "--output",
+        default=None,
+        help="Optional output path for the annotated backlog (default: overwrite --backlog)",
+    )
+    select_validation.set_defaults(func=_cmd_select_batch_validation)
 
     fix_batches = subparsers.add_parser(
         "build-fix-batches",
