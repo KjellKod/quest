@@ -23,6 +23,11 @@ architecture docs.
 | `codex-review-severity-emoji.md` | proposed | Add severity emoji to Codex review inline comments for faster scanning in PR threads. |
 | `handoff-validation-and-failure-ux.md` | in-progress | Add actionable diagnostics when handoff fallback occurs. |
 
+### Review Intelligence
+| File | Status | Purpose |
+|---|---|---|
+| `deep-ci-chunked-context-plan.md` | proposed | Extend Deep CI so oversized selected files render bounded changed-line context chunks instead of being skipped entirely. |
+
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
 |---|---|---|
