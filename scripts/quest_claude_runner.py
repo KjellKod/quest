@@ -5,10 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
 from quest_runtime.artifacts import expected_artifacts_for_role
-from quest_runtime.claude_runner import run_claude_role
+from quest_runtime.claude_runner import resolve_path, run_claude_role
 
 
 def parse_args() -> argparse.Namespace:
@@ -58,7 +57,7 @@ def main() -> int:
         iteration=args.iter,
         prompt_file=args.prompt_file,
         handoff_file=args.handoff_file,
-        bridge_script=Path(args.cwd) / args.bridge_script,
+        bridge_script=resolve_path(args.cwd, args.bridge_script),
         model=args.model,
         timeout=args.timeout,
         permission_mode=args.permission_mode,
