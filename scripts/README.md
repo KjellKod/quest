@@ -17,7 +17,7 @@ Build and utility scripts for the Quest repository.
 | `quest_state.py` | Updates `.quest/<id>/state.json` consistently and refreshes `updated_at`. |
 | `quest_startup_branch.py` | Creates the startup branch or worktree for a new quest from `.ai/allowlist.json` and returns machine-readable branch context JSON. |
 | `quest_claude_runner.py` | Runs Claude-designated Quest roles through the additive Codex-host Claude adapter, using `scripts/quest_claude_bridge.py` as transport plus `bypassPermissions`, explicit `--add-dir` access, handoff polling, and `context_health.log` updates. Native Claude-led Quest behavior stays on `Task(...)`. |
-| `quest_review_intelligence.py` | CLI wrapper around review-intelligence helpers (`validate-findings`, `merge-findings`, `build-backlog`, `append-deferred`, `scan-backlog`, `normalize-pr-intake`, `build-fix-batches`, `classify-pr-stop`). |
+| `quest_review_intelligence.py` | CLI wrapper around review-intelligence helpers (`validate-findings`, `merge-findings`, `build-backlog`, `append-deferred`, `scan-backlog`, `normalize-pr-intake`, `select-batch-validation`, `build-fix-batches`, `classify-pr-stop`). |
 | `quest_select_tests.py` | Thin CLI that returns ordered `validation_steps` for a single canonical finding (Level 0/1/2 test-selection heuristic). |
 | `quest_installer.sh` | Installs and updates Quest in any repository. Handles fresh installs, updates, and checksum-based change detection. |
 | `quest_validate-quest-config.sh` | Validates quest configuration files (allowlist JSON schema, role markdown completeness). Used by pre-commit hooks and CI. |
@@ -45,16 +45,25 @@ python3 scripts/quest_claude_probe.py --quest-dir .quest/<id> --model opus
 # Validate canonical findings JSON
 python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_03_review/review_findings.json
 
-# Normalize PR intake into canonical findings
+# PR review pipeline — order matters: validation selection MUST run
+# before batching or build-fix-batches falls back to one-item batches.
+#
+# 1. Normalize PR intake into canonical findings
 python3 scripts/quest_review_intelligence.py normalize-pr-intake --input /tmp/pr_intake.json --output /tmp/review_findings.json
 
-# Build actionable non-overlapping batches from backlog
+# 2. Build the decision backlog
+python3 scripts/quest_review_intelligence.py build-backlog --findings /tmp/review_findings.json --output /tmp/review_backlog.json
+
+# 3. Populate validation_steps on every actionable backlog item IN PLACE
+python3 scripts/quest_review_intelligence.py select-batch-validation --backlog /tmp/review_backlog.json --repo-inventory /tmp/repo_inventory.json
+
+# 4. Build actionable non-overlapping batches (now sees real validation signatures)
 python3 scripts/quest_review_intelligence.py build-fix-batches --backlog /tmp/review_backlog.json --output /tmp/fix_batches.json
 
-# Classify stop conditions and enforce cap retagging when needed
+# 5. Classify stop conditions and enforce cap retagging when needed
 python3 scripts/quest_review_intelligence.py classify-pr-stop --ci-state failing --actionable 2 --iteration 3 --backlog /tmp/review_backlog.json
 
-# Select targeted validation steps for one finding
+# Debug: select targeted validation steps for a single finding (single-finding preview)
 python3 scripts/quest_select_tests.py --finding /tmp/finding.json --repo-inventory /tmp/repo_inventory.json --output /tmp/validation_steps.json
 
 # Run the standard Quest validations and test suite
