@@ -79,7 +79,7 @@
         "find",
         "ls",
         "wc",
-        "uv",
+        "uv run pytest",
         "gh pr view",
         "python3 -m pytest"
       ]
@@ -101,7 +101,7 @@
         "find",
         "ls",
         "wc",
-        "uv",
+        "uv run pytest",
         "gh pr view",
         "python3 -m pytest"
       ]
@@ -177,7 +177,7 @@
         "find",
         "ls",
         "wc",
-        "uv",
+        "uv run pytest",
         "gh pr view",
         "python3 -m pytest"
       ]

@@ -157,3 +157,69 @@ def test_pipeline_spot_checks_allow_expected_commands():
         True,
         "token_prefix_match",
     )
+
+
+def test_stdout_redirection_is_blocked() -> None:
+    from quest_allowlist_matcher import is_bash_command_allowed
+
+    # git diff is allowlisted; redirection into a file must NOT pass.
+    allowed, reason = is_bash_command_allowed("git diff > AGENTS.md", ["git diff"])
+    assert allowed is False
+    assert reason == "blocked_metacharacter"
+
+
+def test_stdout_append_redirection_is_blocked() -> None:
+    from quest_allowlist_matcher import is_bash_command_allowed
+
+    allowed, reason = is_bash_command_allowed(
+        "git log >> /tmp/log", ["git log"]
+    )
+    assert allowed is False
+    assert reason == "blocked_metacharacter"
+
+
+def test_stderr_redirection_is_blocked() -> None:
+    from quest_allowlist_matcher import is_bash_command_allowed
+
+    allowed, reason = is_bash_command_allowed(
+        "python3 -m pytest 2> /tmp/err", ["python3 -m pytest"]
+    )
+    assert allowed is False
+    assert reason == "blocked_metacharacter"
+
+
+def test_stdin_redirection_is_blocked() -> None:
+    from quest_allowlist_matcher import is_bash_command_allowed
+
+    allowed, reason = is_bash_command_allowed(
+        "bash scripts/quest_validate-manifest.sh < /tmp/input",
+        ["bash scripts/quest_validate-manifest.sh"],
+    )
+    assert allowed is False
+    assert reason == "blocked_metacharacter"
+
+
+def test_bare_uv_is_rejected_for_arbitrary_run() -> None:
+    from quest_allowlist_matcher import is_bash_command_allowed
+
+    # Allowlist now only contains 'uv run pytest' (3 tokens).
+    # 'uv run python <path>' must NOT pass via token-prefix match because
+    # the 3rd token differs (python vs pytest). Use a metachar-free
+    # payload so the rejection reason is specifically the token mismatch
+    # rather than the metacharacter guard.
+    allowed, reason = is_bash_command_allowed(
+        "uv run python tools/check_health.py",
+        ["uv run pytest"],
+    )
+    assert allowed is False
+    assert reason == "no_match"
+
+
+def test_uv_run_pytest_prefix_still_works() -> None:
+    from quest_allowlist_matcher import is_bash_command_allowed
+
+    allowed, reason = is_bash_command_allowed(
+        "uv run pytest tests/unit/", ["uv run pytest"]
+    )
+    assert allowed is True
+    assert reason == "token_prefix_match"

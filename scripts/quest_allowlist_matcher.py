@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Quest allowlist matcher for bash commands.
 
-Rejected metacharacters for non-exact matches: &&, ||, ;, |, &, `, $(), >(, <(, \n, \r.
+Rejected metacharacters for non-exact matches: &&, ||, ;, |, &, `, $(),
+>(, <(, >, >>, 2>, <, \n, \r. Exact-match allowlist entries still work
+for commands that legitimately need redirection.
 """
 
 from __future__ import annotations
@@ -10,7 +12,23 @@ import argparse
 import json
 import sys
 
-BLOCKED_METACHARACTERS = ("&&", "||", ";", "|", "&", "`", "$(", ">(", "<(", "\n", "\r")
+BLOCKED_METACHARACTERS = (
+    "&&",
+    "||",
+    ";",
+    "|",
+    "&",
+    "`",
+    "$(",
+    ">(",
+    "<(",
+    ">>",
+    ">",
+    "2>",
+    "<",
+    "\n",
+    "\r",
+)
 EXACT_ONLY_BARE_ENTRIES = {"bash", "python", "python3"}
 
 
