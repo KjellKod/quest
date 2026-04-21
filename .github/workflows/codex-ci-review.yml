@@ -86,8 +86,12 @@ jobs:
       - name: Build review prompt
         if: steps.check-key.outputs.skip != 'true'
         run: |
-          if python3 .github/scripts/codex_review.py build-prompt; then
+          if python3 .github/scripts/codex_review.py build-prompt 2>/tmp/build_prompt_err.log; then
             exit 0
+          fi
+          if ! grep -Eq "Unknown subcommand: build-prompt|invalid choice: 'build-prompt'" /tmp/build_prompt_err.log; then
+            cat /tmp/build_prompt_err.log >&2
+            exit 1
           fi
 
           echo "::notice::Checked-out base review script does not support build-prompt; using legacy prompt assembly."

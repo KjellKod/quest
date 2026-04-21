@@ -516,7 +516,12 @@ class TestWorkflowContextContract:
     def test_workflow_has_legacy_build_prompt_fallback_for_base_checkout(self):
         workflow = Path(".github/workflows/codex-ci-review.yml").read_text(encoding="utf-8")
 
-        assert "if python3 .github/scripts/codex_review.py build-prompt; then" in workflow
+        assert (
+            "if python3 .github/scripts/codex_review.py build-prompt "
+            "2>/tmp/build_prompt_err.log; then"
+        ) in workflow
+        assert "grep -Eq \"Unknown subcommand: build-prompt|invalid choice: 'build-prompt'\"" in workflow
+        assert "exit 1" in workflow
         assert "legacy prompt assembly" in workflow
         assert "touch /tmp/deep_ci_files.md" in workflow
         assert "/{PLACEHOLDER_DEEP_CI_FILES}/r /tmp/deep_ci_files.md" in workflow
