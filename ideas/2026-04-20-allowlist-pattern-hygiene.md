@@ -85,7 +85,7 @@ Replace `"gh pr view.*"` → `"gh pr view"` (token-count 3, matches `gh pr view 
 
 ## Files to change
 
-- `.ai/allowlist.json` — every role's `bash` list (6 roles: `planner_agent`, `plan_review_a`, `plan_review_b`, `arbiter_agent`, `builder_agent`, `code_review_agent`, `fixer_agent`).
+- `.ai/allowlist.json` — every role's `bash` list (7 roles: `planner_agent`, `plan_review_a`, `plan_review_b`, `arbiter_agent`, `builder_agent`, `code_review_agent`, `fixer_agent`).
 - `.claude/hooks/enforce-allowlist.sh` — replace `check_bash` prefix match with metacharacter rejection + tokenized first-N match.
 - Possibly migrate `check_bash` into a Python helper under `scripts/` so unit tests are easier to write (bash testing is possible but tedious; Python is what the rest of the stack uses).
 
