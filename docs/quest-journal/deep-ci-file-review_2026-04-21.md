@@ -10,7 +10,7 @@
 
 **Problem**: The current Codex CI review remains primarily diff-centered. The prompt includes PR-head file snapshots, but the review rules still constrain the model to changed lines and do not define a bounded whole-file behavior pass for changed code files.
 
-**Impact**: CI review should catch hi...
+**Impact**: CI review should catch higher-impact logic regressions that only appear when reviewing full changed-file behavior, while keeping analysis bounded and deterministic.
 
 ## Files Changed
 

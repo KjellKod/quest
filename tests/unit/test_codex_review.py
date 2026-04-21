@@ -417,6 +417,22 @@ class TestFetchDeepCiFiles:
         assert "print('ok')" in rendered
         assert "truncated" not in rendered
 
+    def test_render_deep_ci_context_uses_longer_fence_for_embedded_backticks(self):
+        snapshots = [
+            {
+                "path": "src/app.py",
+                "content": "def example():\n    return '''```payload```'''\n",
+                "omitted": False,
+                "reason": "",
+            }
+        ]
+
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/app.py"])
+
+        assert "````\ndef example():" in rendered
+        assert "```payload```" in rendered
+        assert rendered.rstrip().endswith("````")
+
     def test_fetch_deep_ci_files_omits_large_content_with_note(self, monkeypatch):
         def fake_run(cmd, check, capture_output, text):
             return subprocess.CompletedProcess(cmd, 0, stdout="x" * 11, stderr="")

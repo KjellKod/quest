@@ -154,6 +154,12 @@ def _deep_ci_omitted_note(path, reason):
     }
 
 
+def markdown_code_fence(content):
+    """Return a backtick fence longer than any run inside content."""
+    longest = max((len(match.group(0)) for match in re.finditer(r"`+", content)), default=0)
+    return "`" * max(3, longest + 1)
+
+
 def fetch_deep_ci_files(
     repo,
     head_sha,
@@ -227,7 +233,9 @@ def render_deep_ci_context(snapshots, selected_files=None):
                 + f"Skipped Deep CI whole-file review for {path} because {snapshot['reason']}."
             )
             continue
-        rendered.append(f"## {path}\n```\n{snapshot['content'].rstrip()}\n```")
+        content = snapshot["content"].rstrip()
+        fence = markdown_code_fence(content)
+        rendered.append(f"## {path}\n{fence}\n{content}\n{fence}")
 
     return "\n\n".join(rendered).strip() + "\n"
 
