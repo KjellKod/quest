@@ -81,6 +81,24 @@ The checked-out workspace is the trusted base branch, not the PR head. Use the d
 {PLACEHOLDER_PR_HEAD_FILES}
 </pr_head_files>
 
+## Deep CI Whole-File Logic Pass
+
+Normal diff review still applies to the full PR. In addition, inspect the selected full current PR-head file snapshots below for resulting whole-file behavior caused by the changed code.
+
+Focus only on behavior-affecting logic issues:
+- variable lifecycle and state initialization
+- create/update/error-path asymmetry
+- first-run versus later-run behavior
+- fallback paths and missing default behavior
+- persisted values that are consumed later
+- invariants introduced or broken by the diff
+
+Do not comment on markdown, prose, style, formatting, naming, pre-existing issues, or files that were not modified by this PR. Deep CI findings must still use the same JSON array schema and must still point to an exact RIGHT-side changed line from the diff. If a whole-file behavior concern cannot be tied to a changed line, omit it.
+
+<deep_ci_files>
+{PLACEHOLDER_DEEP_CI_FILES}
+</deep_ci_files>
+
 ## Diff
 <diff>
 {PLACEHOLDER_DIFF}
