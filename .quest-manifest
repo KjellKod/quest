@@ -75,6 +75,7 @@ scripts/quest_validate-handoff-contracts.sh
 scripts/quest_claude_bridge.py
 scripts/quest_claude_probe.py
 scripts/quest_claude_runner.py
+scripts/quest_allowlist_matcher.py
 scripts/quest_review_intelligence.py
 scripts/quest_select_tests.py
 scripts/quest_startup_branch.py
@@ -99,6 +100,8 @@ scripts/quest_backfill_journal.py
 scripts/quest_complete.py
 scripts/quest_preflight.sh
 scripts/quest_state.py
+tests/integration/test-enforce-allowlist.sh
+tests/unit/test_allowlist_matcher.py
 tests/unit/test_review_intelligence.py
 tests/unit/test_codex_skill_wrappers.py
 

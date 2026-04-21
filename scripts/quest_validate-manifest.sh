@@ -48,6 +48,7 @@ EXPECTED_PATTERNS=(
   ".claude/agents/*.md"
   ".claude/hooks/*.sh"
   ".claude/skills/*/*.md"
+  "scripts/quest_allowlist_matcher.py"
   "scripts/quest_claude_bridge.py"
   "scripts/quest_claude_probe.py"
   "scripts/quest_claude_runner.py"
@@ -60,6 +61,8 @@ EXPECTED_PATTERNS=(
   "scripts/quest_validate-quest-state.sh"
   "scripts/quest_checks/*.py"
   "scripts/quest_runtime/*.py"
+  "tests/integration/test-enforce-allowlist.sh"
+  "tests/unit/test_allowlist_matcher.py"
 )
 
 # Find all files matching our patterns
