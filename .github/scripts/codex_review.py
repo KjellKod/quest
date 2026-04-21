@@ -35,6 +35,7 @@ DEEP_CI_MAX_CHANGES = 2000
 DEEP_CI_MAX_FILE_CHARS = 20000
 DEEP_CI_MAX_TOTAL_CHARS = 60000
 DEEP_CI_MAX_FILES = 3
+PROMPT_PLACEHOLDER_RE = re.compile(r"\{(PLACEHOLDER_[A-Z_]+)\}")
 
 
 def normalize_severity(value):
@@ -320,11 +321,11 @@ def gather_context():
 
 
 def build_review_prompt(template_text, replacements):
-    """Replace prompt placeholders with gathered PR context."""
-    prompt = template_text
-    for placeholder, value in replacements.items():
-        prompt = prompt.replace("{" + placeholder + "}", value)
-    return prompt
+    """Replace prompt placeholders with gathered PR context in one template pass."""
+    return PROMPT_PLACEHOLDER_RE.sub(
+        lambda match: replacements.get(match.group(1), match.group(0)),
+        template_text,
+    )
 
 
 def _read_text_if_exists(path):

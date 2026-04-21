@@ -614,6 +614,23 @@ class TestBuildReviewPrompt:
         assert "## Deep CI Whole-File Logic Pass" in prompt
         assert "deep snapshot" in prompt
 
+    def test_build_review_prompt_does_not_reprocess_inserted_placeholders(self):
+        template = (
+            "Head {PLACEHOLDER_PR_HEAD_FILES}\n"
+            "Diff {PLACEHOLDER_DIFF}\n"
+        )
+
+        prompt = codex_review.build_review_prompt(
+            template,
+            {
+                "PLACEHOLDER_PR_HEAD_FILES": "snapshot has literal {PLACEHOLDER_DIFF}",
+                "PLACEHOLDER_DIFF": "diff body",
+            },
+        )
+
+        assert "snapshot has literal {PLACEHOLDER_DIFF}" in prompt
+        assert prompt.count("diff body") == 1
+
 
 class TestDeepCiDedupeReuse:
     def test_deep_ci_comment_uses_existing_duplicate_filter(self):
