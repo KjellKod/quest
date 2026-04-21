@@ -61,6 +61,8 @@ EXPECTED_PATTERNS=(
   "scripts/quest_validate-quest-state.sh"
   "scripts/quest_checks/*.py"
   "scripts/quest_runtime/*.py"
+  "tests/integration/test-enforce-allowlist.sh"
+  "tests/unit/test_allowlist_matcher.py"
 )
 
 # Find all files matching our patterns

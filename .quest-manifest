@@ -100,6 +100,8 @@ scripts/quest_backfill_journal.py
 scripts/quest_complete.py
 scripts/quest_preflight.sh
 scripts/quest_state.py
+tests/integration/test-enforce-allowlist.sh
+tests/unit/test_allowlist_matcher.py
 tests/unit/test_review_intelligence.py
 tests/unit/test_codex_skill_wrappers.py
 
