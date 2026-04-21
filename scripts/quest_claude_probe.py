@@ -5,9 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
-from quest_runtime.claude_runner import run_bridge_probe
+from quest_runtime.claude_runner import resolve_path, run_bridge_probe
 
 
 def parse_args() -> argparse.Namespace:
@@ -28,7 +27,7 @@ def main() -> int:
     result = run_bridge_probe(
         cwd=args.cwd,
         quest_dir=args.quest_dir,
-        bridge_script=Path(args.cwd) / args.bridge_script,
+        bridge_script=resolve_path(args.cwd, args.bridge_script),
         model=args.model,
         timeout=args.timeout,
         permission_mode=args.permission_mode,

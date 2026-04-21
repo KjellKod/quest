@@ -7,6 +7,7 @@ import subprocess
 from argparse import Namespace
 from pathlib import Path
 
+import quest_claude_probe
 import quest_claude_runner
 import quest_runtime.claude_runner as claude_runner_module
 from quest_runtime.claude_runner import (
@@ -446,6 +447,104 @@ def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys
 
     assert exit_code == 0
     assert captured["allow_text_fallback"] is True
+    assert '"result_kind": "text_fallback"' in payload
+
+
+def test_cli_quest_claude_probe_relative_non_dot_cwd_resolves_bridge_script(
+    monkeypatch, tmp_path, capsys
+):
+    repo_dir = tmp_path / "repo"
+    bridge_script = repo_dir / "scripts" / "quest_claude_bridge.py"
+    bridge_script.parent.mkdir(parents=True)
+    bridge_script.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    args = Namespace(
+        quest_dir=str(repo_dir / ".quest" / "qid"),
+        model="opus",
+        timeout=60.0,
+        permission_mode="bypassPermissions",
+        bridge_script="scripts/quest_claude_bridge.py",
+        cwd="repo",
+    )
+    captured: dict[str, object] = {}
+
+    def fake_run_bridge_probe(**kwargs):
+        captured.update(kwargs)
+        return claude_runner_module.RunResult(
+            exit_code=0,
+            handoff_state="missing",
+            result_kind="text_fallback",
+            source="text_fallback",
+            stdout="ok",
+            stderr="",
+        )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(quest_claude_probe, "parse_args", lambda: args)
+    monkeypatch.setattr(quest_claude_probe, "run_bridge_probe", fake_run_bridge_probe)
+
+    exit_code = quest_claude_probe.main()
+    payload = capsys.readouterr().out.strip()
+    expected_bridge_script = (tmp_path / "repo" / "scripts/quest_claude_bridge.py").resolve()
+
+    assert exit_code == 0
+    assert captured["bridge_script"] == expected_bridge_script
+    assert "repo/repo" not in str(captured["bridge_script"])
+    assert '"result_kind": "text_fallback"' in payload
+
+
+def test_cli_quest_claude_runner_relative_non_dot_cwd_resolves_bridge_script(
+    monkeypatch, tmp_path, capsys
+):
+    repo_dir = tmp_path / "repo"
+    bridge_script = repo_dir / "scripts" / "quest_claude_bridge.py"
+    bridge_script.parent.mkdir(parents=True)
+    bridge_script.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    args = Namespace(
+        quest_dir=str(repo_dir / ".quest" / "qid"),
+        phase="plan",
+        agent="planner",
+        iter=1,
+        prompt_file=str(repo_dir / "prompt.txt"),
+        handoff_file=str(repo_dir / "handoff.json"),
+        model="opus",
+        timeout=90.0,
+        permission_mode="bypassPermissions",
+        bridge_script="scripts/quest_claude_bridge.py",
+        cwd="repo",
+        add_dir=[],
+    )
+    captured: dict[str, object] = {}
+
+    def fake_expected_artifacts_for_role(*, quest_dir, phase, agent):
+        return [Path(quest_dir) / "phase_01_plan" / "plan.md"]
+
+    def fake_run_claude_role(**kwargs):
+        captured.update(kwargs)
+        return claude_runner_module.RunResult(
+            exit_code=0,
+            handoff_state="missing",
+            result_kind="text_fallback",
+            source="text_fallback",
+            stdout="ok",
+            stderr="",
+        )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(quest_claude_runner, "parse_args", lambda: args)
+    monkeypatch.setattr(
+        quest_claude_runner,
+        "expected_artifacts_for_role",
+        fake_expected_artifacts_for_role,
+    )
+    monkeypatch.setattr(quest_claude_runner, "run_claude_role", fake_run_claude_role)
+
+    exit_code = quest_claude_runner.main()
+    payload = capsys.readouterr().out.strip()
+    expected_bridge_script = (tmp_path / "repo" / "scripts/quest_claude_bridge.py").resolve()
+
+    assert exit_code == 0
+    assert captured["bridge_script"] == expected_bridge_script
+    assert "repo/repo" not in str(captured["bridge_script"])
     assert '"result_kind": "text_fallback"' in payload
 
 
