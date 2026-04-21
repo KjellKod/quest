@@ -40,39 +40,188 @@
   },
   "role_permissions": {
     "planner_agent": {
-      "file_write": [".quest/**", "docs/**", "ideas/**", ".ai/**", "*.md"],
-      "file_read": ["**"],
-      "bash": ["find", "rg", "grep", "wc", "ls", "tree", "git status", "git diff", "gh pr view.*"]
+      "file_write": [
+        ".quest/**",
+        "docs/**",
+        "ideas/**",
+        ".ai/**",
+        "*.md"
+      ],
+      "file_read": [
+        "**"
+      ],
+      "bash": [
+        "find",
+        "rg",
+        "grep",
+        "wc",
+        "ls",
+        "tree",
+        "git status",
+        "git diff",
+        "gh pr view"
+      ]
     },
     "plan_review_a": {
-      "file_write": [".quest/**"],
-      "file_read": ["**"],
-      "bash": ["python", "python3", "pytest", "git status", "git diff", "git log", "rg", "grep", "find", "ls", "wc", "uv", "gh pr view.*"]
+      "file_write": [
+        ".quest/**"
+      ],
+      "file_read": [
+        "**"
+      ],
+      "bash": [
+        "pytest",
+        "git status",
+        "git diff",
+        "git log",
+        "rg",
+        "grep",
+        "find",
+        "ls",
+        "wc",
+        "uv",
+        "gh pr view",
+        "python3 -m pytest"
+      ]
     },
     "plan_review_b": {
-      "file_write": [".quest/**"],
-      "file_read": ["**"],
-      "bash": ["python", "python3", "pytest", "git status", "git diff", "git log", "rg", "grep", "find", "ls", "wc", "uv", "gh pr view.*"]
+      "file_write": [
+        ".quest/**"
+      ],
+      "file_read": [
+        "**"
+      ],
+      "bash": [
+        "pytest",
+        "git status",
+        "git diff",
+        "git log",
+        "rg",
+        "grep",
+        "find",
+        "ls",
+        "wc",
+        "uv",
+        "gh pr view",
+        "python3 -m pytest"
+      ]
     },
     "arbiter_agent": {
-      "file_write": [".quest/**"],
-      "file_read": ["**"],
-      "bash": ["git status", "git diff", "gh pr view.*"]
+      "file_write": [
+        ".quest/**"
+      ],
+      "file_read": [
+        "**"
+      ],
+      "bash": [
+        "git status",
+        "git diff",
+        "gh pr view"
+      ]
     },
     "builder_agent": {
-      "file_write": [".quest/**", ".ai/**", ".github/**", "docs/**", "ideas/**", "scripts/**", "tests/**", ".skills/**", "*.md", "*.json", "*.txt", "*.sh", "*.py"],
-      "file_read": ["**"],
-      "bash": ["python", "python3", "python3 -m unittest", "pytest", "bash", "git status", "git diff", "git log", "npm test", "rg", "grep", "find", "ls", "wc"]
+      "file_write": [
+        ".quest/**",
+        ".ai/**",
+        ".github/**",
+        "docs/**",
+        "ideas/**",
+        "scripts/**",
+        "tests/**",
+        ".skills/**",
+        "*.md",
+        "*.json",
+        "*.txt",
+        "*.sh",
+        "*.py"
+      ],
+      "file_read": [
+        "**"
+      ],
+      "bash": [
+        "python3 -m unittest",
+        "pytest",
+        "git status",
+        "git diff",
+        "git log",
+        "npm test",
+        "rg",
+        "grep",
+        "find",
+        "ls",
+        "wc",
+        "python3 -m pytest",
+        "bash scripts/quest_validate-manifest.sh",
+        "bash scripts/quest_validate-quest-config.sh",
+        "bash scripts/quest_validate-quest-state.sh",
+        "bash tests/test-quest-preflight.sh",
+        "bash tests/test-quest-runtime.sh",
+        "bash tests/test-validate-handoff-contracts.sh",
+        "bash tests/test-validate-quest-state.sh"
+      ]
     },
     "code_review_agent": {
-      "file_write": [".quest/**"],
-      "file_read": ["**"],
-      "bash": ["python", "python3", "pytest", "git diff", "git log", "git status", "rg", "grep", "find", "ls", "wc", "uv", "gh pr view.*"]
+      "file_write": [
+        ".quest/**"
+      ],
+      "file_read": [
+        "**"
+      ],
+      "bash": [
+        "pytest",
+        "git diff",
+        "git log",
+        "git status",
+        "rg",
+        "grep",
+        "find",
+        "ls",
+        "wc",
+        "uv",
+        "gh pr view",
+        "python3 -m pytest"
+      ]
     },
     "fixer_agent": {
-      "file_write": [".quest/**", ".ai/**", ".github/**", "docs/**", "ideas/**", "scripts/**", "tests/**", ".skills/**", "*.md", "*.json", "*.txt", "*.sh", "*.py"],
-      "file_read": ["**"],
-      "bash": ["python", "python3", "python3 -m unittest", "pytest", "bash", "git status", "git diff", "git log", "npm test", "rg", "grep", "find", "ls", "wc"]
+      "file_write": [
+        ".quest/**",
+        ".ai/**",
+        ".github/**",
+        "docs/**",
+        "ideas/**",
+        "scripts/**",
+        "tests/**",
+        ".skills/**",
+        "*.md",
+        "*.json",
+        "*.txt",
+        "*.sh",
+        "*.py"
+      ],
+      "file_read": [
+        "**"
+      ],
+      "bash": [
+        "python3 -m unittest",
+        "pytest",
+        "git status",
+        "git diff",
+        "git log",
+        "npm test",
+        "rg",
+        "grep",
+        "find",
+        "ls",
+        "wc",
+        "python3 -m pytest",
+        "bash scripts/quest_validate-manifest.sh",
+        "bash scripts/quest_validate-quest-config.sh",
+        "bash scripts/quest_validate-quest-state.sh",
+        "bash tests/test-quest-preflight.sh",
+        "bash tests/test-quest-runtime.sh",
+        "bash tests/test-validate-handoff-contracts.sh",
+        "bash tests/test-validate-quest-state.sh"
+      ]
     }
   },
   "solo": {

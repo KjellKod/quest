@@ -10,6 +10,7 @@ set -euo pipefail
 ROLE="${1:-}"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ALLOWLIST="$REPO_ROOT/.ai/allowlist.json"
+MATCHER="$REPO_ROOT/scripts/quest_allowlist_matcher.py"
 
 # No role specified = allow (hook misconfigured, don't block)
 [[ -z "$ROLE" ]] && exit 0
@@ -62,25 +63,20 @@ check_file_write() {
 # Check bash command permissions
 check_bash() {
   local command="$1"
-  local allowed_commands
+  local allowed_commands_json
+  local matcher_output
 
-  # Get allowed bash commands as array
-  allowed_commands=$(echo "$PERMS" | jq -r '.bash // [] | .[]')
+  # Get allowed bash commands as JSON array
+  allowed_commands_json=$(echo "$PERMS" | jq -c '.bash // []')
+  [[ "$allowed_commands_json" == "[]" ]] && return 1
 
-  # Empty bash list = no bash allowed
-  [[ -z "$allowed_commands" ]] && return 1
+  matcher_output=$(python3 "$MATCHER" --command "$command" --allow "$allowed_commands_json" 2>&1) || {
+    CHECK_BASH_REASON="$matcher_output"
+    return 1
+  }
 
-  # Check if command starts with any allowed prefix
-  while IFS= read -r allowed; do
-    [[ -z "$allowed" ]] && continue
-
-    # Check if command starts with the allowed prefix
-    if [[ "$command" == "$allowed"* ]]; then
-      return 0  # Match found, allow
-    fi
-  done <<< "$allowed_commands"
-
-  return 1  # No match, deny
+  CHECK_BASH_REASON=""
+  return 0
 }
 
 case "$TOOL" in
@@ -101,6 +97,9 @@ case "$TOOL" in
 
     if ! check_bash "$COMMAND"; then
       echo "BLOCKED: $ROLE cannot run: $COMMAND" >&2
+      if [[ -n "${CHECK_BASH_REASON:-}" ]]; then
+        echo "Reason: $CHECK_BASH_REASON" >&2
+      fi
       echo "Allowed commands: $(echo "$PERMS" | jq -r '.bash | join(", ")')" >&2
       exit 2
     fi
