@@ -46,7 +46,7 @@
 
 Implement Phase 2 of review-intelligence-canonical: targeted validation and batched PR response.
 
-Reference: `ideas/2026-04-13-review-intelligence-canonical.md` (Section 3: Targeted Validation Strategy, Section 4: Bounded Fix-Loop Rules — PR shepherd loop)
+Reference: `ideas/archive/2026-04-13-review-intelligence-canonical.md` (Section 3: Targeted Validation Strategy, Section 4: Bounded Fix-Loop Rules — PR shepherd loop)
 
 ### Deliverables
 

@@ -23,7 +23,7 @@ This note is the canonical memory proposal. It combines the memory-system design
 - `ideas/2026-04-13-quest-memory-evaluation-loop.md`
   - stays separate
   - proves whether the memory layer is actually useful
-- `ideas/2026-04-13-review-intelligence-canonical.md`
+- `ideas/archive/2026-04-13-review-intelligence-canonical.md`
   - remains the schema authority for review findings
   - future memory finding and decision records must inherit that canonical finding structure
 
@@ -241,7 +241,7 @@ Evaluation and proof:
 
 Finding-schema authority:
 
-- `ideas/2026-04-13-review-intelligence-canonical.md`
+- `ideas/archive/2026-04-13-review-intelligence-canonical.md`
 
 Future memory `finding` and `decision` records must inherit and conform to the canonical finding schema defined in the review-intelligence canonical proposal.
 

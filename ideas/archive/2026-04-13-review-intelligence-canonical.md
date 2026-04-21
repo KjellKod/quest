@@ -1,11 +1,34 @@
 # Quest Review Intelligence Canonical Proposal
 
-## Status: done (Phase 1)
+## Status: done (Phases 1-3)
 
 Phase 1 shipped via quest `review-intelligence-canonical_2026-04-16__0218`.
-See [journal entry](../docs/quest-journal/review-intelligence-canonical_2026-04-16.md).
+See [journal entry](../../docs/quest-journal/review-intelligence-canonical_2026-04-16.md).
 
-## Quest Prompt (Phase 1 -- Ready to Execute)
+Phase 2 shipped via quest `review-intel-phase-2_2026-04-17__2101`.
+See [journal entry](../../docs/quest-journal/review-intel-phase-2_2026-04-17.md).
+
+Phase 3 shipped via quest `deep-ci-file-review_2026-04-20__2349`.
+See [journal entry](../../docs/quest-journal/deep-ci-file-review_2026-04-21.md).
+
+This proposal is archived because the planned Phase 1-3 review-intelligence
+roadmap is implemented. Future review-intelligence work should start from a
+new proposal that references the shipped code and this archived design.
+
+## Completion Evidence
+
+- Phase 1 code: `scripts/quest_review_intelligence.py`, canonical findings
+  validation, review backlog generation, deferred findings append/scan.
+- Phase 2 code: `scripts/quest_select_tests.py` and PR shepherd batching
+  updates.
+- Phase 3 code: `.github/scripts/codex_review.py`,
+  `.github/workflows/codex-ci-review.yml`, and
+  `.github/codex-review-prompt.md`.
+- Validation on the Phase 3 branch:
+  `python3 -m pytest tests/unit/test_codex_review.py` and
+  `python3 -m pytest`.
+
+## Historical Quest Prompt (Phase 1 -- shipped)
 
 This expanded prompt supersedes the original Quest 1 suggestion at the bottom of this document.
 It adds the deferred-findings backlog and planner-startup scan discussed during prioritization.
@@ -14,7 +37,7 @@ It adds the deferred-findings backlog and planner-startup scan discussed during 
 /quest "Implement Phase 1 of review-intelligence-canonical: normalize review
 findings and add a review-decisions stage between review and fixer.
 
-Reference: ideas/2026-04-13-review-intelligence-canonical.md
+Reference: ideas/archive/2026-04-13-review-intelligence-canonical.md
 
 DELIVERABLES
 
@@ -497,7 +520,7 @@ Future memory `finding`/`decision` records (see `ideas/2026-04-13-quest-memory-a
 
 ### Phase 1: finding contract and review decisions
 
-Ship first:
+Shipped via quest `review-intelligence-canonical_2026-04-16__0218`:
 
 - `review_findings.json`
 - `review_backlog.json`
@@ -511,7 +534,7 @@ Success measure:
 
 ### Phase 2: targeted validation and PR batching
 
-Ship next:
+Shipped via quest `review-intel-phase-2_2026-04-17__2101`:
 
 - test selector
 - `pr-shepherd` batching rules
@@ -524,7 +547,7 @@ Success measure:
 
 ### Phase 3: bounded deep review
 
-Extend CI review:
+Shipped via quest `deep-ci-file-review_2026-04-20__2349`. Extend CI review:
 
 - keep diff review as default
 - add whole-file logic review for a bounded subset of risky changed code files
@@ -551,6 +574,42 @@ Do not keep any part of this if it causes one of these:
 
 ### Quest 2: targeted validation and PR shepherd batching
 
+**Shipped** -- see `docs/quest-journal/review-intel-phase-2_2026-04-17.md`.
+
 ```text
 /quest "Implement targeted validation and batched PR response for Quest. Extend pr-shepherd so it normalizes incoming review items, groups actionable fixes by write scope and validation scope, runs the smallest falsifying checks, and pushes one validated batch at a time. Add a quest_select_tests helper, explicit stop conditions, and focused tests. Do not add review memory loading in this quest."
+```
+
+### Quest 3: bounded Deep CI whole-file logic review
+
+```text
+/quest "Implement Phase 3 of review-intelligence-canonical: bounded Deep CI
+whole-file logic review.
+
+Reference:
+- ideas/archive/2026-04-13-review-intelligence-canonical.md
+- ideas/archive/deep-ci-whole-file-logic-review.md
+
+Goal:
+Extend the existing Codex CI review so it keeps normal diff review, but adds a
+bounded whole-file logic pass for a small deterministic subset of changed code
+files.
+
+Deliverables:
+1. Select changed code files only (*.py, *.sh, *.js, *.ts), excluding
+   docs/markdown/generated/large files.
+2. Fetch full current file contents for selected files.
+3. Build a Deep CI prompt focused on resulting file behavior, not style.
+4. Post findings inline using the existing review-comment machinery.
+5. Dedupe against existing comments/replies.
+6. Start warn-only or non-blocking unless a finding is clearly
+   blocker/must-fix.
+7. Add focused tests for file filtering, subset selection, prompt assembly,
+   and markdown exclusion.
+
+Out of scope:
+- Quest memory retrieval.
+- Headless PR shepherding.
+- New hosted review system.
+- Broad refactor of the CI workflow beyond what is needed."
 ```

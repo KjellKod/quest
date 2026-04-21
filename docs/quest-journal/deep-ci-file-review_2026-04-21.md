@@ -44,8 +44,8 @@
 $quest "Implement Phase 3 of review-intelligence-canonical: bounded Deep CI whole-file logic review.
 
   Reference:
-  - ideas/2026-04-13-review-intelligence-canonical.md
-  - ideas/deep-ci-whole-file-logic-review.md
+  - ideas/archive/2026-04-13-review-intelligence-canonical.md
+  - ideas/archive/deep-ci-whole-file-logic-review.md
 
   Goal:
   Extend the existing Codex CI review so it keeps normal diff review, but adds a bounded whole-file logic pass for a small deterministic subset of

@@ -1,6 +1,21 @@
 # Extract Codex CI Review Python from YAML
 
-**Status:** in-progress
+**Status:** done
+
+Archived after the Codex CI review workflow was reduced to thin glue around
+`.github/scripts/codex_review.py`.
+
+## Completion Evidence
+
+- `.github/workflows/codex-ci-review.yml` contains no `python3 <<` heredoc
+  blocks.
+- The workflow delegates context gathering, prompt assembly, and inline posting
+  to `.github/scripts/codex_review.py`.
+- `tests/unit/test_codex_review.py` covers normalization, validation, escaping,
+  dedupe, Deep CI context, and prompt assembly helpers.
+- Validation: `rg -n "python3 <<|PYEOF" .github/workflows/codex-ci-review.yml`
+  returns no matches, and `python3 -m pytest tests/unit/test_codex_review.py`
+  passes.
 
 ## Problem
 
@@ -43,18 +58,36 @@ Constraints:
 
 ## Acceptance Criteria
 
-- [ ] No Python heredocs remain in `codex-ci-review.yml`
+- [x] No Python heredocs remain in `codex-ci-review.yml`
 - [x] `python3 .github/scripts/codex_review.py` runs successfully in CI
 - [x] `pytest tests/test_codex_review.py -v` passes with tests for normalization, validation, escaping
 - [ ] CI `codex-review` check passes end-to-end with the YAML delegating to the extracted script only
-- [ ] PR #84 description updated with the new test command
+- [x] PR validation docs now use `python3 -m pytest tests/unit/test_codex_review.py`
 
-## Progress Audit (2026-04-11)
+## Historical Progress Audit (2026-04-11)
 
 What is implemented:
 - `.github/scripts/codex_review.py` exists and contains the extracted normalization, escaping, validation, and posting logic.
 - `tests/unit/test_codex_review.py` exists and covers the functions called out in this idea.
 
-What is still missing:
+What was still missing at that time:
 - `.github/workflows/codex-ci-review.yml` still contains a large embedded Python heredoc, so the workflow is not yet reduced to thin glue.
 - Because the workflow still embeds logic, the core acceptance criterion of "no heredocs remain" is not met.
+
+## Completion Audit (2026-04-21)
+
+What is implemented:
+
+- `.github/workflows/codex-ci-review.yml` has no Python heredocs.
+- `/tmp/changed_files.txt`, `/tmp/changed_files.json`,
+  `/tmp/pr_head_files.md`, `/tmp/deep_ci_files.md`, and
+  `/tmp/review-prompt.md` are produced by workflow glue plus
+  `.github/scripts/codex_review.py`.
+- `post-review` runs through the extracted script, preserving existing inline
+  posting, dedupe, severity normalization, fallback, and non-blocking behavior.
+
+Remaining validation:
+
+- The live GitHub Actions `codex-review` job should still be observed on the
+  PR branch before marking the PR ready, but the extraction roadmap item is no
+  longer active work.
