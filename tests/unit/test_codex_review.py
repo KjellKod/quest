@@ -494,6 +494,12 @@ class TestFetchDeepCiFiles:
 # ---------------------------------------------------------------------------
 
 class TestWorkflowContextContract:
+    def test_workflow_keeps_trusted_base_checkout_for_secret_review(self):
+        workflow = Path(".github/workflows/codex-ci-review.yml").read_text(encoding="utf-8")
+
+        assert "ref: ${{ github.event.pull_request.base.sha }}" in workflow
+        assert "ref: ${{ github.event.pull_request.head.sha }}" not in workflow
+
     def test_workflow_writes_raw_changed_file_paths_for_gather_context(self):
         workflow = Path(".github/workflows/codex-ci-review.yml").read_text(encoding="utf-8")
 
@@ -506,6 +512,14 @@ class TestWorkflowContextContract:
 
         assert raw_paths_command in workflow
         assert quoted_paths_command not in workflow
+
+    def test_workflow_has_legacy_build_prompt_fallback_for_base_checkout(self):
+        workflow = Path(".github/workflows/codex-ci-review.yml").read_text(encoding="utf-8")
+
+        assert "if python3 .github/scripts/codex_review.py build-prompt; then" in workflow
+        assert "legacy prompt assembly" in workflow
+        assert "touch /tmp/deep_ci_files.md" in workflow
+        assert "/{PLACEHOLDER_DEEP_CI_FILES}/r /tmp/deep_ci_files.md" in workflow
 
     def test_gather_context_reads_workflow_raw_changed_file_paths(self, monkeypatch):
         tmp_paths = [

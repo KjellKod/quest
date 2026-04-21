@@ -86,7 +86,23 @@ jobs:
       - name: Build review prompt
         if: steps.check-key.outputs.skip != 'true'
         run: |
-          python3 .github/scripts/codex_review.py build-prompt
+          if python3 .github/scripts/codex_review.py build-prompt; then
+            exit 0
+          fi
+
+          echo "::notice::Checked-out base review script does not support build-prompt; using legacy prompt assembly."
+          touch /tmp/deep_ci_files.md
+          sed -e '/{PLACEHOLDER_PR_DESCRIPTION}/r /tmp/pr_description.txt' \
+              -e '/{PLACEHOLDER_PR_DESCRIPTION}/d' \
+              -e '/{PLACEHOLDER_EXISTING_COMMENTS}/r /tmp/existing_comments.json' \
+              -e '/{PLACEHOLDER_EXISTING_COMMENTS}/d' \
+              -e '/{PLACEHOLDER_PR_HEAD_FILES}/r /tmp/pr_head_files.md' \
+              -e '/{PLACEHOLDER_PR_HEAD_FILES}/d' \
+              -e '/{PLACEHOLDER_DEEP_CI_FILES}/r /tmp/deep_ci_files.md' \
+              -e '/{PLACEHOLDER_DEEP_CI_FILES}/d' \
+              -e '/{PLACEHOLDER_DIFF}/r /tmp/pr.diff' \
+              -e '/{PLACEHOLDER_DIFF}/d' \
+              .github/codex-review-prompt.md > /tmp/review-prompt.md
 
       - name: AI Code Review
         if: steps.check-key.outputs.skip != 'true'
