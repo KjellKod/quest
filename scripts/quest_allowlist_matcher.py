@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import sys
 
 BLOCKED_METACHARACTERS = (
@@ -50,15 +51,20 @@ def contains_blocked_shell_metacharacters(command: str) -> bool:
     return any(token in command for token in BLOCKED_METACHARACTERS)
 
 
-def contains_blocked_find_action(command: str) -> bool:
-    command_tokens = command.split()
+def shell_tokens(command: str) -> list[str] | None:
+    try:
+        return shlex.split(command, posix=True)
+    except ValueError:
+        return None
+
+
+def contains_blocked_find_action(command_tokens: list[str]) -> bool:
     if not command_tokens or command_tokens[0] != "find":
         return False
     return any(token in BLOCKED_FIND_ACTIONS for token in command_tokens[1:])
 
 
-def contains_blocked_rg_flag(command: str) -> bool:
-    command_tokens = command.split()
+def contains_blocked_rg_flag(command_tokens: list[str]) -> bool:
     if not command_tokens or command_tokens[0] != "rg":
         return False
     return any(
@@ -68,15 +74,16 @@ def contains_blocked_rg_flag(command: str) -> bool:
     )
 
 
-def token_prefix_matches(command: str, entry: str) -> bool:
-    command_tokens = command.split()
-    entry_tokens = entry.split()
+def token_prefix_matches(command_tokens: list[str], entry: str) -> bool:
+    entry_tokens = shell_tokens(entry)
+    if entry_tokens is None:
+        return False
     if not entry_tokens:
         return False
     if (
         len(entry_tokens) == 1
         and entry_tokens[0] in EXACT_ONLY_BARE_ENTRIES
-        and command.strip() != entry_tokens[0]
+        and command_tokens != entry_tokens
     ):
         return False
     if len(command_tokens) < len(entry_tokens):
@@ -91,14 +98,18 @@ def is_bash_command_allowed(command: str, allowed_entries: list[str]) -> tuple[b
     if contains_blocked_shell_metacharacters(command):
         return False, "blocked_metacharacter"
 
-    if contains_blocked_find_action(command):
+    command_tokens = shell_tokens(command)
+    if command_tokens is None:
+        return False, "invalid_shell_syntax"
+
+    if contains_blocked_find_action(command_tokens):
         return False, "blocked_find_action"
 
-    if contains_blocked_rg_flag(command):
+    if contains_blocked_rg_flag(command_tokens):
         return False, "blocked_rg_flag"
 
     for entry in allowed_entries:
-        if token_prefix_matches(command, entry):
+        if token_prefix_matches(command_tokens, entry):
             return True, "token_prefix_match"
 
     return False, "no_match"

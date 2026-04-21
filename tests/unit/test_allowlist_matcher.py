@@ -157,6 +157,15 @@ def test_find_exec_is_blocked_for_bare_find_entry():
     assert reason == "blocked_find_action"
 
 
+def test_quote_smuggled_find_exec_is_blocked_for_bare_find_entry():
+    allowed, reason = is_bash_command_allowed(
+        "find . -name '*.py' -e''xec rm {} +",
+        ["find"],
+    )
+    assert allowed is False
+    assert reason == "blocked_find_action"
+
+
 def test_find_delete_is_blocked_for_bare_find_entry():
     allowed, reason = is_bash_command_allowed(
         "find . -name '*.tmp' -delete",
@@ -191,6 +200,15 @@ def test_rg_pre_is_blocked_for_bare_rg_entry():
     assert reason == "blocked_rg_flag"
 
 
+def test_quote_smuggled_rg_pre_is_blocked_for_bare_rg_entry():
+    allowed, reason = is_bash_command_allowed(
+        "rg --p''re sh TODO",
+        ["rg"],
+    )
+    assert allowed is False
+    assert reason == "blocked_rg_flag"
+
+
 def test_rg_pre_equals_form_is_blocked_for_bare_rg_entry():
     allowed, reason = is_bash_command_allowed(
         "rg --pre=sh TODO",
@@ -214,6 +232,12 @@ def test_exact_rg_pre_entry_is_allowed():
     allowed, reason = is_bash_command_allowed(command, [command])
     assert allowed is True
     assert reason == "exact_match"
+
+
+def test_invalid_shell_syntax_is_rejected():
+    allowed, reason = is_bash_command_allowed("rg 'unterminated", ["rg"])
+    assert allowed is False
+    assert reason == "invalid_shell_syntax"
 
 
 def test_pipeline_spot_checks_allow_expected_commands():
