@@ -7,6 +7,10 @@ from pathlib import Path
 import subprocess
 import sys
 
+from quest_runtime.pr_review_cycle import (
+    normalize_pr_review_intake,
+    retag_backlog_at_cap,
+)
 from quest_runtime.review_intelligence import (
     append_deferred_findings,
     build_review_backlog,
@@ -282,6 +286,59 @@ def test_synthesize_plan_review_findings_merges_duplicates_across_reviewers() ->
     assert len(merged) == 1
     assert merged[0]["source_lineage"] == ["plan-reviewer-a", "plan-reviewer-b"]
     assert validate_findings(merged) == []
+
+
+def test_normalized_intake_findings_flow_through_existing_backlog_policy() -> None:
+    intake = {
+        "ci_checks": [
+            {
+                "job": "unit-tests",
+                "state": "failing",
+                "failed_path": "scripts/example.py",
+                "kind_hint": "test_failure",
+            }
+        ],
+        "inline_comments": [
+            {
+                "commenter": "reviewer",
+                "body": "Looks blocking due to error handling.",
+                "path": "scripts/example.py",
+                "line": 14,
+            }
+        ],
+        "general_comments": [],
+        "existing_findings": [],
+    }
+
+    findings = normalize_pr_review_intake(intake)
+    assert validate_findings(findings) == []
+
+    backlog = build_review_backlog(findings, at_loop_cap=False)
+    assert backlog["version"] == 1
+    assert backlog["counts"]["fix_now"] >= 1
+    assert all(
+        item["decision"]
+        in {"fix_now", "verify_first", "defer", "drop", "needs_human_decision"}
+        for item in backlog["items"]
+    )
+
+
+def test_retag_backlog_at_cap_uses_select_decision_loop_cap_semantics() -> None:
+    finding = _finding(severity="medium", confidence="medium")
+    backlog = build_review_backlog([finding], at_loop_cap=False)
+    assert backlog["items"][0]["decision"] == "verify_first"
+
+    expected = select_decision(finding, at_loop_cap=True)
+    retagged = retag_backlog_at_cap(backlog)
+    item = retagged["items"][0]
+
+    assert retagged["at_loop_cap"] is True
+    assert item["decision"] == expected["decision"]
+    assert item["decision_confidence"] == expected["decision_confidence"]
+    assert item["reason"] == expected["reason"]
+    assert item["needs_validation"] == expected["needs_validation"]
+    assert item["owner"] == expected["owner"]
+    assert item["batch"] == expected["batch"]
 
 
 def test_scan_backlog_cli_accepts_empty_paths(tmp_path: Path) -> None:

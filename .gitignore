@@ -2,6 +2,8 @@
 .quest/
 .worktrees/
 
+.claude/scheduled_tasks.lock
+
 # Workspace scratch
 .ws/
 .quest-last-check
