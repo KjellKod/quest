@@ -173,6 +173,49 @@ def test_exact_find_exec_entry_is_allowed():
     assert reason == "exact_match"
 
 
+def test_read_only_rg_query_is_allowed_for_bare_rg_entry():
+    allowed, reason = is_bash_command_allowed(
+        "rg TODO tests/unit/",
+        ["rg"],
+    )
+    assert allowed is True
+    assert reason == "token_prefix_match"
+
+
+def test_rg_pre_is_blocked_for_bare_rg_entry():
+    allowed, reason = is_bash_command_allowed(
+        "rg --pre sh TODO",
+        ["rg"],
+    )
+    assert allowed is False
+    assert reason == "blocked_rg_flag"
+
+
+def test_rg_pre_equals_form_is_blocked_for_bare_rg_entry():
+    allowed, reason = is_bash_command_allowed(
+        "rg --pre=sh TODO",
+        ["rg"],
+    )
+    assert allowed is False
+    assert reason == "blocked_rg_flag"
+
+
+def test_rg_pre_glob_is_blocked_for_bare_rg_entry():
+    allowed, reason = is_bash_command_allowed(
+        "rg --pre-glob '*.md' TODO",
+        ["rg"],
+    )
+    assert allowed is False
+    assert reason == "blocked_rg_flag"
+
+
+def test_exact_rg_pre_entry_is_allowed():
+    command = "rg --pre cat TODO"
+    allowed, reason = is_bash_command_allowed(command, [command])
+    assert allowed is True
+    assert reason == "exact_match"
+
+
 def test_pipeline_spot_checks_allow_expected_commands():
     entries = [
         "bash scripts/quest_validate-manifest.sh",

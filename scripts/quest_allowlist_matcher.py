@@ -3,8 +3,9 @@
 
 Rejected metacharacters for non-exact matches: &&, ||, ;, |, &, `, $(),
 >(, <(, >, >>, 2>, <, \n, \r. Non-exact find commands also reject
-execution/write primaries such as -exec and -delete. Exact-match allowlist
-entries still work for commands that intentionally need these forms.
+execution/write primaries such as -exec and -delete; non-exact rg commands
+reject preprocessor flags. Exact-match allowlist entries still work for
+commands that intentionally need these forms.
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ BLOCKED_FIND_ACTIONS = {
     "-ok",
     "-okdir",
 }
+BLOCKED_RG_FLAGS = {"--pre", "--pre-glob"}
 
 
 def contains_blocked_shell_metacharacters(command: str) -> bool:
@@ -53,6 +55,17 @@ def contains_blocked_find_action(command: str) -> bool:
     if not command_tokens or command_tokens[0] != "find":
         return False
     return any(token in BLOCKED_FIND_ACTIONS for token in command_tokens[1:])
+
+
+def contains_blocked_rg_flag(command: str) -> bool:
+    command_tokens = command.split()
+    if not command_tokens or command_tokens[0] != "rg":
+        return False
+    return any(
+        token in BLOCKED_RG_FLAGS
+        or any(token.startswith(f"{flag}=") for flag in BLOCKED_RG_FLAGS)
+        for token in command_tokens[1:]
+    )
 
 
 def token_prefix_matches(command: str, entry: str) -> bool:
@@ -80,6 +93,9 @@ def is_bash_command_allowed(command: str, allowed_entries: list[str]) -> tuple[b
 
     if contains_blocked_find_action(command):
         return False, "blocked_find_action"
+
+    if contains_blocked_rg_flag(command):
+        return False, "blocked_rg_flag"
 
     for entry in allowed_entries:
         if token_prefix_matches(command, entry):
