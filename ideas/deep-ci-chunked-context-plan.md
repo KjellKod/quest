@@ -20,6 +20,16 @@ Keep the current full-file behavior for files under the cap. For files over the 
 
 This gives the reviewer enough surrounding code to reason about lifecycle, initialization, fallback paths, and invariants without dumping a whole large file into the prompt.
 
+## Roadmap Position
+
+This is Review Intelligence Phase 3.1.
+
+Phase 3 shipped bounded whole-file review for selected changed code files. Live validation showed the remaining gap: Deep CI can choose the right high-value files and still skip them because they exceed the character cap.
+
+Phase 3.1 should preserve the current budget discipline while giving the model changed-line context chunks for oversized files instead of dropping them entirely.
+
+The next queued follow-up is a structured review-context manifest: one prepare step decides files, chunks, budgets, and metadata, and downstream review steps consume that manifest deterministically.
+
 ## Research Notes
 
 Relevant external inputs:

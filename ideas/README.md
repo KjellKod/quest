@@ -28,6 +28,16 @@ architecture docs.
 |---|---|---|
 | `deep-ci-chunked-context-plan.md` | proposed | Extend Deep CI so oversized selected files render bounded changed-line context chunks instead of being skipped entirely. |
 
+Current roadmap:
+
+| Phase | Status | Focus |
+|---|---|---|
+| Phase 1 | done | Canonical review findings, decisions, and backlog contracts. |
+| Phase 2 | done | Targeted validation and batched PR response. |
+| Phase 3 | done | Bounded Deep CI whole-file review for selected changed code files. |
+| Phase 3.1 | next | Deep CI oversized-file chunk fallback: keep the current budget discipline, but render bounded changed-line context chunks when selected files exceed the full-file cap. |
+| Phase 3.2 | queued | Structured review-context manifest: prepare files, chunks, budgets, and metadata once, then have downstream review steps consume that manifest deterministically. |
+
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
 |---|---|---|
