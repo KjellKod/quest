@@ -139,6 +139,40 @@ def test_bare_token_rejection_for_bash_entry():
     assert reason == "no_match"
 
 
+def test_read_only_find_query_is_allowed_for_bare_find_entry():
+    allowed, reason = is_bash_command_allowed(
+        "find . -name '*.py' -type f",
+        ["find"],
+    )
+    assert allowed is True
+    assert reason == "token_prefix_match"
+
+
+def test_find_exec_is_blocked_for_bare_find_entry():
+    allowed, reason = is_bash_command_allowed(
+        "find . -name '*.py' -exec rm {} +",
+        ["find"],
+    )
+    assert allowed is False
+    assert reason == "blocked_find_action"
+
+
+def test_find_delete_is_blocked_for_bare_find_entry():
+    allowed, reason = is_bash_command_allowed(
+        "find . -name '*.tmp' -delete",
+        ["find"],
+    )
+    assert allowed is False
+    assert reason == "blocked_find_action"
+
+
+def test_exact_find_exec_entry_is_allowed():
+    command = "find . -name '*.py' -exec echo {} +"
+    allowed, reason = is_bash_command_allowed(command, [command])
+    assert allowed is True
+    assert reason == "exact_match"
+
+
 def test_pipeline_spot_checks_allow_expected_commands():
     entries = [
         "bash scripts/quest_validate-manifest.sh",

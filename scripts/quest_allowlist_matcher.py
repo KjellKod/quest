@@ -2,8 +2,9 @@
 """Quest allowlist matcher for bash commands.
 
 Rejected metacharacters for non-exact matches: &&, ||, ;, |, &, `, $(),
->(, <(, >, >>, 2>, <, \n, \r. Exact-match allowlist entries still work
-for commands that legitimately need redirection.
+>(, <(, >, >>, 2>, <, \n, \r. Non-exact find commands also reject
+execution/write primaries such as -exec and -delete. Exact-match allowlist
+entries still work for commands that intentionally need these forms.
 """
 
 from __future__ import annotations
@@ -30,10 +31,28 @@ BLOCKED_METACHARACTERS = (
     "\r",
 )
 EXACT_ONLY_BARE_ENTRIES = {"bash", "python", "python3"}
+BLOCKED_FIND_ACTIONS = {
+    "-delete",
+    "-exec",
+    "-execdir",
+    "-fprint",
+    "-fprint0",
+    "-fls",
+    "-fprintf",
+    "-ok",
+    "-okdir",
+}
 
 
 def contains_blocked_shell_metacharacters(command: str) -> bool:
     return any(token in command for token in BLOCKED_METACHARACTERS)
+
+
+def contains_blocked_find_action(command: str) -> bool:
+    command_tokens = command.split()
+    if not command_tokens or command_tokens[0] != "find":
+        return False
+    return any(token in BLOCKED_FIND_ACTIONS for token in command_tokens[1:])
 
 
 def token_prefix_matches(command: str, entry: str) -> bool:
@@ -58,6 +77,9 @@ def is_bash_command_allowed(command: str, allowed_entries: list[str]) -> tuple[b
 
     if contains_blocked_shell_metacharacters(command):
         return False, "blocked_metacharacter"
+
+    if contains_blocked_find_action(command):
+        return False, "blocked_find_action"
 
     for entry in allowed_entries:
         if token_prefix_matches(command, entry):
