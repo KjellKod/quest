@@ -63,13 +63,12 @@ class TestExpectedArtifactsForRole:
         names = [p.name for p in paths]
         assert names == ["review_fix_feedback_discussion.md", "handoff_fixer.json"]
 
-    def test_arbiter_includes_findings_and_backlog_artifacts(self, tmp_path: Path):
+    def test_arbiter_uses_next_findings_artifact_and_no_backlog(self, tmp_path: Path):
         paths = expected_artifacts_for_role(tmp_path, "plan_review", "arbiter")
         names = [p.name for p in paths]
         assert names == [
             "arbiter_verdict.md",
-            "review_findings.json",
-            "review_backlog.json",
+            "review_findings.json.next",
             "handoff_arbiter.json",
         ]
 
@@ -147,6 +146,19 @@ class TestPrepareArtifactFiles:
         result = prepare_artifact_files([relative_looking])
         assert len(result) == 1
         assert ".." not in str(result[0])
+
+    def test_arbiter_prepare_touches_next_file_not_canonical_findings(self, tmp_path: Path):
+        quest_dir = tmp_path / "quest"
+        canonical = quest_dir / "phase_01_plan" / "review_findings.json"
+        canonical.parent.mkdir(parents=True, exist_ok=True)
+        canonical.write_text('[{"finding_id":"stable"}]\n', encoding="utf-8")
+        original = canonical.read_text(encoding="utf-8")
+
+        artifacts = expected_artifacts_for_role(quest_dir, "plan_review", "arbiter")
+        prepare_artifact_files(artifacts)
+
+        assert canonical.read_text(encoding="utf-8") == original
+        assert (quest_dir / "phase_01_plan" / "review_findings.json.next").exists()
 
 
 # ---------------------------------------------------------------------------

@@ -22,6 +22,7 @@ from quest_runtime.review_intelligence import (
     merge_and_dedupe,
     scan_deferred_backlog,
     utc_now_iso,
+    validate_review_backlog,
     validate_findings,
 )
 
@@ -95,10 +96,22 @@ def _cmd_merge_findings(args: argparse.Namespace) -> int:
 def _cmd_build_backlog(args: argparse.Namespace) -> int:
     payload = _load_json(Path(args.findings))
     findings = _extract_findings(payload)
-    backlog = build_review_backlog(findings, at_loop_cap=args.at_loop_cap)
+    backlog = build_review_backlog(
+        findings,
+        at_loop_cap=args.at_loop_cap,
+        phase=args.phase,
+    )
     _write_json(Path(args.output), backlog)
     print(json.dumps({"ok": True, "count": len(backlog["items"]), "output": args.output}, sort_keys=True))
     return 0
+
+
+def _cmd_validate_backlog(args: argparse.Namespace) -> int:
+    payload = _load_json(Path(args.input))
+    errors = validate_review_backlog(payload)
+    item_count = len(payload.get("items", [])) if isinstance(payload, dict) else 0
+    print(json.dumps({"ok": not errors, "count": item_count, "errors": errors}, indent=2, sort_keys=True))
+    return 1 if errors else 0
 
 
 def _cmd_normalize_pr_intake(args: argparse.Namespace) -> int:
@@ -283,8 +296,21 @@ def parse_args() -> argparse.Namespace:
     backlog = subparsers.add_parser("build-backlog", help="Build review backlog from findings")
     backlog.add_argument("--findings", required=True, help="Input findings JSON file")
     backlog.add_argument("--output", required=True, help="Path to backlog output JSON")
+    backlog.add_argument(
+        "--phase",
+        default="review",
+        choices=["plan", "review"],
+        help="Backlog decision policy phase (default: review)",
+    )
     backlog.add_argument("--at-loop-cap", action="store_true", help="Apply loop-cap decision policy")
     backlog.set_defaults(func=_cmd_build_backlog)
+
+    validate_backlog = subparsers.add_parser(
+        "validate-backlog",
+        help="Validate canonical review backlog JSON",
+    )
+    validate_backlog.add_argument("--input", required=True, help="Path to review backlog JSON file")
+    validate_backlog.set_defaults(func=_cmd_validate_backlog)
 
     select_validation = subparsers.add_parser(
         "select-batch-validation",

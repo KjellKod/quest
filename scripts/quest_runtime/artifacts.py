@@ -18,8 +18,7 @@ ROLE_ARTIFACTS: dict[str, tuple[str, tuple[str, ...]]] = {
         "phase_01_plan",
         (
             "arbiter_verdict.md",
-            "review_findings.json",
-            "review_backlog.json",
+            "review_findings.json.next",
             "handoff_arbiter.json",
         ),
     ),

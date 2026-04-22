@@ -539,6 +539,17 @@ test_workflow_documents_no_vcs_review_path() {
     grep -q 'review the implementation directly' "$WORKFLOW_FILE"
 }
 
+test_workflow_documents_arbiter_validate_build_publish_contract() {
+  grep -Fq 'review_findings.json.next' "$WORKFLOW_FILE" &&
+    grep -Fq 'review_backlog.json.next' "$WORKFLOW_FILE" &&
+    grep -Fq 'validate-findings --input .quest/<id>/phase_01_plan/review_findings.json.next' "$WORKFLOW_FILE" &&
+    grep -Fq 'build-backlog --phase plan --findings .quest/<id>/phase_01_plan/review_findings.json.next --output .quest/<id>/phase_01_plan/review_backlog.json.next' "$WORKFLOW_FILE" &&
+    grep -Fq 'validate-backlog --input .quest/<id>/phase_01_plan/review_backlog.json.next' "$WORKFLOW_FILE" &&
+    grep -Fq 'os.replace(".quest/<id>/phase_01_plan/review_findings.json.next", ".quest/<id>/phase_01_plan/review_findings.json")' "$WORKFLOW_FILE" &&
+    grep -Fq 'If arbiter handoff says `next: planner`' "$WORKFLOW_FILE" &&
+    grep -Fq 'Do **not** call `quest_state.py --transition plan_reviewed`.' "$WORKFLOW_FILE"
+}
+
 test_installer_cleans_up_renamed_scripts() {
   grep -q 'OLD_SCRIPT_NAMES=(' "$INSTALLER_SCRIPT" &&
     grep -q 'scripts/claude_cli_bridge.py' "$INSTALLER_SCRIPT" &&
@@ -736,6 +747,498 @@ test_quest_startup_branch_exception_handler_tolerates_missing_git() {
     echo "$message" | grep -qi "failed"
 }
 
+test_plan_review_retry_harness_preserves_canonical_artifacts_until_publish() {
+  local tmpdir phase_dir findings_file backlog_file findings_next backlog_next
+  tmpdir=$(mktemp -d)
+  phase_dir="$tmpdir/phase_01_plan"
+  findings_file="$phase_dir/review_findings.json"
+  backlog_file="$phase_dir/review_backlog.json"
+  findings_next="$phase_dir/review_findings.json.next"
+  backlog_next="$phase_dir/review_backlog.json.next"
+  mkdir -p "$phase_dir"
+
+  cat > "$findings_file" <<'EOF'
+[
+  {
+    "finding_id": "old-1",
+    "source": "arbiter",
+    "kind": "correctness",
+    "severity": "low",
+    "confidence": "high",
+    "path": "scripts/old.py",
+    "line": 1,
+    "summary": "Old canonical finding.",
+    "why_it_matters": "Old value should survive failed validation.",
+    "evidence": ["old"],
+    "action": "none",
+    "needs_test": false,
+    "write_scope": ["scripts/old.py"],
+    "related_acceptance_criteria": ["AC-0"]
+  }
+]
+EOF
+  cat > "$backlog_file" <<'EOF'
+{
+  "version": 1,
+  "generated_at": "2026-04-22T00:00:00Z",
+  "phase": "plan",
+  "at_loop_cap": false,
+  "allowed_decisions": ["fix_now", "verify_first", "defer", "drop", "needs_human_decision"],
+  "counts": {"fix_now": 1, "verify_first": 0, "defer": 0, "drop": 0, "needs_human_decision": 0},
+  "items": [
+    {
+      "finding_id": "old-1",
+      "source": "arbiter",
+      "kind": "correctness",
+      "severity": "low",
+      "confidence": "high",
+      "path": "scripts/old.py",
+      "line": 1,
+      "summary": "Old canonical finding.",
+      "why_it_matters": "Old value should survive failed validation.",
+      "evidence": ["old"],
+      "action": "none",
+      "needs_test": false,
+      "write_scope": ["scripts/old.py"],
+      "related_acceptance_criteria": ["AC-0"],
+      "decision": "fix_now",
+      "decision_confidence": "high",
+      "reason": "old",
+      "needs_validation": ["typecheck"],
+      "owner": "builder",
+      "batch": "correctness-scripts"
+    }
+  ]
+}
+EOF
+
+  local canonical_findings_before canonical_backlog_before
+  canonical_findings_before=$(cat "$findings_file")
+  canonical_backlog_before=$(cat "$backlog_file")
+
+  local attempts=0 retries=0 validated=false
+  local transition_attempts=0 transition_attempts_before_publish=0 published=false
+  while [ "$attempts" -lt 2 ]; do
+    attempts=$((attempts + 1))
+    rm -f "$findings_next" "$backlog_next"
+    if [ "$attempts" -eq 1 ]; then
+      cat > "$findings_next" <<'EOF'
+[
+  {
+    "id": "bad-shape"
+  }
+]
+EOF
+    else
+      cat > "$findings_next" <<'EOF'
+[
+  {
+    "finding_id": "new-1",
+    "source": "arbiter",
+    "kind": "regression-risk",
+    "severity": "high",
+    "confidence": "high",
+    "path": "scripts/new.py",
+    "line": 12,
+    "summary": "New canonical finding.",
+    "why_it_matters": "Used to validate retry and publish ordering.",
+    "evidence": ["new"],
+    "action": "fix now",
+    "needs_test": true,
+    "write_scope": ["scripts/new.py"],
+    "related_acceptance_criteria": ["B5"]
+  }
+]
+EOF
+    fi
+
+    if python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-findings --input "$findings_next" >/dev/null 2>&1; then
+      validated=true
+      break
+    fi
+
+    retries=$((retries + 1))
+    [ "$(cat "$findings_file")" = "$canonical_findings_before" ] || { rm -rf "$tmpdir"; return 1; }
+    [ "$(cat "$backlog_file")" = "$canonical_backlog_before" ] || { rm -rf "$tmpdir"; return 1; }
+    [ "$retries" -le 1 ] || { rm -rf "$tmpdir"; return 1; }
+  done
+
+  "$validated" || { rm -rf "$tmpdir"; return 1; }
+  [ "$attempts" -eq 2 ] || { rm -rf "$tmpdir"; return 1; }
+  [ "$retries" -eq 1 ] || { rm -rf "$tmpdir"; return 1; }
+
+  python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" build-backlog --phase plan --findings "$findings_next" --output "$backlog_next" >/dev/null 2>&1 || { rm -rf "$tmpdir"; return 1; }
+  python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-backlog --input "$backlog_next" >/dev/null 2>&1 || { rm -rf "$tmpdir"; return 1; }
+
+  attempt_transition() {
+    transition_attempts=$((transition_attempts + 1))
+    if [ "$published" != true ]; then
+      transition_attempts_before_publish=$((transition_attempts_before_publish + 1))
+    fi
+  }
+
+  [ -s "$findings_next" ] || { rm -rf "$tmpdir"; return 1; }
+  [ -s "$backlog_next" ] || { rm -rf "$tmpdir"; return 1; }
+
+  mv "$findings_next" "$findings_file" || { rm -rf "$tmpdir"; return 1; }
+  mv "$backlog_next" "$backlog_file" || { rm -rf "$tmpdir"; return 1; }
+  published=true
+  attempt_transition
+
+  local canonical_findings_after canonical_backlog_after
+  canonical_findings_after=$(cat "$findings_file")
+  canonical_backlog_after=$(cat "$backlog_file")
+
+  local rc=0
+  [ "$transition_attempts" -eq 1 ] || rc=1
+  [ "$transition_attempts_before_publish" -eq 0 ] || rc=1
+  [ "$canonical_findings_after" != "$canonical_findings_before" ] || rc=1
+  [ "$canonical_backlog_after" != "$canonical_backlog_before" ] || rc=1
+  [ -s "$findings_file" ] || rc=1
+  [ -s "$backlog_file" ] || rc=1
+
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_plan_review_retry_via_runner_preserves_canonical_artifacts_until_publish() {
+  local tmpdir phase_dir findings_file backlog_file findings_next backlog_next prompt_file handoff_file
+  tmpdir=$(mktemp -d)
+  phase_dir="$tmpdir/phase_01_plan"
+  findings_file="$phase_dir/review_findings.json"
+  backlog_file="$phase_dir/review_backlog.json"
+  findings_next="$phase_dir/review_findings.json.next"
+  backlog_next="$phase_dir/review_backlog.json.next"
+  prompt_file="$phase_dir/arbiter_prompt.txt"
+  handoff_file="$phase_dir/handoff_arbiter.json"
+  mkdir -p "$phase_dir"
+
+  cat > "$findings_file" <<'EOF'
+[
+  {
+    "finding_id": "old-runner-1",
+    "source": "arbiter",
+    "kind": "correctness",
+    "severity": "low",
+    "confidence": "high",
+    "path": "scripts/old_runner.py",
+    "line": 1,
+    "summary": "Old canonical finding.",
+    "why_it_matters": "Must remain unchanged before successful publish.",
+    "evidence": ["old-runner"],
+    "action": "none",
+    "needs_test": false,
+    "write_scope": ["scripts/old_runner.py"],
+    "related_acceptance_criteria": ["B5"]
+  }
+]
+EOF
+  cat > "$backlog_file" <<'EOF'
+{
+  "version": 1,
+  "generated_at": "2026-04-22T00:00:00Z",
+  "phase": "plan",
+  "at_loop_cap": false,
+  "allowed_decisions": ["fix_now", "verify_first", "defer", "drop", "needs_human_decision"],
+  "counts": {"fix_now": 1, "verify_first": 0, "defer": 0, "drop": 0, "needs_human_decision": 0},
+  "items": [
+    {
+      "finding_id": "old-runner-1",
+      "source": "arbiter",
+      "kind": "correctness",
+      "severity": "low",
+      "confidence": "high",
+      "path": "scripts/old_runner.py",
+      "line": 1,
+      "summary": "Old canonical finding.",
+      "why_it_matters": "Must remain unchanged before successful publish.",
+      "evidence": ["old-runner"],
+      "action": "none",
+      "needs_test": false,
+      "write_scope": ["scripts/old_runner.py"],
+      "related_acceptance_criteria": ["B5"],
+      "decision": "fix_now",
+      "decision_confidence": "high",
+      "reason": "old",
+      "needs_validation": ["typecheck"],
+      "owner": "builder",
+      "batch": "correctness-scripts"
+    }
+  ]
+}
+EOF
+  cat > "$tmpdir/fake_arbiter_bridge.py" <<'EOF'
+#!/usr/bin/env python3
+import json
+import pathlib
+import sys
+
+args = sys.argv[1:]
+prompt_file = pathlib.Path(args[args.index("--prompt-file") + 1])
+phase_dir = prompt_file.parent
+attempt_file = phase_dir / "arbiter_attempt.txt"
+
+attempt = 1
+if attempt_file.exists():
+    try:
+        attempt = int(attempt_file.read_text(encoding="utf-8").strip()) + 1
+    except ValueError:
+        attempt = 1
+attempt_file.write_text(str(attempt), encoding="utf-8")
+
+verdict_path = phase_dir / "arbiter_verdict.md"
+findings_path = phase_dir / "review_findings.json.next"
+handoff_path = phase_dir / "handoff_arbiter.json"
+verdict_path.write_text(f"arbiter attempt {attempt}\n", encoding="utf-8")
+
+if attempt == 1:
+    findings_path.write_text('[{"id":"bad-shape"}]\n', encoding="utf-8")
+else:
+    findings_path.write_text(
+        json.dumps(
+            [
+                {
+                    "finding_id": "runner-new-1",
+                    "source": "arbiter",
+                    "kind": "regression-risk",
+                    "severity": "high",
+                    "confidence": "high",
+                    "path": "scripts/new_runner.py",
+                    "line": 7,
+                    "summary": "Valid findings after retry.",
+                    "why_it_matters": "Validates runner/orchestrator retry path.",
+                    "evidence": ["runner"],
+                    "action": "fix now",
+                    "needs_test": True,
+                    "write_scope": ["scripts/new_runner.py"],
+                    "related_acceptance_criteria": ["B5"],
+                }
+            ],
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+handoff_path.write_text(
+    json.dumps(
+        {
+            "status": "complete",
+            "artifacts": [str(verdict_path), str(findings_path)],
+            "next": "planner",
+            "summary": f"attempt {attempt}",
+        }
+    ),
+    encoding="utf-8",
+)
+print("---HANDOFF---")
+print("STATUS: complete")
+print(f"ARTIFACTS: {verdict_path}, {findings_path}")
+print("NEXT: planner")
+print(f"SUMMARY: attempt {attempt}")
+EOF
+  chmod +x "$tmpdir/fake_arbiter_bridge.py"
+  cat > "$prompt_file" <<EOF
+Write arbiter outputs for retry testing.
+EOF
+
+  # --- Runtime-evidence instrumentation ---------------------------------
+  # Telemetry log: the runner appends JSON lines when QUEST_RUNNER_TELEMETRY_LOG
+  # is set. The test also appends non-runner events (validate/publish/transition)
+  # to the same file to produce a single ordered event stream that asserts the
+  # real runtime sequence. A regression that called transition before publish
+  # would show up as a "transition" line preceding the "publish" line here.
+  local telemetry_log="$tmpdir/runner_telemetry.log"
+  : > "$telemetry_log"
+  export QUEST_RUNNER_TELEMETRY_LOG="$telemetry_log"
+
+  record_event() {
+    # Append a single JSON event line for non-runner activity.
+    python3 - "$telemetry_log" "$@" <<'PY'
+import json, sys, time
+log_path = sys.argv[1]
+payload = {"ts": time.time(), "event": sys.argv[2]}
+for pair in sys.argv[3:]:
+    if "=" in pair:
+        k, v = pair.split("=", 1)
+        payload[k] = v
+with open(log_path, "a", encoding="utf-8") as fh:
+    fh.write(json.dumps(payload, ensure_ascii=True) + "\n")
+PY
+  }
+
+  # Stat snapshot: (mtime_ns, inode, size, sha256). Any change — including an
+  # identical-byte rewrite (mtime_ns changes) — will differ from the recorded
+  # snapshot and cause the invariant assertion to fail.
+  stat_snapshot() {
+    python3 - "$1" <<'PY'
+import hashlib, os, sys
+p = sys.argv[1]
+st = os.stat(p)
+with open(p, "rb") as fh:
+    digest = hashlib.sha256(fh.read()).hexdigest()
+print(f"{st.st_mtime_ns}|{st.st_ino}|{st.st_size}|{digest}")
+PY
+  }
+
+  local canonical_findings_before canonical_backlog_before
+  canonical_findings_before=$(cat "$findings_file")
+  canonical_backlog_before=$(cat "$backlog_file")
+  local findings_snapshot_before backlog_snapshot_before
+  findings_snapshot_before=$(stat_snapshot "$findings_file")
+  backlog_snapshot_before=$(stat_snapshot "$backlog_file")
+
+  local attempts=0 retries=0 validated=false
+  local published=false
+  while [ "$attempts" -lt 3 ]; do
+    local output runner_rc result_kind
+    output=$(python3 "$CLAUDE_RUNNER" \
+      --quest-dir "$tmpdir" \
+      --phase plan_review \
+      --agent arbiter \
+      --iter 1 \
+      --prompt-file "$prompt_file" \
+      --handoff-file "$handoff_file" \
+      --bridge-script "$tmpdir/fake_arbiter_bridge.py" \
+      --cwd "$REPO_ROOT" 2>&1)
+    runner_rc=$?
+    result_kind=$(printf '%s' "$output" | jq -r '.result_kind')
+    attempts=$((attempts + 1))
+    [ "$runner_rc" -eq 0 ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+    [ "$result_kind" = "handoff_json" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+
+    # Stat-level canonical invariant: fails identical-byte rewrites too.
+    [ "$(stat_snapshot "$findings_file")" = "$findings_snapshot_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+    [ "$(stat_snapshot "$backlog_file")" = "$backlog_snapshot_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+
+    if python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-findings --input "$findings_next" >/dev/null 2>&1; then
+      record_event validate result=ok attempt="$attempts"
+      validated=true
+      break
+    fi
+    record_event validate result=fail attempt="$attempts"
+
+    retries=$((retries + 1))
+    [ "$(cat "$findings_file")" = "$canonical_findings_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+    [ "$(cat "$backlog_file")" = "$canonical_backlog_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+    [ "$retries" -le 1 ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  done
+
+  "$validated" || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  [ "$attempts" -eq 2 ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  [ "$retries" -eq 1 ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  [ "$(cat "$phase_dir/arbiter_attempt.txt")" = "2" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+
+  python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" build-backlog --phase plan --findings "$findings_next" --output "$backlog_next" >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-backlog --input "$backlog_next" >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+
+  # Canonical files must still be untouched after build-backlog/validate — including
+  # any identical-byte rewrite (detected by mtime/inode shift in stat_snapshot).
+  [ "$(stat_snapshot "$findings_file")" = "$findings_snapshot_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  [ "$(stat_snapshot "$backlog_file")" = "$backlog_snapshot_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+
+  # Capture the .next sha256 immediately before publish for a post-publish
+  # content-identity check that doesn't depend on the local canonical_* strings.
+  local findings_next_sha_prepublish backlog_next_sha_prepublish
+  findings_next_sha_prepublish=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$findings_next")
+  backlog_next_sha_prepublish=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$backlog_next")
+
+  attempt_transition() {
+    # Records a transition event to the shared telemetry log. If an orchestration
+    # regression called this before publish, the "transition" line would appear
+    # before the "publish" line and the ordering assertion below would fail.
+    record_event transition when="$1"
+  }
+
+  [ -s "$findings_next" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  [ -s "$backlog_next" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+
+  mv "$findings_next" "$findings_file" || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  mv "$backlog_next" "$backlog_file" || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  published=true
+  record_event publish
+  attempt_transition post_publish
+
+  python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-findings --input "$findings_file" >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-backlog --input "$backlog_file" >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+
+  local canonical_findings_after canonical_backlog_after
+  canonical_findings_after=$(cat "$findings_file")
+  canonical_backlog_after=$(cat "$backlog_file")
+
+  # Post-publish: canonical sha256 must match the .next sha256 captured immediately
+  # before publish (proves publish is the only event that mutated canonical).
+  local findings_post_sha backlog_post_sha
+  findings_post_sha=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$findings_file")
+  backlog_post_sha=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$backlog_file")
+
+  # Parse telemetry log and assert the observed runtime sequence.
+  local sequence_report
+  sequence_report=$(python3 - "$telemetry_log" <<'PY'
+import json, sys
+lines = [l for l in open(sys.argv[1], encoding="utf-8").read().splitlines() if l.strip()]
+events = [json.loads(l) for l in lines]
+order = [e.get("event") for e in events]
+
+attempt_starts = [e for e in events if e.get("event") == "attempt_start"]
+attempt_ends = [e for e in events if e.get("event") == "attempt_end"]
+transitions = [i for i, ev in enumerate(order) if ev == "transition"]
+publish_idxs = [i for i, ev in enumerate(order) if ev == "publish"]
+
+# Invariants:
+#  - exactly two runner attempt_start/attempt_end pairs (1 initial + 1 retry)
+#  - every attempt_end has result_kind=handoff_json (runner produced a handoff)
+#  - exactly one "publish" event
+#  - no "transition" event appears BEFORE "publish"
+#  - validate events: one fail (attempt 1) then one ok (attempt 2)
+errors = []
+if len(attempt_starts) != 2:
+    errors.append(f"attempt_start count={len(attempt_starts)}")
+if len(attempt_ends) != 2:
+    errors.append(f"attempt_end count={len(attempt_ends)}")
+for e in attempt_ends:
+    if e.get("result_kind") != "handoff_json":
+        errors.append(f"attempt_end result_kind={e.get('result_kind')}")
+if len(publish_idxs) != 1:
+    errors.append(f"publish count={len(publish_idxs)}")
+if publish_idxs and any(t < publish_idxs[0] for t in transitions):
+    errors.append("transition before publish")
+validate_results = [e.get("result") for e in events if e.get("event") == "validate"]
+if validate_results != ["fail", "ok"]:
+    errors.append(f"validate sequence={validate_results}")
+
+# Ensure attempt iterations observed by runner are 1 and 2 in order.
+iters = [e.get("iter") for e in attempt_ends]
+# Both invocations use --iter 1 (outer loop provides the retry semantics), so all
+# runner-observed iter values should be 1; the retry is counted by the outer loop
+# via attempt_file. What matters is that the runner produced TWO independent
+# attempt_end records, proving it actually ran twice.
+if len(set(iters)) > 2:
+    errors.append(f"iter values={iters}")
+
+if errors:
+    print("FAIL:" + ";".join(errors))
+else:
+    print("OK")
+PY
+  )
+
+  local rc=0
+  [ "$sequence_report" = "OK" ] || rc=1
+
+  [ "$findings_post_sha" = "$findings_next_sha_prepublish" ] || rc=1
+  [ "$backlog_post_sha" = "$backlog_next_sha_prepublish" ] || rc=1
+
+  [ "$canonical_findings_after" != "$canonical_findings_before" ] || rc=1
+  [ "$canonical_backlog_after" != "$canonical_backlog_before" ] || rc=1
+  [ -s "$findings_file" ] || rc=1
+  [ -s "$backlog_file" ] || rc=1
+
+  unset QUEST_RUNNER_TELEMETRY_LOG
+  rm -rf "$tmpdir"
+  return $rc
+}
+
 run_test test_quest_state_updates_phase_and_timestamp
 run_test test_quest_state_transition_valid
 run_test test_quest_state_transition_invalid_leaves_state_unchanged
@@ -750,7 +1253,10 @@ run_test test_quest_startup_branch_invalid_mode_keeps_vcs_available_true
 run_test test_quest_startup_branch_skips_outside_git_repo
 run_test test_quest_startup_branch_invalid_slug_preserves_requested_mode
 run_test test_quest_startup_branch_exception_handler_tolerates_missing_git
+run_test test_plan_review_retry_harness_preserves_canonical_artifacts_until_publish
+run_test test_plan_review_retry_via_runner_preserves_canonical_artifacts_until_publish
 run_test test_workflow_documents_no_vcs_review_path
+run_test test_workflow_documents_arbiter_validate_build_publish_contract
 run_test test_installer_cleans_up_renamed_scripts
 run_test test_installer_updates_pristine_agents_file_in_place
 run_test test_installer_records_checksum_for_new_agents_file

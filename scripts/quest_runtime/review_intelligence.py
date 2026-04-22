@@ -38,6 +38,7 @@ ALLOWED_DECISIONS = (
 
 _SEVERITY_RANK = {name: index for index, name in enumerate(ALLOWED_SEVERITIES)}
 _CONFIDENCE_RANK = {name: index for index, name in enumerate(ALLOWED_CONFIDENCE)}
+ALLOWED_BACKLOG_PHASES = ("plan", "review")
 
 
 def utc_now_iso() -> str:
@@ -231,6 +232,36 @@ def _batch_from_finding(finding: dict[str, Any]) -> str:
     return "misc"
 
 
+def _slugify(value: str, *, fallback: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug or fallback
+
+
+def _path_group_from_finding(finding: dict[str, Any]) -> str:
+    candidate = ""
+    write_scope = finding.get("write_scope")
+    if isinstance(write_scope, list):
+        scopes = sorted(item for item in write_scope if isinstance(item, str) and item.strip())
+        if scopes:
+            candidate = scopes[0]
+    if not candidate:
+        path = finding.get("path")
+        if isinstance(path, str):
+            candidate = path
+
+    normalized = candidate.strip()
+    if not normalized:
+        return "root"
+    normalized = normalized.strip("/")
+    if "/" not in normalized:
+        return "root"
+
+    first_segment = normalized.split("/", 1)[0]
+    if first_segment in {"", ".", ".."}:
+        return "root"
+    return _slugify(first_segment, fallback="root")
+
+
 def select_decision(finding: dict[str, Any], *, at_loop_cap: bool) -> dict[str, Any]:
     """Select a deterministic backlog decision for one finding."""
 
@@ -287,19 +318,50 @@ def select_decision(finding: dict[str, Any], *, at_loop_cap: bool) -> dict[str, 
     }
 
 
+def _plan_phase_decision(finding: dict[str, Any]) -> dict[str, Any]:
+    """Return deterministic plan-phase backlog defaults."""
+
+    errors = validate_finding(finding)
+    if errors:
+        raise ValueError("; ".join(errors))
+
+    kind = _slugify(str(finding.get("kind") or "finding"), fallback="finding")
+    path_group = _path_group_from_finding(finding)
+    needs_validation: list[str] = []
+    if finding["needs_test"]:
+        needs_validation.append("unit_test")
+    needs_validation.extend(["typecheck", "lint"])
+
+    return {
+        "decision": "fix_now",
+        "decision_confidence": finding["confidence"],
+        "reason": "Plan-phase canonical default: builder implements this finding now.",
+        "needs_validation": needs_validation,
+        "owner": "builder",
+        "batch": f"{kind}-{path_group}",
+    }
+
+
 def build_review_backlog(
     findings: list[dict[str, Any]],
     *,
     at_loop_cap: bool,
+    phase: str = "review",
 ) -> dict[str, Any]:
     """Build canonical review backlog entries from findings."""
+
+    if phase not in ALLOWED_BACKLOG_PHASES:
+        raise ValueError(f"phase must be one of: {', '.join(ALLOWED_BACKLOG_PHASES)}")
 
     merged = merge_and_dedupe([findings])
     items: list[dict[str, Any]] = []
     counts = {decision: 0 for decision in ALLOWED_DECISIONS}
 
     for finding in merged:
-        decision_data = select_decision(finding, at_loop_cap=at_loop_cap)
+        if phase == "plan":
+            decision_data = _plan_phase_decision(finding)
+        else:
+            decision_data = select_decision(finding, at_loop_cap=at_loop_cap)
         item = copy.deepcopy(finding)
         item.update(decision_data)
         items.append(item)
@@ -309,10 +371,69 @@ def build_review_backlog(
         "version": 1,
         "generated_at": utc_now_iso(),
         "at_loop_cap": at_loop_cap,
+        "phase": phase,
         "allowed_decisions": list(ALLOWED_DECISIONS),
         "counts": counts,
         "items": items,
     }
+
+
+def validate_review_backlog(backlog: Any) -> list[str]:
+    """Validate canonical backlog object shape and decision fields."""
+
+    if not isinstance(backlog, dict):
+        return ["backlog must be a JSON object"]
+
+    items = backlog.get("items")
+    if not isinstance(items, list):
+        return ["backlog JSON object must contain an 'items' list"]
+
+    errors: list[str] = []
+    required_decision_fields = (
+        "decision",
+        "decision_confidence",
+        "reason",
+        "needs_validation",
+        "owner",
+        "batch",
+    )
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            errors.append(f"[{index}] backlog item must be an object")
+            continue
+
+        for error in validate_finding(item):
+            errors.append(f"[{index}] {error}")
+
+        for field in required_decision_fields:
+            if field not in item:
+                errors.append(f"[{index}] missing required field '{field}'")
+
+        decision = item.get("decision")
+        if decision not in ALLOWED_DECISIONS:
+            errors.append(f"[{index}] field 'decision' has invalid value")
+
+        decision_confidence = item.get("decision_confidence")
+        if decision_confidence not in ALLOWED_CONFIDENCE:
+            errors.append(f"[{index}] field 'decision_confidence' has invalid value")
+
+        reason = item.get("reason")
+        if not isinstance(reason, str) or not reason.strip():
+            errors.append(f"[{index}] field 'reason' must be a non-empty string")
+
+        owner = item.get("owner")
+        if not isinstance(owner, str) or not owner.strip():
+            errors.append(f"[{index}] field 'owner' must be a non-empty string")
+
+        batch = item.get("batch")
+        if not isinstance(batch, str) or not batch.strip():
+            errors.append(f"[{index}] field 'batch' must be a non-empty string")
+
+        needs_validation = item.get("needs_validation")
+        if not _is_string_list(needs_validation):
+            errors.append(f"[{index}] field 'needs_validation' must be a list[str]")
+
+    return errors
 
 
 def append_deferred_findings(

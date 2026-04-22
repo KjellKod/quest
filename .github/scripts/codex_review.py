@@ -35,6 +35,10 @@ DEEP_CI_MAX_CHANGES = 2000
 DEEP_CI_MAX_FILE_CHARS = 20000
 DEEP_CI_MAX_TOTAL_CHARS = 60000
 DEEP_CI_MAX_FILES = 3
+DEEP_CI_CHUNK_CONTEXT_LINES = 100
+DEEP_CI_MAX_CHUNKS_PER_FILE = 4
+DEEP_CI_MAX_CHUNK_CHARS = 12000
+DEEP_CI_MAX_FETCH_CHARS = 200000
 PROMPT_PLACEHOLDER_RE = re.compile(r"\{(PLACEHOLDER_[A-Z_]+)\}")
 
 
@@ -90,10 +94,7 @@ def _is_deleted_file(file_info):
 
 
 def _is_large_by_metadata(file_info, max_chars_per_file=DEEP_CI_MAX_FILE_CHARS):
-    size = file_info.get("size")
-    if isinstance(size, int) and size > max_chars_per_file:
-        return True
-
+    del max_chars_per_file  # metadata size no longer disqualifies chunk fallback candidates
     changes = file_info.get("changes")
     if isinstance(changes, int) and changes > DEEP_CI_MAX_CHANGES:
         return True
@@ -149,7 +150,12 @@ def select_deep_ci_files(changed_files, max_files=DEEP_CI_MAX_FILES):
 def _deep_ci_omitted_note(path, reason):
     return {
         "path": path,
+        "mode": "skipped",
         "content": "",
+        "chunks": [],
+        "char_count": 0,
+        "line_count": 0,
+        "changed_line_ranges": [],
         "omitted": True,
         "reason": reason,
     }
@@ -161,19 +167,267 @@ def markdown_code_fence(content):
     return "`" * max(3, longest + 1)
 
 
+def _merge_ranges(ranges):
+    if not ranges:
+        return []
+    sorted_ranges = sorted(ranges, key=lambda value: (value[0], value[1]))
+    merged = [sorted_ranges[0]]
+    for start, end in sorted_ranges[1:]:
+        last_start, last_end = merged[-1]
+        if start <= last_end + 1:
+            merged[-1] = (last_start, max(last_end, end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def parse_changed_line_ranges(diff_text):
+    """Return path->right-side changed line ranges from a unified diff."""
+    if not isinstance(diff_text, str) or not diff_text.strip():
+        return {}
+
+    per_path = {}
+    current_path = None
+    current_line = None
+    pending_start = None
+    pending_end = None
+    hunk_re = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+
+    def flush_pending():
+        nonlocal pending_start, pending_end
+        if current_path is None or pending_start is None or pending_end is None:
+            pending_start = None
+            pending_end = None
+            return
+        per_path.setdefault(current_path, []).append((pending_start, pending_end))
+        pending_start = None
+        pending_end = None
+
+    for raw_line in diff_text.splitlines():
+        line = raw_line.rstrip("\n")
+
+        if current_line is None and line.startswith("+++ "):
+            flush_pending()
+            marker = line[4:]
+            if marker == "/dev/null":
+                current_path = None
+            elif marker.startswith("b/"):
+                current_path = marker[2:]
+            else:
+                current_path = marker
+            current_line = None
+            continue
+
+        if line.startswith("diff --git "):
+            flush_pending()
+            current_line = None
+            continue
+
+        hunk_match = hunk_re.match(line)
+        if hunk_match:
+            flush_pending()
+            current_line = int(hunk_match.group(1))
+            continue
+
+        if current_path is None or current_line is None:
+            continue
+
+        if line.startswith("+"):
+            if pending_start is None:
+                pending_start = current_line
+            pending_end = current_line
+            current_line += 1
+            continue
+
+        if line.startswith("-") and not line.startswith("---"):
+            flush_pending()
+            continue
+
+        if line.startswith(" "):
+            flush_pending()
+            current_line += 1
+            continue
+
+        if line.startswith("\\"):
+            continue
+
+        flush_pending()
+
+    flush_pending()
+
+    return {path: _merge_ranges(ranges) for path, ranges in per_path.items() if ranges}
+
+
+def build_line_windows(
+    ranges,
+    line_count,
+    context_lines=DEEP_CI_CHUNK_CONTEXT_LINES,
+    max_chunks=DEEP_CI_MAX_CHUNKS_PER_FILE,
+):
+    """Expand and merge line windows around changed ranges with deterministic caps."""
+    if not ranges or line_count < 1:
+        return []
+
+    expanded = []
+    for start, end in ranges:
+        if not isinstance(start, int) or not isinstance(end, int):
+            continue
+        if start < 1 or end < start:
+            continue
+        changed_start = max(1, min(start, line_count))
+        changed_end = max(changed_start, min(end, line_count))
+        expanded.append(
+            {
+                "start_line": max(1, changed_start - context_lines),
+                "end_line": min(line_count, changed_end + context_lines),
+                "changed_ranges": [(changed_start, changed_end)],
+                "changed_line_count": changed_end - changed_start + 1,
+            }
+        )
+
+    if not expanded:
+        return []
+
+    expanded.sort(key=lambda item: (item["start_line"], item["end_line"]))
+    merged = [expanded[0]]
+    for window in expanded[1:]:
+        current = merged[-1]
+        if window["start_line"] <= current["end_line"] + 1:
+            current["end_line"] = max(current["end_line"], window["end_line"])
+            current["changed_ranges"].extend(window["changed_ranges"])
+            current["changed_ranges"] = _merge_ranges(current["changed_ranges"])
+            current["changed_line_count"] = sum(
+                (range_end - range_start + 1)
+                for range_start, range_end in current["changed_ranges"]
+            )
+        else:
+            merged.append(window)
+
+    if len(merged) > max_chunks:
+        ranked = sorted(
+            merged,
+            key=lambda item: (
+                -item["changed_line_count"],
+                item["start_line"],
+                item["end_line"],
+            ),
+        )[:max_chunks]
+        merged = sorted(ranked, key=lambda item: (item["start_line"], item["end_line"]))
+
+    return merged
+
+
+def extract_line_chunk(content, start, end):
+    """Extract a one-based inclusive line range from content."""
+    lines = content.splitlines()
+    if not lines:
+        return ""
+    start_line = max(1, start)
+    end_line = min(len(lines), end)
+    if end_line < start_line:
+        return ""
+    return "\n".join(lines[start_line - 1 : end_line])
+
+
+def _text_len(lines):
+    if not lines:
+        return 0
+    return sum(len(line) for line in lines) + max(0, len(lines) - 1)
+
+
+def fit_chunk_to_char_cap(chunk, changed_lines, cap=DEEP_CI_MAX_CHUNK_CHARS):
+    """Trim a chunk to cap while preserving changed lines when possible."""
+    start_line = int(chunk.get("start_line", 1))
+    end_line = int(chunk.get("end_line", start_line))
+    content = chunk.get("content", "")
+    lines = content.splitlines()
+    if not lines:
+        return {
+            "start_line": start_line,
+            "end_line": end_line,
+            "content": "",
+            "changed_lines_included": [],
+            "changed_lines_omitted": sorted(changed_lines),
+        }
+
+    absolute_lines = list(range(start_line, start_line + len(lines)))
+    changed = sorted(line for line in changed_lines if line in set(absolute_lines))
+
+    if _text_len(lines) <= cap:
+        return {
+            "start_line": start_line,
+            "end_line": end_line,
+            "content": content,
+            "changed_lines_included": changed,
+            "changed_lines_omitted": [],
+        }
+
+    first_changed_idx = 0
+    last_changed_idx = len(lines) - 1
+    if changed:
+        first_changed_idx = max(0, changed[0] - start_line)
+        last_changed_idx = min(len(lines) - 1, changed[-1] - start_line)
+
+    keep_start = 0
+    keep_end = len(lines) - 1
+    while (
+        keep_start <= keep_end
+        and _text_len(lines[keep_start : keep_end + 1]) > cap
+        and (keep_start < first_changed_idx or keep_end > last_changed_idx)
+    ):
+        if keep_start < first_changed_idx:
+            keep_start += 1
+        if _text_len(lines[keep_start : keep_end + 1]) > cap and keep_end > last_changed_idx:
+            keep_end -= 1
+
+    kept_lines = lines[keep_start : keep_end + 1]
+    if _text_len(kept_lines) > cap:
+        keep_start = first_changed_idx
+        selected = []
+        current_len = 0
+        for candidate in lines[keep_start:]:
+            addition = len(candidate) + (1 if selected else 0)
+            if selected and current_len + addition > cap:
+                break
+            if not selected and addition > cap:
+                selected = [candidate[:cap]]
+                current_len = len(selected[0])
+                break
+            selected.append(candidate)
+            current_len += addition
+        kept_lines = selected
+        keep_end = keep_start + len(kept_lines) - 1
+
+    kept_content = "\n".join(kept_lines)
+    new_start = start_line + keep_start
+    new_end = start_line + keep_end if kept_lines else new_start - 1
+    included = [line for line in changed if new_start <= line <= new_end]
+    omitted = [line for line in changed if line not in included]
+    return {
+        "start_line": new_start,
+        "end_line": new_end,
+        "content": kept_content,
+        "changed_lines_included": included,
+        "changed_lines_omitted": omitted,
+    }
+
+
 def fetch_deep_ci_files(
     repo,
     head_sha,
     selected_files,
+    changed_line_ranges=None,
     max_chars_per_file=DEEP_CI_MAX_FILE_CHARS,
     max_total_chars=DEEP_CI_MAX_TOTAL_CHARS,
+    max_fetch_chars=DEEP_CI_MAX_FETCH_CHARS,
+    context_lines=DEEP_CI_CHUNK_CONTEXT_LINES,
+    max_chunks_per_file=DEEP_CI_MAX_CHUNKS_PER_FILE,
+    max_chunk_chars=DEEP_CI_MAX_CHUNK_CHARS,
 ):
-    """Fetch selected PR-head full files as read-only Deep CI snapshots.
-
-    Over-cap and unavailable files are omitted entirely from the whole-file pass.
-    """
+    """Fetch selected PR-head full/chunked files as read-only Deep CI snapshots."""
     snapshots = []
     total_chars = 0
+    changed_line_ranges = changed_line_ranges or {}
     for path in selected_files:
         encoded_path = quote(path, safe="/")
         cmd = [
@@ -191,25 +445,110 @@ def fetch_deep_ci_files(
             continue
 
         content = result.stdout
-        if len(content) > max_chars_per_file:
+        line_count = len(content.splitlines())
+        if len(content) > max_fetch_chars:
             snapshots.append(
                 _deep_ci_omitted_note(
                     path,
-                    f"current file size exceeds {max_chars_per_file} chars",
-                )
-            )
-            continue
-        if total_chars + len(content) > max_total_chars:
-            snapshots.append(
-                _deep_ci_omitted_note(
-                    path,
-                    f"Deep CI total content cap exceeds {max_total_chars} chars",
+                    f"file exceeds Deep CI hard fetch cap of {max_fetch_chars} chars",
                 )
             )
             continue
 
-        total_chars += len(content)
-        snapshots.append({"path": path, "content": content, "omitted": False, "reason": ""})
+        if len(content) <= max_chars_per_file:
+            if total_chars + len(content) > max_total_chars:
+                snapshots.append(_deep_ci_omitted_note(path, "total-cap-exhausted"))
+                continue
+            total_chars += len(content)
+            snapshots.append(
+                {
+                    "path": path,
+                    "mode": "full",
+                    "content": content,
+                    "chunks": [],
+                    "char_count": len(content),
+                    "line_count": line_count,
+                    "changed_line_ranges": changed_line_ranges.get(path, []),
+                    "omitted": False,
+                    "reason": "",
+                }
+            )
+            continue
+
+        ranges = changed_line_ranges.get(path, [])
+        if not ranges:
+            snapshots.append(
+                _deep_ci_omitted_note(path, "no changed-line ranges found for oversized file")
+            )
+            continue
+
+        windows = build_line_windows(
+            ranges,
+            line_count,
+            context_lines=context_lines,
+            max_chunks=max_chunks_per_file,
+        )
+        if not windows:
+            snapshots.append(
+                _deep_ci_omitted_note(path, "no changed-line ranges found for oversized file")
+            )
+            continue
+
+        chunks = []
+        for window in windows:
+            start_line = window["start_line"]
+            end_line = window["end_line"]
+            changed_lines = []
+            for range_start, range_end in window["changed_ranges"]:
+                changed_lines.extend(range(range_start, range_end + 1))
+            changed_lines = sorted(set(changed_lines))
+            raw_chunk = {
+                "start_line": start_line,
+                "end_line": end_line,
+                "content": extract_line_chunk(content, start_line, end_line),
+            }
+            fitted_chunk = fit_chunk_to_char_cap(
+                raw_chunk,
+                changed_lines,
+                cap=max_chunk_chars,
+            )
+            chunk_content = fitted_chunk["content"]
+            if not chunk_content:
+                continue
+            chunk_chars = len(chunk_content)
+            if total_chars + chunk_chars > max_total_chars:
+                break
+            total_chars += chunk_chars
+            chunks.append(
+                {
+                    "start_line": fitted_chunk["start_line"],
+                    "end_line": fitted_chunk["end_line"],
+                    "content": chunk_content,
+                    "changed_lines": changed_lines,
+                    "changed_lines_included": fitted_chunk["changed_lines_included"],
+                    "changed_lines_omitted": fitted_chunk["changed_lines_omitted"],
+                }
+            )
+
+        if not chunks:
+            snapshots.append(_deep_ci_omitted_note(path, "total-cap-exhausted"))
+            continue
+
+        snapshots.append(
+            {
+                "path": path,
+                "mode": "chunked",
+                "content": "",
+                "chunks": chunks,
+                "char_count": len(content),
+                "line_count": line_count,
+                "changed_line_ranges": ranges,
+                "omitted": False,
+                "reason": (
+                    f"full file exceeded {max_chars_per_file} chars; only changed-line windows are included"
+                ),
+            }
+        )
 
     return snapshots
 
@@ -217,26 +556,73 @@ def fetch_deep_ci_files(
 def render_deep_ci_context(snapshots, selected_files=None):
     """Render Deep CI snapshots and omission notes as prompt markdown."""
     if not snapshots:
-        return "No eligible changed code files selected for Deep CI whole-file review.\n"
+        return "No eligible changed code files selected for Deep CI context review.\n"
 
     rendered = []
     selected_count = len(selected_files or snapshots)
     rendered.append(
-        f"Selected {selected_count} changed code file(s) for bounded Deep CI whole-file review."
+        f"Selected {selected_count} changed code file(s) for bounded Deep CI context review."
     )
     for snapshot in snapshots:
         path = snapshot["path"]
-        if snapshot.get("omitted"):
+        mode = snapshot.get("mode", "skipped")
+        if mode == "skipped":
             rendered.append(
-                "## "
-                + path
-                + "\n"
-                + f"Skipped Deep CI whole-file review for {path} because {snapshot['reason']}."
+                f"## {path}\n"
+                "Mode: skipped\n"
+                f"Skipped Deep CI review for {path} because {snapshot['reason']}."
             )
             continue
-        content = snapshot["content"].rstrip()
-        fence = markdown_code_fence(content)
-        rendered.append(f"## {path}\n{fence}\n{content}\n{fence}")
+        if mode == "full":
+            content = snapshot["content"].rstrip()
+            fence = markdown_code_fence(content)
+            rendered.append(
+                "\n".join(
+                    [
+                        f"## {path}",
+                        "Mode: full-file",
+                        f"Size: {snapshot.get('char_count', len(snapshot['content']))} chars, {snapshot.get('line_count', 0)} lines",
+                        fence,
+                        content,
+                        fence,
+                    ]
+                )
+            )
+            continue
+
+        chunks = snapshot.get("chunks", [])
+        ranges = ", ".join(f"{chunk['start_line']}-{chunk['end_line']}" for chunk in chunks)
+        file_lines = [
+            f"## {path}",
+            "Mode: chunked-large-file",
+            f"Size: {snapshot.get('char_count', 0)} chars, {snapshot.get('line_count', 0)} lines",
+            f"Included chunks: {len(chunks)}",
+            f"Included line ranges: {ranges}",
+            f"Omitted: {snapshot.get('reason', '')}",
+        ]
+        for chunk in chunks:
+            chunk_header = f"### {path} lines {chunk['start_line']}-{chunk['end_line']}"
+            chunk_lines = [
+                chunk_header,
+                (
+                    "Changed RIGHT-side lines in this chunk: "
+                    + ", ".join(str(line) for line in chunk.get("changed_lines", []))
+                ),
+            ]
+            omitted = chunk.get("changed_lines_omitted") or []
+            if omitted:
+                chunk_lines.append(
+                    "changed_lines_included: "
+                    + ", ".join(str(line) for line in chunk.get("changed_lines_included", []))
+                )
+                chunk_lines.append(
+                    "changed_lines_omitted: " + ", ".join(str(line) for line in omitted)
+                )
+            content = chunk.get("content", "").rstrip()
+            fence = markdown_code_fence(content)
+            chunk_lines.extend([fence, content, fence])
+            file_lines.append("\n".join(chunk_lines))
+        rendered.append("\n\n".join(file_lines))
 
     return "\n\n".join(rendered).strip() + "\n"
 
@@ -312,7 +698,14 @@ def gather_context():
 
     changed_file_metadata = load_changed_file_metadata()
     selected_deep_ci_files = select_deep_ci_files(changed_file_metadata)
-    deep_ci_snapshots = fetch_deep_ci_files(repo, head_sha, selected_deep_ci_files)
+    diff_text = _read_text_if_exists("/tmp/pr.diff")
+    changed_line_ranges = parse_changed_line_ranges(diff_text)
+    deep_ci_snapshots = fetch_deep_ci_files(
+        repo,
+        head_sha,
+        selected_deep_ci_files,
+        changed_line_ranges=changed_line_ranges,
+    )
     deep_ci_context = render_deep_ci_context(deep_ci_snapshots, selected_deep_ci_files)
     Path('/tmp/deep_ci_files.md').write_text(deep_ci_context, encoding='utf-8')
 

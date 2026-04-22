@@ -314,7 +314,7 @@ class TestBuildDedupState:
 
 
 # ---------------------------------------------------------------------------
-# Deep CI filtering and selection
+# Deep CI filtering, diff parsing, and chunking
 # ---------------------------------------------------------------------------
 
 class TestDeepCiCandidateFiltering:
@@ -338,12 +338,12 @@ class TestDeepCiCandidateFiltering:
         assert not codex_review.is_deep_ci_candidate("src/app.min.js")
         assert not codex_review.is_deep_ci_candidate("src/runtime.lock.ts")
 
-    def test_deep_ci_candidate_rejects_deleted_and_large_files(self):
+    def test_deep_ci_candidate_rejects_deleted_and_noisy_change_files(self):
         assert not codex_review.is_deep_ci_candidate(
             "src/deleted.py",
             {"path": "src/deleted.py", "status": "removed"},
         )
-        assert not codex_review.is_deep_ci_candidate(
+        assert codex_review.is_deep_ci_candidate(
             "src/large.py",
             {"path": "src/large.py", "size": codex_review.DEEP_CI_MAX_FILE_CHARS + 1},
         )
@@ -395,98 +395,285 @@ class TestSelectDeepCiFiles:
 
 
 # ---------------------------------------------------------------------------
-# Deep CI fetching and rendering
+# Deep CI diff parsing and window helpers
 # ---------------------------------------------------------------------------
 
-class TestFetchDeepCiFiles:
-    def test_fetch_deep_ci_files_renders_full_file_snapshots(self, monkeypatch):
-        calls = []
+class TestDeepCiDiffParsing:
+    def test_parse_changed_line_ranges_records_right_side_additions(self):
+        diff = (
+            "diff --git a/src/app.py b/src/app.py\n"
+            "+++ b/src/app.py\n"
+            "@@ -10,2 +10,3 @@\n"
+            " context\n"
+            "+added one\n"
+            "+added two\n"
+            " tail\n"
+        )
+        assert codex_review.parse_changed_line_ranges(diff) == {"src/app.py": [(11, 12)]}
 
+    def test_parse_changed_line_ranges_ignores_deletions_and_metadata(self):
+        diff = (
+            "diff --git a/src/app.py b/src/app.py\n"
+            "--- a/src/app.py\n"
+            "+++ b/src/app.py\n"
+            "@@ -2,2 +2,2 @@\n"
+            "-old\n"
+            "+new\n"
+            " context\n"
+        )
+        assert codex_review.parse_changed_line_ranges(diff) == {"src/app.py": [(2, 2)]}
+
+    def test_parse_changed_line_ranges_handles_multiple_hunks_and_files(self):
+        diff = (
+            "diff --git a/src/a.py b/src/a.py\n"
+            "+++ b/src/a.py\n"
+            "@@ -1,1 +1,1 @@\n"
+            "+a\n"
+            "@@ -10,1 +10,2 @@\n"
+            "+b\n"
+            "+c\n"
+            "diff --git a/src/b.py b/src/b.py\n"
+            "+++ b/src/b.py\n"
+            "@@ -4,1 +4,1 @@\n"
+            "+d\n"
+        )
+        assert codex_review.parse_changed_line_ranges(diff) == {
+            "src/a.py": [(1, 1), (10, 11)],
+            "src/b.py": [(4, 4)],
+        }
+
+    def test_parse_changed_line_ranges_handles_new_file_from_dev_null(self):
+        diff = (
+            "diff --git a/dev/null b/src/new.py\n"
+            "--- /dev/null\n"
+            "+++ b/src/new.py\n"
+            "@@ -0,0 +1,2 @@\n"
+            "+hello\n"
+            "+world\n"
+        )
+        assert codex_review.parse_changed_line_ranges(diff) == {"src/new.py": [(1, 2)]}
+
+    def test_parse_changed_line_ranges_handles_paths_with_spaces_and_rename_new_paths(self):
+        diff = (
+            "diff --git a/src/old name.py b/src/new name.py\n"
+            "similarity index 90%\n"
+            "rename from src/old name.py\n"
+            "rename to src/new name.py\n"
+            "--- a/src/old name.py\n"
+            "+++ b/src/new name.py\n"
+            "@@ -1,1 +1,2 @@\n"
+            "+x\n"
+            "+y\n"
+        )
+        parsed = codex_review.parse_changed_line_ranges(diff)
+        assert "src/new name.py" in parsed
+        assert "src/old name.py" not in parsed
+        assert parsed["src/new name.py"] == [(1, 2)]
+
+    def test_parse_changed_line_ranges_handles_omitted_count_hunk_header(self):
+        diff = (
+            "diff --git a/src/app.py b/src/app.py\n"
+            "+++ b/src/app.py\n"
+            "@@ -5 +5 @@\n"
+            "+replacement\n"
+        )
+        assert codex_review.parse_changed_line_ranges(diff) == {"src/app.py": [(5, 5)]}
+
+    def test_parse_changed_line_ranges_does_not_treat_in_hunk_plus_plus_space_as_header(self):
+        diff = (
+            "diff --git a/src/app.py b/src/app.py\n"
+            "--- a/src/app.py\n"
+            "+++ b/src/app.py\n"
+            "@@ -5,0 +6,2 @@\n"
+            "+++ suspicious\n"
+            "+normal\n"
+        )
+        assert codex_review.parse_changed_line_ranges(diff) == {"src/app.py": [(6, 7)]}
+
+
+class TestDeepCiChunkHelpers:
+    def test_build_line_windows_expands_merges_and_bounds_to_file(self):
+        windows = codex_review.build_line_windows(
+            [(3, 3), (5, 5), (40, 40)],
+            line_count=45,
+            context_lines=2,
+            max_chunks=4,
+        )
+        assert windows[0]["start_line"] == 1
+        assert windows[0]["end_line"] == 7
+        assert windows[1]["start_line"] == 38
+        assert windows[1]["end_line"] == 42
+
+    def test_build_line_windows_caps_deterministically_and_restores_file_order(self):
+        windows = codex_review.build_line_windows(
+            [(1, 1), (20, 22), (40, 44)],
+            line_count=100,
+            context_lines=0,
+            max_chunks=2,
+        )
+        # keep ranges with highest changed-line counts, rendered in file order
+        assert [(w["start_line"], w["end_line"]) for w in windows] == [(20, 22), (40, 44)]
+
+    def test_extract_line_chunk_and_fit_chunk_to_char_cap_respect_line_boundaries(self):
+        content = "line1\nline2\nline3\nline4\nline5\n"
+        chunk = codex_review.extract_line_chunk(content, 2, 4)
+        assert chunk == "line2\nline3\nline4"
+
+        fitted = codex_review.fit_chunk_to_char_cap(
+            {"start_line": 2, "end_line": 4, "content": chunk},
+            [2, 3, 4],
+            cap=11,
+        )
+        assert fitted["start_line"] >= 2
+        assert fitted["end_line"] <= 4
+        assert len(fitted["content"]) <= 11
+        assert set(fitted["changed_lines_included"]).issubset({2, 3, 4})
+
+
+class TestFetchDeepCiFiles:
+    def test_fetch_deep_ci_files_keeps_small_file_as_full_snapshot(self, monkeypatch):
         def fake_run(cmd, check, capture_output, text):
-            calls.append(cmd)
             return subprocess.CompletedProcess(cmd, 0, stdout="print('ok')\n", stderr="")
 
         monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
 
         snapshots = codex_review.fetch_deep_ci_files("owner/repo", "abc123", ["src/app.py"])
+        assert snapshots[0]["mode"] == "full"
         rendered = codex_review.render_deep_ci_context(snapshots, ["src/app.py"])
-
-        assert calls[0][:4] == ["gh", "api", "-H", "Accept: application/vnd.github.raw"]
-        assert "repos/owner/repo/contents/src/app.py?ref=abc123" in calls[0]
-        assert "## src/app.py" in rendered
+        assert "Mode: full-file" in rendered
         assert "print('ok')" in rendered
-        assert "truncated" not in rendered
 
-    def test_render_deep_ci_context_uses_longer_fence_for_embedded_backticks(self):
-        snapshots = [
-            {
-                "path": "src/app.py",
-                "content": "def example():\n    return '''```payload```'''\n",
-                "omitted": False,
-                "reason": "",
-            }
-        ]
-
-        rendered = codex_review.render_deep_ci_context(snapshots, ["src/app.py"])
-
-        assert "````\ndef example():" in rendered
-        assert "```payload```" in rendered
-        assert rendered.rstrip().endswith("````")
-
-    def test_fetch_deep_ci_files_omits_large_content_with_note(self, monkeypatch):
+    def test_deep_ci_hard_cap_file_renders_mode_skipped_with_reason(self, monkeypatch):
         def fake_run(cmd, check, capture_output, text):
-            return subprocess.CompletedProcess(cmd, 0, stdout="x" * 11, stderr="")
+            return subprocess.CompletedProcess(cmd, 0, stdout="x" * 50, stderr="")
 
         monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
+        snapshots = codex_review.fetch_deep_ci_files(
+            "owner/repo",
+            "abc123",
+            ["src/huge.py"],
+            changed_line_ranges={"src/huge.py": [(1, 2)]},
+            max_fetch_chars=20,
+        )
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/huge.py"])
+        assert snapshots[0]["mode"] == "skipped"
+        assert "Mode: skipped" in rendered
+        assert "hard fetch cap of 20 chars" in rendered
 
+    def test_fetch_deep_ci_files_chunks_oversized_file_with_changed_ranges(self, monkeypatch):
+        content = "\n".join(f"line {i}" for i in range(1, 30)) + "\n"
+
+        def fake_run(cmd, check, capture_output, text):
+            return subprocess.CompletedProcess(cmd, 0, stdout=content, stderr="")
+
+        monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
         snapshots = codex_review.fetch_deep_ci_files(
             "owner/repo",
             "abc123",
             ["src/large.py"],
-            max_chars_per_file=10,
+            changed_line_ranges={"src/large.py": [(10, 10)]},
+            max_chars_per_file=20,
+            context_lines=1,
+            max_chunks_per_file=2,
+            max_chunk_chars=500,
         )
+        assert snapshots[0]["mode"] == "chunked"
         rendered = codex_review.render_deep_ci_context(snapshots, ["src/large.py"])
+        assert "Mode: chunked-large-file" in rendered
+        assert "Included chunks:" in rendered
 
-        assert snapshots[0]["omitted"] is True
-        assert "current file size exceeds 10 chars" in rendered
-        assert "xxxxxxxxxxx" not in rendered
-        assert "truncated" not in rendered
-
-    def test_fetch_deep_ci_files_marks_unavailable_without_crashing(self, monkeypatch):
+    def test_fetch_deep_ci_files_skips_oversized_file_without_changed_ranges(self, monkeypatch):
         def fake_run(cmd, check, capture_output, text):
-            raise subprocess.CalledProcessError(1, cmd, output="", stderr="not found")
+            return subprocess.CompletedProcess(cmd, 0, stdout=("line\n" * 30), stderr="")
 
         monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
+        snapshots = codex_review.fetch_deep_ci_files(
+            "owner/repo",
+            "abc123",
+            ["src/large.py"],
+            changed_line_ranges={},
+            max_chars_per_file=20,
+        )
+        assert snapshots[0]["mode"] == "skipped"
+        assert "no changed-line ranges" in snapshots[0]["reason"]
 
-        snapshots = codex_review.fetch_deep_ci_files("owner/repo", "abc123", ["src/missing.py"])
-        rendered = codex_review.render_deep_ci_context(snapshots, ["src/missing.py"])
+    def test_chunk_metadata_reports_included_and_omitted_changed_lines_under_cap_pressure(
+        self, monkeypatch
+    ):
+        content = "\n".join(f"{i}-" + ("x" * 20) for i in range(1, 40)) + "\n"
 
-        assert snapshots[0]["omitted"] is True
-        assert "Skipped Deep CI whole-file review for src/missing.py" in rendered
-        assert "unavailable: not found" in rendered
+        def fake_run(cmd, check, capture_output, text):
+            return subprocess.CompletedProcess(cmd, 0, stdout=content, stderr="")
 
-    def test_fetch_deep_ci_files_omits_when_total_cap_would_be_exceeded(self, monkeypatch):
-        contents = {"src/a.py": "aaaaaa", "src/b.py": "bbbbbb"}
+        monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
+        snapshots = codex_review.fetch_deep_ci_files(
+            "owner/repo",
+            "abc123",
+            ["src/large.py"],
+            changed_line_ranges={"src/large.py": [(10, 15)]},
+            max_chars_per_file=20,
+            context_lines=0,
+            max_chunk_chars=45,
+        )
+        chunk = snapshots[0]["chunks"][0]
+        assert chunk["changed_lines_omitted"]
+        assert chunk["changed_lines_included"]
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/large.py"])
+        assert "changed_lines_included:" in rendered
+        assert "changed_lines_omitted:" in rendered
+
+    def test_fetch_deep_ci_files_respects_total_cap_across_full_files_and_chunks(self, monkeypatch):
+        contents = {
+            "src/a.py": "aaaaaa",
+            "src/b.py": "\n".join(["line"] * 40) + "\n",
+        }
 
         def fake_run(cmd, check, capture_output, text):
             path_part = cmd[-1].split("/contents/", 1)[1].split("?ref=", 1)[0]
             return subprocess.CompletedProcess(cmd, 0, stdout=contents[path_part], stderr="")
 
         monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
-
         snapshots = codex_review.fetch_deep_ci_files(
             "owner/repo",
             "abc123",
             ["src/a.py", "src/b.py"],
-            max_total_chars=8,
+            changed_line_ranges={"src/b.py": [(10, 10)]},
+            max_chars_per_file=5,
+            max_total_chars=3,
+            context_lines=0,
+            max_chunk_chars=50,
         )
         rendered = codex_review.render_deep_ci_context(snapshots, ["src/a.py", "src/b.py"])
+        assert snapshots[0]["mode"] == "skipped"
+        assert snapshots[1]["mode"] == "skipped"
+        assert "total-cap-exhausted" in rendered
 
-        assert snapshots[0]["omitted"] is False
-        assert snapshots[1]["omitted"] is True
-        assert "aaaaaa" in rendered
-        assert "bbbbbb" not in rendered
-        assert "Deep CI total content cap exceeds 8 chars" in rendered
+    def test_render_deep_ci_context_uses_longer_fence_for_chunk_backticks(self):
+        snapshots = [
+            {
+                "path": "src/app.py",
+                "mode": "chunked",
+                "content": "",
+                "chunks": [
+                    {
+                        "start_line": 10,
+                        "end_line": 12,
+                        "changed_lines": [11],
+                        "changed_lines_included": [11],
+                        "changed_lines_omitted": [],
+                        "content": "return ```payload```",
+                    }
+                ],
+                "char_count": 100,
+                "line_count": 20,
+                "changed_line_ranges": [(11, 11)],
+                "omitted": False,
+                "reason": "full file exceeded 20 chars; only changed-line windows are included",
+            }
+        ]
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/app.py"])
+        assert "Mode: chunked-large-file" in rendered
+        assert "````\nreturn ```payload```\n````" in rendered
 
 
 # ---------------------------------------------------------------------------
@@ -532,6 +719,7 @@ class TestWorkflowContextContract:
             Path("/tmp/changed_files.txt"),
             Path("/tmp/pr_head_files.md"),
             Path("/tmp/deep_ci_files.md"),
+            Path("/tmp/pr.diff"),
         ]
         originals = {
             path: path.read_bytes() if path.exists() else None
@@ -548,8 +736,20 @@ class TestWorkflowContextContract:
 
         monkeypatch.setenv("REPO", "owner/repo")
         monkeypatch.setattr(codex_review, "fetch_head_files", fake_fetch_head_files)
-        monkeypatch.setattr(codex_review, "load_changed_file_metadata", lambda: [])
-        monkeypatch.setattr(codex_review, "fetch_deep_ci_files", lambda *args: [])
+        monkeypatch.setattr(
+            codex_review,
+            "load_changed_file_metadata",
+            lambda: [{"path": "src/app.py"}, {"path": "lib/space name.py"}],
+        )
+
+        def fake_fetch_deep_ci_files(repo, head_sha, selected_files, **kwargs):
+            captured["deep_ci_repo"] = repo
+            captured["deep_ci_head_sha"] = head_sha
+            captured["selected_files"] = selected_files
+            captured["changed_line_ranges"] = kwargs.get("changed_line_ranges")
+            return []
+
+        monkeypatch.setattr(codex_review, "fetch_deep_ci_files", fake_fetch_deep_ci_files)
 
         try:
             Path("/tmp/pr_head_sha.txt").write_text("abc123\n", encoding="utf-8")
@@ -557,14 +757,23 @@ class TestWorkflowContextContract:
                 "src/app.py\nlib/space name.py\n",
                 encoding="utf-8",
             )
+            Path("/tmp/pr.diff").write_text(
+                "diff --git a/src/app.py b/src/app.py\n"
+                "+++ b/src/app.py\n"
+                "@@ -1 +1 @@\n"
+                "+added\n",
+                encoding="utf-8",
+            )
 
             codex_review.gather_context()
 
-            assert captured == {
-                "repo": "owner/repo",
-                "head_sha": "abc123",
-                "changed_files": ["src/app.py", "lib/space name.py"],
-            }
+            assert captured["repo"] == "owner/repo"
+            assert captured["head_sha"] == "abc123"
+            assert captured["changed_files"] == ["src/app.py", "lib/space name.py"]
+            assert captured["deep_ci_repo"] == "owner/repo"
+            assert captured["deep_ci_head_sha"] == "abc123"
+            assert captured["selected_files"] == ["lib/space name.py", "src/app.py"]
+            assert captured["changed_line_ranges"] == {"src/app.py": [(1, 1)]}
         finally:
             for path, content in originals.items():
                 if content is None:
@@ -616,7 +825,7 @@ class TestBuildReviewPrompt:
         )
 
         assert "PLACEHOLDER_" not in prompt
-        assert "## Deep CI Whole-File Logic Pass" in prompt
+        assert "## Deep CI Whole-File / Chunked Logic Pass" in prompt
         assert "deep snapshot" in prompt
 
     def test_build_review_prompt_does_not_reprocess_inserted_placeholders(self):

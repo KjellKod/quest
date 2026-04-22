@@ -611,6 +611,7 @@ validate_iteration_bounds() {
 
 # Main entry point
 main() {
+  local used_flag_syntax=false
   # Handle --help
   case "${1:-}" in
     --help|-h)
@@ -618,15 +619,57 @@ main() {
       ;;
   esac
 
+  local quest_dir=""
+  local target_phase=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --quest-dir)
+        used_flag_syntax=true
+        shift
+        if [ $# -eq 0 ]; then
+          echo "Error: --quest-dir requires a value" >&2
+          exit 2
+        fi
+        quest_dir="$1"
+        ;;
+      --target|--target-phase)
+        used_flag_syntax=true
+        shift
+        if [ $# -eq 0 ]; then
+          echo "Error: --target requires a value" >&2
+          exit 2
+        fi
+        target_phase="$1"
+        ;;
+      --)
+        shift
+        break
+        ;;
+      -*)
+        echo "Error: Unknown option: $1" >&2
+        exit 2
+        ;;
+      *)
+        if [ -z "$quest_dir" ]; then
+          quest_dir="$1"
+        elif [ -z "$target_phase" ]; then
+          target_phase="$1"
+        else
+          echo "Error: Unexpected argument: $1" >&2
+          exit 2
+        fi
+        ;;
+    esac
+    shift
+  done
+
   # Usage check
-  if [ $# -lt 2 ]; then
+  if [ -z "$quest_dir" ] || [ -z "$target_phase" ]; then
     echo "Usage: $SCRIPT_NAME <quest-dir> <target-phase>" >&2
     echo "Run '$SCRIPT_NAME --help' for details." >&2
     exit 2
   fi
-
-  local quest_dir="$1"
-  local target_phase="$2"
 
   if [ ! -d "$quest_dir" ]; then
     echo "Error: Quest directory not found: $quest_dir" >&2
@@ -660,9 +703,24 @@ main() {
     exit 1
   fi
 
-  validate_transition "$CURRENT_PHASE" "$target_phase"
-  validate_artifacts "$quest_dir" "$CURRENT_PHASE" "$target_phase"
-  validate_semantic_content "$quest_dir" "$CURRENT_PHASE" "$target_phase"
+  local checkpoint_plan_reviewed=false
+  if [ "$used_flag_syntax" = true ] && [ "$target_phase" = "plan_reviewed" ]; then
+    case "$CURRENT_PHASE" in
+      plan_reviewed|presenting|presentation_complete|building|reviewing|fixing|complete)
+        checkpoint_plan_reviewed=true
+        ;;
+    esac
+  fi
+
+  if [ "$checkpoint_plan_reviewed" = true ]; then
+    pass "Checkpoint validation mode: re-validating plan_reviewed artifacts from current phase $CURRENT_PHASE"
+    validate_artifacts "$quest_dir" "plan" "plan_reviewed"
+    validate_semantic_content "$quest_dir" "plan" "plan_reviewed"
+  else
+    validate_transition "$CURRENT_PHASE" "$target_phase"
+    validate_artifacts "$quest_dir" "$CURRENT_PHASE" "$target_phase"
+    validate_semantic_content "$quest_dir" "$CURRENT_PHASE" "$target_phase"
+  fi
   validate_iteration_bounds "$target_phase" "$PLAN_ITERATION" "$FIX_ITERATION"
 
   # Log this validation run
