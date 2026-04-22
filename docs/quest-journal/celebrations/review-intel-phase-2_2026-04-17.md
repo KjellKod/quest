@@ -40,7 +40,7 @@
 
 **Impact:** PR review and in-quest review now share one finding schema, one decision policy, one batch-key derivation, and one deferred-findings reservoir. pr-shepherd can no longer silently loop past the cap — remaining items are always converted to `defer` or `needs_human_decision` with full lineage persisted to `.quest/backlog/deferred_findings.jsonl` via the existing `append-deferred` CLI.
 
-**Reference:** [`ideas/2026-04-13-review-intelligence-canonical.md`](../../../ideas/2026-04-13-review-intelligence-canonical.md), Sections 3 & 4.
+**Reference:** [`ideas/archive/2026-04-13-review-intelligence-canonical.md`](../../../ideas/archive/2026-04-13-review-intelligence-canonical.md), Sections 3 & 4.
 
 ---
 

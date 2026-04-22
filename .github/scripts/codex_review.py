@@ -13,6 +13,29 @@ from urllib.parse import quote
 # --- Shared utilities ---
 
 VALID_SEVERITIES = {"blocker", "must-fix", "should-fix"}
+DEEP_CI_EXTENSIONS = {".py", ".sh", ".js", ".ts"}
+DEEP_CI_EXCLUDED_SEGMENTS = {
+    "docs",
+    "ideas",
+    "generated",
+    "vendor",
+    "build",
+    "dist",
+    "node_modules",
+}
+DEEP_CI_LOCKFILES = {
+    "package-lock.json",
+    "npm-shrinkwrap.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "poetry.lock",
+    "pipfile.lock",
+}
+DEEP_CI_MAX_CHANGES = 2000
+DEEP_CI_MAX_FILE_CHARS = 20000
+DEEP_CI_MAX_TOTAL_CHARS = 60000
+DEEP_CI_MAX_FILES = 3
+PROMPT_PLACEHOLDER_RE = re.compile(r"\{(PLACEHOLDER_[A-Z_]+)\}")
 
 
 def normalize_severity(value):
@@ -38,6 +61,204 @@ def escape_github_command_field(value):
 
 
 # --- Subcommand: gather-context ---
+
+
+def _normalize_path_info(changed_file):
+    """Return normalized PR file metadata for a path or gh ``files`` entry."""
+    if isinstance(changed_file, str):
+        return {"path": changed_file}
+    if not isinstance(changed_file, dict):
+        return {"path": ""}
+
+    path = changed_file.get("path") or changed_file.get("filename") or changed_file.get("file")
+    info = dict(changed_file)
+    info["path"] = path or ""
+    return info
+
+
+def _path_segments(path):
+    return [segment.lower() for segment in Path(path).parts if segment not in ("", ".")]
+
+
+def _is_deleted_file(file_info):
+    status_values = [
+        file_info.get("status"),
+        file_info.get("changeType"),
+        file_info.get("change_type"),
+    ]
+    return any(str(value).lower() in {"removed", "deleted", "delete"} for value in status_values if value)
+
+
+def _is_large_by_metadata(file_info, max_chars_per_file=DEEP_CI_MAX_FILE_CHARS):
+    size = file_info.get("size")
+    if isinstance(size, int) and size > max_chars_per_file:
+        return True
+
+    changes = file_info.get("changes")
+    if isinstance(changes, int) and changes > DEEP_CI_MAX_CHANGES:
+        return True
+
+    additions = file_info.get("additions")
+    deletions = file_info.get("deletions")
+    if isinstance(additions, int) and isinstance(deletions, int):
+        return additions + deletions > DEEP_CI_MAX_CHANGES
+
+    return False
+
+
+def is_deep_ci_candidate(path, file_info=None):
+    """Return True when a changed file is eligible for Deep CI whole-file review."""
+    if not isinstance(path, str) or not path:
+        return False
+
+    info = _normalize_path_info(file_info or {"path": path})
+    if _is_deleted_file(info) or _is_large_by_metadata(info):
+        return False
+
+    lower_path = path.lower()
+    name = Path(lower_path).name
+    suffix = Path(lower_path).suffix
+    if suffix not in DEEP_CI_EXTENSIONS:
+        return False
+    if name in DEEP_CI_LOCKFILES or ".lock." in name:
+        return False
+    if name.endswith(".min.js") or name.endswith(".min.ts") or ".min." in name:
+        return False
+    if any(segment in DEEP_CI_EXCLUDED_SEGMENTS for segment in _path_segments(lower_path)):
+        return False
+
+    return True
+
+
+def select_deep_ci_files(changed_files, max_files=DEEP_CI_MAX_FILES):
+    """Select a deterministic, path-sorted subset of Deep CI candidate paths."""
+    candidates = []
+    seen = set()
+    for changed_file in changed_files:
+        info = _normalize_path_info(changed_file)
+        path = info["path"]
+        if path in seen:
+            continue
+        if is_deep_ci_candidate(path, info):
+            candidates.append(path)
+            seen.add(path)
+
+    return sorted(candidates)[:max_files]
+
+
+def _deep_ci_omitted_note(path, reason):
+    return {
+        "path": path,
+        "content": "",
+        "omitted": True,
+        "reason": reason,
+    }
+
+
+def markdown_code_fence(content):
+    """Return a backtick fence longer than any run inside content."""
+    longest = max((len(match.group(0)) for match in re.finditer(r"`+", content)), default=0)
+    return "`" * max(3, longest + 1)
+
+
+def fetch_deep_ci_files(
+    repo,
+    head_sha,
+    selected_files,
+    max_chars_per_file=DEEP_CI_MAX_FILE_CHARS,
+    max_total_chars=DEEP_CI_MAX_TOTAL_CHARS,
+):
+    """Fetch selected PR-head full files as read-only Deep CI snapshots.
+
+    Over-cap and unavailable files are omitted entirely from the whole-file pass.
+    """
+    snapshots = []
+    total_chars = 0
+    for path in selected_files:
+        encoded_path = quote(path, safe="/")
+        cmd = [
+            "gh",
+            "api",
+            "-H",
+            "Accept: application/vnd.github.raw",
+            f"repos/{repo}/contents/{encoded_path}?ref={head_sha}",
+        ]
+        try:
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as exc:
+            detail = exc.stderr.strip() or exc.stdout.strip() or "unable to fetch current PR-head file"
+            snapshots.append(_deep_ci_omitted_note(path, f"unavailable: {detail}"))
+            continue
+
+        content = result.stdout
+        if len(content) > max_chars_per_file:
+            snapshots.append(
+                _deep_ci_omitted_note(
+                    path,
+                    f"current file size exceeds {max_chars_per_file} chars",
+                )
+            )
+            continue
+        if total_chars + len(content) > max_total_chars:
+            snapshots.append(
+                _deep_ci_omitted_note(
+                    path,
+                    f"Deep CI total content cap exceeds {max_total_chars} chars",
+                )
+            )
+            continue
+
+        total_chars += len(content)
+        snapshots.append({"path": path, "content": content, "omitted": False, "reason": ""})
+
+    return snapshots
+
+
+def render_deep_ci_context(snapshots, selected_files=None):
+    """Render Deep CI snapshots and omission notes as prompt markdown."""
+    if not snapshots:
+        return "No eligible changed code files selected for Deep CI whole-file review.\n"
+
+    rendered = []
+    selected_count = len(selected_files or snapshots)
+    rendered.append(
+        f"Selected {selected_count} changed code file(s) for bounded Deep CI whole-file review."
+    )
+    for snapshot in snapshots:
+        path = snapshot["path"]
+        if snapshot.get("omitted"):
+            rendered.append(
+                "## "
+                + path
+                + "\n"
+                + f"Skipped Deep CI whole-file review for {path} because {snapshot['reason']}."
+            )
+            continue
+        content = snapshot["content"].rstrip()
+        fence = markdown_code_fence(content)
+        rendered.append(f"## {path}\n{fence}\n{content}\n{fence}")
+
+    return "\n\n".join(rendered).strip() + "\n"
+
+
+def load_changed_file_metadata(path="/tmp/changed_files.json"):
+    """Load gh PR file metadata, falling back to the legacy path list."""
+    metadata_path = Path(path)
+    if metadata_path.exists():
+        try:
+            loaded = json.loads(metadata_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict) and isinstance(loaded.get("files"), list):
+                return loaded["files"]
+            if isinstance(loaded, list):
+                return loaded
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return [
+        line.strip()
+        for line in Path("/tmp/changed_files.txt").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def fetch_head_files(repo, head_sha, changed_files, max_files=12, max_chars=12000):
@@ -88,6 +309,50 @@ def gather_context():
 
     rendered = fetch_head_files(repo, head_sha, changed_files)
     Path('/tmp/pr_head_files.md').write_text('\n\n'.join(rendered).strip() + '\n', encoding='utf-8')
+
+    changed_file_metadata = load_changed_file_metadata()
+    selected_deep_ci_files = select_deep_ci_files(changed_file_metadata)
+    deep_ci_snapshots = fetch_deep_ci_files(repo, head_sha, selected_deep_ci_files)
+    deep_ci_context = render_deep_ci_context(deep_ci_snapshots, selected_deep_ci_files)
+    Path('/tmp/deep_ci_files.md').write_text(deep_ci_context, encoding='utf-8')
+
+
+# --- Subcommand: build-prompt ---
+
+
+def build_review_prompt(template_text, replacements):
+    """Replace prompt placeholders with gathered PR context in one template pass."""
+    return PROMPT_PLACEHOLDER_RE.sub(
+        lambda match: replacements.get(match.group(1), match.group(0)),
+        template_text,
+    )
+
+
+def _read_text_if_exists(path):
+    file_path = Path(path)
+    if not file_path.exists():
+        return ""
+    return file_path.read_text(encoding="utf-8")
+
+
+def build_prompt():
+    """Entry point for build-prompt subcommand.
+
+    Reads: prompt template and /tmp gathered context files.
+    Writes: /tmp/review-prompt.md
+    """
+    template = Path(".github/codex-review-prompt.md").read_text(encoding="utf-8")
+    prompt = build_review_prompt(
+        template,
+        {
+            "PLACEHOLDER_PR_DESCRIPTION": _read_text_if_exists("/tmp/pr_description.txt"),
+            "PLACEHOLDER_EXISTING_COMMENTS": _read_text_if_exists("/tmp/existing_comments.json"),
+            "PLACEHOLDER_PR_HEAD_FILES": _read_text_if_exists("/tmp/pr_head_files.md"),
+            "PLACEHOLDER_DEEP_CI_FILES": _read_text_if_exists("/tmp/deep_ci_files.md"),
+            "PLACEHOLDER_DIFF": _read_text_if_exists("/tmp/pr.diff"),
+        },
+    )
+    Path("/tmp/review-prompt.md").write_text(prompt, encoding="utf-8")
 
 
 # --- Subcommand: post-review ---
@@ -457,11 +722,13 @@ def post_review():
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: codex_review.py <gather-context|post-review>", file=sys.stderr)
+        print("Usage: codex_review.py <gather-context|build-prompt|post-review>", file=sys.stderr)
         sys.exit(1)
     cmd = sys.argv[1]
     if cmd == "gather-context":
         gather_context()
+    elif cmd == "build-prompt":
+        build_prompt()
     elif cmd == "post-review":
         post_review()
     else:

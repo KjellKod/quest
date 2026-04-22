@@ -41,6 +41,16 @@ def _extract_journal_quest_id(journal_path: Path) -> str | None:
     return extract_metadata_value(journal_path.read_text(encoding="utf-8"), "quest id")
 
 
+def _extract_date_from_journal_filename(journal_path: Path) -> date | None:
+    match = re.search(r"(\d{4})-(\d{2})-(\d{2})", journal_path.name)
+    if not match:
+        return None
+    try:
+        return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+    except ValueError:
+        return None
+
+
 def _extract_journal_completed_date(journal_path: Path) -> date | None:
     content = journal_path.read_text(encoding="utf-8")
     completed = extract_metadata_value(content, "completed") or extract_metadata_value(content, "date")
@@ -48,15 +58,9 @@ def _extract_journal_completed_date(journal_path: Path) -> date | None:
         try:
             return date.fromisoformat(completed[:10])
         except ValueError:
-            pass
+            return _extract_date_from_journal_filename(journal_path)
 
-    match = re.search(r"(\d{4})-(\d{2})-(\d{2})", journal_path.name)
-    if match:
-        try:
-            return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
-        except ValueError:
-            return None
-    return None
+    return _extract_date_from_journal_filename(journal_path)
 
 
 def _archive_completion_date(archive_dir: Path) -> date | None:
@@ -111,6 +115,8 @@ def _replace_or_insert_section(
     *,
     before_patterns: tuple[str, ...] = (),
 ) -> str:
+    source = content
+    replacement_text = replacement.rstrip()
     compiled = [
         re.compile(
             rf"(?ms)^##\s+(?:{pattern})\s*$.*?(?=^##\s+|\Z)",
@@ -119,21 +125,21 @@ def _replace_or_insert_section(
         for pattern in heading_patterns
     ]
     for pattern in compiled:
-        if pattern.search(content):
-            return pattern.sub(replacement.rstrip() + "\n\n", content, count=1)
+        if pattern.search(source):
+            return pattern.sub(f"{replacement_text}\n\n", source, count=1)
 
     for before_pattern in before_patterns:
         match = re.search(
             rf"(?m)^##\s+(?:{before_pattern})\s*$",
-            content,
+            source,
             re.IGNORECASE,
         )
         if match:
-            return content[: match.start()] + replacement.rstrip() + "\n\n" + content[match.start() :]
+            return f"{source[: match.start()]}{replacement_text}\n\n{source[match.start() :]}"
 
-    if content and not content.endswith("\n"):
-        content += "\n"
-    return content.rstrip() + "\n\n" + replacement.rstrip() + "\n"
+    if source and not source.endswith("\n"):
+        source = f"{source}\n"
+    return f"{source.rstrip()}\n\n{replacement_text}\n"
 
 
 def _extract_section_block(content: str, heading_patterns: tuple[str, ...]) -> str | None:
@@ -172,7 +178,7 @@ def _preferred_brief_section(content: str, generated_section: str) -> str:
     if not existing_body:
         return generated_section
     if not generated_body:
-        return "## Quest Brief\n\n" + existing_body.strip() + "\n"
+        return f"## Quest Brief\n\n{existing_body.strip()}\n"
 
     existing_normalized = _normalize_section_text(existing_body)
     generated_normalized = _normalize_section_text(generated_body)
@@ -181,25 +187,23 @@ def _preferred_brief_section(content: str, generated_section: str) -> str:
 
     if generated_normalized and generated_normalized not in existing_normalized:
         return (
-            "## Quest Brief\n\n"
-            + existing_body.strip()
-            + "\n\n### Archived Brief\n\n"
-            + generated_body.strip()
-            + "\n"
+            f"## Quest Brief\n\n{existing_body.strip()}\n\n"
+            f"### Archived Brief\n\n{generated_body.strip()}\n"
         )
 
-    return "## Quest Brief\n\n" + existing_body.strip() + "\n"
+    return f"## Quest Brief\n\n{existing_body.strip()}\n"
 
 
 def _patch_journal_content(content: str, archive_dir: Path, repo_root: Path, journal_path: Path) -> str:
     data = load_quest_data(archive_dir)
     journal_rel_path = journal_path.relative_to(repo_root)
+    patched_content = content
 
     quest_brief_section = build_quest_brief_section(data)
     if quest_brief_section:
-        quest_brief_section = _preferred_brief_section(content, quest_brief_section)
-        content = _replace_or_insert_section(
-            content,
+        quest_brief_section = _preferred_brief_section(patched_content, quest_brief_section)
+        patched_content = _replace_or_insert_section(
+            patched_content,
             ("Quest Brief", r"This is where it all began[^\n]*"),
             quest_brief_section,
             before_patterns=("Celebration", "Celebration Data"),
@@ -207,20 +211,20 @@ def _patch_journal_content(content: str, archive_dir: Path, repo_root: Path, jou
 
     celebration_section = build_celebration_section(journal_rel_path)
     if celebration_section:
-        content = _replace_or_insert_section(
-            content,
+        patched_content = _replace_or_insert_section(
+            patched_content,
             ("Celebration",),
             celebration_section,
             before_patterns=("Celebration Data",),
         )
 
-    content = _replace_or_insert_section(
-        content,
+    patched_content = _replace_or_insert_section(
+        patched_content,
         ("Celebration Data",),
         build_celebration_data_section(data),
     )
 
-    return content.rstrip() + "\n"
+    return f"{patched_content.rstrip()}\n"
 
 
 def backfill_journal_entries(

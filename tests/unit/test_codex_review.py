@@ -1,6 +1,7 @@
 """Unit tests for .github/scripts/codex_review.py -- extracted CI review logic."""
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -310,3 +311,355 @@ class TestBuildDedupState:
         assert concerns[0]["path"] == "a.py"
         assert concerns[1]["path"] == "b.py"
         assert "buffer" in concerns[0]["keywords"]
+
+
+# ---------------------------------------------------------------------------
+# Deep CI filtering and selection
+# ---------------------------------------------------------------------------
+
+class TestDeepCiCandidateFiltering:
+    def test_deep_ci_candidate_accepts_supported_code_extensions(self):
+        assert codex_review.is_deep_ci_candidate("scripts/review.py")
+        assert codex_review.is_deep_ci_candidate("bin/install.sh")
+        assert codex_review.is_deep_ci_candidate("src/review.js")
+        assert codex_review.is_deep_ci_candidate("src/review.ts")
+
+    def test_deep_ci_candidate_rejects_markdown_docs_and_prose(self):
+        assert not codex_review.is_deep_ci_candidate("README.md")
+        assert not codex_review.is_deep_ci_candidate("docs/example.py")
+        assert not codex_review.is_deep_ci_candidate("ideas/sketch.ts")
+        assert not codex_review.is_deep_ci_candidate("notes/review.txt")
+
+    def test_deep_ci_candidate_rejects_generated_vendor_minified_and_lock_paths(self):
+        assert not codex_review.is_deep_ci_candidate("generated/client.ts")
+        assert not codex_review.is_deep_ci_candidate("vendor/tool.py")
+        assert not codex_review.is_deep_ci_candidate("build/bundle.js")
+        assert not codex_review.is_deep_ci_candidate("dist/app.js")
+        assert not codex_review.is_deep_ci_candidate("src/app.min.js")
+        assert not codex_review.is_deep_ci_candidate("src/runtime.lock.ts")
+
+    def test_deep_ci_candidate_rejects_deleted_and_large_files(self):
+        assert not codex_review.is_deep_ci_candidate(
+            "src/deleted.py",
+            {"path": "src/deleted.py", "status": "removed"},
+        )
+        assert not codex_review.is_deep_ci_candidate(
+            "src/large.py",
+            {"path": "src/large.py", "size": codex_review.DEEP_CI_MAX_FILE_CHARS + 1},
+        )
+        assert not codex_review.is_deep_ci_candidate(
+            "src/noisy.ts",
+            {
+                "path": "src/noisy.ts",
+                "additions": 1500,
+                "deletions": 600,
+            },
+        )
+
+
+class TestSelectDeepCiFiles:
+    def test_select_deep_ci_files_is_deterministic_and_bounded(self):
+        changed = [
+            {"path": "zeta.ts"},
+            {"path": "docs/not_selected.py"},
+            {"path": "alpha.py"},
+            {"path": "beta.js"},
+            {"path": "gamma.sh"},
+        ]
+
+        assert codex_review.select_deep_ci_files(changed) == [
+            "alpha.py",
+            "beta.js",
+            "gamma.sh",
+        ]
+        assert codex_review.select_deep_ci_files(list(reversed(changed))) == [
+            "alpha.py",
+            "beta.js",
+            "gamma.sh",
+        ]
+
+    def test_select_deep_ci_files_preserves_supported_paths_after_filtering(self):
+        changed = [
+            "README.md",
+            "src/app.py",
+            {"path": "ideas/example.ts"},
+            {"path": "src/app.py"},
+            {"path": "src/client.ts", "changeType": "MODIFIED"},
+            {"path": "src/old.js", "status": "deleted"},
+        ]
+
+        assert codex_review.select_deep_ci_files(changed) == [
+            "src/app.py",
+            "src/client.ts",
+        ]
+
+
+# ---------------------------------------------------------------------------
+# Deep CI fetching and rendering
+# ---------------------------------------------------------------------------
+
+class TestFetchDeepCiFiles:
+    def test_fetch_deep_ci_files_renders_full_file_snapshots(self, monkeypatch):
+        calls = []
+
+        def fake_run(cmd, check, capture_output, text):
+            calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, stdout="print('ok')\n", stderr="")
+
+        monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
+
+        snapshots = codex_review.fetch_deep_ci_files("owner/repo", "abc123", ["src/app.py"])
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/app.py"])
+
+        assert calls[0][:4] == ["gh", "api", "-H", "Accept: application/vnd.github.raw"]
+        assert "repos/owner/repo/contents/src/app.py?ref=abc123" in calls[0]
+        assert "## src/app.py" in rendered
+        assert "print('ok')" in rendered
+        assert "truncated" not in rendered
+
+    def test_render_deep_ci_context_uses_longer_fence_for_embedded_backticks(self):
+        snapshots = [
+            {
+                "path": "src/app.py",
+                "content": "def example():\n    return '''```payload```'''\n",
+                "omitted": False,
+                "reason": "",
+            }
+        ]
+
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/app.py"])
+
+        assert "````\ndef example():" in rendered
+        assert "```payload```" in rendered
+        assert rendered.rstrip().endswith("````")
+
+    def test_fetch_deep_ci_files_omits_large_content_with_note(self, monkeypatch):
+        def fake_run(cmd, check, capture_output, text):
+            return subprocess.CompletedProcess(cmd, 0, stdout="x" * 11, stderr="")
+
+        monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
+
+        snapshots = codex_review.fetch_deep_ci_files(
+            "owner/repo",
+            "abc123",
+            ["src/large.py"],
+            max_chars_per_file=10,
+        )
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/large.py"])
+
+        assert snapshots[0]["omitted"] is True
+        assert "current file size exceeds 10 chars" in rendered
+        assert "xxxxxxxxxxx" not in rendered
+        assert "truncated" not in rendered
+
+    def test_fetch_deep_ci_files_marks_unavailable_without_crashing(self, monkeypatch):
+        def fake_run(cmd, check, capture_output, text):
+            raise subprocess.CalledProcessError(1, cmd, output="", stderr="not found")
+
+        monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
+
+        snapshots = codex_review.fetch_deep_ci_files("owner/repo", "abc123", ["src/missing.py"])
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/missing.py"])
+
+        assert snapshots[0]["omitted"] is True
+        assert "Skipped Deep CI whole-file review for src/missing.py" in rendered
+        assert "unavailable: not found" in rendered
+
+    def test_fetch_deep_ci_files_omits_when_total_cap_would_be_exceeded(self, monkeypatch):
+        contents = {"src/a.py": "aaaaaa", "src/b.py": "bbbbbb"}
+
+        def fake_run(cmd, check, capture_output, text):
+            path_part = cmd[-1].split("/contents/", 1)[1].split("?ref=", 1)[0]
+            return subprocess.CompletedProcess(cmd, 0, stdout=contents[path_part], stderr="")
+
+        monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
+
+        snapshots = codex_review.fetch_deep_ci_files(
+            "owner/repo",
+            "abc123",
+            ["src/a.py", "src/b.py"],
+            max_total_chars=8,
+        )
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/a.py", "src/b.py"])
+
+        assert snapshots[0]["omitted"] is False
+        assert snapshots[1]["omitted"] is True
+        assert "aaaaaa" in rendered
+        assert "bbbbbb" not in rendered
+        assert "Deep CI total content cap exceeds 8 chars" in rendered
+
+
+# ---------------------------------------------------------------------------
+# Workflow context contract
+# ---------------------------------------------------------------------------
+
+class TestWorkflowContextContract:
+    def test_workflow_keeps_trusted_base_checkout_for_secret_review(self):
+        workflow = Path(".github/workflows/codex-ci-review.yml").read_text(encoding="utf-8")
+
+        assert "ref: ${{ github.event.pull_request.base.sha }}" in workflow
+        assert "ref: ${{ github.event.pull_request.head.sha }}" not in workflow
+
+    def test_workflow_writes_raw_changed_file_paths_for_gather_context(self):
+        workflow = Path(".github/workflows/codex-ci-review.yml").read_text(encoding="utf-8")
+
+        raw_paths_command = (
+            "jq -r '.files[].path' /tmp/changed_files_payload.json > /tmp/changed_files.txt"
+        )
+        quoted_paths_command = (
+            "jq '.files[].path' /tmp/changed_files_payload.json > /tmp/changed_files.txt"
+        )
+
+        assert raw_paths_command in workflow
+        assert quoted_paths_command not in workflow
+
+    def test_workflow_has_legacy_build_prompt_fallback_for_base_checkout(self):
+        workflow = Path(".github/workflows/codex-ci-review.yml").read_text(encoding="utf-8")
+
+        assert (
+            "if python3 .github/scripts/codex_review.py build-prompt "
+            "2>/tmp/build_prompt_err.log; then"
+        ) in workflow
+        assert "grep -Eq \"Unknown subcommand: build-prompt|invalid choice: 'build-prompt'\"" in workflow
+        assert "exit 1" in workflow
+        assert "legacy prompt assembly" in workflow
+        assert "touch /tmp/deep_ci_files.md" in workflow
+        assert "/{PLACEHOLDER_DEEP_CI_FILES}/r /tmp/deep_ci_files.md" in workflow
+
+    def test_gather_context_reads_workflow_raw_changed_file_paths(self, monkeypatch):
+        tmp_paths = [
+            Path("/tmp/pr_head_sha.txt"),
+            Path("/tmp/changed_files.txt"),
+            Path("/tmp/pr_head_files.md"),
+            Path("/tmp/deep_ci_files.md"),
+        ]
+        originals = {
+            path: path.read_bytes() if path.exists() else None
+            for path in tmp_paths
+        }
+
+        captured = {}
+
+        def fake_fetch_head_files(repo, head_sha, changed_files):
+            captured["repo"] = repo
+            captured["head_sha"] = head_sha
+            captured["changed_files"] = changed_files
+            return [f"## {path}\n```\ncontent\n```" for path in changed_files]
+
+        monkeypatch.setenv("REPO", "owner/repo")
+        monkeypatch.setattr(codex_review, "fetch_head_files", fake_fetch_head_files)
+        monkeypatch.setattr(codex_review, "load_changed_file_metadata", lambda: [])
+        monkeypatch.setattr(codex_review, "fetch_deep_ci_files", lambda *args: [])
+
+        try:
+            Path("/tmp/pr_head_sha.txt").write_text("abc123\n", encoding="utf-8")
+            Path("/tmp/changed_files.txt").write_text(
+                "src/app.py\nlib/space name.py\n",
+                encoding="utf-8",
+            )
+
+            codex_review.gather_context()
+
+            assert captured == {
+                "repo": "owner/repo",
+                "head_sha": "abc123",
+                "changed_files": ["src/app.py", "lib/space name.py"],
+            }
+        finally:
+            for path, content in originals.items():
+                if content is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.write_bytes(content)
+
+
+# ---------------------------------------------------------------------------
+# Prompt assembly
+# ---------------------------------------------------------------------------
+
+class TestBuildReviewPrompt:
+    def test_build_review_prompt_includes_deep_ci_section(self):
+        template = (
+            "PR {PLACEHOLDER_PR_DESCRIPTION}\n"
+            "Existing {PLACEHOLDER_EXISTING_COMMENTS}\n"
+            "Head {PLACEHOLDER_PR_HEAD_FILES}\n"
+            "Deep {PLACEHOLDER_DEEP_CI_FILES}\n"
+            "Diff {PLACEHOLDER_DIFF}\n"
+        )
+
+        prompt = codex_review.build_review_prompt(
+            template,
+            {
+                "PLACEHOLDER_PR_DESCRIPTION": "description",
+                "PLACEHOLDER_EXISTING_COMMENTS": "[]",
+                "PLACEHOLDER_PR_HEAD_FILES": "normal snapshot",
+                "PLACEHOLDER_DEEP_CI_FILES": "deep snapshot",
+                "PLACEHOLDER_DIFF": "diff text",
+            },
+        )
+
+        assert "deep snapshot" in prompt
+        assert "normal snapshot" in prompt
+        assert "diff text" in prompt
+
+    def test_build_review_prompt_replaces_all_placeholders(self):
+        template = Path(".github/codex-review-prompt.md").read_text(encoding="utf-8")
+        prompt = codex_review.build_review_prompt(
+            template,
+            {
+                "PLACEHOLDER_PR_DESCRIPTION": "description",
+                "PLACEHOLDER_EXISTING_COMMENTS": "[]",
+                "PLACEHOLDER_PR_HEAD_FILES": "normal snapshot",
+                "PLACEHOLDER_DEEP_CI_FILES": "deep snapshot",
+                "PLACEHOLDER_DIFF": "diff text",
+            },
+        )
+
+        assert "PLACEHOLDER_" not in prompt
+        assert "## Deep CI Whole-File Logic Pass" in prompt
+        assert "deep snapshot" in prompt
+
+    def test_build_review_prompt_does_not_reprocess_inserted_placeholders(self):
+        template = (
+            "Head {PLACEHOLDER_PR_HEAD_FILES}\n"
+            "Diff {PLACEHOLDER_DIFF}\n"
+        )
+
+        prompt = codex_review.build_review_prompt(
+            template,
+            {
+                "PLACEHOLDER_PR_HEAD_FILES": "snapshot has literal {PLACEHOLDER_DIFF}",
+                "PLACEHOLDER_DIFF": "diff body",
+            },
+        )
+
+        assert "snapshot has literal {PLACEHOLDER_DIFF}" in prompt
+        assert prompt.count("diff body") == 1
+
+
+class TestDeepCiDedupeReuse:
+    def test_deep_ci_comment_uses_existing_duplicate_filter(self):
+        existing = [
+            {
+                "id": 1,
+                "user": "github-actions[bot]",
+                "path": "src/app.py",
+                "line": 42,
+                "body": "**Must fix** - Deep CI: initializer fallback leaves cached state stale.",
+                "in_reply_to_id": None,
+            }
+        ]
+        resolved, bot_locs, concerns = codex_review.build_dedup_state(existing)
+
+        reason = codex_review.is_duplicate(
+            {
+                "path": "src/app.py",
+                "line": 42,
+                "body": "**Must fix** - Deep CI: initializer fallback leaves cached state stale.",
+            },
+            resolved,
+            bot_locs,
+            concerns,
+        )
+
+        assert reason == "already-commented"

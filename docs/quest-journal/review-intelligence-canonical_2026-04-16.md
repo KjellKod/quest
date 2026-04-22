@@ -43,7 +43,7 @@ findings and add a review-decisions stage between review and fixer.
 Implement Phase 1 of review-intelligence-canonical: normalize review
 findings and add a review-decisions stage between review and fixer.
 
-Reference: ideas/2026-04-13-review-intelligence-canonical.md
+Reference: ideas/archive/2026-04-13-review-intelligence-canonical.md
 
 ### Deliverables
 

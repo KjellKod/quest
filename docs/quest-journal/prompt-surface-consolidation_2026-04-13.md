@@ -19,7 +19,7 @@
 - `.ws/2026-04-13-focused-rule-packs.md`
 - `.ws/2026-04-13-orchestration-improvement-workflow.md`
 - `ideas/README.md`
-- `ideas/2026-04-13-review-intelligence-canonical.md`
+- `ideas/archive/2026-04-13-review-intelligence-canonical.md`
 - `.quest/prompt-surface-consolidation_2026-04-13__1701/phase_03_review/review_code-reviewer-a.md`
 
 ## Iterations

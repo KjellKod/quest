@@ -1,4 +1,13 @@
+import sys
+from pathlib import Path
+
 import pytest
+
+# Make scripts/quest_allowlist_matcher.py importable when pytest is not run
+# through the repo-level conftest fallback.
+_scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
 
 from quest_allowlist_matcher import is_bash_command_allowed
 

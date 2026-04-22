@@ -21,9 +21,22 @@ architecture docs.
 |---|---|---|
 | `quest-policy-canonicalization-and-enforcement-roadmap.md` | in-progress | Canonical plan to reduce policy drift and convert rules into enforced checks. |
 | `codex-review-severity-emoji.md` | proposed | Add severity emoji to Codex review inline comments for faster scanning in PR threads. |
-| `deep-ci-whole-file-logic-review.md` | proposed | Add a bounded Deep CI mode that reviews whole changed code files for resulting behavior, not just diff hunks. |
-| `extract-codex-review-python.md` | in-progress | CI review Python was extracted into a real script with tests; the workflow still has one large heredoc block to finish removing. |
 | `handoff-validation-and-failure-ux.md` | in-progress | Add actionable diagnostics when handoff fallback occurs. |
+
+### Review Intelligence
+| File | Status | Purpose |
+|---|---|---|
+| `deep-ci-chunked-context-plan.md` | proposed | Extend Deep CI so oversized selected files render bounded changed-line context chunks instead of being skipped entirely. |
+
+Current roadmap:
+
+| Phase | Status | Focus |
+|---|---|---|
+| Phase 1 | done | Canonical review findings, decisions, and backlog contracts. |
+| Phase 2 | done | Targeted validation and batched PR response. |
+| Phase 3 | done | Bounded Deep CI whole-file review for selected changed code files. |
+| Phase 3.1 | next | Deep CI oversized-file chunk fallback: keep the current budget discipline, but render bounded changed-line context chunks when selected files exceed the full-file cap. |
+| Phase 3.2 | queued | Structured review-context manifest: prepare files, chunks, budgets, and metadata once, then have downstream review steps consume that manifest deterministically. |
 
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
@@ -34,7 +47,6 @@ architecture docs.
 | `2026-04-13-instruction-architecture.md` | proposed | Unified proposal for Quest instruction architecture: selective rule-pack loading, canonical policy ownership, workflow-first skill structure, prompt assembly/debugging, and migration plan. Supersedes focused-rule-packs and orchestration-improvement-workflow. |
 | `2026-04-13-quest-memory-architecture.md` | proposed | Canonical memory architecture proposal: operational and reflective memory layers, structured records, narrow retrieval, freshness model, and strict guardrails. |
 | `2026-04-13-quest-memory-evaluation-loop.md` | proposed | Local benchmark design for proving whether Quest memory retrieval actually improves relevance, efficiency, and hallucination resistance versus plain filesystem exploration. |
-| `2026-04-13-review-intelligence-canonical.md` | done (Phase 1) | Canonical review-intelligence baseline: normalized findings, review decisions, targeted validation, bounded loops, and guarded memory use during review. See [journal](../docs/quest-journal/review-intelligence-canonical_2026-04-16.md). |
 | `quest-file-attribution-line.md` | idea | File-level Quest attribution and license provenance line. |
 | `quest-multi-phase-execution.md` | proposed | Recommended pattern for handling large multi-phase initiatives: umbrella planning quest, then separate phase quests unless the passes still feed one bounded deliverable set. |
 | `quest-preflight-sandbox-false-negative-bugfix.md` | in-progress | Host-context probe caching and diagnostics shipped; fallback classification/reporting is still not fully explicit. |
@@ -72,6 +84,9 @@ architecture docs.
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| done | ~~2026-04-13-review-intelligence-canonical~~ | Phases 1-3 shipped: canonical findings/backlog, targeted validation/PR batching, and bounded Deep CI whole-file review. Archived at [`ideas/archive/2026-04-13-review-intelligence-canonical.md`](archive/2026-04-13-review-intelligence-canonical.md). |
+| done | ~~deep-ci-whole-file-logic-review~~ | Implemented as Review Intelligence Phase 3; Codex CI now has bounded whole-file logic review for selected changed code files. Archived at [`ideas/archive/deep-ci-whole-file-logic-review.md`](archive/deep-ci-whole-file-logic-review.md). |
+| done | ~~extract-codex-review-python~~ | Codex CI review Python now lives in `.github/scripts/codex_review.py`; workflow heredocs were removed. Archived at [`ideas/archive/extract-codex-review-python.md`](archive/extract-codex-review-python.md). |
 | done | ~~generic-artifact-preparation-and-runtime-fallbacks~~ | Implemented on `codex-artifact-staging` / PR #74. Archived at [`ideas/archive/generic-artifact-preparation-and-runtime-fallbacks.md`](archive/generic-artifact-preparation-and-runtime-fallbacks.md). |
 | done | ~~quest_dispatcher~~ | Quest now routes Codex-led Claude roles through the Quest runner/probe path with runtime logging and handoff polling. See [journal](../docs/quest-journal/quest-dispatcher_2026-03-09.md). |
 | done | ~~codex-led-claude-bridge-runtime-hardening~~ | Codex-led Claude bridge runtime path shipped, documented, and exercised in a solo smoke test. See [journal](../docs/quest-journal/codex-led-claude-bridge-runtime-hardening_2026-03-09.md). |

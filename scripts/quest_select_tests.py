@@ -6,18 +6,19 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
 from quest_runtime.pr_review_cycle import select_validation_steps
 
+JsonObject = dict[str, object]
 
-def _load_json(path: Path) -> Any:
+
+def _load_json(path: Path) -> object:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _write_json(path: Path, payload: Any) -> None:
+def _write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(f"{json.dumps(payload, indent=2, sort_keys=True)}\n", encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,7 +40,7 @@ def main() -> int:
         if not isinstance(finding_payload, dict):
             raise ValueError("finding JSON must be an object")
 
-        repo_inventory: dict[str, Any] | None = None
+        repo_inventory: JsonObject | None = None
         if args.repo_inventory:
             inventory_payload = _load_json(Path(args.repo_inventory))
             if not isinstance(inventory_payload, dict):

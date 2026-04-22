@@ -1,6 +1,25 @@
 # Deep CI Whole-File Logic Review
 
-## Status: proposed
+## Status: done
+
+Implemented as Phase 3 of
+[`2026-04-13-review-intelligence-canonical.md`](2026-04-13-review-intelligence-canonical.md).
+See [journal entry](../../docs/quest-journal/deep-ci-file-review_2026-04-21.md).
+
+## Completion Evidence
+
+- Deep CI filtering, deterministic subset selection, PR-head fetching,
+  omission notes, and prompt assembly live in
+  `.github/scripts/codex_review.py`.
+- The CI workflow writes raw changed-file paths and PR file metadata, then
+  delegates to `codex_review.py gather-context`, `build-prompt`, and
+  `post-review`.
+- The prompt includes `## Deep CI Whole-File Logic Pass` with behavior-focused
+  instructions and unchanged inline-comment constraints.
+- Tests in `tests/unit/test_codex_review.py` cover filtering, markdown/docs
+  exclusion, generated/minified/large/deleted exclusions, deterministic
+  selection, over-cap omission, prompt assembly, workflow raw path handling,
+  and dedupe reuse.
 
 ## Problem
 
@@ -90,6 +109,15 @@ Preferred first model:
   another Deep CI slot on it unless that file changes again
 
 This gives broad enough coverage without exploding token use.
+
+Implemented first slice:
+
+- deterministic path-sorted subset
+- maximum of 3 selected files
+- no PR-level progress state or round-robin memory
+
+PR-level Deep CI coverage state remains intentionally out of scope for the
+completed first slice.
 
 ## Alternative Operating Models
 

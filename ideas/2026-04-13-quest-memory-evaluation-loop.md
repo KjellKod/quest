@@ -35,7 +35,7 @@ This note depends directly on:
 
 It also complements:
 
-- `ideas/2026-04-13-review-intelligence-canonical.md`
+- `ideas/archive/2026-04-13-review-intelligence-canonical.md`
 
 The memory note defines what gets indexed and queried.
 This evaluation note defines how to prove that the resulting memory is useful.

@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path, PurePosixPath
-from typing import Any
 
 from quest_runtime.review_intelligence import (
     ALLOWED_DECISIONS,
@@ -31,6 +30,8 @@ CI_FAILURE_STATES = (
     "action_required",
     "startup_failure",
 )
+
+JsonObject = dict[str, object]
 
 
 def allowlist_path_from_context(context_path: Path | None) -> Path:
@@ -80,12 +81,12 @@ _SHARED_INFRA_KINDS = {"build_failure", "shared_infrastructure", "cross_cutting"
 _SHARED_SCOPE_PREFIXES = ("scripts/quest_runtime/", ".skills/", "docs/architecture/")
 
 
-def _as_dict_list(value: Any, *, field_name: str) -> list[dict[str, Any]]:
+def _as_dict_list(value: object, *, field_name: str) -> list[JsonObject]:
     if value is None:
         return []
     if not isinstance(value, list):
         raise ValueError(f"'{field_name}' must be a list")
-    result: list[dict[str, Any]] = []
+    result: list[JsonObject] = []
     for index, entry in enumerate(value):
         if not isinstance(entry, dict):
             raise ValueError(f"'{field_name}[{index}]' must be an object")
@@ -97,7 +98,7 @@ def _first_200_chars(text: str) -> str:
     return text[:200]
 
 
-def _finding_line(value: Any) -> int | None:
+def _finding_line(value: object) -> int | None:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         return None
     return value
@@ -110,7 +111,7 @@ def _normalize_scope_entry(value: str) -> str:
     return trimmed
 
 
-def normalize_pr_review_intake(intake: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
+def normalize_pr_review_intake(intake: JsonObject) -> list[JsonObject]:
     """Normalize heterogeneous PR intake into canonical findings and merge existing findings."""
 
     if not isinstance(intake, dict):
@@ -125,7 +126,7 @@ def normalize_pr_review_intake(intake: dict[str, list[dict[str, Any]]]) -> list[
     if existing_errors:
         raise ValueError("; ".join(existing_errors))
 
-    normalized_findings: list[dict[str, Any]] = []
+    normalized_findings: list[JsonObject] = []
     ci_counter = 0
     inline_counter = 0
     general_counter = 0
@@ -235,12 +236,12 @@ def normalize_pr_review_intake(intake: dict[str, list[dict[str, Any]]]) -> list[
     return merge_and_dedupe([normalized_findings, existing_findings])
 
 
-def _validation_steps_from_item(item: dict[str, Any]) -> list[dict[str, Any]]:
+def _validation_steps_from_item(item: JsonObject) -> list[JsonObject]:
     raw_steps = item.get("validation_steps")
     if not isinstance(raw_steps, list):
         return []
 
-    steps: list[dict[str, Any]] = []
+    steps: list[JsonObject] = []
     for step in raw_steps:
         if not isinstance(step, dict):
             continue
@@ -252,12 +253,12 @@ def _validation_steps_from_item(item: dict[str, Any]) -> list[dict[str, Any]]:
     return steps
 
 
-def _validation_scope_signature(item: dict[str, Any]) -> tuple[tuple[int, str, str], ...]:
+def _validation_scope_signature(item: JsonObject) -> tuple[tuple[int, str, str], ...]:
     steps = _validation_steps_from_item(item)
     return tuple((step["level"], step["target"], step["command"]) for step in steps)
 
 
-def _scope_entries(item: dict[str, Any]) -> list[str]:
+def _scope_entries(item: JsonObject) -> list[str]:
     raw_scope = item.get("write_scope")
     if not isinstance(raw_scope, list):
         return []
@@ -285,18 +286,18 @@ def _write_scopes_overlap(scope_a: list[str], scope_b: list[str]) -> bool:
     return False
 
 
-def _min_finding_id(items: list[dict[str, Any]]) -> str:
+def _min_finding_id(items: list[JsonObject]) -> str:
     if not items:
         return ""
     finding_ids = [str(item.get("finding_id") or "") for item in items]
     return min(finding_ids)
 
 
-def build_fix_batches(backlog_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def build_fix_batches(backlog_items: list[JsonObject]) -> list[JsonObject]:
     """Group actionable backlog items into deterministic non-overlapping fix batches."""
 
     grouped: dict[
-        tuple[str, tuple[tuple[int, str, str], ...], str], list[dict[str, Any]]
+        tuple[str, tuple[tuple[int, str, str], ...], str], list[JsonObject]
     ] = {}
 
     for item in backlog_items:
@@ -314,10 +315,10 @@ def build_fix_batches(backlog_items: list[dict[str, Any]]) -> list[dict[str, Any
         group_key = (batch_key, signature, unknown_scope_bucket)
         grouped.setdefault(group_key, []).append(copy.deepcopy(item))
 
-    batches: list[dict[str, Any]] = []
+    batches: list[JsonObject] = []
     for (batch_key, signature, _unknown_scope_bucket), items in grouped.items():
         sorted_items = sorted(items, key=lambda value: str(value.get("finding_id") or ""))
-        partitions: list[list[dict[str, Any]]] = []
+        partitions: list[list[JsonObject]] = []
 
         for item in sorted_items:
             item_scope = _scope_entries(item)
@@ -355,7 +356,7 @@ def build_fix_batches(backlog_items: list[dict[str, Any]]) -> list[dict[str, Any
     return batches
 
 
-def _inventory_command(repo_inventory: dict[str, Any] | None, *keys: str) -> str | None:
+def _inventory_command(repo_inventory: JsonObject | None, *keys: str) -> str | None:
     if not isinstance(repo_inventory, dict):
         return None
 
@@ -373,7 +374,7 @@ def _inventory_command(repo_inventory: dict[str, Any] | None, *keys: str) -> str
     return None
 
 
-def _repo_inventory_test_paths(repo_inventory: dict[str, Any] | None) -> list[str]:
+def _repo_inventory_test_paths(repo_inventory: JsonObject | None) -> list[str]:
     if isinstance(repo_inventory, dict):
         for key in ("test_paths", "tests", "test_inventory"):
             value = repo_inventory.get(key)
@@ -408,7 +409,7 @@ def _is_test_path(path: str) -> bool:
     )
 
 
-def _candidate_source_paths(finding: dict[str, Any]) -> list[str]:
+def _candidate_source_paths(finding: JsonObject) -> list[str]:
     paths: list[str] = []
     write_scope = finding.get("write_scope")
     if isinstance(write_scope, list):
@@ -429,7 +430,7 @@ def _candidate_source_paths(finding: dict[str, Any]) -> list[str]:
     return unique
 
 
-def _explicit_test_targets(finding: dict[str, Any]) -> list[str]:
+def _explicit_test_targets(finding: JsonObject) -> list[str]:
     targets: list[str] = []
     suggested = finding.get("suggested_test")
     if isinstance(suggested, str) and suggested.strip():
@@ -448,7 +449,7 @@ def _explicit_test_targets(finding: dict[str, Any]) -> list[str]:
     return unique
 
 
-def _nearest_test_targets(finding: dict[str, Any], test_paths: list[str]) -> list[str]:
+def _nearest_test_targets(finding: JsonObject, test_paths: list[str]) -> list[str]:
     normalized_test_paths = [_normalize_repo_path(path) for path in test_paths]
     by_dir: dict[str, list[str]] = {}
     for test_path in normalized_test_paths:
@@ -506,17 +507,17 @@ def _scope_intersects_shared_boundary(scope_path: str) -> bool:
 
 
 def select_validation_steps(
-    finding: dict[str, Any],
+    finding: JsonObject,
     *,
-    repo_inventory: dict[str, Any] | None = None,
-) -> list[dict[str, Any]]:
+    repo_inventory: JsonObject | None = None,
+) -> list[JsonObject]:
     """Select ordered validation steps for one finding."""
 
     errors = validate_findings([finding])
     if errors:
         raise ValueError("; ".join(errors))
 
-    steps: list[dict[str, Any]] = []
+    steps: list[JsonObject] = []
     has_inventory = isinstance(repo_inventory, dict)
     pytest_cmd = _inventory_command(repo_inventory, "pytest_command", "pytest") or "python3 -m pytest"
 
@@ -639,7 +640,7 @@ def classify_pr_loop_stop(
     *,
     cap: int | None = None,
     allowlist_path: Path | None = None,
-) -> dict[str, Any]:
+) -> JsonObject:
     """Classify whether the PR fix loop should stop and whether retagging is required.
 
     When ``cap`` is ``None`` the value is resolved from the allowlist at
@@ -690,7 +691,7 @@ def classify_pr_loop_stop(
     }
 
 
-def retag_backlog_at_cap(backlog: dict[str, Any]) -> dict[str, Any]:
+def retag_backlog_at_cap(backlog: JsonObject) -> JsonObject:
     """Retag actionable backlog entries using loop-cap decision policy."""
 
     if not isinstance(backlog, dict):
