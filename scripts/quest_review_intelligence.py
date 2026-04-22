@@ -109,6 +109,13 @@ def _cmd_build_backlog(args: argparse.Namespace) -> int:
 def _cmd_validate_backlog(args: argparse.Namespace) -> int:
     payload = _load_json(Path(args.input))
     errors = validate_review_backlog(payload)
+    expected_phase = getattr(args, "expected_phase", None)
+    if expected_phase:
+        actual_phase = payload.get("phase") if isinstance(payload, dict) else None
+        if actual_phase != expected_phase:
+            errors = list(errors) + [
+                f"expected phase='{expected_phase}' but backlog has phase='{actual_phase}'"
+            ]
     item_count = len(payload.get("items", [])) if isinstance(payload, dict) else 0
     print(json.dumps({"ok": not errors, "count": item_count, "errors": errors}, indent=2, sort_keys=True))
     return 1 if errors else 0
@@ -310,6 +317,15 @@ def parse_args() -> argparse.Namespace:
         help="Validate canonical review backlog JSON",
     )
     validate_backlog.add_argument("--input", required=True, help="Path to review backlog JSON file")
+    validate_backlog.add_argument(
+        "--expected-phase",
+        choices=["plan", "review"],
+        default=None,
+        help=(
+            "When set, also verify backlog['phase'] matches this value. "
+            "A missing phase key or mismatch is reported as an error."
+        ),
+    )
     validate_backlog.set_defaults(func=_cmd_validate_backlog)
 
     select_validation = subparsers.add_parser(

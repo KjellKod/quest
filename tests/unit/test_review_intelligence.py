@@ -509,3 +509,161 @@ def test_validate_backlog_cli_rejects_invalid_shape(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["ok"] is False
     assert payload["errors"]
+
+
+def test_validate_backlog_cli_expected_phase_rejects_review_phase_backlog(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    findings_path = tmp_path / "findings.json"
+    backlog_path = tmp_path / "backlog.json"
+    findings_path.write_text(
+        json.dumps([_finding()], indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    build = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "build-backlog",
+            "--findings",
+            str(findings_path),
+            "--output",
+            str(backlog_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert build.returncode == 0
+    built = json.loads(backlog_path.read_text(encoding="utf-8"))
+    assert built["phase"] == "review"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "validate-backlog",
+            "--input",
+            str(backlog_path),
+            "--expected-phase",
+            "plan",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert any(
+        "expected phase='plan'" in err and "phase='review'" in err
+        for err in payload["errors"]
+    )
+
+
+def test_validate_backlog_cli_expected_phase_accepts_matching_plan_backlog(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    findings_path = tmp_path / "findings.json"
+    backlog_path = tmp_path / "backlog.json"
+    findings_path.write_text(
+        json.dumps([_finding()], indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    build = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "build-backlog",
+            "--phase",
+            "plan",
+            "--findings",
+            str(findings_path),
+            "--output",
+            str(backlog_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert build.returncode == 0
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "validate-backlog",
+            "--input",
+            str(backlog_path),
+            "--expected-phase",
+            "plan",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is True
+    assert payload["errors"] == []
+
+
+def test_validate_backlog_cli_expected_phase_rejects_missing_phase_field(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    findings_path = tmp_path / "findings.json"
+    backlog_path = tmp_path / "backlog.json"
+    findings_path.write_text(
+        json.dumps([_finding()], indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    build = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "build-backlog",
+            "--phase",
+            "plan",
+            "--findings",
+            str(findings_path),
+            "--output",
+            str(backlog_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert build.returncode == 0
+
+    # Simulate a legacy backlog that predates the phase field.
+    legacy = json.loads(backlog_path.read_text(encoding="utf-8"))
+    legacy.pop("phase", None)
+    backlog_path.write_text(json.dumps(legacy, indent=2) + "\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "validate-backlog",
+            "--input",
+            str(backlog_path),
+            "--expected-phase",
+            "plan",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert any("expected phase='plan'" in err for err in payload["errors"])

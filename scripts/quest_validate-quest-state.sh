@@ -368,6 +368,50 @@ $item_errors"
   pass "Semantic check: review backlog is valid ($backlog_file)"
 }
 
+validate_plan_phase_backlog() {
+  # Plan-phase approval requires:
+  #   1. backlog["phase"] == "plan" (asserted via the CLI validator)
+  #   2. every backlog item's decision is actionable by the builder
+  #      (fix_now or verify_first). defer/drop/needs_human_decision are
+  #      non-compliant at plan approval -- a forgotten --phase plan flag
+  #      would otherwise silently produce verify_first/drop review-phase
+  #      decisions and let the plan fall through without fix_now tagging.
+  local backlog_file="$1"
+  local validator="$REPO_ROOT/scripts/quest_review_intelligence.py"
+
+  if [ ! -f "$validator" ]; then
+    fail "Semantic check: review backlog validator not found at $validator"
+    return 1
+  fi
+
+  local phase_output
+  phase_output=$(python3 "$validator" validate-backlog --input "$backlog_file" --expected-phase plan 2>&1)
+  local phase_rc=$?
+  if [ "$phase_rc" -ne 0 ]; then
+    fail "Semantic check: plan-phase backlog check failed ($backlog_file): $phase_output"
+    return 1
+  fi
+
+  local bad_decisions
+  bad_decisions=$(jq -r '
+    [
+      (.items // []) | to_entries[] |
+      select((.value.decision // "") as $d |
+        ($d != "fix_now") and ($d != "verify_first")
+      ) |
+      "[" + (.key | tostring) + "] non-actionable decision: " + (.value.decision // "missing")
+    ] | .[]
+  ' "$backlog_file" 2>/dev/null)
+
+  if [ -n "$bad_decisions" ]; then
+    fail "Semantic check: plan-phase backlog has non-actionable items (must all be fix_now or verify_first): $bad_decisions"
+    return 1
+  fi
+
+  pass "Semantic check: plan-phase backlog is fully actionable ($backlog_file)"
+  return 0
+}
+
 read_required_reviewer_handoff() {
   local handoff_file="$1"
   local next_value=""
@@ -466,7 +510,9 @@ validate_semantic_content() {
         local findings_file="$quest_dir/phase_01_plan/review_findings.json"
         local backlog_file="$quest_dir/phase_01_plan/review_backlog.json"
         validate_review_findings_schema "$findings_file"
-        validate_review_backlog_schema "$backlog_file"
+        if validate_review_backlog_schema "$backlog_file"; then
+          validate_plan_phase_backlog "$backlog_file"
+        fi
       fi
       ;;
     "presentation_complete->building")

@@ -72,6 +72,7 @@ EOF
 write_review_backlog() {
   local filepath="$1"
   local mode="$2"
+  local phase="${3:-review}"
   local decision="drop"
   local needs_validation='[]'
   local needs_test='false'
@@ -88,6 +89,13 @@ write_review_backlog() {
     clean)
       decision="drop"
       ;;
+    plan_actionable)
+      # Plan-phase canonical: every item flows to the builder.
+      decision="fix_now"
+      needs_validation='["unit_test", "typecheck", "lint"]'
+      needs_test='true'
+      phase="plan"
+      ;;
     *)
       decision="drop"
       ;;
@@ -98,6 +106,7 @@ write_review_backlog() {
   "version": 1,
   "generated_at": "2026-04-16T00:00:00Z",
   "at_loop_cap": false,
+  "phase": "$phase",
   "allowed_decisions": [
     "fix_now",
     "verify_first",
@@ -173,7 +182,7 @@ test_valid_plan_to_plan_reviewed() {
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
   touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
   write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
-  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "clean"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
@@ -573,6 +582,52 @@ PY
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "review backlog schema invalid" && echo "$output" | grep -q "field 'severity'" && echo "$output" | grep -q "field 'summary'"
+}
+
+test_plan_to_plan_reviewed_rejects_review_phase_backlog() {
+  # Guard: a future orchestrator that forgets --phase plan would build a
+  # review-phase backlog (with decision values like verify_first/drop) and
+  # still pass schema checks. The validator must reject it so approved
+  # plans never fall through without actionable fix_now/verify_first tags.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  # "actionable" mode with default phase="review" -> schema valid but
+  # phase mismatch.
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "actionable" "review"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "expected phase='plan'"
+}
+
+test_plan_to_plan_reviewed_rejects_non_actionable_decision() {
+  # Plan-phase approval requires every item to be actionable for the builder.
+  # A drop/defer/needs_human_decision item must fail -- even if phase="plan"
+  # is set, a forgotten --phase flag on merge would produce exactly that.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  # phase="plan" but decision="drop" -> must fail the actionable check
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "clean" "plan"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "non-actionable"
 }
 
 test_valid_reviewing_to_fixing() {
@@ -1009,6 +1064,8 @@ run_test test_valid_presentation_complete_to_building
 run_test test_plan_to_plan_reviewed_rejects_invalid_backlog_item_schema
 run_test test_plan_to_plan_reviewed_rejects_false_typed_backlog_fields
 run_test test_plan_to_plan_reviewed_rejects_invalid_backlog_finding_fields
+run_test test_plan_to_plan_reviewed_rejects_review_phase_backlog
+run_test test_plan_to_plan_reviewed_rejects_non_actionable_decision
 run_test test_non_numeric_allowlist_iterations
 run_test test_zero_allowlist_iterations_are_rejected
 run_test test_validation_log_written

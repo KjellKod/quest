@@ -544,6 +544,8 @@ class TestFetchDeepCiFiles:
         assert "print('ok')" in rendered
 
     def test_deep_ci_hard_cap_file_renders_mode_skipped_with_reason(self, monkeypatch):
+        # Backstop path: metadata is unknown (no size field), so the gh api
+        # call runs and the post-fetch safeguard rejects the oversized body.
         def fake_run(cmd, check, capture_output, text):
             return subprocess.CompletedProcess(cmd, 0, stdout="x" * 50, stderr="")
 
@@ -559,6 +561,57 @@ class TestFetchDeepCiFiles:
         assert snapshots[0]["mode"] == "skipped"
         assert "Mode: skipped" in rendered
         assert "hard fetch cap of 20 chars" in rendered
+
+    def test_fetch_deep_ci_files_skips_pre_fetch_when_metadata_size_exceeds_hard_cap(
+        self, monkeypatch
+    ):
+        # Pre-fetch path: metadata reports size > cap, so the gh api call
+        # must NEVER run. The snapshot still renders as Mode: skipped with
+        # the same hard-cap reason string to preserve F1 visibility.
+        calls = []
+
+        def fake_run(cmd, check, capture_output, text):
+            calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, stdout="should-not-be-read", stderr="")
+
+        monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
+        snapshots = codex_review.fetch_deep_ci_files(
+            "owner/repo",
+            "abc123",
+            ["src/huge.py"],
+            changed_line_ranges={"src/huge.py": [(1, 2)]},
+            max_fetch_chars=20,
+            file_metadata=[{"path": "src/huge.py", "size": 500}],
+        )
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/huge.py"])
+
+        assert calls == []  # hard-cap candidate never reached gh api
+        assert len(snapshots) == 1
+        assert snapshots[0]["mode"] == "skipped"
+        assert "hard fetch cap of 20 chars" in snapshots[0]["reason"]
+        assert "Mode: skipped" in rendered
+        assert "hard fetch cap of 20 chars" in rendered
+
+    def test_fetch_deep_ci_files_still_fetches_when_metadata_size_under_cap(
+        self, monkeypatch
+    ):
+        # Metadata-under-cap path: fetch proceeds and small body is kept.
+        calls = []
+
+        def fake_run(cmd, check, capture_output, text):
+            calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, stdout="print('ok')\n", stderr="")
+
+        monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
+        snapshots = codex_review.fetch_deep_ci_files(
+            "owner/repo",
+            "abc123",
+            ["src/small.py"],
+            file_metadata=[{"path": "src/small.py", "size": 10}],
+        )
+
+        assert len(calls) == 1
+        assert snapshots[0]["mode"] == "full"
 
     def test_fetch_deep_ci_files_chunks_oversized_file_with_changed_ranges(self, monkeypatch):
         content = "\n".join(f"line {i}" for i in range(1, 30)) + "\n"

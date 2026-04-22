@@ -412,6 +412,29 @@ def fit_chunk_to_char_cap(chunk, changed_lines, cap=DEEP_CI_MAX_CHUNK_CHARS):
     }
 
 
+def _metadata_size_exceeds_hard_cap(file_info, max_fetch_chars):
+    """Return True when PR file metadata reports a size exceeding the hard cap.
+
+    Treat any missing or non-integer size field as "unknown size, proceed to
+    fetch" so the post-fetch safeguard remains the backstop. GitHub's PR
+    files endpoint does not guarantee a byte-size field, so we check a small
+    allowlist of plausible keys that callers may populate (``size``,
+    ``byteSize``, ``char_count``). The function never disqualifies a file
+    based on line-count proxies like ``changes`` -- those are covered by
+    ``_is_large_by_metadata`` during candidate selection, not the hard-cap
+    pre-fetch guard.
+    """
+    if not isinstance(file_info, dict):
+        return False
+    for field in ("size", "byteSize", "char_count"):
+        value = file_info.get(field)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int) and value > max_fetch_chars:
+            return True
+    return False
+
+
 def fetch_deep_ci_files(
     repo,
     head_sha,
@@ -423,12 +446,37 @@ def fetch_deep_ci_files(
     context_lines=DEEP_CI_CHUNK_CONTEXT_LINES,
     max_chunks_per_file=DEEP_CI_MAX_CHUNKS_PER_FILE,
     max_chunk_chars=DEEP_CI_MAX_CHUNK_CHARS,
+    file_metadata=None,
 ):
     """Fetch selected PR-head full/chunked files as read-only Deep CI snapshots."""
     snapshots = []
     total_chars = 0
     changed_line_ranges = changed_line_ranges or {}
+    metadata_by_path = {}
+    if isinstance(file_metadata, dict):
+        metadata_by_path = file_metadata
+    elif isinstance(file_metadata, list):
+        for entry in file_metadata:
+            info = _normalize_path_info(entry)
+            path = info.get("path")
+            if path:
+                metadata_by_path[path] = info
+
     for path in selected_files:
+        metadata = metadata_by_path.get(path) or {}
+        # Pre-fetch guard: if PR metadata already tells us the file exceeds
+        # the hard fetch cap, skip the gh api call entirely. This preserves
+        # the F1 visibility behavior (rendered as Mode: skipped with a
+        # hard-cap reason) without pulling the full body first.
+        if _metadata_size_exceeds_hard_cap(metadata, max_fetch_chars):
+            snapshots.append(
+                _deep_ci_omitted_note(
+                    path,
+                    f"file exceeds Deep CI hard fetch cap of {max_fetch_chars} chars",
+                )
+            )
+            continue
+
         encoded_path = quote(path, safe="/")
         cmd = [
             "gh",
@@ -446,6 +494,9 @@ def fetch_deep_ci_files(
 
         content = result.stdout
         line_count = len(content.splitlines())
+        # Backstop: if metadata lacked a size field (or the size was under
+        # the cap but the real file exceeds it), skip with the same reason
+        # string as the pre-fetch path so downstream rendering is uniform.
         if len(content) > max_fetch_chars:
             snapshots.append(
                 _deep_ci_omitted_note(
@@ -705,6 +756,7 @@ def gather_context():
         head_sha,
         selected_deep_ci_files,
         changed_line_ranges=changed_line_ranges,
+        file_metadata=changed_file_metadata,
     )
     deep_ci_context = render_deep_ci_context(deep_ci_snapshots, selected_deep_ci_files)
     Path('/tmp/deep_ci_files.md').write_text(deep_ci_context, encoding='utf-8')
