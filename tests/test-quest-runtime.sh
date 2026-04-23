@@ -763,6 +763,73 @@ test_installer_preserves_modified_removed_managed_files_for_manual_cleanup() {
   return $rc
 }
 
+test_load_local_checksums_skips_unsafe_paths() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+
+  (
+    cd "$tmpdir" || exit 1
+    cat > .quest-checksums <<'EOF'
+# Quest Installer Checksums
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  tests/unit/test_review_intelligence.py
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  /tmp/outside.txt
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  ../outside.txt
+EOF
+    load_installer_functions
+
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    load_local_checksums
+
+    [ "${#LOCAL_CHECKSUM_FILES[@]}" -eq 1 ] &&
+      [ "${LOCAL_CHECKSUM_FILES[0]}" = "tests/unit/test_review_intelligence.py" ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_skips_unsafe_removed_managed_file_path() {
+  local tmpdir
+  local outside_file
+  tmpdir=$(mktemp -d)
+  outside_file="$(dirname "$tmpdir")/quest-installer-outside-$$.txt"
+
+  (
+    cd "$tmpdir" || exit 1
+    printf 'outside repo file\n' > "$outside_file"
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    COPY_AS_IS=("scripts/quest_state.py")
+    USER_CUSTOMIZED=()
+    MERGE_CAREFULLY=()
+    LOCAL_CHECKSUM_FILES=("../$(basename "$outside_file")")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum "../$(basename "$outside_file")")")
+    init_updated_checksums
+
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    cleanup_removed_managed_files
+
+    [ -e "../$(basename "$outside_file")" ] &&
+      [ "${#UPDATED_CHECKSUM_FILES[@]}" -eq 0 ]
+  )
+  local rc=$?
+  rm -f "$outside_file"
+  rm -rf "$tmpdir"
+  return $rc
+}
+
 test_installer_prunes_untracked_legacy_installed_source_only_test_matching_upstream() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -1495,6 +1562,8 @@ run_test test_installer_records_checksum_for_new_agents_file
 run_test test_installer_preserves_customized_agents_file_with_sidecar
 run_test test_installer_prunes_pristine_removed_managed_files
 run_test test_installer_preserves_modified_removed_managed_files_for_manual_cleanup
+run_test test_load_local_checksums_skips_unsafe_paths
+run_test test_installer_skips_unsafe_removed_managed_file_path
 run_test test_installer_prunes_untracked_legacy_installed_source_only_test_matching_upstream
 run_test test_installer_preserves_modified_untracked_legacy_installed_source_only_test
 run_test test_installer_preserves_unowned_source_only_test_path
