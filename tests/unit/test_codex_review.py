@@ -701,6 +701,42 @@ class TestFetchDeepCiFiles:
         assert snapshots[1]["mode"] == "skipped"
         assert "total-cap-exhausted" in rendered
 
+    def test_render_deep_ci_context_surfaces_partial_total_cap_omitted_windows(self):
+        # Manually construct a chunked snapshot with the total-cap omission
+        # metadata populated. The renderer must surface those dropped windows
+        # in the output so reviewers see them as explicitly omitted rather
+        # than silently absent.
+        snapshots = [
+            {
+                "path": "src/big.py",
+                "mode": "chunked",
+                "content": "",
+                "chunks": [
+                    {
+                        "start_line": 10,
+                        "end_line": 12,
+                        "changed_lines": [11],
+                        "changed_lines_included": [11],
+                        "changed_lines_omitted": [],
+                        "content": "row1\nrow2\nrow3",
+                    }
+                ],
+                "char_count": 9999,
+                "line_count": 500,
+                "changed_line_ranges": [(11, 11), (200, 205), (450, 452)],
+                "total_cap_omitted_windows": [
+                    {"start_line": 180, "end_line": 220},
+                    {"start_line": 430, "end_line": 470},
+                ],
+                "omitted": False,
+                "reason": "full file exceeded cap",
+            }
+        ]
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/big.py"])
+        assert "Total-cap omitted: 2 changed-line window(s)" in rendered
+        assert "180-220" in rendered
+        assert "430-470" in rendered
+
     def test_render_deep_ci_context_uses_longer_fence_for_chunk_backticks(self):
         snapshots = [
             {

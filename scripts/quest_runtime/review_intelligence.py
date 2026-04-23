@@ -389,6 +389,18 @@ def validate_review_backlog(backlog: Any) -> list[str]:
         return ["backlog JSON object must contain an 'items' list"]
 
     errors: list[str] = []
+
+    # Baseline phase enforcement: the top-level 'phase' field must be present
+    # and one of the allowed values. --expected-phase is the stricter equality
+    # check layered on top; this is the catch-all for typos/corruption/missing.
+    phase = backlog.get("phase")
+    if "phase" not in backlog:
+        errors.append("backlog must include a top-level 'phase' field")
+    elif not isinstance(phase, str) or phase not in ("plan", "review"):
+        errors.append(
+            f"backlog 'phase' must be one of 'plan' or 'review', got {phase!r}"
+        )
+
     required_decision_fields = (
         "decision",
         "decision_confidence",

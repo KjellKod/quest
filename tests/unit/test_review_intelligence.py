@@ -229,12 +229,42 @@ def test_validate_review_backlog_rejects_missing_decision_fields() -> None:
     backlog = {
         "version": 1,
         "generated_at": "2026-04-22T00:00:00Z",
+        "phase": "review",
         "items": [_finding()],
     }
 
     errors = validate_review_backlog(backlog)
 
     assert any("missing required field 'decision'" in error for error in errors)
+
+
+def test_validate_review_backlog_rejects_missing_phase_field() -> None:
+    backlog = {
+        "version": 1,
+        "generated_at": "2026-04-22T00:00:00Z",
+        "items": [],
+    }
+
+    errors = validate_review_backlog(backlog)
+
+    assert any(
+        "'phase'" in error and "must include" in error for error in errors
+    ), f"expected a missing-phase error, got: {errors}"
+
+
+def test_validate_review_backlog_rejects_phase_outside_allowed_values() -> None:
+    backlog = {
+        "version": 1,
+        "generated_at": "2026-04-22T00:00:00Z",
+        "phase": "garbage",
+        "items": [],
+    }
+
+    errors = validate_review_backlog(backlog)
+
+    assert any(
+        "'phase' must be one of 'plan' or 'review'" in error for error in errors
+    ), f"expected an invalid-phase error, got: {errors}"
 
 
 def test_append_deferred_findings_writes_one_json_object_per_line(tmp_path: Path) -> None:

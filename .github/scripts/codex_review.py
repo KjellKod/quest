@@ -546,7 +546,8 @@ def fetch_deep_ci_files(
             continue
 
         chunks = []
-        for window in windows:
+        total_cap_omitted_windows = []
+        for idx, window in enumerate(windows):
             start_line = window["start_line"]
             end_line = window["end_line"]
             changed_lines = []
@@ -568,6 +569,13 @@ def fetch_deep_ci_files(
                 continue
             chunk_chars = len(chunk_content)
             if total_chars + chunk_chars > max_total_chars:
+                # Total cap reached mid-file: record every remaining planned
+                # window (including this one) so rendering can surface the
+                # dropped ranges explicitly rather than silently truncating.
+                total_cap_omitted_windows = [
+                    {"start_line": w["start_line"], "end_line": w["end_line"]}
+                    for w in windows[idx:]
+                ]
                 break
             total_chars += chunk_chars
             chunks.append(
@@ -594,6 +602,7 @@ def fetch_deep_ci_files(
                 "char_count": len(content),
                 "line_count": line_count,
                 "changed_line_ranges": ranges,
+                "total_cap_omitted_windows": total_cap_omitted_windows,
                 "omitted": False,
                 "reason": (
                     f"full file exceeded {max_chars_per_file} chars; only changed-line windows are included"
@@ -651,6 +660,16 @@ def render_deep_ci_context(snapshots, selected_files=None):
             f"Included line ranges: {ranges}",
             f"Omitted: {snapshot.get('reason', '')}",
         ]
+        total_cap_omitted_windows = snapshot.get("total_cap_omitted_windows") or []
+        if total_cap_omitted_windows:
+            omitted_ranges = ", ".join(
+                f"{w['start_line']}-{w['end_line']}" for w in total_cap_omitted_windows
+            )
+            file_lines.append(
+                f"Total-cap omitted: {len(total_cap_omitted_windows)} changed-line "
+                f"window(s) ({omitted_ranges}) dropped because the Deep CI total "
+                f"character budget was exhausted"
+            )
         for chunk in chunks:
             chunk_header = f"### {path} lines {chunk['start_line']}-{chunk['end_line']}"
             chunk_lines = [
