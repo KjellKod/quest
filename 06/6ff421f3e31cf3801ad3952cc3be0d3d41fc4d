@@ -1,0 +1,40 @@
+tests/unit/test_codex_skill_wrappers.py
+  acdbef53fbc9d100 18,20,26-28,34,39
+.claude/hooks/enforce-allowlist.sh
+  acdbef53fbc9d100 50-51,61-91
+tests/integration/test-enforce-allowlist.sh
+  acdbef53fbc9d100 34-41,58-80,88-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "066ff421f3e31cf3801ad3952cc3be0d3d41fc4d",
+  "prompts": {
+    "70f91b8fc2733e44": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4616e57b-eaa9-4545-bc35-f11e0040c777",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 98,
+      "total_deletions": 1,
+      "accepted_lines": 98,
+      "overriden_lines": 0
+    },
+    "acdbef53fbc9d100": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db837-83cd-7660-a89a-a4f82eada223",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 76,
+      "total_deletions": 8,
+      "accepted_lines": 76,
+      "overriden_lines": 0
+    }
+  }
+}
