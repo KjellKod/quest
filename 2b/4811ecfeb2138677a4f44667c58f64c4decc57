@@ -1,0 +1,29 @@
+scripts/quest_allowlist_matcher.py
+  acdbef53fbc9d100 68-78,109-111
+scripts/quest_installer.sh
+  acdbef53fbc9d100 136,755
+tests/unit/test_allowlist_matcher.py
+  acdbef53fbc9d100 196-204,266-272
+tests/test-quest-runtime.sh
+  acdbef53fbc9d100 766,773-774,787-788,801,808,815-816,829-830,843-876,1498-1500
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2b4811ecfeb2138677a4f44667c58f64c4decc57",
+  "prompts": {
+    "acdbef53fbc9d100": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db837-83cd-7660-a89a-a4f82eada223",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 82,
+      "total_deletions": 20,
+      "accepted_lines": 82,
+      "overriden_lines": 0
+    }
+  }
+}
