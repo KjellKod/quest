@@ -1,0 +1,29 @@
+tests/unit/test_codex_review.py
+  acdbef53fbc9d100 517-532,756-784
+.github/scripts/codex_review.py
+  acdbef53fbc9d100 266,270,290,307,317-318,321-323,543,548,550-554,618,687-695
+.claude/hooks/enforce-allowlist.sh
+  acdbef53fbc9d100 32-53,63
+tests/integration/test-enforce-allowlist.sh
+  acdbef53fbc9d100 72-87,106-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "4873a95bc07087d34eca279b33bf011ee6053749",
+  "prompts": {
+    "acdbef53fbc9d100": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db837-83cd-7660-a89a-a4f82eada223",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 114,
+      "total_deletions": 7,
+      "accepted_lines": 114,
+      "overriden_lines": 0
+    }
+  }
+}
