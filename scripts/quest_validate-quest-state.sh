@@ -406,7 +406,7 @@ validate_plan_phase_backlog() {
 
     def path_group:
       (if (.write_scope | type) == "array" then
-        ([.write_scope[] | select(type == "string") | trim_string | select(. != "")] | sort | first // "")
+        ([.write_scope[] | select(type == "string") | select((. | trim_string) != "")] | sort | first // "")
       else
         ""
       end) as $candidate

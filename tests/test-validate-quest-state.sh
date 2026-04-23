@@ -719,6 +719,60 @@ test_plan_to_plan_reviewed_rejects_review_owner_and_batch() {
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "expected builder" && echo "$output" | grep -q "expected correctness-scripts"
 }
 
+test_plan_to_plan_reviewed_accepts_canonical_raw_write_scope_sorting() {
+  # The canonical Python builder filters whitespace-only write_scope entries,
+  # sorts the original strings, then trims the selected candidate. Keep the
+  # shell validator aligned so it does not reject valid plan-phase backlogs.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  cat > "$tmpdir/phase_01_plan/review_backlog.json" <<'EOF'
+{
+  "version": 1,
+  "generated_at": "2026-04-23T00:00:00Z",
+  "at_loop_cap": false,
+  "phase": "plan",
+  "allowed_decisions": ["fix_now", "verify_first", "defer", "drop", "needs_human_decision"],
+  "counts": {"fix_now": 1, "verify_first": 0, "defer": 0, "drop": 0, "needs_human_decision": 0},
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "source": "code-reviewer-a",
+      "kind": "correctness",
+      "severity": "medium",
+      "confidence": "medium",
+      "path": "scripts/example.py",
+      "line": 10,
+      "summary": "Potential issue in edge-case handling.",
+      "why_it_matters": "Could break behavior for uncommon inputs.",
+      "evidence": ["Reproducible with malformed payload."],
+      "action": "Add guard and tests for this edge case.",
+      "needs_test": true,
+      "write_scope": [" zeta/example.py", "alpha/example.py"],
+      "related_acceptance_criteria": ["AC-1"],
+      "decision": "fix_now",
+      "decision_confidence": "medium",
+      "reason": "Plan-phase canonical default: builder implements this finding now.",
+      "needs_validation": ["unit_test", "typecheck", "lint"],
+      "owner": "builder",
+      "batch": "correctness-zeta"
+    }
+  ]
+}
+EOF
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
+}
+
 test_valid_reviewing_to_fixing() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -1157,6 +1211,7 @@ run_test test_plan_to_plan_reviewed_rejects_review_phase_backlog
 run_test test_plan_to_plan_reviewed_rejects_non_actionable_decision
 run_test test_plan_to_plan_reviewed_rejects_verify_first_decision
 run_test test_plan_to_plan_reviewed_rejects_review_owner_and_batch
+run_test test_plan_to_plan_reviewed_accepts_canonical_raw_write_scope_sorting
 run_test test_non_numeric_allowlist_iterations
 run_test test_zero_allowlist_iterations_are_rejected
 run_test test_validation_log_written
