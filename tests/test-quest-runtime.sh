@@ -545,8 +545,9 @@ test_workflow_documents_arbiter_validate_build_publish_contract() {
     grep -Fq 'validate-findings --input .quest/<id>/phase_01_plan/review_findings.json.next' "$WORKFLOW_FILE" &&
     grep -Fq 'build-backlog --phase plan --findings .quest/<id>/phase_01_plan/review_findings.json.next --output .quest/<id>/phase_01_plan/review_backlog.json.next' "$WORKFLOW_FILE" &&
     grep -Fq 'validate-backlog --input .quest/<id>/phase_01_plan/review_backlog.json.next --expected-phase plan --strict-plan-defaults' "$WORKFLOW_FILE" &&
-    grep -Fq 'Existing `arbiter_verdict.md` is preserved during pre-run preparation.' "$WORKFLOW_FILE" &&
+    grep -Fq 'Canonical `arbiter_verdict.md` is not prepared or truncated; publish `arbiter_verdict.md.next` only after validation succeeds.' "$WORKFLOW_FILE" &&
     grep -Fq 'os.replace(".quest/<id>/phase_01_plan/review_findings.json.next", ".quest/<id>/phase_01_plan/review_findings.json")' "$WORKFLOW_FILE" &&
+    grep -Fq 'os.replace(".quest/<id>/phase_01_plan/arbiter_verdict.md.next", ".quest/<id>/phase_01_plan/arbiter_verdict.md")' "$WORKFLOW_FILE" &&
     grep -Fq 'If arbiter handoff says `next: planner`' "$WORKFLOW_FILE" &&
     grep -Fq 'Do **not** call `quest_state.py --transition plan_reviewed`.' "$WORKFLOW_FILE"
 }
@@ -749,11 +750,13 @@ test_quest_startup_branch_exception_handler_tolerates_missing_git() {
 }
 
 test_plan_review_retry_harness_preserves_canonical_artifacts_until_publish() {
-  local tmpdir phase_dir findings_file backlog_file findings_next backlog_next
+  local tmpdir phase_dir verdict_file findings_file backlog_file verdict_next findings_next backlog_next
   tmpdir=$(mktemp -d)
   phase_dir="$tmpdir/phase_01_plan"
+  verdict_file="$phase_dir/arbiter_verdict.md"
   findings_file="$phase_dir/review_findings.json"
   backlog_file="$phase_dir/review_backlog.json"
+  verdict_next="$phase_dir/arbiter_verdict.md.next"
   findings_next="$phase_dir/review_findings.json.next"
   backlog_next="$phase_dir/review_backlog.json.next"
   mkdir -p "$phase_dir"
@@ -812,8 +815,10 @@ EOF
   ]
 }
 EOF
+  echo "old verdict" > "$verdict_file"
 
-  local canonical_findings_before canonical_backlog_before
+  local canonical_verdict_before canonical_findings_before canonical_backlog_before
+  canonical_verdict_before=$(cat "$verdict_file")
   canonical_findings_before=$(cat "$findings_file")
   canonical_backlog_before=$(cat "$backlog_file")
 
@@ -821,7 +826,8 @@ EOF
   local transition_attempts=0 transition_attempts_before_publish=0 published=false
   while [ "$attempts" -lt 2 ]; do
     attempts=$((attempts + 1))
-    rm -f "$findings_next" "$backlog_next"
+    rm -f "$verdict_next" "$findings_next" "$backlog_next"
+    echo "arbiter attempt $attempts" > "$verdict_next"
     if [ "$attempts" -eq 1 ]; then
       cat > "$findings_next" <<'EOF'
 [
@@ -859,6 +865,7 @@ EOF
     fi
 
     retries=$((retries + 1))
+    [ "$(cat "$verdict_file")" = "$canonical_verdict_before" ] || { rm -rf "$tmpdir"; return 1; }
     [ "$(cat "$findings_file")" = "$canonical_findings_before" ] || { rm -rf "$tmpdir"; return 1; }
     [ "$(cat "$backlog_file")" = "$canonical_backlog_before" ] || { rm -rf "$tmpdir"; return 1; }
     [ "$retries" -le 1 ] || { rm -rf "$tmpdir"; return 1; }
@@ -869,7 +876,7 @@ EOF
   [ "$retries" -eq 1 ] || { rm -rf "$tmpdir"; return 1; }
 
   python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" build-backlog --phase plan --findings "$findings_next" --output "$backlog_next" >/dev/null 2>&1 || { rm -rf "$tmpdir"; return 1; }
-  python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-backlog --input "$backlog_next" >/dev/null 2>&1 || { rm -rf "$tmpdir"; return 1; }
+  python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-backlog --input "$backlog_next" --expected-phase plan --strict-plan-defaults >/dev/null 2>&1 || { rm -rf "$tmpdir"; return 1; }
 
   attempt_transition() {
     transition_attempts=$((transition_attempts + 1))
@@ -878,23 +885,28 @@ EOF
     fi
   }
 
+  [ -s "$verdict_next" ] || { rm -rf "$tmpdir"; return 1; }
   [ -s "$findings_next" ] || { rm -rf "$tmpdir"; return 1; }
   [ -s "$backlog_next" ] || { rm -rf "$tmpdir"; return 1; }
 
+  mv "$verdict_next" "$verdict_file" || { rm -rf "$tmpdir"; return 1; }
   mv "$findings_next" "$findings_file" || { rm -rf "$tmpdir"; return 1; }
   mv "$backlog_next" "$backlog_file" || { rm -rf "$tmpdir"; return 1; }
   published=true
   attempt_transition
 
-  local canonical_findings_after canonical_backlog_after
+  local canonical_verdict_after canonical_findings_after canonical_backlog_after
+  canonical_verdict_after=$(cat "$verdict_file")
   canonical_findings_after=$(cat "$findings_file")
   canonical_backlog_after=$(cat "$backlog_file")
 
   local rc=0
   [ "$transition_attempts" -eq 1 ] || rc=1
   [ "$transition_attempts_before_publish" -eq 0 ] || rc=1
+  [ "$canonical_verdict_after" != "$canonical_verdict_before" ] || rc=1
   [ "$canonical_findings_after" != "$canonical_findings_before" ] || rc=1
   [ "$canonical_backlog_after" != "$canonical_backlog_before" ] || rc=1
+  [ -s "$verdict_file" ] || rc=1
   [ -s "$findings_file" ] || rc=1
   [ -s "$backlog_file" ] || rc=1
 
@@ -903,16 +915,20 @@ EOF
 }
 
 test_plan_review_retry_via_runner_preserves_canonical_artifacts_until_publish() {
-  local tmpdir phase_dir findings_file backlog_file findings_next backlog_next prompt_file handoff_file
+  local tmpdir phase_dir verdict_file findings_file backlog_file verdict_next findings_next backlog_next prompt_file handoff_file
   tmpdir=$(mktemp -d)
   phase_dir="$tmpdir/phase_01_plan"
+  verdict_file="$phase_dir/arbiter_verdict.md"
   findings_file="$phase_dir/review_findings.json"
   backlog_file="$phase_dir/review_backlog.json"
+  verdict_next="$phase_dir/arbiter_verdict.md.next"
   findings_next="$phase_dir/review_findings.json.next"
   backlog_next="$phase_dir/review_backlog.json.next"
   prompt_file="$phase_dir/arbiter_prompt.txt"
   handoff_file="$phase_dir/handoff_arbiter.json"
   mkdir -p "$phase_dir"
+
+  echo "old canonical verdict" > "$verdict_file"
 
   cat > "$findings_file" <<'EOF'
 [
@@ -987,7 +1003,7 @@ if attempt_file.exists():
         attempt = 1
 attempt_file.write_text(str(attempt), encoding="utf-8")
 
-verdict_path = phase_dir / "arbiter_verdict.md"
+verdict_path = phase_dir / "arbiter_verdict.md.next"
 findings_path = phase_dir / "review_findings.json.next"
 handoff_path = phase_dir / "handoff_arbiter.json"
 verdict_path.write_text(f"arbiter attempt {attempt}\n", encoding="utf-8")
@@ -1082,10 +1098,12 @@ print(f"{st.st_mtime_ns}|{st.st_ino}|{st.st_size}|{digest}")
 PY
   }
 
-  local canonical_findings_before canonical_backlog_before
+  local canonical_verdict_before canonical_findings_before canonical_backlog_before
+  canonical_verdict_before=$(cat "$verdict_file")
   canonical_findings_before=$(cat "$findings_file")
   canonical_backlog_before=$(cat "$backlog_file")
-  local findings_snapshot_before backlog_snapshot_before
+  local verdict_snapshot_before findings_snapshot_before backlog_snapshot_before
+  verdict_snapshot_before=$(stat_snapshot "$verdict_file")
   findings_snapshot_before=$(stat_snapshot "$findings_file")
   backlog_snapshot_before=$(stat_snapshot "$backlog_file")
 
@@ -1109,6 +1127,7 @@ PY
     [ "$result_kind" = "handoff_json" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
 
     # Stat-level canonical invariant: fails identical-byte rewrites too.
+    [ "$(stat_snapshot "$verdict_file")" = "$verdict_snapshot_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
     [ "$(stat_snapshot "$findings_file")" = "$findings_snapshot_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
     [ "$(stat_snapshot "$backlog_file")" = "$backlog_snapshot_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
 
@@ -1120,6 +1139,7 @@ PY
     record_event validate result=fail attempt="$attempts"
 
     retries=$((retries + 1))
+    [ "$(cat "$verdict_file")" = "$canonical_verdict_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
     [ "$(cat "$findings_file")" = "$canonical_findings_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
     [ "$(cat "$backlog_file")" = "$canonical_backlog_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
     [ "$retries" -le 1 ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
@@ -1131,16 +1151,18 @@ PY
   [ "$(cat "$phase_dir/arbiter_attempt.txt")" = "2" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
 
   python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" build-backlog --phase plan --findings "$findings_next" --output "$backlog_next" >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
-  python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-backlog --input "$backlog_next" >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-backlog --input "$backlog_next" --expected-phase plan --strict-plan-defaults >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
 
   # Canonical files must still be untouched after build-backlog/validate — including
   # any identical-byte rewrite (detected by mtime/inode shift in stat_snapshot).
+  [ "$(stat_snapshot "$verdict_file")" = "$verdict_snapshot_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   [ "$(stat_snapshot "$findings_file")" = "$findings_snapshot_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   [ "$(stat_snapshot "$backlog_file")" = "$backlog_snapshot_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
 
   # Capture the .next sha256 immediately before publish for a post-publish
   # content-identity check that doesn't depend on the local canonical_* strings.
-  local findings_next_sha_prepublish backlog_next_sha_prepublish
+  local verdict_next_sha_prepublish findings_next_sha_prepublish backlog_next_sha_prepublish
+  verdict_next_sha_prepublish=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$verdict_next")
   findings_next_sha_prepublish=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$findings_next")
   backlog_next_sha_prepublish=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$backlog_next")
 
@@ -1151,9 +1173,11 @@ PY
     record_event transition when="$1"
   }
 
+  [ -s "$verdict_next" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   [ -s "$findings_next" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   [ -s "$backlog_next" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
 
+  mv "$verdict_next" "$verdict_file" || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   mv "$findings_next" "$findings_file" || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   mv "$backlog_next" "$backlog_file" || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   published=true
@@ -1163,13 +1187,15 @@ PY
   python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-findings --input "$findings_file" >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-backlog --input "$backlog_file" >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
 
-  local canonical_findings_after canonical_backlog_after
+  local canonical_verdict_after canonical_findings_after canonical_backlog_after
+  canonical_verdict_after=$(cat "$verdict_file")
   canonical_findings_after=$(cat "$findings_file")
   canonical_backlog_after=$(cat "$backlog_file")
 
   # Post-publish: canonical sha256 must match the .next sha256 captured immediately
   # before publish (proves publish is the only event that mutated canonical).
-  local findings_post_sha backlog_post_sha
+  local verdict_post_sha findings_post_sha backlog_post_sha
+  verdict_post_sha=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$verdict_file")
   findings_post_sha=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$findings_file")
   backlog_post_sha=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$backlog_file")
 
@@ -1227,11 +1253,14 @@ PY
   local rc=0
   [ "$sequence_report" = "OK" ] || rc=1
 
+  [ "$verdict_post_sha" = "$verdict_next_sha_prepublish" ] || rc=1
   [ "$findings_post_sha" = "$findings_next_sha_prepublish" ] || rc=1
   [ "$backlog_post_sha" = "$backlog_next_sha_prepublish" ] || rc=1
 
+  [ "$canonical_verdict_after" != "$canonical_verdict_before" ] || rc=1
   [ "$canonical_findings_after" != "$canonical_findings_before" ] || rc=1
   [ "$canonical_backlog_after" != "$canonical_backlog_before" ] || rc=1
+  [ -s "$verdict_file" ] || rc=1
   [ -s "$findings_file" ] || rc=1
   [ -s "$backlog_file" ] || rc=1
 

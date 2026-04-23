@@ -34,7 +34,7 @@ The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It fi
 5. Produce a **synthesized verdict** with one of:
    - `iterate` — plan needs changes. Provide a focused, prioritized list of issues for the Planner.
    - `approve` — plan is good enough. Proceed to Builder.
-6. Write the verdict to `.quest/<id>/phase_01_plan/arbiter_verdict.md`
+6. Write the verdict to `.quest/<id>/phase_01_plan/arbiter_verdict.md.next`
 7. Synthesize canonical findings from both review markdown artifacts and write:
    - `.quest/<id>/phase_01_plan/review_findings.json` (or the orchestrator-provided `.next` scratch path for atomic publish)
    - If no actionable findings exist, write an empty array (`[]`) instead of skipping the file
@@ -108,7 +108,7 @@ A plan is NOT ready when:
 {
   "status": "complete | needs_human | blocked",
   "artifacts": [
-    ".quest/<id>/phase_01_plan/arbiter_verdict.md",
+    ".quest/<id>/phase_01_plan/arbiter_verdict.md.next",
     ".quest/<id>/phase_01_plan/review_findings.json.next"
   ],
   "next": "planner | builder",
@@ -120,7 +120,7 @@ A plan is NOT ready when:
 ```text
 ---HANDOFF---
 STATUS: complete | needs_human | blocked
-ARTIFACTS: .quest/<id>/phase_01_plan/arbiter_verdict.md, .quest/<id>/phase_01_plan/review_findings.json.next
+ARTIFACTS: .quest/<id>/phase_01_plan/arbiter_verdict.md.next, .quest/<id>/phase_01_plan/review_findings.json.next
 NEXT: planner | builder
 SUMMARY: Iteration <N>: <approve|iterate> — <reason>
 ```

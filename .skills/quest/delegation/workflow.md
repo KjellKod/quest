@@ -128,7 +128,7 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 5. **Artifact preparation (before every role invocation):**
    Before invoking any role, the orchestrator MUST:
    1. Resolve artifact paths: `expected_artifacts_for_role(quest_dir, phase, agent)`
-   2. Prepare files: `prepare_artifact_files(paths)` — creates parent directories and truncates role-output files while preserving canonical state files that the runtime marks preserve-on-prepare.
+   2. Prepare files: `prepare_artifact_files(paths)` — creates parent directories and truncates role-output scratch files.
    3. Include in the role prompt:
       ```
       Artifact files have been prepared for you. Overwrite these files directly:
@@ -300,7 +300,7 @@ gates.max_plan_iterations (default: 4)
 
 **Loop:**
 
-0. **Clear stale handoff and scratch files:** If `plan_iteration >= 1` (i.e., any refinement pass after the first), delete any existing `handoff*.json` files in `.quest/<id>/phase_01_plan/` to prevent stale data from a previous iteration being read. Also delete stale arbiter scratch files (`review_findings.json.next`, `review_backlog.json.next`) before each arbiter attempt. Do **not** truncate last-known-good canonical files (`arbiter_verdict.md`, `review_findings.json`, `review_backlog.json`) during cleanup.
+0. **Clear stale handoff and scratch files:** If `plan_iteration >= 1` (i.e., any refinement pass after the first), delete any existing `handoff*.json` files in `.quest/<id>/phase_01_plan/` to prevent stale data from a previous iteration being read. Also delete stale arbiter scratch files (`arbiter_verdict.md.next`, `review_findings.json.next`, `review_backlog.json.next`) before each arbiter attempt. Do **not** truncate last-known-good canonical files (`arbiter_verdict.md`, `review_findings.json`, `review_backlog.json`) during cleanup.
 
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
@@ -481,11 +481,11 @@ gates.max_plan_iterations (default: 4)
      - `.quest/<id>/phase_01_plan/review_findings.json.next`
      - `.quest/<id>/phase_01_plan/review_backlog.json.next`
    - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare:
-     - `arbiter_verdict.md`
+     - `arbiter_verdict.md.next`
      - `review_findings.json.next`
      - `handoff_arbiter.json`
      in `.quest/<id>/phase_01_plan/`.
-     Existing `arbiter_verdict.md` is preserved during pre-run preparation.
+     Canonical `arbiter_verdict.md` is not prepared or truncated; publish `arbiter_verdict.md.next` only after validation succeeds.
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -498,7 +498,7 @@ gates.max_plan_iterations (default: 4)
      Review B: .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
 
      Artifact files have been prepared for you. Overwrite these files directly:
-     - .quest/<id>/phase_01_plan/arbiter_verdict.md
+     - .quest/<id>/phase_01_plan/arbiter_verdict.md.next
      - .quest/<id>/phase_01_plan/review_findings.json.next
      - .quest/<id>/phase_01_plan/handoff_arbiter.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
@@ -519,8 +519,10 @@ gates.max_plan_iterations (default: 4)
        - Surface validator output in orchestrator logs/user message.
        - Keep canonical artifacts untouched; keep `.next` files for debugging.
    - If arbiter handoff says `next: planner`:
-     - Skip `build-backlog` and skip atomic publish.
-     - Clean `.next` scratch files.
+     - Skip `build-backlog` and skip review findings/backlog publish.
+     - Publish the validated verdict scratch artifact:
+       - `os.replace(".quest/<id>/phase_01_plan/arbiter_verdict.md.next", ".quest/<id>/phase_01_plan/arbiter_verdict.md")`
+     - Clean `review_findings.json.next` / `review_backlog.json.next` scratch files.
      - Preserve canonical `review_findings.json` / `review_backlog.json`.
      - Return control to planner refinement loop.
    - If arbiter handoff says `next: builder` and findings validation passed:
@@ -529,7 +531,8 @@ gates.max_plan_iterations (default: 4)
      - Validate the plan-phase backlog before publish:
        - `python3 scripts/quest_review_intelligence.py validate-backlog --input .quest/<id>/phase_01_plan/review_backlog.json.next --expected-phase plan --strict-plan-defaults`
      - On build-backlog or validate-backlog failure: STOP route, do not transition, preserve canonical artifacts, leave `.next` files for inspection.
-     - Publish atomically only after both files validate:
+     - Publish atomically only after validation succeeds:
+       - `os.replace(".quest/<id>/phase_01_plan/arbiter_verdict.md.next", ".quest/<id>/phase_01_plan/arbiter_verdict.md")`
        - `os.replace(".quest/<id>/phase_01_plan/review_findings.json.next", ".quest/<id>/phase_01_plan/review_findings.json")`
        - `os.replace(".quest/<id>/phase_01_plan/review_backlog.json.next", ".quest/<id>/phase_01_plan/review_backlog.json")`
      - On publish failure: STOP route, log full error, do not transition, and leave `.next` files in place.
