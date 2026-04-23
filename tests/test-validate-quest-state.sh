@@ -640,7 +640,7 @@ test_plan_to_plan_reviewed_rejects_non_actionable_decision() {
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "expected fix_now"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "must be 'fix_now'"
 }
 
 test_plan_to_plan_reviewed_rejects_verify_first_decision() {
@@ -695,7 +695,7 @@ EOF
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "decision=verify_first"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "verify_first"
 }
 
 test_plan_to_plan_reviewed_rejects_review_owner_and_batch() {
@@ -716,7 +716,7 @@ test_plan_to_plan_reviewed_rejects_review_owner_and_batch() {
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "expected builder" && echo "$output" | grep -q "expected correctness-scripts"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "must be 'builder'" && echo "$output" | grep -q "must be 'correctness-scripts'"
 }
 
 test_plan_to_plan_reviewed_accepts_canonical_raw_write_scope_sorting() {

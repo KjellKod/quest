@@ -20,6 +20,7 @@ from quest_runtime.review_intelligence import (
     select_decision,
     synthesize_findings_from_review_markdown,
     synthesize_plan_review_findings,
+    validate_plan_phase_defaults,
     validate_review_backlog,
     validate_findings,
 )
@@ -189,6 +190,27 @@ def test_build_backlog_plan_phase_defaults_to_fix_now_builder_and_deterministic_
     assert item["owner"] == "builder"
     assert item["batch"] == "edge-case-scripts"
     assert item["needs_validation"] == ["unit_test", "typecheck", "lint"]
+
+
+def test_validate_plan_phase_defaults_rejects_review_style_semantics() -> None:
+    finding = _finding(
+        finding_id="PLAN-DRIFT-1",
+        source="arbiter",
+        kind="edge-case",
+        path="scripts/quest_runtime/review_intelligence.py",
+        write_scope=["scripts/quest_runtime/review_intelligence.py"],
+    )
+    backlog = build_review_backlog([finding], at_loop_cap=False, phase="plan")
+    item = backlog["items"][0]
+    item["decision"] = "verify_first"
+    item["owner"] = "scripts"
+    item["batch"] = "scripts/quest_runtime/review_intelligence.py"
+
+    errors = validate_plan_phase_defaults(backlog)
+
+    assert any("field 'decision' must be 'fix_now'" in error for error in errors)
+    assert any("field 'owner' must be 'builder'" in error for error in errors)
+    assert any("field 'batch' must be 'edge-case-scripts'" in error for error in errors)
 
 
 def test_build_backlog_preserves_review_phase_policy_for_code_review_findings() -> None:
@@ -581,6 +603,7 @@ def test_validate_backlog_cli_expected_phase_rejects_review_phase_backlog(
             str(backlog_path),
             "--expected-phase",
             "plan",
+            "--strict-plan-defaults",
         ],
         capture_output=True,
         text=True,
@@ -634,6 +657,7 @@ def test_validate_backlog_cli_expected_phase_accepts_matching_plan_backlog(
             str(backlog_path),
             "--expected-phase",
             "plan",
+            "--strict-plan-defaults",
         ],
         capture_output=True,
         text=True,
@@ -644,6 +668,72 @@ def test_validate_backlog_cli_expected_phase_accepts_matching_plan_backlog(
     payload = json.loads(result.stdout)
     assert payload["ok"] is True
     assert payload["errors"] == []
+
+
+def test_validate_backlog_cli_strict_plan_defaults_rejects_drifted_plan_backlog(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    findings_path = tmp_path / "findings.json"
+    backlog_path = tmp_path / "backlog.json"
+    findings_path.write_text(
+        json.dumps([_finding(kind="edge-case")], indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    build = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "build-backlog",
+            "--phase",
+            "plan",
+            "--findings",
+            str(findings_path),
+            "--output",
+            str(backlog_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert build.returncode == 0
+    drifted = json.loads(backlog_path.read_text(encoding="utf-8"))
+    drifted["items"][0]["decision"] = "verify_first"
+    drifted["items"][0]["owner"] = "scripts"
+    drifted["items"][0]["batch"] = "scripts/example.py"
+    backlog_path.write_text(
+        json.dumps(drifted, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "validate-backlog",
+            "--input",
+            str(backlog_path),
+            "--expected-phase",
+            "plan",
+            "--strict-plan-defaults",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert any(
+        "field 'decision' must be 'fix_now'" in err for err in payload["errors"]
+    )
+    assert any("field 'owner' must be 'builder'" in err for err in payload["errors"])
+    assert any(
+        "field 'batch' must be 'edge-case-scripts'" in err
+        for err in payload["errors"]
+    )
 
 
 def test_validate_backlog_cli_expected_phase_rejects_missing_phase_field(

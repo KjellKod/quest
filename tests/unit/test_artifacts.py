@@ -150,15 +150,29 @@ class TestPrepareArtifactFiles:
     def test_arbiter_prepare_touches_next_file_not_canonical_findings(self, tmp_path: Path):
         quest_dir = tmp_path / "quest"
         canonical = quest_dir / "phase_01_plan" / "review_findings.json"
+        verdict = quest_dir / "phase_01_plan" / "arbiter_verdict.md"
         canonical.parent.mkdir(parents=True, exist_ok=True)
         canonical.write_text('[{"finding_id":"stable"}]\n', encoding="utf-8")
+        verdict.write_text("APPROVED\n", encoding="utf-8")
         original = canonical.read_text(encoding="utf-8")
+        original_verdict = verdict.read_text(encoding="utf-8")
 
         artifacts = expected_artifacts_for_role(quest_dir, "plan_review", "arbiter")
         prepare_artifact_files(artifacts)
 
         assert canonical.read_text(encoding="utf-8") == original
+        assert verdict.read_text(encoding="utf-8") == original_verdict
         assert (quest_dir / "phase_01_plan" / "review_findings.json.next").exists()
+
+    def test_arbiter_prepare_creates_missing_verdict(self, tmp_path: Path):
+        quest_dir = tmp_path / "quest"
+        verdict = quest_dir / "phase_01_plan" / "arbiter_verdict.md"
+
+        artifacts = expected_artifacts_for_role(quest_dir, "plan_review", "arbiter")
+        prepare_artifact_files(artifacts)
+
+        assert verdict.exists()
+        assert verdict.read_text(encoding="utf-8") == ""
 
 
 # ---------------------------------------------------------------------------

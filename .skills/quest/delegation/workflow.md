@@ -128,7 +128,7 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 5. **Artifact preparation (before every role invocation):**
    Before invoking any role, the orchestrator MUST:
    1. Resolve artifact paths: `expected_artifacts_for_role(quest_dir, phase, agent)`
-   2. Prepare files: `prepare_artifact_files(paths)` — creates parent directories and truncates files
+   2. Prepare files: `prepare_artifact_files(paths)` — creates parent directories and truncates role-output files while preserving canonical state files that the runtime marks preserve-on-prepare.
    3. Include in the role prompt:
       ```
       Artifact files have been prepared for you. Overwrite these files directly:
@@ -485,6 +485,7 @@ gates.max_plan_iterations (default: 4)
      - `review_findings.json.next`
      - `handoff_arbiter.json`
      in `.quest/<id>/phase_01_plan/`.
+     Existing `arbiter_verdict.md` is preserved during pre-run preparation.
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -526,7 +527,7 @@ gates.max_plan_iterations (default: 4)
      - Build backlog from validated findings:
        - `python3 scripts/quest_review_intelligence.py build-backlog --phase plan --findings .quest/<id>/phase_01_plan/review_findings.json.next --output .quest/<id>/phase_01_plan/review_backlog.json.next`
      - Validate the plan-phase backlog before publish:
-       - `python3 scripts/quest_review_intelligence.py validate-backlog --input .quest/<id>/phase_01_plan/review_backlog.json.next --expected-phase plan`
+       - `python3 scripts/quest_review_intelligence.py validate-backlog --input .quest/<id>/phase_01_plan/review_backlog.json.next --expected-phase plan --strict-plan-defaults`
      - On build-backlog or validate-backlog failure: STOP route, do not transition, preserve canonical artifacts, leave `.next` files for inspection.
      - Publish atomically only after both files validate:
        - `os.replace(".quest/<id>/phase_01_plan/review_findings.json.next", ".quest/<id>/phase_01_plan/review_findings.json")`
@@ -535,7 +536,7 @@ gates.max_plan_iterations (default: 4)
 
 6. **Check verdict and transition guard:**
    - If `NEXT: builder`:
-     - **Workflow mode only:** Transition only after successful `validate-findings` + `build-backlog --phase plan` (+ optional `validate-backlog`) + atomic publish. In solo mode the arbiter is skipped (see item 5 above), and so is the validate/build/publish pipeline — transition directly without those prerequisites.
+     - **Workflow mode only:** Transition only after successful `validate-findings` + `build-backlog --phase plan` + `validate-backlog --expected-phase plan --strict-plan-defaults` + atomic publish. In solo mode the arbiter is skipped (see item 5 above), and so is the validate/build/publish pipeline — transition directly without those prerequisites.
      - Then transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan_reviewed --status complete --last-verdict approve --expect-phase plan` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to **Step 3.5** (Interactive Presentation). Do not attempt the `presenting` transition while state still says `phase: plan`.
    - If `NEXT: planner` → Check iteration count
      - If `plan_iteration >= max_plan_iterations`: Warn user, ask to proceed anyway or review manually

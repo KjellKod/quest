@@ -449,6 +449,40 @@ def validate_review_backlog(backlog: Any) -> list[str]:
     return errors
 
 
+def validate_plan_phase_defaults(backlog: Any) -> list[str]:
+    """Validate plan-phase backlog items match canonical builder defaults."""
+
+    if not isinstance(backlog, dict):
+        return ["backlog must be a JSON object"]
+
+    errors: list[str] = []
+    phase = backlog.get("phase")
+    if phase != "plan":
+        errors.append(f"strict plan defaults require phase='plan', got {phase!r}")
+
+    items = backlog.get("items")
+    if not isinstance(items, list):
+        return errors + ["backlog JSON object must contain an 'items' list"]
+
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        try:
+            expected = _plan_phase_decision(item)
+        except ValueError:
+            # validate_review_backlog reports the malformed finding fields.
+            continue
+        for field in ("decision", "owner", "batch"):
+            actual = item.get(field)
+            if actual != expected[field]:
+                errors.append(
+                    f"[{index}] plan-phase field '{field}' must be "
+                    f"{expected[field]!r}, got {actual!r}"
+                )
+
+    return errors
+
+
 def append_deferred_findings(
     jsonl_path: Path,
     findings: list[dict[str, Any]],

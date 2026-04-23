@@ -22,6 +22,7 @@ from quest_runtime.review_intelligence import (
     merge_and_dedupe,
     scan_deferred_backlog,
     utc_now_iso,
+    validate_plan_phase_defaults,
     validate_review_backlog,
     validate_findings,
 )
@@ -116,6 +117,8 @@ def _cmd_validate_backlog(args: argparse.Namespace) -> int:
             errors = list(errors) + [
                 f"expected phase='{expected_phase}' but backlog has phase='{actual_phase}'"
             ]
+    if getattr(args, "strict_plan_defaults", False):
+        errors = list(errors) + validate_plan_phase_defaults(payload)
     item_count = len(payload.get("items", [])) if isinstance(payload, dict) else 0
     print(json.dumps({"ok": not errors, "count": item_count, "errors": errors}, indent=2, sort_keys=True))
     return 1 if errors else 0
@@ -324,6 +327,14 @@ def parse_args() -> argparse.Namespace:
         help=(
             "When set, also verify backlog['phase'] matches this value. "
             "A missing phase key or mismatch is reported as an error."
+        ),
+    )
+    validate_backlog.add_argument(
+        "--strict-plan-defaults",
+        action="store_true",
+        help=(
+            "Also verify every item matches canonical build-backlog --phase "
+            "plan defaults for decision, owner, and batch."
         ),
     )
     validate_backlog.set_defaults(func=_cmd_validate_backlog)

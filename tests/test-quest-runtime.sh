@@ -544,7 +544,8 @@ test_workflow_documents_arbiter_validate_build_publish_contract() {
     grep -Fq 'review_backlog.json.next' "$WORKFLOW_FILE" &&
     grep -Fq 'validate-findings --input .quest/<id>/phase_01_plan/review_findings.json.next' "$WORKFLOW_FILE" &&
     grep -Fq 'build-backlog --phase plan --findings .quest/<id>/phase_01_plan/review_findings.json.next --output .quest/<id>/phase_01_plan/review_backlog.json.next' "$WORKFLOW_FILE" &&
-    grep -Fq 'validate-backlog --input .quest/<id>/phase_01_plan/review_backlog.json.next' "$WORKFLOW_FILE" &&
+    grep -Fq 'validate-backlog --input .quest/<id>/phase_01_plan/review_backlog.json.next --expected-phase plan --strict-plan-defaults' "$WORKFLOW_FILE" &&
+    grep -Fq 'Existing `arbiter_verdict.md` is preserved during pre-run preparation.' "$WORKFLOW_FILE" &&
     grep -Fq 'os.replace(".quest/<id>/phase_01_plan/review_findings.json.next", ".quest/<id>/phase_01_plan/review_findings.json")' "$WORKFLOW_FILE" &&
     grep -Fq 'If arbiter handoff says `next: planner`' "$WORKFLOW_FILE" &&
     grep -Fq 'Do **not** call `quest_state.py --transition plan_reviewed`.' "$WORKFLOW_FILE"

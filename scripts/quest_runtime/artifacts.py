@@ -48,6 +48,8 @@ ROLE_ARTIFACTS: dict[str, tuple[str, tuple[str, ...]]] = {
     ),
 }
 
+PREPARE_PRESERVE_EXISTING_NAMES = frozenset({"arbiter_verdict.md"})
+
 SOLO_DISABLED_AGENTS = frozenset({"plan-reviewer-b", "code-reviewer-b", "arbiter"})
 
 ROLE_PHASE_ALIASES: dict[str, frozenset[str]] = {
@@ -104,7 +106,13 @@ def prepare_artifact_files(paths: list[Path]) -> list[Path]:
     for path in paths:
         resolved = Path(path).resolve()
         resolved.parent.mkdir(parents=True, exist_ok=True)
-        resolved.write_text("", encoding="utf-8")
+        # Arbiter verdict is canonical state; retries must not wipe it before
+        # the new attempt has produced replacement scratch artifacts.
+        should_preserve_existing = (
+            resolved.name in PREPARE_PRESERVE_EXISTING_NAMES and resolved.exists()
+        )
+        if not should_preserve_existing:
+            resolved.write_text("", encoding="utf-8")
         prepared.append(resolved)
     return prepared
 
