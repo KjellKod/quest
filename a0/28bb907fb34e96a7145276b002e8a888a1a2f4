@@ -1,0 +1,25 @@
+scripts/quest_validate-quest-state.sh
+  40465f3ce0770143 409
+tests/test-validate-quest-state.sh
+  40465f3ce0770143 722-775,1214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "a028bb907fb34e96a7145276b002e8a888a1a2f4",
+  "prompts": {
+    "40465f3ce0770143": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db8fb-9add-7653-a122-279fd9ac412f",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 56,
+      "total_deletions": 1,
+      "accepted_lines": 56,
+      "overriden_lines": 0
+    }
+  }
+}
