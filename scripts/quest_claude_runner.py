@@ -37,8 +37,11 @@ def _append_telemetry(event: dict) -> None:
         record.setdefault("ts", time.time())
         with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, ensure_ascii=True) + "\n")
-    except OSError:
+    except Exception:
         # Telemetry is best-effort; never fail the runner because of it.
+        # Broad except is intentional — the docstring contract is that
+        # telemetry must never affect runner outcome, which includes
+        # TypeError from json.dumps on unexpected payloads.
         return
 
 

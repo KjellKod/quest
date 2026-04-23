@@ -535,7 +535,7 @@ gates.max_plan_iterations (default: 4)
 
 6. **Check verdict and transition guard:**
    - If `NEXT: builder`:
-     - Transition only after successful `validate-findings` + `build-backlog --phase plan` (+ optional `validate-backlog`) + atomic publish.
+     - **Workflow mode only:** Transition only after successful `validate-findings` + `build-backlog --phase plan` (+ optional `validate-backlog`) + atomic publish. In solo mode the arbiter is skipped (see item 5 above), and so is the validate/build/publish pipeline — transition directly without those prerequisites.
      - Then transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan_reviewed --status complete --last-verdict approve --expect-phase plan` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to **Step 3.5** (Interactive Presentation). Do not attempt the `presenting` transition while state still says `phase: plan`.
    - If `NEXT: planner` → Check iteration count
      - If `plan_iteration >= max_plan_iterations`: Warn user, ask to proceed anyway or review manually

@@ -657,7 +657,12 @@ def render_deep_ci_context(snapshots, selected_files=None):
                 chunk_header,
                 (
                     "Changed RIGHT-side lines in this chunk: "
-                    + ", ".join(str(line) for line in chunk.get("changed_lines", []))
+                    + ", ".join(
+                        str(line)
+                        for line in chunk.get(
+                            "changed_lines_included", chunk.get("changed_lines", [])
+                        )
+                    )
                 ),
             ]
             omitted = chunk.get("changed_lines_omitted") or []
