@@ -1,0 +1,29 @@
+scripts/quest_complete.py
+  acdbef53fbc9d100 315-322
+tests/unit/test_quest_complete.py
+  acdbef53fbc9d100 6-7,9,211-240
+scripts/quest_installer.sh
+  acdbef53fbc9d100 136-145,752-798,1857
+tests/test-quest-runtime.sh
+  acdbef53fbc9d100 766-849,1464-1465
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f9d2cfe14ade1156e78218df0fc8ccfddf20ca74",
+  "prompts": {
+    "acdbef53fbc9d100": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db837-83cd-7660-a89a-a4f82eada223",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 185,
+      "total_deletions": 1,
+      "accepted_lines": 185,
+      "overriden_lines": 0
+    }
+  }
+}
