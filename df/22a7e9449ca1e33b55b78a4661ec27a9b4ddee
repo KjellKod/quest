@@ -1,0 +1,31 @@
+scripts/quest_runtime/artifacts.py
+  40465f3ce0770143 20,107
+tests/unit/test_artifacts.py
+  40465f3ce0770143 66,70,150-152,167,170,173,178-180
+.skills/quest/agents/arbiter.md
+  40465f3ce0770143 37,111,123
+.skills/quest/delegation/workflow.md
+  40465f3ce0770143 131,303,484,488,501,522-525,534-535
+tests/test-quest-runtime.sh
+  40465f3ce0770143 548,550,753,756,759,818,820-821,829-830,868,879,888,892,898-899,906,909,918,921,924,931-932,1006,1101-1102,1105-1106,1130,1142,1154,1158,1164-1165,1176,1180,1190-1191,1197-1198,1256,1260,1263
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "df22a7e9449ca1e33b55b78a4661ec27a9b4ddee",
+  "prompts": {
+    "40465f3ce0770143": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db8fb-9add-7653-a122-279fd9ac412f",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 70,
+      "total_deletions": 41,
+      "accepted_lines": 70,
+      "overriden_lines": 0
+    }
+  }
+}
