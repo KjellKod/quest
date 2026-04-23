@@ -1,0 +1,27 @@
+scripts/quest_claude_runner.py
+  70f91b8fc2733e44 40,42-44
+.github/scripts/codex_review.py
+  70f91b8fc2733e44 660-665
+.skills/quest/delegation/workflow.md
+  70f91b8fc2733e44 538
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "f010b2399a79a6e7e8b832f67229ab5a0475035b",
+  "prompts": {
+    "70f91b8fc2733e44": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4616e57b-eaa9-4545-bc35-f11e0040c777",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 3,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    }
+  }
+}
