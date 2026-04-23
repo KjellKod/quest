@@ -684,6 +684,61 @@ cleanup_updated_sidecar() {
   log_info "Removed stale update sidecar: $updated_path"
 }
 
+is_current_manifest_file() {
+  local target="$1"
+  local filepath
+
+  for filepath in "${COPY_AS_IS[@]}" "${USER_CUSTOMIZED[@]}" "${MERGE_CAREFULLY[@]}"; do
+    if [ "$filepath" = "$target" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+cleanup_removed_managed_files() {
+  local filepath
+  local stored_checksum
+  local current_checksum
+
+  for filepath in "${LOCAL_CHECKSUM_FILES[@]}"; do
+    if is_current_manifest_file "$filepath"; then
+      continue
+    fi
+
+    remove_updated_checksum "$filepath"
+
+    if [ ! -e "$filepath" ]; then
+      if $DRY_RUN; then
+        log_action "Prune stale Quest checksum entry: $filepath"
+      else
+        log_info "Pruned stale Quest checksum entry: $filepath"
+      fi
+      continue
+    fi
+
+    stored_checksum=$(get_stored_checksum "$filepath" || true)
+    if [ -z "$stored_checksum" ]; then
+      log_warn "Leaving existing non-Quest file in place: $filepath"
+      continue
+    fi
+
+    current_checksum=$(get_file_checksum "$filepath")
+    if [ "$current_checksum" != "$stored_checksum" ]; then
+      log_warn "Leaving modified stale Quest-managed file in place for manual cleanup: $filepath"
+      continue
+    fi
+
+    if $DRY_RUN; then
+      log_action "Remove stale Quest-managed file: $filepath"
+      continue
+    fi
+
+    rm -f "$filepath"
+    log_success "Removed stale Quest-managed file: $filepath"
+  done
+}
+
 ###############################################################################
 # Version Functions
 ###############################################################################
@@ -1741,6 +1796,7 @@ run_install() {
   install_merge_carefully
   migrate_legacy_validation_hook
   cleanup_renamed_scripts
+  cleanup_removed_managed_files
 
   # Set executable bits
   set_executable_bits

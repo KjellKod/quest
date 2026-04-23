@@ -693,12 +693,96 @@ test_installer_preserves_customized_agents_file_with_sidecar() {
   return $rc
 }
 
+test_installer_prunes_pristine_removed_managed_files() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+
+  (
+    cd "$tmpdir" || exit 1
+    mkdir -p tests/unit
+    printf 'stale quest unit test\n' > tests/unit/test_review_intelligence.py
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    COPY_AS_IS=("scripts/quest_state.py")
+    USER_CUSTOMIZED=()
+    MERGE_CAREFULLY=()
+    LOCAL_CHECKSUM_FILES=("tests/unit/test_review_intelligence.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum "tests/unit/test_review_intelligence.py")")
+    init_updated_checksums
+
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    cleanup_removed_managed_files
+
+    [ ! -e tests/unit/test_review_intelligence.py ] &&
+      [ "${#UPDATED_CHECKSUM_FILES[@]}" -eq 0 ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_preserves_modified_removed_managed_files_for_manual_cleanup() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+
+  (
+    cd "$tmpdir" || exit 1
+    mkdir -p tests/unit
+    printf 'locally modified stale quest unit test\n' > tests/unit/test_review_intelligence.py
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    COPY_AS_IS=("scripts/quest_state.py")
+    USER_CUSTOMIZED=()
+    MERGE_CAREFULLY=()
+    LOCAL_CHECKSUM_FILES=("tests/unit/test_review_intelligence.py")
+    LOCAL_CHECKSUM_VALUES=("different-stored-checksum")
+    init_updated_checksums
+
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    cleanup_removed_managed_files
+
+    [ -e tests/unit/test_review_intelligence.py ] &&
+      [ "${#UPDATED_CHECKSUM_FILES[@]}" -eq 0 ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
 test_manifest_lists_prefixed_scripts() {
   grep -q '^scripts/quest_claude_bridge.py$' "$MANIFEST_FILE" &&
     grep -q '^scripts/quest_validate-handoff-contracts.sh$' "$MANIFEST_FILE" &&
     grep -q '^scripts/quest_validate-manifest.sh$' "$MANIFEST_FILE" &&
     grep -q '^scripts/quest_validate-quest-config.sh$' "$MANIFEST_FILE" &&
     grep -q '^scripts/quest_validate-quest-state.sh$' "$MANIFEST_FILE"
+}
+
+test_manifest_lists_installed_quest_smoke_tests() {
+  grep -q '^tests/integration/test-enforce-allowlist.sh$' "$MANIFEST_FILE" &&
+    grep -q '^tests/test-quest-preflight.sh$' "$MANIFEST_FILE" &&
+    grep -q '^tests/test-quest-runtime.sh$' "$MANIFEST_FILE" &&
+    grep -q '^tests/test-validate-handoff-contracts.sh$' "$MANIFEST_FILE" &&
+    grep -q '^tests/test-validate-quest-state.sh$' "$MANIFEST_FILE"
+}
+
+test_manifest_excludes_source_only_unit_tests() {
+  ! grep -q '^tests/unit/test_allowlist_matcher.py$' "$MANIFEST_FILE" &&
+    ! grep -q '^tests/unit/test_review_intelligence.py$' "$MANIFEST_FILE" &&
+    ! grep -q '^tests/unit/test_codex_skill_wrappers.py$' "$MANIFEST_FILE"
 }
 
 test_validation_hook_script_accepts_legacy_symlink_target() {
@@ -1291,7 +1375,11 @@ run_test test_installer_cleans_up_renamed_scripts
 run_test test_installer_updates_pristine_agents_file_in_place
 run_test test_installer_records_checksum_for_new_agents_file
 run_test test_installer_preserves_customized_agents_file_with_sidecar
+run_test test_installer_prunes_pristine_removed_managed_files
+run_test test_installer_preserves_modified_removed_managed_files_for_manual_cleanup
 run_test test_manifest_lists_prefixed_scripts
+run_test test_manifest_lists_installed_quest_smoke_tests
+run_test test_manifest_excludes_source_only_unit_tests
 run_test test_validation_hook_script_accepts_legacy_symlink_target
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
 run_test test_quest_claude_probe_requires_real_artifacts
