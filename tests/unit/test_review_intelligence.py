@@ -762,6 +762,39 @@ def test_validate_backlog_cli_expected_phase_accepts_matching_plan_backlog(
     assert payload["errors"] == []
 
 
+def test_validate_backlog_cli_handles_null_items_without_crashing(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    backlog_path = tmp_path / "bad_backlog.json"
+    backlog_path.write_text(
+        json.dumps({"phase": "plan", "items": None}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "validate-backlog",
+            "--input",
+            str(backlog_path),
+            "--expected-phase",
+            "plan",
+            "--strict-plan-defaults",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["count"] == 0
+    assert any("must contain an 'items' list" in err for err in payload["errors"])
+
+
 def test_validate_backlog_cli_strict_plan_defaults_rejects_drifted_plan_backlog(
     tmp_path: Path,
 ) -> None:

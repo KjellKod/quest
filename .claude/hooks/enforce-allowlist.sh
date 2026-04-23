@@ -88,8 +88,13 @@ glob_to_regex() {
     if [[ "$char" == "*" ]]; then
       next="${pattern:i+1:1}"
       if [[ "$next" == "*" ]]; then
-        regex+=".*"
-        i=$((i + 1))
+        if [[ "${pattern:i+2:1}" == "/" ]]; then
+          regex+="(.*/)?"
+          i=$((i + 2))
+        else
+          regex+=".*"
+          i=$((i + 1))
+        fi
       else
         regex+="[^/]*"
       fi

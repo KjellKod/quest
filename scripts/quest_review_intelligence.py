@@ -119,7 +119,8 @@ def _cmd_validate_backlog(args: argparse.Namespace) -> int:
             ]
     if getattr(args, "strict_plan_defaults", False):
         errors = list(errors) + validate_plan_phase_defaults(payload)
-    item_count = len(payload.get("items", [])) if isinstance(payload, dict) else 0
+    items = payload.get("items") if isinstance(payload, dict) else None
+    item_count = len(items) if isinstance(items, list) else 0
     print(json.dumps({"ok": not errors, "count": item_count, "errors": errors}, indent=2, sort_keys=True))
     return 1 if errors else 0
 

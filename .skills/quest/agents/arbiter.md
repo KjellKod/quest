@@ -35,8 +35,8 @@ The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It fi
    - `iterate` — plan needs changes. Provide a focused, prioritized list of issues for the Planner.
    - `approve` — plan is good enough. Proceed to Builder.
 6. Write the verdict to `.quest/<id>/phase_01_plan/arbiter_verdict.md.next`
-7. Synthesize canonical findings from both review markdown artifacts and write:
-   - `.quest/<id>/phase_01_plan/review_findings.json` (or the orchestrator-provided `.next` scratch path for atomic publish)
+7. Synthesize canonical findings from both review markdown artifacts and write the scratch artifact:
+   - `.quest/<id>/phase_01_plan/review_findings.json.next`
    - If no actionable findings exist, write an empty array (`[]`) instead of skipping the file
 
 Canonical findings schema (required fields per finding):
