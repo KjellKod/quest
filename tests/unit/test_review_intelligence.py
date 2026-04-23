@@ -12,6 +12,7 @@ from quest_runtime.pr_review_cycle import (
     retag_backlog_at_cap,
 )
 from quest_runtime.review_intelligence import (
+    ALLOWED_BACKLOG_PHASES,
     append_deferred_findings,
     build_review_backlog,
     merge_and_dedupe,
@@ -262,8 +263,9 @@ def test_validate_review_backlog_rejects_phase_outside_allowed_values() -> None:
 
     errors = validate_review_backlog(backlog)
 
+    expected_allowed = ", ".join(ALLOWED_BACKLOG_PHASES)
     assert any(
-        "'phase' must be one of 'plan' or 'review'" in error for error in errors
+        f"'phase' must be one of {expected_allowed}" in error for error in errors
     ), f"expected an invalid-phase error, got: {errors}"
 
 

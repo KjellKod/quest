@@ -396,9 +396,10 @@ def validate_review_backlog(backlog: Any) -> list[str]:
     phase = backlog.get("phase")
     if "phase" not in backlog:
         errors.append("backlog must include a top-level 'phase' field")
-    elif not isinstance(phase, str) or phase not in ("plan", "review"):
+    elif not isinstance(phase, str) or phase not in ALLOWED_BACKLOG_PHASES:
         errors.append(
-            f"backlog 'phase' must be one of 'plan' or 'review', got {phase!r}"
+            "backlog 'phase' must be one of "
+            f"{', '.join(ALLOWED_BACKLOG_PHASES)}, got {phase!r}"
         )
 
     required_decision_fields = (
