@@ -47,10 +47,8 @@ check_file_write() {
   while IFS= read -r pattern; do
     [[ -z "$pattern" ]] && continue
 
-    # Convert glob pattern to regex for matching
-    # ** matches any path, * matches within a directory
-    local regex="^${pattern//\*\*/.*}$"
-    regex="${regex//\*/[^/]*}"
+    local regex
+    regex=$(glob_to_regex "$pattern")
 
     if [[ "$file_path" =~ $regex ]]; then
       return 0  # Match found, allow
@@ -58,6 +56,39 @@ check_file_write() {
   done <<< "$allowed_patterns"
 
   return 1  # No match, deny
+}
+
+glob_to_regex() {
+  local pattern="$1"
+  local regex="^"
+  local i char next
+
+  for ((i = 0; i < ${#pattern}; i++)); do
+    char="${pattern:i:1}"
+
+    if [[ "$char" == "*" ]]; then
+      next="${pattern:i+1:1}"
+      if [[ "$next" == "*" ]]; then
+        regex+=".*"
+        i=$((i + 1))
+      else
+        regex+="[^/]*"
+      fi
+      continue
+    fi
+
+    case "$char" in
+      [\\.\^\$\+\?\(\)\[\]\{\}\|])
+        regex+="\\$char"
+        ;;
+      *)
+        regex+="$char"
+        ;;
+    esac
+  done
+
+  regex+="$"
+  printf '%s\n' "$regex"
 }
 
 # Check bash command permissions

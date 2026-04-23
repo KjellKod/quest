@@ -31,6 +31,14 @@ run_hook_for_command() {
   printf '%s' "$payload" | "$HOOK_SCRIPT" "$role"
 }
 
+run_hook_for_write() {
+  local role="$1"
+  local file_path="$2"
+  local payload
+  payload=$(jq -cn --arg path "$file_path" '{tool:"Write",input:{file_path:$path}}')
+  printf '%s' "$payload" | "$HOOK_SCRIPT" "$role"
+}
+
 test_bridge_allows_manifest_validation_command() {
   local output rc
   output=$(run_hook_for_command "builder_agent" "bash scripts/quest_validate-manifest.sh" 2>&1)
@@ -47,6 +55,29 @@ test_bridge_rejects_compound_bypass() {
     echo "$output" | grep -q "blocked_metacharacter"
 }
 
+test_file_write_allows_nested_double_star_path() {
+  local output rc
+  output=$(run_hook_for_write "builder_agent" "$REPO_ROOT/scripts/quest_dashboard/render.py" 2>&1)
+  rc=$?
+  [ "$rc" -eq 0 ] && [ -z "$output" ]
+}
+
+test_file_write_allows_nested_docs_output() {
+  local output rc
+  output=$(run_hook_for_write "builder_agent" "$REPO_ROOT/docs/dashboard/index.html" 2>&1)
+  rc=$?
+  [ "$rc" -eq 0 ] && [ -z "$output" ]
+}
+
+test_file_write_rejects_unlisted_dashboard_source_path() {
+  local output rc
+  output=$(run_hook_for_write "builder_agent" "$REPO_ROOT/dashboard/src/App.tsx" 2>&1)
+  rc=$?
+  [ "$rc" -eq 2 ] &&
+    echo "$output" | grep -q "BLOCKED:" &&
+    echo "$output" | grep -q "dashboard/src/App.tsx"
+}
+
 if [ ! -x "$HOOK_SCRIPT" ]; then
   echo "[SKIP] Hook script is missing or not executable: $HOOK_SCRIPT"
   exit 0
@@ -54,6 +85,9 @@ fi
 
 run_test test_bridge_allows_manifest_validation_command
 run_test test_bridge_rejects_compound_bypass
+run_test test_file_write_allows_nested_double_star_path
+run_test test_file_write_allows_nested_docs_output
+run_test test_file_write_rejects_unlisted_dashboard_source_path
 
 echo ""
 echo "Tests run: $TESTS_RUN"
