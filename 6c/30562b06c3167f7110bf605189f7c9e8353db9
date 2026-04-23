@@ -1,0 +1,33 @@
+scripts/quest_review_intelligence.py
+  acdbef53fbc9d100 245-250
+.skills/pr-assistant/SKILL.md
+  acdbef53fbc9d100 226-227
+scripts/quest_runtime/review_intelligence.py
+  acdbef53fbc9d100 491-495,514-530,537-542,544
+scripts/quest_allowlist_matcher.py
+  acdbef53fbc9d100 17,62-67,69,75
+tests/unit/test_allowlist_matcher.py
+  acdbef53fbc9d100 187-195,248-250
+tests/unit/test_review_intelligence.py
+  acdbef53fbc9d100 5,11-19,358-437
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "6c30562b06c3167f7110bf605189f7c9e8353db9",
+  "prompts": {
+    "acdbef53fbc9d100": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db837-83cd-7660-a89a-a4f82eada223",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 157,
+      "total_deletions": 9,
+      "accepted_lines": 157,
+      "overriden_lines": 0
+    }
+  }
+}
