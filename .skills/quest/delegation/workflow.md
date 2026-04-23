@@ -128,7 +128,7 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 5. **Artifact preparation (before every role invocation):**
    Before invoking any role, the orchestrator MUST:
    1. Resolve artifact paths: `expected_artifacts_for_role(quest_dir, phase, agent)`
-   2. Prepare files: `prepare_artifact_files(paths)` — creates parent directories and truncates role-output scratch files.
+   2. Prepare files: `prepare_artifact_files(paths)` — creates parent directories and truncates every resolved role-output path. Canonical files that must survive failed attempts MUST NOT be returned by `expected_artifacts_for_role`; use scratch paths and publish after validation instead.
    3. Include in the role prompt:
       ```
       Artifact files have been prepared for you. Overwrite these files directly:
