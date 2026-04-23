@@ -763,6 +763,90 @@ test_installer_preserves_modified_removed_managed_files_for_manual_cleanup() {
   return $rc
 }
 
+test_installer_prunes_untracked_legacy_source_only_test_matching_upstream() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+
+  (
+    cd "$tmpdir" || exit 1
+    mkdir -p tests/unit
+    printf 'quest source-only test\n' > tests/unit/test_quest_complete.py
+    printf 'quest source-only test\n' > "$tmpdir/upstream_test_quest_complete.py"
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    COPY_AS_IS=("scripts/quest_state.py")
+    USER_CUSTOMIZED=()
+    MERGE_CAREFULLY=()
+    LOCAL_CHECKSUM_FILES=()
+    LOCAL_CHECKSUM_VALUES=()
+    init_updated_checksums
+
+    fetch_file_to_temp() {
+      if [ "$1" = "tests/unit/test_quest_complete.py" ]; then
+        cp "$tmpdir/upstream_test_quest_complete.py" "$2"
+        return 0
+      fi
+      return 1
+    }
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    cleanup_legacy_source_only_tests
+
+    [ ! -e tests/unit/test_quest_complete.py ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_preserves_modified_untracked_legacy_source_only_test() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+
+  (
+    cd "$tmpdir" || exit 1
+    mkdir -p tests/unit
+    printf 'locally modified quest source-only test\n' > tests/unit/test_quest_complete.py
+    printf 'quest source-only test\n' > "$tmpdir/upstream_test_quest_complete.py"
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    COPY_AS_IS=("scripts/quest_state.py")
+    USER_CUSTOMIZED=()
+    MERGE_CAREFULLY=()
+    LOCAL_CHECKSUM_FILES=()
+    LOCAL_CHECKSUM_VALUES=()
+    init_updated_checksums
+
+    fetch_file_to_temp() {
+      if [ "$1" = "tests/unit/test_quest_complete.py" ]; then
+        cp "$tmpdir/upstream_test_quest_complete.py" "$2"
+        return 0
+      fi
+      return 1
+    }
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    cleanup_legacy_source_only_tests
+
+    [ -e tests/unit/test_quest_complete.py ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
 test_manifest_lists_prefixed_scripts() {
   grep -q '^scripts/quest_claude_bridge.py$' "$MANIFEST_FILE" &&
     grep -q '^scripts/quest_validate-handoff-contracts.sh$' "$MANIFEST_FILE" &&
@@ -1377,6 +1461,8 @@ run_test test_installer_records_checksum_for_new_agents_file
 run_test test_installer_preserves_customized_agents_file_with_sidecar
 run_test test_installer_prunes_pristine_removed_managed_files
 run_test test_installer_preserves_modified_removed_managed_files_for_manual_cleanup
+run_test test_installer_prunes_untracked_legacy_source_only_test_matching_upstream
+run_test test_installer_preserves_modified_untracked_legacy_source_only_test
 run_test test_manifest_lists_prefixed_scripts
 run_test test_manifest_lists_installed_quest_smoke_tests
 run_test test_manifest_excludes_source_only_unit_tests

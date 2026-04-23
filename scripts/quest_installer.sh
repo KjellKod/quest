@@ -133,6 +133,16 @@ OLD_SCRIPT_NAMES=(
   "scripts/validate-quest-state.sh"
 )
 
+LEGACY_SOURCE_ONLY_TESTS=(
+  "tests/unit/test_allowlist_matcher.py"
+  "tests/unit/test_codex_skill_wrappers.py"
+  "tests/unit/test_quest_checks_cli.py"
+  "tests/unit/test_quest_complete.py"
+  "tests/unit/test_quest_manifest.py"
+  "tests/unit/test_quest_state.py"
+  "tests/unit/test_review_intelligence.py"
+)
+
 CHECKSUM_MANAGED_USER_CUSTOMIZED=(
   "AGENTS.md"
 )
@@ -736,6 +746,53 @@ cleanup_removed_managed_files() {
 
     rm -f "$filepath"
     log_success "Removed stale Quest-managed file: $filepath"
+  done
+}
+
+cleanup_legacy_source_only_tests() {
+  local filepath
+  local stored_checksum
+  local current_checksum
+  local upstream_checksum
+  local temp_file
+
+  for filepath in "${LEGACY_SOURCE_ONLY_TESTS[@]}"; do
+    remove_updated_checksum "$filepath"
+    if [ ! -e "$filepath" ]; then
+      continue
+    fi
+
+    current_checksum=$(get_file_checksum "$filepath")
+
+    if stored_checksum=$(get_stored_checksum "$filepath" 2>/dev/null); then
+      if [ "$current_checksum" != "$stored_checksum" ]; then
+        log_warn "Leaving modified legacy Quest source-only test in place for manual cleanup: $filepath"
+        continue
+      fi
+    else
+      temp_file=".quest-temp.$$"
+      if ! fetch_file_to_temp "$filepath" "$temp_file" 2>/dev/null; then
+        rm -f "$temp_file"
+        log_warn "Leaving unmanaged Quest-like test in place: $filepath"
+        continue
+      fi
+
+      upstream_checksum=$(get_file_checksum "$temp_file")
+      rm -f "$temp_file"
+
+      if [ "$current_checksum" != "$upstream_checksum" ]; then
+        log_warn "Leaving locally modified legacy Quest source-only test in place for manual cleanup: $filepath"
+        continue
+      fi
+    fi
+
+    if $DRY_RUN; then
+      log_action "Remove legacy Quest source-only test: $filepath"
+      continue
+    fi
+
+    rm -f "$filepath"
+    log_success "Removed legacy Quest source-only test: $filepath"
   done
 }
 
@@ -1797,6 +1854,7 @@ run_install() {
   migrate_legacy_validation_hook
   cleanup_renamed_scripts
   cleanup_removed_managed_files
+  cleanup_legacy_source_only_tests
 
   # Set executable bits
   set_executable_bits

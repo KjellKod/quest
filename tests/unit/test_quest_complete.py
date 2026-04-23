@@ -3,7 +3,10 @@
 from datetime import date
 import json
 from pathlib import Path
+import sys
+from types import SimpleNamespace
 
+import quest_complete
 from quest_complete import build_journal_entry
 from quest_celebrate.quest_data import QuestData
 
@@ -205,3 +208,33 @@ def test_generate_journal_entry_includes_empty_carryover_status_when_absent():
     assert "## Carry-Over Findings" in entry
     assert "nothing was inherited from earlier quests" in entry
     assert "## Inherited Findings Used" not in entry
+
+
+def test_main_reports_invalid_date(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    quest_dir = tmp_path / "quest"
+    quest_dir.mkdir()
+    (quest_dir / "state.json").write_text(
+        json.dumps({"status": "complete"}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(quest_complete, "load_quest_data", lambda _: SimpleNamespace())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "quest_complete.py",
+            "--quest-dir",
+            str(quest_dir),
+            "--date",
+            "2026-13-40",
+        ],
+    )
+
+    assert quest_complete.main() == 1
+    captured = capsys.readouterr()
+    assert "invalid date" in captured.err
