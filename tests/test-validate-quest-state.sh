@@ -609,9 +609,10 @@ test_plan_to_plan_reviewed_rejects_review_phase_backlog() {
 }
 
 test_plan_to_plan_reviewed_rejects_non_actionable_decision() {
-  # Plan-phase approval requires every item to be actionable for the builder.
-  # A drop/defer/needs_human_decision item must fail -- even if phase="plan"
-  # is set, a forgotten --phase flag on merge would produce exactly that.
+  # Plan-phase approval requires every item to match the canonical plan-phase
+  # producer, which hardcodes decision=fix_now. Any other decision in a
+  # plan-phase backlog is drift -- a drop/defer/needs_human_decision item
+  # must fail -- even if phase="plan" is set.
   local tmpdir
   tmpdir=$(mktemp -d)
   create_state_json "$tmpdir" "plan"
@@ -621,13 +622,68 @@ test_plan_to_plan_reviewed_rejects_non_actionable_decision() {
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
   touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
   write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
-  # phase="plan" but decision="drop" -> must fail the actionable check
+  # phase="plan" but decision="drop" -> must fail the canonical check
   write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "clean" "plan"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "non-actionable"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "non-canonical"
+}
+
+test_plan_to_plan_reviewed_rejects_verify_first_decision() {
+  # verify_first is legitimate in review-phase backlogs but not plan-phase:
+  # the canonical _plan_phase_decision helper only emits fix_now.
+  # A drifted producer that emits verify_first under phase="plan" must fail.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  # Hand-write a plan-phase backlog whose decision is verify_first
+  cat > "$tmpdir/phase_01_plan/review_backlog.json" <<'EOF'
+{
+  "version": 1,
+  "generated_at": "2026-04-23T00:00:00Z",
+  "at_loop_cap": false,
+  "phase": "plan",
+  "allowed_decisions": ["fix_now", "verify_first", "defer", "drop", "needs_human_decision"],
+  "counts": {"fix_now": 0, "verify_first": 1, "defer": 0, "drop": 0, "needs_human_decision": 0},
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "source": "code-reviewer-a",
+      "kind": "correctness",
+      "severity": "medium",
+      "confidence": "medium",
+      "path": "scripts/example.py",
+      "line": 10,
+      "summary": "Potential issue in edge-case handling.",
+      "why_it_matters": "Could break behavior for uncommon inputs.",
+      "evidence": ["Reproducible with malformed payload."],
+      "action": "Add guard and tests for this edge case.",
+      "needs_test": true,
+      "write_scope": ["scripts/example.py"],
+      "related_acceptance_criteria": ["AC-1"],
+      "decision": "verify_first",
+      "decision_confidence": "medium",
+      "reason": "Drift: plan-phase producer should emit fix_now.",
+      "needs_validation": ["unit_test"],
+      "owner": "builder",
+      "batch": "correctness-scripts"
+    }
+  ]
+}
+EOF
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "non-canonical"
 }
 
 test_valid_reviewing_to_fixing() {
@@ -1066,6 +1122,7 @@ run_test test_plan_to_plan_reviewed_rejects_false_typed_backlog_fields
 run_test test_plan_to_plan_reviewed_rejects_invalid_backlog_finding_fields
 run_test test_plan_to_plan_reviewed_rejects_review_phase_backlog
 run_test test_plan_to_plan_reviewed_rejects_non_actionable_decision
+run_test test_plan_to_plan_reviewed_rejects_verify_first_decision
 run_test test_non_numeric_allowlist_iterations
 run_test test_zero_allowlist_iterations_are_rejected
 run_test test_validation_log_written

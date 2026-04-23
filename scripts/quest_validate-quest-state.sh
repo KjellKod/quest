@@ -371,11 +371,11 @@ $item_errors"
 validate_plan_phase_backlog() {
   # Plan-phase approval requires:
   #   1. backlog["phase"] == "plan" (asserted via the CLI validator)
-  #   2. every backlog item's decision is actionable by the builder
-  #      (fix_now or verify_first). defer/drop/needs_human_decision are
-  #      non-compliant at plan approval -- a forgotten --phase plan flag
-  #      would otherwise silently produce verify_first/drop review-phase
-  #      decisions and let the plan fall through without fix_now tagging.
+  #   2. every backlog item matches the canonical plan-phase defaults
+  #      produced by build-backlog --phase plan: decision=fix_now,
+  #      owner=builder, and batch=<slugified kind>-<path group>. A drifted
+  #      producer can otherwise emit review-style semantics under phase="plan"
+  #      and still pass schema checks.
   local backlog_file="$1"
   local validator="$REPO_ROOT/scripts/quest_review_intelligence.py"
 
@@ -392,23 +392,73 @@ validate_plan_phase_backlog() {
     return 1
   fi
 
-  local bad_decisions
-  bad_decisions=$(jq -r '
+  local plan_default_errors
+  plan_default_errors=$(jq -r '
+    def trim_string:
+      gsub("^\\s+|\\s+$"; "");
+
+    def slugify($fallback):
+      ascii_downcase
+      | gsub("[^a-z0-9]+"; "-")
+      | gsub("^-+"; "")
+      | gsub("-+$"; "") as $slug
+      | if $slug == "" then $fallback else $slug end;
+
+    def path_group:
+      (if (.write_scope | type) == "array" then
+        ([.write_scope[] | select(type == "string") | trim_string | select(. != "")] | sort | first // "")
+      else
+        ""
+      end) as $candidate
+      | (if $candidate == "" and (.path | type) == "string" then .path else $candidate end)
+      | trim_string
+      | gsub("^/+"; "")
+      | gsub("/+$"; "") as $normalized
+      | if ($normalized == "") or (($normalized | contains("/")) | not) then
+        "root"
+      else
+        ($normalized | split("/")[0]) as $first
+        | if ($first == "" or $first == "." or $first == "..") then
+          "root"
+        else
+          ($first | slugify("root"))
+        end
+      end;
+
+    def expected_batch:
+      ((.kind // "finding") | tostring | slugify("finding")) + "-" + path_group;
+
     [
       (.items // []) | to_entries[] |
-      select((.value.decision // "") as $d |
-        ($d != "fix_now") and ($d != "verify_first")
-      ) |
-      "[" + (.key | tostring) + "] non-actionable decision: " + (.value.decision // "missing")
+      (.value as $item |
+        [
+          (if ($item.decision // "") != "fix_now" then
+            "decision=" + ($item.decision // "missing") + " (expected fix_now)"
+          else empty end),
+          (if ($item.owner // "") != "builder" then
+            "owner=" + ($item.owner // "missing") + " (expected builder)"
+          else empty end),
+          (if ($item.batch // "") != ($item | expected_batch) then
+            "batch=" + ($item.batch // "missing") + " (expected " + ($item | expected_batch) + ")"
+          else empty end)
+        ] as $errors |
+        select($errors | length > 0) |
+        "[" + (.key | tostring) + "] " + ($errors | join(", "))
+      )
     ] | .[]
-  ' "$backlog_file" 2>/dev/null)
-
-  if [ -n "$bad_decisions" ]; then
-    fail "Semantic check: plan-phase backlog has non-actionable items (must all be fix_now or verify_first): $bad_decisions"
+  ' "$backlog_file" 2>&1)
+  local plan_default_rc=$?
+  if [ "$plan_default_rc" -ne 0 ]; then
+    fail "Semantic check: plan-phase backlog canonical default check failed ($backlog_file): $plan_default_errors"
     return 1
   fi
 
-  pass "Semantic check: plan-phase backlog is fully actionable ($backlog_file)"
+  if [ -n "$plan_default_errors" ]; then
+    fail "Semantic check: plan-phase backlog must use canonical plan defaults: $plan_default_errors"
+    return 1
+  fi
+
+  pass "Semantic check: plan-phase backlog matches canonical plan defaults ($backlog_file)"
   return 0
 }
 
