@@ -14,6 +14,7 @@ import argparse
 import json
 import shlex
 import sys
+from pathlib import Path
 
 BLOCKED_METACHARACTERS = (
     "&&",
@@ -58,14 +59,20 @@ def shell_tokens(command: str) -> list[str] | None:
         return None
 
 
+def command_basename(command_tokens: list[str]) -> str:
+    if not command_tokens:
+        return ""
+    return Path(command_tokens[0]).name
+
+
 def contains_blocked_find_action(command_tokens: list[str]) -> bool:
-    if not command_tokens or command_tokens[0] != "find":
+    if command_basename(command_tokens) != "find":
         return False
     return any(token in BLOCKED_FIND_ACTIONS for token in command_tokens[1:])
 
 
 def contains_blocked_rg_flag(command_tokens: list[str]) -> bool:
-    if not command_tokens or command_tokens[0] != "rg":
+    if command_basename(command_tokens) != "rg":
         return False
     return any(
         token in BLOCKED_RG_FLAGS

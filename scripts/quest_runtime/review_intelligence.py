@@ -488,7 +488,11 @@ def append_deferred_findings(
     findings: list[dict[str, Any]],
     lineage: dict[str, Any],
 ) -> int:
-    """Append deferred findings with lineage to an append-only JSONL backlog."""
+    """Append deferred findings with lineage to an append-only JSONL backlog.
+
+    Appends are idempotent per ``(deferred_by_quest, finding_id)`` so a retry
+    after a later backlog-write failure does not duplicate deferred history.
+    """
 
     required_lineage = (
         "deferred_by_quest",
@@ -507,13 +511,37 @@ def append_deferred_findings(
     target = Path(jsonl_path)
     target.parent.mkdir(parents=True, exist_ok=True)
 
+    existing_keys: set[tuple[str, str]] = set()
+    if target.exists():
+        for raw_line in target.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(record, dict):
+                continue
+            finding_id = str(record.get("finding_id") or "").strip()
+            deferred_by_quest = str(record.get("deferred_by_quest") or "").strip()
+            if finding_id and deferred_by_quest:
+                existing_keys.add((deferred_by_quest, finding_id))
+
     written = 0
     with target.open("a", encoding="utf-8") as handle:
         for finding in findings:
             record = copy.deepcopy(finding)
             for field in required_lineage:
                 record[field] = lineage[field]
+            record_key = (
+                str(record["deferred_by_quest"]).strip(),
+                str(record["finding_id"]).strip(),
+            )
+            if record_key in existing_keys:
+                continue
             handle.write(json.dumps(record, sort_keys=True) + "\n")
+            existing_keys.add(record_key)
             written += 1
     return written
 

@@ -223,8 +223,8 @@ Rules:
   - Codex / OpenAI → `noreply@openai.com`
   - OpenCode → `noreply@opencode.ai`
 - Resolve `<human author identity>` from local git config when available:
-  - Prefer `git config user.name` + `git config user.email` and format as `Name <email>`
-  - If only a GitHub username can be inferred from git config or the remote URL, use that username
+  - Prefer a GitHub username when it can be inferred from the remote URL or GitHub CLI context
+  - Otherwise use `git config user.name`
   - If no human identity can be verified, use `the repository author`
 - The `in collaboration with` line is always present and always last.
 

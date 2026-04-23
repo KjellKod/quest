@@ -216,10 +216,6 @@ def _cmd_classify_pr_stop(args: argparse.Namespace) -> int:
         }
 
         retagged = retag_backlog_at_cap(payload)
-        _write_json(backlog_path, retagged)
-        if args.retag_output:
-            _write_json(Path(args.retag_output), retagged)
-
         deferred_items = [
             item
             for item in retagged.get("items", [])
@@ -245,6 +241,13 @@ def _cmd_classify_pr_stop(args: argparse.Namespace) -> int:
                 deferred_items,
                 lineage,
             )
+
+        # Append deferred history first; append_deferred_findings is idempotent
+        # per (deferred_by_quest, finding_id), so a retry after a later write
+        # failure will not duplicate backlog lineage.
+        _write_json(backlog_path, retagged)
+        if args.retag_output:
+            _write_json(Path(args.retag_output), retagged)
 
     payload = dict(classification)
     payload["deferred_count"] = deferred_count

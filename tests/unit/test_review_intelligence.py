@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
+# Make scripts/quest_review_intelligence.py importable when pytest is not run
+# through the repo-level conftest fallback.
+_scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
+
+import quest_review_intelligence
 from quest_runtime.pr_review_cycle import (
     normalize_pr_review_intake,
     retag_backlog_at_cap,
@@ -343,6 +353,88 @@ def test_append_deferred_findings_bootstraps_missing_file(tmp_path: Path) -> Non
         },
     )
     assert nested.exists()
+
+
+def test_append_deferred_findings_is_idempotent_per_quest_and_finding(tmp_path: Path) -> None:
+    backlog_path = tmp_path / "deferred_findings.jsonl"
+    finding = _finding(finding_id="F-idempotent")
+    lineage = {
+        "deferred_by_quest": "quest-idempotent",
+        "deferred_at": "2026-04-23T00:00:00Z",
+        "defer_reason": "loop cap reached",
+        "proposed_followup": "Retry once backlog publish succeeds.",
+    }
+
+    first = append_deferred_findings(backlog_path, [finding], lineage)
+    second = append_deferred_findings(backlog_path, [finding], lineage)
+
+    lines = backlog_path.read_text(encoding="utf-8").splitlines()
+    assert first == 1
+    assert second == 0
+    assert len(lines) == 1
+
+
+def test_classify_pr_stop_does_not_persist_retagged_backlog_when_append_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backlog_path = tmp_path / "review_backlog.json"
+    original = {
+        "version": 1,
+        "phase": "review",
+        "items": [
+            _finding(
+                finding_id="F-unsafe-ordering",
+                severity="medium",
+                confidence="medium",
+            )
+        ],
+    }
+    backlog_path.write_text(json.dumps(original, indent=2) + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        quest_review_intelligence,
+        "classify_pr_loop_stop",
+        lambda *args, **kwargs: {"stop": True, "retag_required": True, "outcome": "cap_enforced"},
+    )
+    monkeypatch.setattr(
+        quest_review_intelligence,
+        "retag_backlog_at_cap",
+        lambda payload: {
+            **payload,
+            "items": [
+                {
+                    **payload["items"][0],
+                    "decision": "defer",
+                }
+            ],
+        },
+    )
+
+    def _explode(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(quest_review_intelligence, "append_deferred_findings", _explode)
+
+    with pytest.raises(OSError, match="disk full"):
+        quest_review_intelligence._cmd_classify_pr_stop(
+            argparse.Namespace(
+                ci_state="failing",
+                actionable=1,
+                iteration=3,
+                cap=3,
+                backlog=str(backlog_path),
+                retag_output=None,
+                deferred_jsonl=None,
+                deferred_by_quest=None,
+                deferred_at=None,
+                defer_reason="Loop cap reached during PR review cycle.",
+                proposed_followup="Create a follow-up quest to resolve deferred review findings.",
+            )
+        )
+
+    persisted = json.loads(backlog_path.read_text(encoding="utf-8"))
+    assert persisted == original
 
 
 def test_scan_deferred_backlog_matches_exact_write_scope_path(tmp_path: Path) -> None:
