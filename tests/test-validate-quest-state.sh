@@ -76,6 +76,8 @@ write_review_backlog() {
   local decision="drop"
   local needs_validation='[]'
   local needs_test='false'
+  local owner="scripts"
+  local batch="scripts/example.py"
 
   case "$mode" in
     actionable)
@@ -95,6 +97,16 @@ write_review_backlog() {
       needs_validation='["unit_test", "typecheck", "lint"]'
       needs_test='true'
       phase="plan"
+      owner="builder"
+      batch="correctness-scripts"
+      ;;
+    plan_verify_first)
+      decision="verify_first"
+      needs_validation='["unit_test", "typecheck", "lint"]'
+      needs_test='true'
+      phase="plan"
+      owner="builder"
+      batch="correctness-scripts"
       ;;
     *)
       decision="drop"
@@ -116,7 +128,7 @@ write_review_backlog() {
   ],
   "counts": {
     "fix_now": $([ "$decision" = "fix_now" ] && echo 1 || echo 0),
-    "verify_first": 0,
+    "verify_first": $([ "$decision" = "verify_first" ] && echo 1 || echo 0),
     "defer": 0,
     "drop": $([ "$decision" = "drop" ] && echo 1 || echo 0),
     "needs_human_decision": $([ "$decision" = "needs_human_decision" ] && echo 1 || echo 0)
@@ -141,8 +153,8 @@ write_review_backlog() {
       "decision_confidence": "medium",
       "reason": "Example reason",
       "needs_validation": $needs_validation,
-      "owner": "scripts",
-      "batch": "scripts/example.py"
+      "owner": "$owner",
+      "batch": "$batch"
     }
   ]
 }
@@ -588,7 +600,7 @@ test_plan_to_plan_reviewed_rejects_review_phase_backlog() {
   # Guard: a future orchestrator that forgets --phase plan would build a
   # review-phase backlog (with decision values like verify_first/drop) and
   # still pass schema checks. The validator must reject it so approved
-  # plans never fall through without actionable fix_now/verify_first tags.
+  # plans never fall through without canonical plan-phase defaults.
   local tmpdir
   tmpdir=$(mktemp -d)
   create_state_json "$tmpdir" "plan"
@@ -628,7 +640,7 @@ test_plan_to_plan_reviewed_rejects_non_actionable_decision() {
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "non-canonical"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "expected fix_now"
 }
 
 test_plan_to_plan_reviewed_rejects_verify_first_decision() {
@@ -683,7 +695,28 @@ EOF
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
   rm -rf "$tmpdir"
-  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "non-canonical"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "decision=verify_first"
+}
+
+test_plan_to_plan_reviewed_rejects_review_owner_and_batch() {
+  # Plan-phase build-backlog routes every item to the builder and uses the
+  # deterministic <kind>-<path-group> batch slug.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  # decision=fix_now and phase=plan, but review-phase owner/batch defaults.
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "actionable" "plan"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "expected builder" && echo "$output" | grep -q "expected correctness-scripts"
 }
 
 test_valid_reviewing_to_fixing() {
@@ -1123,6 +1156,7 @@ run_test test_plan_to_plan_reviewed_rejects_invalid_backlog_finding_fields
 run_test test_plan_to_plan_reviewed_rejects_review_phase_backlog
 run_test test_plan_to_plan_reviewed_rejects_non_actionable_decision
 run_test test_plan_to_plan_reviewed_rejects_verify_first_decision
+run_test test_plan_to_plan_reviewed_rejects_review_owner_and_batch
 run_test test_non_numeric_allowlist_iterations
 run_test test_zero_allowlist_iterations_are_rejected
 run_test test_validation_log_written
