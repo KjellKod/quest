@@ -1,0 +1,42 @@
+.github/scripts/codex_review.py
+  70f91b8fc2733e44 549-550,572-578,605,663-672
+scripts/quest_runtime/review_intelligence.py
+  70f91b8fc2733e44 392-403
+tests/unit/test_codex_review.py
+  70f91b8fc2733e44 704-739
+tests/unit/test_review_intelligence.py
+  70f91b8fc2733e44 232,241-267
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "7649494c34bee75f1fe15ad6077074979a25a006",
+  "prompts": {
+    "70f91b8fc2733e44": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4616e57b-eaa9-4545-bc35-f11e0040c777",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 98,
+      "overriden_lines": 0
+    },
+    "acdbef53fbc9d100": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db837-83cd-7660-a89a-a4f82eada223",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 97,
+      "overriden_lines": 0
+    }
+  }
+}
