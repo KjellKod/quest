@@ -1,0 +1,23 @@
+.skills/quest/delegation/workflow.md
+  40465f3ce0770143 528-529
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "2e6019c1901494a4ac4673a51e888281e962728b",
+  "prompts": {
+    "40465f3ce0770143": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db8fb-9add-7653-a122-279fd9ac412f",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
