@@ -133,13 +133,9 @@ OLD_SCRIPT_NAMES=(
   "scripts/validate-quest-state.sh"
 )
 
-LEGACY_SOURCE_ONLY_TESTS=(
+LEGACY_INSTALLED_SOURCE_ONLY_TESTS=(
   "tests/unit/test_allowlist_matcher.py"
   "tests/unit/test_codex_skill_wrappers.py"
-  "tests/unit/test_quest_checks_cli.py"
-  "tests/unit/test_quest_complete.py"
-  "tests/unit/test_quest_manifest.py"
-  "tests/unit/test_quest_state.py"
   "tests/unit/test_review_intelligence.py"
 )
 
@@ -756,7 +752,7 @@ cleanup_legacy_source_only_tests() {
   local upstream_checksum
   local temp_file
 
-  for filepath in "${LEGACY_SOURCE_ONLY_TESTS[@]}"; do
+  for filepath in "${LEGACY_INSTALLED_SOURCE_ONLY_TESTS[@]}"; do
     remove_updated_checksum "$filepath"
     if [ ! -e "$filepath" ]; then
       continue

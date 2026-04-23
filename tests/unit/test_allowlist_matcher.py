@@ -193,6 +193,15 @@ def test_absolute_path_find_exec_is_blocked_for_bare_find_entry():
     assert reason == "blocked_find_action"
 
 
+def test_absolute_path_find_query_is_allowed_for_bare_find_entry():
+    allowed, reason = is_bash_command_allowed(
+        "/usr/bin/find . -name '*.py' -type f",
+        ["find"],
+    )
+    assert allowed is True
+    assert reason == "token_prefix_match"
+
+
 def test_exact_find_exec_entry_is_allowed():
     command = "find . -name '*.py' -exec echo {} +"
     allowed, reason = is_bash_command_allowed(command, [command])
@@ -252,6 +261,15 @@ def test_absolute_path_rg_pre_is_blocked_for_bare_rg_entry():
     )
     assert allowed is False
     assert reason == "blocked_rg_flag"
+
+
+def test_absolute_path_rg_query_is_allowed_for_bare_rg_entry():
+    allowed, reason = is_bash_command_allowed(
+        "/opt/homebrew/bin/rg TODO tests/unit/",
+        ["rg"],
+    )
+    assert allowed is True
+    assert reason == "token_prefix_match"
 
 
 def test_exact_rg_pre_entry_is_allowed():

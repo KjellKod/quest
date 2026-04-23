@@ -65,6 +65,17 @@ def command_basename(command_tokens: list[str]) -> str:
     return Path(command_tokens[0]).name
 
 
+def executable_token_matches(command_token: str, entry_token: str) -> bool:
+    if command_token == entry_token:
+        return True
+    if "/" in entry_token:
+        return False
+    command_path = Path(command_token)
+    if command_path.is_absolute():
+        return command_path.name == entry_token
+    return False
+
+
 def contains_blocked_find_action(command_tokens: list[str]) -> bool:
     if command_basename(command_tokens) != "find":
         return False
@@ -95,7 +106,9 @@ def token_prefix_matches(command_tokens: list[str], entry: str) -> bool:
         return False
     if len(command_tokens) < len(entry_tokens):
         return False
-    return command_tokens[: len(entry_tokens)] == entry_tokens
+    if not executable_token_matches(command_tokens[0], entry_tokens[0]):
+        return False
+    return command_tokens[1 : len(entry_tokens)] == entry_tokens[1:]
 
 
 def is_bash_command_allowed(command: str, allowed_entries: list[str]) -> tuple[bool, str]:
