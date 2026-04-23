@@ -514,6 +514,22 @@ class TestDeepCiChunkHelpers:
         # keep ranges with highest changed-line counts, rendered in file order
         assert [(w["start_line"], w["end_line"]) for w in windows] == [(20, 22), (40, 44)]
 
+    def test_build_line_windows_can_report_chunk_cap_omissions(self):
+        plan = codex_review.build_line_windows(
+            [(1, 1), (20, 22), (40, 44)],
+            line_count=100,
+            context_lines=0,
+            max_chunks=2,
+            include_omitted=True,
+        )
+        assert [(w["start_line"], w["end_line"]) for w in plan["included"]] == [
+            (20, 22),
+            (40, 44),
+        ]
+        assert [(w["start_line"], w["end_line"]) for w in plan["omitted"]] == [
+            (1, 1)
+        ]
+
     def test_extract_line_chunk_and_fit_chunk_to_char_cap_respect_line_boundaries(self):
         content = "line1\nline2\nline3\nline4\nline5\n"
         chunk = codex_review.extract_line_chunk(content, 2, 4)
@@ -736,6 +752,36 @@ class TestFetchDeepCiFiles:
         assert "Total-cap omitted: 2 changed-line window(s)" in rendered
         assert "180-220" in rendered
         assert "430-470" in rendered
+
+    def test_render_deep_ci_context_surfaces_chunk_cap_omitted_windows(self):
+        snapshots = [
+            {
+                "path": "src/big.py",
+                "mode": "chunked",
+                "content": "",
+                "chunks": [
+                    {
+                        "start_line": 20,
+                        "end_line": 25,
+                        "changed_lines": [22],
+                        "changed_lines_included": [22],
+                        "changed_lines_omitted": [],
+                        "content": "row1\nrow2",
+                    }
+                ],
+                "char_count": 9999,
+                "line_count": 500,
+                "changed_line_ranges": [(10, 10), (22, 22), (300, 300)],
+                "chunk_cap_omitted_windows": [
+                    {"start_line": 300, "end_line": 305},
+                ],
+                "omitted": False,
+                "reason": "full file exceeded cap",
+            }
+        ]
+        rendered = codex_review.render_deep_ci_context(snapshots, ["src/big.py"])
+        assert "Chunk-cap omitted: 1 changed-line window(s)" in rendered
+        assert "300-305" in rendered
 
     def test_render_deep_ci_context_uses_longer_fence_for_chunk_backticks(self):
         snapshots = [

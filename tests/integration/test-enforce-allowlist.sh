@@ -69,6 +69,22 @@ test_file_write_allows_nested_docs_output() {
   [ "$rc" -eq 0 ] && [ -z "$output" ]
 }
 
+test_file_write_allows_role_scoped_quest_path() {
+  local output rc
+  output=$(run_hook_for_write "arbiter_agent" "$REPO_ROOT/.quest/state.json" 2>&1)
+  rc=$?
+  [ "$rc" -eq 0 ] && [ -z "$output" ]
+}
+
+test_file_write_rejects_traversal_out_of_allowed_root() {
+  local output rc
+  output=$(run_hook_for_write "arbiter_agent" "$REPO_ROOT/.quest/../scripts/quest_state.py" 2>&1)
+  rc=$?
+  [ "$rc" -eq 2 ] &&
+    echo "$output" | grep -q "BLOCKED:" &&
+    echo "$output" | grep -q ".quest/../scripts/quest_state.py"
+}
+
 test_file_write_rejects_unlisted_dashboard_source_path() {
   local output rc
   output=$(run_hook_for_write "builder_agent" "$REPO_ROOT/dashboard/src/App.tsx" 2>&1)
@@ -87,6 +103,8 @@ run_test test_bridge_allows_manifest_validation_command
 run_test test_bridge_rejects_compound_bypass
 run_test test_file_write_allows_nested_double_star_path
 run_test test_file_write_allows_nested_docs_output
+run_test test_file_write_allows_role_scoped_quest_path
+run_test test_file_write_rejects_traversal_out_of_allowed_root
 run_test test_file_write_rejects_unlisted_dashboard_source_path
 
 echo ""

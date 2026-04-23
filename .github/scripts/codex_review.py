@@ -263,10 +263,11 @@ def build_line_windows(
     line_count,
     context_lines=DEEP_CI_CHUNK_CONTEXT_LINES,
     max_chunks=DEEP_CI_MAX_CHUNKS_PER_FILE,
+    include_omitted=False,
 ):
     """Expand and merge line windows around changed ranges with deterministic caps."""
     if not ranges or line_count < 1:
-        return []
+        return {"included": [], "omitted": []} if include_omitted else []
 
     expanded = []
     for start, end in ranges:
@@ -286,7 +287,7 @@ def build_line_windows(
         )
 
     if not expanded:
-        return []
+        return {"included": [], "omitted": []} if include_omitted else []
 
     expanded.sort(key=lambda item: (item["start_line"], item["end_line"]))
     merged = [expanded[0]]
@@ -303,6 +304,7 @@ def build_line_windows(
         else:
             merged.append(window)
 
+    omitted = []
     if len(merged) > max_chunks:
         ranked = sorted(
             merged,
@@ -312,7 +314,12 @@ def build_line_windows(
                 item["end_line"],
             ),
         )[:max_chunks]
+        ranked_ids = {id(item) for item in ranked}
+        omitted = [item for item in merged if id(item) not in ranked_ids]
         merged = sorted(ranked, key=lambda item: (item["start_line"], item["end_line"]))
+
+    if include_omitted:
+        return {"included": merged, "omitted": omitted}
 
     return merged
 
@@ -533,12 +540,18 @@ def fetch_deep_ci_files(
             )
             continue
 
-        windows = build_line_windows(
+        window_plan = build_line_windows(
             ranges,
             line_count,
             context_lines=context_lines,
             max_chunks=max_chunks_per_file,
+            include_omitted=True,
         )
+        windows = window_plan["included"]
+        chunk_cap_omitted_windows = [
+            {"start_line": window["start_line"], "end_line": window["end_line"]}
+            for window in window_plan["omitted"]
+        ]
         if not windows:
             snapshots.append(
                 _deep_ci_omitted_note(path, "no changed-line ranges found for oversized file")
@@ -602,6 +615,7 @@ def fetch_deep_ci_files(
                 "char_count": len(content),
                 "line_count": line_count,
                 "changed_line_ranges": ranges,
+                "chunk_cap_omitted_windows": chunk_cap_omitted_windows,
                 "total_cap_omitted_windows": total_cap_omitted_windows,
                 "omitted": False,
                 "reason": (
@@ -669,6 +683,16 @@ def render_deep_ci_context(snapshots, selected_files=None):
                 f"Total-cap omitted: {len(total_cap_omitted_windows)} changed-line "
                 f"window(s) ({omitted_ranges}) dropped because the Deep CI total "
                 f"character budget was exhausted"
+            )
+        chunk_cap_omitted_windows = snapshot.get("chunk_cap_omitted_windows") or []
+        if chunk_cap_omitted_windows:
+            omitted_ranges = ", ".join(
+                f"{w['start_line']}-{w['end_line']}" for w in chunk_cap_omitted_windows
+            )
+            file_lines.append(
+                f"Chunk-cap omitted: {len(chunk_cap_omitted_windows)} changed-line "
+                f"window(s) ({omitted_ranges}) dropped because the per-file chunk "
+                f"limit was reached"
             )
         for chunk in chunks:
             chunk_header = f"### {path} lines {chunk['start_line']}-{chunk['end_line']}"
