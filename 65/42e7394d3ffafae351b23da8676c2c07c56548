@@ -1,0 +1,37 @@
+scripts/quest_installer.sh
+  acdbef53fbc9d100 687-741,1799
+scripts/README.md
+  acdbef53fbc9d100 13,69
+scripts/quest_validate-manifest.sh
+  acdbef53fbc9d100 3-4,36,55-57,61-63,71-74
+.quest-manifest
+  acdbef53fbc9d100 104-107
+tests/unit/test_quest_manifest.py
+  acdbef53fbc9d100 1-84
+tests/unit/test_quest_checks_cli.py
+  acdbef53fbc9d100 1-68
+scripts/quest_checks/cli.py
+  acdbef53fbc9d100 1,13-16,34-37
+tests/test-quest-runtime.sh
+  acdbef53fbc9d100 696-765,774-787,1378-1379,1381-1382
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "6542e7394d3ffafae351b23da8676c2c07c56548",
+  "prompts": {
+    "acdbef53fbc9d100": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db837-83cd-7660-a89a-a4f82eada223",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 324,
+      "total_deletions": 12,
+      "accepted_lines": 324,
+      "overriden_lines": 0
+    }
+  }
+}
