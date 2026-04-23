@@ -525,8 +525,8 @@ gates.max_plan_iterations (default: 4)
    - If arbiter handoff says `next: builder` and findings validation passed:
      - Build backlog from validated findings:
        - `python3 scripts/quest_review_intelligence.py build-backlog --phase plan --findings .quest/<id>/phase_01_plan/review_findings.json.next --output .quest/<id>/phase_01_plan/review_backlog.json.next`
-     - Optional guard:
-       - `python3 scripts/quest_review_intelligence.py validate-backlog --input .quest/<id>/phase_01_plan/review_backlog.json.next`
+     - Validate the plan-phase backlog before publish:
+       - `python3 scripts/quest_review_intelligence.py validate-backlog --input .quest/<id>/phase_01_plan/review_backlog.json.next --expected-phase plan`
      - On build-backlog or validate-backlog failure: STOP route, do not transition, preserve canonical artifacts, leave `.next` files for inspection.
      - Publish atomically only after both files validate:
        - `os.replace(".quest/<id>/phase_01_plan/review_findings.json.next", ".quest/<id>/phase_01_plan/review_findings.json")`
