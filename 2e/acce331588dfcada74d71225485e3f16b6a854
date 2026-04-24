@@ -1,0 +1,27 @@
+ideas/2026-04-15-pretooluse-branch-dir-verification-hook.md
+  18bf4be5701d6264 1-61
+.codex/hooks.json
+  18bf4be5701d6264 1-15
+.claude/settings.json
+  18bf4be5701d6264 18-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2eacce331588dfcada74d71225485e3f16b6a854",
+  "prompts": {
+    "18bf4be5701d6264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "31f8c3c2-4823-49ea-9c09-f2d9946054c7",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 88,
+      "total_deletions": 1,
+      "accepted_lines": 87,
+      "overriden_lines": 0
+    }
+  }
+}
