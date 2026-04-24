@@ -8,63 +8,73 @@ owner: KjellKod (research by Claude)
 date: 2026-04-24
 ---
 
-# Suggested quest prompt to take this on. Update this prompt if there are changes
+# Suggested quest prompt to take this on
+
+I agree this idea is worth doing, but it should stay split into two PRs. The
+first PR should land the low-risk presentation cleanup for existing inline
+comments. The second PR should add the new intent-review conversation surface.
+
+Ready-to-paste first quest prompt:
+
 ```
- Quest prompt — PR 1: Severity-tagged inline review comments
+/quest "Implement PR 1 of the intent-coverage + severity-tagged reviews idea: severity-tagged inline Codex CI review comments.
 
-  Implement the severity emoji + label + footer presentation layer for inline Codex CI review comments, as specified in
-  ideas/2026-04-24-intent-coverage-and-severity-tagged-reviews.md ("Change 2"). Per maintainer decisions on 2026-04-24:
-  - Avoid drift: move severity label and advisory footer fully into the script. Remove their generation from the prompt template.
-  - Add a regression test that the fallback PR review only fires when every inline post fails. This is invariant work the test suite is missing today.
+Reference:
+- ideas/2026-04-24-intent-coverage-and-severity-tagged-reviews.md, especially Change 2.
 
-  Branch: off main, name it severity-emoji-inline-reviews.
+Context:
+- PR #101 already shipped the Deep CI review-context manifest. Do not add or redesign Deep CI context artifacts in this quest.
+- Keep the existing three severity levels: blocker, must-fix, should-fix.
+- Avoid drift: move severity label and advisory footer fully into .github/scripts/codex_review.py. Remove their generation from the prompt template.
+- Add a regression test that the fallback PR review only fires when every inline post fails.
 
-  Scope (only these files):
+Branch:
+- off main, name it severity-emoji-inline-reviews.
 
-  1. .github/scripts/codex_review.py
-    - Add SEVERITY_EMOJI = {"blocker": "\U0001f534", "must-fix": "\U0001f7e0", "should-fix": "\U0001f7e1"} near VALID_SEVERITIES.
-    - Add ADVISORY_FOOTER = "*Automated review by Codex (advisory PR review).*".
-    - Add format_inline_body(severity: str | None, body: str) -> str — idempotent: prepend **Label** - only if body doesn't already start with **; append footer only if
-   not already present; prepend emoji only if not already prefixed. Body is .strip()-ed first. Unknown severities skip emoji and label but still get the footer.
-    - In post_comments, call format_inline_body(comment.get("severity"), comment["body"]) and use the result as the comment body before writing the temp file. Do NOT
-  change dedup: keywords are still extracted from the unformatted model body (verify by reading extract_keywords / build_dedup_state / is_duplicate).
-    - Bold-label injection by the prompt should be removed (see file 3) so the script is now the single source of truth for the bold prefix and footer. Update any
-  prompt-side guidance docstrings accordingly if present.
-  2. .github/codex-review-prompt.md
-    - Remove instructions that tell the model to include **Blocker** / **Must fix** / **Should fix** bold prefixes in the body.
-    - Remove any mention of the "Automated review by Codex (advisory PR review)" footer.
-    - Keep the structured severity JSON field requirement (blocker | must-fix | should-fix). The script handles all presentation.
-  3. tests/unit/test_codex_review.py — add four tests for the formatter plus one fallback-invariant test:
-    - test_format_inline_body_prefixes_emoji — each of the three severities yields the matching emoji prefix and bold label.
-    - test_format_inline_body_unknown_severity_no_emoji — None and "unknown" return body + footer only, no emoji, no label.
-    - test_format_inline_body_idempotent — running it twice produces the exact same string (no double emoji, double bold, or double footer).
-    - test_dedup_unaffected_by_emoji_prefix — fuzzy-overlap dedup still matches when an existing comment was previously posted with the emoji prefix and the new
-  finding's keywords come from raw model body.
-    - test_fallback_review_only_when_all_inline_posts_fail — mock subprocess.run, simulate (a) all inline POSTs succeed → fallback NOT called, (b) one inline POST
-  succeeds and one fails → fallback NOT called, (c) all inline POSTs fail → fallback IS called exactly once.
+Scope:
+1. .github/scripts/codex_review.py
+   - Add SEVERITY_EMOJI = {\"blocker\": \"\\U0001f534\", \"must-fix\": \"\\U0001f7e0\", \"should-fix\": \"\\U0001f7e1\"} near VALID_SEVERITIES.
+   - Add ADVISORY_FOOTER = \"*Automated review by Codex (advisory PR review).*\".
+   - Add format_inline_body(severity: str | None, body: str) -> str.
+   - The formatter must be idempotent: strip the body, prepend emoji + **Label** - only when not already present, append the footer only when not already present.
+   - Unknown or missing severities must skip emoji and label but still get the footer.
+   - In post_comments, call format_inline_body(comment.get(\"severity\"), comment[\"body\"]) before writing the temp-file payload.
+   - Do not change dedup semantics. Keywords must still be derived from the unformatted model body.
+2. .github/codex-review-prompt.md
+   - Remove instructions telling the model to include **Blocker** / **Must fix** / **Should fix** prefixes in the body.
+   - Remove examples or instructions that tell the model to include an automated-review footer.
+   - Keep the structured severity JSON field requirement.
+3. tests/unit/test_codex_review.py
+   - Add test_format_inline_body_prefixes_emoji.
+   - Add test_format_inline_body_unknown_severity_no_emoji.
+   - Add test_format_inline_body_idempotent.
+   - Add test_dedup_unaffected_by_emoji_prefix.
+   - Add test_fallback_review_only_when_all_inline_posts_fail, covering all inline posts succeed, one succeeds/one fails, and all fail.
 
-  Constraints / non-negotiables:
-  - Do not modify .github/workflows/codex-ci-review.yml or any other workflow.
-  - Do not modify VALID_SEVERITIES. Stays at three levels.
-  - Do not modify parse_review_output, is_duplicate, build_dedup_state, extract_keywords, or post_fallback_review logic — only call sites and tests around them.
-  - Doc/comment updates only where strictly required by the change.
-  - format_inline_body must accept severity: str | None and never raise on unknown values.
+Constraints:
+- Do not modify .github/workflows/codex-ci-review.yml or any other workflow.
+- Do not modify VALID_SEVERITIES.
+- Do not modify parse_review_output, is_duplicate, build_dedup_state, extract_keywords, build_deep_ci_manifest, render_deep_ci_markdown_from_manifest, or post_fallback_review logic.
+- Doc/comment updates only where strictly required by the change.
+- format_inline_body must accept severity: str | None and never raise on unknown values.
 
-  Acceptance:
-  - pytest tests/unit/test_codex_review.py -v passes (existing tests + 5 new).
-  - python -m py_compile .github/scripts/codex_review.py clean.
-  - Manual trace of post_comments with one finding per severity shows correct emoji prefix in the body sent to GitHub.
-  - Diff is ~25 lines in codex_review.py, ~15 lines removed from codex-review-prompt.md, ~120 lines added in test_codex_review.py.
+Acceptance:
+- pytest tests/unit/test_codex_review.py -v passes.
+- python -m py_compile .github/scripts/codex_review.py passes.
+- Manual trace of post_comments with one finding per severity shows the body sent to GitHub starts with the correct emoji and bold label.
+- The prompt no longer asks the model to own presentation formatting.
 
-  Out of scope (do NOT touch in this PR):
-  - Intent-review workflow / helper / prompt — that's PR 2.
-  - pr-body-gate.yml, security.yml, test-python.yml, validate-quest-config.yml, deploy-dashboard.yml.
-  - Adding nit / praise severities.
-  - Updating ideas/codex-review-severity-emoji.md to mark "implemented" — leave that for the merge commit description or a follow-up.
+Out of scope:
+- Intent-review workflow/helper/prompt. That is PR 2.
+- Deep CI context manifest changes. PR #101 already shipped that.
+- pr-body-gate.yml, security.yml, test-python.yml, validate-quest-config.yml, deploy-dashboard.yml.
+- Adding nit, praise, info, low, or critical severities.
 
-  PR title: Add severity emoji and consolidated formatting for inline CI reviews.
-  PR description: link to ideas/2026-04-24-intent-coverage-and-severity-tagged-reviews.md (Change 2 section), summarize the prompt-vs-script consolidation decision,
-  list the five new tests, and note this is the first of two PRs (intent-review workflow follows separately).
+PR title:
+Add severity emoji and consolidated formatting for inline CI reviews.
+
+PR description:
+Link to ideas/2026-04-24-intent-coverage-and-severity-tagged-reviews.md, summarize the prompt-vs-script consolidation decision, list the five new tests, and note this is the first of two PRs. The intent-review workflow follows separately."
 ```
 
 
@@ -88,7 +98,9 @@ A reference project's CI does two things we want:
    list parseable at a glance.
 
 Quest already has a sophisticated inline-review system (`codex-ci-review.yml`
-+ `codex_review.py` + Deep CI). It does **not** have:
++ `codex_review.py` + Deep CI). PR #101 added a canonical
+`/tmp/deep_ci_context_manifest.json` artifact for Deep CI selection,
+chunking, budgets, and omission reasons. It still does **not** have:
 
 - An intent / acceptance-coverage summary surface.
 - Color emojis on severity.
@@ -437,8 +449,12 @@ guidance + JSON `severity` field. The bold label (`**Blocker**` etc.) is
 already produced by the model — emoji prefix is the only missing visual
 layer.
 
-Roadmap docs already in flight that this work plugs into:
+Roadmap docs and shipped work that this plugs into:
 
+- `ideas/deep-ci-review-context-manifest-plan.md` / PR #101 — Phase 3.2
+  shipped the canonical Deep CI review-context manifest. This proposal should
+  treat that manifest as existing infrastructure and should not add a second
+  context artifact.
 - `ideas/archive/2026-04-13-review-intelligence-canonical.md` — Section 3
   describes a future `review-coverage` job mapping acceptance criteria to
   test/validation evidence. Intent-coverage is the lighter cousin of that
@@ -483,7 +499,8 @@ different non-secret-bearing design.
 mirroring the existing pattern in `codex_review.py`:
 
 - `prepare`: writes diff + PR description to `/tmp/intent-review/*` and
-  interpolates `intent-review-prompt.md`.
+  interpolates `intent-review-prompt.md`. It should not create another Deep
+  CI context manifest; PR #101 already made that artifact canonical.
 - `process`: parses Codex's JSON output (lenient), renders to markdown
   with the marker, calls `upsert_intent_comment`. Handles all skip /
   failure cases by writing a degraded `warn` payload and still upserting.
@@ -680,8 +697,8 @@ Add to `tests/unit/test_codex_review.py`:
 - Not implementing the `review-coverage` job from the canonical roadmap
   (intent-coverage is the lightweight precursor, not a replacement).
 - Not changing the existing PR-body required headings.
-- Not adding a context-manifest artifact for Deep CI (separate Phase 3.2
-  proposal already in flight).
+- Not adding or redesigning a context-manifest artifact for Deep CI. PR #101
+  already shipped Phase 3.2's canonical manifest.
 
 ---
 
@@ -713,7 +730,7 @@ Add to `tests/unit/test_codex_review.py`:
 .github/intent-review-prompt.md              NEW
 .github/scripts/codex_review.py              EDIT (~15 LOC: emoji map + format_inline_body + 1-line call site)
 tests/unit/test_intent_review.py             NEW
-tests/unit/test_codex_review.py              EDIT (4 new tests)
+tests/unit/test_codex_review.py              EDIT (5 new tests)
 docs/architecture/ci-review-surfaces.md      NEW or EDIT (one-page diagram of the three surfaces)
 ideas/codex-review-severity-emoji.md         UPDATE → mark "implemented (3-level)"
 ideas/archive/2026-04-13-review-intelligence-canonical.md  UPDATE → cross-link intent-review as Phase-3 prelude
