@@ -1,6 +1,9 @@
 # Deep CI Review Context Manifest Plan
 
-## Status: proposed
+## Status: done
+
+Implemented as Review Intelligence Phase 3.2 in PR #101. See
+`docs/quest-journal/deep-ci-manifest_2026-04-24.md`.
 
 ## Origin
 
