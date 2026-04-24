@@ -41,6 +41,7 @@ Current roadmap:
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
 |---|---|---|
+| `2026-04-24-quest-hooks-vs-instructions-boundary.md` | proposed | Define the boundary between instruction files, hooks, and scripts for Quest, with Claude-first enforcement and Codex-aware adapter guidance. |
 | `dual-model-planning.md` | proposed | Explore parallel plan generation with arbiter synthesis instead of a single planner output. |
 | `2026-04-13-codex-companion-runtime.md` | proposed | Phased prove-it roadmap for a shared Codex runtime serving both the human `/gpt` command surface and Quest orchestration, with strict go/no-go criteria after the minimum slice. |
 | `2026-04-13-feedback-intent-routing.md` | proposed | Canonical feedback-routing proposal: classify live quest feedback by intent and route to clarify, replan, second-opinion, or escalation paths deliberately. |
