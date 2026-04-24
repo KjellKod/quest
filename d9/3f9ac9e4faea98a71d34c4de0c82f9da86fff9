@@ -1,0 +1,23 @@
+ideas/2026-04-24-intent-coverage-and-severity-tagged-reviews.md
+  8edbda76f26266be 1-669
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "d93f9ac9e4faea98a71d34c4de0c82f9da86fff9",
+  "prompts": {
+    "8edbda76f26266be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e46f344d-d7dd-48d8-afb0-78e2dc5b8b87",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 669,
+      "total_deletions": 0,
+      "accepted_lines": 669,
+      "overriden_lines": 0
+    }
+  }
+}
