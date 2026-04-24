@@ -1,0 +1,42 @@
+.github/scripts/codex_review.py
+  77d445abce7b4383 1148-1149
+tests/unit/test_codex_review.py
+  77d445abce7b4383 814-1412,1457,1513-1516,1588-1604
+docs/quest-journal/deep-ci-manifest_2026-04-24.md
+  ae68c7d78838cb4b 1-158
+docs/quest-journal/README.md
+  ae68c7d78838cb4b 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "0060199096fb3b3177387adb4df413066de7f9d9",
+  "prompts": {
+    "77d445abce7b4383": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dc163-25ba-74c1-84a6-b9d8bb610c70",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 310,
+      "total_deletions": 102,
+      "accepted_lines": 310,
+      "overriden_lines": 0
+    },
+    "ae68c7d78838cb4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7212f818-4d53-4cc7-843e-612a1c023901",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 218,
+      "total_deletions": 1,
+      "accepted_lines": 218,
+      "overriden_lines": 0
+    }
+  }
+}
