@@ -1,7 +1,17 @@
 # Deep CI Chunked Context Plan
 
-Status: proposed
-Date: 2026-04-21
+## Status: done
+
+Implemented as Review Intelligence Phase 3.1 in PR [#98](https://github.com/KjellKod/quest/pull/98).
+
+## Completion Evidence
+
+- Deep CI now renders bounded changed-line context chunks for oversized selected
+  files in `.github/scripts/codex_review.py`.
+- The Codex review prompt documents that Deep CI context may contain either full
+  files or bounded chunks for oversized files in `.github/codex-review-prompt.md`.
+- Tests in `tests/unit/test_codex_review.py` cover chunk fallback behavior,
+  bounded omissions, and changed-line chunk rendering.
 
 ## Problem
 
@@ -22,13 +32,17 @@ This gives the reviewer enough surrounding code to reason about lifecycle, initi
 
 ## Roadmap Position
 
-This is Review Intelligence Phase 3.1.
+This was Review Intelligence Phase 3.1 and is now shipped.
 
 Phase 3 shipped bounded whole-file review for selected changed code files. Live validation showed the remaining gap: Deep CI can choose the right high-value files and still skip them because they exceed the character cap.
 
-Phase 3.1 should preserve the current budget discipline while giving the model changed-line context chunks for oversized files instead of dropping them entirely.
+Phase 3.1 preserved the current budget discipline while giving the model
+changed-line context chunks for oversized files instead of dropping them
+entirely.
 
-The next queued follow-up is a structured review-context manifest: one prepare step decides files, chunks, budgets, and metadata, and downstream review steps consume that manifest deterministically.
+Phase 3.2 is now the next queued follow-up: a structured review-context
+manifest where one prepare step decides files, chunks, budgets, and metadata,
+and downstream review steps consume that manifest deterministically.
 
 ## Research Notes
 
