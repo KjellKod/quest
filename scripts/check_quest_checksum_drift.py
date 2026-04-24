@@ -25,6 +25,15 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def resolve_repo_managed_path(root: Path, relpath: str) -> Path | None:
+    try:
+        candidate = (root / relpath).resolve(strict=False)
+        candidate.relative_to(root)
+    except (OSError, RuntimeError, ValueError):
+        return None
+    return candidate
+
+
 def main() -> int:
     args = parse_args()
     root = Path(args.repo).resolve()
@@ -45,7 +54,10 @@ def main() -> int:
             drift.append((raw, "malformed entry"))
             continue
 
-        path = root / relpath
+        path = resolve_repo_managed_path(root, relpath)
+        if path is None:
+            drift.append((relpath, "unsafe path"))
+            continue
         if not path.exists():
             drift.append((relpath, "missing file"))
             continue
