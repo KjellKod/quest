@@ -8,6 +8,67 @@ owner: KjellKod (research by Claude)
 date: 2026-04-24
 ---
 
+# Suggested quest prompt to take this on. Update this prompt if there are changes
+```
+ Quest prompt — PR 1: Severity-tagged inline review comments
+
+  Implement the severity emoji + label + footer presentation layer for inline Codex CI review comments, as specified in
+  ideas/2026-04-24-intent-coverage-and-severity-tagged-reviews.md ("Change 2"). Per maintainer decisions on 2026-04-24:
+  - Avoid drift: move severity label and advisory footer fully into the script. Remove their generation from the prompt template.
+  - Add a regression test that the fallback PR review only fires when every inline post fails. This is invariant work the test suite is missing today.
+
+  Branch: off main, name it severity-emoji-inline-reviews.
+
+  Scope (only these files):
+
+  1. .github/scripts/codex_review.py
+    - Add SEVERITY_EMOJI = {"blocker": "\U0001f534", "must-fix": "\U0001f7e0", "should-fix": "\U0001f7e1"} near VALID_SEVERITIES.
+    - Add ADVISORY_FOOTER = "*Automated review by Codex (advisory PR review).*".
+    - Add format_inline_body(severity: str | None, body: str) -> str — idempotent: prepend **Label** - only if body doesn't already start with **; append footer only if
+   not already present; prepend emoji only if not already prefixed. Body is .strip()-ed first. Unknown severities skip emoji and label but still get the footer.
+    - In post_comments, call format_inline_body(comment.get("severity"), comment["body"]) and use the result as the comment body before writing the temp file. Do NOT
+  change dedup: keywords are still extracted from the unformatted model body (verify by reading extract_keywords / build_dedup_state / is_duplicate).
+    - Bold-label injection by the prompt should be removed (see file 3) so the script is now the single source of truth for the bold prefix and footer. Update any
+  prompt-side guidance docstrings accordingly if present.
+  2. .github/codex-review-prompt.md
+    - Remove instructions that tell the model to include **Blocker** / **Must fix** / **Should fix** bold prefixes in the body.
+    - Remove any mention of the "Automated review by Codex (advisory PR review)" footer.
+    - Keep the structured severity JSON field requirement (blocker | must-fix | should-fix). The script handles all presentation.
+  3. tests/unit/test_codex_review.py — add four tests for the formatter plus one fallback-invariant test:
+    - test_format_inline_body_prefixes_emoji — each of the three severities yields the matching emoji prefix and bold label.
+    - test_format_inline_body_unknown_severity_no_emoji — None and "unknown" return body + footer only, no emoji, no label.
+    - test_format_inline_body_idempotent — running it twice produces the exact same string (no double emoji, double bold, or double footer).
+    - test_dedup_unaffected_by_emoji_prefix — fuzzy-overlap dedup still matches when an existing comment was previously posted with the emoji prefix and the new
+  finding's keywords come from raw model body.
+    - test_fallback_review_only_when_all_inline_posts_fail — mock subprocess.run, simulate (a) all inline POSTs succeed → fallback NOT called, (b) one inline POST
+  succeeds and one fails → fallback NOT called, (c) all inline POSTs fail → fallback IS called exactly once.
+
+  Constraints / non-negotiables:
+  - Do not modify .github/workflows/codex-ci-review.yml or any other workflow.
+  - Do not modify VALID_SEVERITIES. Stays at three levels.
+  - Do not modify parse_review_output, is_duplicate, build_dedup_state, extract_keywords, or post_fallback_review logic — only call sites and tests around them.
+  - Doc/comment updates only where strictly required by the change.
+  - format_inline_body must accept severity: str | None and never raise on unknown values.
+
+  Acceptance:
+  - pytest tests/unit/test_codex_review.py -v passes (existing tests + 5 new).
+  - python -m py_compile .github/scripts/codex_review.py clean.
+  - Manual trace of post_comments with one finding per severity shows correct emoji prefix in the body sent to GitHub.
+  - Diff is ~25 lines in codex_review.py, ~15 lines removed from codex-review-prompt.md, ~120 lines added in test_codex_review.py.
+
+  Out of scope (do NOT touch in this PR):
+  - Intent-review workflow / helper / prompt — that's PR 2.
+  - pr-body-gate.yml, security.yml, test-python.yml, validate-quest-config.yml, deploy-dashboard.yml.
+  - Adding nit / praise severities.
+  - Updating ideas/codex-review-severity-emoji.md to mark "implemented" — leave that for the merge commit description or a follow-up.
+
+  PR title: Add severity emoji and consolidated formatting for inline CI reviews.
+  PR description: link to ideas/2026-04-24-intent-coverage-and-severity-tagged-reviews.md (Change 2 section), summarize the prompt-vs-script consolidation decision,
+  list the five new tests, and note this is the first of two PRs (intent-review workflow follows separately).
+```
+
+
+
 # Intent-Coverage + Severity-Tagged Reviews — Findings
 
 ## TL;DR
