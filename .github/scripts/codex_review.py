@@ -41,6 +41,8 @@ DEEP_CI_MAX_CHUNKS_PER_FILE = 4
 DEEP_CI_MAX_CHUNK_CHARS = 12000
 DEEP_CI_MAX_FETCH_CHARS = 200000
 DEEP_CI_REASON_EXCLUDED_PATH_SEGMENT = "excluded-path-segment"
+DEEP_CI_REASON_LOCKFILE = "lockfile"
+DEEP_CI_REASON_MINIFIED_FILE = "minified-file"
 DEEP_CI_REASON_UNSUPPORTED_EXTENSION = "unsupported-extension"
 DEEP_CI_REASON_DELETED_FILE = "deleted-file"
 DEEP_CI_REASON_METADATA_TOO_LARGE = "metadata-too-large"
@@ -177,12 +179,12 @@ def _classify_skip_reason(path, file_info):
     lower_path = path.lower()
     name = Path(lower_path).name
     suffix = Path(lower_path).suffix
+    if name in DEEP_CI_LOCKFILES or ".lock." in name:
+        return DEEP_CI_REASON_LOCKFILE
     if suffix not in DEEP_CI_EXTENSIONS:
         return DEEP_CI_REASON_UNSUPPORTED_EXTENSION
-    if name in DEEP_CI_LOCKFILES or ".lock." in name:
-        return DEEP_CI_REASON_EXCLUDED_PATH_SEGMENT
     if name.endswith(".min.js") or name.endswith(".min.ts") or ".min." in name:
-        return DEEP_CI_REASON_EXCLUDED_PATH_SEGMENT
+        return DEEP_CI_REASON_MINIFIED_FILE
     if any(segment in DEEP_CI_EXCLUDED_SEGMENTS for segment in _path_segments(lower_path)):
         return DEEP_CI_REASON_EXCLUDED_PATH_SEGMENT
     return None
@@ -712,6 +714,8 @@ def _map_fetch_omission_reason(reason):
         DEEP_CI_REASON_CHUNK_CAP_EXHAUSTED,
         DEEP_CI_REASON_UNAVAILABLE,
         DEEP_CI_REASON_EXCLUDED_PATH_SEGMENT,
+        DEEP_CI_REASON_LOCKFILE,
+        DEEP_CI_REASON_MINIFIED_FILE,
         DEEP_CI_REASON_UNSUPPORTED_EXTENSION,
         DEEP_CI_REASON_DELETED_FILE,
         DEEP_CI_REASON_METADATA_TOO_LARGE,

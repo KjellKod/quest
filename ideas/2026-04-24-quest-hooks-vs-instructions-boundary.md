@@ -98,7 +98,7 @@ Implication for Quest:
 
 ## Design Consequence
 
-Quest should not build two independent policy stacks:
+Quest should not build three independent policy stacks:
 
 - one in markdown
 - one in Claude hooks

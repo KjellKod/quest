@@ -1221,6 +1221,18 @@ class TestDeepCiManifest:
                 "expected": codex_review.DEEP_CI_REASON_EXCLUDED_PATH_SEGMENT,
             },
             {
+                "id": "lockfile",
+                "changed_files": [{"path": "package-lock.json"}],
+                "path": "package-lock.json",
+                "expected": codex_review.DEEP_CI_REASON_LOCKFILE,
+            },
+            {
+                "id": "minified-file",
+                "changed_files": [{"path": "src/app.min.js"}],
+                "path": "src/app.min.js",
+                "expected": codex_review.DEEP_CI_REASON_MINIFIED_FILE,
+            },
+            {
                 "id": "unsupported-extension",
                 "changed_files": [{"path": "README.md"}],
                 "path": "README.md",
