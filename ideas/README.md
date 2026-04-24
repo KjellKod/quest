@@ -26,7 +26,7 @@ architecture docs.
 ### Review Intelligence
 | File | Status | Purpose |
 |---|---|---|
-| `deep-ci-review-context-manifest-plan.md` | proposed | Phase 3.2 proposal: persist one canonical Deep CI review-context manifest and make downstream steps consume it deterministically. |
+| _No active Review Intelligence proposals._ |  | Phase 1 through Phase 3.2 are complete; see Done Index. |
 
 Current roadmap:
 
@@ -36,7 +36,7 @@ Current roadmap:
 | Phase 2 | done | Targeted validation and batched PR response. |
 | Phase 3 | done | Bounded Deep CI whole-file review for selected changed code files. |
 | Phase 3.1 | done | Deep CI oversized-file chunk fallback shipped in PR #98; see [`ideas/archive/deep-ci-chunked-context-plan.md`](archive/deep-ci-chunked-context-plan.md). |
-| Phase 3.2 | next | Structured review-context manifest: prepare files, chunks, budgets, and metadata once, then have downstream review steps consume that manifest deterministically. |
+| Phase 3.2 | done | Structured review-context manifest shipped in PR #101; see [`ideas/archive/deep-ci-review-context-manifest-plan.md`](archive/deep-ci-review-context-manifest-plan.md) and [`docs/quest-journal/deep-ci-manifest_2026-04-24.md`](../docs/quest-journal/deep-ci-manifest_2026-04-24.md). |
 
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
@@ -86,6 +86,7 @@ Current roadmap:
 | Status | Idea | Note |
 |---|---|---|
 | done | ~~2026-04-13-review-intelligence-canonical~~ | Phases 1-3 shipped: canonical findings/backlog, targeted validation/PR batching, and bounded Deep CI whole-file review. Archived at [`ideas/archive/2026-04-13-review-intelligence-canonical.md`](archive/2026-04-13-review-intelligence-canonical.md). |
+| done | ~~deep-ci-review-context-manifest-plan~~ | Implemented as Review Intelligence Phase 3.2 in PR #101. Archived at [`ideas/archive/deep-ci-review-context-manifest-plan.md`](archive/deep-ci-review-context-manifest-plan.md). |
 | done | ~~deep-ci-chunked-context-plan~~ | Implemented as Review Intelligence Phase 3.1 in PR #98. Archived at [`ideas/archive/deep-ci-chunked-context-plan.md`](archive/deep-ci-chunked-context-plan.md). |
 | done | ~~deep-ci-whole-file-logic-review~~ | Implemented as Review Intelligence Phase 3; Codex CI now has bounded whole-file logic review for selected changed code files. Archived at [`ideas/archive/deep-ci-whole-file-logic-review.md`](archive/deep-ci-whole-file-logic-review.md). |
 | done | ~~extract-codex-review-python~~ | Codex CI review Python now lives in `.github/scripts/codex_review.py`; workflow heredocs were removed. Archived at [`ideas/archive/extract-codex-review-python.md`](archive/extract-codex-review-python.md). |
