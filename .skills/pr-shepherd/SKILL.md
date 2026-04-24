@@ -22,6 +22,15 @@ Use **inline-first** commenting by default.
 2. If any checks are still pending, sleep ~180 seconds.
 3. Run `gh pr checks <PR_NUMBER>` again to observe final CI status.
 
+#### Protected Environment Approval
+If `Codex CI Code Review / codex-review` is pending because the workflow run is waiting on the `codex-ci-review` protected environment, approve the pending deployment when the authenticated GitHub account is allowed to approve it.
+
+Use the waiting state as the signal:
+1. Inspect the run with `gh run view <RUN_ID> --json status,conclusion,jobs`.
+2. Inspect pending deployments with `gh api repos/{owner}/{repo}/actions/runs/<RUN_ID>/pending_deployments`.
+3. If `current_user_can_approve` is true for `codex-ci-review`, approve it through the pending deployments API so the review job can start.
+4. Do not treat the waiting state as CI failure.
+
 ### Step 3: Evaluate CI Results
 - **All checks pass** → proceed to Step 4.
 - **Failures** → read the failing job logs (`gh run view <RUN_ID> --log-failed`), diagnose the root cause, fix it, commit, push, and loop back to Step 2.
