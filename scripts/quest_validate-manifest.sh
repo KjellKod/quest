@@ -75,10 +75,13 @@ EXPECTED_PATTERNS=(
 )
 
 # Find all files matching our patterns
+# Prune nested git worktrees so their files do not masquerade as repo content.
 FOUND_FILES=""
 for pattern in "${EXPECTED_PATTERNS[@]}"; do
   # Use find with -path to handle glob patterns
-  matches=$(find . -path "./$pattern" -type f 2>/dev/null | sed 's|^\./||' || true)
+  matches=$(find . \
+    -type d \( -path './.claude/worktrees' -o -path './.worktrees' -o -path './.git' \) -prune -o \
+    -path "./$pattern" -type f -print 2>/dev/null | sed 's|^\./||' || true)
   if [ -n "$matches" ]; then
     FOUND_FILES="$FOUND_FILES"$'\n'"$matches"
   fi
