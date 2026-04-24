@@ -15,6 +15,17 @@
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '📍 Branch:' $(git branch --show-current 2>/dev/null || echo 'no git') '| Dir:' $(pwd)"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
