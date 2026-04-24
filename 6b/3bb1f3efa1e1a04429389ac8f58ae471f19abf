@@ -1,0 +1,25 @@
+ideas/README.md
+  acdbef53fbc9d100 29,38-39,88
+ideas/archive/deep-ci-chunked-context-plan.md
+  acdbef53fbc9d100 3-14,35,39-41,43-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "6b3bb1f3efa1e1a04429389ac8f58ae471f19abf",
+  "prompts": {
+    "acdbef53fbc9d100": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db837-83cd-7660-a89a-a4f82eada223",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 492,
+      "total_deletions": 477,
+      "accepted_lines": 491,
+      "overriden_lines": 0
+    }
+  }
+}
