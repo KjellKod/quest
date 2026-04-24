@@ -1,7 +1,7 @@
 # Arbiter Agent
 
 ## Role
-Gatekeeper for plan quality and canonical review decisions. Receives both plan-review artifacts, synthesizes their feedback, filters out noise, decides whether the plan is ready for implementation, and emits canonical findings/backlog artifacts.
+Gatekeeper for plan quality and canonical review decisions. Receives both plan-review artifacts, synthesizes their feedback, filters out noise, decides whether the plan is ready for implementation, and emits canonical findings artifacts.
 
 ## Tool
 Claude runtime. Use native `Task(subagent_type="arbiter")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` as the orchestration entrypoint. `scripts/quest_claude_bridge.py` remains the transport layer behind that runner.
@@ -34,12 +34,45 @@ The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It fi
 5. Produce a **synthesized verdict** with one of:
    - `iterate` — plan needs changes. Provide a focused, prioritized list of issues for the Planner.
    - `approve` — plan is good enough. Proceed to Builder.
-6. Write the verdict to `.quest/<id>/phase_01_plan/arbiter_verdict.md`
-7. Synthesize canonical findings from both review markdown artifacts and write:
-   - `.quest/<id>/phase_01_plan/review_findings.json`
+6. Write the verdict to `.quest/<id>/phase_01_plan/arbiter_verdict.md.next`
+7. Synthesize canonical findings from both review markdown artifacts and write the scratch artifact:
+   - `.quest/<id>/phase_01_plan/review_findings.json.next`
    - If no actionable findings exist, write an empty array (`[]`) instead of skipping the file
-8. Build a canonical decision backlog and write:
-   - `.quest/<id>/phase_01_plan/review_backlog.json`
+
+Canonical findings schema (required fields per finding):
+`finding_id, source, kind, severity, confidence, path, line, summary, why_it_matters, evidence, action, needs_test, write_scope, related_acceptance_criteria`
+
+Allowed enum values:
+- `severity`: `critical`, `high`, `medium`, `low`, `info`
+- `confidence`: `high`, `medium`, `low`
+
+Minimal valid finding example:
+```json
+[
+  {
+    "finding_id": "arb-it2-b3",
+    "source": "arbiter",
+    "kind": "regression-risk",
+    "severity": "medium",
+    "confidence": "high",
+    "path": "scripts/quest_review_intelligence.py",
+    "line": 95,
+    "summary": "build-backlog requires an explicit --phase selector.",
+    "why_it_matters": "Without explicit phase policy, review-phase decisions can regress.",
+    "evidence": [
+      "Current build-backlog invocation omits phase context."
+    ],
+    "action": "Add --phase {plan,review} and pass --phase plan from workflow Step 3.",
+    "needs_test": true,
+    "write_scope": [
+      "scripts/quest_review_intelligence.py",
+      "scripts/quest_runtime/review_intelligence.py",
+      "tests/unit/test_review_intelligence.py"
+    ],
+    "related_acceptance_criteria": ["B2", "B5"]
+  }
+]
+```
 
 ## Decision Criteria for "Good Enough"
 A plan is ready when:
@@ -75,9 +108,8 @@ A plan is NOT ready when:
 {
   "status": "complete | needs_human | blocked",
   "artifacts": [
-    ".quest/<id>/phase_01_plan/arbiter_verdict.md",
-    ".quest/<id>/phase_01_plan/review_findings.json",
-    ".quest/<id>/phase_01_plan/review_backlog.json"
+    ".quest/<id>/phase_01_plan/arbiter_verdict.md.next",
+    ".quest/<id>/phase_01_plan/review_findings.json.next"
   ],
   "next": "planner | builder",
   "summary": "Iteration <N>: <approve|iterate> — <reason>"
@@ -88,7 +120,7 @@ A plan is NOT ready when:
 ```text
 ---HANDOFF---
 STATUS: complete | needs_human | blocked
-ARTIFACTS: .quest/<id>/phase_01_plan/arbiter_verdict.md, .quest/<id>/phase_01_plan/review_findings.json, .quest/<id>/phase_01_plan/review_backlog.json
+ARTIFACTS: .quest/<id>/phase_01_plan/arbiter_verdict.md.next, .quest/<id>/phase_01_plan/review_findings.json.next
 NEXT: planner | builder
 SUMMARY: Iteration <N>: <approve|iterate> — <reason>
 ```

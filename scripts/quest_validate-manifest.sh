@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Validates that .quest-manifest includes all Quest files
-# Fails if any tracked files are missing from the manifest
+# Validates that .quest-manifest includes all installer-managed Quest files
+# Fails if shipped Quest files are missing from the manifest
 #
 
 set -e
@@ -33,7 +33,7 @@ get_manifest_files() {
 MANIFEST_FILES=$(get_manifest_files | sort)
 
 # Define which directories/patterns should be in the manifest
-# These are the Quest framework files that the installer manages
+# These are the Quest framework files that the installer ships
 EXPECTED_PATTERNS=(
   ".ai/*.md"
   ".ai/*.json"
@@ -52,9 +52,15 @@ EXPECTED_PATTERNS=(
   "scripts/quest_claude_bridge.py"
   "scripts/quest_claude_probe.py"
   "scripts/quest_claude_runner.py"
+  "scripts/quest_backfill_journal.py"
+  "scripts/quest_complete.py"
+  "scripts/quest_preflight.sh"
   "scripts/quest_review_intelligence.py"
   "scripts/quest_select_tests.py"
   "scripts/quest_startup_branch.py"
+  "scripts/quest_state.py"
+  "scripts/quest_celebrate/*.py"
+  "scripts/quest_celebrate/*.sh"
   "scripts/quest_validate-handoff-contracts.sh"
   "scripts/quest_validate-manifest.sh"
   "scripts/quest_validate-quest-config.sh"
@@ -62,7 +68,10 @@ EXPECTED_PATTERNS=(
   "scripts/quest_checks/*.py"
   "scripts/quest_runtime/*.py"
   "tests/integration/test-enforce-allowlist.sh"
-  "tests/unit/test_allowlist_matcher.py"
+  "tests/test-quest-preflight.sh"
+  "tests/test-quest-runtime.sh"
+  "tests/test-validate-handoff-contracts.sh"
+  "tests/test-validate-quest-state.sh"
 )
 
 # Find all files matching our patterns

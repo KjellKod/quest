@@ -22,6 +22,8 @@ from quest_runtime.review_intelligence import (
     merge_and_dedupe,
     scan_deferred_backlog,
     utc_now_iso,
+    validate_plan_phase_defaults,
+    validate_review_backlog,
     validate_findings,
 )
 
@@ -95,10 +97,32 @@ def _cmd_merge_findings(args: argparse.Namespace) -> int:
 def _cmd_build_backlog(args: argparse.Namespace) -> int:
     payload = _load_json(Path(args.findings))
     findings = _extract_findings(payload)
-    backlog = build_review_backlog(findings, at_loop_cap=args.at_loop_cap)
+    backlog = build_review_backlog(
+        findings,
+        at_loop_cap=args.at_loop_cap,
+        phase=args.phase,
+    )
     _write_json(Path(args.output), backlog)
     print(json.dumps({"ok": True, "count": len(backlog["items"]), "output": args.output}, sort_keys=True))
     return 0
+
+
+def _cmd_validate_backlog(args: argparse.Namespace) -> int:
+    payload = _load_json(Path(args.input))
+    errors = validate_review_backlog(payload)
+    expected_phase = getattr(args, "expected_phase", None)
+    if expected_phase:
+        actual_phase = payload.get("phase") if isinstance(payload, dict) else None
+        if actual_phase != expected_phase:
+            errors = list(errors) + [
+                f"expected phase='{expected_phase}' but backlog has phase='{actual_phase}'"
+            ]
+    if getattr(args, "strict_plan_defaults", False):
+        errors = list(errors) + validate_plan_phase_defaults(payload)
+    items = payload.get("items") if isinstance(payload, dict) else None
+    item_count = len(items) if isinstance(items, list) else 0
+    print(json.dumps({"ok": not errors, "count": item_count, "errors": errors}, indent=2, sort_keys=True))
+    return 1 if errors else 0
 
 
 def _cmd_normalize_pr_intake(args: argparse.Namespace) -> int:
@@ -193,10 +217,6 @@ def _cmd_classify_pr_stop(args: argparse.Namespace) -> int:
         }
 
         retagged = retag_backlog_at_cap(payload)
-        _write_json(backlog_path, retagged)
-        if args.retag_output:
-            _write_json(Path(args.retag_output), retagged)
-
         deferred_items = [
             item
             for item in retagged.get("items", [])
@@ -222,6 +242,13 @@ def _cmd_classify_pr_stop(args: argparse.Namespace) -> int:
                 deferred_items,
                 lineage,
             )
+
+        # Append deferred history first; append_deferred_findings is idempotent
+        # per (deferred_by_quest, finding_id), so a retry after a later write
+        # failure will not duplicate backlog lineage.
+        _write_json(backlog_path, retagged)
+        if args.retag_output:
+            _write_json(Path(args.retag_output), retagged)
 
     payload = dict(classification)
     payload["deferred_count"] = deferred_count
@@ -283,8 +310,38 @@ def parse_args() -> argparse.Namespace:
     backlog = subparsers.add_parser("build-backlog", help="Build review backlog from findings")
     backlog.add_argument("--findings", required=True, help="Input findings JSON file")
     backlog.add_argument("--output", required=True, help="Path to backlog output JSON")
+    backlog.add_argument(
+        "--phase",
+        default="review",
+        choices=["plan", "review"],
+        help="Backlog decision policy phase (default: review)",
+    )
     backlog.add_argument("--at-loop-cap", action="store_true", help="Apply loop-cap decision policy")
     backlog.set_defaults(func=_cmd_build_backlog)
+
+    validate_backlog = subparsers.add_parser(
+        "validate-backlog",
+        help="Validate canonical review backlog JSON",
+    )
+    validate_backlog.add_argument("--input", required=True, help="Path to review backlog JSON file")
+    validate_backlog.add_argument(
+        "--expected-phase",
+        choices=["plan", "review"],
+        default=None,
+        help=(
+            "When set, also verify backlog['phase'] matches this value. "
+            "A missing phase key or mismatch is reported as an error."
+        ),
+    )
+    validate_backlog.add_argument(
+        "--strict-plan-defaults",
+        action="store_true",
+        help=(
+            "Also verify every item matches canonical build-backlog --phase "
+            "plan defaults for decision, owner, and batch."
+        ),
+    )
+    validate_backlog.set_defaults(func=_cmd_validate_backlog)
 
     select_validation = subparsers.add_parser(
         "select-batch-validation",

@@ -72,9 +72,12 @@ EOF
 write_review_backlog() {
   local filepath="$1"
   local mode="$2"
+  local phase="${3:-review}"
   local decision="drop"
   local needs_validation='[]'
   local needs_test='false'
+  local owner="scripts"
+  local batch="scripts/example.py"
 
   case "$mode" in
     actionable)
@@ -88,6 +91,23 @@ write_review_backlog() {
     clean)
       decision="drop"
       ;;
+    plan_actionable)
+      # Plan-phase canonical: every item flows to the builder.
+      decision="fix_now"
+      needs_validation='["unit_test", "typecheck", "lint"]'
+      needs_test='true'
+      phase="plan"
+      owner="builder"
+      batch="correctness-scripts"
+      ;;
+    plan_verify_first)
+      decision="verify_first"
+      needs_validation='["unit_test", "typecheck", "lint"]'
+      needs_test='true'
+      phase="plan"
+      owner="builder"
+      batch="correctness-scripts"
+      ;;
     *)
       decision="drop"
       ;;
@@ -98,6 +118,7 @@ write_review_backlog() {
   "version": 1,
   "generated_at": "2026-04-16T00:00:00Z",
   "at_loop_cap": false,
+  "phase": "$phase",
   "allowed_decisions": [
     "fix_now",
     "verify_first",
@@ -107,7 +128,7 @@ write_review_backlog() {
   ],
   "counts": {
     "fix_now": $([ "$decision" = "fix_now" ] && echo 1 || echo 0),
-    "verify_first": 0,
+    "verify_first": $([ "$decision" = "verify_first" ] && echo 1 || echo 0),
     "defer": 0,
     "drop": $([ "$decision" = "drop" ] && echo 1 || echo 0),
     "needs_human_decision": $([ "$decision" = "needs_human_decision" ] && echo 1 || echo 0)
@@ -132,8 +153,8 @@ write_review_backlog() {
       "decision_confidence": "medium",
       "reason": "Example reason",
       "needs_validation": $needs_validation,
-      "owner": "scripts",
-      "batch": "scripts/example.py"
+      "owner": "$owner",
+      "batch": "$batch"
     }
   ]
 }
@@ -173,7 +194,7 @@ test_valid_plan_to_plan_reviewed() {
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
   touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
   write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
-  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "clean"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
@@ -573,6 +594,183 @@ PY
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "review backlog schema invalid" && echo "$output" | grep -q "field 'severity'" && echo "$output" | grep -q "field 'summary'"
+}
+
+test_plan_to_plan_reviewed_rejects_review_phase_backlog() {
+  # Guard: a future orchestrator that forgets --phase plan would build a
+  # review-phase backlog (with decision values like verify_first/drop) and
+  # still pass schema checks. The validator must reject it so approved
+  # plans never fall through without canonical plan-phase defaults.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  # "actionable" mode with default phase="review" -> schema valid but
+  # phase mismatch.
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "actionable" "review"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "expected phase='plan'"
+}
+
+test_plan_to_plan_reviewed_rejects_non_actionable_decision() {
+  # Plan-phase approval requires every item to match the canonical plan-phase
+  # producer, which hardcodes decision=fix_now. Any other decision in a
+  # plan-phase backlog is drift -- a drop/defer/needs_human_decision item
+  # must fail -- even if phase="plan" is set.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  # phase="plan" but decision="drop" -> must fail the canonical check
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "clean" "plan"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "must be 'fix_now'"
+}
+
+test_plan_to_plan_reviewed_rejects_verify_first_decision() {
+  # verify_first is legitimate in review-phase backlogs but not plan-phase:
+  # the canonical _plan_phase_decision helper only emits fix_now.
+  # A drifted producer that emits verify_first under phase="plan" must fail.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  # Hand-write a plan-phase backlog whose decision is verify_first
+  cat > "$tmpdir/phase_01_plan/review_backlog.json" <<'EOF'
+{
+  "version": 1,
+  "generated_at": "2026-04-23T00:00:00Z",
+  "at_loop_cap": false,
+  "phase": "plan",
+  "allowed_decisions": ["fix_now", "verify_first", "defer", "drop", "needs_human_decision"],
+  "counts": {"fix_now": 0, "verify_first": 1, "defer": 0, "drop": 0, "needs_human_decision": 0},
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "source": "code-reviewer-a",
+      "kind": "correctness",
+      "severity": "medium",
+      "confidence": "medium",
+      "path": "scripts/example.py",
+      "line": 10,
+      "summary": "Potential issue in edge-case handling.",
+      "why_it_matters": "Could break behavior for uncommon inputs.",
+      "evidence": ["Reproducible with malformed payload."],
+      "action": "Add guard and tests for this edge case.",
+      "needs_test": true,
+      "write_scope": ["scripts/example.py"],
+      "related_acceptance_criteria": ["AC-1"],
+      "decision": "verify_first",
+      "decision_confidence": "medium",
+      "reason": "Drift: plan-phase producer should emit fix_now.",
+      "needs_validation": ["unit_test"],
+      "owner": "builder",
+      "batch": "correctness-scripts"
+    }
+  ]
+}
+EOF
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "verify_first"
+}
+
+test_plan_to_plan_reviewed_rejects_review_owner_and_batch() {
+  # Plan-phase build-backlog routes every item to the builder and uses the
+  # deterministic <kind>-<path-group> batch slug.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  # decision=fix_now and phase=plan, but review-phase owner/batch defaults.
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "actionable" "plan"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "\[FAIL\]" && echo "$output" | grep -q "must be 'builder'" && echo "$output" | grep -q "must be 'correctness-scripts'"
+}
+
+test_plan_to_plan_reviewed_accepts_canonical_raw_write_scope_sorting() {
+  # The canonical Python builder filters whitespace-only write_scope entries,
+  # sorts the original strings, then trims the selected candidate. Keep the
+  # shell validator aligned so it does not reject valid plan-phase backlogs.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  cat > "$tmpdir/phase_01_plan/review_backlog.json" <<'EOF'
+{
+  "version": 1,
+  "generated_at": "2026-04-23T00:00:00Z",
+  "at_loop_cap": false,
+  "phase": "plan",
+  "allowed_decisions": ["fix_now", "verify_first", "defer", "drop", "needs_human_decision"],
+  "counts": {"fix_now": 1, "verify_first": 0, "defer": 0, "drop": 0, "needs_human_decision": 0},
+  "items": [
+    {
+      "finding_id": "RF-001",
+      "source": "code-reviewer-a",
+      "kind": "correctness",
+      "severity": "medium",
+      "confidence": "medium",
+      "path": "scripts/example.py",
+      "line": 10,
+      "summary": "Potential issue in edge-case handling.",
+      "why_it_matters": "Could break behavior for uncommon inputs.",
+      "evidence": ["Reproducible with malformed payload."],
+      "action": "Add guard and tests for this edge case.",
+      "needs_test": true,
+      "write_scope": [" zeta/example.py", "alpha/example.py"],
+      "related_acceptance_criteria": ["AC-1"],
+      "decision": "fix_now",
+      "decision_confidence": "medium",
+      "reason": "Plan-phase canonical default: builder implements this finding now.",
+      "needs_validation": ["unit_test", "typecheck", "lint"],
+      "owner": "builder",
+      "batch": "correctness-zeta"
+    }
+  ]
+}
+EOF
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
 }
 
 test_valid_reviewing_to_fixing() {
@@ -1009,6 +1207,11 @@ run_test test_valid_presentation_complete_to_building
 run_test test_plan_to_plan_reviewed_rejects_invalid_backlog_item_schema
 run_test test_plan_to_plan_reviewed_rejects_false_typed_backlog_fields
 run_test test_plan_to_plan_reviewed_rejects_invalid_backlog_finding_fields
+run_test test_plan_to_plan_reviewed_rejects_review_phase_backlog
+run_test test_plan_to_plan_reviewed_rejects_non_actionable_decision
+run_test test_plan_to_plan_reviewed_rejects_verify_first_decision
+run_test test_plan_to_plan_reviewed_rejects_review_owner_and_batch
+run_test test_plan_to_plan_reviewed_accepts_canonical_raw_write_scope_sorting
 run_test test_non_numeric_allowlist_iterations
 run_test test_zero_allowlist_iterations_are_rejected
 run_test test_validation_log_written

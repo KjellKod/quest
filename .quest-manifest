@@ -101,9 +101,10 @@ scripts/quest_complete.py
 scripts/quest_preflight.sh
 scripts/quest_state.py
 tests/integration/test-enforce-allowlist.sh
-tests/unit/test_allowlist_matcher.py
-tests/unit/test_review_intelligence.py
-tests/unit/test_codex_skill_wrappers.py
+tests/test-quest-preflight.sh
+tests/test-quest-runtime.sh
+tests/test-validate-handoff-contracts.sh
+tests/test-validate-quest-state.sh
 
 [user-customized]
 # These files preserve local customizations; AGENTS.md updates in place only when

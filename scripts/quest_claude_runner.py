@@ -5,9 +5,44 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import time
+from pathlib import Path
 
 from quest_runtime.artifacts import expected_artifacts_for_role
 from quest_runtime.claude_runner import resolve_path, run_claude_role
+
+
+_TELEMETRY_ENV = "QUEST_RUNNER_TELEMETRY_LOG"
+
+
+def _append_telemetry(event: dict) -> None:
+    """Append a single JSON line to the runner telemetry log if env var is set.
+
+    This is an opt-in seam used by tests to observe the actual runner-produced
+    sequence of attempts (plus external events like ``publish`` when the caller
+    chooses to append them). Production runs are unaffected unless
+    ``QUEST_RUNNER_TELEMETRY_LOG`` is exported, in which case the file simply
+    accumulates invocation records. Failures to write telemetry must never
+    affect the runner outcome.
+    """
+
+    log_path = os.environ.get(_TELEMETRY_ENV)
+    if not log_path:
+        return
+    try:
+        path = Path(log_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        record = dict(event)
+        record.setdefault("ts", time.time())
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=True) + "\n")
+    except Exception:
+        # Telemetry is best-effort; never fail the runner because of it.
+        # Broad except is intentional — the docstring contract is that
+        # telemetry must never affect runner outcome, which includes
+        # TypeError from json.dumps on unexpected payloads.
+        return
 
 
 def parse_args() -> argparse.Namespace:
@@ -32,6 +67,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    _append_telemetry(
+        {
+            "event": "attempt_start",
+            "agent": args.agent,
+            "phase": args.phase,
+            "iter": args.iter,
+        }
+    )
     try:
         artifact_paths = expected_artifacts_for_role(
             quest_dir=args.quest_dir,
@@ -47,6 +90,17 @@ def main() -> int:
             "stderr": str(exc),
             "stdout": "",
         }
+        _append_telemetry(
+            {
+                "event": "attempt_end",
+                "agent": args.agent,
+                "phase": args.phase,
+                "iter": args.iter,
+                "result_kind": "invocation_error",
+                "handoff_state": "missing",
+                "exit_code": 1,
+            }
+        )
         print(json.dumps(payload, ensure_ascii=True))
         return 1
     result = run_claude_role(
@@ -73,6 +127,17 @@ def main() -> int:
         "stderr": result.stderr.strip(),
         "stdout": result.stdout.strip(),
     }
+    _append_telemetry(
+        {
+            "event": "attempt_end",
+            "agent": args.agent,
+            "phase": args.phase,
+            "iter": args.iter,
+            "result_kind": result.result_kind,
+            "handoff_state": result.handoff_state,
+            "exit_code": result.exit_code,
+        }
+    )
     print(json.dumps(payload, ensure_ascii=True))
     return 0 if result.exit_code == 0 else result.exit_code
 

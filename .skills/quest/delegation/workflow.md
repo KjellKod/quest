@@ -128,7 +128,7 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 5. **Artifact preparation (before every role invocation):**
    Before invoking any role, the orchestrator MUST:
    1. Resolve artifact paths: `expected_artifacts_for_role(quest_dir, phase, agent)`
-   2. Prepare files: `prepare_artifact_files(paths)` — creates parent directories and truncates files
+   2. Prepare files: `prepare_artifact_files(paths)` — creates parent directories and truncates every resolved role-output path. Canonical files that must survive failed attempts MUST NOT be returned by `expected_artifacts_for_role`; use scratch paths and publish after validation instead.
    3. Include in the role prompt:
       ```
       Artifact files have been prepared for you. Overwrite these files directly:
@@ -300,7 +300,7 @@ gates.max_plan_iterations (default: 4)
 
 **Loop:**
 
-0. **Clear stale handoff files:** If `plan_iteration >= 1` (i.e., any refinement pass after the first), delete any existing `handoff*.json` files in `.quest/<id>/phase_01_plan/` to prevent stale data from a previous iteration being read.
+0. **Clear stale handoff and scratch files:** If `plan_iteration >= 1` (i.e., any refinement pass after the first), delete any existing `handoff*.json` files in `.quest/<id>/phase_01_plan/` to prevent stale data from a previous iteration being read. Also delete stale arbiter scratch files (`arbiter_verdict.md.next`, `review_findings.json.next`, `review_backlog.json.next`) before each arbiter attempt. Do **not** truncate last-known-good canonical files (`arbiter_verdict.md`, `review_findings.json`, `review_backlog.json`) during cleanup.
 
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
@@ -472,15 +472,20 @@ gates.max_plan_iterations (default: 4)
    - Read `.quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json`
    - If `next: "arbiter"` → remap to `next: "builder"` (approved in solo mode)
    - If `next: "planner"` → plan needs revision (no remapping)
+   - Do not require `review_backlog.json` for the solo transition path.
    - Log: `Plan review: arbiter=skipped (solo mode, using reviewer-a verdict)` to `.quest/<id>/logs/parallelism.log`
 
    **If `quest_mode == "workflow"` (default):** Read `models.arbiter` from allowlist. Invoke Arbiter through the corresponding runtime:
+   - Contract-hardening rollout order (required when implementing this behavior): land workflow + helper CLI (`build-backlog --phase`) + runtime `.next` artifact wiring first; trim arbiter output contract second. This prevents transient mismatches during migration.
+   - Before each arbiter attempt, remove stale scratch artifacts:
+     - `.quest/<id>/phase_01_plan/review_findings.json.next`
+     - `.quest/<id>/phase_01_plan/review_backlog.json.next`
    - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare:
-     - `arbiter_verdict.md`
-     - `review_findings.json`
-     - `review_backlog.json`
+     - `arbiter_verdict.md.next`
+     - `review_findings.json.next`
      - `handoff_arbiter.json`
      in `.quest/<id>/phase_01_plan/`.
+     Canonical `arbiter_verdict.md` is not prepared or truncated; publish `arbiter_verdict.md.next` only after validation succeeds.
    - Use a short prompt with path references only:
      ```
      You are the Arbiter Agent.
@@ -493,9 +498,8 @@ gates.max_plan_iterations (default: 4)
      Review B: .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
 
      Artifact files have been prepared for you. Overwrite these files directly:
-     - .quest/<id>/phase_01_plan/arbiter_verdict.md
-     - .quest/<id>/phase_01_plan/review_findings.json
-     - .quest/<id>/phase_01_plan/review_backlog.json
+     - .quest/<id>/phase_01_plan/arbiter_verdict.md.next
+     - .quest/<id>/phase_01_plan/review_findings.json.next
      - .quest/<id>/phase_01_plan/handoff_arbiter.json
      Do not create Quest artifacts via shell redirection, heredocs, or echo.
      End with: ---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY
@@ -503,18 +507,44 @@ gates.max_plan_iterations (default: 4)
      ```
    - Wait for the selected runtime to complete
    - Read `.quest/<id>/phase_01_plan/handoff_arbiter.json`
-   - Ensure `.quest/<id>/phase_01_plan/review_findings.json` always exists (empty array is valid)
-   - Route based on `next` field ("builder" = approved, "planner" = iterate)
    - Apply deterministic precedence from **Handoff File Polling** for native Claude task vs bridge execution
    - Fallback: if handoff.json missing or unparsable after that precedence, parse text handoff from response
+   - Immediately validate findings:
+     - `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_01_plan/review_findings.json.next`
+   - If findings validation fails:
+     - Retry arbiter exactly once with the validator stderr/stdout embedded in the retry prompt.
+     - Re-run `validate-findings` on the second attempt.
+     - If validation still fails, STOP route:
+       - Do **not** call `quest_state.py --transition plan_reviewed`.
+       - Surface validator output in orchestrator logs/user message.
+       - Keep canonical artifacts untouched; keep `.next` files for debugging.
+   - If arbiter handoff says `next: planner`:
+     - Skip `build-backlog` and skip review findings/backlog publish.
+     - Publish the validated verdict scratch artifact:
+       - `os.replace(".quest/<id>/phase_01_plan/arbiter_verdict.md.next", ".quest/<id>/phase_01_plan/arbiter_verdict.md")`
+     - Clean `review_findings.json.next` / `review_backlog.json.next` scratch files.
+     - Preserve canonical `review_findings.json` / `review_backlog.json`.
+     - Return control to planner refinement loop.
+   - If arbiter handoff says `next: builder` and findings validation passed:
+     - Build backlog from validated findings:
+       - `python3 scripts/quest_review_intelligence.py build-backlog --phase plan --findings .quest/<id>/phase_01_plan/review_findings.json.next --output .quest/<id>/phase_01_plan/review_backlog.json.next`
+     - Validate the plan-phase backlog before publish:
+       - `python3 scripts/quest_review_intelligence.py validate-backlog --input .quest/<id>/phase_01_plan/review_backlog.json.next --expected-phase plan --strict-plan-defaults`
+     - On build-backlog or validate-backlog failure: STOP route, do not transition, preserve canonical artifacts, leave `.next` files for inspection.
+     - Publish atomically only after validation succeeds:
+       - `os.replace(".quest/<id>/phase_01_plan/arbiter_verdict.md.next", ".quest/<id>/phase_01_plan/arbiter_verdict.md")`
+       - `os.replace(".quest/<id>/phase_01_plan/review_findings.json.next", ".quest/<id>/phase_01_plan/review_findings.json")`
+       - `os.replace(".quest/<id>/phase_01_plan/review_backlog.json.next", ".quest/<id>/phase_01_plan/review_backlog.json")`
+     - On publish failure: STOP route, log full error, do not transition, and leave `.next` files in place.
 
-6. **Check verdict:**
+6. **Check verdict and transition guard:**
    - If `NEXT: builder`:
-     - Plan approved! Transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan_reviewed --status complete --last-verdict approve --expect-phase plan` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to **Step 3.5** (Interactive Presentation). Do not attempt the `presenting` transition while state still says `phase: plan`.
+     - **Workflow mode only:** Transition only after successful `validate-findings` + `build-backlog --phase plan` + `validate-backlog --expected-phase plan --strict-plan-defaults` + atomic publish. In solo mode the arbiter is skipped (see item 5 above), and so is the validate/build/publish pipeline — transition directly without those prerequisites.
+     - Then transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan_reviewed --status complete --last-verdict approve --expect-phase plan` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to **Step 3.5** (Interactive Presentation). Do not attempt the `presenting` transition while state still says `phase: plan`.
    - If `NEXT: planner` → Check iteration count
      - If `plan_iteration >= max_plan_iterations`: Warn user, ask to proceed anyway or review manually
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
-     - Otherwise: Loop back to step 0 (stale handoff cleanup)
+     - Otherwise: Loop back to step 0 (stale handoff/scratch cleanup)
 
 ### Step 3.5: Interactive Plan Presentation (MANDATORY HUMAN GATE)
 

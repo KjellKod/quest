@@ -29,6 +29,28 @@ TOOL=$(echo "$INPUT" | jq -r '.tool // empty')
 PERMS=$(jq -r ".role_permissions.\"$ROLE\" // empty" "$ALLOWLIST")
 [[ -z "$PERMS" || "$PERMS" == "null" ]] && exit 0  # No permissions defined = allow
 
+normalize_repo_path() {
+  local file_path="$1"
+
+  python3 - "$REPO_ROOT" "$file_path" <<'PY'
+from pathlib import Path
+import sys
+
+repo_root = Path(sys.argv[1]).resolve()
+candidate = Path(sys.argv[2])
+if not candidate.is_absolute():
+    candidate = repo_root / candidate
+
+try:
+    resolved = candidate.resolve(strict=False)
+    relative = resolved.relative_to(repo_root)
+except (OSError, ValueError):
+    sys.exit(1)
+
+print(relative.as_posix())
+PY
+}
+
 # Check file write permissions for Write/Edit tools
 check_file_write() {
   local file_path="$1"
@@ -38,19 +60,14 @@ check_file_write() {
   allowed_patterns=$(echo "$PERMS" | jq -r '.file_write // [] | .[]')
   [[ -z "$allowed_patterns" ]] && return 1  # No patterns = deny
 
-  # Make path relative to repo root if absolute
-  if [[ "$file_path" == "$REPO_ROOT"* ]]; then
-    file_path="${file_path#$REPO_ROOT/}"
-  fi
+  file_path=$(normalize_repo_path "$file_path") || return 1
 
   # Check each pattern
   while IFS= read -r pattern; do
     [[ -z "$pattern" ]] && continue
 
-    # Convert glob pattern to regex for matching
-    # ** matches any path, * matches within a directory
-    local regex="^${pattern//\*\*/.*}$"
-    regex="${regex//\*/[^/]*}"
+    local regex
+    regex=$(glob_to_regex "$pattern")
 
     if [[ "$file_path" =~ $regex ]]; then
       return 0  # Match found, allow
@@ -58,6 +75,44 @@ check_file_write() {
   done <<< "$allowed_patterns"
 
   return 1  # No match, deny
+}
+
+glob_to_regex() {
+  local pattern="$1"
+  local regex="^"
+  local i char next
+
+  for ((i = 0; i < ${#pattern}; i++)); do
+    char="${pattern:i:1}"
+
+    if [[ "$char" == "*" ]]; then
+      next="${pattern:i+1:1}"
+      if [[ "$next" == "*" ]]; then
+        if [[ "${pattern:i+2:1}" == "/" ]]; then
+          regex+="(.*/)?"
+          i=$((i + 2))
+        else
+          regex+=".*"
+          i=$((i + 1))
+        fi
+      else
+        regex+="[^/]*"
+      fi
+      continue
+    fi
+
+    case "$char" in
+      [\\.\^\$\+\?\(\)\[\]\{\}\|])
+        regex+="\\$char"
+        ;;
+      *)
+        regex+="$char"
+        ;;
+    esac
+  done
+
+  regex+="$"
+  printf '%s\n' "$regex"
 }
 
 # Check bash command permissions

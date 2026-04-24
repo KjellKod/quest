@@ -2,16 +2,27 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
+# Make scripts/quest_review_intelligence.py importable when pytest is not run
+# through the repo-level conftest fallback.
+_scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
+
+import quest_review_intelligence
 from quest_runtime.pr_review_cycle import (
     normalize_pr_review_intake,
     retag_backlog_at_cap,
 )
 from quest_runtime.review_intelligence import (
+    ALLOWED_BACKLOG_PHASES,
     append_deferred_findings,
     build_review_backlog,
     merge_and_dedupe,
@@ -19,6 +30,8 @@ from quest_runtime.review_intelligence import (
     select_decision,
     synthesize_findings_from_review_markdown,
     synthesize_plan_review_findings,
+    validate_plan_phase_defaults,
+    validate_review_backlog,
     validate_findings,
 )
 
@@ -158,9 +171,134 @@ def test_build_review_backlog_merges_dedupes_and_decides() -> None:
     ]
     backlog = build_review_backlog(findings, at_loop_cap=False)
     assert backlog["version"] == 1
+    assert backlog["phase"] == "review"
     assert len(backlog["items"]) == 1
     assert backlog["items"][0]["decision"] == "fix_now"
     assert backlog["counts"]["fix_now"] == 1
+
+
+def test_build_backlog_plan_phase_defaults_to_fix_now_builder_and_deterministic_batch_slug() -> None:
+    finding = _finding(
+        finding_id="PLAN-1",
+        source="arbiter",
+        kind="edge-case",
+        severity="low",
+        confidence="medium",
+        path="scripts/quest_runtime/review_intelligence.py",
+        write_scope=[
+            "tests/unit/test_review_intelligence.py",
+            "scripts/quest_runtime/review_intelligence.py",
+        ],
+    )
+
+    backlog = build_review_backlog([finding], at_loop_cap=False, phase="plan")
+
+    assert backlog["phase"] == "plan"
+    assert backlog["counts"]["fix_now"] == 1
+    item = backlog["items"][0]
+    assert item["decision"] == "fix_now"
+    assert item["owner"] == "builder"
+    assert item["batch"] == "edge-case-scripts"
+    assert item["needs_validation"] == ["unit_test", "typecheck", "lint"]
+
+
+def test_validate_plan_phase_defaults_rejects_review_style_semantics() -> None:
+    finding = _finding(
+        finding_id="PLAN-DRIFT-1",
+        source="arbiter",
+        kind="edge-case",
+        path="scripts/quest_runtime/review_intelligence.py",
+        write_scope=["scripts/quest_runtime/review_intelligence.py"],
+    )
+    backlog = build_review_backlog([finding], at_loop_cap=False, phase="plan")
+    item = backlog["items"][0]
+    item["decision"] = "verify_first"
+    item["owner"] = "scripts"
+    item["batch"] = "scripts/quest_runtime/review_intelligence.py"
+
+    errors = validate_plan_phase_defaults(backlog)
+
+    assert any("field 'decision' must be 'fix_now'" in error for error in errors)
+    assert any("field 'owner' must be 'builder'" in error for error in errors)
+    assert any("field 'batch' must be 'edge-case-scripts'" in error for error in errors)
+
+
+def test_build_backlog_preserves_review_phase_policy_for_code_review_findings() -> None:
+    finding = _finding(
+        finding_id="REV-1",
+        severity="medium",
+        confidence="medium",
+        evidence=["a", "b"],
+    )
+
+    backlog = build_review_backlog([finding], at_loop_cap=False, phase="review")
+
+    assert backlog["phase"] == "review"
+    item = backlog["items"][0]
+    assert item["decision"] == "verify_first"
+    assert item["owner"] == "scripts"
+    assert item["batch"] == "scripts/example.py"
+
+
+def test_build_backlog_plan_phase_uses_root_batch_for_root_level_paths() -> None:
+    finding = _finding(
+        finding_id="PLAN-ROOT-1",
+        source="arbiter",
+        kind="edge-case",
+        severity="low",
+        confidence="high",
+        path="README.md",
+        write_scope=["README.md"],
+    )
+
+    backlog = build_review_backlog([finding], at_loop_cap=False, phase="plan")
+
+    assert backlog["phase"] == "plan"
+    item = backlog["items"][0]
+    assert item["batch"] == "edge-case-root"
+
+
+def test_validate_review_backlog_rejects_missing_decision_fields() -> None:
+    backlog = {
+        "version": 1,
+        "generated_at": "2026-04-22T00:00:00Z",
+        "phase": "review",
+        "items": [_finding()],
+    }
+
+    errors = validate_review_backlog(backlog)
+
+    assert any("missing required field 'decision'" in error for error in errors)
+
+
+def test_validate_review_backlog_rejects_missing_phase_field() -> None:
+    backlog = {
+        "version": 1,
+        "generated_at": "2026-04-22T00:00:00Z",
+        "items": [],
+    }
+
+    errors = validate_review_backlog(backlog)
+
+    assert any(
+        "'phase'" in error and "must include" in error for error in errors
+    ), f"expected a missing-phase error, got: {errors}"
+
+
+def test_validate_review_backlog_rejects_phase_outside_allowed_values() -> None:
+    backlog = {
+        "version": 1,
+        "generated_at": "2026-04-22T00:00:00Z",
+        "phase": "garbage",
+        "items": [],
+    }
+
+    errors = validate_review_backlog(backlog)
+
+    expected_allowed = ", ".join(ALLOWED_BACKLOG_PHASES)
+    assert any(
+        f"'phase' must be one of {expected_allowed}" in error for error in errors
+    ), f"expected an invalid-phase error, got: {errors}"
 
 
 def test_append_deferred_findings_writes_one_json_object_per_line(tmp_path: Path) -> None:
@@ -215,6 +353,88 @@ def test_append_deferred_findings_bootstraps_missing_file(tmp_path: Path) -> Non
         },
     )
     assert nested.exists()
+
+
+def test_append_deferred_findings_is_idempotent_per_quest_and_finding(tmp_path: Path) -> None:
+    backlog_path = tmp_path / "deferred_findings.jsonl"
+    finding = _finding(finding_id="F-idempotent")
+    lineage = {
+        "deferred_by_quest": "quest-idempotent",
+        "deferred_at": "2026-04-23T00:00:00Z",
+        "defer_reason": "loop cap reached",
+        "proposed_followup": "Retry once backlog publish succeeds.",
+    }
+
+    first = append_deferred_findings(backlog_path, [finding], lineage)
+    second = append_deferred_findings(backlog_path, [finding], lineage)
+
+    lines = backlog_path.read_text(encoding="utf-8").splitlines()
+    assert first == 1
+    assert second == 0
+    assert len(lines) == 1
+
+
+def test_classify_pr_stop_does_not_persist_retagged_backlog_when_append_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backlog_path = tmp_path / "review_backlog.json"
+    original = {
+        "version": 1,
+        "phase": "review",
+        "items": [
+            _finding(
+                finding_id="F-unsafe-ordering",
+                severity="medium",
+                confidence="medium",
+            )
+        ],
+    }
+    backlog_path.write_text(json.dumps(original, indent=2) + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        quest_review_intelligence,
+        "classify_pr_loop_stop",
+        lambda *args, **kwargs: {"stop": True, "retag_required": True, "outcome": "cap_enforced"},
+    )
+    monkeypatch.setattr(
+        quest_review_intelligence,
+        "retag_backlog_at_cap",
+        lambda payload: {
+            **payload,
+            "items": [
+                {
+                    **payload["items"][0],
+                    "decision": "defer",
+                }
+            ],
+        },
+    )
+
+    def _explode(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(quest_review_intelligence, "append_deferred_findings", _explode)
+
+    with pytest.raises(OSError, match="disk full"):
+        quest_review_intelligence._cmd_classify_pr_stop(
+            argparse.Namespace(
+                ci_state="failing",
+                actionable=1,
+                iteration=3,
+                cap=3,
+                backlog=str(backlog_path),
+                retag_output=None,
+                deferred_jsonl=None,
+                deferred_by_quest=None,
+                deferred_at=None,
+                defer_reason="Loop cap reached during PR review cycle.",
+                proposed_followup="Create a follow-up quest to resolve deferred review findings.",
+            )
+        )
+
+    persisted = json.loads(backlog_path.read_text(encoding="utf-8"))
+    assert persisted == original
 
 
 def test_scan_deferred_backlog_matches_exact_write_scope_path(tmp_path: Path) -> None:
@@ -363,3 +583,334 @@ def test_scan_backlog_cli_accepts_empty_paths(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["ok"] is True
     assert payload["count"] == 0
+
+
+def test_build_backlog_cli_plan_phase_uses_builder_defaults(tmp_path: Path) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    findings_path = tmp_path / "findings.json"
+    output_path = tmp_path / "backlog.json"
+    findings_path.write_text(
+        json.dumps(
+            [
+                _finding(
+                    finding_id="CLI-PLAN-1",
+                    kind="edge-case",
+                    path="scripts/demo.py",
+                    write_scope=["scripts/demo.py"],
+                )
+            ],
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "build-backlog",
+            "--phase",
+            "plan",
+            "--findings",
+            str(findings_path),
+            "--output",
+            str(output_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    backlog = json.loads(output_path.read_text(encoding="utf-8"))
+    assert backlog["phase"] == "plan"
+    assert backlog["items"][0]["decision"] == "fix_now"
+    assert backlog["items"][0]["owner"] == "builder"
+    assert backlog["items"][0]["batch"] == "edge-case-scripts"
+
+
+def test_validate_backlog_cli_rejects_invalid_shape(tmp_path: Path) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    backlog_path = tmp_path / "bad_backlog.json"
+    backlog_path.write_text(
+        json.dumps({"items": [{"finding_id": "bad"}]}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "validate-backlog",
+            "--input",
+            str(backlog_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["errors"]
+
+
+def test_validate_backlog_cli_expected_phase_rejects_review_phase_backlog(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    findings_path = tmp_path / "findings.json"
+    backlog_path = tmp_path / "backlog.json"
+    findings_path.write_text(
+        json.dumps([_finding()], indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    build = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "build-backlog",
+            "--findings",
+            str(findings_path),
+            "--output",
+            str(backlog_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert build.returncode == 0
+    built = json.loads(backlog_path.read_text(encoding="utf-8"))
+    assert built["phase"] == "review"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "validate-backlog",
+            "--input",
+            str(backlog_path),
+            "--expected-phase",
+            "plan",
+            "--strict-plan-defaults",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert any(
+        "expected phase='plan'" in err and "phase='review'" in err
+        for err in payload["errors"]
+    )
+
+
+def test_validate_backlog_cli_expected_phase_accepts_matching_plan_backlog(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    findings_path = tmp_path / "findings.json"
+    backlog_path = tmp_path / "backlog.json"
+    findings_path.write_text(
+        json.dumps([_finding()], indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    build = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "build-backlog",
+            "--phase",
+            "plan",
+            "--findings",
+            str(findings_path),
+            "--output",
+            str(backlog_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert build.returncode == 0
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "validate-backlog",
+            "--input",
+            str(backlog_path),
+            "--expected-phase",
+            "plan",
+            "--strict-plan-defaults",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is True
+    assert payload["errors"] == []
+
+
+def test_validate_backlog_cli_handles_null_items_without_crashing(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    backlog_path = tmp_path / "bad_backlog.json"
+    backlog_path.write_text(
+        json.dumps({"phase": "plan", "items": None}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "validate-backlog",
+            "--input",
+            str(backlog_path),
+            "--expected-phase",
+            "plan",
+            "--strict-plan-defaults",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["count"] == 0
+    assert any("must contain an 'items' list" in err for err in payload["errors"])
+
+
+def test_validate_backlog_cli_strict_plan_defaults_rejects_drifted_plan_backlog(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    findings_path = tmp_path / "findings.json"
+    backlog_path = tmp_path / "backlog.json"
+    findings_path.write_text(
+        json.dumps([_finding(kind="edge-case")], indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    build = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "build-backlog",
+            "--phase",
+            "plan",
+            "--findings",
+            str(findings_path),
+            "--output",
+            str(backlog_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert build.returncode == 0
+    drifted = json.loads(backlog_path.read_text(encoding="utf-8"))
+    drifted["items"][0]["decision"] = "verify_first"
+    drifted["items"][0]["owner"] = "scripts"
+    drifted["items"][0]["batch"] = "scripts/example.py"
+    backlog_path.write_text(
+        json.dumps(drifted, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "validate-backlog",
+            "--input",
+            str(backlog_path),
+            "--expected-phase",
+            "plan",
+            "--strict-plan-defaults",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert any(
+        "field 'decision' must be 'fix_now'" in err for err in payload["errors"]
+    )
+    assert any("field 'owner' must be 'builder'" in err for err in payload["errors"])
+    assert any(
+        "field 'batch' must be 'edge-case-scripts'" in err
+        for err in payload["errors"]
+    )
+
+
+def test_validate_backlog_cli_expected_phase_rejects_missing_phase_field(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    findings_path = tmp_path / "findings.json"
+    backlog_path = tmp_path / "backlog.json"
+    findings_path.write_text(
+        json.dumps([_finding()], indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    build = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "build-backlog",
+            "--phase",
+            "plan",
+            "--findings",
+            str(findings_path),
+            "--output",
+            str(backlog_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert build.returncode == 0
+
+    # Simulate a legacy backlog that predates the phase field.
+    legacy = json.loads(backlog_path.read_text(encoding="utf-8"))
+    legacy.pop("phase", None)
+    backlog_path.write_text(json.dumps(legacy, indent=2) + "\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "validate-backlog",
+            "--input",
+            str(backlog_path),
+            "--expected-phase",
+            "plan",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert any("expected phase='plan'" in err for err in payload["errors"])

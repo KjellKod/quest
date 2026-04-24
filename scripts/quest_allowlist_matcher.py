@@ -14,6 +14,7 @@ import argparse
 import json
 import shlex
 import sys
+from pathlib import Path
 
 BLOCKED_METACHARACTERS = (
     "&&",
@@ -58,14 +59,31 @@ def shell_tokens(command: str) -> list[str] | None:
         return None
 
 
+def command_basename(command_tokens: list[str]) -> str:
+    if not command_tokens:
+        return ""
+    return Path(command_tokens[0]).name
+
+
+def executable_token_matches(command_token: str, entry_token: str) -> bool:
+    if command_token == entry_token:
+        return True
+    if "/" in entry_token:
+        return False
+    command_path = Path(command_token)
+    if command_path.is_absolute():
+        return command_path.name == entry_token
+    return False
+
+
 def contains_blocked_find_action(command_tokens: list[str]) -> bool:
-    if not command_tokens or command_tokens[0] != "find":
+    if command_basename(command_tokens) != "find":
         return False
     return any(token in BLOCKED_FIND_ACTIONS for token in command_tokens[1:])
 
 
 def contains_blocked_rg_flag(command_tokens: list[str]) -> bool:
-    if not command_tokens or command_tokens[0] != "rg":
+    if command_basename(command_tokens) != "rg":
         return False
     return any(
         token in BLOCKED_RG_FLAGS
@@ -88,7 +106,9 @@ def token_prefix_matches(command_tokens: list[str], entry: str) -> bool:
         return False
     if len(command_tokens) < len(entry_tokens):
         return False
-    return command_tokens[: len(entry_tokens)] == entry_tokens
+    if not executable_token_matches(command_tokens[0], entry_tokens[0]):
+        return False
+    return command_tokens[1 : len(entry_tokens)] == entry_tokens[1:]
 
 
 def is_bash_command_allowed(command: str, allowed_entries: list[str]) -> tuple[bool, str]:
