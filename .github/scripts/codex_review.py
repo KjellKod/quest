@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -39,7 +40,24 @@ DEEP_CI_CHUNK_CONTEXT_LINES = 100
 DEEP_CI_MAX_CHUNKS_PER_FILE = 4
 DEEP_CI_MAX_CHUNK_CHARS = 12000
 DEEP_CI_MAX_FETCH_CHARS = 200000
+DEEP_CI_REASON_EXCLUDED_PATH_SEGMENT = "excluded-path-segment"
+DEEP_CI_REASON_LOCKFILE = "lockfile"
+DEEP_CI_REASON_MINIFIED_FILE = "minified-file"
+DEEP_CI_REASON_UNSUPPORTED_EXTENSION = "unsupported-extension"
+DEEP_CI_REASON_DELETED_FILE = "deleted-file"
+DEEP_CI_REASON_METADATA_TOO_LARGE = "metadata-too-large"
+DEEP_CI_REASON_FETCH_TOO_LARGE = "fetch-too-large"
+DEEP_CI_REASON_TOTAL_CAP_EXHAUSTED = "total-cap-exhausted"
+DEEP_CI_REASON_NO_CHANGED_LINE_RANGES = "no-changed-line-ranges"
+DEEP_CI_REASON_CHUNK_CAP_EXHAUSTED = "chunk-cap-exhausted"
+DEEP_CI_REASON_UNAVAILABLE = "unavailable"
+DEEP_CI_MANIFEST_VERSION = 1
+DEEP_CI_MANIFEST_PATH = "/tmp/deep_ci_context_manifest.json"
 PROMPT_PLACEHOLDER_RE = re.compile(r"\{(PLACEHOLDER_[A-Z_]+)\}")
+
+
+def _utc_now():
+    return datetime.now(timezone.utc)
 
 
 def normalize_severity(value):
@@ -145,6 +163,31 @@ def select_deep_ci_files(changed_files, max_files=DEEP_CI_MAX_FILES):
             seen.add(path)
 
     return sorted(candidates)[:max_files]
+
+
+def _classify_skip_reason(path, file_info):
+    """Return a stable reason ID when a path is filtered out before selection."""
+    if not isinstance(path, str) or not path:
+        return None
+
+    info = _normalize_path_info(file_info or {"path": path})
+    if _is_deleted_file(info):
+        return DEEP_CI_REASON_DELETED_FILE
+    if _is_large_by_metadata(info):
+        return DEEP_CI_REASON_METADATA_TOO_LARGE
+
+    lower_path = path.lower()
+    name = Path(lower_path).name
+    suffix = Path(lower_path).suffix
+    if name in DEEP_CI_LOCKFILES or ".lock." in name:
+        return DEEP_CI_REASON_LOCKFILE
+    if suffix not in DEEP_CI_EXTENSIONS:
+        return DEEP_CI_REASON_UNSUPPORTED_EXTENSION
+    if name.endswith(".min.js") or name.endswith(".min.ts") or ".min." in name:
+        return DEEP_CI_REASON_MINIFIED_FILE
+    if any(segment in DEEP_CI_EXCLUDED_SEGMENTS for segment in _path_segments(lower_path)):
+        return DEEP_CI_REASON_EXCLUDED_PATH_SEGMENT
+    return None
 
 
 def _deep_ci_omitted_note(path, reason):
@@ -627,7 +670,282 @@ def fetch_deep_ci_files(
     return snapshots
 
 
-def render_deep_ci_context(snapshots, selected_files=None):
+def _coerce_manifest_ranges(ranges):
+    normalized = []
+    for value in ranges or []:
+        if not isinstance(value, (list, tuple)) or len(value) != 2:
+            continue
+        start, end = value
+        if not isinstance(start, int) or not isinstance(end, int):
+            continue
+        normalized.append((start, end))
+    return sorted(normalized, key=lambda item: (item[0], item[1]))
+
+
+def _coerce_manifest_windows(windows):
+    normalized = []
+    for window in windows or []:
+        if not isinstance(window, dict):
+            continue
+        start = window.get("start_line")
+        end = window.get("end_line")
+        if not isinstance(start, int) or not isinstance(end, int):
+            continue
+        normalized.append({"start_line": start, "end_line": end})
+    return sorted(normalized, key=lambda item: (item["start_line"], item["end_line"]))
+
+
+def _map_fetch_omission_reason(reason):
+    text = str(reason or "").strip().lower()
+    if text.startswith("file exceeds deep ci hard fetch cap"):
+        return DEEP_CI_REASON_FETCH_TOO_LARGE
+    if text.startswith("total-cap-exhausted"):
+        return DEEP_CI_REASON_TOTAL_CAP_EXHAUSTED
+    if text.startswith("no changed-line ranges"):
+        return DEEP_CI_REASON_NO_CHANGED_LINE_RANGES
+    if text.startswith("chunk-cap-exhausted"):
+        return DEEP_CI_REASON_CHUNK_CAP_EXHAUSTED
+    if text.startswith("unavailable:"):
+        return DEEP_CI_REASON_UNAVAILABLE
+    if text in {
+        DEEP_CI_REASON_FETCH_TOO_LARGE,
+        DEEP_CI_REASON_TOTAL_CAP_EXHAUSTED,
+        DEEP_CI_REASON_NO_CHANGED_LINE_RANGES,
+        DEEP_CI_REASON_CHUNK_CAP_EXHAUSTED,
+        DEEP_CI_REASON_UNAVAILABLE,
+        DEEP_CI_REASON_EXCLUDED_PATH_SEGMENT,
+        DEEP_CI_REASON_LOCKFILE,
+        DEEP_CI_REASON_MINIFIED_FILE,
+        DEEP_CI_REASON_UNSUPPORTED_EXTENSION,
+        DEEP_CI_REASON_DELETED_FILE,
+        DEEP_CI_REASON_METADATA_TOO_LARGE,
+    }:
+        return text
+    return DEEP_CI_REASON_UNAVAILABLE
+
+
+def _normalize_file_metadata(changed_files, file_metadata=None):
+    metadata_by_path = {}
+    all_paths = []
+    seen = set()
+
+    for entry in changed_files or []:
+        info = _normalize_path_info(entry)
+        path = info.get("path") or ""
+        if not path:
+            continue
+        if path not in seen:
+            all_paths.append(path)
+            seen.add(path)
+        metadata_by_path[path] = info
+
+    if isinstance(file_metadata, dict):
+        for raw_path, raw_info in file_metadata.items():
+            info = _normalize_path_info(raw_info if isinstance(raw_info, dict) else {"path": raw_path})
+            path = info.get("path") or raw_path
+            if not path:
+                continue
+            if path not in seen:
+                all_paths.append(path)
+                seen.add(path)
+            metadata_by_path[path] = info
+    elif isinstance(file_metadata, list):
+        for entry in file_metadata:
+            info = _normalize_path_info(entry)
+            path = info.get("path") or ""
+            if not path:
+                continue
+            if path not in seen:
+                all_paths.append(path)
+                seen.add(path)
+            metadata_by_path[path] = info
+
+    return all_paths, metadata_by_path
+
+
+def build_deep_ci_manifest(
+    repo,
+    head_sha,
+    changed_files,
+    changed_line_ranges=None,
+    file_metadata=None,
+    *,
+    source=None,
+    budget=None,
+    clock=_utc_now,
+    fetch=fetch_deep_ci_files,
+):
+    """Build canonical metadata-only Deep CI manifest for this review run."""
+    if isinstance(changed_files, dict) and isinstance(changed_files.get("files"), list):
+        changed_files = changed_files["files"]
+    elif not isinstance(changed_files, list):
+        changed_files = changed_files or []
+
+    changed_line_ranges = changed_line_ranges or {}
+    source = source or {}
+    budget = budget or {}
+
+    max_files = int(budget.get("max_files", DEEP_CI_MAX_FILES))
+    max_total_chars = int(budget.get("max_total_chars", DEEP_CI_MAX_TOTAL_CHARS))
+    max_file_chars = int(budget.get("max_file_chars", DEEP_CI_MAX_FILE_CHARS))
+    max_fetch_chars = int(budget.get("max_fetch_chars", DEEP_CI_MAX_FETCH_CHARS))
+    max_chunks_per_file = int(budget.get("max_chunks_per_file", DEEP_CI_MAX_CHUNKS_PER_FILE))
+    max_chunk_chars = int(budget.get("max_chunk_chars", DEEP_CI_MAX_CHUNK_CHARS))
+    context_lines = int(budget.get("context_lines", DEEP_CI_CHUNK_CONTEXT_LINES))
+
+    _, metadata_by_path = _normalize_file_metadata(changed_files, file_metadata)
+    selected_files = select_deep_ci_files(changed_files or [], max_files=max_files)
+    selected_set = set(selected_files)
+    omitted_candidates_by_path = {}
+
+    for path in sorted(metadata_by_path):
+        if path in selected_set:
+            continue
+        info = metadata_by_path.get(path) or {"path": path}
+        reason = _classify_skip_reason(path, info)
+        if reason is None and is_deep_ci_candidate(path, info):
+            reason = DEEP_CI_REASON_TOTAL_CAP_EXHAUSTED
+        if reason:
+            omitted_candidates_by_path[path] = {
+                "path": path,
+                "mode": "skipped",
+                "reason": reason,
+            }
+
+    snapshots = fetch(
+        repo,
+        head_sha,
+        selected_files,
+        changed_line_ranges=changed_line_ranges,
+        max_chars_per_file=max_file_chars,
+        max_total_chars=max_total_chars,
+        max_fetch_chars=max_fetch_chars,
+        context_lines=context_lines,
+        max_chunks_per_file=max_chunks_per_file,
+        max_chunk_chars=max_chunk_chars,
+        file_metadata=file_metadata,
+    )
+
+    files = []
+    used_total_chars = 0
+    for snapshot in snapshots:
+        path = snapshot.get("path")
+        if not path:
+            continue
+
+        mode = snapshot.get("mode", "skipped")
+        if snapshot.get("omitted") or mode == "skipped":
+            omitted_candidates_by_path[path] = {
+                "path": path,
+                "mode": "skipped",
+                "reason": _map_fetch_omission_reason(snapshot.get("reason", "")),
+            }
+            continue
+
+        if mode == "full":
+            char_count = int(snapshot.get("char_count", len(snapshot.get("content", ""))))
+            used_total_chars += char_count
+            files.append(
+                {
+                    "path": path,
+                    "mode": "full",
+                    "char_count": char_count,
+                    "line_count": int(snapshot.get("line_count", 0)),
+                    "changed_line_ranges": _coerce_manifest_ranges(
+                        snapshot.get("changed_line_ranges", [])
+                    ),
+                    "omitted": False,
+                    "reason": "",
+                }
+            )
+            continue
+
+        if mode != "chunked":
+            omitted_candidates_by_path[path] = {
+                "path": path,
+                "mode": "skipped",
+                "reason": DEEP_CI_REASON_UNAVAILABLE,
+            }
+            continue
+
+        chunks = []
+        chunk_content_chars = 0
+        for chunk in snapshot.get("chunks", []):
+            content = chunk.get("content", "")
+            chunk_content_chars += len(content)
+            included = chunk.get("changed_lines_included")
+            if not isinstance(included, list):
+                included = chunk.get("changed_lines", [])
+            omitted = chunk.get("changed_lines_omitted") or []
+            chunks.append(
+                {
+                    "start_line": int(chunk.get("start_line", 0)),
+                    "end_line": int(chunk.get("end_line", 0)),
+                    "changed_lines_included": sorted(
+                        value for value in included if isinstance(value, int)
+                    ),
+                    "changed_lines_omitted": sorted(
+                        value for value in omitted if isinstance(value, int)
+                    ),
+                }
+            )
+
+        used_total_chars += chunk_content_chars
+        files.append(
+            {
+                "path": path,
+                "mode": "chunked",
+                "char_count": int(snapshot.get("char_count", 0)),
+                "line_count": int(snapshot.get("line_count", 0)),
+                "changed_line_ranges": _coerce_manifest_ranges(snapshot.get("changed_line_ranges", [])),
+                "chunks": sorted(chunks, key=lambda item: item["start_line"]),
+                "chunk_cap_omitted_windows": _coerce_manifest_windows(
+                    snapshot.get("chunk_cap_omitted_windows")
+                ),
+                "total_cap_omitted_windows": _coerce_manifest_windows(
+                    snapshot.get("total_cap_omitted_windows")
+                ),
+                "omitted": False,
+                "reason": "",
+            }
+        )
+
+    now = clock() if callable(clock) else _utc_now()
+    if not isinstance(now, datetime):
+        now = _utc_now()
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    else:
+        now = now.astimezone(timezone.utc)
+    generated_at = now.replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    files = sorted(files, key=lambda item: item["path"])
+    omitted_candidates = sorted(
+        omitted_candidates_by_path.values(),
+        key=lambda item: item["path"],
+    )
+    return {
+        "version": DEEP_CI_MANIFEST_VERSION,
+        "generated_at": generated_at,
+        "source": source,
+        "budget": {
+            "max_files": max_files,
+            "selected_files": len(files),
+            "max_total_chars": max_total_chars,
+            "used_total_chars": used_total_chars,
+            "remaining_total_chars": max_total_chars - used_total_chars,
+            "max_file_chars": max_file_chars,
+            "max_fetch_chars": max_fetch_chars,
+            "max_chunks_per_file": max_chunks_per_file,
+            "max_chunk_chars": max_chunk_chars,
+            "context_lines": context_lines,
+        },
+        "files": files,
+        "omitted_candidates": omitted_candidates,
+    }
+
+
+def _render_deep_ci_snapshots(snapshots, selected_files=None):
     """Render Deep CI snapshots and omission notes as prompt markdown."""
     if not snapshots:
         return "No eligible changed code files selected for Deep CI context review.\n"
@@ -726,6 +1044,115 @@ def render_deep_ci_context(snapshots, selected_files=None):
     return "\n\n".join(rendered).strip() + "\n"
 
 
+def _manifest_file_to_snapshot(file_entry, source_snapshot):
+    mode = file_entry.get("mode")
+    if mode == "full":
+        return {
+            "path": file_entry["path"],
+            "mode": "full",
+            "content": (source_snapshot or {}).get("content", ""),
+            "chunks": [],
+            "char_count": file_entry.get("char_count", 0),
+            "line_count": file_entry.get("line_count", 0),
+            "changed_line_ranges": file_entry.get("changed_line_ranges", []),
+            "omitted": False,
+            "reason": file_entry.get("reason", ""),
+        }
+
+    chunk_content_by_range = {}
+    for chunk in (source_snapshot or {}).get("chunks", []):
+        key = (chunk.get("start_line"), chunk.get("end_line"))
+        chunk_content_by_range[key] = chunk.get("content", "")
+
+    chunks = []
+    for chunk in sorted(
+        file_entry.get("chunks", []),
+        key=lambda item: item.get("start_line", 0),
+    ):
+        key = (chunk.get("start_line"), chunk.get("end_line"))
+        included = sorted(chunk.get("changed_lines_included", []))
+        omitted = sorted(chunk.get("changed_lines_omitted", []))
+        chunks.append(
+            {
+                "start_line": chunk.get("start_line", 0),
+                "end_line": chunk.get("end_line", 0),
+                "content": chunk_content_by_range.get(key, ""),
+                "changed_lines": sorted(set(included + omitted)),
+                "changed_lines_included": included,
+                "changed_lines_omitted": omitted,
+            }
+        )
+
+    return {
+        "path": file_entry["path"],
+        "mode": "chunked",
+        "content": "",
+        "chunks": chunks,
+        "char_count": file_entry.get("char_count", 0),
+        "line_count": file_entry.get("line_count", 0),
+        "changed_line_ranges": file_entry.get("changed_line_ranges", []),
+        "chunk_cap_omitted_windows": file_entry.get("chunk_cap_omitted_windows", []),
+        "total_cap_omitted_windows": file_entry.get("total_cap_omitted_windows", []),
+        "omitted": False,
+        "reason": file_entry.get("reason", ""),
+    }
+
+
+def _render_deep_ci_markdown_from_manifest(manifest, *, files_with_content=None, selected_files=None):
+    manifest = manifest or {}
+    manifest_files = sorted(manifest.get("files", []), key=lambda item: item.get("path", ""))
+    content_by_path = {}
+    selected_paths = []
+    if isinstance(files_with_content, list):
+        for snapshot in files_with_content:
+            path = snapshot.get("path")
+            if not path:
+                continue
+            content_by_path[path] = snapshot
+            selected_paths.append(path)
+
+    snapshots = []
+    for file_entry in manifest_files:
+        path = file_entry.get("path")
+        if not path:
+            continue
+        snapshots.append(_manifest_file_to_snapshot(file_entry, content_by_path.get(path)))
+
+    manifest_paths = {entry.get("path") for entry in manifest_files}
+    if isinstance(files_with_content, list):
+        for snapshot in files_with_content:
+            path = snapshot.get("path")
+            if not path or path in manifest_paths:
+                continue
+            if snapshot.get("mode") == "skipped" or snapshot.get("omitted"):
+                snapshots.append(snapshot)
+    else:
+        for omitted in manifest.get("omitted_candidates", []):
+            path = omitted.get("path")
+            if not path:
+                continue
+            snapshots.append(_deep_ci_omitted_note(path, omitted.get("reason", "")))
+
+    snapshots = sorted(snapshots, key=lambda item: item.get("path", ""))
+    selected_for_render = selected_files
+    if selected_for_render is None:
+        selected_for_render = selected_paths or [snapshot.get("path") for snapshot in snapshots]
+    return _render_deep_ci_snapshots(snapshots, selected_files=selected_for_render)
+
+
+def render_deep_ci_markdown_from_manifest(manifest, *, files_with_content=None):
+    """Render Deep CI markdown from the canonical manifest."""
+    return _render_deep_ci_markdown_from_manifest(
+        manifest,
+        files_with_content=files_with_content,
+    )
+
+
+def render_deep_ci_context(snapshots, selected_files=None):
+    """Render legacy Deep CI snapshot lists while preserving caller order."""
+    return _render_deep_ci_snapshots(snapshots, selected_files=selected_files)
+
+
 def load_changed_file_metadata(path="/tmp/changed_files.json"):
     """Load gh PR file metadata, falling back to the legacy path list."""
     metadata_path = Path(path)
@@ -806,7 +1233,26 @@ def gather_context():
         changed_line_ranges=changed_line_ranges,
         file_metadata=changed_file_metadata,
     )
-    deep_ci_context = render_deep_ci_context(deep_ci_snapshots, selected_deep_ci_files)
+    deep_ci_manifest = build_deep_ci_manifest(
+        repo,
+        head_sha,
+        changed_file_metadata,
+        changed_line_ranges=changed_line_ranges,
+        file_metadata=changed_file_metadata,
+        source={
+            "pr_diff_path": "/tmp/pr.diff",
+            "changed_files_path": "/tmp/changed_files.json",
+        },
+        fetch=lambda *_args, **_kwargs: deep_ci_snapshots,
+    )
+    Path(DEEP_CI_MANIFEST_PATH).write_text(
+        json.dumps(deep_ci_manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    deep_ci_context = render_deep_ci_markdown_from_manifest(
+        deep_ci_manifest,
+        files_with_content=deep_ci_snapshots,
+    )
     Path('/tmp/deep_ci_files.md').write_text(deep_ci_context, encoding='utf-8')
 
 

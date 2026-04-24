@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-04-24 | [deep-ci-manifest](deep-ci-manifest_2026-04-24.md) | Impact: - Adds one canonical machine-readable artifact (`/tmp/deep_ci_context_manifest.json`) per run so selection/ch... |
 | 2026-04-21 | [deep-ci-file-review](deep-ci-file-review_2026-04-21.md) | Completed successfully. |
 | 2026-04-16 | [celebration-review-intel](celebration-review-intel_2026-04-16.md) | Add two narrow, artifact-backed carry-over sections to Quest celebration/journal output so Phase 1 review intelligenc... |
 | 2026-04-16 | [review-intelligence-canonical](review-intelligence-canonical_2026-04-16.md) | Implement Phase 1 of review-intelligence-canonical: normalize review findings and add a review-decisions stage betwee... |
