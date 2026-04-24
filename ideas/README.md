@@ -26,7 +26,7 @@ architecture docs.
 ### Review Intelligence
 | File | Status | Purpose |
 |---|---|---|
-| `—` | next | Phase 3.2 is next: write a dedicated structured review-context manifest proposal. |
+| `deep-ci-review-context-manifest-plan.md` | proposed | Phase 3.2 proposal: persist one canonical Deep CI review-context manifest and make downstream steps consume it deterministically. |
 
 Current roadmap:
 
