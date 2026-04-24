@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -810,6 +811,605 @@ class TestFetchDeepCiFiles:
         assert "Mode: chunked-large-file" in rendered
         assert "````\nreturn ```payload```\n````" in rendered
 
+    def test_render_deep_ci_context_preserves_snapshot_input_order(self):
+        snapshots = [
+            {
+                "path": "src/z_last.py",
+                "mode": "full",
+                "content": "print('z')\n",
+                "chunks": [],
+                "char_count": 11,
+                "line_count": 1,
+                "changed_line_ranges": [(1, 1)],
+                "omitted": False,
+                "reason": "",
+            },
+            {
+                "path": "src/a_first.py",
+                "mode": "full",
+                "content": "print('a')\n",
+                "chunks": [],
+                "char_count": 11,
+                "line_count": 1,
+                "changed_line_ranges": [(1, 1)],
+                "omitted": False,
+                "reason": "",
+            },
+        ]
+
+        rendered = codex_review.render_deep_ci_context(
+            snapshots,
+            selected_files=["src/z_last.py", "src/a_first.py"],
+        )
+
+        assert rendered.index("## src/z_last.py") < rendered.index("## src/a_first.py")
+
+
+def _build_render_parity_case(case_name):
+    if case_name == "full-only":
+        snapshots = [
+            {
+                "path": "src/app.py",
+                "mode": "full",
+                "content": "print('ok')\n",
+                "chunks": [],
+                "char_count": 12,
+                "line_count": 1,
+                "changed_line_ranges": [(1, 1)],
+                "omitted": False,
+                "reason": "",
+            }
+        ]
+        return snapshots, [{"path": "src/app.py"}]
+
+    if case_name == "chunked-only":
+        snapshots = [
+            {
+                "path": "src/large.py",
+                "mode": "chunked",
+                "content": "",
+                "chunks": [
+                    {
+                        "start_line": 20,
+                        "end_line": 24,
+                        "changed_lines": [22],
+                        "changed_lines_included": [22],
+                        "changed_lines_omitted": [],
+                        "content": "a\nb\nc",
+                    }
+                ],
+                "char_count": 200,
+                "line_count": 100,
+                "changed_line_ranges": [(22, 22)],
+                "chunk_cap_omitted_windows": [],
+                "total_cap_omitted_windows": [],
+                "omitted": False,
+                "reason": "full file exceeded cap",
+            }
+        ]
+        return snapshots, [{"path": "src/large.py"}]
+
+    if case_name == "skipped-only":
+        snapshots = [
+            {
+                "path": "src/huge.py",
+                "mode": "skipped",
+                "content": "",
+                "chunks": [],
+                "char_count": 0,
+                "line_count": 0,
+                "changed_line_ranges": [],
+                "omitted": True,
+                "reason": "total-cap-exhausted",
+            }
+        ]
+        return snapshots, [{"path": "src/huge.py"}]
+
+    if case_name == "mixed":
+        snapshots = [
+            {
+                "path": "src/app.py",
+                "mode": "full",
+                "content": "print('ok')\n",
+                "chunks": [],
+                "char_count": 12,
+                "line_count": 1,
+                "changed_line_ranges": [(1, 1)],
+                "omitted": False,
+                "reason": "",
+            },
+            {
+                "path": "src/large.py",
+                "mode": "chunked",
+                "content": "",
+                "chunks": [
+                    {
+                        "start_line": 10,
+                        "end_line": 12,
+                        "changed_lines": [11],
+                        "changed_lines_included": [11],
+                        "changed_lines_omitted": [],
+                        "content": "x\ny\nz",
+                    }
+                ],
+                "char_count": 200,
+                "line_count": 100,
+                "changed_line_ranges": [(11, 11)],
+                "chunk_cap_omitted_windows": [],
+                "total_cap_omitted_windows": [],
+                "omitted": False,
+                "reason": "full file exceeded cap",
+            },
+            {
+                "path": "src/skip.py",
+                "mode": "skipped",
+                "content": "",
+                "chunks": [],
+                "char_count": 0,
+                "line_count": 0,
+                "changed_line_ranges": [],
+                "omitted": True,
+                "reason": "unavailable: not found",
+            },
+        ]
+        return snapshots, [
+            {"path": "src/app.py"},
+            {"path": "src/large.py"},
+            {"path": "src/skip.py"},
+        ]
+
+    # empty
+    return [], [{"path": "README.md"}]
+
+
+class TestDeepCiManifest:
+    def test_build_deep_ci_manifest_deterministic_with_frozen_clock(self):
+        frozen = datetime(2026, 4, 24, 12, 34, 56, tzinfo=timezone.utc)
+        changed_files = [
+            {"path": "src/b.py"},
+            {"path": "src/a.py"},
+            {"path": "src/c.py"},
+            {"path": "src/d.py"},
+            {"path": "docs/guide.py"},
+        ]
+
+        def fake_fetch(repo, head_sha, selected_files, **kwargs):
+            assert repo == "owner/repo"
+            assert head_sha == "abc123"
+            assert selected_files == ["src/a.py", "src/b.py", "src/c.py"]
+            return [
+                {
+                    "path": "src/b.py",
+                    "mode": "chunked",
+                    "content": "",
+                    "chunks": [
+                        {
+                            "start_line": 30,
+                            "end_line": 32,
+                            "content": "bbb",
+                            "changed_lines": [31],
+                            "changed_lines_included": [31],
+                            "changed_lines_omitted": [],
+                        },
+                        {
+                            "start_line": 10,
+                            "end_line": 11,
+                            "content": "aaa",
+                            "changed_lines": [10, 11],
+                            "changed_lines_included": [10],
+                            "changed_lines_omitted": [11],
+                        },
+                    ],
+                    "char_count": 999,
+                    "line_count": 200,
+                    "changed_line_ranges": [(30, 31), (10, 11)],
+                    "chunk_cap_omitted_windows": [],
+                    "total_cap_omitted_windows": [],
+                    "omitted": False,
+                    "reason": "",
+                },
+                {
+                    "path": "src/a.py",
+                    "mode": "full",
+                    "content": "print('a')\n",
+                    "chunks": [],
+                    "char_count": 11,
+                    "line_count": 1,
+                    "changed_line_ranges": [(1, 1)],
+                    "omitted": False,
+                    "reason": "",
+                },
+                {
+                    "path": "src/c.py",
+                    "mode": "skipped",
+                    "content": "",
+                    "chunks": [],
+                    "char_count": 0,
+                    "line_count": 0,
+                    "changed_line_ranges": [],
+                    "omitted": True,
+                    "reason": "total-cap-exhausted",
+                },
+            ]
+
+        manifest_one = codex_review.build_deep_ci_manifest(
+            "owner/repo",
+            "abc123",
+            changed_files,
+            clock=lambda: frozen,
+            fetch=fake_fetch,
+        )
+        manifest_two = codex_review.build_deep_ci_manifest(
+            "owner/repo",
+            "abc123",
+            changed_files,
+            clock=lambda: frozen,
+            fetch=fake_fetch,
+        )
+        manifest_one_json = json.dumps(manifest_one, indent=2, sort_keys=True) + "\n"
+        manifest_two_json = json.dumps(manifest_two, indent=2, sort_keys=True) + "\n"
+
+        assert manifest_one_json == manifest_two_json
+        assert manifest_one_json.endswith("\n")
+        assert manifest_one["generated_at"] == "2026-04-24T12:34:56Z"
+        assert [item["path"] for item in manifest_one["files"]] == ["src/a.py", "src/b.py"]
+        assert [item["path"] for item in manifest_one["omitted_candidates"]] == [
+            "docs/guide.py",
+            "src/c.py",
+            "src/d.py",
+        ]
+        assert manifest_one["files"][1]["chunks"] == [
+            {
+                "start_line": 10,
+                "end_line": 11,
+                "changed_lines_included": [10],
+                "changed_lines_omitted": [11],
+            },
+            {
+                "start_line": 30,
+                "end_line": 32,
+                "changed_lines_included": [31],
+                "changed_lines_omitted": [],
+            },
+        ]
+
+    def test_build_deep_ci_manifest_chunk_changed_lines_follow_right_side_ranges(
+        self, monkeypatch
+    ):
+        diff = (
+            "diff --git a/src/large.py b/src/large.py\n"
+            "+++ b/src/large.py\n"
+            "@@ -9,0 +10,3 @@\n"
+            "+alpha\n"
+            "+beta\n"
+            "+gamma\n"
+        )
+        changed_ranges = codex_review.parse_changed_line_ranges(diff)
+        content = "\n".join(f"{i}-" + ("x" * 30) for i in range(1, 40)) + "\n"
+
+        def fake_run(cmd, check, capture_output, text):
+            return subprocess.CompletedProcess(cmd, 0, stdout=content, stderr="")
+
+        monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
+        snapshots = codex_review.fetch_deep_ci_files(
+            "owner/repo",
+            "abc123",
+            ["src/large.py"],
+            changed_line_ranges=changed_ranges,
+            max_chars_per_file=20,
+            context_lines=0,
+            max_chunk_chars=40,
+        )
+        assert snapshots[0]["mode"] == "chunked"
+        assert any(chunk["changed_lines_omitted"] for chunk in snapshots[0]["chunks"])
+
+        manifest = codex_review.build_deep_ci_manifest(
+            "owner/repo",
+            "abc123",
+            [{"path": "src/large.py"}],
+            changed_line_ranges=changed_ranges,
+            fetch=lambda *_args, **_kwargs: snapshots,
+        )
+
+        right_side_lines = {
+            line
+            for start, end in changed_ranges["src/large.py"]
+            for line in range(start, end + 1)
+        }
+        manifest_chunks = manifest["files"][0]["chunks"]
+        snapshot_chunks = sorted(snapshots[0]["chunks"], key=lambda chunk: chunk["start_line"])
+        for manifest_chunk, snapshot_chunk in zip(manifest_chunks, snapshot_chunks):
+            assert manifest_chunk["changed_lines_included"] == snapshot_chunk["changed_lines_included"]
+            assert manifest_chunk["changed_lines_omitted"] == snapshot_chunk["changed_lines_omitted"]
+            combined = set(
+                manifest_chunk["changed_lines_included"] + manifest_chunk["changed_lines_omitted"]
+            )
+            assert combined == set(snapshot_chunk["changed_lines"])
+            assert combined.issubset(right_side_lines)
+
+    def test_build_deep_ci_manifest_budget_accounting_balances(self):
+        changed_files = [
+            {"path": "src/a.py"},
+            {"path": "src/b.py"},
+            {"path": "src/c.py"},
+        ]
+        snapshots = [
+            {
+                "path": "src/a.py",
+                "mode": "full",
+                "content": "print('a')\n",
+                "chunks": [],
+                "char_count": 11,
+                "line_count": 1,
+                "changed_line_ranges": [(1, 1)],
+                "omitted": False,
+                "reason": "",
+            },
+            {
+                "path": "src/b.py",
+                "mode": "chunked",
+                "content": "",
+                "chunks": [
+                    {
+                        "start_line": 10,
+                        "end_line": 12,
+                        "changed_lines": [11],
+                        "changed_lines_included": [11],
+                        "changed_lines_omitted": [],
+                        "content": "x\ny\nz",
+                    }
+                ],
+                "char_count": 300,
+                "line_count": 120,
+                "changed_line_ranges": [(11, 11)],
+                "chunk_cap_omitted_windows": [],
+                "total_cap_omitted_windows": [],
+                "omitted": False,
+                "reason": "full file exceeded cap",
+            },
+            {
+                "path": "src/c.py",
+                "mode": "skipped",
+                "content": "",
+                "chunks": [],
+                "char_count": 0,
+                "line_count": 0,
+                "changed_line_ranges": [],
+                "omitted": True,
+                "reason": "total-cap-exhausted",
+            },
+        ]
+
+        manifest = codex_review.build_deep_ci_manifest(
+            "owner/repo",
+            "abc123",
+            changed_files,
+            fetch=lambda *_args, **_kwargs: snapshots,
+        )
+
+        budget = manifest["budget"]
+        assert budget["used_total_chars"] + budget["remaining_total_chars"] == budget["max_total_chars"]
+        assert budget["selected_files"] == len(manifest["files"])
+
+        assert budget["max_files"] == codex_review.DEEP_CI_MAX_FILES
+        assert budget["max_total_chars"] == codex_review.DEEP_CI_MAX_TOTAL_CHARS
+        assert budget["max_file_chars"] == codex_review.DEEP_CI_MAX_FILE_CHARS
+        assert budget["max_fetch_chars"] == codex_review.DEEP_CI_MAX_FETCH_CHARS
+        assert budget["max_chunks_per_file"] == codex_review.DEEP_CI_MAX_CHUNKS_PER_FILE
+        assert budget["max_chunk_chars"] == codex_review.DEEP_CI_MAX_CHUNK_CHARS
+        assert budget["context_lines"] == codex_review.DEEP_CI_CHUNK_CONTEXT_LINES
+
+    def test_build_deep_ci_manifest_omission_reasons_table_driven(self):
+        def skipped_snapshot(path, reason):
+            return {
+                "path": path,
+                "mode": "skipped",
+                "content": "",
+                "chunks": [],
+                "char_count": 0,
+                "line_count": 0,
+                "changed_line_ranges": [],
+                "omitted": True,
+                "reason": reason,
+            }
+
+        rows = [
+            {
+                "id": "excluded-path-segment",
+                "changed_files": [{"path": "dist/app.js"}],
+                "path": "dist/app.js",
+                "expected": codex_review.DEEP_CI_REASON_EXCLUDED_PATH_SEGMENT,
+            },
+            {
+                "id": "unsupported-extension",
+                "changed_files": [{"path": "README.md"}],
+                "path": "README.md",
+                "expected": codex_review.DEEP_CI_REASON_UNSUPPORTED_EXTENSION,
+            },
+            {
+                "id": "deleted-file",
+                "changed_files": [{"path": "src/deleted.py", "status": "deleted"}],
+                "path": "src/deleted.py",
+                "expected": codex_review.DEEP_CI_REASON_DELETED_FILE,
+            },
+            {
+                "id": "metadata-too-large",
+                "changed_files": [{"path": "src/noisy.py", "changes": codex_review.DEEP_CI_MAX_CHANGES + 1}],
+                "path": "src/noisy.py",
+                "expected": codex_review.DEEP_CI_REASON_METADATA_TOO_LARGE,
+            },
+            {
+                "id": "fetch-too-large",
+                "changed_files": [{"path": "src/fetch.py"}],
+                "path": "src/fetch.py",
+                "snapshots": [
+                    skipped_snapshot(
+                        "src/fetch.py",
+                        f"file exceeds Deep CI hard fetch cap of {codex_review.DEEP_CI_MAX_FETCH_CHARS} chars",
+                    )
+                ],
+                "expected": codex_review.DEEP_CI_REASON_FETCH_TOO_LARGE,
+            },
+            {
+                "id": "total-cap-exhausted",
+                "changed_files": [{"path": "src/total.py"}],
+                "path": "src/total.py",
+                "snapshots": [skipped_snapshot("src/total.py", "total-cap-exhausted")],
+                "expected": codex_review.DEEP_CI_REASON_TOTAL_CAP_EXHAUSTED,
+            },
+            {
+                "id": "no-changed-line-ranges",
+                "changed_files": [{"path": "src/ranges.py"}],
+                "path": "src/ranges.py",
+                "snapshots": [
+                    skipped_snapshot("src/ranges.py", "no changed-line ranges found for oversized file")
+                ],
+                "expected": codex_review.DEEP_CI_REASON_NO_CHANGED_LINE_RANGES,
+            },
+            # Recognized by the mapper but currently not produced as a file-level
+            # omitted snapshot by fetch_deep_ci_files.
+            {
+                "id": "chunk-cap-exhausted",
+                "map_reason": "chunk-cap-exhausted",
+                "expected": codex_review.DEEP_CI_REASON_CHUNK_CAP_EXHAUSTED,
+            },
+            {
+                "id": "unavailable",
+                "changed_files": [{"path": "src/missing.py"}],
+                "path": "src/missing.py",
+                "snapshots": [skipped_snapshot("src/missing.py", "unavailable: not found")],
+                "expected": codex_review.DEEP_CI_REASON_UNAVAILABLE,
+            },
+        ]
+
+        for row in rows:
+            if "map_reason" in row:
+                assert codex_review._map_fetch_omission_reason(row["map_reason"]) == row["expected"]
+                continue
+
+            snapshots = row.get("snapshots", [])
+            manifest = codex_review.build_deep_ci_manifest(
+                "owner/repo",
+                "abc123",
+                row["changed_files"],
+                fetch=lambda *_args, **_kwargs: snapshots,
+            )
+            assert len(manifest["omitted_candidates"]) == 1, row["id"]
+            omitted = manifest["omitted_candidates"][0]
+            assert omitted["path"] == row["path"], row["id"]
+            assert omitted["reason"] == row["expected"], row["id"]
+
+    @pytest.mark.parametrize(
+        "case_name, expected_markdown",
+        [
+            (
+                "full-only",
+                (
+                    "Selected 1 changed code file(s) for bounded Deep CI context review.\n"
+                    "\n"
+                    "## src/app.py\n"
+                    "Mode: full-file\n"
+                    "Size: 12 chars, 1 lines\n"
+                    "```\n"
+                    "print('ok')\n"
+                    "```\n"
+                ),
+            ),
+            (
+                "chunked-only",
+                (
+                    "Selected 1 changed code file(s) for bounded Deep CI context review.\n"
+                    "\n"
+                    "## src/large.py\n"
+                    "\n"
+                    "Mode: chunked-large-file\n"
+                    "\n"
+                    "Size: 200 chars, 100 lines\n"
+                    "\n"
+                    "Included chunks: 1\n"
+                    "\n"
+                    "Included line ranges: 20-24\n"
+                    "\n"
+                    "Omitted: \n"
+                    "\n"
+                    "### src/large.py lines 20-24\n"
+                    "Changed RIGHT-side lines in this chunk: 22\n"
+                    "```\n"
+                    "a\n"
+                    "b\n"
+                    "c\n"
+                    "```\n"
+                ),
+            ),
+            (
+                "skipped-only",
+                (
+                    "Selected 1 changed code file(s) for bounded Deep CI context review.\n"
+                    "\n"
+                    "## src/huge.py\n"
+                    "Mode: skipped\n"
+                    "Skipped Deep CI review for src/huge.py because total-cap-exhausted.\n"
+                ),
+            ),
+            (
+                "mixed",
+                (
+                    "Selected 3 changed code file(s) for bounded Deep CI context review.\n"
+                    "\n"
+                    "## src/app.py\n"
+                    "Mode: full-file\n"
+                    "Size: 12 chars, 1 lines\n"
+                    "```\n"
+                    "print('ok')\n"
+                    "```\n"
+                    "\n"
+                    "## src/large.py\n"
+                    "\n"
+                    "Mode: chunked-large-file\n"
+                    "\n"
+                    "Size: 200 chars, 100 lines\n"
+                    "\n"
+                    "Included chunks: 1\n"
+                    "\n"
+                    "Included line ranges: 10-12\n"
+                    "\n"
+                    "Omitted: \n"
+                    "\n"
+                    "### src/large.py lines 10-12\n"
+                    "Changed RIGHT-side lines in this chunk: 11\n"
+                    "```\n"
+                    "x\n"
+                    "y\n"
+                    "z\n"
+                    "```\n"
+                    "\n"
+                    "## src/skip.py\n"
+                    "Mode: skipped\n"
+                    "Skipped Deep CI review for src/skip.py because unavailable: not found.\n"
+                ),
+            ),
+            (
+                "empty",
+                "No eligible changed code files selected for Deep CI context review.\n",
+            ),
+        ],
+    )
+    def test_render_deep_ci_markdown_from_manifest_parity(self, case_name, expected_markdown):
+        snapshots, changed_files = _build_render_parity_case(case_name)
+        manifest = codex_review.build_deep_ci_manifest(
+            "owner/repo",
+            "abc123",
+            changed_files,
+            clock=lambda: datetime(2026, 4, 24, 13, 0, 0, tzinfo=timezone.utc),
+            fetch=lambda *_args, **_kwargs: snapshots,
+        )
+
+        rendered_from_manifest = codex_review.render_deep_ci_markdown_from_manifest(
+            manifest,
+            files_with_content=snapshots,
+        )
+        assert rendered_from_manifest == expected_markdown
+
 
 # ---------------------------------------------------------------------------
 # Workflow context contract
@@ -854,6 +1454,7 @@ class TestWorkflowContextContract:
             Path("/tmp/changed_files.txt"),
             Path("/tmp/pr_head_files.md"),
             Path("/tmp/deep_ci_files.md"),
+            Path(codex_review.DEEP_CI_MANIFEST_PATH),
             Path("/tmp/pr.diff"),
         ]
         originals = {
@@ -909,6 +1510,10 @@ class TestWorkflowContextContract:
             assert captured["deep_ci_head_sha"] == "abc123"
             assert captured["selected_files"] == ["lib/space name.py", "src/app.py"]
             assert captured["changed_line_ranges"] == {"src/app.py": [(1, 1)]}
+            manifest = json.loads(Path(codex_review.DEEP_CI_MANIFEST_PATH).read_text(encoding="utf-8"))
+            assert manifest["version"] == codex_review.DEEP_CI_MANIFEST_VERSION
+            assert "files" in manifest
+            assert "omitted_candidates" in manifest
         finally:
             for path, content in originals.items():
                 if content is None:
@@ -979,6 +1584,33 @@ class TestBuildReviewPrompt:
 
         assert "snapshot has literal {PLACEHOLDER_DIFF}" in prompt
         assert prompt.count("diff body") == 1
+
+    def test_build_prompt_reads_only_deep_ci_files_md_not_manifest(self):
+        tmp_paths = [
+            Path("/tmp/deep_ci_files.md"),
+            Path("/tmp/review-prompt.md"),
+            Path(codex_review.DEEP_CI_MANIFEST_PATH),
+        ]
+        originals = {
+            path: path.read_bytes() if path.exists() else None
+            for path in tmp_paths
+        }
+
+        try:
+            Path("/tmp/deep_ci_files.md").write_text(
+                "Selected 1 changed code file(s) for bounded Deep CI context review.\n",
+                encoding="utf-8",
+            )
+            Path(codex_review.DEEP_CI_MANIFEST_PATH).unlink(missing_ok=True)
+            codex_review.build_prompt()
+            prompt = Path("/tmp/review-prompt.md").read_text(encoding="utf-8")
+            assert "Selected 1 changed code file(s)" in prompt
+        finally:
+            for path, content in originals.items():
+                if content is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.write_bytes(content)
 
 
 class TestDeepCiDedupeReuse:
