@@ -1,0 +1,25 @@
+ideas/2026-04-24-quest-hooks-vs-instructions-boundary.md
+  acdbef53fbc9d100 1-441
+ideas/README.md
+  acdbef53fbc9d100 44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "fc9aa0695be3e66bb4999252de430add94b0e8c5",
+  "prompts": {
+    "acdbef53fbc9d100": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019db837-83cd-7660-a89a-a4f82eada223",
+        "model": "gpt-5.4"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 442,
+      "total_deletions": 0,
+      "accepted_lines": 929,
+      "overriden_lines": 0
+    }
+  }
+}
