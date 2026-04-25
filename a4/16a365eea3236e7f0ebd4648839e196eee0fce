@@ -1,0 +1,25 @@
+.skills/ci-code-reviewer/SKILL.md
+  142bff83fa8b37c3 110-112
+.skills/pr-shepherd/SKILL.md
+  142bff83fa8b37c3 43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "a416a365eea3236e7f0ebd4648839e196eee0fce",
+  "prompts": {
+    "142bff83fa8b37c3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dc19a-bd8e-76c1-8e81-1c943bd7e7fa",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 4,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}
