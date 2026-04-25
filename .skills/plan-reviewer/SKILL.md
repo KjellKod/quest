@@ -259,10 +259,10 @@ Use this structure by default:
 
 ## 3. Open Requirements
 ### Must resolve before coding (blocking)
-- Numbered findings in current-review order: `[1] Must fix - plan.md:section - acceptance criterion is missing, ambiguous, or untestable`
+- Numbered findings in current-review order: `[N] Must fix - plan.md:section - acceptance criterion is missing, ambiguous, or untestable`
 
 ### Resolve during implementation (non-blocking)
-- Numbered findings in current-review order: `[2] Should fix - plan.md:section - the WHAT is clear, but the exact HOW is an implementation detail`
+- Numbered findings in current-review order: `[N] Should fix - plan.md:section - the WHAT is clear, but the exact HOW is an implementation detail`
 - Example: "a test seam is needed for year injection" is non-blocking if the AC already says "rejects non-2026 year before writes"
 - Example: "which exact mock library to use" is non-blocking
 

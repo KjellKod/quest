@@ -213,13 +213,13 @@ Keep output concise. Omit sections with no findings.
 **Findings** (only sections with issues):
 
 **Blocker**
-[1] Blocker - path:line - description and suggested fix
+[N] Blocker - path:line - description and suggested fix
 
 **Must fix**
-[2] Must fix - path:line - description and suggested fix
+[N] Must fix - path:line - description and suggested fix
 
 **Should fix**
-[3] Should fix - path:line - description and suggested fix
+[N] Should fix - path:line - description and suggested fix
 
 **Plan alignment** (only if gaps/scope creep found): list issues
 **Test gaps** (only if gaps found): list missing coverage

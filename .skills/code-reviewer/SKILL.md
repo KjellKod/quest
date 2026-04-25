@@ -200,13 +200,13 @@ Write a PR review that is short and high signal:
 - Recommendation: approve / request changes
 
 ### 2. Blockers
-- Numbered findings in current-review order: `[1] Blocker - path:line - summary and concrete fix`
+- Numbered findings in current-review order: `[N] Blocker - path:line - summary and concrete fix`
 
 ### 3. Must Fix
-- Numbered findings in current-review order: `[2] Must fix - path:line - summary and concrete fix`
+- Numbered findings in current-review order: `[N] Must fix - path:line - summary and concrete fix`
 
 ### 4. Should Fix
-- Numbered findings in current-review order: `[3] Should fix - path:line - summary and concrete fix`
+- Numbered findings in current-review order: `[N] Should fix - path:line - summary and concrete fix`
 
 Finding numbers are review-local indices. Keep numbering stable within the current review and use `[N]` format for every finding that appears in Blockers, Must Fix, or Should Fix.
 

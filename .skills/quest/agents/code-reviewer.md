@@ -45,7 +45,7 @@ Canonical findings schema (required fields per finding):
 Optional field per finding:
 - `review_local_index`: positive integer index from the current markdown review when the finding is numbered.
 
-Markdown review findings must use `[N]` format in current-review order, for example: `[1] Must fix - scripts/example.py:42 - explain the issue and fix`.
+Markdown review findings must use `[N]` format in current-review order, for example: `[N] Must fix - scripts/example.py:42 - explain the issue and fix`.
 
 Allowed enum values:
 - `severity`: `critical`, `high`, `medium`, `low`, `info`

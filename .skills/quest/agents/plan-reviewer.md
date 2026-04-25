@@ -34,7 +34,7 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 5. Identify gaps, risks, or unclear areas
 6. Write review to the assigned artifact path for the current slot
 
-Review findings in markdown must use `[N]` format in current-review order, for example: `[1] Must fix - plan.md:Acceptance Criteria - make the criterion testable`.
+Review findings in markdown must use `[N]` format in current-review order, for example: `[N] Must fix - plan.md:Acceptance Criteria - make the criterion testable`.
 
 ## Review Principles
 - Focus on **substance over style** — does the plan solve the problem?
