@@ -16,6 +16,27 @@ if _scripts_dir not in sys.path:
 import codex_review  # noqa: E402
 
 
+@pytest.fixture
+def review_tmp_files():
+    paths = [
+        Path("/tmp/review-output.json"),
+        Path("/tmp/existing_comments.json"),
+    ]
+    originals = {
+        path: path.read_bytes() if path.exists() else None
+        for path in paths
+    }
+
+    try:
+        yield
+    finally:
+        for path, content in originals.items():
+            if content is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.write_bytes(content)
+
+
 # ---------------------------------------------------------------------------
 # normalize_severity
 # ---------------------------------------------------------------------------
@@ -45,6 +66,54 @@ class TestNormalizeSeverity:
         assert codex_review.normalize_severity(None) is None
         assert codex_review.normalize_severity(42) is None
         assert codex_review.normalize_severity(["blocker"]) is None
+
+
+# ---------------------------------------------------------------------------
+# format_inline_body
+# ---------------------------------------------------------------------------
+
+class TestFormatInlineBody:
+    @pytest.mark.parametrize(
+        "severity, expected_prefix",
+        [
+            ("blocker", "\U0001f534 **Blocker** - "),
+            ("must-fix", "\U0001f7e0 **Must fix** - "),
+            ("should-fix", "\U0001f7e1 **Should fix** - "),
+        ],
+    )
+    def test_format_inline_body_adds_known_severity_prefix_and_footer(
+        self, severity, expected_prefix
+    ):
+        formatted = codex_review.format_inline_body(severity, "  Details here.  ")
+
+        assert formatted.startswith(f"{expected_prefix}Details here.")
+        assert formatted.endswith(codex_review.ADVISORY_FOOTER)
+        assert formatted.count(codex_review.ADVISORY_FOOTER) == 1
+
+    @pytest.mark.parametrize("severity", [None, "nit"])
+    def test_format_inline_body_unknown_or_missing_severity_only_adds_footer(self, severity):
+        formatted = codex_review.format_inline_body(severity, "Details here.")
+
+        assert formatted == f"Details here.\n\n{codex_review.ADVISORY_FOOTER}"
+
+    def test_format_inline_body_is_idempotent_for_prefixed_and_footered_body(self):
+        body = (
+            "\U0001f534 **Blocker** - Details here.\n\n"
+            f"{codex_review.ADVISORY_FOOTER}"
+        )
+
+        formatted = codex_review.format_inline_body("blocker", body)
+
+        assert formatted == body
+        assert formatted.count("\U0001f534 **Blocker** - ") == 1
+        assert formatted.count(codex_review.ADVISORY_FOOTER) == 1
+
+    def test_format_inline_body_upgrades_legacy_prefix_without_duplication(self):
+        formatted = codex_review.format_inline_body("must-fix", "**Must fix** - details")
+
+        assert formatted.startswith("\U0001f7e0 **Must fix** - details")
+        assert formatted.count("**Must fix**") == 1
+        assert formatted.count(codex_review.ADVISORY_FOOTER) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -1624,6 +1693,16 @@ class TestBuildReviewPrompt:
                 else:
                     path.write_bytes(content)
 
+    def test_prompt_keeps_structured_severity_but_not_body_prefix_or_footer_instruction(self):
+        prompt = Path(".github/codex-review-prompt.md").read_text(encoding="utf-8")
+
+        assert '"severity": "must-fix"' in prompt
+        assert "`blocker`, `must-fix`, or `should-fix`" in prompt
+        assert "**Blocker**" not in prompt
+        assert "**Must fix**" not in prompt
+        assert "**Should fix**" not in prompt
+        assert "Automated review by" not in prompt
+
 
 class TestDeepCiDedupeReuse:
     def test_deep_ci_comment_uses_existing_duplicate_filter(self):
@@ -1651,3 +1730,163 @@ class TestDeepCiDedupeReuse:
         )
 
         assert reason == "already-commented"
+
+    def test_inline_formatting_does_not_change_duplicate_keywords(self):
+        body = "initializer fallback leaves cached state stale"
+        formatted = codex_review.format_inline_body("must-fix", body)
+
+        assert codex_review.extract_keywords(body) <= codex_review.extract_keywords(formatted)
+        assert codex_review.is_duplicate(
+            {
+                "path": "src/app.py",
+                "line": 42,
+                "body": body,
+            },
+            set(),
+            set(),
+            [
+                {
+                    "path": "src/app.py",
+                    "line": 10,
+                    "keywords": codex_review.extract_keywords(body),
+                }
+            ],
+        ) == "similar-concern"
+
+
+class TestPostComments:
+    def test_post_comments_formats_payload_body_and_preserves_original_comment_body(
+        self, monkeypatch
+    ):
+        comments = [
+            {
+                "path": "src/app.py",
+                "line": 42,
+                "side": "RIGHT",
+                "severity": "should-fix",
+                "body": "Original model body.",
+            }
+        ]
+        captured_payloads = []
+
+        def fake_run(cmd, capture_output, text, check):
+            input_path = Path(cmd[cmd.index("--input") + 1])
+            captured_payloads.append(json.loads(input_path.read_text(encoding="utf-8")))
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
+
+        posted, failed = codex_review.post_comments(
+            comments,
+            "owner/repo",
+            "123",
+            "abc123",
+        )
+
+        assert posted == 1
+        assert failed == []
+        assert comments[0]["body"] == "Original model body."
+        assert captured_payloads[0]["body"].startswith(
+            "\U0001f7e1 **Should fix** - Original model body."
+        )
+        assert captured_payloads[0]["body"].count(codex_review.ADVISORY_FOOTER) == 1
+
+
+class TestPostReviewFallback:
+    def _write_review_inputs(self, comments):
+        Path("/tmp/review-output.json").write_text(json.dumps(comments), encoding="utf-8")
+        Path("/tmp/existing_comments.json").write_text("[]", encoding="utf-8")
+
+    def test_post_review_does_not_post_fallback_when_some_inline_posts_succeed(
+        self, monkeypatch, review_tmp_files
+    ):
+        self._write_review_inputs(
+            [
+                {
+                    "path": "src/app.py",
+                    "line": 42,
+                    "side": "RIGHT",
+                    "severity": "must-fix",
+                    "body": "Fix this.",
+                },
+                {
+                    "path": "src/other.py",
+                    "line": 7,
+                    "side": "RIGHT",
+                    "severity": "should-fix",
+                    "body": "Also fix this.",
+                },
+            ]
+        )
+        fallback_calls = []
+
+        monkeypatch.setenv("REPO", "owner/repo")
+        monkeypatch.setenv("PR_NUMBER", "123")
+        monkeypatch.setenv("COMMIT_SHA", "abcdef123456")
+        monkeypatch.setattr(
+            codex_review,
+            "post_comments",
+            lambda comments, repo, pr_number, commit_sha: (
+                1,
+                [{"index": 1, "path": "src/other.py", "line": 7, "side": "RIGHT",
+                  "severity": "should-fix", "error": "bad line"}],
+            ),
+        )
+        monkeypatch.setattr(
+            codex_review,
+            "post_fallback_review",
+            lambda *args: fallback_calls.append(args),
+        )
+
+        codex_review.post_review()
+
+        assert fallback_calls == []
+
+    def test_post_review_posts_fallback_when_all_inline_posts_fail(
+        self, monkeypatch, review_tmp_files
+    ):
+        self._write_review_inputs(
+            [
+                {
+                    "path": "src/app.py",
+                    "line": 42,
+                    "side": "RIGHT",
+                    "severity": "must-fix",
+                    "body": "Fix this.",
+                },
+                {
+                    "path": "src/other.py",
+                    "line": 7,
+                    "side": "RIGHT",
+                    "severity": "should-fix",
+                    "body": "Also fix this.",
+                },
+            ]
+        )
+        fallback_calls = []
+
+        monkeypatch.setenv("REPO", "owner/repo")
+        monkeypatch.setenv("PR_NUMBER", "123")
+        monkeypatch.setenv("COMMIT_SHA", "abcdef123456")
+        monkeypatch.setattr(
+            codex_review,
+            "post_comments",
+            lambda comments, repo, pr_number, commit_sha: (
+                0,
+                [
+                    {"index": 0, "path": "src/app.py", "line": 42, "side": "RIGHT",
+                     "severity": "must-fix", "error": "bad line"},
+                    {"index": 1, "path": "src/other.py", "line": 7, "side": "RIGHT",
+                     "severity": "should-fix", "error": "bad line"},
+                ],
+            ),
+        )
+        monkeypatch.setattr(
+            codex_review,
+            "post_fallback_review",
+            lambda *args: fallback_calls.append(args),
+        )
+
+        codex_review.post_review()
+
+        assert fallback_calls == [("owner/repo", "123", 2)]
