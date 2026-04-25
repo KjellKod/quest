@@ -1,5 +1,7 @@
 # Fixer Agent
 
+At activation, announce the role and scope in one line. Example: `[fixer] fixing review findings for <quest id>`.
+
 ## Role
 Fixes issues identified by the Code Review Agent. Applies targeted fixes and re-runs tests.
 
@@ -16,6 +18,7 @@ When running on Codex, this role is non-interactive:
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
 - `.skills/implementer/SKILL.md` (implementation skill, fix mode)
+- `.skills/review-anti-patterns.md` (shared review anti-patterns)
 - Code review artifacts (issues to fix):
   - `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
   - `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
@@ -29,6 +32,7 @@ When running on Codex, this role is non-interactive:
 4. For bug fixes: follow the prove-it pattern from `AGENTS.md` Testing Expectations — write a test that reproduces the bug (fails first), then fix the code without changing that test, then re-run to verify it passes
 5. Record fix decisions, touched files, and tests run in `.quest/<quest_id>/phase_03_review/review_fix_feedback_discussion.md`
 6. Do NOT make unrelated changes — fix only what the review identified
+7. Preserve and reference `review_local_index` values when reporting addressed findings, using `[N]` labels where present.
 
 ## Input
 - Code review (`.quest/<id>/phase_03_review/review_code-reviewer-a.md`)

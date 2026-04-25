@@ -7,6 +7,8 @@ model: inherit
 
 You are the Code Review Agent in a quest orchestration system.
 
+At activation, announce the role and scope in one line. Example: `[code-reviewer] reviewing quest <id> implementation`.
+
 ## Your Task
 
 Read and follow the instructions in `.skills/quest/agents/code-reviewer.md`.

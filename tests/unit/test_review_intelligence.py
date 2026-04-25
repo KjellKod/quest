@@ -94,6 +94,23 @@ def test_validate_findings_rejects_wrong_types() -> None:
     assert any("field 'evidence' must be a list[str]" in error for error in errors)
 
 
+def test_validate_findings_accepts_optional_review_local_index_and_rejects_invalid_values() -> None:
+    valid = _finding()
+    valid["review_local_index"] = 2
+    assert validate_findings([valid]) == []
+
+    assert validate_findings([_finding()]) == []
+
+    for invalid_value in (0, -1, "2", True):
+        invalid = _finding()
+        invalid["review_local_index"] = invalid_value
+        errors = validate_findings([invalid])
+        assert any(
+            "field 'review_local_index' must be a positive integer" in error
+            for error in errors
+        ), invalid_value
+
+
 def test_select_decision_fix_now_for_high_severity_strong_evidence() -> None:
     finding = _finding(severity="high", confidence="high", evidence=["a", "b"])
     decision = select_decision(finding, at_loop_cap=False)
@@ -156,6 +173,29 @@ def test_merge_and_dedupe_uses_strongest_severity() -> None:
     assert len(merged) == 1
     assert merged[0]["severity"] == "critical"
     assert merged[0]["confidence"] == "high"
+
+
+def test_merge_and_dedupe_preserves_primary_review_local_index() -> None:
+    primary = _finding(
+        finding_id="F-primary",
+        source="code-reviewer-a",
+        severity="medium",
+        confidence="medium",
+    )
+    primary["review_local_index"] = 3
+    duplicate = _finding(
+        finding_id="F-duplicate",
+        source="code-reviewer-b",
+        severity="high",
+        confidence="high",
+    )
+    duplicate["review_local_index"] = 9
+
+    merged = merge_and_dedupe([[primary], [duplicate]])
+
+    assert len(merged) == 1
+    assert merged[0]["review_local_index"] == 3
+    assert merged[0]["finding_id_lineage"] == ["F-primary", "F-duplicate"]
 
 
 def test_build_review_backlog_merges_dedupes_and_decides() -> None:
@@ -496,6 +536,61 @@ def test_synthesize_findings_from_review_markdown_parses_path_and_skips_short_bu
     # v1.2 should not be mistaken for a filesystem path.
     assert second["path"] == "phase_01_plan/plan.md"
     assert second["line"] is None
+    assert validate_findings(findings) == []
+
+
+def test_synthesize_findings_from_review_markdown_preserves_bracketed_review_local_index() -> None:
+    markdown = """
+- [7] High - scripts/quest_runtime/review_intelligence.py:387 - Parser drops review numbering.
+"""
+    findings = synthesize_findings_from_review_markdown(
+        markdown,
+        source="plan-reviewer-a",
+        default_path="phase_01_plan/plan.md",
+    )
+
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding["review_local_index"] == 7
+    assert finding["path"] == "scripts/quest_runtime/review_intelligence.py"
+    assert finding["line"] == 387
+    assert finding["severity"] == "high"
+    assert "[7]" not in finding["summary"]
+    assert validate_findings(findings) == []
+
+
+def test_synthesize_findings_from_review_markdown_preserves_dotted_review_local_index() -> None:
+    markdown = """
+2. Medium - scripts/quest_runtime/review_intelligence.py:401 - Dotted finding index should persist.
+"""
+    findings = synthesize_findings_from_review_markdown(
+        markdown,
+        source="plan-reviewer-b",
+        default_path="phase_01_plan/plan.md",
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["review_local_index"] == 2
+    assert findings[0]["summary"].startswith("Medium -")
+    assert validate_findings(findings) == []
+
+
+def test_synthesize_findings_from_review_markdown_ignores_non_leading_numbers() -> None:
+    markdown = """
+- v1.2 causes edge behavior with no slash path.
+- scripts/v1.2/parser.py:12 Medium issue with versioned path text.
+"""
+    findings = synthesize_findings_from_review_markdown(
+        markdown,
+        source="plan-reviewer-a",
+        default_path="phase_01_plan/plan.md",
+    )
+
+    assert len(findings) == 2
+    assert "review_local_index" not in findings[0]
+    assert "review_local_index" not in findings[1]
+    assert findings[1]["path"] == "scripts/v1.2/parser.py"
+    assert findings[1]["line"] == 12
     assert validate_findings(findings) == []
 
 

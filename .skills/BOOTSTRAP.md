@@ -38,6 +38,9 @@ Use a skill when:
 - The user names it explicitly, or
 - The task clearly matches the skill description.
 
+## Activation Announcement
+When activating a skill, announce the skill name and scope in one line before starting work. Examples: `[code-reviewer] reviewing PR #97 against plan.md`, `[plan-reviewer] reviewing .quest/example/phase_01_plan/plan.md`.
+
 ## Platform Notes
 - **Claude Code / Cursor:** skills are auto-discovered.
 - **OpenAI GPT:** load the relevant `SKILL.md` explicitly in the prompt or via tooling.

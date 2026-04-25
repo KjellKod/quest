@@ -39,6 +39,7 @@ ALLOWED_DECISIONS = (
 _SEVERITY_RANK = {name: index for index, name in enumerate(ALLOWED_SEVERITIES)}
 _CONFIDENCE_RANK = {name: index for index, name in enumerate(ALLOWED_CONFIDENCE)}
 ALLOWED_BACKLOG_PHASES = ("plan", "review")
+_REVIEW_LOCAL_INDEX_RE = re.compile(r"^(?:\[(?P<bracket>[1-9]\d*)\]|(?P<dot>[1-9]\d*)\.)\s+")
 
 
 def utc_now_iso() -> str:
@@ -65,6 +66,14 @@ def _severity_rank(value: str) -> int:
 
 def _confidence_rank(value: str) -> int:
     return _CONFIDENCE_RANK.get(value, -1)
+
+
+def review_local_index_from_value(value: Any) -> int | None:
+    """Return a positive integer review-local index, or None for all other values."""
+
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return None
+    return value
 
 
 def _dedupe_key(finding: dict[str, Any]) -> tuple[str, str, str, str]:
@@ -122,6 +131,11 @@ def validate_finding(finding: dict[str, Any]) -> list[str]:
     line_value = finding.get("line")
     if line_value is not None and (isinstance(line_value, bool) or not isinstance(line_value, int) or line_value < 1):
         errors.append("field 'line' must be null or an integer >= 1")
+
+    if "review_local_index" in finding and review_local_index_from_value(
+        finding.get("review_local_index")
+    ) is None:
+        errors.append("field 'review_local_index' must be a positive integer")
 
     if not isinstance(finding.get("needs_test"), bool):
         errors.append("field 'needs_test' must be a boolean")
@@ -589,6 +603,19 @@ _PATH_RE = re.compile(
 )
 
 
+def _strip_list_marker(value: str) -> str:
+    return re.sub(r"^[-*]\s+", "", value, count=1).strip()
+
+
+def _extract_review_local_index(value: str) -> tuple[int | None, str]:
+    markerless = _strip_list_marker(value)
+    match = _REVIEW_LOCAL_INDEX_RE.match(markerless)
+    if not match:
+        return None, markerless
+    token = match.group("bracket") or match.group("dot")
+    return int(token), markerless[match.end() :].strip()
+
+
 def synthesize_findings_from_review_markdown(
     review_markdown: str,
     *,
@@ -605,11 +632,12 @@ def synthesize_findings_from_review_markdown(
         if not (
             stripped.startswith("- ")
             or stripped.startswith("* ")
+            or re.match(r"^\[[1-9]\d*\]\s+", stripped)
             or re.match(r"^\d+\.\s+", stripped)
         ):
             continue
 
-        normalized = re.sub(r"^[-*]\s+|^\d+\.\s+", "", stripped).strip()
+        review_local_index, normalized = _extract_review_local_index(stripped)
         if len(normalized) < 8:
             continue
 
@@ -627,24 +655,25 @@ def synthesize_findings_from_review_markdown(
             write_scope = [finding_path]
 
         index = len(findings) + 1
-        findings.append(
-            {
-                "finding_id": f"{source}-{index:03d}",
-                "source": source,
-                "kind": "plan_review",
-                "severity": severity,
-                "confidence": "medium",
-                "path": finding_path,
-                "line": line_number,
-                "summary": normalized,
-                "why_it_matters": "Potential issue surfaced during plan review.",
-                "evidence": [normalized],
-                "action": "Confirm and adjust the plan if required.",
-                "needs_test": False,
-                "write_scope": write_scope,
-                "related_acceptance_criteria": [],
-            }
-        )
+        finding: dict[str, Any] = {
+            "finding_id": f"{source}-{index:03d}",
+            "source": source,
+            "kind": "plan_review",
+            "severity": severity,
+            "confidence": "medium",
+            "path": finding_path,
+            "line": line_number,
+            "summary": normalized,
+            "why_it_matters": "Potential issue surfaced during plan review.",
+            "evidence": [normalized],
+            "action": "Confirm and adjust the plan if required.",
+            "needs_test": False,
+            "write_scope": write_scope,
+            "related_acceptance_criteria": [],
+        }
+        if review_local_index is not None:
+            finding["review_local_index"] = review_local_index
+        findings.append(finding)
     return findings
 
 

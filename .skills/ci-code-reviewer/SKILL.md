@@ -12,6 +12,10 @@ This skill extends `.skills/code-reviewer/SKILL.md` with CI-specific
 adaptations: no interactive prompts, PR description validation, manifest
 pre-checks, and concise output formatting for automated comments.
 
+At activation, announce the skill name and scope in one line. Example: `[ci-code-reviewer] reviewing PR #97`.
+
+See `.skills/review-anti-patterns.md` for the shared rule set.
+
 ---
 
 ## When to Use
@@ -99,6 +103,15 @@ For each acceptance criterion:
 - Unclear from diff -> mark `unclear - needs human review`
 
 If all criteria align, stay silent on this section.
+
+### Step 0.6: Existing Comment Fetch Budget
+
+When fetching existing PR review comments before posting the CI review, use a bounded budget:
+- `interval_seconds = 10`
+- `max_retries = 10`
+- Hard cap: 100 seconds (100-second cap, `10 seconds x 10 retries`).
+
+Stop when the fetch succeeds, a confirmed permission/API failure occurs, or the budget is exhausted.
 
 ### Step 1: Identify Changed Files and Scope
 
@@ -199,14 +212,21 @@ Keep output concise. Omit sections with no findings.
 
 **Findings** (only sections with issues):
 
-**Blocker** - [path] Description and suggested fix
-**Must fix** - [path] Description and suggested fix
-**Should fix** - [path] Description and suggested fix
+**Blocker**
+[1] Blocker - path:line - description and suggested fix
+
+**Must fix**
+[2] Must fix - path:line - description and suggested fix
+
+**Should fix**
+[3] Should fix - path:line - description and suggested fix
 
 **Plan alignment** (only if gaps/scope creep found): list issues
 **Test gaps** (only if gaps found): list missing coverage
 **Architecture** (only if violations found): list violations
 ```
+
+Finding numbers are review-local indices. Use `[N]` format, increment in current-review order, and keep the number with the finding if it is converted to canonical JSON as `review_local_index`.
 
 Line number guidance:
 - Include `path:line` when the line comes from the diff.
