@@ -14,6 +14,12 @@ from urllib.parse import quote
 # --- Shared utilities ---
 
 VALID_SEVERITIES = {"blocker", "must-fix", "should-fix"}
+SEVERITY_EMOJI = {
+    "blocker": "\U0001f534",
+    "must-fix": "\U0001f7e0",
+    "should-fix": "\U0001f7e1",
+}
+ADVISORY_FOOTER = "*Automated review by Codex (advisory PR review).*"
 DEEP_CI_EXTENSIONS = {".py", ".sh", ".js", ".ts"}
 DEEP_CI_EXCLUDED_SEGMENTS = {
     "docs",
@@ -66,6 +72,30 @@ def normalize_severity(value):
         return None
     normalized = value.strip().lower()
     return normalized if normalized in VALID_SEVERITIES else None
+
+
+def format_inline_body(severity: str | None, body: str) -> str:
+    """Return the final GitHub inline comment body."""
+    text = body.strip()
+    normalized_severity = normalize_severity(severity)
+
+    if normalized_severity:
+        label = normalized_severity.replace("-", " ").capitalize()
+        emoji = SEVERITY_EMOJI[normalized_severity]
+        full_prefix = f"{emoji} **{label}** - "
+        legacy_prefix = f"**{label}** - "
+
+        if text.startswith(full_prefix):
+            pass
+        elif text.startswith(legacy_prefix):
+            text = f"{emoji} {text}"
+        else:
+            text = f"{full_prefix}{text}"
+
+    if ADVISORY_FOOTER not in text:
+        text = f"{text}\n\n{ADVISORY_FOOTER}"
+
+    return text
 
 
 def escape_github_command_field(value):
@@ -1477,7 +1507,7 @@ def post_comments(comments, repo, pr_number, commit_sha):
             f"severity={escape_github_command_field(severity)}"
         )
         payload = {
-            "body": c["body"],
+            "body": format_inline_body(c.get("severity"), c["body"]),
             "commit_id": commit_sha,
             "path": c["path"],
             "line": c["line"],
