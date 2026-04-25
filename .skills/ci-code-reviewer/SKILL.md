@@ -107,9 +107,9 @@ If all criteria align, stay silent on this section.
 ### Step 0.6: Existing Comment Fetch Budget
 
 When fetching existing PR review comments before posting the CI review, use a bounded budget:
-- `interval_seconds = 10`
-- `max_retries = 10`
-- Hard cap: 100 seconds (100-second cap, `10 seconds x 10 retries`).
+- `interval_seconds = 20`
+- `max_retries = 20`
+- Hard cap: 400 seconds (400-second cap, `20 seconds x 20 retries`).
 
 Stop when the fetch succeeds, a confirmed permission/API failure occurs, or the budget is exhausted.
 

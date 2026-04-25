@@ -40,7 +40,7 @@ Loop:
 1. Fetch **inline** review comments: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
 2. Fetch **general** PR comments: `gh pr view <PR_NUMBER> --comments`
    - Comment fetch is single-shot by default.
-   - If a transient API state requires retrying, use `interval_seconds = 10`, `max_retries = 10`, 100-second cap (`10 seconds x 10 retries`).
+   - If a transient API state requires retrying, use `interval_seconds = 20`, `max_retries = 20`, 400-second cap (`20 seconds x 20 retries`).
 3. For each comment, respond **on the comment itself** (threaded reply), never move an inline discussion to the general PR thread:
    - **Inline review comments** → reply via `gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies -f body="..."`
    - **General discussion comments** → reply via `gh pr comment <PR_NUMBER> --body "..."`
