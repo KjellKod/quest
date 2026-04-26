@@ -19,6 +19,7 @@ We drive with a quality mindset in everything — planning, reviewing, and build
 - **DRY** (Don't Repeat Yourself) — Extract common patterns, but not prematurely
 - **YAGNI** (You Aren't Gonna Need It) — Don't add features until they're needed
 - **SRP** (Single Responsibility Principle) — Each change, function or module should focusing on doing one thing
+- **Strong typing** — Prefer clear, concrete types over catch-all / escape-hatch types (`any`, `Any`, `Object`, `dynamic`, `void*`, etc.). Escape hatches are a deliberate, justified choice, not a default — types and type checking drive quality. See the per-language table in [`.skills/code-reviewer/SKILL.md`](.skills/code-reviewer/SKILL.md).
 
 ## Change Discipline
 
