@@ -65,6 +65,10 @@ Avoid patterns like `getattr(obj, "method", None)` / `hasattr()` / “if callabl
 - If behavior is intentionally optional (plugin/provider boundary), detect capability **once at the boundary** and keep the rest of the code contract-driven.
 - Telemetry/metrics must be best-effort: failures in tracking should never change prompts, retries, or request logic; they should degrade to “no metrics” with clear logs/tests.
 
+### Rule 3c: Prefer concrete types over catch-alls
+
+If you're reaching for a catch-all type (`any`, `Any`, `Object`, `dynamic`, `void*`, `Box<dyn Any>`, untyped `dict` / `list`, etc.), stop and check whether a concrete type would work. If it genuinely wouldn't — boundary deserialization, true generic plumbing, gradual typing of legacy code — leave a one-line comment explaining why. Types and type checking drive quality; escape hatches are a deliberate choice, not a default. See the per-language table in `.skills/code-reviewer/SKILL.md` for what counts as a catch-all in each language.
+
 ### Rule 4: Tests map to acceptance criteria
 
 For each acceptance criterion, ensure at least one of:
