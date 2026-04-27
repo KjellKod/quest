@@ -970,6 +970,57 @@ test_manifest_excludes_source_only_unit_tests() {
     ! grep -q '^tests/unit/test_codex_skill_wrappers.py$' "$MANIFEST_FILE"
 }
 
+test_manifest_validator_allows_custom_skills_in_installed_mode() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  (
+    cd "$tmpdir" || exit 1
+    mkdir -p scripts .skills/prepare-mcp-quest
+    cp "$REPO_ROOT/scripts/quest_validate-manifest.sh" scripts/quest_validate-manifest.sh
+    cat > .quest-manifest <<'EOF'
+[copy-as-is]
+scripts/quest_validate-manifest.sh
+
+[directories]
+.quest
+EOF
+    printf '# local custom skill\n' > .skills/prepare-mcp-quest/SKILL.md
+
+    bash scripts/quest_validate-manifest.sh > output.txt 2>&1 &&
+      grep -q 'Installed repo mode' output.txt &&
+      ! grep -q 'prepare-mcp-quest' output.txt
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_manifest_validator_strict_mode_catches_unmanifested_skills() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  (
+    cd "$tmpdir" || exit 1
+    mkdir -p scripts .skills/prepare-mcp-quest
+    cp "$REPO_ROOT/scripts/quest_validate-manifest.sh" scripts/quest_validate-manifest.sh
+    cat > .quest-manifest <<'EOF'
+[copy-as-is]
+scripts/quest_validate-manifest.sh
+
+[directories]
+.quest
+EOF
+    printf '# local custom skill\n' > .skills/prepare-mcp-quest/SKILL.md
+
+    if QUEST_MANIFEST_STRICT=1 bash scripts/quest_validate-manifest.sh > output.txt 2>&1; then
+      exit 1
+    fi
+    grep -q '.skills/prepare-mcp-quest/SKILL.md' output.txt
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
 test_validation_hook_script_accepts_legacy_symlink_target() {
   grep -q '\[\[ "\$target" == \*"quest_validate-quest-config.sh" \]\] || \[\[ "\$target" == \*"validate-quest-config.sh" \]\]' "$REPO_ROOT/scripts/quest_validate-quest-config.sh"
 }
@@ -1570,6 +1621,8 @@ run_test test_installer_preserves_unowned_source_only_test_path
 run_test test_manifest_lists_prefixed_scripts
 run_test test_manifest_lists_installed_quest_smoke_tests
 run_test test_manifest_excludes_source_only_unit_tests
+run_test test_manifest_validator_allows_custom_skills_in_installed_mode
+run_test test_manifest_validator_strict_mode_catches_unmanifested_skills
 run_test test_validation_hook_script_accepts_legacy_symlink_target
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
 run_test test_quest_claude_probe_requires_real_artifacts
