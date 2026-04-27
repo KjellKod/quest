@@ -125,6 +125,48 @@ Important KISS rule:
 - do best-effort extraction from existing quest artifacts first
 - add small structured sidecars later only if rebuild-based extraction is too weak or too expensive
 
+## 3A. Per-Quest File Anatomy Index
+
+Add one generated file index per quest:
+
+`.quest/<quest_id>/anatomy.md`
+
+This is not a second memory system. It is a cheap spatial map that helps fresh agents decide what to read.
+
+Minimum contents:
+
+- relative path
+- file size or rough token estimate
+- one-line description from the leading docstring, module comment, package metadata, or a simple fallback
+- `generated_at`
+- `git_sha`
+- `modified_since_generation: true|false` when the file changed after the index was written
+
+Example:
+
+```markdown
+| Path | Estimate | Description | Freshness |
+|---|---:|---|---|
+| scripts/quest_memory_query.py | ~900 tokens | Query local quest memory JSONL records. | fresh |
+| .skills/quest/SKILL.md | ~4,300 tokens | Quest orchestration skill and phase sequence. | changed |
+```
+
+Generation should stay deliberately boring:
+
+1. Use `git ls-files` as the source of truth.
+2. Skip ignored, binary, generated, lock, secret-like, and oversized files.
+3. Extract at most the first useful comment/docstring block.
+4. Fall back to directory and filename hints when no description exists.
+5. Regenerate on quest init and at the Plan -> Build transition.
+
+Agent usage rule:
+
+- Agents may use `anatomy.md` to choose files.
+- Agents must read the actual file before changing it, reviewing it, or relying on subtle behavior.
+- If `modified_since_generation` is true, the anatomy entry is only a routing hint.
+
+This should replace repeated broad tree scans, not code reading. The realistic success target is fewer irrelevant file reads and faster orientation across multi-agent handoffs, not a dramatic universal token-savings claim.
+
 ## 4. Retrieval Rules
 
 Memory is for questions like:
@@ -198,6 +240,7 @@ Start with one small local CLI:
 
 Initial commands:
 
+- `file-anatomy`
 - `similar-quests`
 - `quest-summary`
 - `findings`
@@ -213,6 +256,14 @@ Initial ranking should stay simple:
 - resolved and accepted outcomes ranked above blocked and incomplete ones
 
 Do not build a more complex retrieval layer in the first pass.
+
+Add one anatomy-specific command before any semantic retrieval work:
+
+```text
+python3 scripts/quest_memory_query.py file-anatomy --quest <id> --paths "src/**" --changed-only
+```
+
+This command should print matching anatomy rows and freshness flags. Keep it as a direct local query before adding any heavier retrieval layer.
 
 ## 7. Reflective Summaries
 

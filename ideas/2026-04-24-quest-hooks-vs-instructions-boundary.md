@@ -250,12 +250,51 @@ Examples:
 - hook blocks an out-of-policy bash command
 - validator proves artifacts and state transitions are still consistent
 
+## Recommendation 7: Keep Hook Features Local And Explicit
+
+The first implementation should stay inside the same local, explicit workflow model Quest already uses:
+
+- explicit commands
+- short hook adapters
+- shared policy scripts
+- append-only local artifacts
+- validators that can be run in CI or by a human
+
+This keeps the runtime easy to inspect and reason about:
+
+1. Policy decisions stay in reviewable scripts and artifacts.
+2. State changes stay tied to visible quest phases.
+3. Warnings, blocks, and validator failures remain distinct in logs.
+
+If a future feature needs a more persistent runtime shape, it should come with a separate design note, an opt-in setup path, and a documented reason a one-shot command is insufficient.
+
+## Recommendation 8: Benchmark Warnings Separately From Enforcement
+
+Hooks that warn are useful, but a warning is not the same as a block.
+
+Any token or efficiency claim must distinguish:
+
+- hook fired
+- agent saw the warning
+- agent changed behavior because of the warning
+- resulting file reads, retries, or review loops were actually reduced
+
+For Quest, the first acceptable measurement is simple:
+
+1. Record broad file reads before and after adding `anatomy.md`.
+2. Record repeated reads of unchanged files within one quest.
+3. Record stale-anatomy cases where the agent had to re-read anyway.
+4. Report observed ranges, not headline percentages.
+
+This keeps the feature honest. It is fine if the first version mainly improves orientation and review focus.
+
 # Suggested Implementation Sequence
 
 ## Phase A: Hook The Low-Risk, High-Signal Guards
 
 1. Branch/directory visibility hook for `Edit|Write`
 2. Allowlist enforcement activation, once role identification and tests are ready
+3. Optional anatomy freshness warning when an agent reads a file marked changed since index generation
 
 ## Phase B: Hook The Strong Path Guard
 

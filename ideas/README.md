@@ -20,6 +20,7 @@ architecture docs.
 | File | Status | Purpose |
 |---|---|---|
 | `quest-policy-canonicalization-and-enforcement-roadmap.md` | in-progress | Canonical plan to reduce policy drift and convert rules into enforced checks. |
+| `2026-04-27-agent-skill-development-guardrails.md` | proposed | Minimum quality, measurement, and scope bar for new repo-local agent skills and hook-backed helpers. |
 | `codex-review-severity-emoji.md` | proposed | Add severity emoji to Codex review inline comments for faster scanning in PR threads. |
 | `handoff-validation-and-failure-ux.md` | in-progress | Add actionable diagnostics when handoff fallback occurs. |
 

@@ -105,11 +105,14 @@ New file: `.quest/memory/team_preferences.jsonl`, append-only. One JSON object p
 {
   "id": "tp_2026-04-22_001",
   "created_at": "2026-04-22T11:00:00Z",
+  "last_seen_at": "2026-04-22T11:00:00Z",
   "source": "user_correction | arbiter_dismissed | reviewer_repeat",
   "confidence": "high | medium | low",
   "pattern": "We prefer functional composition over class hierarchies in src/pipeline/",
   "example_finding_id": "f_2026-04-20_abc",
   "path_glob": "src/pipeline/**",
+  "supporting_quest_ids": ["quest_2026_04_20_pipeline"],
+  "evidence_count": 1,
   "superseded_by": null
 }
 ```
@@ -122,6 +125,16 @@ New file: `.quest/memory/team_preferences.jsonl`, append-only. One JSON object p
 
 Never auto-promote. Never store a preference without a linked originating finding or explicit user command.
 
+#### Update rules
+
+Keep the update path mechanical and auditable:
+
+- If a new event matches an existing active preference, update `last_seen_at`, append the quest id if missing, and increment `evidence_count`.
+- Promote `low -> medium` only after repeated evidence from separate quests or two independent reviewers in one quest.
+- Promote anything to `high` only from explicit user confirmation.
+- Never create a preference from generated prose alone; it needs either a user statement or a structured review/arbiter artifact.
+- Never use preferences to create background "self-improvement" tasks.
+
 #### Read (consumed by every review skill)
 
 `plan-reviewer`, `code-reviewer`, and `ci-code-reviewer` read `team_preferences.jsonl` at start and filter by `path_glob` against files in scope. They render the matching entries into context with hedge language:
@@ -132,6 +145,9 @@ Explicit rendering rules — each SKILL.md body must include:
 
 - **"Render preferences as tendencies, not rules. Never open a review with a preference-only blocker."**
 - **"If a preference contradicts the current plan's stated direction, note it as context, not as a finding."**
+- **"Load at most 5 matching preferences by default, ranked by confidence, evidence_count, and recency."**
+- **"A low-confidence preference can only produce a question or optional note, not a Must-fix finding."**
+- **"A high-confidence preference still needs code evidence before it becomes a blocker."**
 
 #### Prune
 
@@ -140,6 +156,19 @@ Quarterly (or on-demand via `/prune-preferences`), an explicit command walks `te
 #### Why soft preferences
 
 The worst failure mode of any institutional-memory system is turning one grumpy review into eternal gospel. The hedge-language render + confidence scoring + explicit user-promote gate are the anti-dogmatism wiring. Every design decision here should ask "does this make the preference more or less likely to be treated as absolute" and favor less.
+
+#### Measurement
+
+Do not claim preference memory is saving time or tokens until it is measured.
+
+Minimum evaluation for the first implementation:
+
+- Count how many preferences were loaded per review.
+- Count how many loaded preferences produced a finding, question, or no action.
+- Count how many preference-derived findings the arbiter accepted, downgraded, or dismissed.
+- Sample at least 10 reviews before deciding whether to widen capture sources.
+
+The desired outcome is fewer repeated corrections from the user and fewer repeated low-value findings, not a larger memory file.
 
 ### 8. Evaluate fix-loop commit checkpointing  (evaluation — no code yet)
 
