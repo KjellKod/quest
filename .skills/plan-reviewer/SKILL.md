@@ -5,6 +5,9 @@ description: Review implementation plans, PR specifications, and feature documen
 
 # Plan Reviewer
 
+At activation, announce the skill name and scope in one line. Example: `[plan-reviewer] reviewing .quest/example/phase_01_plan/plan.md`.
+
+See `.skills/review-anti-patterns.md` for the shared rule set.
 
 ## Minimum required inputs from the plan (reviewer gate)
 
@@ -256,12 +259,14 @@ Use this structure by default:
 
 ## 3. Open Requirements
 ### Must resolve before coding (blocking)
-- Items where the acceptance criterion itself is missing, ambiguous, or untestable
+- Numbered findings in current-review order: `[N] Must fix - plan.md:section - acceptance criterion is missing, ambiguous, or untestable`
 
 ### Resolve during implementation (non-blocking)
-- Items where the WHAT is clear from the acceptance criteria but the exact HOW is an implementation detail
+- Numbered findings in current-review order: `[N] Should fix - plan.md:section - the WHAT is clear, but the exact HOW is an implementation detail`
 - Example: "a test seam is needed for year injection" is non-blocking if the AC already says "rejects non-2026 year before writes"
 - Example: "which exact mock library to use" is non-blocking
+
+Finding numbers are review-local indices. Use `[N]` format for every finding so the planner, arbiter, and builder can refer to findings unambiguously.
 
 ## 4. Validation Plan Summary
 ### Manual

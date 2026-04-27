@@ -129,6 +129,61 @@ def test_normalize_pr_review_intake_merges_ci_inline_general_into_canonical_find
     assert ci["needs_test"] is True
 
 
+def test_normalize_pr_review_intake_preserves_review_local_index_when_present() -> None:
+    intake = {
+        "inline_comments": [
+            {
+                "commenter": "alice",
+                "body": "[5] This explicit field, not body text, should determine the index.",
+                "path": "scripts/quest_runtime/pr_review_cycle.py",
+                "line": 42,
+                "review_local_index": 5,
+            },
+            {
+                "commenter": "bob",
+                "body": "[9] Body markers alone should not be parsed for PR comments.",
+                "path": "scripts/quest_runtime/pr_review_cycle.py",
+                "line": 43,
+            },
+        ],
+        "general_comments": [
+            {
+                "commenter": "carol",
+                "body": "General review note with explicit index.",
+                "review_local_index": 2,
+            },
+        ],
+        "existing_findings": [
+            {
+                "finding_id": "existing-001",
+                "source": "historical",
+                "kind": "review_comment",
+                "severity": "low",
+                "confidence": "low",
+                "path": "docs/notes.md",
+                "line": None,
+                "summary": "Existing note",
+                "why_it_matters": "Track deferred concern.",
+                "evidence": ["prior evidence"],
+                "action": "Keep in backlog.",
+                "needs_test": False,
+                "write_scope": ["docs/notes.md"],
+                "related_acceptance_criteria": [],
+                "review_local_index": 8,
+            }
+        ],
+    }
+
+    findings = normalize_pr_review_intake(intake)
+
+    assert validate_findings(findings) == []
+    by_id = {finding["finding_id"]: finding for finding in findings}
+    assert by_id["pr-inline-001"]["review_local_index"] == 5
+    assert "review_local_index" not in by_id["pr-inline-002"]
+    assert by_id["pr-general-001"]["review_local_index"] == 2
+    assert by_id["existing-001"]["review_local_index"] == 8
+
+
 def test_build_fix_batches_groups_by_write_scope_and_validation_scope() -> None:
     items = [
         _backlog_item(

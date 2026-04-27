@@ -8,6 +8,46 @@ set -e
 
 MANIFEST=".quest-manifest"
 ERRORS=0
+STRICT_MODE="${QUEST_MANIFEST_STRICT:-auto}"
+
+case "${1:-}" in
+  "")
+    ;;
+  --strict)
+    STRICT_MODE=1
+    ;;
+  --installed)
+    STRICT_MODE=0
+    ;;
+  --help|-h)
+    cat <<'EOF'
+Usage: scripts/quest_validate-manifest.sh [--strict|--installed]
+
+Validates .quest-manifest.
+
+Modes:
+  --strict     Also scan Quest source paths for files missing from the manifest.
+  --installed  Validate only manifest entries; allow repo-local custom files.
+
+Default mode is auto: strict when scripts/quest_installer.sh exists, installed
+otherwise. Set QUEST_MANIFEST_STRICT=1 or 0 to override auto mode.
+EOF
+    exit 0
+    ;;
+  *)
+    echo "Unknown option: $1" >&2
+    echo "Usage: scripts/quest_validate-manifest.sh [--strict|--installed]" >&2
+    exit 2
+    ;;
+esac
+
+if [ "$STRICT_MODE" = "auto" ]; then
+  if [ -f "scripts/quest_installer.sh" ]; then
+    STRICT_MODE=1
+  else
+    STRICT_MODE=0
+  fi
+fi
 
 # Colors
 RED=$'\033[0;31m'
@@ -90,39 +130,43 @@ done
 # Clean up and sort
 FOUND_FILES=$(echo "$FOUND_FILES" | grep -v '^$' | sort | uniq)
 
-# Check each found file is in the manifest
-echo "Checking Quest files are listed in $MANIFEST..."
-echo ""
+if [ "$STRICT_MODE" = "1" ]; then
+  # Check each found file is in the manifest
+  echo "Checking Quest files are listed in $MANIFEST..."
+  echo ""
 
-MISSING_FILES=""
-while IFS= read -r file; do
-  [ -z "$file" ] && continue
+  MISSING_FILES=""
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
 
-  if ! echo "$MANIFEST_FILES" | grep -q "^${file}$"; then
-    MISSING_FILES="$MISSING_FILES$file"$'\n'
-    ((ERRORS++)) || true
+    if ! echo "$MANIFEST_FILES" | grep -q "^${file}$"; then
+      MISSING_FILES="$MISSING_FILES$file"$'\n'
+      ((ERRORS++)) || true
+    fi
+  done <<< "$FOUND_FILES"
+
+  # Report results
+  if [ $ERRORS -gt 0 ]; then
+    log_error "Found $ERRORS file(s) missing from .quest-manifest:"
+    echo ""
+    echo "$MISSING_FILES" | grep -v '^$' | while read -r f; do
+      echo "  - $f"
+    done
+    echo ""
+    echo "Please add these files to the appropriate section in .quest-manifest"
+    echo ""
+    echo "Sections:"
+    echo "  [copy-as-is]       - Files replaced with upstream (most files)"
+    echo "  [user-customized]  - Files that preserve local edits (AGENTS.md may auto-update if pristine)"
+    echo "  [merge-carefully]  - Files that prompt for merge (settings.json)"
+    echo "  [directories]      - Directories to create"
+    exit 1
   fi
-done <<< "$FOUND_FILES"
 
-# Report results
-if [ $ERRORS -gt 0 ]; then
-  log_error "Found $ERRORS file(s) missing from .quest-manifest:"
-  echo ""
-  echo "$MISSING_FILES" | grep -v '^$' | while read -r f; do
-    echo "  - $f"
-  done
-  echo ""
-  echo "Please add these files to the appropriate section in .quest-manifest"
-  echo ""
-  echo "Sections:"
-  echo "  [copy-as-is]       - Files replaced with upstream (most files)"
-  echo "  [user-customized]  - Files that preserve local edits (AGENTS.md may auto-update if pristine)"
-  echo "  [merge-carefully]  - Files that prompt for merge (settings.json)"
-  echo "  [directories]      - Directories to create"
-  exit 1
+  log_ok "All Quest files are listed in .quest-manifest"
+else
+  log_ok "Installed repo mode: allowing repo-local files outside .quest-manifest"
 fi
-
-log_ok "All Quest files are listed in .quest-manifest"
 
 # Also check for stale entries (files in manifest that don't exist)
 echo ""

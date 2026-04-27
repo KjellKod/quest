@@ -2,6 +2,10 @@
 
 Push a draft PR and iterate until CI passes and review comments are resolved, then mark ready for review.
 
+At activation, announce the skill name and scope in one line. Example: `[pr-shepherd] shepherding PR #97`.
+
+See `.skills/review-anti-patterns.md` for the shared rule set.
+
 ## Default Commenting Mode
 
 Use **inline-first** commenting by default.
@@ -18,9 +22,15 @@ Use **inline-first** commenting by default.
 3. Create a **draft** PR via `gh pr create --draft`.
 
 ### Step 2: Wait for CI
-1. Run `gh pr checks <PR_NUMBER>` to get an early read.
-2. If any checks are still pending, sleep ~180 seconds.
-3. Run `gh pr checks <PR_NUMBER>` again to observe final CI status.
+Use a hard polling budget for CI waits:
+- `interval_seconds = 30`
+- `max_retries = 30`
+- Hard cap: 15 minutes (15-minute cap, `30 seconds x 30 retries`)
+
+Loop:
+1. Run `gh pr checks <PR_NUMBER>` to get the current status.
+2. Stop when all checks are green, a confirmed failure is present, or the polling budget is exhausted.
+3. If checks are still pending and budget remains, sleep 30 seconds before the next retry.
 
 ### Step 3: Evaluate CI Results
 - **All checks pass** → proceed to Step 4.
@@ -29,6 +39,8 @@ Use **inline-first** commenting by default.
 ### Step 4: Check PR Comments
 1. Fetch **inline** review comments: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
 2. Fetch **general** PR comments: `gh pr view <PR_NUMBER> --comments`
+   - Comment fetch is single-shot by default.
+   - If a transient API state requires retrying, use `interval_seconds = 20`, `max_retries = 20`, 400-second cap (`20 seconds x 20 retries`).
 3. For each comment, respond **on the comment itself** (threaded reply), never move an inline discussion to the general PR thread:
    - **Inline review comments** → reply via `gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies -f body="..."`
    - **General discussion comments** → reply via `gh pr comment <PR_NUMBER> --body "..."`
@@ -80,7 +92,7 @@ Comment formula:
 4. Keep tone warm; humor is optional and brief.
 
 Example shape:
-`Nice cleanup here. One tiny gremlin: <specific issue>. Could we <specific fix>?`
+`Nice cleanup here. One issue: <specific issue>. Could we <specific fix>?`
 
 Tone rules:
 - Be kind, not vague.
@@ -104,7 +116,7 @@ Signature requirement for every posted review comment:
 `- Reviewed by <model>, in collaboration with <github username>`
 
 Ready-to-use template:
-`Nice improvement here. One small gremlin: <issue>. This can cause <impact>. Suggestion: <specific change>.`
+`Nice improvement here. One issue: <issue>. This can cause <impact>. Suggestion: <specific change>.`
 `- Reviewed by <model>, in collaboration with <github username>`
 
 ### Step 4.6: Decision Policy Alignment

@@ -10,6 +10,7 @@ from quest_runtime.review_intelligence import (
     ALLOWED_DECISIONS,
     _batch_from_finding,
     merge_and_dedupe,
+    review_local_index_from_value,
     select_decision,
     validate_findings,
 )
@@ -104,6 +105,12 @@ def _finding_line(value: object) -> int | None:
     return value
 
 
+def _copy_review_local_index(source: JsonObject, target: JsonObject) -> None:
+    index = review_local_index_from_value(source.get("review_local_index"))
+    if index is not None:
+        target["review_local_index"] = index
+
+
 def _normalize_scope_entry(value: str) -> str:
     trimmed = value.strip().strip("/")
     if not trimmed:
@@ -188,24 +195,24 @@ def normalize_pr_review_intake(intake: JsonObject) -> list[JsonObject]:
         severity = "high" if tokens & set(BLOCKER_KEYWORDS) else "medium"
         summary = body[:120].strip() or f"Inline review feedback from {commenter}."
 
-        normalized_findings.append(
-            {
-                "finding_id": f"pr-inline-{inline_counter:03d}",
-                "source": f"pr-inline:{commenter}",
-                "kind": "review_comment",
-                "severity": severity,
-                "confidence": "medium",
-                "path": path,
-                "line": line,
-                "summary": summary,
-                "why_it_matters": "Unaddressed inline feedback can leave review concerns unresolved.",
-                "evidence": [_first_200_chars(body)],
-                "action": "Address reviewer feedback.",
-                "needs_test": severity == "high",
-                "write_scope": [path],
-                "related_acceptance_criteria": [],
-            }
-        )
+        finding: JsonObject = {
+            "finding_id": f"pr-inline-{inline_counter:03d}",
+            "source": f"pr-inline:{commenter}",
+            "kind": "review_comment",
+            "severity": severity,
+            "confidence": "medium",
+            "path": path,
+            "line": line,
+            "summary": summary,
+            "why_it_matters": "Unaddressed inline feedback can leave review concerns unresolved.",
+            "evidence": [_first_200_chars(body)],
+            "action": "Address reviewer feedback.",
+            "needs_test": severity == "high",
+            "write_scope": [path],
+            "related_acceptance_criteria": [],
+        }
+        _copy_review_local_index(comment, finding)
+        normalized_findings.append(finding)
 
     for comment in general_comments:
         general_counter += 1
@@ -214,24 +221,24 @@ def normalize_pr_review_intake(intake: JsonObject) -> list[JsonObject]:
         body = str(comment.get("body") or "").strip()
         summary = body[:120].strip() or f"General PR feedback from {commenter}."
 
-        normalized_findings.append(
-            {
-                "finding_id": f"pr-general-{general_counter:03d}",
-                "source": f"pr-general:{commenter}",
-                "kind": "review_comment",
-                "severity": "medium",
-                "confidence": "low",
-                "path": "pr/general",
-                "line": None,
-                "summary": summary,
-                "why_it_matters": "General PR comments can signal unresolved quality or scope concerns.",
-                "evidence": [_first_200_chars(body)],
-                "action": "Address reviewer feedback.",
-                "needs_test": False,
-                "write_scope": [],
-                "related_acceptance_criteria": [],
-            }
-        )
+        finding = {
+            "finding_id": f"pr-general-{general_counter:03d}",
+            "source": f"pr-general:{commenter}",
+            "kind": "review_comment",
+            "severity": "medium",
+            "confidence": "low",
+            "path": "pr/general",
+            "line": None,
+            "summary": summary,
+            "why_it_matters": "General PR comments can signal unresolved quality or scope concerns.",
+            "evidence": [_first_200_chars(body)],
+            "action": "Address reviewer feedback.",
+            "needs_test": False,
+            "write_scope": [],
+            "related_acceptance_criteria": [],
+        }
+        _copy_review_local_index(comment, finding)
+        normalized_findings.append(finding)
 
     return merge_and_dedupe([normalized_findings, existing_findings])
 

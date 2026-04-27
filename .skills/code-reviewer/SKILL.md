@@ -9,6 +9,10 @@ Review actual code implementations for correctness, maintainability, security hy
 
 This skill focuses on the code itself and the tests that ship with it, but it must validate test coverage against the **acceptance criteria from the plan/spec**.
 
+At activation, announce the skill name and scope in one line. Example: `[code-reviewer] reviewing PR #97 against .quest/example/phase_01_plan/plan.md`.
+
+See `.skills/review-anti-patterns.md` for the shared rule set.
+
 ---
 
 ## Required Inputs (Do Not Start Without These)
@@ -212,13 +216,15 @@ Write a PR review that is short and high signal:
 - Recommendation: approve / request changes
 
 ### 2. Blockers
-- Bullet list with concrete fixes
+- Numbered findings in current-review order: `[N] Blocker - path:line - summary and concrete fix`
 
 ### 3. Must Fix
-- Bullet list with concrete fixes
+- Numbered findings in current-review order: `[N] Must fix - path:line - summary and concrete fix`
 
 ### 4. Should Fix
-- Bullet list with concrete fixes
+- Numbered findings in current-review order: `[N] Should fix - path:line - summary and concrete fix`
+
+Finding numbers are review-local indices. Keep numbering stable within the current review and use `[N]` format for every finding that appears in Blockers, Must Fix, or Should Fix.
 
 ### 5. Test Coverage vs Acceptance Criteria
 - A short mapping table or bullet list

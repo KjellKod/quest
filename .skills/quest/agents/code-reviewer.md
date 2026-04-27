@@ -1,5 +1,7 @@
 # Code Review Agent
 
+At activation, announce the role and scope in one line. Example: `[code-reviewer] reviewing quest <id> implementation`.
+
 ## Overview
 There are **two** Code Review Agent invocations on each review pass. They run **in parallel** using different model families for independent perspectives, writing both markdown review artifacts and canonical findings JSON artifacts.
 
@@ -22,6 +24,7 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
 - `.skills/code-reviewer/SKILL.md` (review skill)
+- `.skills/review-anti-patterns.md` (shared review anti-patterns)
 - Changed files from `git diff --name-only` when VCS is available
 - Optional diff summary from `git diff --stat` when VCS is available
 - `.quest/<id>/phase_02_implementation/builder_feedback_discussion.md` for touched files/tests when VCS is unavailable
@@ -38,6 +41,11 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 
 Canonical findings schema (required fields per finding):
 `finding_id, source, kind, severity, confidence, path, line, summary, why_it_matters, evidence, action, needs_test, write_scope, related_acceptance_criteria`
+
+Optional field per finding:
+- `review_local_index`: positive integer index from the current markdown review when the finding is numbered.
+
+Markdown review findings must use `[N]` format in current-review order, for example: `[N] Must fix - scripts/example.py:42 - explain the issue and fix`.
 
 Allowed enum values:
 - `severity`: `critical`, `high`, `medium`, `low`, `info`

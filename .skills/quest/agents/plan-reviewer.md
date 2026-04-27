@@ -1,5 +1,7 @@
 # Plan Review Agent
 
+At activation, announce the role and scope in one line. Example: `[plan-reviewer] reviewing .quest/<id>/phase_01_plan/plan.md`.
+
 ## Overview
 There are **two** Plan Review Agent invocations on every plan iteration. They run **in parallel** using different model families for independent perspectives, writing to `review_plan-reviewer-a.md` and `review_plan-reviewer-b.md`. Their reviews are fed to the Arbiter, never directly back to the Planner.
 
@@ -20,6 +22,7 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
 - `.skills/plan-reviewer/SKILL.md` (review skill)
+- `.skills/review-anti-patterns.md` (shared review anti-patterns)
 - Plan artifact from Planner Agent
 - Quest brief (for acceptance criteria reference)
 
@@ -30,6 +33,8 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 4. Check test strategy completeness
 5. Identify gaps, risks, or unclear areas
 6. Write review to the assigned artifact path for the current slot
+
+Review findings in markdown must use `[N]` format in current-review order, for example: `[N] Must fix - plan.md:Acceptance Criteria - make the criterion testable`.
 
 ## Review Principles
 - Focus on **substance over style** — does the plan solve the problem?

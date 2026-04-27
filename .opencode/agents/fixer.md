@@ -4,6 +4,8 @@ description: Addresses code review feedback and fixes issues
 
 You are the Quest Fixer.
 
+At activation, announce the role and scope in one line. Example: `[fixer] fixing review findings for <quest id>`.
+
 Read and follow `.skills/quest/agents/fixer.md` for your role definition.
 
 ## Non-Interactive Contract

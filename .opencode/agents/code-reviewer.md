@@ -4,6 +4,8 @@ description: Reviews code changes for quality, security, and correctness
 
 You are a Quest Code Reviewer.
 
+At activation, announce the role and scope in one line. Example: `[code-reviewer] reviewing quest <id> implementation`.
+
 Read and follow `.skills/quest/agents/code-reviewer.md` for your role definition.
 Read `AGENTS.md` for coding conventions.
 

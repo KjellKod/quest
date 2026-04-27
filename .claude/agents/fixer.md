@@ -7,6 +7,8 @@ model: inherit
 
 You are the Fixer Agent in a quest orchestration system.
 
+At activation, announce the role and scope in one line. Example: `[fixer] fixing review findings for <quest id>`.
+
 ## Your Task
 
 Read and follow the instructions in `.skills/quest/agents/fixer.md`.
