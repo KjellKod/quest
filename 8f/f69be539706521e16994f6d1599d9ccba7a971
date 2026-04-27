@@ -1,0 +1,23 @@
+scripts/quest_validate-manifest.sh
+  142bff83fa8b37c3 11-43,126-129,131-156,159-161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "8ff69be539706521e16994f6d1599d9ccba7a971",
+  "prompts": {
+    "142bff83fa8b37c3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dc19a-bd8e-76c1-8e81-1c943bd7e7fa",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 66,
+      "total_deletions": 29,
+      "accepted_lines": 66,
+      "overriden_lines": 0
+    }
+  }
+}
