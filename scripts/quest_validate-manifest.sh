@@ -11,6 +11,8 @@ ERRORS=0
 STRICT_MODE="${QUEST_MANIFEST_STRICT:-auto}"
 
 case "${1:-}" in
+  "")
+    ;;
   --strict)
     STRICT_MODE=1
     ;;
@@ -31,6 +33,11 @@ Default mode is auto: strict when scripts/quest_installer.sh exists, installed
 otherwise. Set QUEST_MANIFEST_STRICT=1 or 0 to override auto mode.
 EOF
     exit 0
+    ;;
+  *)
+    echo "Unknown option: $1" >&2
+    echo "Usage: scripts/quest_validate-manifest.sh [--strict|--installed]" >&2
+    exit 2
     ;;
 esac
 

@@ -1021,6 +1021,29 @@ EOF
   return $rc
 }
 
+test_manifest_validator_rejects_unknown_option() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  (
+    cd "$tmpdir" || exit 1
+    mkdir -p scripts
+    cp "$REPO_ROOT/scripts/quest_validate-manifest.sh" scripts/quest_validate-manifest.sh
+    cat > .quest-manifest <<'EOF'
+[copy-as-is]
+scripts/quest_validate-manifest.sh
+EOF
+
+    if bash scripts/quest_validate-manifest.sh --bogus > output.txt 2>&1; then
+      exit 1
+    fi
+    grep -q 'Unknown option: --bogus' output.txt &&
+      grep -q 'Usage: scripts/quest_validate-manifest.sh' output.txt
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
 test_validation_hook_script_accepts_legacy_symlink_target() {
   grep -q '\[\[ "\$target" == \*"quest_validate-quest-config.sh" \]\] || \[\[ "\$target" == \*"validate-quest-config.sh" \]\]' "$REPO_ROOT/scripts/quest_validate-quest-config.sh"
 }
@@ -1623,6 +1646,7 @@ run_test test_manifest_lists_installed_quest_smoke_tests
 run_test test_manifest_excludes_source_only_unit_tests
 run_test test_manifest_validator_allows_custom_skills_in_installed_mode
 run_test test_manifest_validator_strict_mode_catches_unmanifested_skills
+run_test test_manifest_validator_rejects_unknown_option
 run_test test_validation_hook_script_accepts_legacy_symlink_target
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
 run_test test_quest_claude_probe_requires_real_artifacts
