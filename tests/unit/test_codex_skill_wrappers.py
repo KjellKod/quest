@@ -5,6 +5,7 @@ from pathlib import Path
 EXPECTED_QUEST_WRAPPERS = {
     "celebrate",
     "git-commit-assistant",
+    "pre-commit-review",
     "pr-assistant",
     "pr-shepherd",
     "quest",

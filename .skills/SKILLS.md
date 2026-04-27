@@ -40,6 +40,13 @@ This directory contains specialized skills for AI agents working in this reposit
 
 **Location:** `.skills/code-reviewer/SKILL.md`
 
+### pre-commit-review
+**Purpose:** Review local staged plus unstaged tracked-file changes before commit or before a PR exists.
+
+**Use when:** The user invokes `/pre-commit-review`, asks for a pre-commit review, asks to review local changes before commit, or wants a local working-tree review before a PR exists.
+
+**Location:** `.skills/pre-commit-review/SKILL.md`
+
 ### ci-code-reviewer
 **Purpose:** Automated CI code review for GitHub PRs using OpenAI Codex. Validates PR descriptions, enforces Quest architecture boundaries, checks quality, and maps test coverage to acceptance criteria.
 

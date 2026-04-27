@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-04-27 | [portable-pre-commit-review](portable-pre-commit-review_2026-04-27.md) | Completed successfully. |
 | 2026-04-25 | [review-ergonomics-batch](review-ergonomics-batch_2026-04-25.md) | Completed successfully. |
 | 2026-04-24 | [deep-ci-manifest](deep-ci-manifest_2026-04-24.md) | Impact: - Adds one canonical machine-readable artifact (`/tmp/deep_ci_context_manifest.json`) per run so selection/ch... |
 | 2026-04-21 | [deep-ci-file-review](deep-ci-file-review_2026-04-21.md) | Completed successfully. |
