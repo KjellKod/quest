@@ -505,6 +505,13 @@ def _read_inherited_findings_used(quest_dir: Path) -> CarryoverFindings:
     return _build_carryover_findings(payload)
 
 
+def _repo_root_from_quest_dir(quest_dir: Path) -> Path:
+    """Resolve the repository root for a concrete .quest/<quest-id> directory."""
+    if quest_dir.parent.name == ".quest":
+        return quest_dir.parent.parent
+    return Path(__file__).resolve().parents[2]
+
+
 def _read_findings_left_for_future_quests(
     quest_dir: Path, quest_id: str
 ) -> CarryoverFindings:
@@ -512,7 +519,7 @@ def _read_findings_left_for_future_quests(
     if not quest_id:
         return CarryoverFindings()
 
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = _repo_root_from_quest_dir(quest_dir)
     backlog_path = repo_root / ".quest" / "backlog" / "deferred_findings.jsonl"
     if not backlog_path.exists():
         return CarryoverFindings()

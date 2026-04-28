@@ -1033,6 +1033,35 @@ class TestQuestDataLoading:
             "Follow up on dashboard backlog rendering."
         ]
 
+    def test_load_quest_data_reads_deferred_backlog_from_quest_repo_root(self, tmp_path):
+        """A .quest/<id> input resolves deferred backlog from its own repo."""
+        quest_id = "target-quest_2026-01-01__1200"
+        quest_dir = tmp_path / ".quest" / quest_id
+        quest_dir.mkdir(parents=True)
+        (quest_dir / "state.json").write_text(
+            json.dumps({"quest_id": quest_id}),
+            encoding="utf-8",
+        )
+        backlog_dir = tmp_path / ".quest" / "backlog"
+        backlog_dir.mkdir(parents=True)
+        (backlog_dir / "deferred_findings.jsonl").write_text(
+            json.dumps(
+                {
+                    "deferred_by_quest": quest_id,
+                    "summary": "Read from the target repo backlog.",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        data = load_quest_data(quest_dir)
+
+        assert data.findings_left_for_future_quests.count == 1
+        assert data.findings_left_for_future_quests.summaries == [
+            "Read from the target repo backlog."
+        ]
+
     def test_load_quest_data_handles_empty_quest_dir(self, tmp_path):
         """Minimal output for empty directory."""
         quest_dir = tmp_path / "empty-quest"

@@ -71,16 +71,24 @@ Examples:
 
 `[2] Should fix - tests/test_app.py:18 - The changed validation path has no regression coverage. Fix: add a focused test for the invalid input case.`
 
-If there are no findings, say there are no findings, then proceed to the terminal decision flow.
+If there are no findings, say there are no findings and include a short commit-ready note. Do not show fix-oriented choices when there is nothing to fix.
 
 ## Terminal Decision Flow
 
-After findings, present these exact user-facing choices:
+After findings, present only the choices that match the review result:
 
-1. `fix all Must`
-2. `fix selected [N...]`
-3. `skip`
-4. `commit`
+- If there are no findings, show only:
+  1. `commit`
+  2. `skip`
+- If findings contain `Blocker` or `Must fix`, show:
+  1. `fix all Must`
+  2. `fix selected [N...]`
+  3. `skip`
+  4. `commit`
+- If findings contain only `Should fix` or `Nit`, show:
+  1. `fix selected [N...]`
+  2. `skip`
+  3. `commit`
 
 If any `Blocker` or `Must fix` findings exist, recommend fixing them before commit.
 

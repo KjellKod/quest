@@ -395,8 +395,9 @@ def _repo_inventory_test_paths(repo_inventory: JsonObject | None) -> list[str]:
         return []
     discovered = {
         str(path.as_posix())
-        for path in tests_dir.rglob("*.py")
-        if path.name.startswith("test_") or path.name.endswith("_test.py")
+        for pattern in ("*.py", "*.sh")
+        for path in tests_dir.rglob(pattern)
+        if _is_test_path(path.as_posix())
     }
     return sorted(discovered)
 
@@ -411,9 +412,17 @@ def _normalize_repo_path(path: str) -> str:
 def _is_test_path(path: str) -> bool:
     normalized = _normalize_repo_path(path)
     name = PurePosixPath(normalized).name
-    return normalized.endswith(".py") and (
-        name.startswith("test_") or name.endswith("_test.py")
-    )
+    if normalized.endswith(".py"):
+        return name.startswith("test_") or name.endswith("_test.py")
+    if normalized.endswith(".sh"):
+        return name.startswith("test_") or name.startswith("test-")
+    return False
+
+
+def _test_command_for_target(pytest_cmd: str, target: str) -> str:
+    if _normalize_repo_path(target).endswith(".sh"):
+        return f"bash {target}"
+    return f"{pytest_cmd} {target}"
 
 
 def _candidate_source_paths(finding: JsonObject) -> list[str]:
@@ -561,7 +570,7 @@ def select_validation_steps(
                 {
                     "level": 1,
                     "target": target,
-                    "command": f"{pytest_cmd} {target}",
+                    "command": _test_command_for_target(pytest_cmd, target),
                     "reason": "Level 1 selected from explicit test target on the finding.",
                 }
             )
@@ -575,7 +584,7 @@ def select_validation_steps(
                     {
                         "level": 1,
                         "target": target,
-                        "command": f"{pytest_cmd} {target}",
+                        "command": _test_command_for_target(pytest_cmd, target),
                         "reason": "Level 1 selected nearest mirrored/sibling tests.",
                     }
                 )

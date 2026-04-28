@@ -75,7 +75,7 @@ If description exists but is very thin (fewer than ~20 words, little context):
 
 ### Step 0.1: Manifest Validation (Mandatory)
 
-Run `./scripts/quest_validate-manifest.sh`.
+Run `bash scripts/quest_validate-manifest.sh`.
 
 - If it fails, flag **Must fix** with the failing file/path details.
 - If PR adds or renames files under Quest-managed paths, verify `.quest-manifest`
@@ -170,7 +170,7 @@ If acceptance criteria are available from Step 0.5:
 2. If missing, flag as **Must fix**.
 
 For workflow/config/skill-only changes, acceptable evidence can include:
-- `./scripts/quest_validate-manifest.sh`
+- `bash scripts/quest_validate-manifest.sh`
 - `./scripts/quest_validate-quest-config.sh`
 - Manual GitHub runtime verification steps when CI event behavior is required
 
