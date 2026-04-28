@@ -1,0 +1,35 @@
+.skills/pre-commit-review/SKILL.md
+  78624ea79f8f1e3f 74,78-91
+.skills/ci-code-reviewer/SKILL.md
+  78624ea79f8f1e3f 78,173
+scripts/quest_celebrate/quest_data.py
+  78624ea79f8f1e3f 508-514,522
+scripts/quest_validate-quest-state.sh
+  78624ea79f8f1e3f 297-299,349-350
+scripts/quest_runtime/pr_review_cycle.py
+  78624ea79f8f1e3f 398-400,415-425,573,587
+tests/unit/test_quest_celebrate.py
+  78624ea79f8f1e3f 1036-1064
+tests/unit/test_quest_select_tests.py
+  78624ea79f8f1e3f 5-6,151-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "20ce7af8cf5ea6f9cc50a3ecf0a41bd69b553164",
+  "prompts": {
+    "78624ea79f8f1e3f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd5e3-9379-7c11-b899-797ffda7a9ca",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 113,
+      "total_deletions": 36,
+      "accepted_lines": 105,
+      "overriden_lines": 0
+    }
+  }
+}
