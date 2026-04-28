@@ -1206,12 +1206,12 @@ If a Claude role returns `STATUS: needs_human`:
 |------|---------------|---------|---------|
 | Planner | `models.planner` | `claude` | Claude runtime or Codex per config |
 | Plan Reviewer A | `models.plan-reviewer-a` | `claude` | Claude runtime or Codex per config |
-| Plan Reviewer B | `models.plan-reviewer-b` | `gpt-5.4` | Claude runtime or Codex per config |
+| Plan Reviewer B | `models.plan-reviewer-b` | `gpt-5.5` | Claude runtime or Codex per config |
 | Arbiter | `models.arbiter` | `claude` | Claude runtime or Codex per config |
-| Builder | `models.builder` | `gpt-5.4` | Codex or Claude runtime per config |
+| Builder | `models.builder` | `gpt-5.5` | Codex or Claude runtime per config |
 | Code Reviewer A | `models.code-reviewer-a` | `claude` | Claude runtime or Codex per config |
-| Code Reviewer B | `models.code-reviewer-b` | `gpt-5.4` | Claude runtime or Codex per config |
-| Fixer | `models.fixer` | `gpt-5.4` | Codex or Claude runtime per config |
+| Code Reviewer B | `models.code-reviewer-b` | `gpt-5.5` | Claude runtime or Codex per config |
+| Fixer | `models.fixer` | `gpt-5.5` | Codex or Claude runtime per config |
 
 All role-to-model assignments are read from `.ai/allowlist.json` → `models`. The defaults above apply when a key is missing. **Model diversity** in review phases gives independent perspectives from different model families. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
 
