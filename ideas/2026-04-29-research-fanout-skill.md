@@ -54,11 +54,11 @@ distinct lenses: (1) security/threat-model auditor, (2)
 performance/scalability skeptic, (3) developer ergonomics advocate, (4)
 competitive landscape analyst, (5) migration-cost estimator, (6)
 maintenance-burden forecaster. Each writes a 500-word memo to
-.research/<lens>.md with explicit claims and evidence. Then run a 7th
-'reconciler' agent that reads all six, identifies points of agreement,
+.research/<topic-slug>/<lens>.md with explicit claims and evidence. Then run a
+7th 'reconciler' agent that reads all six, identifies points of agreement,
 surfaces contradictions as numbered DECISIONS_NEEDED, and produces
-RECOMMENDATION.md with a confidence score. Don't ask me anything until the
-reconciler has run.
+.research/<topic-slug>/RECOMMENDATION.md with a confidence score. Don't ask me
+anything until the reconciler has run.
 ```
 
 # Artifact Layout

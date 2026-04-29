@@ -27,8 +27,10 @@ workspace still matches the PR branch:
 
 1. Run `git status --short --branch`.
 2. Run `git branch --show-current`.
-3. Run `gh pr view <PR_NUMBER> --json headRefName --jq .headRefName`.
-4. Confirm the current branch exactly matches the PR `headRefName`.
+3. If a PR already exists, run `gh pr view <PR_NUMBER> --json headRefName --jq .headRefName`.
+4. If a PR already exists, confirm the current branch exactly matches the PR
+   `headRefName`; otherwise, before PR creation, confirm the current branch is
+   the intended branch for this PR.
 5. If shepherding from a known worktree, verify the current directory/repo root
    is that worktree before committing.
 6. If branch or workspace verification fails, stop and ask the user to confirm
