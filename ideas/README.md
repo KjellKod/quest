@@ -26,7 +26,7 @@ architecture docs.
 ### Review Intelligence
 | File | Status | Purpose |
 |---|---|---|
-| _No active Review Intelligence proposals._ |  | Phase 1 through Phase 3.2 are complete; see Done Index. |
+| `2026-04-27-agent-commit-guard-pre-commit-review.md` | proposed | Add an opt-in agent-level commit guard that offers `pre-commit-review` before local commits without installing a raw Git hook. |
 
 Current roadmap:
 

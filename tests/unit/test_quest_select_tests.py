@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from quest_runtime.pr_review_cycle import select_validation_steps
 
 
@@ -146,3 +148,25 @@ def test_select_validation_steps_degrades_gracefully_when_scaffolding_missing() 
     assert level0_steps
     assert all(step["command"] == "true" for step in level0_steps)
     assert all("passthrough" in step["reason"] for step in level0_steps)
+
+
+def test_select_validation_steps_discovers_shell_tests_without_inventory(
+    tmp_path: Path, monkeypatch
+) -> None:
+    test_path = tmp_path / "tests" / "scripts" / "test-quest-state.sh"
+    test_path.parent.mkdir(parents=True)
+    test_path.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    steps = select_validation_steps(
+        _finding(
+            path="scripts/quest_validate-quest-state.sh",
+            write_scope=["scripts/quest_validate-quest-state.sh"],
+        ),
+        repo_inventory=None,
+    )
+
+    level1_steps = [step for step in steps if step["level"] == 1]
+    assert level1_steps
+    assert level1_steps[0]["target"] == "tests/scripts/test-quest-state.sh"
+    assert level1_steps[0]["command"] == "bash tests/scripts/test-quest-state.sh"

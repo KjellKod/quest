@@ -33,6 +33,7 @@
 .claude/skills/celebrate/SKILL.md
 .claude/skills/gpt/SKILL.md
 .claude/skills/quest/SKILL.md
+.claude/skills/pre-commit-review/SKILL.md
 .claude/AGENTS.md
 .codex/AGENTS.md
 .opencode/agents/arbiter.md
@@ -43,6 +44,7 @@
 .opencode/agents/planner.md
 .opencode/agents/quest.md
 .opencode/commands/celebrate.md
+.opencode/commands/pre-commit-review.md
 .opencode/opencode.json
 .agents/skills/README.md
 .agents/skills/celebrate/SKILL.md
@@ -50,11 +52,13 @@
 .agents/skills/pr-assistant/SKILL.md
 .agents/skills/pr-shepherd/SKILL.md
 .agents/skills/quest/SKILL.md
+.agents/skills/pre-commit-review/SKILL.md
 .skills/BOOTSTRAP.md
 .skills/README.md
 .skills/SKILLS.md
 .skills/ci-code-reviewer/SKILL.md
 .skills/code-reviewer/SKILL.md
+.skills/pre-commit-review/SKILL.md
 .skills/git-commit-assistant/SKILL.md
 .skills/pr-assistant/SKILL.md
 .skills/pr-shepherd/SKILL.md
