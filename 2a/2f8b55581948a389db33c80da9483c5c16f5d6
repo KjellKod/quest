@@ -1,0 +1,23 @@
+ideas/2026-04-29-research-fanout-skill.md
+  838178a0e904bad7 57-58,60-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2a2f8b55581948a389db33c80da9483c5c16f5d6",
+  "prompts": {
+    "838178a0e904bad7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dda51-9274-7010-a301-52130db8e89b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 6,
+      "accepted_lines": 25,
+      "overriden_lines": 0
+    }
+  }
+}
