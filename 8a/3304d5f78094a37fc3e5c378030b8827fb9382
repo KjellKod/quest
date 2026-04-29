@@ -1,0 +1,44 @@
+ideas/2026-04-29-test-driven-bug-fix-loops.md
+  838178a0e904bad7 1-181
+ideas/2026-04-29-research-fanout-skill.md
+  838178a0e904bad7 1-232
+ideas/README.md
+  838178a0e904bad7 45,75
+.quest-checksums
+  838178a0e904bad7 53
+.skills/pr-shepherd/SKILL.md
+  838178a0e904bad7 24-41,55,92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "8a3304d5f78094a37fc3e5c378030b8827fb9382",
+  "prompts": {
+    "78624ea79f8f1e3f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd5e3-9379-7c11-b899-797ffda7a9ca",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 258,
+      "total_deletions": 1,
+      "accepted_lines": 256,
+      "overriden_lines": 1
+    },
+    "838178a0e904bad7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dda51-9274-7010-a301-52130db8e89b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 437,
+      "total_deletions": 3,
+      "accepted_lines": 436,
+      "overriden_lines": 0
+    }
+  }
+}
