@@ -1,0 +1,75 @@
+tests/test-quest-runtime.sh
+  78624ea79f8f1e3f 8,59-125,1687-1688
+tests/unit/test_quest_complete.py
+  78624ea79f8f1e3f 213-274
+scripts/quest_celebrate/quest-celebrate.sh
+  78624ea79f8f1e3f 27-31
+scripts/quest_validate-quest-config.sh
+  78624ea79f8f1e3f 167-216,291
+scripts/quest_runtime/__init__.py
+  78624ea79f8f1e3f 12-23,26-28,30-31,36-37,39-41
+tests/unit/test_quest_manifest.py
+  78624ea79f8f1e3f 71
+.ai/allowlist.json
+  78624ea79f8f1e3f 36
+.ai/schemas/allowlist.schema.json
+  78624ea79f8f1e3f 51-54
+.skills/quest/delegation/workflow.md
+  78624ea79f8f1e3f 240
+docs/guides/quest_setup.md
+  78624ea79f8f1e3f 199,203
+scripts/quest_celebrate/animations.py
+  78624ea79f8f1e3f 28,75-82
+scripts/quest_dashboard/loaders.py
+  78624ea79f8f1e3f 22,146-150
+tests/unit/test_quest_celebrate.py
+  78624ea79f8f1e3f 531-548,865-883,1674-1690
+tests/unit/test_quest_dashboard_loaders.py
+  78624ea79f8f1e3f 92-131,344-370
+scripts/quest_runtime/quest_ids.py
+  78624ea79f8f1e3f 1-106
+docs/guides/quest_input_routing.md
+  78624ea79f8f1e3f 28
+docs/guides/quest_analysis.md
+  78624ea79f8f1e3f 57
+.ai/quest.md
+  78624ea79f8f1e3f 33-34
+scripts/quest_complete.py
+  78624ea79f8f1e3f 33,180-181,292-298,335-336
+README.md
+  78624ea79f8f1e3f 89,100
+tests/unit/test_quest_ids.py
+  78624ea79f8f1e3f 1-107
+scripts/quest_validate-quest-state.sh
+  78624ea79f8f1e3f 64
+.quest-manifest
+  78624ea79f8f1e3f 93
+scripts/quest_celebrate/quest_data.py
+  78624ea79f8f1e3f 17-18,169-180,1020-1022,1094-1100
+docs/guides/quest_presentation.md
+  78624ea79f8f1e3f 266-267
+.skills/quest/SKILL.md
+  78624ea79f8f1e3f 24,181-185,187,191-192
+.skills/celebrate/SKILL.md
+  78624ea79f8f1e3f 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "33e70bdcf9fc39f8c6d4973447c7e70ba9651230",
+  "prompts": {
+    "78624ea79f8f1e3f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd5e3-9379-7c11-b899-797ffda7a9ca",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 629,
+      "total_deletions": 28,
+      "accepted_lines": 886,
+      "overriden_lines": 0
+    }
+  }
+}
