@@ -48,6 +48,10 @@
         "worktree_root": { "type": "string" }
       }
     },
+    "quest_id_format": {
+      "type": "string",
+      "enum": ["slug-first", "date-first"]
+    },
     "review_mode": { "type": "string", "enum": ["auto", "fast", "full"] },
     "fast_review_thresholds": {
       "type": "object",

@@ -89,6 +89,46 @@ Legacy-style journal entry.
     assert entry.status == "Abandoned"
 
 
+def test_journal_date_first_quest_uses_slug_metadata(tmp_path):
+    """Date-first journals prefer explicit slug metadata."""
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+
+    journal_content = """# Quest Journal: Portable Pre Commit Review
+
+- Quest ID: `2026-04-29_1430__portable-pre-commit-review`
+- Slug: portable-pre-commit-review
+- Completed: 2026-04-29
+"""
+
+    journal_path = journal_dir / "portable-pre-commit-review.md"
+    journal_path.write_text(journal_content, encoding="utf-8")
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.slug == "portable-pre-commit-review"
+    assert entry.title == "Portable Pre Commit Review"
+
+
+def test_journal_date_first_quest_parses_slug_when_slug_metadata_missing(tmp_path):
+    """Date-first journals without Slug metadata still derive the display slug."""
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+
+    journal_content = """# Quest Journal: Portable Pre Commit Review
+
+- Quest ID: `2026-04-29_1430__portable-pre-commit-review`
+- Completed: 2026-04-29
+"""
+
+    journal_path = journal_dir / "portable-pre-commit-review.md"
+    journal_path.write_text(journal_content, encoding="utf-8")
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.slug == "portable-pre-commit-review"
+
+
 def test_journal_elevator_pitch_from_summary_section(tmp_path):
     """Test that elevator pitch is extracted from Summary section, not title."""
     journal_dir = tmp_path / "docs" / "quest-journal"
@@ -299,6 +339,35 @@ Some requirements here.
         == "This is the elevator pitch from the original prompt section."
     )
     assert len(quest_warnings) == 0
+
+
+def test_active_date_first_quest_uses_explicit_slug(tmp_path):
+    """Active date-first quests keep explicit slug/title values."""
+    quest_dir = tmp_path / ".quest" / "2026-04-29_1430__portable-pre-commit-review"
+    quest_dir.mkdir(parents=True)
+    (quest_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "quest_id": "2026-04-29_1430__portable-pre-commit-review",
+                "slug": "portable-pre-commit-review",
+                "phase": "plan",
+                "status": "in_progress",
+                "updated_at": "2026-04-29T14:30:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Portable Pre Commit Review\n\n## User Input\n\nBuild it.",
+        encoding="utf-8",
+    )
+
+    quest, warnings = _parse_active_quest(quest_dir / "state.json")
+
+    assert quest is not None
+    assert quest.slug == "portable-pre-commit-review"
+    assert quest.title == "Portable Pre Commit Review"
+    assert warnings == []
 
 
 def test_active_quest_pitch_supports_original_request_variant(tmp_path):

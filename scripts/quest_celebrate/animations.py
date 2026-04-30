@@ -25,6 +25,7 @@ from quest_celebrate.progress import (
     scroll_credits,
 )
 from quest_celebrate.quest_data import QUALITY_TIERS, QuestData, load_quest_data
+from quest_runtime.quest_ids import parse_quest_id
 
 
 @dataclass
@@ -71,12 +72,14 @@ def load_quest_stats(quest_dir: Path) -> QuestStats:
             stats.plan_iterations = state.get("plan_iteration", 0)
             stats.fix_iterations = state.get("fix_iteration", 0)
 
-            # Parse quest_id to get quest name
-            if stats.quest_id:
-                # Format: quest-name_YYYY-MM-DD__HHMM
-                parts = stats.quest_id.split("_")
-                if parts:
-                    stats.name = parts[0].replace("-", " ").title()
+            # Prefer explicit state slug, then parse supported quest IDs.
+            if stats.slug:
+                stats.name = stats.slug.replace("-", " ").title()
+            elif stats.quest_id:
+                parsed = parse_quest_id(stats.quest_id)
+                slug = parsed.slug if parsed is not None else stats.quest_id.split("_")[0]
+                if slug:
+                    stats.name = slug.replace("-", " ").title()
 
         except json.JSONDecodeError:
             # Graceful degradation - use defaults

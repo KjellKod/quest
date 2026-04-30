@@ -30,6 +30,8 @@ Use the `/quest` command in Claude Code:
 /quest allowlist
 ```
 
+Quest IDs default to `<slug>_YYYY-MM-DD__HHMM`. Repositories may opt into date-first IDs (`YYYY-MM-DD_HHMM__<slug>`) with `quest_id_format` in `.ai/allowlist.json`; resume accepts both formats.
+
 The Quest Agent interprets your intent, matches brief references, and routes to the right phase. If unclear, it asks you — reply in plain English.
 
 **Input quality matters.** Your quest input is the spec. A rough idea works (Quest asks clarifying questions), but providing intent, constraints, and acceptance criteria upfront produces tighter plans with fewer iterations. See the README for examples at each level.

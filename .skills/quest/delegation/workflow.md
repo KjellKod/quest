@@ -237,7 +237,7 @@ This log is how we measure whether the handoff.json pattern is working. It is di
 
 ### Step 0: Resume Check
 
-If the user provides a quest ID (matches pattern `*_YYYY-MM-DD__HHMM`):
+If the user provides a quest ID matching either supported Quest ID format (`<slug>_YYYY-MM-DD__HHMM` or `YYYY-MM-DD_HHMM__<slug>`):
 
 1. Check if `.quest/<id>/state.json` exists
 2. If yes, read it and resume from the recorded phase

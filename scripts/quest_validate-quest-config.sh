@@ -164,6 +164,56 @@ validate_schema() {
   fi
 }
 
+validate_quest_id_format() {
+  local json_file="$REPO_ROOT/.ai/allowlist.json"
+  local allowed="slug-first, date-first"
+
+  if [ ! -f "$json_file" ]; then
+    return
+  fi
+
+  if command -v jq &>/dev/null; then
+    local value
+    if ! value=$(jq -r '.quest_id_format // empty' "$json_file" 2>/dev/null); then
+      return
+    fi
+    if [ -z "$value" ] || [ "$value" = "slug-first" ] || [ "$value" = "date-first" ]; then
+      pass "quest_id_format is valid"
+    else
+      fail "Invalid quest_id_format in allowlist.json. Expected one of: $allowed."
+    fi
+    return
+  fi
+
+  if ! command -v python3 &>/dev/null; then
+    fail "python3 is required to validate quest_id_format when jq is unavailable."
+    return
+  fi
+
+  local output
+  if output=$(python3 - "$json_file" 2>&1 <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+allowed = {"slug-first", "date-first"}
+with open(path, encoding="utf-8") as f:
+    data = json.load(f)
+
+value = data.get("quest_id_format")
+if value is None or value in allowed:
+    raise SystemExit(0)
+
+print("Invalid quest_id_format in allowlist.json. Expected one of: slug-first, date-first.")
+raise SystemExit(1)
+PY
+  ); then
+    pass "quest_id_format is valid"
+  else
+    fail "$output"
+  fi
+}
+
 # Validate role markdown files have required sections
 validate_roles() {
   local quest_roles_dir="$REPO_ROOT/.skills/quest/agents"
@@ -238,6 +288,7 @@ echo ""
 check_gitignore
 validate_json "$REPO_ROOT/.ai/allowlist.json"
 validate_schema
+validate_quest_id_format
 validate_roles
 
 echo ""

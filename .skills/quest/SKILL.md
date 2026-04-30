@@ -21,7 +21,7 @@ When starting, say: "Now I understand the Quest." Then proceed.
 
 ### Step 1: Resume Check
 
-If the user provides a quest ID (matches pattern `*_YYYY-MM-DD__HHMM`):
+If the user provides a quest ID matching either supported Quest ID format (`<slug>_YYYY-MM-DD__HHMM` or `YYYY-MM-DD_HHMM__<slug>`):
 1. Read `.quest/<id>/state.json` and resume from the recorded phase
 2. Delegate to `delegation/workflow.md`
 
@@ -178,14 +178,18 @@ Before creating the quest folder, present the routing classification to the user
      - `branch`
      - `branch_mode`
      - `worktree_path` (if present)
-4. Create `.quest/<slug>_YYYY-MM-DD__HHMM/` with subfolders:
+4. Read `quest_id_format` from `.ai/allowlist.json` using `quest_runtime.quest_ids.load_quest_id_format`; missing config defaults to `slug-first`.
+5. Create the Quest ID with `quest_runtime.quest_ids.format_quest_id(slug, timestamp, quest_id_format)`:
+   - Default slug-first: `<slug>_YYYY-MM-DD__HHMM`
+   - Optional date-first: `YYYY-MM-DD_HHMM__<slug>`
+6. Create `.quest/<id>/` with subfolders:
    `phase_01_plan/`, `phase_02_implementation/`, `phase_03_review/`, `logs/`
-5. Write quest brief to `.quest/<id>/quest_brief.md` including:
+7. Write quest brief to `.quest/<id>/quest_brief.md` including:
    - User input (original prompt)
    - Questioner summary (if questioning occurred)
    - **Router classification JSON** (the final routing decision that sent the quest to workflow). This is the classification produced by the most recent router evaluation — if the router ran twice (once before questioning, once after), record the second (final) classification.
-6. Copy `.ai/allowlist.json` to `.quest/<id>/logs/allowlist_snapshot.json`
-7. Initialize `state.json`:
+8. Copy `.ai/allowlist.json` to `.quest/<id>/logs/allowlist_snapshot.json`
+9. Initialize `state.json`:
    ```json
    {
      "quest_id": "<id>",

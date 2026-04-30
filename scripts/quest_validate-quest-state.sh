@@ -61,7 +61,7 @@ Usage: $SCRIPT_NAME <quest-dir> <target-phase>
 Validates quest state prerequisites before a phase transition.
 
 Arguments:
-  quest-dir     Path to the quest directory (e.g., .quest/feature-x_2026-02-15__1430)
+  quest-dir     Path to the quest directory (e.g., .quest/feature-x_2026-02-15__1430 or .quest/2026-02-15_1430__feature-x)
   target-phase  The phase to transition to
 
 Exit codes:

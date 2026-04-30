@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from quest_runtime.quest_ids import parse_quest_id
+
 
 @dataclass
 class AgentInfo:
@@ -162,6 +164,18 @@ def _map_agent_role_title(agent_name: str) -> str:
         if pattern in lower:
             return title
     return agent_name.replace("-", " ").title()
+
+
+def _slug_from_quest_id_or_legacy(quest_id: str) -> str:
+    """Return a quest slug from supported IDs, preserving legacy fallback."""
+    parsed = parse_quest_id(quest_id)
+    if parsed is not None:
+        return parsed.slug
+    return quest_id.split("_")[0]
+
+
+def _display_name_from_slug(slug: str) -> str:
+    return slug.replace("-", " ").title()
 
 
 def _phase_from_path(rel_path: str) -> str:
@@ -1003,9 +1017,9 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
 
     data.quest_id = _extract_metadata(content, "quest id")
     if data.quest_id:
-        parts = data.quest_id.split("_")
-        if parts:
-            data.slug = parts[0]
+        data.slug = _extract_metadata(content, "slug") or _slug_from_quest_id_or_legacy(
+            data.quest_id
+        )
 
     # Title from heading
     title = _extract_journal_title(content)
@@ -1077,11 +1091,13 @@ def load_quest_data(quest_dir: Path) -> QuestData:
     data.created_at = state.get("created_at")
     data.updated_at = state.get("updated_at")
 
-    # Derive name from quest_id if needed
-    if data.quest_id:
-        parts = data.quest_id.split("_")
-        if parts:
-            data.name = parts[0].replace("-", " ").title()
+    # Derive name from state slug first, then quest_id if needed.
+    if data.slug:
+        data.name = _display_name_from_slug(data.slug)
+    elif data.quest_id:
+        slug = _slug_from_quest_id_or_legacy(data.quest_id)
+        if slug:
+            data.name = _display_name_from_slug(slug)
 
     # 2. quest_brief.md
     brief_name, brief_summary, brief_body, brief_source = _read_quest_brief(quest_dir)

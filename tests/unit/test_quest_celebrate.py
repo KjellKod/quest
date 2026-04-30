@@ -528,6 +528,24 @@ class TestQuestStatsLoading:
         assert stats.plan_iterations == 2
         assert stats.fix_iterations == 1
 
+    def test_load_quest_stats_uses_state_slug_for_date_first_id(self, tmp_path):
+        """Date-first IDs display the slug, not the date prefix."""
+        quest_dir = tmp_path / "2026-04-29_1430__portable-pre-commit-review"
+        quest_dir.mkdir()
+        (quest_dir / "state.json").write_text(
+            json.dumps(
+                {
+                    "quest_id": "2026-04-29_1430__portable-pre-commit-review",
+                    "slug": "portable-pre-commit-review",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        stats = load_quest_stats(quest_dir)
+
+        assert stats.name == "Portable Pre Commit Review"
+
     def test_load_quest_stats_from_brief(self, tmp_path):
         """Load quest name from quest_brief.md."""
         quest_dir = tmp_path / "my-quest_2026-01-01__1200"
@@ -843,6 +861,25 @@ class TestQuestDataLoading:
         assert data.fix_iterations == 1
         assert data.status == "complete"
         assert data.created_at == "2026-01-01T12:00:00Z"
+
+    def test_load_quest_data_uses_state_slug_for_date_first_id(self, tmp_path):
+        """Date-first active quest names come from state slug."""
+        quest_dir = tmp_path / "2026-04-29_1430__portable-pre-commit-review"
+        quest_dir.mkdir()
+        (quest_dir / "state.json").write_text(
+            json.dumps(
+                {
+                    "quest_id": "2026-04-29_1430__portable-pre-commit-review",
+                    "slug": "portable-pre-commit-review",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        data = load_quest_data(quest_dir)
+
+        assert data.slug == "portable-pre-commit-review"
+        assert data.name == "Portable Pre Commit Review"
 
     def test_load_quest_data_reads_handoff_agents(self, tmp_path):
         """Verifies agent names and models extracted from handoff JSON."""
@@ -1633,6 +1670,24 @@ class TestJournalCelebrationData:
         assert data.quality_tier == "Silver"
         # No agents or achievements from legacy
         assert len(data.agents) == 0
+
+    def test_load_quest_data_from_journal_parses_date_first_id_slug_when_slug_missing(
+        self, tmp_path
+    ):
+        journal = textwrap.dedent(
+            """\
+            # Quest Journal: Portable Pre Commit Review
+
+            - Quest ID: `2026-04-29_1430__portable-pre-commit-review`
+            - Completed: 2026-04-29
+            """
+        )
+        journal_path = tmp_path / "portable-pre-commit-review_2026-04-29.md"
+        journal_path.write_text(journal, encoding="utf-8")
+
+        data = load_quest_data_from_journal(journal_path)
+
+        assert data.slug == "portable-pre-commit-review"
 
     def test_load_quest_data_from_journal_supports_existing_journal_formats(
         self, tmp_path

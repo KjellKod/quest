@@ -25,7 +25,7 @@ This guide explains the routing logic, what the questioning phase looks like, ho
 
 ### Path 1: Resume an Existing Quest
 
-If your argument looks like a quest ID (e.g., `feature-x_2026-02-04__1430`), Quest picks up where you left off. It reads the saved state and jumps to the right phase — whether that's planning, building, reviewing, or showing a completed summary.
+If your argument looks like a quest ID (e.g., `feature-x_2026-02-04__1430` or `2026-02-04_1430__feature-x`), Quest picks up where you left off. It reads the saved state and jumps to the right phase — whether that's planning, building, reviewing, or showing a completed summary.
 
 ### Path 2: Detailed Input — Complexity Routing
 

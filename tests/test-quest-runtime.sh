@@ -5,6 +5,7 @@
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 STATE_SCRIPT="$REPO_ROOT/scripts/quest_state.py"
 STARTUP_BRANCH_SCRIPT="$REPO_ROOT/scripts/quest_startup_branch.py"
+CONFIG_SCRIPT="$REPO_ROOT/scripts/quest_validate-quest-config.sh"
 CLAUDE_RUNNER="$REPO_ROOT/scripts/quest_claude_runner.py"
 CLAUDE_PROBE="$REPO_ROOT/scripts/quest_claude_probe.py"
 INSTALLER_SCRIPT="$REPO_ROOT/scripts/quest_installer.sh"
@@ -53,6 +54,73 @@ write_allowlist() {
   }
 }
 EOF
+}
+
+write_minimal_config_validation_files() {
+  local dir="$1"
+  mkdir -p "$dir/.ai/schemas" "$dir/.ai/roles" "$dir/.skills/quest/agents"
+  printf '.quest/\n.worktrees/\n' > "$dir/.gitignore"
+  printf '{}\n' > "$dir/.ai/schemas/allowlist.schema.json"
+  cat > "$dir/.skills/quest/agents/builder.md" <<'EOF'
+## Role
+Builder
+## Tool
+Codex
+## Context Required
+Plan
+## Output Contract
+Handoff
+## Responsibilities
+Build
+## Allowed Actions
+Edit
+EOF
+  cat > "$dir/.ai/roles/quest_agent.md" <<'EOF'
+## Role
+Quest Agent
+## Tool
+Claude
+## Context Required
+Prompt
+## Output Contract
+Route
+EOF
+}
+
+test_quest_validate_config_rejects_invalid_quest_id_format_without_jq_or_ajv() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  write_minimal_config_validation_files "$tmpdir"
+  cat > "$tmpdir/.ai/allowlist.json" <<'EOF'
+{
+  "quest_id_format": "date_slug"
+}
+EOF
+
+  local fake_bin cmd
+  fake_bin="$tmpdir/bin"
+  mkdir -p "$fake_bin"
+  for cmd in basename find git grep head python3 sort tail; do
+    ln -s "$(command -v "$cmd")" "$fake_bin/$cmd" || return 1
+  done
+
+  local output rc
+  output=$(cd "$tmpdir" && PATH="$fake_bin" /bin/bash "$CONFIG_SCRIPT" 2>&1)
+  rc=$?
+  rm -rf "$tmpdir"
+
+  [ "$rc" -ne 0 ] &&
+    printf '%s' "$output" | grep -q "quest_id_format" &&
+    printf '%s' "$output" | grep -q "slug-first" &&
+    printf '%s' "$output" | grep -q "date-first"
+}
+
+test_quest_docs_resume_pattern_accepts_slug_first_and_date_first() {
+  grep -q '<slug>_YYYY-MM-DD__HHMM' "$REPO_ROOT/.skills/quest/SKILL.md" &&
+    grep -q 'YYYY-MM-DD_HHMM__<slug>' "$REPO_ROOT/.skills/quest/SKILL.md" &&
+    grep -q '<slug>_YYYY-MM-DD__HHMM' "$WORKFLOW_FILE" &&
+    grep -q 'YYYY-MM-DD_HHMM__<slug>' "$WORKFLOW_FILE"
 }
 
 load_installer_functions() {
@@ -1616,6 +1684,8 @@ run_test test_quest_state_updates_phase_and_timestamp
 run_test test_quest_state_transition_valid
 run_test test_quest_state_transition_invalid_leaves_state_unchanged
 run_test test_quest_state_transition_rejects_plan_reviewed_to_building
+run_test test_quest_validate_config_rejects_invalid_quest_id_format_without_jq_or_ajv
+run_test test_quest_docs_resume_pattern_accepts_slug_first_and_date_first
 run_test test_quest_startup_branch_defaults_to_branch_checkout
 run_test test_quest_startup_branch_skips_when_already_on_feature_branch
 run_test test_quest_startup_branch_blocks_dirty_default_branch_checkout

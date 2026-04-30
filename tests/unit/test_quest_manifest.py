@@ -68,6 +68,7 @@ def test_manifest_validator_patterns_cover_installed_quest_surface() -> None:
         "scripts/quest_state.py",
         "scripts/quest_celebrate/celebrate.py",
         "scripts/quest_celebrate/quest-celebrate.sh",
+        "scripts/quest_runtime/quest_ids.py",
         "tests/integration/test-enforce-allowlist.sh",
         "tests/test-quest-preflight.sh",
         "tests/test-quest-runtime.sh",
