@@ -1,0 +1,44 @@
+.skills/quest/delegation/workflow.md
+  91ffac8a9009f44a 557-612,632,647,654,657-658,660-694,697
+.claude/AGENTS.md
+  91ffac8a9009f44a 43,59
+.skills/sharpen/SKILL.md
+  91ffac8a9009f44a 1-49
+.skills/SKILLS.md
+  91ffac8a9009f44a 106-112
+.quest-manifest
+  91ffac8a9009f44a 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "1c7d69544db8a099ace01d1e71e175688360e74d",
+  "prompts": {
+    "838178a0e904bad7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dda51-9274-7010-a301-52130db8e89b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 85,
+      "overriden_lines": 0
+    },
+    "91ffac8a9009f44a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0cb7eb36-1fd7-4d69-bac4-fde3ae5bd8c1",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 0,
+      "accepted_lines": 156,
+      "overriden_lines": 0
+    }
+  }
+}
