@@ -554,24 +554,62 @@ After plan approval, present the plan interactively before proceeding to build.
 
 **On entry:** Transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presenting --status in_progress --expect-phase plan_reviewed` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually.
 
-**1. Show Brief Summary:**
-   Extract a 1-3 sentence summary using this precedence:
-   - **Primary:** Extract from the plan's Overview section (the "Problem" and "Impact" lines)
-   - **Fallback 1:** If no Overview section exists, use the first non-heading paragraph of the plan (skip YAML frontmatter, skip lines starting with `#`)
-   - **Fallback 2:** If no suitable paragraph found, display: "See plan for details:"
+**1. Show Executive Summary:**
+   Extract a five-section executive summary from `.quest/<id>/phase_01_plan/plan.md`. Each section has a precedence chain — pull the first match. Omit any section whose source isn't present. Do NOT fabricate content for a missing section.
 
-   Then display:
-   - "Plan approved! Here's a brief summary:"
-   - The extracted summary (or fallback text)
-   - "Full plan available at: .quest/<id>/phase_01_plan/plan.md"
-   - Arbiter verdict summary (NEXT line only)
-   - Ask: "Would you like to see the detailed phase-by-phase walkthrough? (yes/no)"
+   a. **Problem (1–2 lines)** — pull from `## Overview` → `## Problem` → first non-heading paragraph of the plan (skip YAML frontmatter, skip lines starting with `#`).
+   b. **Approach (2–4 lines)** — pull from `## Approach` → `## Strategy` → `## Solution` → first paragraph of `## Implementation`.
+   c. **Scope (3–6 bullets)** — extract from `## Files`, the phase headers (`### Phase N:` / `## Phase N:` / `**Phase N:**`), or numbered change sections (`### Change N:` / `#### Change N:`). One bullet per file or phase title.
+   d. **Acceptance Criteria (top 3)** — first three items from `## Acceptance Criteria`. If more exist, append `+N more — see plan` as a fourth bullet.
+   e. **Risks / Open Questions (0–3 bullets)** — pull from `## Risks` → `## Open Questions` → `## Tradeoffs`. If no such section exists in the plan, omit this entire heading and append the line `Plan does not document risks — consider sharpening.` immediately after the Acceptance Criteria block.
 
-**2. Handle Response:**
-   - If user declines ("no", "n", "nope", "skip", "proceed", etc.) -> Transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presentation_complete --status complete --expect-phase presenting` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to Step 4 (Build Phase)
-   - If user accepts ("yes", "y", "yeah", "sure", "detailed", etc.) -> Continue to phase extraction
+   Render as:
+   ```
+   ═══ Plan Summary: <quest title or slug> ═══
 
-**3. Extract Phases from Plan:**
+   Problem
+     <text>
+
+   Approach
+     <text>
+
+   Scope
+     • <bullet>
+     • ...
+
+   Acceptance Criteria (top 3)
+     • <ac>
+     • ...
+
+   Risks / Open Questions
+     • <bullet>
+     • ...
+
+   Full plan: .quest/<id>/phase_01_plan/plan.md
+   Arbiter verdict: <NEXT line from arbiter handoff>
+   ═══════════════════════════════════════════
+   ```
+   Target ~150–300 words across the five sections combined. Always print the header bar, the artifact path footer, and the arbiter NEXT line. Always print the closing bar last.
+
+**2. Offer the Plan Presentation Menu:**
+   After the executive summary, ask exactly:
+   ```
+   How would you like to proceed?
+     1. Walk me through it phase by phase
+     2. Sharpen the plan with me — I'll challenge assumptions and tradeoffs (Q&A, ~5–10 questions)
+     3. Looks good, proceed to build
+   ```
+   STOP and wait for the human to respond. Do not assume a default.
+
+**3. Handle Menu Response:**
+   - **Option 1 (walkthrough)** — also matches `walk`, `walkthrough`, `phases`, `detail`, `detailed`, `yes`: Continue to substep 4 (Phase Extraction). After the walkthrough completes (substep 7's last-phase branch), return here and re-show the menu **with option 1 removed** (only options 2 and 3 remain). Repeat handling.
+   - **Option 2 (sharpen)** — also matches `sharpen`, `grill`, `stress`, `challenge`: Invoke the `/sharpen` skill (`.skills/sharpen/SKILL.md`) against `.quest/<id>/phase_01_plan/plan.md`. When sharpen completes, read its structured exit summary (Resolved / Open / Next):
+     - If the **Next** field says `no changes needed` (or equivalent — no revisions listed): Transition state atomically `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presentation_complete --status complete --expect-phase presenting` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to Step 4. **Sharpen completion is terminal — do not re-show the menu.**
+     - If the **Next** field lists revisions (e.g. `re-plan with these revisions: …`): Jump to substep 8 (Change Handling) using the **sharpen entry path**. Substep 8(a) is skipped; substep 8(b) writes the sharpen-format block to user_feedback.md.
+   - **Option 3 (proceed)** — also matches `proceed`, `build`, `looks good`, `ship it`, `no`, `n`, `skip`: Transition state atomically `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presentation_complete --status complete --expect-phase presenting` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to Step 4 (Build Phase).
+   - **Unrecognized response:** Re-ask the menu once. If still unrecognized, treat as Option 3.
+
+**4. Extract Phases from Plan:**
    Parse plan.md to identify phases using these patterns (in order of precedence):
 
    a. **Explicit phase headers** - Look for:
@@ -591,7 +629,7 @@ After plan approval, present the plan interactively before proceeding to build.
       - Treat entire Implementation section as a single phase
       - Display with title "Implementation Overview"
 
-**4. Extract Per-Phase Acceptance Criteria:**
+**5. Extract Per-Phase Acceptance Criteria:**
    For each identified phase, extract acceptance criteria using these patterns:
 
    a. **Per-phase AC subheading** - Look within each phase section for:
@@ -606,39 +644,57 @@ After plan approval, present the plan interactively before proceeding to build.
       - Display global acceptance criteria from the plan's main `## Acceptance Criteria` section
       - Prefix with: "This phase contributes to the following acceptance criteria:"
 
-**5. Present Each Phase:**
+**6. Present Each Phase:**
    For each phase:
    a. Display phase title (e.g., "Phase 1: Add Presentation Logic")
    b. Display phase description/goal (first paragraph of phase section)
    c. Display key implementation details:
       - Files to change (look for file paths or "Files:" subsection)
       - Functions to add/modify (look for function names or "Key Functions:" subsection)
-   d. Display acceptance criteria for this phase (from step 4)
+   d. Display acceptance criteria for this phase (from substep 5)
    e. Ask: "Questions about this phase? Or changes you'd like to request? (continue/question/change)"
 
-**6. Handle Phase Response:**
-   - If "continue" (or "c", "next", "ok", "looks good", etc.) -> Move to next phase, or if last phase: Transition state atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presentation_complete --status complete --expect-phase presenting` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to Step 4
+**7. Handle Phase Response:**
+   - If "continue" (or "c", "next", "ok", "looks good", etc.) -> Move to next phase, or if last phase: walkthrough is complete — return to substep 2 (the menu) **with option 1 (walkthrough) removed** (only options 2 and 3 remain). Re-render the executive summary header is NOT required; jump straight to the reduced menu.
    - If "question" (or "q", "?", user asks a question directly) -> Answer the question using plan context, then re-ask: "Any other questions, or ready to continue? (continue/question/change)"
-   - If "change" (or "modify", "revise", "update", user requests a change directly) -> Proceed to Change Handling
+   - If "change" (or "modify", "revise", "update", user requests a change directly) -> Proceed to substep 8 (Change Handling) via the walkthrough entry path.
 
-**7. Change Handling:**
-   When user requests changes:
-   a. Prompt user: "Please describe the changes you'd like:"
-   b. Record the user's response
-   c. Create or append to `.quest/<id>/phase_01_plan/user_feedback.md`:
-      ```
-      ## Change Request (Iteration <plan_iteration + 1>)
-      Date: <timestamp>
-      Phase: <current phase number or "General">
-      Request: <user's change request verbatim>
-      ```
-   d. **Update state:** `phase: plan`, `status: in_progress`
-   e. Display: "Re-running plan with your feedback..."
-   f. Return to Step 3, item 1:
-      - Planner will be invoked with user_feedback.md referenced (per Step 3, item 2 -- Planner invocation above)
+**8. Change Handling:**
+   This substep has two entry paths:
+   - **Walkthrough entry** (from substep 7's "change" branch): the user describes changes interactively.
+   - **Sharpen entry** (from substep 3's option 2 when sharpen surfaced revisions): the structured sharpen output is the change request.
+
+   Steps:
+   a. (Walkthrough entry only) Prompt the user: "Please describe the changes you'd like:" and record their response verbatim.
+   b. Append to `.quest/<id>/phase_01_plan/user_feedback.md`:
+      - **Walkthrough format:**
+        ```
+        ## Change Request (Iteration <plan_iteration + 1>)
+        Date: <timestamp>
+        Phase: <current phase number or "General">
+        Request: <user's change request verbatim>
+        ```
+      - **Sharpen format:**
+        ```
+        ## Sharpen Outcome (Iteration <plan_iteration + 1>)
+        Date: <timestamp>
+
+        Resolved:
+        <sharpen "Resolved" block verbatim>
+
+        Open:
+        <sharpen "Open" block verbatim>
+
+        Next:
+        <sharpen "Next" block verbatim>
+        ```
+   c. **Update state:** `phase: plan`, `status: in_progress`
+   d. Display: "Re-running plan with your feedback..."
+   e. Return to Step 3, item 1:
+      - Planner will be invoked with user_feedback.md referenced (per Step 3, item 2 — Planner invocation above)
       - plan_iteration increments as normal
       - Full review cycle (Claude slot A + Codex slot B + Arbiter) runs
-      - After approval, Step 3.5 presentation starts fresh from step 1
+      - After approval, Step 3.5 presentation starts fresh from substep 1
 
 ### Step 4: Build Phase
 

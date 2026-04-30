@@ -103,6 +103,13 @@ This directory contains specialized skills for AI agents working in this reposit
 
 **Location:** `.skills/celebrate/SKILL.md`
 
+### sharpen
+**Purpose:** Adversarial interview against a plan, design, or write-up — one question at a time, each with a recommended answer attached — to surface contradictions, hidden assumptions, and unresolved tradeoffs before they ship.
+
+**Use when:** The user invokes `/sharpen`, says "sharpen this", "stress-test this", "find the holes", "challenge my plan", or wants to confirm shared understanding before locking a decision. Also invoked from Quest's plan presentation menu (Step 3.5).
+
+**Location:** `.skills/sharpen/SKILL.md`
+
 ## How Skills Work
 
 Skills use a three-level loading system:
