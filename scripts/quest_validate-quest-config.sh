@@ -173,15 +173,14 @@ validate_quest_id_format() {
   fi
 
   if command -v jq &>/dev/null; then
-    local value
-    if ! value=$(jq -r '.quest_id_format // empty' "$json_file" 2>/dev/null); then
+    if ! jq -e '
+      (has("quest_id_format") | not) or
+      (.quest_id_format == "slug-first" or .quest_id_format == "date-first")
+    ' "$json_file" >/dev/null 2>&1; then
+      fail "Invalid quest_id_format in allowlist.json. Expected one of: $allowed."
       return
     fi
-    if [ -z "$value" ] || [ "$value" = "slug-first" ] || [ "$value" = "date-first" ]; then
-      pass "quest_id_format is valid"
-    else
-      fail "Invalid quest_id_format in allowlist.json. Expected one of: $allowed."
-    fi
+    pass "quest_id_format is valid"
     return
   fi
 
@@ -200,8 +199,7 @@ allowed = {"slug-first", "date-first"}
 with open(path, encoding="utf-8") as f:
     data = json.load(f)
 
-value = data.get("quest_id_format")
-if value is None or value in allowed:
+if "quest_id_format" not in data or data["quest_id_format"] in allowed:
     raise SystemExit(0)
 
 print("Invalid quest_id_format in allowlist.json. Expected one of: slug-first, date-first.")

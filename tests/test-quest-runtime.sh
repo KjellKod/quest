@@ -116,6 +116,37 @@ EOF
     printf '%s' "$output" | grep -q "date-first"
 }
 
+test_quest_validate_config_rejects_empty_quest_id_format_with_jq() {
+  command -v jq >/dev/null 2>&1 || return 0
+
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  write_minimal_config_validation_files "$tmpdir"
+  cat > "$tmpdir/.ai/allowlist.json" <<'EOF'
+{
+  "quest_id_format": ""
+}
+EOF
+
+  local fake_bin cmd
+  fake_bin="$tmpdir/bin"
+  mkdir -p "$fake_bin"
+  for cmd in basename find git grep head jq sort tail; do
+    ln -s "$(command -v "$cmd")" "$fake_bin/$cmd" || return 1
+  done
+
+  local output rc
+  output=$(cd "$tmpdir" && PATH="$fake_bin" /bin/bash "$CONFIG_SCRIPT" 2>&1)
+  rc=$?
+  rm -rf "$tmpdir"
+
+  [ "$rc" -ne 0 ] &&
+    printf '%s' "$output" | grep -q "quest_id_format" &&
+    printf '%s' "$output" | grep -q "slug-first" &&
+    printf '%s' "$output" | grep -q "date-first"
+}
+
 test_quest_docs_resume_pattern_accepts_slug_first_and_date_first() {
   grep -q '<slug>_YYYY-MM-DD__HHMM' "$REPO_ROOT/.skills/quest/SKILL.md" &&
     grep -q 'YYYY-MM-DD_HHMM__<slug>' "$REPO_ROOT/.skills/quest/SKILL.md" &&
@@ -1685,6 +1716,7 @@ run_test test_quest_state_transition_valid
 run_test test_quest_state_transition_invalid_leaves_state_unchanged
 run_test test_quest_state_transition_rejects_plan_reviewed_to_building
 run_test test_quest_validate_config_rejects_invalid_quest_id_format_without_jq_or_ajv
+run_test test_quest_validate_config_rejects_empty_quest_id_format_with_jq
 run_test test_quest_docs_resume_pattern_accepts_slug_first_and_date_first
 run_test test_quest_startup_branch_defaults_to_branch_checkout
 run_test test_quest_startup_branch_skips_when_already_on_feature_branch
