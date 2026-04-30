@@ -32,11 +32,12 @@ to justify fan-out.
 Create a standalone `research` or `quest-research` skill that:
 
 1. Accepts a topic, source list, and optional lenses.
-2. Dispatches bounded read-only research agents in parallel.
-3. Requires each agent to write a concise memo with explicit claims and
+2. Clarifies the scope and direction before dispatching agents.
+3. Dispatches bounded read-only research agents in parallel.
+4. Requires each agent to write a concise memo with explicit claims and
    evidence.
-4. Runs a reconciler after all memos finish.
-5. Writes a recommendation artifact that the user or Quest planner can consume.
+5. Runs a reconciler after all memos finish.
+6. Writes a recommendation artifact that the user or Quest planner can consume.
 
 The planner should not freely spawn unbounded subagents. It should either:
 
@@ -45,6 +46,27 @@ The planner should not freely spawn unbounded subagents. It should either:
 
 This keeps the planner focused on producing a plan while the skill owns
 fan-out discipline, artifact paths, reconciliation, and reporting.
+
+# Scope Clarification
+
+Before spawning research agents, the skill should ask questions until it has a
+reasonable understanding of the requested scope and direction.
+
+Rules:
+
+- Ask at least one clarifying question for every research invocation.
+- Continue asking follow-up questions while the answers materially affect
+  lens choice, source selection, comparison criteria, or recommendation shape.
+- Prefer one focused question at a time unless batching two or three questions
+  clearly reduces back-and-forth without making the prompt harder to answer.
+- Stop asking once the skill can state the research goal, boundaries, likely
+  lenses, and expected decision output in concrete terms.
+- Hard cap: 5 clarification questions. At the cap, summarize the current
+  understanding and ask whether to continue clarifying or start research with
+  explicit assumptions.
+
+This mirrors Quest's interactive planning posture: clarify enough to avoid
+wasted work, but do not let research setup become an unbounded interview.
 
 # Example Invocation
 

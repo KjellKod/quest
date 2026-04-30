@@ -1,6 +1,6 @@
 ---
-title: Test-Driven Bug-Fix Iteration Loops
-purpose: Define a safer Quest bug-fix mode that proves reproduction first, tries bounded distinct strategies, and preserves failed-attempt evidence without destructive rollback.
+title: Test-Driven Bug-Fix Loop Skill
+purpose: Define a dedicated bug-fix-loop skill that proves reproduction first, tries bounded distinct strategies, and preserves failed-attempt evidence without destructive rollback.
 audience:
   - quest-maintainers
   - skill-authors
@@ -22,7 +22,12 @@ Quest already has the core bug-fix rule:
 > Bug fixes: add a test that reproduces the bug (fails first), fix the code
 > without changing that test, then re-run it to verify it passes.
 
-The suggested improvement is a stronger bug-fix loop for hard bugs:
+The suggested improvement should be a dedicated `bug-fix-loop` skill, not only
+extra prose inside the Quest fixer. It should be independently invokable by a
+human, Codex, Claude, or the Quest workflow whenever a bug fix needs a tighter
+test-driven loop.
+
+The skill owns a stronger bug-fix process for hard bugs:
 
 1. Convert the bug report into a failing test first.
 2. Generate a small set of distinct fix strategies before editing production
@@ -35,6 +40,27 @@ This is valuable, but should not be implemented with automatic
 `git reset --hard`. Quest routinely works in dirty user worktrees and
 multi-agent worktrees; destructive rollback can erase unrelated work. Use
 explicit checkpoints, isolated worktrees, or patch snapshots instead.
+
+# Skill Shape
+
+Add a standalone skill, likely `.skills/bug-fix-loop/SKILL.md`, with thin
+wrappers for each runtime that should expose it:
+
+- `.agents/skills/bug-fix-loop/SKILL.md`
+- `.claude/skills/bug-fix-loop/SKILL.md` if Claude-side invocation is needed
+
+The skill should be usable in three ways:
+
+- **Direct human invocation:** "Use bug-fix-loop for this bug report."
+- **Agent invocation:** Codex or Claude may invoke it when a bug fix is
+  ambiguous, recurring, or has already failed once.
+- **Quest workflow invocation:** Quest builder/fixer can call the skill when a
+  plan item or review finding is a bug fix and the normal one-pass fix path is
+  likely to thrash.
+
+The skill should not auto-open PRs, auto-merge, or bypass Quest review gates.
+It produces code changes plus artifacts; the caller remains responsible for the
+normal commit, PR, CI, and review flow.
 
 # Value
 
@@ -64,7 +90,7 @@ This mode improves:
 
 # Recommended Behavior
 
-Add an optional bug-fix mode for Quest fixer/builder flows:
+The `bug-fix-loop` skill should:
 
 1. Confirm the task is a bug fix.
 2. Write or identify the narrow failing test that reproduces the bug.
@@ -105,6 +131,8 @@ Avoid:
 
 # Artifact Layout
 
+Quest invocation:
+
 ```text
 .quest/<id>/phase_03_review/bug_fix_attempts/
   reproduction.md
@@ -117,6 +145,29 @@ Avoid:
   strategy_c_test_output.txt
   summary.md
 ```
+
+Standalone invocation:
+
+```text
+.bug-fix-loop/<bug-slug>_<YYYY-MM-DD_HHMM>/
+  reproduction.md
+  strategies.md
+  strategy_a.patch
+  strategy_a_test_output.txt
+  strategy_b.patch
+  strategy_b_test_output.txt
+  strategy_c.patch
+  strategy_c_test_output.txt
+  summary.md
+```
+
+Recommendation: use `.quest/<id>/...` when an active Quest exists, because the
+bug-fix evidence belongs with the plan/review/build history. If there is no
+active Quest, use `.bug-fix-loop/<bug-slug>_<timestamp>/` at the repo root. That
+keeps standalone runs discoverable without pretending they are Quest phases.
+If the project later wants a single global artifact root, `.worktrees/` and
+`.research/` should remain separate; bug-fix attempts have different lifecycle
+and cleanup expectations.
 
 `reproduction.md` should include:
 
@@ -151,16 +202,25 @@ Rationale: ...
 
 Minimal first step:
 
-- Update `.skills/quest/agents/fixer.md` to expand the existing bug-fix
-  responsibility into a bounded prove-it loop when the fix is non-trivial.
-- Update `.skills/implementer/SKILL.md` with a bug-fix mode subsection.
+- Add `.skills/bug-fix-loop/SKILL.md` with the workflow above.
+- Register it in `.skills/SKILLS.md`.
+- Add runtime wrappers for `.agents/skills/bug-fix-loop/SKILL.md` and, if
+  needed, `.claude/skills/bug-fix-loop/SKILL.md`.
+- Update `.quest-manifest` and `.quest-checksums` for installed skill files.
+- Update `.skills/quest/agents/fixer.md` so Quest fixer may invoke the
+  `bug-fix-loop` skill for non-trivial bug fixes or after one failed ordinary
+  fix attempt.
+- Update `.skills/implementer/SKILL.md` to point bug-fix work at the
+  standalone skill instead of duplicating the whole loop.
+- Update `.skills/quest/delegation/workflow.md` so build/fix handoffs mention
+  bug-fix-loop artifacts when the skill was used.
 
 Larger later step:
 
 - Add helper script support for attempt directories and patch snapshots.
 - Add completion-summary reporting for bug-fix attempts.
-- Consider a standalone `bug-fix-loop` skill only if the pattern proves useful
-  outside Quest.
+- Add optional cleanup/listing commands for standalone `.bug-fix-loop/*`
+  artifacts once usage patterns are clear.
 
 # Non-Goals
 
@@ -179,3 +239,5 @@ Larger later step:
 - Should a passing reproduction test be allowed if the broader suite still
   fails for unrelated reasons?
 - Should the strategy cap be 2 or 3 by default?
+- Should standalone `.bug-fix-loop/*` artifacts be gitignored by default, or
+  committed when they provide useful review evidence?
