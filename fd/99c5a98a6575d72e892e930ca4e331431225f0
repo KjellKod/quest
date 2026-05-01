@@ -1,0 +1,35 @@
+tests/unit/test_codex_skill_wrappers.py
+  53d6eef820e3fc45 12
+tests/unit/test_sharpen_install_surface.py
+  53d6eef820e3fc45 1-72
+.skills/SKILLS.md
+  53d6eef820e3fc45 109
+.claude/skills/sharpen/SKILL.md
+  53d6eef820e3fc45 1-7
+.skills/sharpen/SKILL.md
+  53d6eef820e3fc45 3
+.quest-manifest
+  53d6eef820e3fc45 37,57
+.agents/skills/sharpen/SKILL.md
+  53d6eef820e3fc45 1-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "fd99c5a98a6575d72e892e930ca4e331431225f0",
+  "prompts": {
+    "53d6eef820e3fc45": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de0ed-c75d-78e3-92c8-840b57d6b383",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 90,
+      "total_deletions": 2,
+      "accepted_lines": 90,
+      "overriden_lines": 0
+    }
+  }
+}
