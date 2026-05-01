@@ -10,7 +10,7 @@ Build and utility scripts for the Quest repository.
 | `quest_runtime/` | Python package with Quest orchestration helpers (state updates, Claude bridge runner, handoff polling). |
 | `quest_runtime/review_intelligence.py` | Canonical review-finding schema validation, dedupe/merge helpers, decision backlog policy, deferred JSONL append, and planner backlog scan matching. |
 | `quest_runtime/pr_review_cycle.py` | PR-cycle helpers for canonical intake normalization, actionable batch construction, validation-step selection, loop-stop classification, and cap retagging. |
-| `quest_checks/` | Python package that provides the installed `quest-checks` CLI for running Quest validators plus the shipped smoke-test surface. |
+| `quest_checks/` | Python package that provides the installed `quest-checks` CLI for running Quest validators. |
 | `quest_claude_bridge.py` | Thin transport bridge from the current host into Claude CLI for Codex-led Claude-designated Quest roles. |
 | `quest_preflight.sh` | Checks second-model readiness before quest routing. Codex-led Claude probes now retain a recent successful host probe under `.quest/cache/` so later quest starts can reuse it. |
 | `quest_claude_probe.py` | Probes the Claude bridge by requiring a real artifact write and `handoff.json` under the quest logs directory. |

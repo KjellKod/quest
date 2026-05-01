@@ -109,11 +109,6 @@ scripts/quest_backfill_journal.py
 scripts/quest_complete.py
 scripts/quest_preflight.sh
 scripts/quest_state.py
-tests/integration/test-enforce-allowlist.sh
-tests/test-quest-preflight.sh
-tests/test-quest-runtime.sh
-tests/test-validate-handoff-contracts.sh
-tests/test-validate-quest-state.sh
 
 [user-customized]
 # These files preserve local customizations; AGENTS.md updates in place only when
