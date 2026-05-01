@@ -106,7 +106,7 @@ This directory contains specialized skills for AI agents working in this reposit
 ### sharpen
 **Purpose:** Adversarial interview against a plan, design, or write-up — one question at a time, each with a recommended answer attached — to surface contradictions, hidden assumptions, and unresolved tradeoffs before they ship.
 
-**Use when:** The user invokes `/sharpen`, says "sharpen this", "stress-test this", "find the holes", "challenge my plan", or wants to confirm shared understanding before locking a decision. Also invoked from Quest's plan presentation menu (Step 3.5).
+**Use when:** The user invokes `/sharpen` or `$sharpen`, says "sharpen this", "stress-test this", "find the holes", "challenge my plan", or wants to confirm shared understanding before locking a decision.
 
 **Location:** `.skills/sharpen/SKILL.md`
 

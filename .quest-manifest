@@ -34,6 +34,7 @@
 .claude/skills/gpt/SKILL.md
 .claude/skills/quest/SKILL.md
 .claude/skills/pre-commit-review/SKILL.md
+.claude/skills/sharpen/SKILL.md
 .claude/AGENTS.md
 .codex/AGENTS.md
 .opencode/agents/arbiter.md
@@ -53,6 +54,7 @@
 .agents/skills/pr-shepherd/SKILL.md
 .agents/skills/quest/SKILL.md
 .agents/skills/pre-commit-review/SKILL.md
+.agents/skills/sharpen/SKILL.md
 .skills/BOOTSTRAP.md
 .skills/README.md
 .skills/SKILLS.md

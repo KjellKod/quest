@@ -1,6 +1,6 @@
 ---
 name: sharpen
-description: Adversarial interview against a plan, design, or write-up — one question at a time, with a recommended answer attached to each — to surface contradictions, hidden assumptions, and unresolved tradeoffs before they ship. Use when the user types /sharpen, says "sharpen this", "stress-test this", "find the holes", "challenge my plan", or wants to confirm shared understanding before locking a decision. Also invoked by Quest's plan presentation menu.
+description: Adversarial interview against a plan, design, or write-up - one question at a time, with a recommended answer attached to each - to surface contradictions, hidden assumptions, and unresolved tradeoffs before they ship. Use when the user invokes /sharpen or $sharpen, says "sharpen this", "stress-test this", "find the holes", "challenge my plan", or wants to confirm shared understanding before locking a decision.
 user-invocable: true
 ---
 

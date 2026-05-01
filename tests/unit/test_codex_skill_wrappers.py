@@ -9,6 +9,7 @@ EXPECTED_QUEST_WRAPPERS = {
     "pr-assistant",
     "pr-shepherd",
     "quest",
+    "sharpen",
 }
 
 
