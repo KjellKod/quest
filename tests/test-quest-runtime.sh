@@ -163,6 +163,45 @@ load_installer_functions() {
   rm -f "$loader_tmp"
 }
 
+stub_installer_run_install_steps() {
+  check_prerequisites() { :; }
+  detect_repo_state() {
+    IS_GIT_REPO="${TEST_INSTALLER_IS_GIT_REPO:-true}"
+    HAS_QUEST=true
+    LOCAL_VERSION="oldsha"
+  }
+  confirm_install_source() { :; }
+  fetch_upstream_version() {
+    UPSTREAM_SHA="newsha"
+    LATEST_RELEASE="test"
+  }
+  load_manifest() { :; }
+  load_upstream_checksums() { :; }
+  load_local_checksums() { :; }
+  init_updated_checksums() { :; }
+  check_self_update() { :; }
+  create_directories() { :; }
+  install_copy_as_is() { :; }
+  install_user_customized() { :; }
+  install_merge_carefully() { :; }
+  migrate_legacy_validation_hook() { :; }
+  cleanup_renamed_scripts() { :; }
+  cleanup_removed_managed_files() { :; }
+  cleanup_legacy_source_only_tests() { :; }
+  set_executable_bits() { :; }
+  update_gitignore() { :; }
+  save_checksums() { :; }
+  update_version_marker() { :; }
+  run_validation() { :; }
+  offer_codex_setup() { :; }
+  print_next_steps() { :; }
+  log_info() { :; }
+  log_warn() { :; }
+  log_success() { :; }
+  log_action() { :; }
+  clear_progress() { :; }
+}
+
 test_quest_state_updates_phase_and_timestamp() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -649,6 +688,219 @@ test_workflow_documents_arbiter_validate_build_publish_contract() {
     grep -Fq 'os.replace(".quest/<id>/phase_01_plan/arbiter_verdict.md.next", ".quest/<id>/phase_01_plan/arbiter_verdict.md")' "$WORKFLOW_FILE" &&
     grep -Fq 'If arbiter handoff says `next: planner`' "$WORKFLOW_FILE" &&
     grep -Fq 'Do **not** call `quest_state.py --transition plan_reviewed`.' "$WORKFLOW_FILE"
+}
+
+test_installer_update_branch_uses_base_name_when_free() {
+  local tmpdir
+  local base_name
+  tmpdir=$(mktemp -d)
+  base_name="quest-update-$(date +%Y%m%d)"
+  init_git_repo "$tmpdir" || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    stub_installer_run_install_steps
+
+    DRY_RUN=false
+    FORCE_MODE=false
+    prompt_yn() { return 0; }
+
+    run_install >/dev/null 2>&1
+
+    [ "$(git branch --show-current)" = "$base_name" ] &&
+      git show-ref --verify --quiet "refs/heads/$base_name"
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_update_branch_uses_suffix_when_date_branch_exists() {
+  local tmpdir
+  local base_name
+  tmpdir=$(mktemp -d)
+  base_name="quest-update-$(date +%Y%m%d)"
+  init_git_repo "$tmpdir" || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+  git -C "$tmpdir" branch "$base_name" || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    stub_installer_run_install_steps
+
+    DRY_RUN=false
+    FORCE_MODE=false
+    prompt_yn() { return 0; }
+
+    run_install >/dev/null 2>&1
+
+    [ "$(git branch --show-current)" = "${base_name}-2" ] &&
+      git show-ref --verify --quiet "refs/heads/$base_name" &&
+      git show-ref --verify --quiet "refs/heads/${base_name}-2"
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_update_branch_skips_occupied_suffixes() {
+  local tmpdir
+  local base_name
+  tmpdir=$(mktemp -d)
+  base_name="quest-update-$(date +%Y%m%d)"
+  init_git_repo "$tmpdir" || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+  git -C "$tmpdir" branch "$base_name" &&
+    git -C "$tmpdir" branch "${base_name}-2" &&
+    git -C "$tmpdir" branch "${base_name}-3" || {
+      rm -rf "$tmpdir"
+      return 1
+    }
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    stub_installer_run_install_steps
+
+    DRY_RUN=false
+    FORCE_MODE=false
+    prompt_yn() { return 0; }
+
+    run_install >/dev/null 2>&1
+
+    [ "$(git branch --show-current)" = "${base_name}-4" ] &&
+      git show-ref --verify --quiet "refs/heads/${base_name}-4"
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_update_branch_selection_respects_skip_gates() {
+  local tmpdir
+  local base_name
+  base_name="quest-update-$(date +%Y%m%d)"
+
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+  git -C "$tmpdir" checkout -b feature >/dev/null 2>&1 || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    stub_installer_run_install_steps
+    DRY_RUN=false
+    FORCE_MODE=false
+    prompt_yn() { return 0; }
+    next_available_update_branch_name() { return 99; }
+    run_install >/dev/null 2>&1
+    [ "$(git branch --show-current)" = "feature" ] &&
+      ! git show-ref --verify --quiet "refs/heads/$base_name"
+  ) || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+  rm -rf "$tmpdir"
+
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    stub_installer_run_install_steps
+    DRY_RUN=false
+    FORCE_MODE=true
+    prompt_yn() { return 0; }
+    next_available_update_branch_name() { return 99; }
+    run_install >/dev/null 2>&1
+    [ "$(git branch --show-current)" = "main" ] &&
+      ! git show-ref --verify --quiet "refs/heads/$base_name"
+  ) || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+  rm -rf "$tmpdir"
+
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    stub_installer_run_install_steps
+    DRY_RUN=true
+    FORCE_MODE=false
+    prompt_yn() { return 0; }
+    next_available_update_branch_name() { return 99; }
+    run_install >/dev/null 2>&1
+    [ "$(git branch --show-current)" = "main" ] &&
+      ! git show-ref --verify --quiet "refs/heads/$base_name"
+  ) || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+  rm -rf "$tmpdir"
+
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    stub_installer_run_install_steps
+    DRY_RUN=false
+    FORCE_MODE=false
+    prompt_yn() { return 1; }
+    next_available_update_branch_name() { return 99; }
+    run_install >/dev/null 2>&1
+    [ "$(git branch --show-current)" = "main" ] &&
+      ! git show-ref --verify --quiet "refs/heads/$base_name"
+  ) || {
+    rm -rf "$tmpdir"
+    return 1
+  }
+  rm -rf "$tmpdir"
+
+  tmpdir=$(mktemp -d)
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    stub_installer_run_install_steps
+    TEST_INSTALLER_IS_GIT_REPO=false
+    DRY_RUN=false
+    FORCE_MODE=false
+    prompt_yn() { return 0; }
+    next_available_update_branch_name() { return 99; }
+    run_install >/dev/null 2>&1
+    [ ! -d .git ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
 }
 
 test_installer_cleans_up_renamed_scripts() {
@@ -1747,6 +1999,10 @@ run_test test_plan_review_retry_harness_preserves_canonical_artifacts_until_publ
 run_test test_plan_review_retry_via_runner_preserves_canonical_artifacts_until_publish
 run_test test_workflow_documents_no_vcs_review_path
 run_test test_workflow_documents_arbiter_validate_build_publish_contract
+run_test test_installer_update_branch_uses_base_name_when_free
+run_test test_installer_update_branch_uses_suffix_when_date_branch_exists
+run_test test_installer_update_branch_skips_occupied_suffixes
+run_test test_installer_update_branch_selection_respects_skip_gates
 run_test test_installer_cleans_up_renamed_scripts
 run_test test_installer_updates_pristine_agents_file_in_place
 run_test test_installer_records_checksum_for_new_agents_file
