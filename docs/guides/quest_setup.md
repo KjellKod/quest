@@ -196,8 +196,11 @@ Key sections to customize:
 | `role_permissions.*.bash` | Shell commands each role can run (test runners, build tools) |
 | `auto_approve_phases` | Which phases run without human confirmation |
 | `models.arbiter` | Set to `"claude"` or `"gpt-5.4"` to choose arbiter runtime |
+| `quest_id_format` | `slug-first` (default) or `date-first`; affects only new Quest folder names |
 | `review_mode` | `auto` (default), `fast`, or `full` for Codex reviews |
 | `fast_review_thresholds` | File/LOC thresholds used when `review_mode: auto` |
+
+Quest IDs use `<slug>_YYYY-MM-DD__HHMM` by default. Set `"quest_id_format": "date-first"` to create new quests as `YYYY-MM-DD_HHMM__<slug>` for chronological `.quest/` sorting. Existing folders are not renamed, and resume accepts both formats in mixed repositories.
 
 
 ### 2. Gitignore

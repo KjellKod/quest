@@ -30,6 +30,8 @@ Use the `/quest` command in Claude Code:
 /quest allowlist
 ```
 
+Quest IDs default to `<slug>_YYYY-MM-DD__HHMM`. Repositories may opt into date-first IDs (`YYYY-MM-DD_HHMM__<slug>`) with `quest_id_format` in `.ai/allowlist.json`; resume accepts both formats.
+
 The Quest Agent interprets your intent, matches brief references, and routes to the right phase. If unclear, it asks you — reply in plain English.
 
 **Input quality matters.** Your quest input is the spec. A rough idea works (Quest asks clarifying questions), but providing intent, constraints, and acceptance criteria upfront produces tighter plans with fewer iterations. See the README for examples at each level.
@@ -58,6 +60,8 @@ Planner -> [Review Claude + Review Codex] -> Arbiter -> approve? -> Builder
 The Arbiter is the gatekeeper. It enforces KISS, YAGNI, SRP. It prevents nitpick spin. The Planner only sees the Arbiter's synthesized feedback, not raw reviews.
 
 Max iterations controlled by `gates.max_plan_iterations` in allowlist.
+
+After plan approval, Quest presents a concise executive summary before build starts. You can ask for a phase-by-phase walkthrough, proceed directly, or sharpen the plan. Sharpening is an adversarial Q&A pass: Quest challenges assumptions and tradeoffs one question at a time, records what is settled, and either proceeds or sends concrete revisions back into planning. This improves the plan and also gives the orchestrator a more exact understanding of what will be built before implementation begins.
 
 ## Full Flow
 

@@ -19,6 +19,7 @@ from quest_celebrate.quest_data import (
     extract_metadata_value as _extract_metadata,
     friendly_model_name as _friendly_model_name,
 )
+from quest_runtime.quest_ids import parse_quest_id
 
 from .models import ActiveQuest, DashboardData, JournalEntry
 
@@ -142,8 +143,11 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
     )
     quest_id = quest_id.strip("`")
 
-    # Extract slug (fallback to quest_id)
-    slug = _extract_metadata(content, "slug") or quest_id
+    # Extract slug (fallback to parsing supported quest IDs, then quest_id)
+    parsed_quest_id = parse_quest_id(quest_id)
+    slug = _extract_metadata(content, "slug") or (
+        parsed_quest_id.slug if parsed_quest_id is not None else quest_id
+    )
 
     # Extract title
     title = _extract_title(content) or _humanize_filename(journal_path.stem)

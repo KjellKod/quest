@@ -263,6 +263,8 @@ Quest state survives conversation restarts:
 
 Resume with: `/quest feature-x_2026-02-02__1430`
 
+Quest resume accepts both supported ID formats: `<slug>_YYYY-MM-DD__HHMM` and `YYYY-MM-DD_HHMM__<slug>`.
+
 ### Audit Trail
 
 All artifacts preserved in `.quest/<id>/`:

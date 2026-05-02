@@ -42,6 +42,7 @@ Current roadmap:
 | File | Status | Purpose |
 |---|---|---|
 | `2026-04-24-quest-hooks-vs-instructions-boundary.md` | proposed | Define the boundary between instruction files, hooks, and scripts for Quest, with Claude-first enforcement and Codex-aware adapter guidance. |
+| `2026-04-29-research-fanout-skill.md` | proposed | Add a reusable research fan-out skill for human-triggered and planner-requested parallel investigation with reconciled findings. |
 | `dual-model-planning.md` | proposed | Explore parallel plan generation with arbiter synthesis instead of a single planner output. |
 | `2026-04-13-codex-companion-runtime.md` | proposed | Phased prove-it roadmap for a shared Codex runtime serving both the human `/gpt` command surface and Quest orchestration, with strict go/no-go criteria after the minimum slice. |
 | `2026-04-13-feedback-intent-routing.md` | proposed | Canonical feedback-routing proposal: classify live quest feedback by intent and route to clarify, replan, second-opinion, or escalation paths deliberately. |
@@ -71,6 +72,7 @@ Current roadmap:
 | `2026-04-15-precommit-status-diffstat-discipline.md` | proposed | Pre-commit staging verification discipline with optional bounded hook. |
 | `2026-04-15-subagent-path-constraints-hardening.md` | proposed | Hardening plan for sub-agent path constraints and output-path validation. |
 | `2026-04-15-tool-failure-two-attempt-cap.md` | proposed | Two-attempt cap rule for failing tool investigations to limit rabbit-holing. |
+| `2026-04-29-test-driven-bug-fix-loops.md` | proposed | Safer bug-fix mode: failing test first, bounded distinct strategies, preserved attempt evidence, and no destructive rollback. |
 | `2026-04-15-autonomous-pr-shepherd-headless.md` | idea | Long-horizon autonomous PR shepherd design with strict safety boundaries. |
 
 ### Graduated

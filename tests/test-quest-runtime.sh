@@ -5,6 +5,7 @@
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 STATE_SCRIPT="$REPO_ROOT/scripts/quest_state.py"
 STARTUP_BRANCH_SCRIPT="$REPO_ROOT/scripts/quest_startup_branch.py"
+CONFIG_SCRIPT="$REPO_ROOT/scripts/quest_validate-quest-config.sh"
 CLAUDE_RUNNER="$REPO_ROOT/scripts/quest_claude_runner.py"
 CLAUDE_PROBE="$REPO_ROOT/scripts/quest_claude_probe.py"
 INSTALLER_SCRIPT="$REPO_ROOT/scripts/quest_installer.sh"
@@ -53,6 +54,104 @@ write_allowlist() {
   }
 }
 EOF
+}
+
+write_minimal_config_validation_files() {
+  local dir="$1"
+  mkdir -p "$dir/.ai/schemas" "$dir/.ai/roles" "$dir/.skills/quest/agents"
+  printf '.quest/\n.worktrees/\n' > "$dir/.gitignore"
+  printf '{}\n' > "$dir/.ai/schemas/allowlist.schema.json"
+  cat > "$dir/.skills/quest/agents/builder.md" <<'EOF'
+## Role
+Builder
+## Tool
+Codex
+## Context Required
+Plan
+## Output Contract
+Handoff
+## Responsibilities
+Build
+## Allowed Actions
+Edit
+EOF
+  cat > "$dir/.ai/roles/quest_agent.md" <<'EOF'
+## Role
+Quest Agent
+## Tool
+Claude
+## Context Required
+Prompt
+## Output Contract
+Route
+EOF
+}
+
+test_quest_validate_config_rejects_invalid_quest_id_format_without_jq_or_ajv() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  write_minimal_config_validation_files "$tmpdir"
+  cat > "$tmpdir/.ai/allowlist.json" <<'EOF'
+{
+  "quest_id_format": "date_slug"
+}
+EOF
+
+  local fake_bin cmd
+  fake_bin="$tmpdir/bin"
+  mkdir -p "$fake_bin"
+  for cmd in basename find git grep head python3 sort tail; do
+    ln -s "$(command -v "$cmd")" "$fake_bin/$cmd" || return 1
+  done
+
+  local output rc
+  output=$(cd "$tmpdir" && PATH="$fake_bin" /bin/bash "$CONFIG_SCRIPT" 2>&1)
+  rc=$?
+  rm -rf "$tmpdir"
+
+  [ "$rc" -ne 0 ] &&
+    printf '%s' "$output" | grep -q "quest_id_format" &&
+    printf '%s' "$output" | grep -q "slug-first" &&
+    printf '%s' "$output" | grep -q "date-first"
+}
+
+test_quest_validate_config_rejects_empty_quest_id_format_with_jq() {
+  command -v jq >/dev/null 2>&1 || return 0
+
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  init_git_repo "$tmpdir" || return 1
+  write_minimal_config_validation_files "$tmpdir"
+  cat > "$tmpdir/.ai/allowlist.json" <<'EOF'
+{
+  "quest_id_format": ""
+}
+EOF
+
+  local fake_bin cmd
+  fake_bin="$tmpdir/bin"
+  mkdir -p "$fake_bin"
+  for cmd in basename find git grep head jq sort tail; do
+    ln -s "$(command -v "$cmd")" "$fake_bin/$cmd" || return 1
+  done
+
+  local output rc
+  output=$(cd "$tmpdir" && PATH="$fake_bin" /bin/bash "$CONFIG_SCRIPT" 2>&1)
+  rc=$?
+  rm -rf "$tmpdir"
+
+  [ "$rc" -ne 0 ] &&
+    printf '%s' "$output" | grep -q "quest_id_format" &&
+    printf '%s' "$output" | grep -q "slug-first" &&
+    printf '%s' "$output" | grep -q "date-first"
+}
+
+test_quest_docs_resume_pattern_accepts_slug_first_and_date_first() {
+  grep -q '<slug>_YYYY-MM-DD__HHMM' "$REPO_ROOT/.skills/quest/SKILL.md" &&
+    grep -q 'YYYY-MM-DD_HHMM__<slug>' "$REPO_ROOT/.skills/quest/SKILL.md" &&
+    grep -q '<slug>_YYYY-MM-DD__HHMM' "$WORKFLOW_FILE" &&
+    grep -q 'YYYY-MM-DD_HHMM__<slug>' "$WORKFLOW_FILE"
 }
 
 load_installer_functions() {
@@ -830,7 +929,7 @@ test_installer_skips_unsafe_removed_managed_file_path() {
   return $rc
 }
 
-test_installer_prunes_untracked_legacy_installed_source_only_test_matching_upstream() {
+test_installer_prunes_untracked_legacy_installed_test_matching_upstream() {
   local tmpdir
   tmpdir=$(mktemp -d)
 
@@ -863,7 +962,7 @@ test_installer_prunes_untracked_legacy_installed_source_only_test_matching_upstr
     log_action() { :; }
     clear_progress() { :; }
 
-    cleanup_legacy_source_only_tests
+    cleanup_legacy_installed_tests
 
     [ ! -e tests/unit/test_allowlist_matcher.py ]
   )
@@ -872,7 +971,7 @@ test_installer_prunes_untracked_legacy_installed_source_only_test_matching_upstr
   return $rc
 }
 
-test_installer_preserves_modified_untracked_legacy_installed_source_only_test() {
+test_installer_preserves_modified_untracked_legacy_installed_test() {
   local tmpdir
   tmpdir=$(mktemp -d)
 
@@ -905,7 +1004,7 @@ test_installer_preserves_modified_untracked_legacy_installed_source_only_test() 
     log_action() { :; }
     clear_progress() { :; }
 
-    cleanup_legacy_source_only_tests
+    cleanup_legacy_installed_tests
 
     [ -e tests/unit/test_allowlist_matcher.py ]
   )
@@ -939,7 +1038,7 @@ test_installer_preserves_unowned_source_only_test_path() {
     log_action() { :; }
     clear_progress() { :; }
 
-    cleanup_legacy_source_only_tests
+    cleanup_legacy_installed_tests
 
     [ -e tests/unit/test_quest_complete.py ]
   )
@@ -956,18 +1055,8 @@ test_manifest_lists_prefixed_scripts() {
     grep -q '^scripts/quest_validate-quest-state.sh$' "$MANIFEST_FILE"
 }
 
-test_manifest_lists_installed_quest_smoke_tests() {
-  grep -q '^tests/integration/test-enforce-allowlist.sh$' "$MANIFEST_FILE" &&
-    grep -q '^tests/test-quest-preflight.sh$' "$MANIFEST_FILE" &&
-    grep -q '^tests/test-quest-runtime.sh$' "$MANIFEST_FILE" &&
-    grep -q '^tests/test-validate-handoff-contracts.sh$' "$MANIFEST_FILE" &&
-    grep -q '^tests/test-validate-quest-state.sh$' "$MANIFEST_FILE"
-}
-
-test_manifest_excludes_source_only_unit_tests() {
-  ! grep -q '^tests/unit/test_allowlist_matcher.py$' "$MANIFEST_FILE" &&
-    ! grep -q '^tests/unit/test_review_intelligence.py$' "$MANIFEST_FILE" &&
-    ! grep -q '^tests/unit/test_codex_skill_wrappers.py$' "$MANIFEST_FILE"
+test_manifest_excludes_repo_tests() {
+  ! grep -q '^tests/' "$MANIFEST_FILE"
 }
 
 test_manifest_validator_allows_custom_skills_in_installed_mode() {
@@ -1038,6 +1127,31 @@ EOF
     fi
     grep -q 'Unknown option: --bogus' output.txt &&
       grep -q 'Usage: scripts/quest_validate-manifest.sh' output.txt
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_manifest_validator_rejects_test_paths() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  (
+    cd "$tmpdir" || exit 1
+    mkdir -p scripts tests/integration
+    cp "$REPO_ROOT/scripts/quest_validate-manifest.sh" scripts/quest_validate-manifest.sh
+    touch tests/integration/test-enforce-allowlist.sh
+    cat > .quest-manifest <<'EOF'
+[copy-as-is]
+scripts/quest_validate-manifest.sh
+tests/integration/test-enforce-allowlist.sh
+EOF
+
+    if bash scripts/quest_validate-manifest.sh > output.txt 2>&1; then
+      exit 1
+    fi
+    grep -q "Repo tests do not belong in .quest-manifest or the Quest installer" output.txt &&
+      grep -q "tests/integration/test-enforce-allowlist.sh" output.txt
   )
   local rc=$?
   rm -rf "$tmpdir"
@@ -1616,6 +1730,9 @@ run_test test_quest_state_updates_phase_and_timestamp
 run_test test_quest_state_transition_valid
 run_test test_quest_state_transition_invalid_leaves_state_unchanged
 run_test test_quest_state_transition_rejects_plan_reviewed_to_building
+run_test test_quest_validate_config_rejects_invalid_quest_id_format_without_jq_or_ajv
+run_test test_quest_validate_config_rejects_empty_quest_id_format_with_jq
+run_test test_quest_docs_resume_pattern_accepts_slug_first_and_date_first
 run_test test_quest_startup_branch_defaults_to_branch_checkout
 run_test test_quest_startup_branch_skips_when_already_on_feature_branch
 run_test test_quest_startup_branch_blocks_dirty_default_branch_checkout
@@ -1638,15 +1755,15 @@ run_test test_installer_prunes_pristine_removed_managed_files
 run_test test_installer_preserves_modified_removed_managed_files_for_manual_cleanup
 run_test test_load_local_checksums_skips_unsafe_paths
 run_test test_installer_skips_unsafe_removed_managed_file_path
-run_test test_installer_prunes_untracked_legacy_installed_source_only_test_matching_upstream
-run_test test_installer_preserves_modified_untracked_legacy_installed_source_only_test
+run_test test_installer_prunes_untracked_legacy_installed_test_matching_upstream
+run_test test_installer_preserves_modified_untracked_legacy_installed_test
 run_test test_installer_preserves_unowned_source_only_test_path
 run_test test_manifest_lists_prefixed_scripts
-run_test test_manifest_lists_installed_quest_smoke_tests
-run_test test_manifest_excludes_source_only_unit_tests
+run_test test_manifest_excludes_repo_tests
 run_test test_manifest_validator_allows_custom_skills_in_installed_mode
 run_test test_manifest_validator_strict_mode_catches_unmanifested_skills
 run_test test_manifest_validator_rejects_unknown_option
+run_test test_manifest_validator_rejects_test_paths
 run_test test_validation_hook_script_accepts_legacy_symlink_target
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
 run_test test_quest_claude_probe_requires_real_artifacts

@@ -24,8 +24,11 @@ for ((i=1; i<=$#; i++)); do
             quest_path="${!next}"
             # Extract last directory component and parse quest name
             quest_dir=$(basename "$quest_path")
-            # Format: quest-name_YYYY-MM-DD__HHMM
-            QUEST_NAME=$(echo "$quest_dir" | sed 's/_.*//' | tr '-' ' ')
+            if [[ "$quest_dir" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}__(.+)$ ]]; then
+                QUEST_NAME="${BASH_REMATCH[1]//-/ }"
+            else
+                QUEST_NAME=$(echo "$quest_dir" | sed 's/_.*//' | tr '-' ' ')
+            fi
         fi
         break
     fi

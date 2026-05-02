@@ -34,6 +34,7 @@
 .claude/skills/gpt/SKILL.md
 .claude/skills/quest/SKILL.md
 .claude/skills/pre-commit-review/SKILL.md
+.claude/skills/sharpen/SKILL.md
 .claude/AGENTS.md
 .codex/AGENTS.md
 .opencode/agents/arbiter.md
@@ -53,6 +54,7 @@
 .agents/skills/pr-shepherd/SKILL.md
 .agents/skills/quest/SKILL.md
 .agents/skills/pre-commit-review/SKILL.md
+.agents/skills/sharpen/SKILL.md
 .skills/BOOTSTRAP.md
 .skills/README.md
 .skills/SKILLS.md
@@ -67,6 +69,7 @@
 .skills/plan-reviewer/SKILL.md
 .skills/review-anti-patterns.md
 .skills/celebrate/SKILL.md
+.skills/sharpen/SKILL.md
 .skills/gpt/SKILL.md
 .skills/quest/SKILL.md
 .skills/quest/delegation/questioner.md
@@ -90,6 +93,7 @@ scripts/quest_runtime/__init__.py
 scripts/quest_runtime/artifacts.py
 scripts/quest_runtime/claude_runner.py
 scripts/quest_runtime/pr_review_cycle.py
+scripts/quest_runtime/quest_ids.py
 scripts/quest_runtime/review_intelligence.py
 scripts/quest_runtime/state.py
 scripts/quest_celebrate/__init__.py
@@ -105,11 +109,6 @@ scripts/quest_backfill_journal.py
 scripts/quest_complete.py
 scripts/quest_preflight.sh
 scripts/quest_state.py
-tests/integration/test-enforce-allowlist.sh
-tests/test-quest-preflight.sh
-tests/test-quest-runtime.sh
-tests/test-validate-handoff-contracts.sh
-tests/test-validate-quest-state.sh
 
 [user-customized]
 # These files preserve local customizations; AGENTS.md updates in place only when

@@ -20,7 +20,7 @@ Play a rich, visually stunning celebration for a completed quest.
 
 If the user provides an argument:
 1. If it's a full path (starts with `/` or `.`), use it directly
-2. If it looks like a quest ID (e.g., `name-resolution_2026-03-04__1954`), look in:
+2. If it looks like a quest ID (e.g., `name-resolution_2026-03-04__1954` or `2026-03-04_1954__name-resolution`), look in:
    - `.quest/<id>/` (active quest)
    - `.quest/archive/<id>/` (archived quest)
    - `docs/quest-journal/` for a matching filename (journaled quest)

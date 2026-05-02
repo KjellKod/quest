@@ -37,26 +37,27 @@ def _validator_patterns() -> list[str]:
     return patterns
 
 
-def test_manifest_installs_shell_smoke_tests_not_source_unit_tests() -> None:
+def test_manifest_does_not_install_repo_tests() -> None:
     entries = set(_manifest_entries())
 
-    expected_installed_tests = {
+    excluded_tests = {
         "tests/integration/test-enforce-allowlist.sh",
         "tests/test-quest-preflight.sh",
         "tests/test-quest-runtime.sh",
         "tests/test-validate-handoff-contracts.sh",
         "tests/test-validate-quest-state.sh",
-    }
-    assert expected_installed_tests <= entries
-
-    excluded_source_tests = {
         "tests/unit/test_allowlist_matcher.py",
         "tests/unit/test_review_intelligence.py",
         "tests/unit/test_codex_skill_wrappers.py",
         "tests/unit/test_quest_checks_cli.py",
         "tests/unit/test_quest_manifest.py",
     }
-    assert excluded_source_tests.isdisjoint(entries)
+    leaked_tests = sorted(entry for entry in entries if entry.startswith("tests/"))
+    assert leaked_tests == [], (
+        "Repo tests do not belong in .quest-manifest or the Quest installer: "
+        + ", ".join(leaked_tests)
+    )
+    assert excluded_tests.isdisjoint(entries)
 
 
 def test_manifest_validator_patterns_cover_installed_quest_surface() -> None:
@@ -68,11 +69,7 @@ def test_manifest_validator_patterns_cover_installed_quest_surface() -> None:
         "scripts/quest_state.py",
         "scripts/quest_celebrate/celebrate.py",
         "scripts/quest_celebrate/quest-celebrate.sh",
-        "tests/integration/test-enforce-allowlist.sh",
-        "tests/test-quest-preflight.sh",
-        "tests/test-quest-runtime.sh",
-        "tests/test-validate-handoff-contracts.sh",
-        "tests/test-validate-quest-state.sh",
+        "scripts/quest_runtime/quest_ids.py",
     }
 
     uncovered = sorted(
@@ -82,3 +79,13 @@ def test_manifest_validator_patterns_cover_installed_quest_surface() -> None:
     )
 
     assert uncovered == []
+
+
+def test_manifest_validator_does_not_scan_repo_tests() -> None:
+    patterns = _validator_patterns()
+
+    leaked_patterns = sorted(pattern for pattern in patterns if pattern.startswith("tests/"))
+    assert leaked_patterns == [], (
+        "The manifest validator must not require repo tests to be installed: "
+        + ", ".join(leaked_patterns)
+    )

@@ -40,6 +40,7 @@ This repository uses **layered documentation** for AI agent context management.
 - **Building a feature?** → Use `.skills/implementer/` skill
 - **Reviewing an implementation plan?** → Use `.skills/plan-reviewer/` skill
 - **Reviewing code?** → Use `.skills/code-reviewer/` skill
+- **Pressure-test a plan or design?** → Use `/sharpen` command or `.skills/sharpen/` skill
 - **Commit message?** → Use `.skills/git-commit-assistant/` skill
 - **IMPORTANT: For ALL git commits, you MUST invoke the `git-commit-assistant` skill. Do NOT use built-in commit procedures or default Co-Authored-By trailers.**
 - **Create or update a PR?** → Use `.skills/pr-assistant/` skill
@@ -55,6 +56,7 @@ This repository uses **skills** for specialized workflows. Skills are automatica
 - **celebrate:** Play quest completion celebration animation with achievements, metrics, and credits
 - **plan-reviewer:** Review implementation plans and PR specifications for test coverage
 - **code-reviewer:** Review actual code for quality, security, and patterns
+- **sharpen:** Adversarial Q&A against a plan or design — one question at a time with a recommended answer — to surface contradictions and unresolved tradeoffs
 - **implementer:** Step-by-step implementation with traceability
 - **git-commit-assistant:** Generate commit messages from staged diff, match repo conventions, append Quest co-author trailer
 - **pr-assistant:** Create and update GitHub PRs in draft mode, generate title/description from branch commits

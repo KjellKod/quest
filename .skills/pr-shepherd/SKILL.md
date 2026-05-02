@@ -21,6 +21,26 @@ Use **inline-first** commenting by default.
 2. Push the branch to origin.
 3. Create a **draft** PR via `gh pr create --draft`.
 
+### Step 1.5: Commit/Push Context Guard
+Before every commit or push performed by this skill, verify that the local
+workspace still matches the PR branch:
+
+1. Run `git status --short --branch`.
+2. Run `git branch --show-current`.
+3. If a PR already exists, run `gh pr view <PR_NUMBER> --json headRefName --jq .headRefName`.
+4. If a PR already exists, confirm the current branch exactly matches the PR
+   `headRefName`; otherwise, before PR creation, confirm the current branch is
+   the intended branch for this PR.
+5. If shepherding from a known worktree, verify the current directory/repo root
+   is that worktree before committing.
+6. If branch or workspace verification fails, stop and ask the user to confirm
+   the intended workspace before editing, committing, or pushing.
+
+This guard is mandatory before:
+- the initial commit/push in Step 1,
+- any CI-fix commit/push in Step 3,
+- any review-comment fix commit/push in Step 4 or Step 4.4.
+
 ### Step 2: Wait for CI
 Use a hard polling budget for CI waits:
 - `interval_seconds = 30`
@@ -34,7 +54,7 @@ Loop:
 
 ### Step 3: Evaluate CI Results
 - **All checks pass** → proceed to Step 4.
-- **Failures** → read the failing job logs (`gh run view <RUN_ID> --log-failed`), diagnose the root cause, fix it, commit, push, and loop back to Step 2.
+- **Failures** → read the failing job logs (`gh run view <RUN_ID> --log-failed`), diagnose the root cause, write a one-sentence diagnosis note naming the failing check, root cause, and intended fix, run the Step 1.5 context guard, fix it, commit, push, and loop back to Step 2.
 
 ### Step 4: Check PR Comments
 1. Fetch **inline** review comments: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
@@ -71,6 +91,7 @@ Run the review loop through the canonical review-intelligence pipeline. **Order 
 6. Execute one batch at a time:
    - Apply only that batch's `fix_now` / `verify_first` items.
    - Run validation steps in order (Level 0 → Level 1 → Level 2 when present).
+   - Before committing or pushing the batch, run the Step 1.5 context guard.
    - Push once after that batch validates.
 7. Classify loop stop after each cycle:
    - `python3 scripts/quest_review_intelligence.py classify-pr-stop --ci-state <green|failing|pending|unknown> --actionable <count> --iteration <n> --backlog <review_backlog.json>`

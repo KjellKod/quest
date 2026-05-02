@@ -33,6 +33,7 @@
     "branch_prefix": "quest/",
     "worktree_root": ".worktrees/quest"
   },
+  "quest_id_format": "slug-first",
   "review_mode": "full",
   "fast_review_thresholds": {
     "max_files": 5,

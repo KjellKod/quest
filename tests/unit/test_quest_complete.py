@@ -210,6 +210,68 @@ def test_generate_journal_entry_includes_empty_carryover_status_when_absent():
     assert "## Inherited Findings Used" not in entry
 
 
+def test_generate_journal_entry_includes_slug_metadata():
+    data = QuestData(
+        quest_id="2026-04-29_1430__portable-pre-commit-review",
+        slug="portable-pre-commit-review",
+        name="Portable Pre Commit Review",
+    )
+
+    entry = build_journal_entry(
+        data,
+        date(2026, 4, 29),
+        Path("docs/quest-journal/portable-pre-commit-review_2026-04-29.md"),
+    )
+
+    assert "- Slug: portable-pre-commit-review" in entry
+
+
+def test_complete_date_first_quest_uses_parsed_slug(tmp_path, monkeypatch, capsys):
+    repo_root = tmp_path
+    journal_dir = repo_root / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    (journal_dir / "README.md").write_text(
+        "| Date | Quest | Outcome |\n|------|-------|---------|\n",
+        encoding="utf-8",
+    )
+    quest_dir = repo_root / ".quest" / "2026-04-29_1430__portable-pre-commit-review"
+    quest_dir.mkdir(parents=True)
+    (quest_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "quest_id": "2026-04-29_1430__portable-pre-commit-review",
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Portable Pre Commit Review\n\n## User Input\n\nDone.",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "quest_complete.py",
+            "--quest-dir",
+            str(quest_dir),
+            "--skip-archive",
+            "--date",
+            "2026-04-29",
+        ],
+    )
+
+    assert quest_complete.main() == 0
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out.strip().splitlines()[-1])
+    journal = journal_dir / "portable-pre-commit-review_2026-04-29.md"
+    assert payload["slug"] == "portable-pre-commit-review"
+    assert journal.exists()
+    assert "- Slug: portable-pre-commit-review" in journal.read_text(encoding="utf-8")
+
+
 def test_main_reports_invalid_date(
     tmp_path: Path,
     monkeypatch,

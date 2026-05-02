@@ -30,6 +30,7 @@ from quest_celebrate.quest_data import (
     friendly_model_name,
     load_quest_data,
 )
+from quest_runtime.quest_ids import parse_quest_id
 
 
 def _today() -> date:
@@ -176,6 +177,8 @@ def build_journal_entry(
 
     # Metadata
     lines.append(f"- Quest ID: `{data.quest_id}`")
+    if data.slug:
+        lines.append(f"- Slug: {data.slug}")
     lines.append(f"- Completed: {completion_date.isoformat()}")
     if data.quest_mode:
         lines.append(f"- Mode: {data.quest_mode}")
@@ -286,6 +289,13 @@ def _archive_quest(quest_dir: Path) -> Path:
     return dest
 
 
+def _slug_from_quest_dir(quest_dir: Path) -> str:
+    parsed = parse_quest_id(quest_dir.name)
+    if parsed is not None:
+        return parsed.slug
+    return quest_dir.name.split("_")[0]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Complete a quest: journal + archive")
     parser.add_argument("--quest-dir", required=True, help="Path to quest directory")
@@ -322,7 +332,8 @@ def main() -> int:
         return 1
 
     # Determine slug and outcome
-    slug = data.slug or state.get("slug", quest_dir.name.split("_")[0])
+    slug = data.slug or state.get("slug", _slug_from_quest_dir(quest_dir))
+    data.slug = slug
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", slug):
         print(f"Error: invalid slug '{slug}'. Must match [a-z0-9][a-z0-9-]*", file=sys.stderr)
         return 1

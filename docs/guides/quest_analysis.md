@@ -54,6 +54,7 @@ Quest isn't a black box you kick off and hope for the best:
 ```bash
 # Resume a quest from where you left off
 /quest feature-x_2026-02-04__1430
+/quest 2026-02-04_1430__feature-x
 
 # Resume and give new direction
 /quest feature-x_2026-02-04__1430 "skip codex, only use claude for reviews"
