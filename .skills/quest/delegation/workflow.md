@@ -586,10 +586,10 @@ After plan approval, present the plan interactively before proceeding to build.
      • ...
 
    Full plan: .quest/<id>/phase_01_plan/plan.md
-   Arbiter verdict: <NEXT line from arbiter handoff>
+   Verdict: <workflow mode: NEXT line from arbiter handoff; solo mode: Reviewer A next after solo remapping>
    ═══════════════════════════════════════════
    ```
-   Target ~150–300 words across the five sections combined. Always print the header bar, the artifact path footer, and the arbiter NEXT line. Always print the closing bar last.
+   Target ~150–300 words across the five sections combined. Always print the header bar and the artifact path footer. In workflow mode, print the arbiter NEXT line. In solo mode, print Reviewer A's next value after solo remapping. Always print the closing bar last.
 
 **2. Offer the Plan Presentation Menu:**
    After the executive summary, ask exactly:

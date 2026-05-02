@@ -23,7 +23,7 @@ You → Planner → Reviewers → Arbiter ──→ Builder → Reviewers → Ar
                           GATE: you approve                        GATE: you approve
 ```
 
-**Where you spend your time:** The beginning and the end. You shape the plan, approve it, then validate the built result. Most follow-up quests and v2 ideas come from this post-build validation, not from planning, because you don't fully understand a feature until you see it built. Quest handles the middle.
+**Where you spend your time:** The beginning and the end. You shape the plan, approve it, then validate the built result. Before build starts, Quest now presents a concise plan summary and can work with you to sharpen it diligently: challenging assumptions, walking tradeoffs, and locking down what will actually be built. That improves the plan and, as a useful side effect, gives the orchestrator a sharper understanding of the implementation before it hands work to the builder. Quest handles the middle.
 
 For lighter tasks, **solo mode** uses a single reviewer, same pipeline, fewer stages, faster turnaround.
 
@@ -58,7 +58,7 @@ $quest "Add a loading skeleton to the user list"
 
 
 
-That's it. Quest evaluates complexity, asks clarifying questions if needed, and routes to solo or full workflow. You approve at each gate.
+That's it. Quest evaluates complexity, asks clarifying questions if needed, and routes to solo or full workflow. Before implementation, you get a plan summary menu: walk through the phases, sharpen the plan with adversarial Q&A, or proceed to build. You approve at each gate.
 
 **Recommended:** Add [Codex CLI](https://developers.openai.com/codex/cli/) for dual-model reviews. See the [Setup Guide](docs/guides/quest_setup.md) for full instructions including Codex as orchestrator (BETA). To use Quest as a global Codex skill outside a specific repo, see [Installing Quest for Codex](docs/guides/codex-quest-install.md).
 

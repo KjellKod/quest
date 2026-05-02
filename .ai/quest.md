@@ -61,6 +61,8 @@ The Arbiter is the gatekeeper. It enforces KISS, YAGNI, SRP. It prevents nitpick
 
 Max iterations controlled by `gates.max_plan_iterations` in allowlist.
 
+After plan approval, Quest presents a concise executive summary before build starts. You can ask for a phase-by-phase walkthrough, proceed directly, or sharpen the plan. Sharpening is an adversarial Q&A pass: Quest challenges assumptions and tradeoffs one question at a time, records what is settled, and either proceeds or sends concrete revisions back into planning. This improves the plan and also gives the orchestrator a more exact understanding of what will be built before implementation begins.
+
 ## Full Flow
 
 ```
