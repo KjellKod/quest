@@ -1,0 +1,27 @@
+.ai/quest.md
+  53d6eef820e3fc45 64-65
+.skills/quest/delegation/workflow.md
+  53d6eef820e3fc45 589,592
+README.md
+  53d6eef820e3fc45 26,61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "1c0a2186ba8e4bea2217bf39258e07850d77535e",
+  "prompts": {
+    "53d6eef820e3fc45": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de0ed-c75d-78e3-92c8-840b57d6b383",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 4,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  }
+}
