@@ -216,6 +216,19 @@ log_action() {
   fi
 }
 
+next_available_update_branch_name() {
+  local base_name="$1"
+  local candidate="$base_name"
+  local suffix=2
+
+  while git show-ref --verify --quiet "refs/heads/$candidate"; do
+    candidate="${base_name}-${suffix}"
+    suffix=$((suffix + 1))
+  done
+
+  printf '%s\n' "$candidate"
+}
+
 # Show a markdown file with best available local renderer.
 show_markdown_file() {
   local filepath="$1"
@@ -1870,7 +1883,8 @@ run_install() {
 
     if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
       if prompt_yn "Create a new branch for Quest changes?" "y"; then
-        local branch_name="quest-update-$(date +%Y%m%d)"
+        local branch_name
+        branch_name=$(next_available_update_branch_name "quest-update-$(date +%Y%m%d)")
         git checkout -b "$branch_name"
         log_success "Created branch: $branch_name"
       fi
