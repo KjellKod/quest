@@ -1,0 +1,29 @@
+tests/unit/test_quest_celebrate.py
+  4db79a83349569e9 26,395-426,1369-1391
+scripts/quest_celebrate/persist.py
+  4db79a83349569e9 10,91,222-224
+scripts/quest_celebrate/ascii_art.py
+  4db79a83349569e9 3,11-51,327-387
+.skills/celebrate/SKILL.md
+  4db79a83349569e9 114-116,120-123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "24f222519d516d3189ce9074cf9fa79d5dfb1d3d",
+  "prompts": {
+    "4db79a83349569e9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de732-b70e-7c61-ac3a-8001b401ecd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod",
+      "messages": [],
+      "total_additions": 462,
+      "total_deletions": 30,
+      "accepted_lines": 495,
+      "overriden_lines": 2
+    }
+  }
+}
