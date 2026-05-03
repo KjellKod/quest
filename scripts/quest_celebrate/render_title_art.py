@@ -4,8 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
 
-from quest_celebrate.ascii_art import ansi_shadow_title
+try:
+    from quest_celebrate.ascii_art import ansi_shadow_title
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from quest_celebrate.ascii_art import ansi_shadow_title
 
 
 def main() -> int:

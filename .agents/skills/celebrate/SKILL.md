@@ -1,6 +1,6 @@
 ---
 name: celebrate
-description: Play a quest completion celebration animation. Use when the user invokes /celebrate, asks to celebrate a quest, or when a quest reaches the complete/archived state.
+description: Play a quest completion celebration animation. Use when the user invokes $celebrate, asks to celebrate a quest, or when a quest reaches the complete/archived state.
 ---
 
 # Skill: Celebrate
@@ -11,7 +11,7 @@ Play a rich, visually stunning celebration for a completed quest.
 
 ## When to Use
 
-- User types `/celebrate` or `/celebrate <quest-id>`
+- User types `$celebrate` or `$celebrate <quest-id>`
 - User asks to "celebrate", "play celebration", or "show the celebration" for a quest
 - Quest workflow reaches Step 7 (complete) and user chooses to celebrate
 - User points to a quest archive path or journal entry and asks to celebrate it
@@ -21,7 +21,7 @@ Play a rich, visually stunning celebration for a completed quest.
 ### Step 1: Resolve the Quest Source
 
 If the user provides an argument:
-1. If it's a full path (starts with `/` or `.`), use it directly
+1. If it looks like a path (absolute or relative), resolve it and use it only if it stays under `.quest/`, `.quest/archive/`, or `docs/quest-journal/`; otherwise reject it
 2. If it looks like a quest ID (e.g., `name-resolution_2026-03-04__1954` or `2026-03-04_1954__name-resolution`), look in:
    - `.quest/<id>/` (active quest)
    - `.quest/archive/<id>/` (archived quest)
