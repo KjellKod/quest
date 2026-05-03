@@ -239,7 +239,7 @@ def _extract_celebration_path(
 ) -> Path | None:
     """Extract and validate a repo-relative celebration path for a journal."""
     journal_dir = journal_path.parent
-    allowed_root = (repo_root / "docs" / "quest-journal").resolve()
+    allowed_root = (repo_root / "docs" / "quest-journal" / "celebrations").resolve()
 
     target = _celebration_link_target(content)
     if target:
@@ -249,7 +249,7 @@ def _extract_celebration_path(
         resolved = (journal_dir / candidate).resolve()
         try:
             resolved.relative_to(allowed_root)
-            if not resolved.exists():
+            if resolved.suffix != ".md" or not resolved.is_file():
                 return None
             return resolved.relative_to(repo_root.resolve())
         except ValueError:
@@ -260,6 +260,8 @@ def _extract_celebration_path(
         resolved = fallback.resolve()
         try:
             resolved.relative_to(allowed_root)
+            if resolved.suffix != ".md" or not resolved.is_file():
+                return None
             return resolved.relative_to(repo_root.resolve())
         except ValueError:
             return None

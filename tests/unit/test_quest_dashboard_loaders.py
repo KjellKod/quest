@@ -276,6 +276,28 @@ def test_journal_entry_rejects_missing_celebration_link(tmp_path):
     assert entry.celebration_path is None
 
 
+def test_journal_entry_rejects_non_celebration_journal_link(tmp_path):
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    (journal_dir / "README.md").write_text("index", encoding="utf-8")
+    journal_path = journal_dir / "wrong_2026-05-03.md"
+    journal_path.write_text(
+        "\n".join(
+            [
+                "# Quest Journal: Wrong",
+                "",
+                "- Quest ID: `wrong_2026-05-03__1200`",
+                "- Celebration: [wrong](README.md)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.celebration_path is None
+
+
 def test_legacy_journal_without_celebration_has_no_link(tmp_path):
     journal_dir = tmp_path / "docs" / "quest-journal"
     journal_dir.mkdir(parents=True)
