@@ -406,24 +406,25 @@ def main() -> int:
         journal_dir.mkdir(parents=True, exist_ok=True)
         journal_file = journal_dir / f"{slug}_{completion_date.isoformat()}.md"
         journal_rel_path = journal_file.relative_to(repo_root)
-        celebration_result = write_celebration_file(
-            journal_dir,
-            data,
-            completion_date,
-            journal_rel_path,
-        )
-        celebration_rel_path = _celebration_link_for_result(celebration_result, data)
-        if celebration_rel_path is not None:
-            celebration_path = str(celebration_result.path)
-        elif celebration_result.path.exists() and not celebration_result.created:
-            print(
-                "Celebration link omitted: existing artifact does not match current quest-id"
-            )
-        print(celebration_result.message)
 
         if journal_file.exists():
             print(f"Journal entry already exists: {journal_file}")
         else:
+            celebration_result = write_celebration_file(
+                journal_dir,
+                data,
+                completion_date,
+                journal_rel_path,
+            )
+            celebration_rel_path = _celebration_link_for_result(celebration_result, data)
+            if celebration_rel_path is not None:
+                celebration_path = str(celebration_result.path)
+            elif celebration_result.path.exists() and not celebration_result.created:
+                print(
+                    "Celebration link omitted: existing artifact does not match current quest-id"
+                )
+            print(celebration_result.message)
+
             entry = build_journal_entry(
                 data,
                 completion_date,
