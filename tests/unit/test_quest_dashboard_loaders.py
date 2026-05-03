@@ -217,7 +217,10 @@ def test_journal_entry_extracts_celebration_link_and_preserves_outcome(tmp_path)
     journal_dir = tmp_path / "docs" / "quest-journal"
     celebration_dir = journal_dir / "celebrations"
     celebration_dir.mkdir(parents=True)
-    (celebration_dir / "test_2026-05-03.md").write_text("celebrate", encoding="utf-8")
+    (celebration_dir / "test_2026-05-03.md").write_text(
+        "<!-- quest-id: test_2026-05-03__1200 -->\n\ncelebrate",
+        encoding="utf-8",
+    )
     journal_content = """# Quest Journal: Test Quest
 
 - Quest ID: `test_2026-05-03__1200`
@@ -241,7 +244,10 @@ def test_journal_entry_detects_matching_celebration_file(tmp_path):
     journal_dir = tmp_path / "docs" / "quest-journal"
     celebration_dir = journal_dir / "celebrations"
     celebration_dir.mkdir(parents=True)
-    (celebration_dir / "test_2026-05-03.md").write_text("celebrate", encoding="utf-8")
+    (celebration_dir / "test_2026-05-03.md").write_text(
+        "<!-- quest-id: test_2026-05-03__1200 -->\n\ncelebrate",
+        encoding="utf-8",
+    )
     journal_path = journal_dir / "test_2026-05-03.md"
     journal_path.write_text(
         "# Quest Journal: Test\n\n- Quest ID: `test_2026-05-03__1200`\n",
@@ -253,6 +259,25 @@ def test_journal_entry_detects_matching_celebration_file(tmp_path):
     assert entry.celebration_path == Path(
         "docs/quest-journal/celebrations/test_2026-05-03.md"
     )
+
+
+def test_journal_entry_rejects_matching_celebration_file_for_different_quest(tmp_path):
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    celebration_dir = journal_dir / "celebrations"
+    celebration_dir.mkdir(parents=True)
+    (celebration_dir / "test_2026-05-03.md").write_text(
+        "<!-- quest-id: different_2026-05-03__0900 -->\n\ncelebrate",
+        encoding="utf-8",
+    )
+    journal_path = journal_dir / "test_2026-05-03.md"
+    journal_path.write_text(
+        "# Quest Journal: Test\n\n- Quest ID: `test_2026-05-03__1200`\n",
+        encoding="utf-8",
+    )
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.celebration_path is None
 
 
 def test_journal_entry_rejects_missing_celebration_link(tmp_path):

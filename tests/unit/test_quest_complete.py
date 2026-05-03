@@ -366,6 +366,13 @@ def test_complete_omits_celebration_link_when_existing_file_is_different_quest(
     assert "- Celebration:" not in journal.read_text(encoding="utf-8")
 
 
+def test_celebration_file_match_handles_invalid_utf8(tmp_path):
+    celebration = tmp_path / "bad.md"
+    celebration.write_bytes(b"\xff\xfe\x00")
+
+    assert quest_complete._celebration_file_matches_quest(celebration, "quest") is False
+
+
 def test_main_reports_invalid_date(
     tmp_path: Path,
     monkeypatch,

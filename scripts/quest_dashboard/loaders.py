@@ -210,7 +210,7 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
 
     # Compute relative journal path
     journal_rel_path = journal_path.relative_to(repo_root)
-    celebration_path = _extract_celebration_path(content, journal_path, repo_root)
+    celebration_path = _extract_celebration_path(content, journal_path, repo_root, quest_id)
 
     return JournalEntry(
         quest_id=quest_id,
@@ -236,6 +236,7 @@ def _extract_celebration_path(
     content: str,
     journal_path: Path,
     repo_root: Path,
+    quest_id: str,
 ) -> Path | None:
     """Extract and validate a repo-relative celebration path for a journal."""
     journal_dir = journal_path.parent
@@ -251,6 +252,8 @@ def _extract_celebration_path(
             resolved.relative_to(allowed_root)
             if resolved.suffix != ".md" or not resolved.is_file():
                 return None
+            if not _celebration_file_matches_quest(resolved, quest_id):
+                return None
             return resolved.relative_to(repo_root.resolve())
         except ValueError:
             return None
@@ -262,11 +265,24 @@ def _extract_celebration_path(
             resolved.relative_to(allowed_root)
             if resolved.suffix != ".md" or not resolved.is_file():
                 return None
+            if not _celebration_file_matches_quest(resolved, quest_id):
+                return None
             return resolved.relative_to(repo_root.resolve())
         except ValueError:
             return None
 
     return None
+
+
+def _celebration_file_matches_quest(path: Path, quest_id: str) -> bool:
+    if not quest_id:
+        return False
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    match = re.search(r"<!--\s*quest-id:\s*(.*?)\s*-->", text)
+    return bool(match and match.group(1) == quest_id)
 
 
 def _celebration_link_target(content: str) -> str | None:

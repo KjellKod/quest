@@ -92,7 +92,7 @@ def _celebration_file_matches_quest(path: Path, quest_id: str) -> bool:
         return False
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return False
     match = re.search(r"<!--\s*quest-id:\s*(.*?)\s*-->", text)
     return bool(match and match.group(1) == quest_id)
