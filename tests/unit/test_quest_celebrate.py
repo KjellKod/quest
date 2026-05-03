@@ -23,6 +23,7 @@ from quest_celebrate.animations import (
     render_standard,
 )
 from quest_celebrate.ascii_art import (
+    ansi_shadow_title,
     block_letter_title,
     box_banner,
     get_credits_lines,
@@ -390,6 +391,38 @@ class TestPersistedCelebration:
         assert "## Quest Quote" in result
         assert "Built persisted celebrations." in result
         assert "## Victory Narrative" in result
+
+    def test_persisted_title_art_preserves_all_title_words(self, monkeypatch):
+        rendered_words: list[str] = []
+
+        def fake_ansi_shadow_title(
+            text: str,
+            max_width: int = 100,
+        ) -> str:
+            rendered_words.extend(text.upper().split())
+            return f"ART:{text}"
+
+        monkeypatch.setattr(
+            "quest_celebrate.persist.ansi_shadow_title",
+            fake_ansi_shadow_title,
+        )
+        data = QuestData(
+            quest_id="persist-celebrations_2026-05-03__1200",
+            slug="persist-celebrations",
+            name="Persist Celebrations",
+            quality_tier="Gold",
+        )
+
+        result = render_persisted_celebration(
+            data,
+            date(2026, 5, 3),
+            Path("docs/quest-journal/persist-celebrations_2026-05-03.md"),
+        )
+
+        title_art = result.split("```text\n", 1)[1].split("\n```", 1)[0]
+        assert rendered_words == ["PERSIST", "CELEBRATIONS"]
+        assert "ART:Persist Celebrations" == title_art
+        assert "====" not in title_art
 
     def test_persisted_victory_narrative_prefers_full_brief_over_clipped_summary(self):
         data = QuestData(
@@ -1332,6 +1365,29 @@ class TestBlockLetterTitle:
         result = block_letter_title("Hello!", max_width=80)  # '!' not in font
         lines = result.split("\n")
         assert len(lines) == 3  # fallback banner
+
+    def test_ansi_shadow_title_preserves_complete_words(self):
+        result = ansi_shadow_title("Persist Celebrations")
+
+        assert "██████╗" in result
+        assert "╚══════╝" in result
+        assert "PERSIST" not in result
+        assert "CELEBR" not in result
+        assert "====" not in result
+        assert len(result.split("\n\n")) == 2
+
+    def test_ansi_shadow_title_normalizes_punctuation(self):
+        result = ansi_shadow_title("Phase 2!")
+
+        assert "====" not in result
+        assert len(result.split("\n\n")) == 2
+
+    def test_ansi_shadow_title_splits_long_words_without_truncating(self):
+        result = ansi_shadow_title("Celebrations", max_width=70)
+
+        assert len(result.split("\n\n")) == 2
+        assert max(len(line) for line in result.splitlines()) <= 70
+        assert "====" not in result
 
 
 class TestAchievements:

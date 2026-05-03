@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from quest_celebrate.ascii_art import block_letter_title, render_quality_score
+from quest_celebrate.ascii_art import ansi_shadow_title, render_quality_score
 from quest_celebrate.quest_data import QUALITY_TIERS, QuestData, friendly_model_name
 
 
@@ -88,9 +88,7 @@ def render_persisted_celebration(
         "```text",
     ]
 
-    words = slug.replace("-", " ").upper().split() or ["QUEST"]
-    for word in words[:2]:
-        lines.append(block_letter_title(word[:6], safe_mode=False, max_width=70))
+    lines.append(_render_title_art(title))
     lines.extend(["```", "", "---", ""])
 
     what_started = extract_what_started_this(data)
@@ -219,6 +217,11 @@ def _extract_labeled_paragraph(source: str, label: str) -> str:
             break
         extra.append(_clean_markdown_line(stripped))
     return _single_line(" ".join([first, *extra]))
+
+
+def _render_title_art(title: str) -> str:
+    """Render a complete title as readable celebration word blocks."""
+    return ansi_shadow_title(title, max_width=70)
 
 
 def _first_useful_paragraph(source: str) -> str:
