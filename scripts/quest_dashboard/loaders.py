@@ -210,6 +210,7 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
 
     # Compute relative journal path
     journal_rel_path = journal_path.relative_to(repo_root)
+    celebration_path = _extract_celebration_path(content, journal_path, repo_root)
 
     return JournalEntry(
         quest_id=quest_id,
@@ -219,6 +220,7 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
         status=status,
         completed_date=completed_date,
         journal_path=journal_rel_path,
+        celebration_path=celebration_path,
         pr_number=pr_number,
         plan_iterations=plan_iterations,
         fix_iterations=fix_iterations,
@@ -228,6 +230,54 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
         tests_added=tests_added,
         celebration_data=celebration_data,
     )
+
+
+def _extract_celebration_path(
+    content: str,
+    journal_path: Path,
+    repo_root: Path,
+) -> Path | None:
+    """Extract and validate a repo-relative celebration path for a journal."""
+    journal_dir = journal_path.parent
+    allowed_root = (repo_root / "docs" / "quest-journal").resolve()
+
+    target = _celebration_link_target(content)
+    if target:
+        candidate = Path(target)
+        if candidate.is_absolute():
+            return None
+        resolved = (journal_dir / candidate).resolve()
+        try:
+            resolved.relative_to(allowed_root)
+            return resolved.relative_to(repo_root.resolve())
+        except ValueError:
+            return None
+
+    fallback = journal_dir / "celebrations" / f"{journal_path.stem}.md"
+    if fallback.exists():
+        resolved = fallback.resolve()
+        try:
+            resolved.relative_to(allowed_root)
+            return resolved.relative_to(repo_root.resolve())
+        except ValueError:
+            return None
+
+    return None
+
+
+def _celebration_link_target(content: str) -> str | None:
+    """Return a Celebration metadata markdown link target, if present."""
+    for line in content.splitlines():
+        match = re.match(r"^\s*[-*]?\s*Celebration:\s*(.+?)\s*$", line, re.IGNORECASE)
+        if not match:
+            continue
+        value = match.group(1).strip()
+        link = re.search(r"\[[^\]]+\]\(([^)]+)\)", value)
+        if link:
+            return link.group(1).strip()
+        if value and not value.startswith("["):
+            return value.strip("`")
+    return None
 
 def _extract_title(content: str) -> str | None:
     """Extract title from journal heading.

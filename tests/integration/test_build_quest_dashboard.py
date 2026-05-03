@@ -68,6 +68,8 @@ def test_build_dashboard_produces_valid_html(tmp_path):
     # Page-glow elements present (2 orbs)
     assert 'class="page-glow page-glow-left"' in html
     assert 'class="page-glow page-glow-right"' in html
+    assert "<b>Celebration:</b>" in html
+    assert "docs/quest-journal/celebrations/installer-branch-conflict_2026-05-02.md" in html
 
     print(f"Dashboard built successfully: {output_path}")
     print(f"HTML size: {len(html)} bytes")

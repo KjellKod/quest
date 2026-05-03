@@ -226,6 +226,31 @@ def test_generate_journal_entry_includes_slug_metadata():
     assert "- Slug: portable-pre-commit-review" in entry
 
 
+def test_build_journal_entry_includes_celebration_line_when_path_present():
+    data = QuestData(
+        quest_id="celebrate-me_2026-04-15__1200",
+        slug="celebrate-me",
+        name="Celebrate Me",
+        quality_tier="Gold",
+    )
+
+    entry = build_journal_entry(
+        data,
+        date(2026, 4, 15),
+        Path("docs/quest-journal/celebrate-me_2026-04-15.md"),
+        Path("celebrations/celebrate-me_2026-04-15.md"),
+    )
+
+    assert (
+        "- Celebration: [`celebrations/celebrate-me_2026-04-15.md`](celebrations/celebrate-me_2026-04-15.md)"
+        in entry
+    )
+    assert (
+        "- Full celebration: [`celebrations/celebrate-me_2026-04-15.md`](celebrations/celebrate-me_2026-04-15.md)"
+        in entry
+    )
+
+
 def test_complete_date_first_quest_uses_parsed_slug(tmp_path, monkeypatch, capsys):
     repo_root = tmp_path
     journal_dir = repo_root / "docs" / "quest-journal"
@@ -268,8 +293,20 @@ def test_complete_date_first_quest_uses_parsed_slug(tmp_path, monkeypatch, capsy
     payload = json.loads(captured.out.strip().splitlines()[-1])
     journal = journal_dir / "portable-pre-commit-review_2026-04-29.md"
     assert payload["slug"] == "portable-pre-commit-review"
+    assert payload["celebration"].endswith(
+        "docs/quest-journal/celebrations/portable-pre-commit-review_2026-04-29.md"
+    )
     assert journal.exists()
-    assert "- Slug: portable-pre-commit-review" in journal.read_text(encoding="utf-8")
+    celebration = (
+        journal_dir
+        / "celebrations"
+        / "portable-pre-commit-review_2026-04-29.md"
+    )
+    assert celebration.exists()
+    journal_text = journal.read_text(encoding="utf-8")
+    assert "- Slug: portable-pre-commit-review" in journal_text
+    assert "- Celebration: [`celebrations/portable-pre-commit-review_2026-04-29.md`]" in journal_text
+    assert "```text" in celebration.read_text(encoding="utf-8")
 
 
 def test_main_reports_invalid_date(

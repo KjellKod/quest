@@ -101,6 +101,7 @@ scripts/quest_celebrate/animations.py
 scripts/quest_celebrate/ascii_art.py
 scripts/quest_celebrate/celebrate.py
 scripts/quest_celebrate/config.py
+scripts/quest_celebrate/persist.py
 scripts/quest_celebrate/progress.py
 scripts/quest_celebrate/terminal.py
 scripts/quest_celebrate/quest_data.py

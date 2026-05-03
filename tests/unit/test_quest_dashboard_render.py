@@ -20,6 +20,7 @@ def test_card_shows_full_pitch_and_labeled_metadata(tmp_path):
         status="Completed",
         completed_date=date(2026, 2, 10),
         journal_path=Path("docs/quest-journal/test-quest.md"),
+        celebration_path=Path("docs/quest-journal/celebrations/test-quest.md"),
         pr_number=24,
         plan_iterations=2,
         fix_iterations=1,
@@ -42,6 +43,8 @@ def test_card_shows_full_pitch_and_labeled_metadata(tmp_path):
 
     # No "View Journal" link
     assert "View Journal" not in result
+    assert "<b>Celebration:</b>" in result
+    assert "https://github.com/owner/repo/blob/main/docs/quest-journal/celebrations/test-quest.md" in result
 
     # Labeled metadata present
     assert "<b>Quest ID:</b>" in result

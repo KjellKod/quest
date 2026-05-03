@@ -30,6 +30,7 @@ from quest_celebrate.quest_data import (
     friendly_model_name,
     load_quest_data,
 )
+from quest_celebrate.persist import write_celebration_file
 from quest_runtime.quest_ids import parse_quest_id
 
 
@@ -102,23 +103,32 @@ def build_quest_brief_section(data: QuestData) -> str:
     return "\n".join(lines)
 
 
-def build_celebration_section(journal_rel_path: Path | None) -> str:
+def build_celebration_section(
+    journal_rel_path: Path | None,
+    celebration_rel_path: Path | None = None,
+) -> str:
     """Build the reader-facing celebration section."""
     if journal_rel_path is None:
         return ""
 
     journal_ref = journal_rel_path.as_posix()
-    return "\n".join(
+    lines = [
+        "## Celebration",
+        "",
+        "This journal embeds the celebration payload used by `/celebrate`.",
+        "",
+    ]
+    if celebration_rel_path is not None:
+        celebration_ref = celebration_rel_path.as_posix()
+        lines.append(f"- Full celebration: [`{celebration_ref}`]({celebration_ref})")
+    lines.extend(
         [
-            "## Celebration",
-            "",
-            "This journal embeds the celebration payload used by `/celebrate`.",
-            "",
             "- [Jump to Celebration Data](#celebration-data)",
             f"- Replay locally: `/celebrate {journal_ref}`",
             "",
         ]
     )
+    return "\n".join(lines)
 
 
 def _build_carryover_journal_section(title: str, count: int, summaries: list[str]) -> str:
@@ -166,6 +176,7 @@ def build_journal_entry(
     data: QuestData,
     completion_date: date,
     journal_rel_path: Path | None = None,
+    celebration_rel_path: Path | None = None,
 ) -> str:
     """Generate a markdown journal entry from quest data."""
     lines = []
@@ -184,6 +195,9 @@ def build_journal_entry(
         lines.append(f"- Mode: {data.quest_mode}")
     if data.quality_tier:
         lines.append(f"- Quality: {data.quality_tier}")
+    if celebration_rel_path is not None:
+        celebration_ref = celebration_rel_path.as_posix()
+        lines.append(f"- Celebration: [`{celebration_ref}`]({celebration_ref})")
     lines.append(f"- Outcome: {_journal_outcome(data)}")
     lines.append("")
 
@@ -244,7 +258,10 @@ def build_journal_entry(
         lines.append(_build_empty_carryover_journal_section().rstrip())
         lines.append("")
 
-    celebration_section = build_celebration_section(journal_rel_path)
+    celebration_section = build_celebration_section(
+        journal_rel_path,
+        celebration_rel_path,
+    )
     if celebration_section:
         lines.append(celebration_section.rstrip())
         lines.append("")
@@ -344,6 +361,7 @@ def main() -> int:
         outcome = outcome[:117] + "..."
 
     journal_path = None
+    celebration_path = None
     if not args.skip_journal:
         # Find journal directory (walk up to repo root)
         repo_root = quest_dir.resolve()
@@ -363,11 +381,27 @@ def main() -> int:
         journal_dir.mkdir(parents=True, exist_ok=True)
         journal_file = journal_dir / f"{slug}_{completion_date.isoformat()}.md"
         journal_rel_path = journal_file.relative_to(repo_root)
+        celebration_result = write_celebration_file(
+            journal_dir,
+            data,
+            completion_date,
+            journal_rel_path,
+        )
+        celebration_rel_path = (
+            celebration_result.rel_path if celebration_result.path.exists() else None
+        )
+        celebration_path = str(celebration_result.path)
+        print(celebration_result.message)
 
         if journal_file.exists():
             print(f"Journal entry already exists: {journal_file}")
         else:
-            entry = build_journal_entry(data, completion_date, journal_rel_path)
+            entry = build_journal_entry(
+                data,
+                completion_date,
+                journal_rel_path,
+                celebration_rel_path,
+            )
             journal_file.write_text(entry)
             print(f"Journal entry created: {journal_file}")
 
@@ -383,6 +417,7 @@ def main() -> int:
     print(json.dumps({
         "slug": slug,
         "journal": journal_path,
+        "celebration": celebration_path,
         "archived": not args.skip_archive,
         "quality_tier": data.quality_tier,
     }))

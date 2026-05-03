@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import textwrap
+from datetime import date
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -54,6 +55,12 @@ from quest_celebrate.quest_data import (
     AgentInfo,
     QuestData,
     load_quest_data,
+)
+from quest_celebrate.persist import (
+    extract_what_started_this,
+    render_persisted_celebration,
+    select_quest_quote,
+    write_celebration_file,
 )
 from quest_celebrate.terminal import (
     TerminalCaps,
@@ -290,6 +297,142 @@ class TestRenderEpic:
         assert "## Carry-Over Findings" in result
         assert "nothing needs to be saved for the next one" in result
         assert "## Inherited Findings Used" not in result
+
+    def test_render_epic_journal_backed_quest_still_has_required_sections(self):
+        """Journal-backed QuestData still renders the rich /celebrate sections."""
+        stats = QuestStats(name="Journal Quest", phases=[("Planning", "complete")])
+        config = CelebrationConfig(
+            style="epic",
+            is_safe=True,
+            show_progress=False,
+            show_credits=False,
+            ascii_art=True,
+        )
+        quest_data = QuestData(
+            quest_id="journal-quest_2026-05-03__1200",
+            slug="journal-quest",
+            name="Journal Quest",
+            achievements=[
+                Achievement(icon="[WIN]", title="Saved Story", description="Done")
+            ],
+            agents=[
+                AgentInfo(
+                    name="builder",
+                    model="Codex",
+                    role_title="The Implementer",
+                    summary="Built the feature.",
+                    phase="Building",
+                )
+            ],
+            plan_iterations=1,
+            fix_iterations=0,
+            quality_score=95,
+            quality_tier="Diamond",
+        )
+        output = StringIO()
+
+        render_epic(stats, config, output, quest_data=quest_data)
+
+        result = output.getvalue()
+        assert "```text" in result
+        assert "## 🎯 IMPACT METRICS" in result
+        assert "## 🏆 Achievements" in result
+        assert "## 🚀 Victory Narrative" in result
+        assert "Saved Story" in result
+        assert "TROPHY" in result.upper() or "🏆" in result
+
+
+class TestPersistedCelebration:
+    """Tests for persisted celebration markdown artifacts."""
+
+    def test_persisted_celebration_contains_required_sections(self):
+        data = QuestData(
+            quest_id="persisted_2026-05-03__1200",
+            slug="persisted",
+            name="Persisted",
+            brief_body="Problem: The story disappears.\n\nImpact: Readers lose context.",
+            plan_summary="Persisted the full celebration.",
+            plan_iterations=1,
+            fix_iterations=0,
+            review_count=1,
+            review_findings=[],
+            quality_tier="Diamond",
+            quality_score=100,
+            agents=[
+                AgentInfo(
+                    name="builder",
+                    model="Codex",
+                    role_title="The Implementer",
+                    summary="Built persisted celebrations.",
+                    phase="Building",
+                )
+            ],
+            achievements=[
+                Achievement(icon="[WIN]", title="Story Saved", description="Done")
+            ],
+        )
+
+        result = render_persisted_celebration(
+            data,
+            date(2026, 5, 3),
+            Path("docs/quest-journal/persisted_2026-05-03.md"),
+        )
+
+        assert "<!-- quest-id: persisted_2026-05-03__1200 -->" in result
+        assert "<!-- origin: step7-original -->" in result
+        assert "```text" in result
+        assert "## What Started This" in result
+        assert "The story disappears" in result
+        assert "## Starring Cast" in result
+        assert "## Achievements" in result
+        assert "## Impact Metrics" in result
+        assert "## Quality Tier: Diamond" in result or "Quality Tier: Diamond" in result
+        assert "## Quest Quote" in result
+        assert "Built persisted celebrations." in result
+        assert "## Victory Narrative" in result
+
+    def test_write_celebration_file_when_exists_keeps_existing_file(self, tmp_path):
+        journal_dir = tmp_path / "docs" / "quest-journal"
+        existing = journal_dir / "celebrations" / "persisted_2026-05-03.md"
+        existing.parent.mkdir(parents=True)
+        existing.write_text("sentinel", encoding="utf-8")
+        data = QuestData(quest_id="persisted_2026-05-03__1200", slug="persisted")
+
+        result = write_celebration_file(
+            journal_dir,
+            data,
+            date(2026, 5, 3),
+            Path("docs/quest-journal/persisted_2026-05-03.md"),
+        )
+
+        assert result.created is False
+        assert existing.read_text(encoding="utf-8") == "sentinel"
+        assert "not overwritten" in result.message
+
+    def test_extract_what_started_this_with_problem_impact_pair(self):
+        data = QuestData(
+            brief_body="Problem: The story disappears.\n\nImpact: Readers lose context."
+        )
+
+        result = extract_what_started_this(data)
+
+        assert "The story disappears" in result
+        assert "Readers lose context" in result
+
+    def test_select_quest_quote_returns_text_and_attribution(self):
+        data = QuestData(
+            agents=[
+                AgentInfo(
+                    name="builder",
+                    model="Codex",
+                    role_title="The Implementer",
+                    summary="Built the feature.",
+                    phase="Building",
+                )
+            ]
+        )
+
+        assert select_quest_quote(data) == ("Built the feature.", "The Implementer")
 
 
 class TestRenderSilly:
