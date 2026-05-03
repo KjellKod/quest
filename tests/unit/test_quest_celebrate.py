@@ -391,6 +391,30 @@ class TestPersistedCelebration:
         assert "Built persisted celebrations." in result
         assert "## Victory Narrative" in result
 
+    def test_persisted_victory_narrative_prefers_full_brief_over_clipped_summary(self):
+        data = QuestData(
+            quest_id="full-story_2026-05-03__1200",
+            slug="full-story",
+            name="Full Story",
+            brief_body=(
+                "Problem: Quest celebrations disappeared after chat, leaving "
+                "GitHub readers without the full story.\n\n"
+                "Impact: Dashboard navigation could not reach the rendered "
+                "celebration artifact."
+            ),
+            plan_summary="Problem: Quest celebrations disappeared after chat, leaving a...",
+            quality_tier="Gold",
+        )
+
+        result = render_persisted_celebration(
+            data,
+            date(2026, 5, 3),
+            Path("docs/quest-journal/full-story_2026-05-03.md"),
+        )
+
+        assert "leaving a..." not in result
+        assert "GitHub readers without the full story" in result
+
     def test_write_celebration_file_when_exists_keeps_existing_file(self, tmp_path):
         journal_dir = tmp_path / "docs" / "quest-journal"
         existing = journal_dir / "celebrations" / "persisted_2026-05-03.md"

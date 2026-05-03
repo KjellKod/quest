@@ -249,6 +249,8 @@ def _extract_celebration_path(
         resolved = (journal_dir / candidate).resolve()
         try:
             resolved.relative_to(allowed_root)
+            if not resolved.exists():
+                return None
             return resolved.relative_to(repo_root.resolve())
         except ValueError:
             return None

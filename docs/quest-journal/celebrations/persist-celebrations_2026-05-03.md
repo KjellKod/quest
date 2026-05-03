@@ -71,4 +71,4 @@ QUALITY SCORE
 
 ## Victory Narrative
 
-**Problem:** Quest completion currently writes a structured journal and embedded `celebration_data`, but the full rich celebration markdown shown in chat is not persisted for most quests. Readers on GitHub and the dashboard can inspect dry journal data, but cannot revisit the block-letter title a... The quest finished with 1 plan iteration(s), 0 fix loop(s), and a persisted celebration artifact that future readers can open directly from the journal.
+Quest journals currently embed replayable celebration_data JSON, but they do not persist the actual rendered celebration markdown with block-letter title art, cast, achievements, quote, and victory narrative. The quest finished with 1 plan iteration(s), 0 fix loop(s), and a persisted celebration artifact that future readers can open directly from the journal.

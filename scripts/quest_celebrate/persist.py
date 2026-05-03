@@ -286,9 +286,12 @@ def _carryover_lines(data: QuestData) -> list[str]:
 
 
 def _victory_narrative(data: QuestData) -> str:
-    summary = data.plan_summary or data.brief_summary
+    full_brief_summary = extract_what_started_this(data)
+    summary = full_brief_summary or data.plan_summary or data.brief_summary
     if summary:
         opening = _single_line(re.sub(r"(?m)^\s*>\s?", "", summary))
+        if opening.endswith("...") and full_brief_summary:
+            opening = _single_line(full_brief_summary)
         return (
             f"{opening} The quest finished with {data.plan_iterations} plan "
             f"iteration(s), {data.fix_iterations} fix loop(s), and a persisted "
