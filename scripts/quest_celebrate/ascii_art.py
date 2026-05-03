@@ -8,8 +8,9 @@ if TYPE_CHECKING:
 
 from quest_celebrate.quest_data import friendly_model_name
 
-# Six-line FIGlet/ANSI-Shadow-style glyphs for persisted GitHub celebrations.
-# Keep this local and deterministic; do not depend on a system figlet binary.
+# Six-line Quest-owned, FIGlet/ANSI-Shadow-like glyphs for persisted GitHub
+# celebrations. Keep this local and deterministic; do not download a remote
+# .flf or depend on a system figlet binary during quest completion.
 _ANSI_SHADOW_FONT = {
     "A": [" █████╗ ", "██╔══██╗", "███████║", "██╔══██║", "██║  ██║", "╚═╝  ╚═╝"],
     "B": ["██████╗ ", "██╔══██╗", "██████╔╝", "██╔══██╗", "██████╔╝", "╚═════╝ "],
@@ -371,9 +372,17 @@ def _balanced_ansi_shadow_split(word: str, max_width: int) -> int | None:
             candidates.append(
                 (max(left_width, right_width), abs(left_width - right_width), index)
             )
-    if not candidates:
+    if candidates:
+        return min(candidates)[2]
+
+    prefix_candidates = [
+        index
+        for index in range(1, len(word))
+        if _ansi_shadow_width(word[:index]) <= max_width
+    ]
+    if not prefix_candidates:
         return None
-    return min(candidates)[2]
+    return max(prefix_candidates)
 
 
 def _ansi_shadow_width(word: str) -> int:

@@ -1389,6 +1389,13 @@ class TestBlockLetterTitle:
         assert max(len(line) for line in result.splitlines()) <= 70
         assert "====" not in result
 
+    def test_ansi_shadow_title_recursively_splits_very_long_words(self):
+        result = ansi_shadow_title("Supercalifragilisticexpialidocious", max_width=70)
+
+        assert len(result.split("\n\n")) > 2
+        assert max(len(line) for line in result.splitlines()) <= 70
+        assert "====" not in result
+
 
 class TestAchievements:
     """Tests for achievement generation and rendering."""
