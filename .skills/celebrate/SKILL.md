@@ -151,7 +151,7 @@ You have all the data from the artifacts. Now **create your own celebration**. B
  ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═════╝
 ```
 
-Break the text across **multiple lines** — max ~5 letters per line. Each word gets its own block, like "HELLO" on one line and "WORLD" on the next. For longer words, hyphenate: "RESOL-" on one line and "UTION" on the next. This keeps it readable without horizontal overflow.
+Break the text into readable word blocks. Each complete word should usually get its own block, like "HELLO" followed by "WORLD". If a single word would overflow, split it into adjacent chunks with no dropped letters, like "RESOL" followed by "UTION". This keeps the title readable without forcing the old compact fallback font.
 
 **Good title art example:**
 
