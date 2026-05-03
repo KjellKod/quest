@@ -30,7 +30,7 @@ from quest_celebrate.quest_data import (
     friendly_model_name,
     load_quest_data,
 )
-from quest_celebrate.persist import write_celebration_file
+from quest_celebrate.persist import CelebrationWriteResult, write_celebration_file
 from quest_runtime.quest_ids import parse_quest_id
 
 
@@ -71,6 +71,31 @@ def _build_celebration_json(data: QuestData) -> dict:
         "tests_added": data.tests_added,
         "files_changed": len(data.files_changed),
     }
+
+
+def _celebration_link_for_result(
+    celebration_result: CelebrationWriteResult,
+    data: QuestData,
+) -> Path | None:
+    """Return a journal link only for the current quest's celebration artifact."""
+    if not celebration_result.path.exists():
+        return None
+    if celebration_result.created:
+        return celebration_result.rel_path
+    if _celebration_file_matches_quest(celebration_result.path, data.quest_id):
+        return celebration_result.rel_path
+    return None
+
+
+def _celebration_file_matches_quest(path: Path, quest_id: str) -> bool:
+    if not quest_id:
+        return False
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    match = re.search(r"<!--\s*quest-id:\s*(.*?)\s*-->", text)
+    return bool(match and match.group(1) == quest_id)
 
 
 def _journal_outcome(data: QuestData) -> str:
@@ -387,10 +412,13 @@ def main() -> int:
             completion_date,
             journal_rel_path,
         )
-        celebration_rel_path = (
-            celebration_result.rel_path if celebration_result.path.exists() else None
-        )
-        celebration_path = str(celebration_result.path)
+        celebration_rel_path = _celebration_link_for_result(celebration_result, data)
+        if celebration_rel_path is not None:
+            celebration_path = str(celebration_result.path)
+        elif celebration_result.path.exists() and not celebration_result.created:
+            print(
+                "Celebration link omitted: existing artifact does not match current quest-id"
+            )
         print(celebration_result.message)
 
         if journal_file.exists():

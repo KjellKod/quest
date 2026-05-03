@@ -309,6 +309,63 @@ def test_complete_date_first_quest_uses_parsed_slug(tmp_path, monkeypatch, capsy
     assert "```text" in celebration.read_text(encoding="utf-8")
 
 
+def test_complete_omits_celebration_link_when_existing_file_is_different_quest(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    repo_root = tmp_path
+    journal_dir = repo_root / "docs" / "quest-journal"
+    celebration = journal_dir / "celebrations" / "same-slug_2026-05-03.md"
+    celebration.parent.mkdir(parents=True)
+    celebration.write_text(
+        "<!-- quest-id: different_2026-05-03__0900 -->\n\nsentinel",
+        encoding="utf-8",
+    )
+    (journal_dir / "README.md").write_text(
+        "| Date | Quest | Outcome |\n|------|-------|---------|\n",
+        encoding="utf-8",
+    )
+    quest_dir = repo_root / ".quest" / "2026-05-03_1200__same-slug"
+    quest_dir.mkdir(parents=True)
+    (quest_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "quest_id": "2026-05-03_1200__same-slug",
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Same Slug\n\n## User Input\n\nDone.",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "quest_complete.py",
+            "--quest-dir",
+            str(quest_dir),
+            "--skip-archive",
+            "--date",
+            "2026-05-03",
+        ],
+    )
+
+    assert quest_complete.main() == 0
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out.strip().splitlines()[-1])
+    journal = journal_dir / "same-slug_2026-05-03.md"
+
+    assert payload["celebration"] is None
+    assert "Celebration link omitted" in captured.out
+    assert celebration.read_text(encoding="utf-8").endswith("sentinel")
+    assert "- Celebration:" not in journal.read_text(encoding="utf-8")
+
+
 def test_main_reports_invalid_date(
     tmp_path: Path,
     monkeypatch,
