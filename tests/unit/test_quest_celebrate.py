@@ -443,6 +443,21 @@ class TestPersistedCelebration:
         assert "The story disappears" in result
         assert "Readers lose context" in result
 
+    def test_extract_what_started_this_with_standalone_problem_impact_labels(self):
+        data = QuestData(
+            brief_body=(
+                "Problem:\n"
+                "The rendered celebration disappears after chat.\n\n"
+                "Impact:\n"
+                "Dashboard readers cannot reach the complete narrative."
+            )
+        )
+
+        result = extract_what_started_this(data)
+
+        assert "The rendered celebration disappears after chat." in result
+        assert "Dashboard readers cannot reach the complete narrative." in result
+
     def test_select_quest_quote_returns_text_and_attribution(self):
         data = QuestData(
             agents=[

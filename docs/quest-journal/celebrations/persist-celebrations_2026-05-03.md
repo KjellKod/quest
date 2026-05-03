@@ -24,7 +24,9 @@
 
 ## What Started This
 
-Quest journals currently embed replayable celebration_data JSON, but they do not
+Quest journals currently embed replayable celebration_data JSON, but they do not persist the actual rendered celebration markdown with block-letter title art, cast, achievements, quote, and victory narrative.
+
+This makes GitHub and the dashboard show the dry portfolio/journal data, while the most enjoyable and useful celebration narrative disappears after chat.
 
 ## Starring Cast
 
@@ -71,4 +73,4 @@ QUALITY SCORE
 
 ## Victory Narrative
 
-Quest journals currently embed replayable celebration_data JSON, but they do not persist the actual rendered celebration markdown with block-letter title art, cast, achievements, quote, and victory narrative. The quest finished with 1 plan iteration(s), 0 fix loop(s), and a persisted celebration artifact that future readers can open directly from the journal.
+Quest journals currently embed replayable celebration_data JSON, but they do not persist the actual rendered celebration markdown with block-letter title art, cast, achievements, quote, and victory narrative. This makes GitHub and the dashboard show the dry portfolio/journal data, while the most enjoyable and useful celebration narrative disappears after chat. The quest finished with 1 plan iteration(s), 0 fix loop(s), and a persisted celebration artifact that future readers can open directly from the journal.

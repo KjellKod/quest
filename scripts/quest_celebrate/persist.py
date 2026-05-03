@@ -194,17 +194,27 @@ def write_celebration_file(
 
 
 def _extract_labeled_paragraph(source: str, label: str) -> str:
-    pattern = rf"(?im)^\s*(?:[*_]*{label}[*_]*\s*:|[*_]*{label}[*_]*\s+-)\s*(.+)$"
-    match = re.search(pattern, source)
-    if not match:
+    pattern = rf"(?i)^\s*(?:[*_]*{label}[*_]*\s*:|[*_]*{label}[*_]*\s+-)\s*(.*)$"
+    source_lines = source.splitlines()
+    match_index: int | None = None
+    first = ""
+    for index, line in enumerate(source_lines):
+        match = re.match(pattern, line)
+        if match:
+            match_index = index
+            first = _clean_markdown_line(match.group(1))
+            break
+    if match_index is None:
         return ""
-    first = _clean_markdown_line(match.group(1))
+
     extra: list[str] = []
-    lines = source[match.end() :].splitlines()
+    lines = source_lines[match_index + 1 :]
     for line in lines:
         stripped = line.strip()
-        if not stripped:
+        if not stripped and (first or extra):
             break
+        if not stripped:
+            continue
         if re.match(r"^(?:[*_]*[A-Za-z][A-Za-z -]{1,40}[*_]*\s*:|##+)\s*", stripped):
             break
         extra.append(_clean_markdown_line(stripped))
