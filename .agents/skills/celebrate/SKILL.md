@@ -5,6 +5,8 @@ description: Play a quest completion celebration animation. Use when the user in
 
 # Skill: Celebrate
 
+Read and follow the instructions in `.skills/celebrate/SKILL.md`.
+
 Play a rich, visually stunning celebration for a completed quest.
 
 ## When to Use
