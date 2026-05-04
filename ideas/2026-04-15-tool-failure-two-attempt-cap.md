@@ -9,6 +9,9 @@ status: proposed
 owner: kjell
 ---
 
+> Superseded by `ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md`.
+> Keep this file as historical source material; do not implement directly.
+
 ## Problem
 The evaluation identifies rabbit-holing as a major friction source, with repeated sessions spent exploring tool schemas or internals instead of executing requested work. This pattern was the second-largest frustration family after wrong-branch/path errors.
 

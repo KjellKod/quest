@@ -8,6 +8,9 @@ owner: KjellKod (research by Claude)
 date: 2026-04-24
 ---
 
+> Superseded by `ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md`.
+> Keep this file as historical source material; do not implement directly.
+
 # Suggested quest prompt to take this on
 
 I agree this idea is worth doing, but it should stay split into two PRs. The

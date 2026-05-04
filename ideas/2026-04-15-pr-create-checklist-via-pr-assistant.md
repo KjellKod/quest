@@ -9,6 +9,9 @@ status: proposed
 owner: kjell
 ---
 
+> Superseded by `ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md`.
+> Keep this file as historical source material; do not implement directly.
+
 ## Problem
 The evaluation documents repeated PR quality drift: wrong script names (`npm run server` vs `npm run dev:server`), incorrect file/test paths, and manual steps presented as automated validation. Given high PR volume (20 PR-management + 18 PR-shepherding sessions), these small errors compound into repeated review friction.
 
