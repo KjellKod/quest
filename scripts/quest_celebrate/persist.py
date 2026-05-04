@@ -53,9 +53,10 @@ def select_quest_quote(data: QuestData) -> tuple[str, str] | None:
     priority = ("arbiter", "code-reviewer", "fixer", "builder", "planner")
     for role in priority:
         for agent in data.agents:
-            if role in agent.name.lower() and agent.summary.strip():
+            summary = agent.summary or ""
+            if role in agent.name.lower() and summary.strip():
                 attribution = agent.role_title or agent.name
-                return _single_line(agent.summary), attribution
+                return _single_line(summary), attribution
 
     for finding in data.review_findings:
         if finding.strip():
@@ -243,10 +244,10 @@ def _first_useful_paragraph(source: str) -> str:
 
 
 def _clean_markdown_line(line: str) -> str:
-    line = re.sub(r"^\s*>\s?", "", line.strip())
-    line = re.sub(r"^[-*]\s+", "", line)
-    line = line.strip("`")
-    return line
+    cleaned = re.sub(r"^\s*>\s?", "", line.strip())
+    cleaned = re.sub(r"^[-*]\s+", "", cleaned)
+    cleaned = cleaned.strip("`")
+    return cleaned
 
 
 def _single_line(text: str) -> str:

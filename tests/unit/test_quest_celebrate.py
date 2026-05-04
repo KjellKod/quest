@@ -424,6 +424,31 @@ class TestPersistedCelebration:
         assert "ART:Persist Celebrations" == title_art
         assert "====" not in title_art
 
+    def test_select_quest_quote_skips_missing_agent_summary(self):
+        data = QuestData(
+            agents=[
+                AgentInfo(
+                    name="arbiter",
+                    model="codex",
+                    role_title="Arbiter",
+                    summary=None,
+                    phase="review",
+                ),
+                AgentInfo(
+                    name="builder",
+                    model="codex",
+                    role_title="Builder",
+                    summary="Built the celebration artifact.",
+                    phase="build",
+                ),
+            ]
+        )
+
+        assert select_quest_quote(data) == (
+            "Built the celebration artifact.",
+            "Builder",
+        )
+
     def test_persisted_victory_narrative_prefers_full_brief_over_clipped_summary(self):
         data = QuestData(
             quest_id="full-story_2026-05-03__1200",
