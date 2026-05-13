@@ -26,6 +26,7 @@ class JournalEntry:
     status: str  # "Completed" or "Abandoned"
     completed_date: date
     journal_path: Path  # Relative to repo root
+    celebration_path: Path | None = None  # Relative to repo root
     pr_number: int | None = None
     plan_iterations: int | None = None
     fix_iterations: int | None = None

@@ -1,11 +1,54 @@
 """ASCII art templates for quest celebrations."""
 
+import re
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from quest_celebrate.quest_data import Achievement, AgentInfo, QuestData
 
 from quest_celebrate.quest_data import friendly_model_name
+
+# Six-line Quest-owned, FIGlet/ANSI-Shadow-like glyphs for persisted GitHub
+# celebrations. Keep this local and deterministic; do not download a remote
+# .flf or depend on a system figlet binary during quest completion.
+_ANSI_SHADOW_FONT = {
+    "A": [" █████╗ ", "██╔══██╗", "███████║", "██╔══██║", "██║  ██║", "╚═╝  ╚═╝"],
+    "B": ["██████╗ ", "██╔══██╗", "██████╔╝", "██╔══██╗", "██████╔╝", "╚═════╝ "],
+    "C": [" ██████╗", "██╔════╝", "██║     ", "██║     ", "╚██████╗", " ╚═════╝"],
+    "D": ["██████╗ ", "██╔══██╗", "██║  ██║", "██║  ██║", "██████╔╝", "╚═════╝ "],
+    "E": ["███████╗", "██╔════╝", "█████╗  ", "██╔══╝  ", "███████╗", "╚══════╝"],
+    "F": ["███████╗", "██╔════╝", "█████╗  ", "██╔══╝  ", "██║     ", "╚═╝     "],
+    "G": [" ██████╗ ", "██╔════╝ ", "██║  ███╗", "██║   ██║", "╚██████╔╝", " ╚═════╝ "],
+    "H": ["██╗  ██╗", "██║  ██║", "███████║", "██╔══██║", "██║  ██║", "╚═╝  ╚═╝"],
+    "I": ["██╗", "██║", "██║", "██║", "██║", "╚═╝"],
+    "J": ["     ██╗", "     ██║", "     ██║", "██   ██║", "╚█████╔╝", " ╚════╝ "],
+    "K": ["██╗  ██╗", "██║ ██╔╝", "█████╔╝ ", "██╔═██╗ ", "██║  ██╗", "╚═╝  ╚═╝"],
+    "L": ["██╗     ", "██║     ", "██║     ", "██║     ", "███████╗", "╚══════╝"],
+    "M": ["███╗   ███╗", "████╗ ████║", "██╔████╔██║", "██║╚██╔╝██║", "██║ ╚═╝ ██║", "╚═╝     ╚═╝"],
+    "N": ["███╗   ██╗", "████╗  ██║", "██╔██╗ ██║", "██║╚██╗██║", "██║ ╚████║", "╚═╝  ╚═══╝"],
+    "O": [" ██████╗ ", "██╔═══██╗", "██║   ██║", "██║   ██║", "╚██████╔╝", " ╚═════╝ "],
+    "P": ["██████╗ ", "██╔══██╗", "██████╔╝", "██╔═══╝ ", "██║     ", "╚═╝     "],
+    "Q": [" ██████╗ ", "██╔═══██╗", "██║   ██║", "██║▄▄ ██║", "╚██████╔╝", " ╚══▀▀═╝ "],
+    "R": ["██████╗ ", "██╔══██╗", "██████╔╝", "██╔══██╗", "██║  ██║", "╚═╝  ╚═╝"],
+    "S": ["███████╗", "██╔════╝", "███████╗", "╚════██║", "███████║", "╚══════╝"],
+    "T": ["████████╗", "╚══██╔══╝", "   ██║   ", "   ██║   ", "   ██║   ", "   ╚═╝   "],
+    "U": ["██╗   ██╗", "██║   ██║", "██║   ██║", "██║   ██║", "╚██████╔╝", " ╚═════╝ "],
+    "V": ["██╗   ██╗", "██║   ██║", "██║   ██║", "╚██╗ ██╔╝", " ╚████╔╝ ", "  ╚═══╝  "],
+    "W": ["██╗    ██╗", "██║    ██║", "██║ █╗ ██║", "██║███╗██║", "╚███╔███╔╝", " ╚══╝╚══╝ "],
+    "X": ["██╗  ██╗", "╚██╗██╔╝", " ╚███╔╝ ", " ██╔██╗ ", "██╔╝ ██╗", "╚═╝  ╚═╝"],
+    "Y": ["██╗   ██╗", "╚██╗ ██╔╝", " ╚████╔╝ ", "  ╚██╔╝  ", "   ██║   ", "   ╚═╝   "],
+    "Z": ["███████╗", "╚══███╔╝", "  ███╔╝ ", " ███╔╝  ", "███████╗", "╚══════╝"],
+    "0": [" ██████╗ ", "██╔═████╗", "██║██╔██║", "████╔╝██║", "╚██████╔╝", " ╚═════╝ "],
+    "1": [" ██╗", "███║", "╚██║", " ██║", " ██║", " ╚═╝"],
+    "2": ["██████╗ ", "╚════██╗", " █████╔╝", "██╔═══╝ ", "███████╗", "╚══════╝"],
+    "3": ["██████╗ ", "╚════██╗", " █████╔╝", " ╚═══██╗", "██████╔╝", "╚═════╝ "],
+    "4": ["██╗  ██╗", "██║  ██║", "███████║", "╚════██║", "     ██║", "     ╚═╝"],
+    "5": ["███████╗", "██╔════╝", "███████╗", "╚════██║", "███████║", "╚══════╝"],
+    "6": [" ██████╗ ", "██╔════╝ ", "███████╗ ", "██╔═══██╗", "╚██████╔╝", " ╚═════╝ "],
+    "7": ["███████╗", "╚════██║", "    ██╔╝", "   ██╔╝ ", "   ██║  ", "   ╚═╝  "],
+    "8": [" █████╗ ", "██╔══██╗", "╚█████╔╝", "██╔══██╗", "╚█████╔╝", " ╚════╝ "],
+    "9": [" █████╗ ", "██╔══██╗", "╚██████║", " ╚═══██║", " █████╔╝", " ╚════╝ "],
+}
 
 # Minimal 5-line tall block letter font for A-Z, 0-9, space, and hyphen.
 # Each character is 6 columns wide (5 + 1 space separator).
@@ -280,6 +323,77 @@ _BLOCK_FONT = {
 
 # Character width including separator
 _CHAR_WIDTH = 6
+
+
+def ansi_shadow_title(text: str, max_width: int = 100) -> str:
+    """Render complete words in the persisted celebration title style.
+
+    This is a deterministic local renderer for the ANSI-Shadow-like style used
+    by durable GitHub celebration artifacts. It normalizes punctuation away,
+    preserves complete words, and separates each rendered word with a blank line
+    so long quest titles stay readable.
+    """
+    words = _title_words(text)
+    blocks: list[str] = []
+    for word in words:
+        for chunk in _split_word_for_ansi_shadow(word, max_width):
+            blocks.append(_render_ansi_shadow_word(chunk))
+    return "\n\n".join(blocks)
+
+
+def _title_words(text: str) -> list[str]:
+    """Normalize title text into complete renderable words."""
+    return re.findall(r"[A-Za-z0-9]+", text.upper()) or ["QUEST"]
+
+
+def _split_word_for_ansi_shadow(word: str, max_width: int) -> list[str]:
+    """Split very long words without truncating any characters."""
+    if _ansi_shadow_width(word) <= max_width:
+        return [word]
+
+    split_index = _balanced_ansi_shadow_split(word, max_width)
+    if split_index is None:
+        return [word]
+
+    return [
+        chunk
+        for part in (word[:split_index], word[split_index:])
+        for chunk in _split_word_for_ansi_shadow(part, max_width)
+    ]
+
+
+def _balanced_ansi_shadow_split(word: str, max_width: int) -> int | None:
+    """Find the least awkward split point for an over-wide word."""
+    candidates: list[tuple[int, int, int]] = []
+    for index in range(3, len(word) - 2):
+        left_width = _ansi_shadow_width(word[:index])
+        right_width = _ansi_shadow_width(word[index:])
+        if left_width <= max_width and right_width <= max_width:
+            candidates.append(
+                (max(left_width, right_width), abs(left_width - right_width), index)
+            )
+    if candidates:
+        return min(candidates)[2]
+
+    prefix_candidates = [
+        index
+        for index in range(1, len(word))
+        if _ansi_shadow_width(word[:index]) <= max_width
+    ]
+    if not prefix_candidates:
+        return None
+    return max(prefix_candidates)
+
+
+def _ansi_shadow_width(word: str) -> int:
+    return max(len(row) for row in _render_ansi_shadow_word(word).splitlines())
+
+
+def _render_ansi_shadow_word(word: str) -> str:
+    rows: list[str] = []
+    for row_idx in range(6):
+        rows.append("".join(_ANSI_SHADOW_FONT[char][row_idx] for char in word))
+    return "\n".join(rows).rstrip()
 
 
 def block_letter_title(text: str, safe_mode: bool = False, max_width: int = 80) -> str:

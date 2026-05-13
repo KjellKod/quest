@@ -19,7 +19,7 @@ Play a rich, visually stunning celebration for a completed quest.
 ### Step 1: Resolve the Quest Source
 
 If the user provides an argument:
-1. If it's a full path (starts with `/` or `.`), use it directly
+1. If it looks like a path (absolute or relative), resolve it and use it only if it stays under `.quest/`, `.quest/archive/`, or `docs/quest-journal/`; otherwise reject it
 2. If it looks like a quest ID (e.g., `name-resolution_2026-03-04__1954` or `2026-03-04_1954__name-resolution`), look in:
    - `.quest/<id>/` (active quest)
    - `.quest/archive/<id>/` (archived quest)
@@ -110,11 +110,17 @@ You have all the data from the artifacts. Now **create your own celebration**. B
 - Wrap the block-letter title art in a fenced code block (triple backticks).
 - Inside that code block, emit block-letter rows as plain text lines only.
 - Do **not** prefix block-letter rows with `#`, `-`, `>`, or any other markdown marker.
-- Keep the title art contiguous with no blank separator inserted inside the rows.
+- Use the full celebration block-letter style shown in the good example below (FIGlet/ANSI-Shadow-like `██╗`, `╚═╝`, `╔══` forms), not the compact 5-row fallback font when the artifact is meant to be read on GitHub.
+- Preserve all title text. Never drop or obscure letters just to fit a line; split the title into multiple readable blocks instead.
+- Put one complete word or short phrase per block. For titles longer than about 8-10 letters, prefer one word per block.
+- Leave one blank line between word blocks inside the title code fence so each word reads independently.
 - After the closing backticks, leave one normal blank line before the rest of the celebration.
 
 **Do NOT:**
-- Put too many characters on one line of block letters — max ~5 letters per line, break long names across multiple lines (one word per block, like the HELLO/WORLD example)
+- Put too many characters on one line of block letters. Break long names across multiple blocks.
+- Emit cramped generated chunks such as `INSTALL` + `BRANCH` when the title is `Installer Branch Conflict`; that hides the actual title.
+- Use generic boxed text such as `╔════╗ INSTALLER BRANCH ╚════╝`; it is readable but not the celebration block-letter style.
+- Truncate words by emitting only the first chunk (`CELEBR` without the remaining `ATIONS`, `INSTAL` without the remaining `LER`, etc.).
 - Wrap the entire celebration in a single code block (kills the rich rendering — only the title art goes in a code fence)
 - Leave block-letter title art outside a code fence when it depends on ASCII spacing
 - Use `<pre>` tags — they don't render reliably across terminals
@@ -145,7 +151,45 @@ You have all the data from the artifacts. Now **create your own celebration**. B
  ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═════╝
 ```
 
-Break the text across **multiple lines** — max ~5 letters per line. Each word gets its own block, like "HELLO" on one line and "WORLD" on the next. For longer words, hyphenate: "RESOL-" on one line and "UTION" on the next. This keeps it readable without horizontal overflow.
+Break the text into readable word blocks. Each complete word should usually get its own block, like "HELLO" followed by "WORLD". If a single word would overflow, split it into adjacent chunks with no dropped letters, like "RESOL" followed by "UTION". This keeps the title readable without forcing the old compact fallback font.
+
+**Good title art example:**
+
+```
+██████╗ ███████╗██████╗ ███████╗██╗███████╗████████╗
+██╔══██╗██╔════╝██╔══██╗██╔════╝██║██╔════╝╚══██╔══╝
+██████╔╝█████╗  ██████╔╝███████╗██║███████╗   ██║
+██╔═══╝ ██╔══╝  ██╔══██╗╚════██║██║╚════██║   ██║
+██║     ███████╗██║  ██║███████║██║███████║   ██║
+╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝╚═╝╚══════╝   ╚═╝
+
+ ██████╗███████╗██╗     ███████╗██████╗
+██╔════╝██╔════╝██║     ██╔════╝██╔══██╗
+██║     █████╗  ██║     █████╗  ██████╔╝
+██║     ██╔══╝  ██║     ██╔══╝  ██╔══██╗
+╚██████╗███████╗███████╗███████╗██████╔╝
+ ╚═════╝╚══════╝╚══════╝╚══════╝╚═════╝
+```
+
+**Bad title art examples:**
+
+```
+████  █████ ████   ████ █████  ████
+█   █ █     █   █ █       █   █
+...
+ ████ █████ █████ █████ ████  █   █
+```
+
+This is bad because it is a compact generated chunk, truncates/obscures the title, and does not read like the established celebration style.
+
+```
+╔══════════════════════════════════════╗
+║          INSTALLER BRANCH           ║
+║        CONFLICT RESOLVED            ║
+╚══════════════════════════════════════╝
+```
+
+This is bad because it is a box, not block-letter celebration title art.
 
  🎉 🎉 🎉 🎉  🙌  🎉 🎉 🎉 🎉  
 

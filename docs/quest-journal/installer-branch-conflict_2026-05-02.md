@@ -4,6 +4,7 @@
 - Completed: 2026-05-02
 - Mode: solo
 - Quality: Diamond
+- Celebration: [`celebrations/installer-branch-conflict_2026-05-02.md`](celebrations/installer-branch-conflict_2026-05-02.md)
 - Outcome: Fixed issue #110 so repeated same-day installer upgrades no longer fail when the default `quest-update-YYYYMMDD` branch already exists locally.
 
 ## What Shipped

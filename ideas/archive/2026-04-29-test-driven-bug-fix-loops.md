@@ -15,6 +15,9 @@ related:
   - ideas/2026-04-15-claude-insights-priorities.md
 ---
 
+> Superseded by `ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md`.
+> Keep this file as historical source material; do not implement directly.
+
 # Summary
 
 Quest already has the core bug-fix rule:

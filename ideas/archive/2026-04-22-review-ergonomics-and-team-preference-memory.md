@@ -10,6 +10,9 @@ owner: kjell
 date: 2026-04-22
 ---
 
+> Superseded by `ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md`.
+> Keep this file as historical source material; do not implement directly.
+
 ## Problem
 
 Quest's review pipeline is structurally strong (plan review, dual code review, arbiter, fix loop with defer taxonomy) but several ergonomic and memory gaps reduce day-to-day quality:

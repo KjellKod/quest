@@ -226,6 +226,31 @@ def test_generate_journal_entry_includes_slug_metadata():
     assert "- Slug: portable-pre-commit-review" in entry
 
 
+def test_build_journal_entry_includes_celebration_line_when_path_present():
+    data = QuestData(
+        quest_id="celebrate-me_2026-04-15__1200",
+        slug="celebrate-me",
+        name="Celebrate Me",
+        quality_tier="Gold",
+    )
+
+    entry = build_journal_entry(
+        data,
+        date(2026, 4, 15),
+        Path("docs/quest-journal/celebrate-me_2026-04-15.md"),
+        Path("celebrations/celebrate-me_2026-04-15.md"),
+    )
+
+    assert (
+        "- Celebration: [`celebrations/celebrate-me_2026-04-15.md`](celebrations/celebrate-me_2026-04-15.md)"
+        in entry
+    )
+    assert (
+        "- Full celebration: [`celebrations/celebrate-me_2026-04-15.md`](celebrations/celebrate-me_2026-04-15.md)"
+        in entry
+    )
+
+
 def test_complete_date_first_quest_uses_parsed_slug(tmp_path, monkeypatch, capsys):
     repo_root = tmp_path
     journal_dir = repo_root / "docs" / "quest-journal"
@@ -268,8 +293,137 @@ def test_complete_date_first_quest_uses_parsed_slug(tmp_path, monkeypatch, capsy
     payload = json.loads(captured.out.strip().splitlines()[-1])
     journal = journal_dir / "portable-pre-commit-review_2026-04-29.md"
     assert payload["slug"] == "portable-pre-commit-review"
+    assert payload["celebration"].endswith(
+        "docs/quest-journal/celebrations/portable-pre-commit-review_2026-04-29.md"
+    )
     assert journal.exists()
-    assert "- Slug: portable-pre-commit-review" in journal.read_text(encoding="utf-8")
+    celebration = (
+        journal_dir
+        / "celebrations"
+        / "portable-pre-commit-review_2026-04-29.md"
+    )
+    assert celebration.exists()
+    journal_text = journal.read_text(encoding="utf-8")
+    assert "- Slug: portable-pre-commit-review" in journal_text
+    assert "- Celebration: [`celebrations/portable-pre-commit-review_2026-04-29.md`]" in journal_text
+    assert "```text" in celebration.read_text(encoding="utf-8")
+
+
+def test_complete_omits_celebration_link_when_existing_file_is_different_quest(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    repo_root = tmp_path
+    journal_dir = repo_root / "docs" / "quest-journal"
+    celebration = journal_dir / "celebrations" / "same-slug_2026-05-03.md"
+    celebration.parent.mkdir(parents=True)
+    celebration.write_text(
+        "<!-- quest-id: different_2026-05-03__0900 -->\n\nsentinel",
+        encoding="utf-8",
+    )
+    (journal_dir / "README.md").write_text(
+        "| Date | Quest | Outcome |\n|------|-------|---------|\n",
+        encoding="utf-8",
+    )
+    quest_dir = repo_root / ".quest" / "2026-05-03_1200__same-slug"
+    quest_dir.mkdir(parents=True)
+    (quest_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "quest_id": "2026-05-03_1200__same-slug",
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Same Slug\n\n## User Input\n\nDone.",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "quest_complete.py",
+            "--quest-dir",
+            str(quest_dir),
+            "--skip-archive",
+            "--date",
+            "2026-05-03",
+        ],
+    )
+
+    assert quest_complete.main() == 0
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out.strip().splitlines()[-1])
+    journal = journal_dir / "same-slug_2026-05-03.md"
+
+    assert payload["celebration"] is None
+    assert "Celebration link omitted" in captured.out
+    assert celebration.read_text(encoding="utf-8").endswith("sentinel")
+    assert "- Celebration:" not in journal.read_text(encoding="utf-8")
+
+
+def test_complete_does_not_write_celebration_when_journal_already_exists(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    repo_root = tmp_path
+    journal_dir = repo_root / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    (journal_dir / "README.md").write_text(
+        "| Date | Quest | Outcome |\n|------|-------|---------|\n",
+        encoding="utf-8",
+    )
+    journal = journal_dir / "same-slug_2026-05-03.md"
+    journal.write_text(
+        "# Quest Journal: Existing\n\n- Quest ID: `different_2026-05-03__0900`\n",
+        encoding="utf-8",
+    )
+    quest_dir = repo_root / ".quest" / "2026-05-03_1200__same-slug"
+    quest_dir.mkdir(parents=True)
+    (quest_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "quest_id": "2026-05-03_1200__same-slug",
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: Same Slug\n\n## User Input\n\nDone.",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "quest_complete.py",
+            "--quest-dir",
+            str(quest_dir),
+            "--skip-archive",
+            "--date",
+            "2026-05-03",
+        ],
+    )
+
+    assert quest_complete.main() == 0
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+
+    assert payload["celebration"] is None
+    assert not (journal_dir / "celebrations" / "same-slug_2026-05-03.md").exists()
+
+
+def test_celebration_file_match_handles_invalid_utf8(tmp_path):
+    celebration = tmp_path / "bad.md"
+    celebration.write_bytes(b"\xff\xfe\x00")
+
+    assert quest_complete._celebration_file_matches_quest(celebration, "quest") is False
 
 
 def test_main_reports_invalid_date(

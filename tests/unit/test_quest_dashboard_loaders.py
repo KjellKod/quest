@@ -213,6 +213,158 @@ def test_journal_elevator_pitch_prefers_outcome_metadata_without_summary(tmp_pat
     )
 
 
+def test_journal_entry_extracts_celebration_link_and_preserves_outcome(tmp_path):
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    celebration_dir = journal_dir / "celebrations"
+    celebration_dir.mkdir(parents=True)
+    (celebration_dir / "test_2026-05-03.md").write_text(
+        "<!-- quest-id: test_2026-05-03__1200 -->\n\ncelebrate",
+        encoding="utf-8",
+    )
+    journal_content = """# Quest Journal: Test Quest
+
+- Quest ID: `test_2026-05-03__1200`
+- Completed: 2026-05-03
+- Quality: Diamond
+- Celebration: [`celebrations/test_2026-05-03.md`](celebrations/test_2026-05-03.md)
+- Outcome: The original outcome survives metadata insertion.
+"""
+    journal_path = journal_dir / "test_2026-05-03.md"
+    journal_path.write_text(journal_content, encoding="utf-8")
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.celebration_path == Path(
+        "docs/quest-journal/celebrations/test_2026-05-03.md"
+    )
+    assert entry.elevator_pitch == "The original outcome survives metadata insertion."
+
+
+def test_journal_entry_detects_matching_celebration_file(tmp_path):
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    celebration_dir = journal_dir / "celebrations"
+    celebration_dir.mkdir(parents=True)
+    (celebration_dir / "test_2026-05-03.md").write_text(
+        "<!-- quest-id: test_2026-05-03__1200 -->\n\ncelebrate",
+        encoding="utf-8",
+    )
+    journal_path = journal_dir / "test_2026-05-03.md"
+    journal_path.write_text(
+        "# Quest Journal: Test\n\n- Quest ID: `test_2026-05-03__1200`\n",
+        encoding="utf-8",
+    )
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.celebration_path == Path(
+        "docs/quest-journal/celebrations/test_2026-05-03.md"
+    )
+
+
+def test_journal_entry_rejects_matching_celebration_file_for_different_quest(tmp_path):
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    celebration_dir = journal_dir / "celebrations"
+    celebration_dir.mkdir(parents=True)
+    (celebration_dir / "test_2026-05-03.md").write_text(
+        "<!-- quest-id: different_2026-05-03__0900 -->\n\ncelebrate",
+        encoding="utf-8",
+    )
+    journal_path = journal_dir / "test_2026-05-03.md"
+    journal_path.write_text(
+        "# Quest Journal: Test\n\n- Quest ID: `test_2026-05-03__1200`\n",
+        encoding="utf-8",
+    )
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.celebration_path is None
+
+
+def test_journal_entry_rejects_missing_celebration_link(tmp_path):
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    journal_path = journal_dir / "missing_2026-05-03.md"
+    journal_path.write_text(
+        "\n".join(
+            [
+                "# Quest Journal: Missing",
+                "",
+                "- Quest ID: `missing_2026-05-03__1200`",
+                "- Celebration: [missing](celebrations/missing_2026-05-03.md)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.celebration_path is None
+
+
+def test_journal_entry_rejects_non_celebration_journal_link(tmp_path):
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    (journal_dir / "README.md").write_text("index", encoding="utf-8")
+    journal_path = journal_dir / "wrong_2026-05-03.md"
+    journal_path.write_text(
+        "\n".join(
+            [
+                "# Quest Journal: Wrong",
+                "",
+                "- Quest ID: `wrong_2026-05-03__1200`",
+                "- Celebration: [wrong](README.md)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.celebration_path is None
+
+
+def test_legacy_journal_without_celebration_has_no_link(tmp_path):
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    journal_path = journal_dir / "legacy_2026-01-01.md"
+    journal_path.write_text(
+        "# Quest Journal: Legacy\n\n- Quest ID: `legacy_2026-01-01__0000`\n",
+        encoding="utf-8",
+    )
+
+    entry = _parse_journal_entry(journal_path, tmp_path)
+
+    assert entry.celebration_path is None
+
+
+def test_celebration_link_path_traversal_rejected(tmp_path):
+    journal_dir = tmp_path / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    bad_targets = [
+        "/tmp/escape.md",
+        "../escape.md",
+        "celebrations/../../escape.md",
+    ]
+
+    for index, target in enumerate(bad_targets):
+        journal_path = journal_dir / f"bad-{index}.md"
+        journal_path.write_text(
+            "\n".join(
+                [
+                    "# Quest Journal: Bad",
+                    "",
+                    "- Quest ID: `bad_2026-05-03__1200`",
+                    f"- Celebration: [bad]({target})",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        entry = _parse_journal_entry(journal_path, tmp_path)
+
+        assert entry.celebration_path is None
+
+
 def test_extract_outcome_pitch_normalizes_blockquote_markers():
     content = """- Outcome: > Consolidated overlapping proposals
 > into one canonical instruction architecture document.

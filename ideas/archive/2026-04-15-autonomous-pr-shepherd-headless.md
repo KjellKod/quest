@@ -9,6 +9,9 @@ status: idea
 owner: kjell
 ---
 
+> Superseded by `ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md`.
+> Keep this file as historical source material; do not implement directly.
+
 ## Problem
 The evaluation shows high operational load in PR lifecycle work (20 PR-management sessions and 18 PR-shepherding sessions). Repetition is high-value automation territory, but current friction patterns (wrong branch/path, validation drift) can be amplified if autonomous loops are enabled too early.
 

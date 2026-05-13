@@ -1017,6 +1017,15 @@ def _render_quest_card(
             f'<span><b>PR:</b> <a href="{pr_link}">#{quest.pr_number}</a></span>'
         )
 
+    if isinstance(quest, JournalEntry) and quest.celebration_path and github_url:
+        celebration_url = _sanitize_url(
+            f"{github_url}/blob/main/{quest.celebration_path}"
+        )
+        if celebration_url:
+            meta_items.append(
+                f'<span><b>Celebration:</b> <a href="{celebration_url}">Open</a></span>'
+            )
+
     # Add agent models if available (JournalEntry with celebration_data)
     if isinstance(quest, JournalEntry) and quest.agent_models:
         models_str = ", ".join(html.escape(m) for m in quest.agent_models)

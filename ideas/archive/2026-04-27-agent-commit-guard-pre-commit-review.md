@@ -15,6 +15,9 @@ related:
   - ideas/2026-04-24-quest-hooks-vs-instructions-boundary.md
 ---
 
+> Superseded by `ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md`.
+> Keep this file as historical source material; do not implement directly.
+
 # Summary
 
 `pre-commit-review` is currently a manually invoked skill. That is the right
