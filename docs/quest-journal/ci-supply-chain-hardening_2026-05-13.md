@@ -17,6 +17,7 @@ Planned YAML for `.github/workflows/security.yml` (`workflow-guard` job):
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+```
 
 ## Files Changed
 

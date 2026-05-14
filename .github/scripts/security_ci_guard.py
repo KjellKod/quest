@@ -86,6 +86,8 @@ def _normalize_yaml_root(raw_data: object) -> dict[str, object]:
 
 
 def _as_string_mapping(raw_data: object) -> dict[str, str]:
+    if isinstance(raw_data, str):
+        return {"id-token": "write"} if raw_data == "write-all" else {}
     if not isinstance(raw_data, dict):
         return {}
 
@@ -329,7 +331,7 @@ def _is_pinned_third_party_action(uses: str) -> bool:
         return True
     match = ACTION_REF_RE.match(uses)
     if not match:
-        return True
+        return False
     owner = match.group("owner").lower()
     if owner in TRUSTED_ACTION_OWNERS:
         return True
@@ -360,10 +362,60 @@ def _is_npx_unpinned(line: str) -> bool:
     return True
 
 
+_PIP_FLAGS_WITH_VALUE = frozenset(
+    {
+        "-c",
+        "--constraint",
+        "-i",
+        "--index-url",
+        "--extra-index-url",
+        "-f",
+        "--find-links",
+        "--target",
+        "-t",
+        "--prefix",
+        "--root",
+        "--platform",
+        "--python-version",
+        "--implementation",
+        "--abi",
+        "--src",
+        "--cache-dir",
+        "--no-binary",
+        "--only-binary",
+        "--proxy",
+        "--cert",
+        "--client-cert",
+        "--trusted-host",
+        "--timeout",
+    }
+)
+
+
 def _is_pip_install_unpinned(line: str) -> bool:
-    if re.search(r"\b(?:python3\s+-m\s+)?pip\s+install\b", line) is None:
+    match = re.search(r"\b(?:python3?\s+-m\s+)?pip[0-9.]*\s+install\b(.*)$", line)
+    if match is None:
         return False
-    return not any(token in line for token in ("==", " -r ", "--require-hashes"))
+    args_str = match.group(1).split("#", 1)[0]
+    tokens = args_str.split()
+    if any(token in {"-r", "--requirement", "--require-hashes"} or token.startswith("--requirement=") for token in tokens):
+        return False
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token.startswith("-"):
+            if "=" not in token and token in _PIP_FLAGS_WITH_VALUE:
+                i += 2
+                continue
+            i += 1
+            continue
+        if token.startswith((".", "/", "file:")) or "://" in token:
+            i += 1
+            continue
+        if "==" not in token and "===" not in token:
+            return True
+        i += 1
+    return False
 
 
 def _is_pipx_install_unpinned(line: str) -> bool:

@@ -450,3 +450,119 @@ def test_existing_workflows_pass_guard() -> None:
     for workflow_path in sorted((_repo_root() / ".github" / "workflows").glob("*.y*ml")):
         failures.extend(module.scan_workflow(workflow_path))
     assert failures == []
+
+
+def test_permissions_write_all_string_triggers_id_token_rule(tmp_path: Path) -> None:
+    """`permissions: write-all` grants id-token write implicitly; rule (f) must catch it."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "write_all.yml",
+        """\
+name: Example
+on:
+  push:
+    branches: [main]
+permissions: write-all
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("id-token: write is only allowed" in failure for failure in failures)
+
+
+def test_unparseable_uses_reference_fails_closed(tmp_path: Path) -> None:
+    """A `uses:` value that doesn't match owner/repo@ref must fail the SHA-pin rule."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "uses_unparseable.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: some-weird-bare-name
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("third-party action" in failure for failure in failures)
+
+
+def test_pip_install_mixed_pinned_and_unpinned_is_flagged(tmp_path: Path) -> None:
+    """`pip install foo==1.0 bar` must fail rule (d): every positional package needs `==`."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pip_mixed.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install foo==1.0 bar
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures)
+    assert any("pip install" in failure for failure in failures)
+
+
+def test_pip3_install_unpinned_is_flagged(tmp_path: Path) -> None:
+    """The pip-install matcher must also catch versioned `pip3 install` invocations."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pip3_unpinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip3 install requests
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures)
+
+
+def test_pip_install_with_requirements_file_passes(tmp_path: Path) -> None:
+    """`pip install -r requirements.txt` is an explicit safe mode and must not be flagged."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pip_requirements.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install -r requirements.txt
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures)
