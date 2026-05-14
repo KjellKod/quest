@@ -1,0 +1,28 @@
+tests/test_security_ci_guard.py
+  s_3f1bd2c7048429::t_934647fd804b52 1414-1415,1436-1437
+  s_3f1bd2c7048429::t_22d16db70e7898 1283-1413,1416-1435,1438-1467
+.github/scripts/security_ci_guard.py
+  s_3f1bd2c7048429::t_e82be4990f2021 253
+  s_3f1bd2c7048429::t_b836d753bc1a6f 542-546
+  s_3f1bd2c7048429::t_752e101ee42fe1 649-652,654
+  s_3f1bd2c7048429::t_3ef2c9b37d4315 725-727
+  s_3f1bd2c7048429::t_5a2adb6306c4a1 440-465
+  s_3f1bd2c7048429::t_2cb6bb7635b343 57-96
+  s_3f1bd2c7048429::t_b87427dd745df7 495-498,500-508,512
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "2f293a330a71cb0e52f21b00b9b777c304ca04a7",
+  "prompts": {},
+  "sessions": {
+    "s_3f1bd2c7048429": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "75b59376-3735-49b6-9e0c-69f59ffcbe93",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
