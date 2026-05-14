@@ -348,13 +348,24 @@ def _is_pinned_third_party_action(uses: str) -> bool:
 
 
 def _is_npm_global_install_unpinned(line: str) -> bool:
-    match = re.search(r"\bnpm\s+(?:install|i)\s+-g\s+([^\s#]+)", line)
-    if not match:
+    if re.search(r"\bnpm\s+(?:install|i)\b", line) is None:
         return False
-    package_spec = match.group(1)
-    if package_spec.startswith("@"):
-        return "@" not in package_spec[1:]
-    return "@" not in package_spec
+    if not re.search(r"(?:\s|^)(?:-g|--global)(?:\s|$)", line):
+        return False
+    args_match = re.search(r"\bnpm\s+(?:install|i)\b(.*)$", line)
+    if not args_match:
+        return False
+    args_str = args_match.group(1).split("#", 1)[0]
+    for token in args_str.split():
+        if token.startswith("-"):
+            continue
+        package_spec = token
+        if package_spec.startswith("@"):
+            if "@" not in package_spec[1:]:
+                return True
+        elif "@" not in package_spec:
+            return True
+    return False
 
 
 def _is_npx_unpinned(line: str) -> bool:
@@ -401,13 +412,21 @@ _PIP_FLAGS_WITH_VALUE = frozenset(
 )
 
 
+_PIP_VCS_SCHEME_RE = re.compile(r"^(?:git|hg|svn|bzr)\+", re.IGNORECASE)
+_PIP_HTTP_URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+
+
 def _is_pip_install_unpinned(line: str) -> bool:
     match = re.search(r"\b(?:python3?\s+-m\s+)?pip[0-9.]*\s+install\b(.*)$", line)
     if match is None:
         return False
-    args_str = match.group(1).split("#", 1)[0]
+    args_str = match.group(1)
+    # `--require-hashes` allows everything (every distribution must carry a hash).
+    if re.search(r"(?:^|\s)--require-hashes(?:\s|$)", args_str):
+        return False
+    args_str = args_str.split("#", 1)[0]
     tokens = args_str.split()
-    if any(token in {"-r", "--requirement", "--require-hashes"} or token.startswith("--requirement=") for token in tokens):
+    if any(token in {"-r", "--requirement"} or token.startswith("--requirement=") for token in tokens):
         return False
     i = 0
     while i < len(tokens):
@@ -418,6 +437,23 @@ def _is_pip_install_unpinned(line: str) -> bool:
                 continue
             i += 1
             continue
+        # VCS specs (git+https://..., hg+...) — require an @<ref> pin to a 40-char SHA-like ref.
+        if _PIP_VCS_SCHEME_RE.match(token):
+            at_idx = token.rfind("@")
+            scheme_end = token.find("://")
+            if at_idx <= scheme_end:
+                return True
+            ref = token[at_idx + 1 :]
+            # Strip any egg / subdirectory suffix introduced with `#`.
+            ref = ref.split("#", 1)[0]
+            if not FULL_SHA_RE.match(ref):
+                return True
+            i += 1
+            continue
+        # Direct HTTP(S) tarball/wheel URLs — require either an inline hash fragment or `--require-hashes` (handled above).
+        if _PIP_HTTP_URL_RE.match(token):
+            return True
+        # Local paths and file: specs are out of scope for supply-chain pinning.
         if token.startswith((".", "/", "file:")) or "://" in token:
             i += 1
             continue
@@ -437,8 +473,23 @@ def _is_pipx_install_unpinned(line: str) -> bool:
     return "==" not in package_spec
 
 
+_PIPE_TO_SHELL_FETCHER_RE = re.compile(r"\b(?:curl|wget|fetch)\b[^\n|]*\|")
+_PIPE_TO_SHELL_EXECUTOR_RE = re.compile(
+    r"\b(?:sh|bash|zsh|ksh|dash|ash|fish|python[0-9.]*|perl|ruby|node)\b"
+)
+
+
 def _is_pipe_to_shell(line: str) -> bool:
-    return re.search(r"\bcurl\b[^\n|]*\|\s*(?:sh|bash)\b", line) is not None
+    if _PIPE_TO_SHELL_FETCHER_RE.search(line) is None:
+        return False
+    # Inspect every pipe stage after the fetcher; flag if any stage executes a shell-like interpreter.
+    stages = line.split("|")
+    if len(stages) < 2:
+        return False
+    for stage in stages[1:]:
+        if _PIPE_TO_SHELL_EXECUTOR_RE.search(stage):
+            return True
+    return False
 
 
 def _find_unpinned_installer_line(step: StepView) -> str | None:

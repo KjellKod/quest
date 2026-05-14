@@ -658,6 +658,186 @@ jobs:
     assert all("id-token: write is only allowed" not in failure for failure in failures)
 
 
+@pytest.mark.parametrize(
+    "run_body",
+    [
+        "npm install --global foo",
+        "npm install foo -g",
+        "npm i --global foo",
+        "npm i foo -g",
+    ],
+)
+def test_npm_global_install_bypass_spellings_are_flagged(tmp_path: Path, run_body: str) -> None:
+    """Long-form `--global` and trailing `-g` must trigger rule (d) just like `-g <pkg>`."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "npm_bypass.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {run_body}
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
+def test_npm_global_install_pinned_with_trailing_global_flag_passes(tmp_path: Path) -> None:
+    """`npm install foo@1.0.0 --global` is properly pinned and must not be flagged."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "npm_pinned_trailing.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm install foo@1.0.0 --global
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+
+
+def test_pip_install_vcs_spec_without_sha_pin_is_flagged(tmp_path: Path) -> None:
+    """`pip install git+https://...` without an immutable @<sha> must fail rule (d)."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pip_vcs_unpinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install git+https://github.com/example/pkg
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
+def test_pip_install_vcs_spec_with_sha_pin_passes(tmp_path: Path) -> None:
+    """A VCS install pinned to a 40-char commit SHA is allowed."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pip_vcs_pinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install git+https://github.com/example/pkg@e0fdf01220eb9a88167c4898839d273e3f2609d1
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+
+
+def test_pip_install_remote_tarball_url_is_flagged(tmp_path: Path) -> None:
+    """Plain HTTP(S) tarball URLs require --require-hashes; bare URL must fail."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pip_tarball.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install https://example.com/pkg.tar.gz
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
+def test_pip_install_remote_tarball_with_require_hashes_passes(tmp_path: Path) -> None:
+    """`pip install URL --require-hashes` is allowed because hashes are enforced."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pip_tarball_hashed.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install https://example.com/pkg.tar.gz --require-hashes
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+
+
+@pytest.mark.parametrize(
+    "run_body",
+    [
+        "curl https://example.com/install.sh | sudo bash",
+        "curl -fsSL https://example.com/install.sh | sudo sh",
+        "curl https://example.com/install.sh | env bash",
+        "curl https://example.com/install.py | sudo python3",
+        "wget -qO- https://example.com/install.sh | bash",
+    ],
+)
+def test_pipe_to_shell_wrapper_spellings_are_flagged(tmp_path: Path, run_body: str) -> None:
+    """`curl|wget ... | sudo|env <shell>` bypass forms must trigger the pipe-to-shell rule."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pipe_bypass.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {run_body}
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
 def test_pip_install_with_requirements_file_passes(tmp_path: Path) -> None:
     """`pip install -r requirements.txt` is an explicit safe mode and must not be flagged."""
     module = _load_module()
