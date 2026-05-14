@@ -431,6 +431,34 @@ _NPM_EXACT_SEMVER_RE = re.compile(
     r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
 )
 
+# npm install/npx flags whose value lives in the *next* token (space separated).
+# Skipped as a pair so the value isn't misclassified as a package spec — e.g.
+# `npm install -g --registry https://registry.example.com foo@1.2.3` must not
+# treat the registry URL as an unpinned package.
+_NPM_FLAGS_WITH_VALUE = frozenset({
+    "--registry",
+    "--prefix",
+    "--cache",
+    "--userconfig",
+    "--globalconfig",
+    "--proxy",
+    "--https-proxy",
+    "--ca",
+    "--cafile",
+    "--cert",
+    "--key",
+    "--user-agent",
+    "--workspace",
+    "-w",
+    "--workspaces",
+    "--loglevel",
+    "--script-shell",
+    "--tag",
+    "--save-prefix",
+    "-C",
+    "--prefix-dir",
+})
+
 
 def _npm_package_spec_is_immutable(spec: str) -> bool:
     """True only if `spec` is `<name>@<exact-semver>` or `<name>@<40-char-sha>`."""
@@ -460,11 +488,24 @@ def _is_npm_global_install_unpinned(line: str) -> bool:
     if not args_match:
         return False
     args_str = args_match.group(1).split("#", 1)[0]
-    for token in args_str.split():
+    tokens = args_str.split()
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
         if token.startswith("-"):
+            # `--flag=value` is one token; nothing more to skip.
+            if "=" in token:
+                i += 1
+                continue
+            # `--flag value` — drop both tokens so the value isn't misread as a package.
+            if token in _NPM_FLAGS_WITH_VALUE:
+                i += 2
+                continue
+            i += 1
             continue
         if not _npm_package_spec_is_immutable(token):
             return True
+        i += 1
     return False
 
 

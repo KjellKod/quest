@@ -996,6 +996,75 @@ jobs:
     assert all("disallowed installer pattern" not in failure for failure in failures), failures
 
 
+def test_npm_install_with_space_separated_flag_value_passes(tmp_path: Path) -> None:
+    """`npm install -g --registry URL foo@1.2.3` must not treat URL as a package."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "npm_registry_flag.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm install -g --registry https://registry.example.com foo@1.2.3
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+
+
+def test_npm_install_with_equals_flag_value_passes(tmp_path: Path) -> None:
+    """`npm install -g --registry=URL foo@1.2.3` (equals form) must also pass."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "npm_registry_eq.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm install -g --registry=https://registry.example.com foo@1.2.3
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+
+
+def test_npm_install_unpinned_after_flag_value_is_still_flagged(tmp_path: Path) -> None:
+    """`npm install -g --registry URL foo` (no pin) must still trip rule (d)."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "npm_registry_unpinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm install -g --registry https://registry.example.com foo
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
 @pytest.mark.parametrize(
     "run_body",
     [
