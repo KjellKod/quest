@@ -347,6 +347,31 @@ def _is_pinned_third_party_action(uses: str) -> bool:
     return FULL_SHA_RE.match(match.group("ref")) is not None
 
 
+# Exact semver pin: `1.2.3` with optional `-prerelease` and `+build` metadata. No ranges, no dist-tags.
+_NPM_EXACT_SEMVER_RE = re.compile(
+    r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
+)
+
+
+def _npm_package_spec_is_immutable(spec: str) -> bool:
+    """True only if `spec` is `<name>@<exact-semver>` or `<name>@<40-char-sha>`."""
+    # Scoped packages start with `@scope/name` — strip the leading `@scope/` before splitting on the version separator.
+    body = spec
+    if body.startswith("@"):
+        slash_idx = body.find("/")
+        if slash_idx == -1:
+            return False
+        body = body[slash_idx + 1 :]
+    if "@" not in body:
+        return False
+    _, _, version = body.rpartition("@")
+    if not version:
+        return False
+    if FULL_SHA_RE.match(version):
+        return True
+    return _NPM_EXACT_SEMVER_RE.match(version) is not None
+
+
 def _is_npm_global_install_unpinned(line: str) -> bool:
     if re.search(r"\bnpm\s+(?:install|i)\b", line) is None:
         return False
@@ -359,11 +384,7 @@ def _is_npm_global_install_unpinned(line: str) -> bool:
     for token in args_str.split():
         if token.startswith("-"):
             continue
-        package_spec = token
-        if package_spec.startswith("@"):
-            if "@" not in package_spec[1:]:
-                return True
-        elif "@" not in package_spec:
+        if not _npm_package_spec_is_immutable(token):
             return True
     return False
 
@@ -371,15 +392,35 @@ def _is_npm_global_install_unpinned(line: str) -> bool:
 def _is_npx_unpinned(line: str) -> bool:
     if re.search(r"\bnpx\b", line) is None:
         return False
-    if re.search(r"--package(?:=|\s+)[^\s@]+@[^\s]+", line):
-        return False
-    if re.search(r"--package(?:=|\s+)@[^\s]+/[^\s@]+@[^\s]+", line):
-        return False
-    if re.search(r"\bnpx(?:\s+--[^\s]+(?:=[^\s]+)?)*\s+[^\s@]+@[^\s]+", line):
-        return False
-    if re.search(r"\bnpx(?:\s+--[^\s]+(?:=[^\s]+)?)*\s+@[^\s]+/[^\s@]+@[^\s]+", line):
-        return False
-    return True
+    args_match = re.search(r"\bnpx\b(.*)$", line)
+    if not args_match:
+        return True
+    args_str = args_match.group(1).split("#", 1)[0]
+    tokens = args_str.split()
+    i = 0
+    package_specs: list[str] = []
+    while i < len(tokens):
+        token = tokens[i]
+        if token in {"--package", "-p"}:
+            if i + 1 < len(tokens):
+                package_specs.append(tokens[i + 1])
+                i += 2
+                continue
+            i += 1
+            continue
+        if token.startswith("--package="):
+            package_specs.append(token.split("=", 1)[1])
+            i += 1
+            continue
+        if token.startswith("-"):
+            i += 1
+            continue
+        # First positional after npx flags is the package spec to invoke.
+        package_specs.append(token)
+        break
+    if not package_specs:
+        return True
+    return not all(_npm_package_spec_is_immutable(spec) for spec in package_specs)
 
 
 _PIP_FLAGS_WITH_VALUE = frozenset(
@@ -492,10 +533,27 @@ def _is_pipe_to_shell(line: str) -> bool:
     return False
 
 
+def _join_shell_continuations(body: str) -> list[str]:
+    """Collapse trailing-backslash shell line continuations into single logical lines."""
+    joined: list[str] = []
+    buffer = ""
+    for raw_line in body.splitlines():
+        line = raw_line.rstrip()
+        # A trailing backslash continues the next line, but `\\` (escaped) does not.
+        if line.endswith("\\") and not line.endswith("\\\\"):
+            buffer += line[:-1] + " "
+            continue
+        joined.append(buffer + line)
+        buffer = ""
+    if buffer:
+        joined.append(buffer)
+    return joined
+
+
 def _find_unpinned_installer_line(step: StepView) -> str | None:
     if step.run is None:
         return None
-    for raw_line in step.run.splitlines():
+    for raw_line in _join_shell_continuations(step.run):
         line = raw_line.strip()
         if not line:
             continue

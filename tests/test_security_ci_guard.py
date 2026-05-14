@@ -838,6 +838,164 @@ jobs:
     assert any("disallowed installer pattern" in failure for failure in failures), failures
 
 
+@pytest.mark.parametrize(
+    "first_line,second_line",
+    [
+        ("curl -fsSL https://example.com/install.sh \\", "| bash"),
+        ("wget -qO- https://example.com/install.sh \\", "| sudo bash"),
+        ("curl https://example.com/install.sh \\", "| env python3"),
+    ],
+)
+def test_pipe_to_shell_via_line_continuation_is_flagged(
+    tmp_path: Path, first_line: str, second_line: str
+) -> None:
+    """A backslash-newline continuation must not let the fetcher and executor escape the matcher."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pipe_continuation.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          {first_line}
+            {second_line}
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
+@pytest.mark.parametrize(
+    "run_body",
+    [
+        "npm install -g foo@latest",
+        "npm install -g foo@^1.2.3",
+        "npm install -g foo@~1.2",
+        "npm install -g foo@beta",
+        "npm install -g foo@>=1.0.0",
+        "npm install --global foo@*",
+        "npm install -g @scope/foo@latest",
+    ],
+)
+def test_npm_mutable_version_specs_are_flagged(tmp_path: Path, run_body: str) -> None:
+    """Dist-tags, semver ranges, and wildcards must not count as pinned npm versions."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "npm_mutable.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {run_body}
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
+@pytest.mark.parametrize(
+    "run_body",
+    [
+        "npm install -g foo@1.2.3",
+        "npm install -g foo@1.2.3-rc.1",
+        "npm install -g foo@1.2.3+build.5",
+        "npm install -g @scope/foo@1.2.3",
+        "npm install foo@1.2.3 --global",
+    ],
+)
+def test_npm_exact_semver_pins_pass(tmp_path: Path, run_body: str) -> None:
+    """Exact semver (with optional prerelease/build metadata) and scoped variants must pass."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "npm_pinned_semver.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {run_body}
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+
+
+@pytest.mark.parametrize(
+    "run_body",
+    [
+        "npx foo@latest",
+        "npx foo@^1.0.0",
+        "npx --package foo@latest some-cmd",
+        "npx --package=foo@beta some-cmd",
+    ],
+)
+def test_npx_mutable_version_specs_are_flagged(tmp_path: Path, run_body: str) -> None:
+    """npx must reject dist-tags and ranges in the package spec, including `--package` form."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "npx_mutable.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {run_body}
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
+def test_npx_exact_semver_pin_passes(tmp_path: Path) -> None:
+    """`npx foo@1.2.3` is allowed; the same workflow with `@latest` is not."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "npx_pinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npx foo@1.2.3
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+
+
 def test_pip_install_with_requirements_file_passes(tmp_path: Path) -> None:
     """`pip install -r requirements.txt` is an explicit safe mode and must not be flagged."""
     module = _load_module()
