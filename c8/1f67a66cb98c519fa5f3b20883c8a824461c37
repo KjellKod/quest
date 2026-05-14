@@ -1,0 +1,26 @@
+.github/workflows/codex-version-drift.yml
+  s_3f1bd2c7048429::t_e1e1eabca5bda2 27-28,41,43-44,55-62,65-72,74-83,85-87,89
+tests/test_security_ci_guard.py
+  s_3f1bd2c7048429::t_fe41254243db92 1167-1282
+.github/scripts/security_ci_guard.py
+  s_3f1bd2c7048429::t_c5e185256f73e9 115-119
+  s_3f1bd2c7048429::t_794b8cff59da87 686
+  s_3f1bd2c7048429::t_b950cc13d2225d 22,26-52,54
+  s_3f1bd2c7048429::t_3733a4de6d1e0c 339-351,353-359
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "c81f67a66cb98c519fa5f3b20883c8a824461c37",
+  "prompts": {},
+  "sessions": {
+    "s_3f1bd2c7048429": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "75b59376-3735-49b6-9e0c-69f59ffcbe93",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
