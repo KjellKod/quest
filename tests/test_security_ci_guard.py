@@ -545,6 +545,119 @@ jobs:
     assert any("disallowed installer pattern" in failure for failure in failures)
 
 
+def test_reusable_workflow_job_uses_unpinned_third_party_is_flagged(tmp_path: Path) -> None:
+    """`jobs.<id>.uses` for a third-party reusable workflow must require a full SHA."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "reusable_unpinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    uses: thirdparty/repo/.github/workflows/build.yml@main
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("reusable workflow" in failure for failure in failures)
+
+
+def test_reusable_workflow_job_uses_sha_pinned_third_party_passes(tmp_path: Path) -> None:
+    """A SHA-pinned third-party reusable workflow must pass rule (c)."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "reusable_pinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    uses: thirdparty/repo/.github/workflows/build.yml@e0fdf01220eb9a88167c4898839d273e3f2609d1
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("reusable workflow" not in failure for failure in failures)
+
+
+def test_reusable_workflow_first_party_tag_pinned_passes(tmp_path: Path) -> None:
+    """First-party (`actions/*`, `github/*`) tag-pinned reusable workflows are allowed."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "reusable_first_party.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    uses: actions/example/.github/workflows/build.yml@v1
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("reusable workflow" not in failure for failure in failures)
+
+
+def test_sentinel_text_inside_run_command_does_not_allow_step(tmp_path: Path) -> None:
+    """Sentinel text echoed inside a run command must NOT mark the step as allowed."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "sentinel_inside_command.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: try-bypass
+        run: |
+          echo '# security-guard: allow whatever'
+          npm install -g foo
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures)
+
+
+def test_permissions_read_all_string_is_treated_as_declared(tmp_path: Path) -> None:
+    """`permissions: read-all` is a valid scalar declaration; rule (e) must not fail it."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "read_all.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions: read-all
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("must declare top-level permissions" not in failure for failure in failures)
+    # And read-all does NOT grant id-token write, so rule (f) must not fire either.
+    assert all("id-token: write is only allowed" not in failure for failure in failures)
+
+
 def test_pip_install_with_requirements_file_passes(tmp_path: Path) -> None:
     """`pip install -r requirements.txt` is an explicit safe mode and must not be flagged."""
     module = _load_module()

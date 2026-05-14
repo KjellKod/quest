@@ -41,6 +41,9 @@ PULL_REQUEST_TARGET_SENTINEL_RE = re.compile(
 )
 RUN_LINE_RE = re.compile(r"^(?P<indent>\s*)(?:-\s*)?run:\s*(?P<tail>.*)$")
 ACTION_REF_RE = re.compile(r"^(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)@(?P<ref>\S+)$")
+REUSABLE_WORKFLOW_REF_RE = re.compile(
+    r"^(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)/(?P<path>[A-Za-z0-9_./-]+\.ya?ml)@(?P<ref>\S+)$"
+)
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 TRUSTED_ACTION_OWNERS = {"actions", "github"}
 ID_TOKEN_ALLOWLIST = {".github/workflows/deploy-dashboard.yml"}
@@ -59,6 +62,7 @@ class JobView:
     name: str
     permissions: Mapping[str, str]
     steps: tuple[StepView, ...]
+    uses: str | None
 
 
 @dataclass(frozen=True)
@@ -67,6 +71,7 @@ class WorkflowView:
     raw_text: str
     triggers: frozenset[str]
     permissions: Mapping[str, str]
+    permissions_declared: bool
     jobs: Mapping[str, JobView]
 
 
@@ -126,7 +131,7 @@ def _parse_steps(raw_steps: object) -> tuple[StepView, ...]:
                 name=name_obj if isinstance(name_obj, str) else "",
                 uses=uses_obj if isinstance(uses_obj, str) else None,
                 run=run_text,
-                has_allow_sentinel=run_text is not None and SENTINEL_INLINE_RE.search(run_text) is not None,
+                has_allow_sentinel=False,
             )
         )
     return tuple(steps)
@@ -261,10 +266,12 @@ def load_workflow_view(path: Path) -> WorkflowView:
             if not isinstance(job_name, str) or not isinstance(raw_job, dict):
                 continue
             steps = _parse_steps(raw_job.get("steps"))
+            job_uses_obj = raw_job.get("uses")
             jobs[job_name] = JobView(
                 name=job_name,
                 permissions=_as_string_mapping(raw_job.get("permissions")),
                 steps=steps,
+                uses=job_uses_obj if isinstance(job_uses_obj, str) else None,
             )
 
     job_step_sentinel_flags = _extract_job_step_sentinel_flags(raw_text)
@@ -276,6 +283,7 @@ def load_workflow_view(path: Path) -> WorkflowView:
             name=job.name,
             permissions=job.permissions,
             steps=steps,
+            uses=job.uses,
         )
 
     return WorkflowView(
@@ -283,6 +291,7 @@ def load_workflow_view(path: Path) -> WorkflowView:
         raw_text=raw_text,
         triggers=_parse_triggers(workflow.get("on")),
         permissions=_as_string_mapping(workflow.get("permissions")),
+        permissions_declared=workflow.get("permissions") is not None,
         jobs=updated_jobs,
     )
 
@@ -329,7 +338,7 @@ def _is_id_token_allowlisted(path: Path) -> bool:
 def _is_pinned_third_party_action(uses: str) -> bool:
     if uses.startswith("./") or uses.startswith("docker://"):
         return True
-    match = ACTION_REF_RE.match(uses)
+    match = ACTION_REF_RE.match(uses) or REUSABLE_WORKFLOW_REF_RE.match(uses)
     if not match:
         return False
     owner = match.group("owner").lower()
@@ -465,6 +474,10 @@ def scan_workflow(path: Path) -> list[str]:
         )
 
     for job in workflow.jobs.values():
+        if job.uses and not _is_pinned_third_party_action(job.uses):
+            failures.append(
+                f"{path}: third-party reusable workflow '{job.uses}' must be pinned to a full 40-character commit SHA."
+            )
         for step in job.steps:
             if not step.uses:
                 continue
@@ -485,7 +498,7 @@ def scan_workflow(path: Path) -> list[str]:
     if any(snippet in workflow.raw_text for snippet in BROAD_WRITE_SNIPPETS):
         failures.append(f"{path}: PR workflow requests overly broad write permissions.")
 
-    if not workflow.permissions:
+    if not workflow.permissions_declared:
         failures.append(f"{path}: PR workflow must declare top-level permissions.")
 
     for job in workflow.jobs.values():
@@ -500,7 +513,7 @@ def scan_workflow(path: Path) -> list[str]:
     if not is_secret_bearing(workflow):
         return failures
 
-    if not workflow.permissions:
+    if not workflow.permissions_declared:
         failures.append(
             f"{path}: secret-bearing PR workflow must declare explicit permissions."
         )
