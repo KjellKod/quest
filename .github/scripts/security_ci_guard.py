@@ -44,6 +44,7 @@ ACTION_REF_RE = re.compile(r"^(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]
 REUSABLE_WORKFLOW_REF_RE = re.compile(
     r"^(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)/(?P<path>[A-Za-z0-9_./-]+\.ya?ml)@(?P<ref>\S+)$"
 )
+DOCKER_DIGEST_REF_RE = re.compile(r"^docker://[^\s@]+@sha256:[0-9a-f]{64}$")
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 TRUSTED_ACTION_OWNERS = {"actions", "github"}
 ID_TOKEN_ALLOWLIST = {".github/workflows/deploy-dashboard.yml"}
@@ -336,8 +337,10 @@ def _is_id_token_allowlisted(path: Path) -> bool:
 
 
 def _is_pinned_third_party_action(uses: str) -> bool:
-    if uses.startswith("./") or uses.startswith("docker://"):
+    if uses.startswith("./"):
         return True
+    if uses.startswith("docker://"):
+        return DOCKER_DIGEST_REF_RE.match(uses) is not None
     match = ACTION_REF_RE.match(uses) or REUSABLE_WORKFLOW_REF_RE.match(uses)
     if not match:
         return False
@@ -449,6 +452,8 @@ _PIP_FLAGS_WITH_VALUE = frozenset(
         "--client-cert",
         "--trusted-host",
         "--timeout",
+        "-r",
+        "--requirement",
     }
 )
 
@@ -467,13 +472,15 @@ def _is_pip_install_unpinned(line: str) -> bool:
         return False
     args_str = args_str.split("#", 1)[0]
     tokens = args_str.split()
-    if any(token in {"-r", "--requirement"} or token.startswith("--requirement=") for token in tokens):
-        return False
     i = 0
     while i < len(tokens):
         token = tokens[i]
         if token.startswith("-"):
-            if "=" not in token and token in _PIP_FLAGS_WITH_VALUE:
+            # `--requirement=req.txt` is a single token; nothing more to skip.
+            if "=" in token:
+                i += 1
+                continue
+            if token in _PIP_FLAGS_WITH_VALUE:
                 i += 2
                 continue
             i += 1
@@ -550,23 +557,53 @@ def _join_shell_continuations(body: str) -> list[str]:
     return joined
 
 
+def _check_installer_line(line: str) -> str | None:
+    if _is_npm_global_install_unpinned(line):
+        return "npm install -g without version pin"
+    if _is_npx_unpinned(line):
+        return "npx invocation without explicit version pin"
+    if _is_pip_install_unpinned(line):
+        return "pip install without pin or requirements file"
+    if _is_pipx_install_unpinned(line):
+        return "pipx install without == pin"
+    if _is_pipe_to_shell(line):
+        return "curl piped to shell"
+    return None
+
+
 def _find_unpinned_installer_line(step: StepView) -> str | None:
     if step.run is None:
         return None
-    for raw_line in _join_shell_continuations(step.run):
+    logical_lines = [
+        raw for raw in _join_shell_continuations(step.run) if raw.strip()
+    ]
+    # Single-logical-line steps may rely on a sentinel sourced from outside the
+    # body (a YAML comment above the run key, or a trailing comment that YAML
+    # stripped during parsing). Trust the AST-derived flag only for those.
+    if step.has_allow_sentinel:
+        non_sentinel_lines = [
+            line for line in logical_lines if not SENTINEL_LINE_RE.match(line.strip())
+        ]
+        if len(non_sentinel_lines) <= 1:
+            return None
+
+    next_line_exempt = False
+    for raw_line in logical_lines:
         line = raw_line.strip()
-        if not line:
+        # Pure sentinel-comment line: annotate the next non-blank command line.
+        if SENTINEL_LINE_RE.match(line):
+            next_line_exempt = True
             continue
-        if _is_npm_global_install_unpinned(line):
-            return "npm install -g without version pin"
-        if _is_npx_unpinned(line):
-            return "npx invocation without explicit version pin"
-        if _is_pip_install_unpinned(line):
-            return "pip install without pin or requirements file"
-        if _is_pipx_install_unpinned(line):
-            return "pipx install without == pin"
-        if _is_pipe_to_shell(line):
-            return "curl piped to shell"
+        # Trailing inline sentinel on the same line as the command.
+        if not line.startswith("#") and SENTINEL_INLINE_RE.search(line):
+            next_line_exempt = False
+            continue
+        if next_line_exempt:
+            next_line_exempt = False
+            continue
+        reason = _check_installer_line(line)
+        if reason:
+            return reason
     return None
 
 
@@ -612,8 +649,6 @@ def scan_workflow(path: Path) -> list[str]:
 
     for job in workflow.jobs.values():
         for step in job.steps:
-            if step.has_allow_sentinel:
-                continue
             reason = _find_unpinned_installer_line(step)
             if reason:
                 step_name = step.name or "unnamed step"

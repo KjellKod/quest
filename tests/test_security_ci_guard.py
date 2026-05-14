@@ -996,6 +996,174 @@ jobs:
     assert all("disallowed installer pattern" not in failure for failure in failures), failures
 
 
+@pytest.mark.parametrize(
+    "run_body",
+    [
+        "pip install -r requirements.txt requests",
+        "pip install requests -r requirements.txt",
+        "pip install --requirement=requirements.txt requests",
+        "pip install -r requirements.txt requests django",
+    ],
+)
+def test_pip_requirements_file_does_not_exempt_other_packages(tmp_path: Path, run_body: str) -> None:
+    """`-r req.txt` covers packages listed in the file, NOT other positional args on the line."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pip_r_bypass.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {run_body}
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
+def test_pip_requirements_file_with_all_pinned_extras_passes(tmp_path: Path) -> None:
+    """`-r req.txt` plus a pinned positional package must still pass."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pip_r_with_pinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install -r requirements.txt requests==2.32.3
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+
+
+@pytest.mark.parametrize(
+    "docker_ref",
+    [
+        "docker://alpine:latest",
+        "docker://alpine",
+        "docker://alpine:3.18",
+        "docker://example.com/image:v1.0",
+        "docker://image@sha256:deadbeef",  # too-short digest
+    ],
+)
+def test_docker_uses_without_digest_pin_is_flagged(tmp_path: Path, docker_ref: str) -> None:
+    """docker:// references must use an immutable @sha256:<64-hex> digest."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "docker_unpinned.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: {docker_ref}
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("third-party action" in failure for failure in failures), failures
+
+
+def test_docker_uses_with_sha256_digest_passes(tmp_path: Path) -> None:
+    """`docker://image@sha256:<64-hex>` is the only acceptable docker:// form."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "docker_pinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker://alpine@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("third-party action" not in failure for failure in failures), failures
+
+
+def test_sentinel_only_covers_the_next_command_line(tmp_path: Path) -> None:
+    """A sentinel above one command must NOT exempt unrelated commands later in the same step."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "sentinel_scope_leak.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: mixed-step
+        run: |
+          # security-guard: allow versioned release download
+          curl -sSL https://example.com/tool_1.2.3.tar.gz -o /tmp/tool.tar.gz
+          npm install -g foo@latest
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any(
+        "disallowed installer pattern" in failure and "mixed-step" in failure
+        for failure in failures
+    ), failures
+
+
+def test_sentinel_above_intended_line_still_allows_that_line(tmp_path: Path) -> None:
+    """Legitimate sentinel-above-line usage (gitleaks pattern) must remain allowed."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "sentinel_legit.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: bootstrap
+        run: |
+          # security-guard: allow versioned release download
+          curl -sSL https://example.com/tool_1.2.3.tar.gz -o /tmp/tool.tar.gz
+          tar -xzf /tmp/tool.tar.gz -C /tmp
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+
+
 def test_pip_install_with_requirements_file_passes(tmp_path: Path) -> None:
     """`pip install -r requirements.txt` is an explicit safe mode and must not be flagged."""
     module = _load_module()
