@@ -1,0 +1,72 @@
+.github/workflows/security.yml
+  s_ebe9110db5a1f1::t_8842a68e912739 40-44
+.github/scripts/security_ci_guard.py
+  s_ebe9110db5a1f1::t_1bc13f672c73cf 15,17-18
+  s_25d2190b2ead60::t_5f59b3ccd17e26 11,133-139,188-190,192-194,197-199,201-203,206-208,210-211,213,232,247,272
+  s_ebe9110db5a1f1::t_198584b7fc71e5 320-326,424,427
+  s_6530c0877d694d::t_4d52dbf0e2fc54 74,433,448,455,459,463,467
+  s_ebe9110db5a1f1::t_544fe513230673 36-46,127,229-231,269-270,273-277,279-319,327-400,404,407-408,410,412,415-423,425-426,428-430,436-446,451
+  s_774f3bef18ebd9::t_82f29542aa578f 140-180,182,185-187,196,205,209,212,214-226,235-238,268,271
+docs/quest-journal/ci-supply-chain-hardening_2026-05-13.md
+  s_3f1bd2c7048429::t_5a28d0eb15a272 1-226
+docs/quest-journal/celebrations/ci-supply-chain-hardening_2026-05-13.md
+  s_3f1bd2c7048429::t_5a28d0eb15a272 1-106
+tests/test_security_ci_guard.py
+  s_6530c0877d694d::t_cbcbc95da2d967 33,414-447
+  s_25d2190b2ead60::t_e6b4d0b1680b56 90-122
+  s_ebe9110db5a1f1::t_3d8998c58e5032 9-11,35-89,154-406
+  s_774f3bef18ebd9::t_db5717bdaacd0c 123-153
+docs/quest-journal/README.md
+  s_3f1bd2c7048429::t_5a28d0eb15a272 9
+.github/workflows/codex-version-drift.yml
+  s_ebe9110db5a1f1::t_8142a5abed3244 39-49
+  s_ebe9110db5a1f1::t_6602a23658b599 19-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "d3dc08b97e049dcd8f77dd194303e290d51a3ff8",
+  "prompts": {},
+  "sessions": {
+    "s_25d2190b2ead60": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2384-1eff-7313-87ac-2a32fdab1081",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_3f1bd2c7048429": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "75b59376-3735-49b6-9e0c-69f59ffcbe93",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_6530c0877d694d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "99ff40f6-c7a8-4827-ae69-187e79d24211",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_774f3bef18ebd9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2387-45ed-7023-bafd-a701edceabd0",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_ebe9110db5a1f1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2377-a33a-7560-bbbd-ff65da23a7ff",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
