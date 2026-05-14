@@ -1301,3 +1301,167 @@ jobs:
     )
     failures = module.scan_workflow(workflow_path)
     assert all("disallowed installer pattern" not in failure for failure in failures)
+
+
+# --- Regression tests for cubic-dev-ai review findings on PR #113 ---
+
+
+@pytest.mark.parametrize(
+    "run_body",
+    [
+        'curl https://example.com | echo "Use python here"',
+        "curl https://example.com | dd if=python.bin of=/dev/null",
+        "wget -qO- https://example.com | tar xzf python_pkg.tar.gz",
+    ],
+)
+def test_pipe_to_shell_does_not_flag_executor_words_in_arguments(
+    tmp_path: Path, run_body: str
+) -> None:
+    """Shell-executor words appearing only inside arguments, filenames, or quoted strings
+    on a pipe stage must NOT trigger the pipe-to-shell rule (cubic r3239105577)."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pipe_arg_word.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {run_body}
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+
+
+def test_pipe_to_shell_flags_chained_executor_after_double_amp(tmp_path: Path) -> None:
+    """A pipe stage that chains commands with `&&` and runs python in the second
+    command must still trip the rule. The anchored executor regex matches each
+    chained command independently."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pipe_chained_executor.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl https://example.com/pkg.tgz | tar xzf - && python install.py
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
+def test_npx_package_flag_does_not_require_command_to_be_pinned(tmp_path: Path) -> None:
+    """`npx --package foo@1.0.0 bar` is pinned via --package; `bar` is the command
+    inside the pinned package, not a separate package spec (cubic r3239173592)."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "npx_package_pinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npx --package foo@1.0.0 bar
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+
+
+def test_npx_package_flag_with_unpinned_spec_is_still_flagged(tmp_path: Path) -> None:
+    """`npx --package foo bar` is unpinned via --package and must still be flagged
+    even though the command name `bar` would have looked like an unpinned
+    positional under the old logic."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "npx_package_unpinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npx --package foo bar
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
+def test_inline_sentinel_inside_quoted_argument_does_not_exempt_line(tmp_path: Path) -> None:
+    """The sentinel `# security-guard: allow` must only exempt a line when it sits
+    in a real shell comment, not when an attacker embeds the literal string inside
+    a quoted argument to the dangerous command (cubic r3239255682)."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "inline_sentinel_bypass.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: try-quoted-bypass
+        run: |
+          npm install -g foo "# security-guard: allow"
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
+def test_inline_sentinel_as_real_comment_still_exempts_line(tmp_path: Path) -> None:
+    """Legitimate inline-sentinel comments (real `#` not inside a string) must keep
+    exempting the line so authors retain the documented escape hatch."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "inline_sentinel_real_comment.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: legitimate-allow
+        run: |
+          npm install -g foo  # security-guard: allow
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("disallowed installer pattern" not in failure for failure in failures), failures

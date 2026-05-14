@@ -54,6 +54,40 @@ WRITE_ALL_SCOPES = (
 READ_ALL_SCOPES = tuple(scope for scope in WRITE_ALL_SCOPES if scope != "id-token")
 SENTINEL_INLINE_RE = re.compile(r"#\s*security-guard:\s*allow\b")
 SENTINEL_LINE_RE = re.compile(r"^\s*#\s*security-guard:\s*allow\b")
+
+
+def _has_unquoted_inline_sentinel(text: str) -> bool:
+    """True iff `text` carries a `# security-guard: allow` sentinel outside any
+    quoted string. Treats single quotes as fully literal and double quotes as
+    backslash-escaping per POSIX shell rules. Avoids depending on `shlex.split`
+    because it raises on unbalanced quotes, which appear regularly in real
+    `run:` bodies (e.g. apostrophes inside echo messages)."""
+    in_single = False
+    in_double = False
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if in_single:
+            if ch == "'":
+                in_single = False
+        elif in_double:
+            if ch == "\\" and i + 1 < len(text):
+                i += 2
+                continue
+            if ch == '"':
+                in_double = False
+        else:
+            if ch == "'":
+                in_single = True
+            elif ch == '"':
+                in_double = True
+            elif ch == "#":
+                # Unquoted `#` starts a real shell comment; check the
+                # remainder of the line for the sentinel and stop scanning
+                # — anything after this `#` is the comment body.
+                return SENTINEL_INLINE_RE.match(text[i:]) is not None
+        i += 1
+    return False
 PULL_REQUEST_TARGET_SENTINEL_RE = re.compile(
     r"^\s*#\s*security-guard:\s*allow\s+pull_request_target\b",
     re.MULTILINE,
@@ -210,7 +244,7 @@ def _step_run_has_allow_sentinel(
                     break
             body_index += 1
 
-    return sentinel_above or sentinel_in_block or SENTINEL_INLINE_RE.search(tail) is not None
+    return sentinel_above or sentinel_in_block or _has_unquoted_inline_sentinel(tail)
 
 
 def _extract_job_step_sentinel_flags(raw_text: str) -> dict[str, list[bool]]:
@@ -460,8 +494,12 @@ def _is_npx_unpinned(line: str) -> bool:
         if token.startswith("-"):
             i += 1
             continue
-        # First positional after npx flags is the package spec to invoke.
-        package_specs.append(token)
+        # Without --package/-p, the first positional is the package spec
+        # to invoke. When --package was already used, that positional is
+        # the command name inside the pinned package and is not a spec
+        # we need to re-check for pinning.
+        if not package_specs:
+            package_specs.append(token)
         break
     if not package_specs:
         return True
@@ -564,9 +602,20 @@ def _is_pipx_install_unpinned(line: str) -> bool:
 
 
 _PIPE_TO_SHELL_FETCHER_RE = re.compile(r"\b(?:curl|wget|fetch)\b[^\n|]*\|")
+# The executor must be the actual command being run at the start of a pipe-stage
+# command, optionally behind a `sudo`/`env`/`exec` wrapper and/or an absolute
+# path. Anchoring this way prevents false positives where shell-name words
+# appear only in quoted arguments (e.g. `| echo "Use python here"`).
 _PIPE_TO_SHELL_EXECUTOR_RE = re.compile(
-    r"\b(?:sh|bash|zsh|ksh|dash|ash|fish|python[0-9.]*|perl|ruby|node)\b"
+    r"^\s*"
+    r"(?:(?:sudo|env|exec)(?:\s+-\S+|\s+\S+=\S+)*\s+)*"
+    r"(?:/\S*/)?"
+    r"(?:sh|bash|zsh|ksh|dash|ash|fish|python[0-9.]*|perl|ruby|node)\b"
 )
+# Split each pipe stage on shell command separators so chained commands like
+# `tar xzf - && python install.py` still trip the rule on the executed
+# component rather than depending on an unanchored substring match.
+_SHELL_CMD_SEPARATOR_RE = re.compile(r"&&|\|\||;")
 
 
 def _is_pipe_to_shell(line: str) -> bool:
@@ -577,8 +626,9 @@ def _is_pipe_to_shell(line: str) -> bool:
     if len(stages) < 2:
         return False
     for stage in stages[1:]:
-        if _PIPE_TO_SHELL_EXECUTOR_RE.search(stage):
-            return True
+        for command in _SHELL_CMD_SEPARATOR_RE.split(stage):
+            if _PIPE_TO_SHELL_EXECUTOR_RE.match(command):
+                return True
     return False
 
 
@@ -637,7 +687,9 @@ def _find_unpinned_installer_line(step: StepView) -> str | None:
             next_line_exempt = True
             continue
         # Trailing inline sentinel on the same line as the command.
-        if not line.startswith("#") and SENTINEL_INLINE_RE.search(line):
+        # Must be a real shell comment, not the sentinel string embedded
+        # inside a quoted argument to the command.
+        if not line.startswith("#") and _has_unquoted_inline_sentinel(line):
             next_line_exempt = False
             continue
         if next_line_exempt:
