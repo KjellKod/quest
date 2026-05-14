@@ -9,12 +9,13 @@ on:
       - ready_for_review
       - reopened
 
+permissions:
+  pull-requests: read
+
 jobs:
   pr-body-gate:
     name: pr-body-gate
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
 
     steps:
       - name: Validate required PR sections

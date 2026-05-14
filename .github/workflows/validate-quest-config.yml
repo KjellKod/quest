@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -13,16 +16,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '20'
+          python-version: "3.12"
 
-      - name: Install jq
-        run: sudo apt-get install -y jq
-
-      - name: Install ajv-cli
-        run: npm install -g ajv-cli
+      - name: Install check-jsonschema
+        run: python3 -m pip install check-jsonschema==0.37.2
 
       - name: Run validation script
         run: |
@@ -30,8 +30,7 @@ jobs:
           ./scripts/quest_validate-quest-config.sh
 
       - name: Validate allowlist against schema
-        run: |
-          ajv validate -s .ai/schemas/allowlist.schema.json -d .ai/allowlist.json --spec=draft2020
+        run: check-jsonschema --schemafile .ai/schemas/allowlist.schema.json .ai/allowlist.json
 
       - name: Validate manifest completeness
         run: |

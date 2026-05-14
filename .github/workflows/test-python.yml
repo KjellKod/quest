@@ -42,9 +42,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install pytest
+      - name: Install test dependencies
         if: steps.check-tests.outputs.has_tests == 'true'
-        run: pip install pytest
+        run: python3 -m pip install pytest==9.0.3 pyyaml==6.0.3
 
       - name: Run tests
         if: steps.check-tests.outputs.has_tests == 'true'

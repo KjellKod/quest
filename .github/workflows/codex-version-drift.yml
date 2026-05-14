@@ -1,0 +1,65 @@
+name: Codex Version Drift
+
+on:
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  codex-version-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check for codex CLI drift
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          latest="$(npm view @openai/codex version)"
+          pinned="$(tr -d '[:space:]' < .github/codex-cli-version.txt)"
+
+          if [ "$latest" = "$pinned" ]; then
+            echo "No drift detected (pinned=$pinned, latest=$latest)."
+            exit 0
+          fi
+
+          title="[codex-drift] Codex CLI drift: $pinned -> $latest"
+          body="$(
+            printf '%s\n' \
+              "Codex CLI version drift detected." \
+              "" \
+              "- Pinned in repo: $pinned" \
+              "- Latest npm release: $latest" \
+              "" \
+              "Please review and update:" \
+              "- \`.github/codex-cli-version.txt\`" \
+              "- any workflows or docs that rely on this baseline"
+          )"
+
+          existing_issue="$(
+            gh issue list \
+              --state open \
+              --search "in:title [codex-drift]" \
+              --json number \
+              --jq '.[0].number // empty'
+          )"
+
+          if [ -n "$existing_issue" ]; then
+            gh issue edit "$existing_issue" --title "$title" --body "$body"
+            echo "Updated existing drift issue #$existing_issue."
+          else
+            gh issue create --title "$title" --body "$body"
+            echo "Created new drift issue."
+          fi
