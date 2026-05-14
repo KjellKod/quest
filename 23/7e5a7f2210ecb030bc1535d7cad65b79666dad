@@ -1,0 +1,25 @@
+.github/scripts/security_ci_guard.py
+  s_3f1bd2c7048429::t_c821a9e0989d57 334
+  s_3f1bd2c7048429::t_3c2d0400ee4022 89-90
+  s_3f1bd2c7048429::t_a2a95a6281d867 365-394,396-397,399-418
+docs/quest-journal/ci-supply-chain-hardening_2026-05-13.md
+  s_3f1bd2c7048429::t_3c120e083c1a09 20
+tests/test_security_ci_guard.py
+  s_3f1bd2c7048429::t_26e8f7ce877599 453-568
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "237e5a7f2210ecb030bc1535d7cad65b79666dad",
+  "prompts": {},
+  "sessions": {
+    "s_3f1bd2c7048429": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "75b59376-3735-49b6-9e0c-69f59ffcbe93",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
