@@ -24,6 +24,8 @@ jobs:
       - name: Check for codex CLI drift
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRIFT_LABEL: codex-drift-watcher
+          DRIFT_MARKER: "<!-- codex-drift-watcher:v1 -->"
         run: |
           set -euo pipefail
 
@@ -36,8 +38,10 @@ jobs:
           fi
 
           title="[codex-drift] Codex CLI drift: $pinned -> $latest"
-          body="$(
+          body_text="$(
             printf '%s\n' \
+              "$DRIFT_MARKER" \
+              "" \
               "Codex CLI version drift detected." \
               "" \
               "- Pinned in repo: $pinned" \
@@ -48,18 +52,40 @@ jobs:
               "- any workflows or docs that rely on this baseline"
           )"
 
-          existing_issue="$(
+          # Ensure the management label exists. Idempotent: ignore "already exists" failure.
+          gh label create "$DRIFT_LABEL" \
+            --color CCCCCC \
+            --description "Managed by Codex Version Drift workflow" \
+            >/dev/null 2>&1 || true
+
+          # Select candidates by label only; verify each with the body marker before mutating.
+          candidates_json="$(
             gh issue list \
               --state open \
-              --search "in:title [codex-drift]" \
-              --json number \
-              --jq '.[0].number // empty'
+              --label "$DRIFT_LABEL" \
+              --json number,body
           )"
 
-          if [ -n "$existing_issue" ]; then
-            gh issue edit "$existing_issue" --title "$title" --body "$body"
-            echo "Updated existing drift issue #$existing_issue."
+          target_number="$(
+            printf '%s' "$candidates_json" \
+              | jq -r --arg marker "$DRIFT_MARKER" \
+                  '[.[] | select(.body | contains($marker))] | (.[0].number // empty)'
+          )"
+          marked_count="$(
+            printf '%s' "$candidates_json" \
+              | jq -r --arg marker "$DRIFT_MARKER" \
+                  '[.[] | select(.body | contains($marker))] | length'
+          )"
+
+          if [ "$marked_count" -gt 1 ]; then
+            echo "::warning::Multiple open '$DRIFT_LABEL' issues carry the managed marker; creating a fresh issue to avoid mutating the wrong one."
+            target_number=""
+          fi
+
+          if [ -n "$target_number" ]; then
+            gh issue edit "$target_number" --title "$title" --body "$body_text"
+            echo "Updated existing drift issue #$target_number."
           else
-            gh issue create --title "$title" --body "$body"
+            gh issue create --title "$title" --body "$body_text" --label "$DRIFT_LABEL"
             echo "Created new drift issue."
           fi

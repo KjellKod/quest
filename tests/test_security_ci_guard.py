@@ -1164,6 +1164,122 @@ jobs:
     assert all("disallowed installer pattern" not in failure for failure in failures), failures
 
 
+@pytest.mark.parametrize(
+    "permissions_block",
+    [
+        # Quoted scalar value — YAML-equivalent to `contents: write`.
+        'permissions:\n  contents: "write"\n',
+        # Single-quoted scalar value.
+        "permissions:\n  contents: 'write'\n",
+        # Inline mapping form.
+        "permissions: { contents: write, pull-requests: read }\n",
+        # write-all shortcut grants every scope as write.
+        "permissions: write-all\n",
+        # Job-level grant on a broad scope; top-level only declares contents: read.
+        "permissions:\n  contents: read\n",
+    ],
+)
+def test_quoted_or_shortcut_write_permission_is_flagged(tmp_path: Path, permissions_block: str) -> None:
+    """Broad-write detection must operate structurally, not on raw-text snippets."""
+    module = _load_module()
+    job_perms = ""
+    if permissions_block.endswith("contents: read\n"):
+        # Force the broad-write to appear at the job level instead of top-level.
+        job_perms = '    permissions:\n      contents: "write"\n'
+    workflow_path = _write_workflow(
+        tmp_path,
+        "quoted_write.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+{permissions_block}jobs:
+  check:
+    runs-on: ubuntu-latest
+{job_perms}    steps:
+      - run: echo hi
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("overly broad write permissions" in failure for failure in failures), failures
+
+
+@pytest.mark.parametrize(
+    "permissions_block",
+    [
+        'permissions:\n  pull-requests: "write"\n  contents: read\n',
+        'permissions:\n  issues: "write"\n  contents: read\n',
+        "permissions:\n  pull-requests: write\n  contents: read\n",
+    ],
+)
+def test_quoted_secret_bearing_permission_triggers_secret_bearing_rules(
+    tmp_path: Path, permissions_block: str
+) -> None:
+    """`pull-requests: write` / `issues: write` (any quoting) must trigger secret-bearing checks."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "secret_bearing_quoted.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+{permissions_block}jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    # No `environment:` block, so secret-bearing PR workflow must complain.
+    assert any("must use an environment gate" in failure for failure in failures), failures
+
+
+def test_read_all_permission_does_not_trigger_broad_write(tmp_path: Path) -> None:
+    """`permissions: read-all` is the safe shortcut; broad-write must not fire."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "read_all_ok.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions: read-all
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert all("overly broad write permissions" not in failure for failure in failures), failures
+
+
+def test_write_all_permission_triggers_broad_write(tmp_path: Path) -> None:
+    """`permissions: write-all` must trigger broad-write (in addition to id-token)."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "write_all_broad.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions: write-all
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("overly broad write permissions" in failure for failure in failures), failures
+
+
 def test_pip_install_with_requirements_file_passes(tmp_path: Path) -> None:
     """`pip install -r requirements.txt` is an explicit safe mode and must not be flagged."""
     module = _load_module()

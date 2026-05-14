@@ -19,20 +19,39 @@ TRUSTED_AUTHOR_SNIPPETS = {
 }
 SAME_REPO_SNIPPET = "github.event.pull_request.head.repo.full_name == github.repository"
 BASE_SHA_SNIPPET = "ref: ${{ github.event.pull_request.base.sha }}"
-SECRET_BEARING_SNIPPETS = (
+SECRET_TOKEN_RAW_SNIPPETS = (
     "OPENAI_API_KEY",
     "secrets.OPENAI_API_KEY",
-    "pull-requests: write",
-    "issues: write",
 )
-BROAD_WRITE_SNIPPETS = (
-    "contents: write",
-    "actions: write",
-    "packages: write",
-    "deployments: write",
-    "attestations: write",
-    "checks: write",
+SECRET_BEARING_SCOPES = frozenset({"pull-requests", "issues"})
+BROAD_WRITE_SCOPES = frozenset({
+    "contents",
+    "actions",
+    "packages",
+    "deployments",
+    "attestations",
+    "checks",
+})
+# `permissions: write-all` is a scalar shortcut that grants every scope as write.
+# Mirror that structurally so every downstream permission check (id-token rule,
+# broad-write rule, secret-bearing rule) sees the implied grants. `read-all` is
+# the complementary shortcut and must count as an explicit declaration.
+WRITE_ALL_SCOPES = (
+    "actions",
+    "attestations",
+    "checks",
+    "contents",
+    "deployments",
+    "id-token",
+    "issues",
+    "packages",
+    "pages",
+    "pull-requests",
+    "repository-projects",
+    "security-events",
+    "statuses",
 )
+READ_ALL_SCOPES = tuple(scope for scope in WRITE_ALL_SCOPES if scope != "id-token")
 SENTINEL_INLINE_RE = re.compile(r"#\s*security-guard:\s*allow\b")
 SENTINEL_LINE_RE = re.compile(r"^\s*#\s*security-guard:\s*allow\b")
 PULL_REQUEST_TARGET_SENTINEL_RE = re.compile(
@@ -93,7 +112,11 @@ def _normalize_yaml_root(raw_data: object) -> dict[str, object]:
 
 def _as_string_mapping(raw_data: object) -> dict[str, str]:
     if isinstance(raw_data, str):
-        return {"id-token": "write"} if raw_data == "write-all" else {}
+        if raw_data == "write-all":
+            return {scope: "write" for scope in WRITE_ALL_SCOPES}
+        if raw_data == "read-all":
+            return {scope: "read" for scope in READ_ALL_SCOPES}
+        return {}
     if not isinstance(raw_data, dict):
         return {}
 
@@ -313,8 +336,27 @@ def uses_checkout(workflow: WorkflowView) -> bool:
     return "actions/checkout@" in workflow.raw_text
 
 
+def _permissions_grant_any(perms: Mapping[str, str], scopes: frozenset[str], value: str) -> bool:
+    return any(perms.get(scope) == value for scope in scopes)
+
+
+def _workflow_grants_any_write(workflow: WorkflowView, scopes: frozenset[str]) -> bool:
+    if _permissions_grant_any(workflow.permissions, scopes, "write"):
+        return True
+    return any(
+        _permissions_grant_any(job.permissions, scopes, "write")
+        for job in workflow.jobs.values()
+    )
+
+
 def is_secret_bearing(workflow: WorkflowView) -> bool:
-    return any(snippet in workflow.raw_text for snippet in SECRET_BEARING_SNIPPETS)
+    if any(snippet in workflow.raw_text for snippet in SECRET_TOKEN_RAW_SNIPPETS):
+        return True
+    return _workflow_grants_any_write(workflow, SECRET_BEARING_SCOPES)
+
+
+def has_broad_write_permissions(workflow: WorkflowView) -> bool:
+    return _workflow_grants_any_write(workflow, BROAD_WRITE_SCOPES)
 
 
 def has_trusted_author_gate(workflow: WorkflowView) -> bool:
@@ -641,7 +683,7 @@ def scan_workflow(path: Path) -> list[str]:
     if not pr_event:
         return failures
 
-    if any(snippet in workflow.raw_text for snippet in BROAD_WRITE_SNIPPETS):
+    if has_broad_write_permissions(workflow):
         failures.append(f"{path}: PR workflow requests overly broad write permissions.")
 
     if not workflow.permissions_declared:
