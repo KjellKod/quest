@@ -246,6 +246,18 @@ def _load_failed_log_summary(path: str) -> dict[str, Any]:
                 }
             ],
         }
+    except UnicodeDecodeError as exc:
+        return {
+            "records": [],
+            "unavailable": [
+                {
+                    "source_kind": "failed_log_summary",
+                    "unavailable_reason": "decode_failed",
+                    "path": path,
+                    "message": str(exc)[:500],
+                }
+            ],
+        }
     except json.JSONDecodeError as exc:
         return {
             "records": [],

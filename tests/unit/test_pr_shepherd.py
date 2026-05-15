@@ -575,6 +575,17 @@ def test_collect_intake_failed_log_summary_read_failure_becomes_unavailable(tmp_
     assert summary["unavailable"][0]["path"] == str(path)
 
 
+def test_collect_intake_failed_log_summary_decode_failure_becomes_unavailable(tmp_path: Path) -> None:
+    path = tmp_path / "bad-encoding.json"
+    path.write_bytes(b"\xff\xfe\x00")
+
+    summary = pr_shepherd_collect_intake._load_failed_log_summary(str(path))
+
+    assert summary["records"] == []
+    assert summary["unavailable"][0]["unavailable_reason"] == "decode_failed"
+    assert summary["unavailable"][0]["path"] == str(path)
+
+
 def test_post_reply_live_thread_uses_pr_comment_reply_endpoint(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
