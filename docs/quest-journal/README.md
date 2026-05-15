@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-05-13 | [ci-supply-chain-hardening](ci-supply-chain-hardening_2026-05-13.md) | Planned YAML for `.github/workflows/security.yml` (`workflow-guard` job): ```yaml workflow-guard: runs-on: ubuntu-lat... |
 | 2026-05-03 | [persist-celebrations](persist-celebrations_2026-05-03.md) | Completed successfully. |
 | 2026-05-02 | [installer-branch-conflict](installer-branch-conflict_2026-05-02.md) | `$quest https://github.com/KjellKod/quest/issues/110 fix this.` Issue: https://github.com/KjellKod/quest/issues/110 T... |
 | 2026-04-27 | [portable-pre-commit-review](portable-pre-commit-review_2026-04-27.md) | Completed successfully. |
