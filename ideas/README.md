@@ -87,6 +87,7 @@ Current roadmap:
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| done | ~~2026-05-14-pr-shepherd-operational-intake~~ | Implemented PR targeting, idempotent reply markers, compact PR intake scripts, failed-log records, scope annotation, and operational stop states. Archived at [`ideas/archive/2026-05-14-pr-shepherd-operational-intake.md`](archive/2026-05-14-pr-shepherd-operational-intake.md); see [journal](../docs/quest-journal/pr-shepherd-operational-intake_2026-05-15.md). |
 | done | ~~2026-04-13-review-intelligence-canonical~~ | Phases 1-3 shipped: canonical findings/backlog, targeted validation/PR batching, and bounded Deep CI whole-file review. Archived at [`ideas/archive/2026-04-13-review-intelligence-canonical.md`](archive/2026-04-13-review-intelligence-canonical.md). |
 | done | ~~deep-ci-review-context-manifest-plan~~ | Implemented as Review Intelligence Phase 3.2 in PR #101. Archived at [`ideas/archive/deep-ci-review-context-manifest-plan.md`](archive/deep-ci-review-context-manifest-plan.md). |
 | done | ~~deep-ci-chunked-context-plan~~ | Implemented as Review Intelligence Phase 3.1 in PR #98. Archived at [`ideas/archive/deep-ci-chunked-context-plan.md`](archive/deep-ci-chunked-context-plan.md). |

@@ -1,6 +1,6 @@
 ---
 name: pr-shepherd
-description: Push a draft PR and iterate until CI passes and review comments are resolved, then mark ready for review. Handles the full lifecycle of getting a PR merged with inline-first review handling.
+description: Shepherd an existing PR through CI and review feedback, then mark ready for review when clean. Uses inline-first review handling; PR creation belongs to pr-assistant.
 ---
 
 At activation, announce the skill name and scope in one line. Example: `[pr-shepherd] shepherding PR #97`.

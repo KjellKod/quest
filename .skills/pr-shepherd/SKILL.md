@@ -1,6 +1,6 @@
 # PR Shepherd
 
-Push a draft PR and iterate until CI passes and review comments are resolved, then mark ready for review.
+Shepherd an existing PR through CI and review comments, then mark ready for review when clean.
 
 At activation, announce the skill name and scope in one line. Example: `[pr-shepherd] shepherding PR #97`.
 
@@ -16,10 +16,32 @@ Use **inline-first** commenting by default.
 
 ## Procedure
 
-### Step 1: Push & Create Draft PR
-1. Commit staged changes (use git-commit-assistant conventions).
-2. Push the branch to origin.
-3. Create a **draft** PR via `gh pr create --draft`.
+### Step 1: Locate Existing PR
+`pr-assistant` owns draft PR creation and PR body updates. If no PR exists for
+the current branch, stop and ask the user to run `pr-assistant` first.
+
+Accepted targets:
+- current branch
+- PR number
+- PR URL
+- branch name
+
+Use inspection-first checkout:
+```
+python3 scripts/pr_shepherd_checkout.py [<target>] --json
+```
+
+This command must not mutate the current worktree unless `--apply` is supplied.
+If the current branch already matches the PR head branch, it returns
+`action: "none"` and must not run `gh pr checkout`.
+
+Only use mutation when the user explicitly targets a different PR and the
+worktree is clean:
+```
+python3 scripts/pr_shepherd_checkout.py <target> --apply --json
+```
+
+Dirty worktrees block mutation paths, not read-only inspection.
 
 ### Step 1.5: Commit/Push Context Guard
 Before every commit or push performed by this skill, verify that the local
@@ -37,7 +59,6 @@ workspace still matches the PR branch:
    the intended workspace before editing, committing, or pushing.
 
 This guard is mandatory before:
-- the initial commit/push in Step 1,
 - any CI-fix commit/push in Step 3,
 - any review-comment fix commit/push in Step 4 or Step 4.4.
 
@@ -57,13 +78,14 @@ Loop:
 - **Failures** → read the failing job logs (`gh run view <RUN_ID> --log-failed`), diagnose the root cause, write a one-sentence diagnosis note naming the failing check, root cause, and intended fix, run the Step 1.5 context guard, fix it, commit, push, and loop back to Step 2.
 
 ### Step 4: Check PR Comments
-1. Fetch **inline** review comments: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
-2. Fetch **general** PR comments: `gh pr view <PR_NUMBER> --comments`
-   - Comment fetch is single-shot by default.
-   - If a transient API state requires retrying, use `interval_seconds = 20`, `max_retries = 20`, 400-second cap (`20 seconds x 20 retries`).
+1. Collect compact records-shaped intake:
+   - `python3 scripts/pr_shepherd_collect_intake.py --pr <PR_NUMBER> --output <intake.json>`
+2. Normalize and annotate:
+   - `python3 scripts/quest_review_intelligence.py normalize-pr-intake --input <intake.json> --output <review_findings.json>`
+   - `python3 scripts/pr_shepherd_annotate_scope.py --pr <PR_NUMBER> --findings <review_findings.json> --output <review_findings_scoped.json>`
 3. For each comment, respond **on the comment itself** (threaded reply), never move an inline discussion to the general PR thread:
-   - **Inline review comments** → reply via `gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies -f body="..."`
-   - **General discussion comments** → reply via `gh pr comment <PR_NUMBER> --body "..."`
+   - **Inline review comments** → use `python3 scripts/pr_shepherd_post_reply.py --pr <PR_NUMBER> --thread-id <id> --body "..."`
+   - **Fingerprint-only/general summaries** → use the marker-owned summary mode in `pr_shepherd_post_reply.py`
 4. Decision per comment:
    - **Agree?** → Fix the code, commit, push. Reply on the comment acknowledging the fix.
    - **Disagree?** → Reply on the comment with clear reasoning explaining why.
@@ -73,28 +95,29 @@ Loop:
 Run the review loop through the canonical review-intelligence pipeline. **Order matters:** validation steps must be attached to backlog items before batching, otherwise `build-fix-batches` falls back to one-item batches keyed by `finding_id` and the "batched PR response" behavior is lost.
 
 1. Collect one intake payload per cycle:
-   - `ci_checks`
-   - `inline_comments`
-   - `general_comments`
-   - `existing_findings`
+   - `records`
+   - compact unavailable diagnostics, if any
+   - for failed checks with an inspectable run id, first run `python3 scripts/pr_shepherd_fetch_failed_logs.py --run-id <RUN_ID> --check-name "<check>" --raw-log-url <url> --output <failed-log.json>`, then pass it to the collector with `--failed-log-summary <failed-log.json>`
 2. Normalize intake to canonical findings:
    - `python3 scripts/quest_review_intelligence.py normalize-pr-intake --input <intake.json> --output <review_findings.json>`
-3. Build decision backlog with shared policy:
-   - `python3 scripts/quest_review_intelligence.py build-backlog --findings <review_findings.json> --output <review_backlog.json>`
-4. Select concrete validation per actionable finding and persist onto the backlog:
+3. Annotate changed-line scope:
+   - `python3 scripts/pr_shepherd_annotate_scope.py --pr <PR_NUMBER> --findings <review_findings.json> --output <review_findings_scoped.json>`
+4. Build decision backlog with shared policy:
+   - `python3 scripts/quest_review_intelligence.py build-backlog --findings <review_findings_scoped.json> --output <review_backlog.json>`
+5. Select concrete validation per actionable finding and persist onto the backlog:
    - `python3 scripts/quest_review_intelligence.py select-batch-validation --backlog <review_backlog.json> [--repo-inventory <repo_inventory.json>]`
    - Updates each actionable item's `validation_steps` in place so batching sees real signatures.
    - Single-finding preview (debugging only): `python3 scripts/quest_select_tests.py --finding <finding.json> [--repo-inventory <repo_inventory.json>]`.
-5. Build actionable non-overlapping batches:
+6. Build actionable non-overlapping batches:
    - `python3 scripts/quest_review_intelligence.py build-fix-batches --backlog <review_backlog.json> --output <fix_batches.json>`
    - Items sharing `batch_key` + `validation_scope` signature group together, split by write-scope overlap as needed.
-6. Execute one batch at a time:
+7. Execute one batch at a time:
    - Apply only that batch's `fix_now` / `verify_first` items.
    - Run validation steps in order (Level 0 → Level 1 → Level 2 when present).
    - Before committing or pushing the batch, run the Step 1.5 context guard.
    - Push once after that batch validates.
-7. Classify loop stop after each cycle:
-   - `python3 scripts/quest_review_intelligence.py classify-pr-stop --ci-state <green|failing|pending|unknown> --actionable <count> --iteration <n> --backlog <review_backlog.json>`
+8. Classify loop stop after each cycle:
+   - `python3 scripts/quest_review_intelligence.py classify-pr-stop --ci-state <green|failing|pending|unknown> --actionable <count> --iteration <n> --backlog <review_backlog.json> --pass-facts <pass_facts.json>`
    - If cap is enforced, classification handles in-place retagging and deferred backlog append for newly deferred findings.
    - Continue only when classification outcome is `continue`.
 
@@ -154,6 +177,7 @@ Once CI is green AND all comments are addressed:
 ```
 gh pr ready <PR_NUMBER>
 ```
+Only run this from operational state `clean`.
 Inform the user the PR is ready for their review.
 
 ## Key Principles

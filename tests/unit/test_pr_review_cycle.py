@@ -12,10 +12,11 @@ import pytest
 
 from quest_runtime.pr_review_cycle import (
     build_fix_batches,
+    classify_pr_operational_state,
     classify_pr_loop_stop,
     normalize_pr_review_intake,
 )
-from quest_runtime.review_intelligence import validate_findings
+from quest_runtime.review_intelligence import build_review_backlog, validate_findings
 
 
 def _validation_step(target: str, *, level: int = 1) -> list[dict[str, object]]:
@@ -182,6 +183,163 @@ def test_normalize_pr_review_intake_preserves_review_local_index_when_present() 
     assert "review_local_index" not in by_id["pr-inline-002"]
     assert by_id["pr-general-001"]["review_local_index"] == 2
     assert by_id["existing-001"]["review_local_index"] == 8
+
+
+def test_normalize_records_preserves_source_kind_and_fingerprint() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "generic-review",
+                    "fingerprint": "fp-1",
+                    "activity_state": "active",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Please fix this.",
+                    "reply_target": {"kind": "thread", "id": "1"},
+                }
+            ]
+        }
+    )
+
+    assert validate_findings(findings) == []
+    assert findings[0]["source_kind"] == "review_thread"
+    assert findings[0]["fingerprint"] == "fp-1"
+    assert findings[0]["reply_target"] == {"kind": "thread", "id": "1"}
+
+
+def test_normalize_records_prefers_active_over_addressed_on_activity_conflict() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "one",
+                    "activity_state": "addressed",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                },
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "two",
+                    "activity_state": "active",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                    "reply_target": {"kind": "thread", "id": "2"},
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["activity_state"] == "active"
+    assert findings[0]["reply_target"] == {"kind": "thread", "id": "2"}
+
+
+def test_normalize_records_preserves_active_over_later_uncertain_duplicate() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "human",
+                    "activity_state": "active",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                    "reply_target": {"kind": "thread", "id": "1"},
+                },
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "automation",
+                    "activity_state": "uncertain",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["activity_state"] == "active"
+
+
+def test_normalize_records_does_not_branch_on_source_label() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_body_item",
+                    "source_label": "specific-product-name",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same generic feedback.",
+                }
+            ]
+        }
+    )
+
+    assert findings[0]["kind"] == "review_comment"
+    assert findings[0]["source_label"] == "specific-product-name"
+
+
+def test_normalize_records_excludes_addressed_and_shepherd_summary_records() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "thread",
+                    "activity_state": "addressed",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Already handled.",
+                },
+                {
+                    "source_kind": "shepherd_summary",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": "PR shepherd status",
+                },
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "thread",
+                    "activity_state": "uncertain",
+                    "path": "scripts/example.py",
+                    "line": 12,
+                    "body": "Automation changed after marker.",
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["activity_state"] == "uncertain"
+
+    backlog = build_review_backlog(findings, at_loop_cap=False)
+    assert len(backlog["items"]) == 1
+
+
+def test_classify_pr_operational_state_wraps_pass_facts() -> None:
+    result = classify_pr_operational_state(
+        {"outcome": "success"},
+        {
+            "ci_state": "green",
+            "pushed_commits_count": 0,
+            "posted_replies_count": 0,
+            "active_feedback_count": 0,
+            "uncertain_feedback_count": 0,
+            "unresolved_human_decision_count": 0,
+        },
+    )
+
+    assert result["operational_state"] == "clean"
 
 
 def test_build_fix_batches_groups_by_write_scope_and_validation_scope() -> None:

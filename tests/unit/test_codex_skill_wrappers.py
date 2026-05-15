@@ -44,3 +44,16 @@ def test_codex_wrappers_delegate_to_matching_project_skills() -> None:
 def test_codex_wrapper_surface_intentionally_excludes_gpt() -> None:
     wrapper_path = _repo_root() / ".agents" / "skills" / "gpt" / "SKILL.md"
     assert not wrapper_path.exists()
+
+
+def test_pr_shepherd_wrappers_do_not_claim_draft_pr_creation() -> None:
+    repo = _repo_root()
+    paths = [
+        repo / ".agents" / "skills" / "pr-shepherd" / "SKILL.md",
+        repo / ".claude" / "skills" / "pr-shepherd" / "SKILL.md",
+    ]
+
+    for path in paths:
+        content = path.read_text(encoding="utf-8").lower()
+        assert "create draft pr" not in content
+        assert "push draft pr" not in content
