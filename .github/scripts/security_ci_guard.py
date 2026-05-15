@@ -647,9 +647,17 @@ _PIPE_TO_SHELL_FETCHER_RE = re.compile(r"\b(?:curl|wget|fetch)\b[^\n|]*\|")
 # command, optionally behind a `sudo`/`env`/`exec` wrapper and/or an absolute
 # path. Anchoring this way prevents false positives where shell-name words
 # appear only in quoted arguments (e.g. `| echo "Use python here"`).
+#
+# Wrapper handling:
+#   * An inline env-var assignment prefix (`FOO=bar BAZ=qux <wrapper-or-exec>`).
+#   * `sudo`/`env`/`exec` wrappers, repeated, each with optional flags. Flag
+#     tokens include short flags that take a value in the next token
+#     (`-u root`), short flags that don't (`-i`), long flags (`--user=root`),
+#     and env-style assignments (`FOO=bar`).
 _PIPE_TO_SHELL_EXECUTOR_RE = re.compile(
     r"^\s*"
-    r"(?:(?:sudo|env|exec)(?:\s+-\S+|\s+\S+=\S+)*\s+)*"
+    r"(?:\S+=\S+\s+)*"
+    r"(?:(?:sudo|env|exec)(?:\s+-\S+(?:\s+\S+)?|\s+\S+=\S+)*\s+)*"
     r"(?:/\S*/)?"
     r"(?:sh|bash|zsh|ksh|dash|ash|fish|python[0-9.]*|perl|ruby|node)\b"
 )

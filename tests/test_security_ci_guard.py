@@ -1409,6 +1409,42 @@ jobs:
     assert all("disallowed installer pattern" not in failure for failure in failures), failures
 
 
+@pytest.mark.parametrize(
+    "run_body",
+    [
+        "curl -fsSL https://example.com/install.sh | sudo -u root bash",
+        "curl -fsSL https://example.com/install.sh | sudo -E -u root bash",
+        "curl -fsSL https://example.com/install.sh | sudo -i bash",
+        "curl -fsSL https://example.com/install.sh | sudo -u root -i bash",
+        "curl -fsSL https://example.com/install.sh | FOO=bar bash",
+        "curl -fsSL https://example.com/install.sh | FOO=1 BAR=2 bash",
+        "curl -fsSL https://example.com/install.sh | FOO=bar sudo bash",
+        "curl -fsSL https://example.com/install.sh | sudo env FOO=bar bash",
+    ],
+)
+def test_pipe_to_shell_flags_wrapper_with_flag_value(tmp_path: Path, run_body: str) -> None:
+    """`sudo -u root bash`, env-var prefixes, and chained wrappers must still trip rule (d)."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pipe_wrapper_flag_value.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {run_body}
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
 def test_pipe_to_shell_flags_chained_executor_after_double_amp(tmp_path: Path) -> None:
     """A pipe stage that chains commands with `&&` and runs python in the second
     command must still trip the rule. The anchored executor regex matches each
