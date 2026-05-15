@@ -268,6 +268,34 @@ def test_normalize_records_preserves_active_over_later_uncertain_duplicate() -> 
     assert findings[0]["activity_state"] == "active"
 
 
+def test_normalize_records_preserves_all_duplicate_source_labels() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "first",
+                    "activity_state": "active",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                },
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "second",
+                    "activity_state": "uncertain",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["source_label"] == ["first", "second"]
+
+
 def test_normalize_records_does_not_branch_on_source_label() -> None:
     findings = normalize_pr_review_intake(
         {

@@ -231,6 +231,47 @@ def _merge_failed_log_summary(payload: dict[str, Any], summary: Any) -> None:
         payload["unavailable"].extend(item for item in unavailable if isinstance(item, dict))
 
 
+def _load_failed_log_summary(path: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except OSError as exc:
+        return {
+            "records": [],
+            "unavailable": [
+                {
+                    "source_kind": "failed_log_summary",
+                    "unavailable_reason": "read_failed",
+                    "path": path,
+                    "message": str(exc)[:500],
+                }
+            ],
+        }
+    except json.JSONDecodeError as exc:
+        return {
+            "records": [],
+            "unavailable": [
+                {
+                    "source_kind": "failed_log_summary",
+                    "unavailable_reason": "parse_failed",
+                    "path": path,
+                    "message": str(exc)[:500],
+                }
+            ],
+        }
+    if not isinstance(payload, dict):
+        return {
+            "records": [],
+            "unavailable": [
+                {
+                    "source_kind": "failed_log_summary",
+                    "unavailable_reason": "unexpected_payload",
+                    "path": path,
+                }
+            ],
+        }
+    return payload
+
+
 def collect(pr: int, *, page_cap: int, failed_log_summaries: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     pr_payload, pr_error = _gh_json(["gh", "pr", "view", str(pr), "--json", "number,url,headRefName,baseRefName,isDraft,statusCheckRollup"])
     payload: dict[str, Any] = {
@@ -288,10 +329,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    failed_log_summaries = [
-        json.loads(Path(path).read_text(encoding="utf-8"))
-        for path in args.failed_log_summary
-    ]
+    failed_log_summaries = [_load_failed_log_summary(path) for path in args.failed_log_summary]
     payload = collect(args.pr, page_cap=args.page_cap, failed_log_summaries=failed_log_summaries)
     encoded = json.dumps(payload, indent=2, sort_keys=True) + "\n"
     if args.output:

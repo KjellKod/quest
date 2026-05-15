@@ -119,7 +119,6 @@ def _copy_review_local_index(source: JsonObject, target: JsonObject) -> None:
 def _copy_optional_metadata(source: JsonObject, target: JsonObject) -> None:
     for key in (
         "source_kind",
-        "source_label",
         "fingerprint",
         "reply_target",
         "url",

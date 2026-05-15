@@ -51,7 +51,6 @@ def _changed_lines(diff_text: str) -> dict[str, set[int]]:
             changed.setdefault(current_path, set()).add(new_line)
             new_line += 1
         elif line.startswith("-") and not line.startswith("---"):
-            changed.setdefault(current_path, set()).add(old_line)
             old_line += 1
         else:
             old_line += 1

@@ -268,10 +268,10 @@ def test_scope_in_diff_for_added_line(tmp_path: Path) -> None:
     assert annotated[0]["scope"] == "in_diff"
 
 
-def test_scope_in_diff_for_removed_line() -> None:
+def test_scope_unknown_for_removed_old_line() -> None:
     diff_text = "diff --git a/a.py b/a.py\n+++ b/a.py\n@@ -1,2 +1,1 @@\n-old\n keep\n"
     annotated = pr_shepherd_annotate_scope.annotate([{"path": "a.py", "line": 1}], diff_text)
-    assert annotated[0]["scope"] == "in_diff"
+    assert annotated[0]["scope"] == "unknown"
 
 
 def test_scope_unknown_for_context_line(tmp_path: Path) -> None:
@@ -307,7 +307,7 @@ def test_scope_in_diff_for_deleted_file_after_another_file() -> None:
         diff_text,
     )
 
-    assert annotated[0]["scope"] == "in_diff"
+    assert annotated[0]["scope"] == "unknown"
     assert annotated[1]["scope"] == "unknown"
 
 
@@ -552,6 +552,27 @@ def test_collect_intake_merges_failed_log_summary_records(monkeypatch: pytest.Mo
 
     assert any(record["source_kind"] == "failed_log_summary" for record in payload["records"])
     assert any(item["unavailable_reason"] == "log_unavailable" for item in payload["unavailable"])
+
+
+def test_collect_intake_failed_log_summary_parse_failure_becomes_unavailable(tmp_path: Path) -> None:
+    path = tmp_path / "failed-log.json"
+    path.write_text("{not json", encoding="utf-8")
+
+    summary = pr_shepherd_collect_intake._load_failed_log_summary(str(path))
+
+    assert summary["records"] == []
+    assert summary["unavailable"][0]["unavailable_reason"] == "parse_failed"
+    assert summary["unavailable"][0]["path"] == str(path)
+
+
+def test_collect_intake_failed_log_summary_read_failure_becomes_unavailable(tmp_path: Path) -> None:
+    path = tmp_path / "missing.json"
+
+    summary = pr_shepherd_collect_intake._load_failed_log_summary(str(path))
+
+    assert summary["records"] == []
+    assert summary["unavailable"][0]["unavailable_reason"] == "read_failed"
+    assert summary["unavailable"][0]["path"] == str(path)
 
 
 def test_post_reply_live_thread_uses_pr_comment_reply_endpoint(
