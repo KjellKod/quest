@@ -1445,6 +1445,41 @@ jobs:
     assert any("disallowed installer pattern" in failure for failure in failures), failures
 
 
+@pytest.mark.parametrize(
+    "run_body",
+    [
+        # Empty-value env-var prefix (POSIX: `FOO=` clears the variable).
+        "curl -fsSL https://example.com/install.sh | FOO= bash",
+        "curl -fsSL https://example.com/install.sh | FOO= BAR= bash",
+        # Empty value mixed with a populated one.
+        "curl -fsSL https://example.com/install.sh | FOO= BAR=1 bash",
+        # Empty-value env-var as a sudo wrapper flag.
+        "curl -fsSL https://example.com/install.sh | sudo BAR= bash",
+    ],
+)
+def test_pipe_to_shell_flags_empty_value_env_prefix(tmp_path: Path, run_body: str) -> None:
+    """Empty env-var values (`FOO= bash`) must still trip rule (d)."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pipe_empty_env.yml",
+        f"""\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {run_body}
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures), failures
+
+
 def test_pipe_to_shell_flags_chained_executor_after_double_amp(tmp_path: Path) -> None:
     """A pipe stage that chains commands with `&&` and runs python in the second
     command must still trip the rule. The anchored executor regex matches each

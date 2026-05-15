@@ -656,8 +656,8 @@ _PIPE_TO_SHELL_FETCHER_RE = re.compile(r"\b(?:curl|wget|fetch)\b[^\n|]*\|")
 #     and env-style assignments (`FOO=bar`).
 _PIPE_TO_SHELL_EXECUTOR_RE = re.compile(
     r"^\s*"
-    r"(?:\S+=\S+\s+)*"
-    r"(?:(?:sudo|env|exec)(?:\s+-\S+(?:\s+\S+)?|\s+\S+=\S+)*\s+)*"
+    r"(?:\S+=\S*\s+)*"
+    r"(?:(?:sudo|env|exec)(?:\s+-\S+(?:\s+\S+)?|\s+\S+=\S*)*\s+)*"
     r"(?:/\S*/)?"
     r"(?:sh|bash|zsh|ksh|dash|ash|fish|python[0-9.]*|perl|ruby|node)\b"
 )
