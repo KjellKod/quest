@@ -20,14 +20,14 @@
     "fix_loop": true
   },
   "models": {
-    "planner": "gpt-5.5",
+    "planner": "claude",
     "plan-reviewer-a": "claude",
-    "plan-reviewer-b": "gpt-5.5",
+    "plan-reviewer-b": "claude",
     "arbiter": "claude",
-    "builder": "gpt-5.5",
+    "builder": "claude",
     "code-reviewer-a": "claude",
-    "code-reviewer-b": "gpt-5.5",
-    "fixer": "gpt-5.5"
+    "code-reviewer-b": "claude",
+    "fixer": "claude"
   },
   "quest_startup": {
     "branch_mode": "branch",
