@@ -394,6 +394,121 @@ class TestFailureBranches:
         if log_path.exists():
             assert log_path.read_text(encoding="utf-8") == ""
 
+    def test_workspace_file_missing_on_disk_records_missing(
+        self, workspace: Path
+    ) -> None:
+        """A declared workspace file (outside ``.quest/``) that was never
+        written to disk is path drift — the validator must flag it as
+        ``missing``, not silently accept it.
+        """
+
+        quest_id = "test-quest_workspace-missing"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        # Canonical deliverables exist on disk so they don't pollute the log.
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        # Declared workspace file that does NOT exist.
+        ghost = workspace / "scripts" / "nonexistent_helper.py"
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(phase_dir / "pr_description.md"),
+                        str(phase_dir / "builder_feedback_discussion.md"),
+                        str(ghost),
+                    ],
+                    "next": "code_review",
+                    "summary": "builder declared a workspace file that doesn't exist",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=workspace,
+        )
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        missing = [r for r in records if r["reason"] == "missing"]
+        assert len(missing) == 1
+        assert Path(missing[0]["actual"]).name == "nonexistent_helper.py"
+
+    def test_sibling_quest_artifact_records_outside_boundary(
+        self, workspace: Path
+    ) -> None:
+        """A declared path under ``.quest/`` that belongs to a DIFFERENT
+        quest (sibling quest dir) is the precise wrong-location failure
+        this validator exists to catch. Must record ``outside_boundary``.
+        """
+
+        quest_id = "test-quest_self"
+        other_quest_id = "test-quest_other"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        # The sibling quest's directory — a file that DOES exist (so the
+        # ``missing`` branch can't shadow this case) but belongs to another
+        # quest entirely.
+        sibling_phase = workspace / ".quest" / other_quest_id / "phase_01_plan"
+        sibling_phase.mkdir(parents=True, exist_ok=True)
+        sibling_file = sibling_phase / "plan.md"
+        sibling_file.write_text("sibling", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(phase_dir / "pr_description.md"),
+                        str(phase_dir / "builder_feedback_discussion.md"),
+                        str(sibling_file),
+                    ],
+                    "next": "code_review",
+                    "summary": "builder reaches into a sibling quest's dir",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=workspace,
+        )
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        outside = [r for r in records if r["reason"] == "outside_boundary"]
+        assert len(outside) == 1
+        assert other_quest_id in outside[0]["actual"]
+
     def test_nested_quest_path_records_nested_quest(self, workspace: Path) -> None:
         """#4: path contains .quest/<id>/.quest/ → reason=nested_quest."""
 

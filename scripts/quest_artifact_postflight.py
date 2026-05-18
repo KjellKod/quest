@@ -18,8 +18,12 @@ Path classification (matches the agent ARTIFACTS contract):
 * **Workspace-file path** — anywhere else in the repo (changed source files,
   tests, configs, docs that the builder or fixer touched). The
   builder/fixer ARTIFACTS contract lists these alongside the canonical
-  quest deliverables. Only the traversal check applies — boundary and
-  canonical-name are not meaningful for workspace files.
+  quest deliverables. Traversal + existence apply (a declared workspace
+  file that was never written is path drift) — boundary and canonical
+  name are not meaningful for workspace files. Paths inside ``.quest/``
+  that target a *sibling* quest's directory are flagged
+  ``outside_boundary``: writing into another quest's space is the
+  precise wrong-location failure this validator exists to catch.
 
 Mismatch reasons (enum-like tokens written to the log):
 * ``missing``               — declared path does not exist on disk, OR an
@@ -372,8 +376,33 @@ def _check_one(
 
     if not is_quest_artifact:
         # Workspace file: builder/fixer declare changed source/test/docs
-        # files here. Boundary and canonical-name checks don't apply.
-        return None
+        # files here. Boundary and canonical-name don't apply, but the
+        # path must still exist on disk — a declared workspace file that
+        # was never actually written is path drift. And paths inside the
+        # ``.quest/`` tree that target a sibling quest's directory (not
+        # ours) are wrong-location by definition.
+        if not resolved.exists():
+            return _make_mismatch(
+                phase=phase,
+                role=role,
+                declared=str(declared),
+                actual=str(resolved),
+                reason="missing",
+            )
+        try:
+            resolved.relative_to(repo_root / ".quest")
+        except ValueError:
+            # True workspace file outside ``.quest/`` entirely. Exists,
+            # inside repo — passes.
+            return None
+        # Inside ``.quest/`` but not under our quest_root → sibling quest.
+        return _make_mismatch(
+            phase=phase,
+            role=role,
+            declared=str(declared),
+            actual=str(resolved),
+            reason="outside_boundary",
+        )
 
     # 2. Nested ``.quest/<id>/.quest/...`` is always wrong.
     nested_marker = f".quest/{quest_id}/.quest/"
