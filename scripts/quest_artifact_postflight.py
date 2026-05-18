@@ -71,6 +71,21 @@ from quest_runtime.artifacts import (  # noqa: E402
 )
 
 
+# Names directly under ``.quest/`` that are shared cross-quest infrastructure,
+# not quest-id-keyed directories. A declared path under one of these is NOT
+# a sibling-quest cross-write and must not be flagged as ``outside_boundary``.
+# Source of truth for each:
+# * ``cache``     — preflight stores host-verified bridge probes here
+#                   (``scripts/quest_preflight.sh --orchestrator codex``).
+# * ``backlog``   — deferred findings JSONL (canonical review-intelligence).
+# * ``audit.log`` — persistent tool-call audit log across quest runs
+#                   (``.claude/hooks/`` writes to it via PostToolUse).
+# ``archive`` is intentionally NOT shared: builders/fixers should never write
+# into ``.quest/archive/`` mid-quest; archival is the orchestrator's
+# completion-time ceremony.
+_SHARED_DOT_QUEST_NAMES = frozenset({"cache", "backlog", "audit.log"})
+
+
 # Phase-directory names used in ``ROLE_ARTIFACTS`` (e.g. ``phase_01_plan``) are
 # the on-disk layout. The orchestrator may pass either the directory name or
 # a logical phase token (e.g. ``plan``) on the ``--phase`` flag. The mapping
@@ -378,9 +393,36 @@ def _check_one(
         # Workspace file: builder/fixer declare changed source/test/docs
         # files here. Boundary and canonical-name don't apply, but the
         # path must still exist on disk — a declared workspace file that
-        # was never actually written is path drift. And paths inside the
+        # was never actually written is path drift. Paths inside the
         # ``.quest/`` tree that target a sibling quest's directory (not
-        # ours) are wrong-location by definition.
+        # ours, and not one of the shared infrastructure paths) are
+        # wrong-location by definition.
+        #
+        # Order matters: check sibling-quest BEFORE existence so a
+        # wrong-location declaration is reported as ``outside_boundary``,
+        # not downgraded to ``missing`` when the file happens not to
+        # exist. The shared-name allowlist excludes paths that are
+        # legitimately cross-quest (preflight cache, deferred-findings
+        # backlog, persistent audit log).
+        try:
+            rel_to_quest_dir = resolved.relative_to(repo_root / ".quest")
+            in_dot_quest = True
+        except ValueError:
+            in_dot_quest = False
+
+        if in_dot_quest:
+            first_segment = rel_to_quest_dir.parts[0] if rel_to_quest_dir.parts else ""
+            if first_segment not in _SHARED_DOT_QUEST_NAMES:
+                # Quest-id-keyed sibling directory (not ours, not shared).
+                return _make_mismatch(
+                    phase=phase,
+                    role=role,
+                    declared=str(declared),
+                    actual=str(resolved),
+                    reason="outside_boundary",
+                )
+            # fall through to existence check for shared paths.
+
         if not resolved.exists():
             return _make_mismatch(
                 phase=phase,
@@ -389,20 +431,7 @@ def _check_one(
                 actual=str(resolved),
                 reason="missing",
             )
-        try:
-            resolved.relative_to(repo_root / ".quest")
-        except ValueError:
-            # True workspace file outside ``.quest/`` entirely. Exists,
-            # inside repo — passes.
-            return None
-        # Inside ``.quest/`` but not under our quest_root → sibling quest.
-        return _make_mismatch(
-            phase=phase,
-            role=role,
-            declared=str(declared),
-            actual=str(resolved),
-            reason="outside_boundary",
-        )
+        return None
 
     # 2. Nested ``.quest/<id>/.quest/...`` is always wrong.
     nested_marker = f".quest/{quest_id}/.quest/"

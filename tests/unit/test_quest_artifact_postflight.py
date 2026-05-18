@@ -509,6 +509,133 @@ class TestFailureBranches:
         assert len(outside) == 1
         assert other_quest_id in outside[0]["actual"]
 
+    def test_sibling_quest_missing_on_disk_still_outside_boundary(
+        self, workspace: Path
+    ) -> None:
+        """A declared path under a sibling quest's directory must record
+        ``outside_boundary`` even if the file was never written. The
+        wrong-location classification fires before the existence check —
+        the real failure is the cross-quest declaration, not whether the
+        write actually happened.
+        """
+
+        quest_id = "test-quest_self"
+        other_quest_id = "test-quest_other"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        # Sibling quest path that DOES NOT EXIST on disk.
+        ghost_sibling = (
+            workspace
+            / ".quest"
+            / other_quest_id
+            / "phase_01_plan"
+            / "plan.md"
+        )
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(phase_dir / "pr_description.md"),
+                        str(phase_dir / "builder_feedback_discussion.md"),
+                        str(ghost_sibling),
+                    ],
+                    "next": "code_review",
+                    "summary": "builder declared a sibling-quest path that wasn't written",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=workspace,
+        )
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        # MUST be outside_boundary, NOT missing — the wrong-location
+        # classification fires first.
+        assert any(r["reason"] == "outside_boundary" for r in records)
+        assert not any(
+            r["reason"] == "missing" and other_quest_id in r["actual"]
+            for r in records
+        )
+
+    def test_shared_dot_quest_paths_pass_through(self, workspace: Path) -> None:
+        """Builder/fixer declarations under shared ``.quest/`` infrastructure
+        paths (``cache/``, ``backlog/``, ``audit.log``) are NOT sibling-quest
+        cross-writes. The validator must let them through without flagging
+        ``outside_boundary`` — these are cross-quest by design.
+        """
+
+        quest_id = "test-quest_shared"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        # Three shared-infrastructure paths a build might legitimately
+        # touch: a preflight cache file, the deferred-findings backlog,
+        # and the persistent audit log.
+        shared_paths = [
+            workspace / ".quest" / "cache" / "claude_bridge_codex.json",
+            workspace / ".quest" / "backlog" / "deferred_findings.jsonl",
+            workspace / ".quest" / "audit.log",
+        ]
+        for p in shared_paths:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text("seed", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(phase_dir / "pr_description.md"),
+                        str(phase_dir / "builder_feedback_discussion.md"),
+                        *[str(p) for p in shared_paths],
+                    ],
+                    "next": "code_review",
+                    "summary": "builder declares shared .quest/ infra paths",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=workspace,
+        )
+        assert rc == 0
+        if log_path.exists():
+            assert log_path.read_text(encoding="utf-8") == ""
+
     def test_nested_quest_path_records_nested_quest(self, workspace: Path) -> None:
         """#4: path contains .quest/<id>/.quest/ → reason=nested_quest."""
 
