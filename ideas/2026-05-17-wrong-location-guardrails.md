@@ -100,6 +100,7 @@ Place under `tests/unit/`:
 6. All tests above pass under `python3 -m pytest tests/unit/` plus the relevant shell test runner.
 7. No regression in existing tests, including `bash tests/test-quest-runtime.sh` and `bash tests/test-validate-handoff-contracts.sh`.
 8. `AGENTS.md` (or the canonical pointer) gains one short paragraph naming both guardrails and pointing to the hook + validator.
+9. **Archive the in-progress ideas as part of quest completion.** Move all three idea docs (`ideas/2026-05-17-wrong-location-guardrails.md`, `ideas/2026-04-15-pretooluse-branch-dir-verification-hook.md`, `ideas/2026-04-15-subagent-path-constraints-hardening.md`) into `ideas/archive/`. Add a `done` row to the "Done Index" in `ideas/README.md` linking the quest journal entry. Remove the matching rows from the active "Execution Discipline and Observability" section so `proposed` / `in-progress` lines don't linger for shipped work.
 
 ## Out of Scope (explicit)
 
@@ -167,6 +168,17 @@ DELIVERABLES
    - Workflow-contract test that `.skills/quest/delegation/workflow.md`
      references both new surfaces.
    - Manifest test that both new files are listed in `.quest-manifest`.
+
+5. Archival on completion
+   - Move `ideas/2026-05-17-wrong-location-guardrails.md`,
+     `ideas/2026-04-15-pretooluse-branch-dir-verification-hook.md`,
+     and `ideas/2026-04-15-subagent-path-constraints-hardening.md`
+     into `ideas/archive/`.
+   - Add a `done` row to the Done Index in `ideas/README.md` pointing at
+     the quest journal entry produced by this quest.
+   - Remove the active rows for the three ideas from the Execution
+     Discipline and Observability section so the index reflects shipped
+     state.
 
 OUT OF SCOPE
 
