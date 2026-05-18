@@ -382,6 +382,35 @@ def test_normalize_records_excludes_addressed_and_shepherd_summary_records() -> 
     assert len(backlog["items"]) == 1
 
 
+def test_normalize_records_applies_shepherd_summary_fingerprints() -> None:
+    fingerprint = "abcdef1234567890feed"
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_body_item",
+                    "source_label": "github-review-body",
+                    "activity_state": "active",
+                    "path": "pr/review",
+                    "line": None,
+                    "body": "Fingerprint-only review body.",
+                    "fingerprint": fingerprint,
+                },
+                {
+                    "source_kind": "shepherd_summary",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": "PR shepherd status\n\n| state | fingerprint | url |\n|---|---|---|\n| addressed | `abcdef1234567890` | https://x |",
+                },
+            ]
+        }
+    )
+
+    assert findings == []
+
+
 def test_classify_pr_operational_state_wraps_pass_facts() -> None:
     result = classify_pr_operational_state(
         {"outcome": "success"},
@@ -396,6 +425,52 @@ def test_classify_pr_operational_state_wraps_pass_facts() -> None:
     )
 
     assert result["operational_state"] == "clean"
+
+
+def test_cli_classify_pr_stop_passes_ci_state_to_operational_fallback(tmp_path: Path) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    backlog_path = tmp_path / "review_backlog.json"
+    pass_facts_path = tmp_path / "pass_facts.json"
+    backlog_path.write_text(json.dumps({"items": []}), encoding="utf-8")
+    pass_facts_path.write_text(
+        json.dumps(
+            {
+                "pushed_commits_count": 0,
+                "posted_replies_count": 0,
+                "active_feedback_count": 0,
+                "uncertain_feedback_count": 0,
+                "unresolved_human_decision_count": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "classify-pr-stop",
+            "--ci-state",
+            "green",
+            "--actionable",
+            "0",
+            "--iteration",
+            "1",
+            "--backlog",
+            str(backlog_path),
+            "--pass-facts",
+            str(pass_facts_path),
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["outcome"] == "success"
+    assert payload["operational_state"] == "clean"
 
 
 def test_build_fix_batches_groups_by_write_scope_and_validation_scope() -> None:

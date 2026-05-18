@@ -220,6 +220,35 @@ def test_checkout_noops_when_already_on_target_pr_branch(monkeypatch: pytest.Mon
     assert payload["action"] == "none"
 
 
+def test_checkout_explicit_target_same_branch_checks_head_oid(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args[:3] == ["git", "branch", "--show-current"]:
+            return _Result(stdout="feature/current\n")
+        if args[:3] == ["git", "status", "--short"]:
+            return _Result(stdout="")
+        if args[:3] == ["gh", "pr", "view"]:
+            return _Result(
+                stdout=json.dumps(
+                    {
+                        "number": 12,
+                        "url": "u",
+                        "headRefName": "feature/current",
+                        "headRefOid": "remote-sha",
+                    }
+                )
+            )
+        if args == ["git", "rev-parse", "HEAD"]:
+            return _Result(stdout="local-sha\n")
+        raise AssertionError(f"unexpected call: {args}")
+
+    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
+    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=False)
+
+    assert code == 0
+    assert payload["action"] == "would_checkout"
+    assert payload["reason"] == "head_mismatch"
+
+
 def test_checkout_refuses_worktree_branch_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run(args: list[str]) -> _Result:
         if args[:3] == ["git", "branch", "--show-current"]:
@@ -698,6 +727,28 @@ def test_post_reply_summary_scans_bounded_comment_pages(
         json.dumps({"body": f"status\n\n{SUMMARY_MARKER}\n"}, ensure_ascii=True),
     )
     assert json.loads(capsys.readouterr().out)["action"] == "update_summary"
+
+
+def test_post_reply_summary_allows_exactly_full_page_cap(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fake_run(args: list[str], *, input_text: str | None = None) -> _Result:
+        if args[:2] == ["gh", "api"] and args[2].endswith("/issues/12/comments"):
+            page_arg = next(item for item in args if item.startswith("page="))
+            if page_arg == "page=1":
+                return _Result(stdout=json.dumps([{"id": index, "body": "old"} for index in range(100)]))
+            return _Result(stdout=json.dumps([]))
+        return _Result(stdout="{}")
+
+    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["pr_shepherd_post_reply.py", "--summary", "--pr", "12", "--body", "status", "--page-cap", "1"],
+    )
+
+    assert pr_shepherd_post_reply.main() == 0
+    assert json.loads(capsys.readouterr().out)["action"] == "create_summary"
 
 
 def test_post_reply_refuses_missing_target_without_summary_mode(monkeypatch: pytest.MonkeyPatch) -> None:

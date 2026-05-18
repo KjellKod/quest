@@ -257,6 +257,7 @@ def _cmd_classify_pr_stop(args: argparse.Namespace) -> int:
         pass_facts_payload = _load_json(Path(args.pass_facts))
         if not isinstance(pass_facts_payload, dict):
             raise ValueError("pass facts must be a JSON object")
+        pass_facts_payload.setdefault("ci_state", args.ci_state)
         operational = classify_pr_operational_state(payload, pass_facts_payload)
         payload.update(operational)
         if args.operational_output:

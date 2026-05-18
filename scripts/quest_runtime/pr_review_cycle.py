@@ -232,6 +232,39 @@ def _record_is_actionable(record: JsonObject) -> bool:
     return True
 
 
+def _summary_addressed_fingerprints(records: list[JsonObject]) -> set[str]:
+    addressed: set[str] = set()
+    terminal_states = {"addressed", "defer", "deferred", "drop", "dropped", "fixed"}
+    for record in records:
+        if str(record.get("source_kind") or "") != "shepherd_summary":
+            continue
+        body = str(record.get("body") or record.get("body_excerpt") or "")
+        for line in body.splitlines():
+            cells = [cell.strip().strip("`") for cell in line.strip().strip("|").split("|")]
+            if len(cells) < 2:
+                continue
+            state = cells[0].strip().lower()
+            fingerprint = cells[1].strip()
+            if state in terminal_states and fingerprint:
+                addressed.add(fingerprint)
+    return addressed
+
+
+def _apply_summary_addressed_fingerprints(records: list[JsonObject]) -> list[JsonObject]:
+    addressed = _summary_addressed_fingerprints(records)
+    if not addressed:
+        return records
+
+    updated: list[JsonObject] = []
+    for record in records:
+        candidate = copy.deepcopy(record)
+        fingerprint = str(candidate.get("fingerprint") or "")
+        if fingerprint and any(fingerprint.startswith(prefix) for prefix in addressed):
+            candidate["activity_state"] = "addressed"
+        updated.append(candidate)
+    return updated
+
+
 def _normalize_scope_entry(value: str) -> str:
     trimmed = value.strip().strip("/")
     if not trimmed:
@@ -256,6 +289,7 @@ def normalize_pr_review_intake(intake: JsonObject) -> list[JsonObject]:
         raise ValueError("; ".join(existing_errors))
 
     if records:
+        records = _apply_summary_addressed_fingerprints(records)
         actionable_records = [record for record in records if _record_is_actionable(record)]
         record_findings = [
             _record_to_finding(record, index)

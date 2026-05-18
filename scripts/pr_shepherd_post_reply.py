@@ -49,7 +49,8 @@ def _gh_json(args: list[str]) -> tuple[Any | None, str]:
 def _collect_issue_comments(pr: int, *, page_cap: int) -> tuple[list[dict[str, Any]], str]:
     comments: list[dict[str, Any]] = []
     endpoint = f"repos/{{owner}}/{{repo}}/issues/{pr}/comments"
-    for page in range(1, max(page_cap, 1) + 1):
+    max_pages = max(page_cap, 1)
+    for page in range(1, max_pages + 2):
         payload, error = _gh_json(
             ["gh", "api", endpoint, "--method", "GET", "-F", f"per_page={PER_PAGE}", "-F", f"page={page}"]
         )
@@ -57,10 +58,12 @@ def _collect_issue_comments(pr: int, *, page_cap: int) -> tuple[list[dict[str, A
             return comments, error
         if not isinstance(payload, list):
             return comments, "unexpected comments payload"
+        if page > max_pages:
+            return comments, "pagination_truncated" if payload else ""
         comments.extend(comment for comment in payload if isinstance(comment, dict))
         if len(payload) < PER_PAGE:
             return comments, ""
-    return comments, "pagination_truncated"
+    return comments, ""
 
 
 def _find_summary_comment(comments: list[dict[str, Any]]) -> dict[str, Any] | None:

@@ -60,11 +60,16 @@ def _is_linked_worktree() -> bool:
         return git_dir != common_dir
 
 
+def _head_oid() -> str:
+    result = _run(["git", "rev-parse", "HEAD"])
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
 def _pr_view(target: str | None) -> tuple[dict[str, Any] | None, str]:
     args = ["gh", "pr", "view"]
     if target:
         args.append(target)
-    args.extend(["--json", "number,url,headRefName"])
+    args.extend(["--json", "number,url,headRefName,headRefOid,headRepository,headRepositoryOwner"])
     result = _run(args)
     if result.returncode != 0:
         return None, (result.stderr or result.stdout).strip()
@@ -105,10 +110,23 @@ def inspect_checkout(target: str | None, *, apply: bool) -> tuple[int, dict[str,
     }
 
     if current_branch == target_branch:
-        return 0, payload
+        target_oid = str(pr.get("headRefOid") or "")
+        if target and target_oid and _head_oid() != target_oid:
+            if not apply:
+                payload["action"] = "would_checkout"
+                payload["reason"] = "head_mismatch"
+                return 0, payload
+        else:
+            return 0, payload
 
-    if not apply:
+    if current_branch == target_branch:
+        payload["reason"] = "head_mismatch"
+    else:
         payload["action"] = "would_checkout"
+        if not apply:
+            return 0, payload
+
+    if current_branch == target_branch and not apply:
         return 0, payload
 
     if not clean:
