@@ -29,18 +29,20 @@ Worktree symlink invariant
 --------------------------
 Quest always provisions a ``<worktree>/.quest`` symlink back to the repo's
 canonical ``<repo>/.quest/`` (regardless of whether the worktree is in-repo
-at ``<repo>/.worktrees/<x>/`` or outside the repo entirely). ``Path.resolve()``
-follows symlinks, so the three forms an agent might write for the same quest
-artifact —
+at ``<repo>/.worktrees/<x>/`` or outside the repo entirely). The validator
+honors this invariant so the three forms an agent might write for the same
+quest artifact —
   * absolute repo path:     ``<repo>/.quest/<id>/.../pr_description.md``
   * absolute worktree path: ``<worktree>/.quest/<id>/.../pr_description.md``
   * worktree-relative path: ``.quest/<id>/.../pr_description.md``
-— all canonicalize to the same on-disk inode under the repo. Quest-artifact
-classification therefore does not depend on which mount the agent used; it
-depends only on whether the resolved path lives under ``<repo>/.quest/<id>/``.
-``--workspace-root`` only governs **non**-``.quest/`` workspace files, where
-the worktree-vs-repo distinction is real (and only matters when the worktree
-sits outside the repo).
+— all canonicalize to the same on-disk identity for coverage comparison.
+Both ``_check_one`` (per-path classification) and the run-level coverage
+identity collapse ``.quest/`` paths through ``Path.resolve()``. Non-``.quest/``
+workspace files keep the ``os.path.normpath(os.path.abspath(...))`` identity
+so the anti-symlink-collision defense for genuine workspace files stays
+intact. ``--workspace-root`` governs only non-``.quest/`` workspace files,
+where the worktree-vs-repo distinction is real (and only matters when the
+worktree sits outside the repo).
 
 Mismatch reasons (enum-like tokens written to the log):
 * ``missing``               — declared path does not exist on disk, OR an
@@ -316,13 +318,35 @@ def run(
     # pass silently (AC4: "mismatches cause non-zero exit and are not
     # silently accepted").
     #
-    # Compare absolute, normalized paths (NOT ``Path.resolve()``) so a
-    # symlinked declared artifact cannot collapse onto a different expected
-    # canonical path and satisfy the coverage for an omitted one. Existence
-    # on disk is still checked with ``.exists()``, which follows symlinks —
-    # that is the right semantic for "is the file there?".
+    # Identity comparison strategy depends on path location:
+    #
+    # * **Paths under ``<repo>/.quest/``** (either directly, or via the
+    #   ``<worktree>/.quest`` symlink Quest provisions for worktree mode):
+    #   canonicalize through ``Path.resolve()`` so the worktree mount and
+    #   the repo mount produce the SAME identity for the SAME on-disk
+    #   inode. Without this, a worktree-rooted relative handoff entry like
+    #   ``.quest/<id>/.../pr_description.md`` would resolve against
+    #   ``workspace_root`` to ``<worktree>/.quest/.../pr_description.md``,
+    #   miss the abspath comparison against the canonical
+    #   ``<repo>/.quest/.../pr_description.md``, and emit a false
+    #   ``missing`` — even though the path is the same file.
+    #
+    # * **Paths outside ``.quest/``** (true workspace files): keep the
+    #   ``os.path.normpath(os.path.abspath(...))`` identity to preserve
+    #   the anti-symlink-collision defense for non-quest paths. Two
+    #   distinct workspace files that happen to symlink to one target on
+    #   disk remain distinct identities.
     def _identity(p: Path) -> str:
-        return os.path.normpath(os.path.abspath(str(p)))
+        try:
+            resolved = Path(p).resolve()
+            resolved.relative_to(repo_root / ".quest")
+            # Path lives (possibly via .quest symlink) under <repo>/.quest/
+            # — collapse symlinks so the worktree mount matches the repo.
+            return os.path.normpath(str(resolved))
+        except (ValueError, OSError):
+            # Not under <repo>/.quest/, or resolve failed — keep abspath
+            # identity so non-quest symlink collisions stay distinct.
+            return os.path.normpath(os.path.abspath(str(p)))
 
     # The handoff file itself is part of ``expected_artifacts_for_role(...)``
     # by construction (every role writes one), but agent contracts do NOT ask

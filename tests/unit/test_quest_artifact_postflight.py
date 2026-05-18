@@ -906,6 +906,84 @@ class TestFailureBranches:
             r["reason"] == "traversal_outside_repo" for r in records
         )
 
+    def test_worktree_mode_quest_artifact_via_symlinked_mount(
+        self, tmp_path: Path
+    ) -> None:
+        """In worktree mode, an agent may declare a quest artifact via the
+        ``<worktree>/.quest`` symlink — either as an absolute worktree
+        path or as a worktree-relative path that ``_load_declared_artifacts``
+        resolves against ``workspace_root``. The coverage check must
+        canonicalize through the symlink so the worktree mount and the
+        repo mount produce the SAME identity for the SAME on-disk inode;
+        otherwise a valid handoff fires a false ``missing``.
+
+        Regression pin for the failure mode Codex flagged on ``eff55b3``.
+        """
+
+        repo = tmp_path / "main-repo"
+        repo.mkdir()
+        worktree = tmp_path / "main-repo-worktree"
+        worktree.mkdir()
+
+        # Quest's worktree invariant.
+        (repo / ".quest").mkdir(parents=True, exist_ok=True)
+        (worktree / ".quest").symlink_to(repo / ".quest", target_is_directory=True)
+
+        quest_id = "test-quest_worktree_symlinked_declare"
+        quest_dir = repo / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        # Declare quest artifacts the "wrong" way: via the worktree
+        # symlink. One absolute worktree path, one worktree-relative path
+        # (which _load_declared_artifacts will resolve against worktree).
+        worktree_absolute = (
+            worktree / ".quest" / quest_id
+            / "phase_02_implementation" / "pr_description.md"
+        )
+        worktree_relative = (
+            f".quest/{quest_id}/phase_02_implementation"
+            f"/builder_feedback_discussion.md"
+        )
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(worktree_absolute),
+                        worktree_relative,
+                    ],
+                    "next": "code_review",
+                    "summary": "agent declared via the worktree .quest symlink",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=repo,
+            workspace_root=worktree,
+        )
+        # The symlink-mounted declarations resolve to the canonical repo
+        # inode; coverage must NOT emit ``missing``.
+        assert rc == 0, _read_log_lines(log_path)
+        if log_path.exists():
+            assert log_path.read_text(encoding="utf-8") == ""
+
     def test_worktree_mode_combined_smoke(self, tmp_path: Path) -> None:
         """Combined worktree-mode smoke test exercising all four
         classifications in a single handoff, with Quest's ``.quest``
