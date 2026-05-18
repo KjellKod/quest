@@ -112,6 +112,8 @@ Output a markdown report in this exact shape:
 
 ### Step 6: Phase-specific output routing
 
+**Step 6 only applies to quest-pipeline invocations.** Standalone runs (a developer typing `/ux-review path/to/file.tsx`) end at Step 5 with the markdown report — skip this section.
+
 **`principle_id` format:** `ux-guidebook§<section_number>` — e.g. `ux-guidebook§4.2`. No spaces, no sub-bullet numbers, no `#` suffix. This format is greppable for audit and enforcement.
 
 **Plan-review phase (plan-reviewer-a / plan-reviewer-b):**
@@ -150,7 +152,7 @@ Write canonical findings JSON to the reviewer's slot path under `.quest/<id>/pha
 - P0 → `critical` (block ship — signifier loss)
 - P1 → `high` (block ship — feedback loss, destructive trap)
 - P2 → `medium` (consistency violation — fix this sprint)
-- P3 → `low` (chrome bloat — `select_decision` auto-defers UX findings at `low` severity)
+- P3 → `low` (chrome bloat — rides the existing `select_decision` rules: `drop` at high confidence, `defer` at low confidence; no UX-specific override)
 
 ## Key Principles
 

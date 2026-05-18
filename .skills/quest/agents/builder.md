@@ -15,10 +15,11 @@ When running on Codex, this role is non-interactive:
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
+- **Step 0 (mandatory):** Read `.quest/<id>/quest_brief.md` end-to-end and extract the `## Router Classification` block before deciding which skills to load. Treat missing `ui_work` as `false`.
 - `.skills/implementer/SKILL.md` (implementation skill)
 - Approved plan artifact
 - Quest brief (for acceptance criteria)
-- **If the quest brief router classification has `ui_work: true`:** `.skills/ux-context/SKILL.md` and its bundled resources. Honor the discipline section of the guidebook as you write code — design tokens (4/8pt grid, single accent, three type sizes, three shadow tokens), `:focus-visible` rings, `100dvh` over `100vh`, `env(safe-area-inset-*)` on fixed surfaces, plain-language errors that preserve form input, motion budget ≤200ms direct / ≤400ms transitions, honor `prefers-reduced-motion`. Cite the principle by section ID (`ux-guidebook§<section_number>`) in commit messages for any UX-affecting decision. If `ui_work` is absent from the brief (older brief format), default to `false` and skip ux-context loading.
+- **If the quest brief router classification has `ui_work: true`:** read `.skills/ux-context/SKILL.md` and honor §4 of the guidebook (`resources/ux-guidebook.md`) as you write code. When `ui_work_evidence` is non-empty, those files are the primary surface. If `ui_work` is absent from the brief (older brief format), default to `false` and skip ux-context loading.
 
 ## Responsibilities
 1. Read the approved plan

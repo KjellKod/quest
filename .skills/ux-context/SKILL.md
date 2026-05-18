@@ -1,93 +1,118 @@
 # UX Context
 
-Primer skill that loads the canonical UX guidebook and stress-test rubric so agents producing user-facing work shape it against durable principles.
+Primer skill that loads the canonical UX guidebook and stress-test rubric, and owns the UX Defaults emission protocol that the planner follows for `ui_work: true` quests.
 
 At activation, announce the skill name and scope in one line. Example: `[ux-context] UX guidebook loaded — principles and stress-test rubric in scope.`
 
-**Not user-invocable.** This skill is auto-attached by the orchestrator when the router classifies a quest as `ui_work: true`. For direct critique of existing UI, see `.skills/ux-review/SKILL.md`.
+**Not user-invocable.** Auto-attached by the orchestrator when the router classifies a quest as `ui_work: true`. For direct critique of existing UI, see `.skills/ux-review/SKILL.md`.
 
 ## When to Use
 
-This skill is loaded by orchestration when the planner, builder/implementer, or fixer is about to produce user-facing work. It supplies the principles the agent should shape its output against — it does not perform a review.
+Loaded by orchestration when the planner, builder/implementer, or fixer is about to produce user-facing work. Supplies the principles the agent shapes its output against — it does not perform a review.
 
-Agents reading this skill should also read its resources before producing UX-affecting work:
+Agents reading this skill should also read its resources:
 
-- `resources/ux-guidebook.md` — the canonical 10-section guidebook
+- `resources/ux-guidebook.md` — the canonical 10-section guidebook (single source of truth for principles, inference tables, and all named defaults)
 - `resources/ux-stress-test.md` — the runnable 12-question rubric, 15 red flags, mobile checklist, Mac-native checklist
 
 ## Procedure
 
-### Step 1: Load the guidebook
-Read `.skills/ux-context/resources/ux-guidebook.md` in full. This is the canonical, opinionated UX standard for this stable of projects. It is anchored in the durable canon (Norman, Rams, Nielsen, Tognazzini, Shneiderman, Cooper, Tufte, Krug) and validated against modern execution (Apple HIG, Refactoring UI, Linear, Vercel Geist, Rauno).
+### Step 0: Read the brief end-to-end (mandatory before anything else)
+Before loading any UX context, read `.quest/<id>/quest_brief.md` fully and extract `ui_work` from the `## Router Classification` JSON block. Treat a missing field as `false` — do not load this skill for legacy briefs without the classification block. If `ui_work_evidence` is present, use it to scope your attention to the named files/areas.
 
-The book's central reconciling rule:
+### Step 1: Load the guidebook
+Read `resources/ux-guidebook.md` in full. Central reconciling rule:
 
 > **Visual chrome should be restrained. Task content should be as dense as the task earns. Density without grouping is noise; minimalism without signifiers is mystery.**
 
 ### Step 2: Load the stress-test rubric
-Read `.skills/ux-context/resources/ux-stress-test.md`. This is the 12-question rubric (signifier, feedback, mental model, consistency, error prevention, reversibility, recognition, Fitts, defaults, honesty, density-vs-chrome, scan test), the 15-point red flags diagnostic, the 20-point mobile-feel checklist, and the 15-point Mac-native checklist.
+Read `resources/ux-stress-test.md`.
 
 ### Step 3: Apply to your role
 
-**If you are a planner:**
-- Shape the plan so it answers the 12 stress-test questions explicitly. Don't leave signifier, empty-state, mobile divergence, or feedback decisions implicit.
-- For any UI change, name the primary action, the empty state copy, and the loading/error states in the plan — not later.
-- If the work touches mobile, include the desktop ↔ mobile divergence call-out (independent toolbars sharing state, not a responsive-shrunk desktop).
-- If the work touches macOS-native, list which of the 15 Mac-native checklist items apply.
+**If you are a planner** — follow the UX Defaults emission protocol below.
 
-**If you are a builder / implementer:**
-- Honor §4 of the guidebook ("The discipline") as you write code. Use the design-token recommendations: 4/8pt grid, one accent + one warning color, 8–10 tinted grays, three type sizes, three shadow tokens, one transition timing.
-- Don't strip `:focus-visible`. Don't ship a 16px-everywhere chrome. Don't hand-roll per-component `box-shadow`. Don't use `100vh` on a mobile layout — use `100dvh`. Pad `env(safe-area-inset-*)` on every fixed surface.
-- For copy: short verbs on buttons, plain-language errors that state what happened and what to do, preserve form input on validation failure.
-- For motion: ≤200ms direct response, ≤400ms transitions, honor `prefers-reduced-motion`.
+**If you are a builder / implementer** — honor §4 of the guidebook as you write code. Use the design tokens from §4.2, the spacing rules from §4.3, the motion budgets from §4.5, the mobile rules from §5.2. If `ui_work_evidence` is non-empty, prioritize those files.
 
-**If you are a fixer:**
-- Cite the principle being fixed by section ID from the guidebook in your commit message and PR comment. Example: `Fix: empty layer panel had no instruction (ux-guidebook §4.7 #1 — empty states are first-onboarding).`
-- Apply the smallest fix that resolves the principle violation; resist redesigning.
+**If you are a fixer** — cite the principle being fixed by section ID in your commit message and PR comment. Example: `Fix: empty layer panel had no instruction (ux-guidebook §4.7 #1).` Smallest fix that resolves the violation; resist redesigning.
 
-### Step 4: Cite when you decide
-Any UX-affecting decision in your plan, code, or commit should cite the principle: `(ux-guidebook §4.2 #3 — color is semantic, not decorative)`. This makes the design rationale auditable downstream.
+---
+
+## UX Defaults Emission Protocol (planner)
+
+When the brief has `ui_work: true`, the planner must emit a `## UX Defaults` section in the plan. This is how backend engineers and non-designers see what's being built without having to articulate it themselves.
+
+### Render-layer guard (false-positive suppression)
+
+The router biases toward `ui_work: true`. Before emitting `## UX Defaults`, verify the plan actually touches a render layer (`*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.css`, `*.scss`, `*.swift`, `*.html`). If none, **omit the section** and append a one-line note in the plan:
+
+> *Router flagged `ui_work: true`, but plan touches no render layer — UX Defaults section omitted.*
+
+This prevents a backend task ("dump UI config to JSON") from triggering a defaults section it doesn't need.
+
+### Required fields (five, plus state plan)
+
+Pick the inference row from `resources/ux-guidebook.md §4.9` that matches the prompt's strongest signal. When in doubt, default to the last row (`slate / comfortable / content-forward / required` + accent `#2563eb`).
+
+1. **Gray ramp:** one of `slate / stone / neutral / zinc / gray`. One-line rationale.
+2. **Density:** `comfortable` or `compact`. One-line rationale.
+3. **Content-vs-chrome ratio:** `content-forward` or `chrome-dense`. One-line rationale.
+4. **Mobile relevance:** `required / optional / no`. If `required`, name the desktop ↔ mobile divergence approach (independent toolbars / responsive shrink / drawer).
+5. **Brand accent:** hex value, defaulting to `#2563eb` (Tailwind `blue-600`) if not specified.
+
+Plus a **one-sentence plan for empty, loading, and error states** — three sentences, total. Concrete copy, not "TBD."
+
+### Opt-out for UX-savvy prompts
+
+If the user prompt or quest brief already names **≥3 of the five defaults** (ramp, density, ratio, mobile, accent), emit a shortened block listing only the unspecified fields, plus a one-line acknowledgement of the ones the user did specify. Skip the closing sharpen pointer — the user signaled they don't need it.
+
+Example shortened block:
+
+```markdown
+## UX Defaults
+
+User specified: gray ramp `slate`, density `compact`, accent `#0f172a` text. Inferred:
+
+- Ratio: chrome-dense — implied by Vercel-like reference.
+- Mobile: optional — internal dashboard.
+- Empty / loading / error: skeleton rows, inline form-error preservation, plain-language messages.
+```
+
+### Closing pointer (when emitting the full block)
+
+End the `## UX Defaults` section with one line so the user knows the interview path exists:
+
+> *To refine these, run `/sharpen ux-defaults` at the plan-approval gate. It walks each decision with a recommended answer attached — useful when you can see good UX but can't articulate it.*
+
+This line is omitted when the opt-out short form is used.
+
+---
+
+## Step 4: Cite when you decide
+
+Any UX-affecting decision in your plan, code, or commit should cite the principle: `(ux-guidebook §4.2 #3)`. Canonical format is `ux-guidebook§<section_number>` — no spaces, no sub-bullet numbers, no `#` suffix. This makes the design rationale auditable and greppable downstream.
 
 ## Key Principles (excerpt — see guidebook for full set)
 
-1. **Visual chrome restrained; content density task-appropriate.** Not minimalism — restraint. Not "less is more" — "as little as the task allows."
-2. **A button must look pressable before it can look beautiful** (Norman). Flatness only when signifiers survive.
+1. **Visual chrome restrained; content density task-appropriate.** Not minimalism — restraint.
+2. **A button must look pressable before it can look beautiful** (Norman).
 3. **Every action confirms within ~100ms; every commit has closure.** Quiet does not mean silent.
-4. **Don't fake instant when you mean pending** (Rams #6). Honest progress, honest depth.
+4. **Don't fake instant when you mean pending** (Rams #6). Performance is UX.
 5. **Don't paste one OS's chrome into another.** Same icon, native behavior is fine; same chrome across platforms is broken.
 
 ## Companion Skill
 
-For *reviewing* existing UI (your own or someone else's), see `.skills/ux-review/SKILL.md`. This skill is for *producing* work; ux-review is for critiquing it. Both consume the same guidebook in `.skills/ux-context/resources/`.
-
-## UX Defaults inference table
-
-When the router sets `ui_work: true`, the planner must emit a `## UX Defaults` section in the plan. This table is the rubric for inferring defaults from prompt signals. The planner picks the row whose signal best matches the prompt; when in doubt, default to the last row (`slate / comfortable / content-forward / mobile required / blue accent`) — it's the safest "no brand opinion yet" stance.
-
-| Prompt signal | Gray ramp | Density | Ratio | Mobile |
-|---|---|---|---|---|
-| "modern SaaS", "dashboard", "admin panel" | `slate` | comfortable | content-forward | optional |
-| "developer tool", "IDE", "terminal", "CLI ui" | `zinc` | compact | chrome-dense | rare |
-| "consumer mobile app", "iOS", "Android" | `slate` | comfortable | content-forward | required (thumb zone) |
-| "marketing site", "landing page", "blog" | `gray` | comfortable | content-forward | required |
-| "settings page", "preferences" | `slate` | comfortable | content-forward | optional |
-| "data table", "analytics", "Bloomberg-style" | `zinc` | compact | chrome-dense | rare |
-| "warm consumer brand", "food", "hospitality" | `stone` | comfortable | content-forward | required |
-| "utilitarian", "monochrome", "no brand color" | `neutral` | varies | varies | varies |
-| no signal / generic UI request | `slate` | comfortable | content-forward | required |
-
-For brand accent, default `#2563eb` (Tailwind `blue-600`) unless the prompt or quest brief names a specific hex / brand color.
-
-Two decisions, not one: the *ramp* (slate / stone / neutral / zinc / gray) sets the temperature; the *white-to-gray ratio* sets the feel. Linear and Vercel use slate at high gray density (chrome dense). Google and GitHub use cool-grays at low gray density (white dominant). Pick both.
+For *reviewing* existing UI, see `.skills/ux-review/SKILL.md`. This skill is for *producing* work; ux-review is for critiquing it. Both consume the same guidebook resources.
 
 ## Bundled Resources
 
-- `resources/ux-guidebook.md` — canonical guidebook
+- `resources/ux-guidebook.md` — canonical guidebook (10 sections + appendices, inference table at §4.9)
 - `resources/ux-stress-test.md` — runnable rubric and checklists
 
 ## Related Skills
 
 - `.skills/ux-review/SKILL.md` — invokes the stress test against a target
+- `.skills/sharpen/SKILL.md` — `ux-defaults` mode walks the same five fields one at a time as a refinement interview
 - `.skills/plan-maker/SKILL.md` — the planner consumes both during plan creation
 - `.skills/implementer/SKILL.md` — the builder consumes ux-context during implementation
 - `.skills/code-reviewer/SKILL.md` — code reviewers cross-reference ux-review findings

@@ -21,6 +21,7 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 ## Context Required (both instances)
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
+- **Step 0 (mandatory):** Read `.quest/<id>/quest_brief.md` end-to-end and extract the `## Router Classification` block before deciding which skills to load. Treat missing `ui_work` as `false`.
 - `.skills/plan-reviewer/SKILL.md` (review skill)
 - `.skills/review-anti-patterns.md` (shared review anti-patterns)
 - Plan artifact from Planner Agent
@@ -28,6 +29,7 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 - **If the quest brief router classification has `ui_work: true`:**
   - `.skills/ux-review/SKILL.md` — run the UX stress test against the plan as part of the review pass. **Embed UX findings inline in the markdown review** using the standard `[N]` format with severity (P0/P1/P2/P3) and a `principle_id` citation (e.g. `ux-guidebook§4.2`). Plan-reviewers do not write a separate findings JSON — the arbiter synthesizes findings from the markdown plan reviews.
   - `.skills/ux-context/SKILL.md` — for principle references when interpreting findings.
+  - If `ui_work` is absent from the brief (older format), default to `false` and skip the UX pass.
 
 ## Responsibilities (both instances)
 1. Read the plan artifact

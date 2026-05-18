@@ -17,6 +17,7 @@ When running on Codex, this role is non-interactive:
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
+- **Step 0 (mandatory):** Read `.quest/<id>/quest_brief.md` end-to-end and extract the `## Router Classification` block before deciding which skills to load. Treat missing `ui_work` as `false`.
 - `.skills/implementer/SKILL.md` (implementation skill, fix mode)
 - `.skills/review-anti-patterns.md` (shared review anti-patterns)
 - Code review artifacts (issues to fix):
@@ -24,7 +25,7 @@ When running on Codex, this role is non-interactive:
   - `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
 - Changed files from `git diff --name-only` when VCS is available
 - `.quest/<id>/phase_02_implementation/builder_feedback_discussion.md` for touched files/tests when VCS is unavailable
-- **If the quest brief router classification has `ui_work: true` and findings include UX-tagged items:** `.skills/ux-context/SKILL.md` and its resources. Cite the principle by section ID (e.g. `ux-guidebook §4.7 #1`) in the commit message and fix discussion when resolving a UX finding.
+- **If the quest brief router classification has `ui_work: true` AND findings include UX-tagged items:** `.skills/ux-context/SKILL.md` and its resources. Cite the principle by section ID (e.g. `ux-guidebook§4.7`) in the commit message and fix discussion. If `ui_work` is absent from the brief (older format), default to `false` and skip ux-context.
 
 ## Responsibilities
 1. Read the code review notes

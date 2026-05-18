@@ -20,9 +20,12 @@ When running on Codex, this role is non-interactive:
 - Relevant architecture docs (as needed)
 - Deferred backlog match artifact when present: `.quest/<id>/phase_01_plan/deferred_backlog_matches.json`
 - **On iteration 2+:** Arbiter verdict with synthesized feedback (`.quest/<id>/phase_01_plan/arbiter_verdict.md`)
-- **If the quest brief router classification has `ui_work: true`:** `.skills/ux-context/SKILL.md` and its bundled resources (`resources/ux-guidebook.md`, `resources/ux-stress-test.md`). Shape the plan so it answers the stress-test questions explicitly — name primary actions, empty-state copy, loading/error states, mobile divergence, and macOS-native conventions where they apply. When `ui_work_evidence` is non-empty, treat those files/areas as the primary surface to plan against. If `ui_work` is absent from the brief (older brief format), default to `false` and do not load ux-context.
+- **If the quest brief router classification has `ui_work: true`:** `.skills/ux-context/SKILL.md` and its bundled resources (`resources/ux-guidebook.md`, `resources/ux-stress-test.md`). When `ui_work_evidence` is non-empty, treat those files/areas as the primary surface to plan against. The UX Defaults emission protocol lives in the ux-context SKILL.md and is mandatory when this skill is loaded. If `ui_work` is absent from the brief (older brief format), default to `false` and do not load ux-context.
 
 ## Responsibilities
+
+### Step 0: Read the quest brief end-to-end (mandatory)
+Before loading any skills or making any decisions, read `.quest/<id>/quest_brief.md` fully. Extract the `## Router Classification` JSON block — the `ui_work`, `ui_work_evidence`, and other fields gate downstream context loading. **A skim-to-acceptance-criteria read silently disables the entire UX pipeline.** Treat missing `ui_work` as `false`.
 
 ### First invocation
 1. Read the quest brief and acceptance criteria
@@ -40,24 +43,9 @@ When running on Codex, this role is non-interactive:
 
 ### When `ui_work: true` — emit a UX Defaults section in the plan
 
-The plan must include a `## UX Defaults` section listing the inferred choices for any project that touches user-facing UI. This is how backend engineers and non-designers get told what's being built without having to articulate it themselves. Each default has an inferred value (with one-sentence rationale) plus the override menu.
+When the brief's router classification has `ui_work: true`, follow the **UX Defaults Emission Protocol** in `.skills/ux-context/SKILL.md` to emit a `## UX Defaults` section in the plan. The protocol covers the render-layer guard (suppresses emission on backend false-positives), the five required fields, the opt-out for UX-savvy prompts, and the closing `/sharpen ux-defaults` pointer.
 
-Required defaults to surface (each one needs a value + 1-line rationale):
-
-- **Gray ramp** — one of `slate` / `stone` / `neutral` / `zinc` / `gray` (see inference table in `.skills/ux-context/SKILL.md`)
-- **Density** — `comfortable` or `compact`
-- **Content-vs-chrome ratio** — `content-forward` (white-dominant, Google/GitHub feel) or `chrome-dense` (Linear/Figma feel)
-- **Mobile relevance** — `required` / `optional` / `no` (and if required, the desktop ↔ mobile divergence approach)
-- **Brand accent color** — hex value, or `#2563eb` (Tailwind blue-600) as fallback
-- **Primary action placement** — bottom-right (modern web) / top-right (macOS HIG) / sticky bottom (mobile)
-- **Empty / loading / error state plan** — one sentence each
-- **Mobile divergence pattern** (if mobile is required) — independent toolbar / responsive shrink / drawer
-
-Infer values from prompt signals using the inference table in `.skills/ux-context/SKILL.md`. When `ui_work_evidence` is non-empty, weight those file paths as the primary surfaces to plan around.
-
-**Close the section** with this exact one-liner so the user knows they can refine the defaults at the gate:
-
-> *To refine these, run `/sharpen ux-defaults` at the plan-approval gate. It walks each decision with a recommended answer attached — useful when you can see good UX but can't articulate it.*
+The canonical inference rubric (prompt-signal → defaults) lives in `.skills/ux-context/resources/ux-guidebook.md §4.9`. Pick the row whose signal matches the prompt; when in doubt, default to the last row.
 
 ## Refinement Rules
 - The Arbiter's feedback is the **only** input for refinement. Do not re-read raw reviewer notes.

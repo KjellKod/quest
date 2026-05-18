@@ -594,18 +594,19 @@ After plan approval, present the plan interactively before proceeding to build.
    Target ~150–300 words across the five sections combined. Always print the header bar and the artifact path footer. In workflow mode, print the arbiter NEXT line. In solo mode, print Reviewer A's next value after solo remapping. Always print the closing bar last.
 
 **2. Offer the Plan Presentation Menu:**
-   After the executive summary, ask exactly:
+   After the executive summary, ask exactly. When the brief's router classification has `ui_work: true`, use the UX-aware wording for option 2; otherwise use the generic wording.
    ```
    How would you like to proceed?
      1. Walk me through it phase by phase
      2. Sharpen the plan with me — I'll challenge assumptions and tradeoffs (Q&A, ~5–10 questions)
+        [ui_work=true: "Sharpen UX defaults (gray ramp, density, mobile, accent) and the plan with me"]
      3. Looks good, proceed to build
    ```
    STOP and wait for the human to respond. Do not assume a default.
 
 **3. Handle Menu Response:**
    - **Option 1 (walkthrough)** — also matches `walk`, `walkthrough`, `phases`, `detail`, `detailed`, `yes`: Continue to substep 4 (Phase Extraction). After the walkthrough completes (substep 7's last-phase branch), return here and re-show the menu **with option 1 removed** (only options 2 and 3 remain). Repeat handling.
-   - **Option 2 (sharpen)** — also matches `sharpen`, `grill`, `stress`, `challenge`: Invoke the `/sharpen` skill (`.skills/sharpen/SKILL.md`) against `.quest/<id>/phase_01_plan/plan.md`. When sharpen completes, read its structured exit summary (Resolved / Open / Next):
+   - **Option 2 (sharpen)** — also matches `sharpen`, `grill`, `stress`, `challenge`: Invoke the `/sharpen` skill (`.skills/sharpen/SKILL.md`). **When the brief's `ui_work: true`, pass `ux-defaults` as the argument so sharpen runs its six-question UX interview against the plan; otherwise invoke sharpen against `.quest/<id>/phase_01_plan/plan.md` for a generic sharpen pass.** When sharpen completes, read its structured exit summary (Resolved / Open / Next):
      - If the **Next** field says `no changes needed` (or equivalent — no revisions listed): Transition state atomically `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presentation_complete --status complete --expect-phase presenting` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to Step 4. **Sharpen completion is terminal — do not re-show the menu.**
      - If the **Next** field lists revisions (e.g. `re-plan with these revisions: …`): Jump to substep 8 (Change Handling) using the **sharpen entry path**. Substep 8(a) is skipped; substep 8(b) writes the sharpen-format block to user_feedback.md.
    - **Option 3 (proceed)** — also matches `proceed`, `build`, `looks good`, `ship it`, `no`, `n`, `skip`: Transition state atomically `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presentation_complete --status complete --expect-phase presenting` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to Step 4 (Build Phase).

@@ -62,28 +62,30 @@ Then ask once: `Anything I missed before we wrap?` If yes, address it and re-emi
 
 Invoke this when the user wants to lock in UX defaults for a UI project — typically right before plan approval on a quest where the router set `ui_work: true`, or any time a backend engineer has built something that "needs to look right" but can't articulate the design choices.
 
-**Auto-route:** If the user invokes `/sharpen` with no argument AND the active artifact (e.g. the plan being presented for approval) has `ui_work: true` in its router classification, default to this mode. State the auto-route once: `Auto-routing to ux-defaults — this quest is UI work. Override with /sharpen <other-artifact> if you meant something else.`
+**Invocation:** `/sharpen ux-defaults` is the explicit invocation. When the workflow's plan-presentation step invokes sharpen on a `ui_work: true` plan, it passes `ux-defaults` as the argument so this mode runs automatically (see `.skills/quest/delegation/workflow.md` plan-presentation step). Outside the workflow, the user types `/sharpen ux-defaults` directly. If a user types `/sharpen` with no argument and you cannot resolve an active artifact, prompt them once: "Did you mean `/sharpen ux-defaults` on the current plan, or `/sharpen <path>` for a specific artifact?"
 
-**The five questions** — same one-at-a-time, recommended-answer-attached rhythm as standard sharpen:
+**The six questions** — same one-at-a-time, recommended-answer-attached rhythm as standard sharpen. Skip any question whose answer is already visible in the prompt or plan.
 
-1. **Temperature.** "What's the brand color, if any? Recommended: no brand yet → cool (Tailwind `slate`). Linear, Stripe, Vercel, shadcn default. Override: warm brand → `stone`; utilitarian / no brand → `neutral`; tech/scientific → `zinc`; content-forward (Google/GitHub feel) → `gray`."
-2. **Density.** "How dense is the UI? Recommended: comfortable for consumer/settings/marketing; compact for IDE/data-dense/power-user. Override: pick the other."
-3. **Content-vs-chrome ratio.** "Is the product content-forward (Google, GitHub, mockdown — chrome recedes, white dominant) or chrome-dense (Linear, Figma — chrome is the product)? Recommended: content-forward unless the chrome IS the value."
-4. **Mobile relevance.** "Will this be used on phone-class viewports? Recommended: yes for any consumer or web-public surface; no for internal admin / desktop-only tools. If yes, the plan must address desktop ↔ mobile divergence (see guidebook §5.3)."
-5. **Brand accent.** "Have a brand accent color? Recommended: `#2563eb` (Tailwind `blue-600`) if no other answer — used by sketch2md, ships with shadcn, reads as 'modern web'. Override: any hex."
+1. **Mobile relevance** (asked first because it gates downstream choices). "Will this be used on phone-class viewports? Recommended: required for any consumer or web-public surface; no for internal admin / desktop-only tools. If required, the plan must address desktop ↔ mobile divergence (see guidebook §5.3)."
+2. **Temperature.** "What's the brand color, if any? Recommended: no brand yet → cool (Tailwind `slate`). Linear, Stripe, Vercel, shadcn default. Override: warm brand → `stone`; utilitarian / no brand → `neutral`; tech/scientific → `zinc`; content-forward / paper feel (Google/GitHub) → `gray`."
+3. **Density.** "How dense is the UI? Recommended: comfortable for consumer / settings / marketing; compact for IDE / data table / power-user. Override: pick the other."
+4. **Content-vs-chrome ratio.** "Does the user spend more time looking at the toolbars and panels (chrome-dense — Linear, Figma) or at the content inside them (content-forward — GitHub, Google, a settings form)? Recommended: content-forward for almost everything except dedicated creator tools."
+5. **Brand accent.** "Have a brand accent color? Recommended: `#2563eb` (Tailwind `blue-600`) if no other answer — ships with shadcn, reads as 'modern web'. Override: any hex."
+6. **Destructive actions on this surface?** "Anything that loses money, deletes data, or is otherwise irreversible? Recommended: if yes, separate it visually (red text, far from primary action), require explicit confirmation, and log for undo where possible. If no, mark `none` and move on. This is the failure mode the rest of the rubric won't catch — `Delete account` next to `Save` is the canonical example."
 
 **On exit**, emit a fenced `## UX Defaults` block that can be pasted into the plan or used to update the plan in place:
 
 ```markdown
 ## UX Defaults (locked via /sharpen ux-defaults)
 
+- Mobile: <required | optional | no>
 - Gray ramp: <slate | stone | neutral | zinc | gray>
 - Density: <comfortable | compact>
 - Ratio: <content-forward | chrome-dense>
-- Mobile: <required | optional | no>
 - Accent: <hex>
+- Destructive actions: <none | listed with confirmation/undo plan>
 
-Principle citations: ux-guidebook§4.1, §4.2, §4.3, §5.2, §5.3.
+Principle citations: ux-guidebook§4.2, §4.3, §4.7, §5.2, §5.3.
 ```
 
 If the user only wants to adjust some of the five, walk only those branches and emit a partial block. Skip questions where the answer is already visible in the prompt or plan.

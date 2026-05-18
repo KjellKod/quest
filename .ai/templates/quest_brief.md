@@ -29,13 +29,16 @@
 
 ```json
 {
-  "route": "workflow",
-  "confidence": 0.0,
-  "risk_level": "low",
-  "complexity": "moderate",
-  "ui_work": false,
+  "route": "<workflow|solo|manual|questioner>",
+  "confidence": "<0.0..1.0>",
+  "risk_level": "<low|medium|high>",
+  "complexity": "<trivial|moderate|substantial>",
+  "ui_work": "<true|false>",
   "ui_work_evidence": [],
-  "reason": "",
+  "reason": "<one-sentence justification>",
   "missing_information": []
 }
 ```
+
+<!-- Placeholders MUST be overwritten by the orchestrator at quest creation. A brief that still contains `<...>` literal markers in this block is a contract violation: downstream agents will treat `ui_work` as `false` and the UX pipeline will silently disable. -->
+

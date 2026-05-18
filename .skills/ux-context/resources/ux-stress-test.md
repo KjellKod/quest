@@ -69,13 +69,13 @@ Run against each screen, component, or interaction you changed.
 
 > *Rationale: Nielsen #6, Miller. Working memory is for the task, not for your UI.*
 
-### 8. Fitts
+### 8. Reach (Fitts)
 - [ ] The primary action is large (≥44pt touch / ≥24px pointer).
 - [ ] Frequent actions are near where the eye and hand are.
-- [ ] Common actions are edge- or corner-anchored where possible (infinite-target advantage).
+- [ ] Common actions are edge- or corner-anchored where possible (screen edges are infinite-size targets).
 - [ ] Adjacent touch targets have ≥8px between them.
 
-> *Rationale: Fitts's Law, Apple HIG, Material.*
+> *Rationale: Fitts's Law (size + distance + edge advantage), Apple HIG, Material.*
 
 ### 9. Defaults
 - [ ] The default value is what 80% of users want.
@@ -88,14 +88,14 @@ Run against each screen, component, or interaction you changed.
 - [ ] Copy doesn't overstate what the system does.
 - [ ] Progress indicators reflect real progress (not animated decoration).
 - [ ] Shadows, glows, and gradients aren't faking depth that isn't there.
-- [ ] Optimistic UI is used only where success is overwhelmingly likely.
+- [ ] Optimistic UI is used only where success is overwhelmingly likely; **never for money, irreversible destructive actions, or data loss.**
 
-> *Rationale: Rams #6, Norman, Tognazzini. Don't fake instant when you mean pending.*
+> *Rationale: Rams #6, Norman, Tognazzini. Don't fake instant when you mean pending. Honest progress, honest depth.*
 
 ### 11. Density vs chrome
 - [ ] Every border, shadow, and divider is separating things the user actually needs separated.
 - [ ] Gap between grouped elements > gap within an element.
-- [ ] Task content is as dense as the user's expertise level warrants.
+- [ ] Task content matches frequency: expert at ≥10×/day → density wins; stranger at once a month → chrome restraint wins.
 - [ ] Chrome is restrained; content is Tufte-dense where the task calls for it.
 
 > *Rationale: Tufte (data-ink ratio), Rams #10, Gestalt (proximity). Density without grouping is noise; minimalism without signifiers is mystery.*
