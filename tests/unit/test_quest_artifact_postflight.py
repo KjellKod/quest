@@ -572,6 +572,160 @@ class TestFailureBranches:
 
 
 # ---------------------------------------------------------------------------
+# Coverage check — every canonical artifact must be declared and exist
+# ---------------------------------------------------------------------------
+
+
+class TestCanonicalCoverage:
+    """The validator must compare resolved expected_paths to resolved
+    declared_paths so an empty ``artifacts: []`` or a canonical-named file at a
+    misplaced path cannot silently pass (AC4)."""
+
+    def test_empty_artifacts_array_fails_for_role_with_expected_paths(
+        self, workspace: Path
+    ) -> None:
+        """Planner role expects plan.md + handoff.json. An empty artifacts
+        list omits both → two ``missing`` records, exit 1."""
+
+        quest_id = "test-quest_empty-artifacts"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_01_plan"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [],
+                    "next": "plan-reviewer-a",
+                    "summary": "empty artifacts",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_01_plan",
+            role="planner",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=workspace,
+        )
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        missing = [r for r in records if r["reason"] == "missing"]
+        assert len(missing) == 2
+        actuals = {Path(r["actual"]).name for r in missing}
+        assert actuals == {"plan.md", "handoff.json"}
+        for r in missing:
+            assert r["declared"] == "(undeclared)"
+
+    def test_omitted_canonical_artifact_fails(self, workspace: Path) -> None:
+        """Planner declares plan.md only — handoff.json (also canonical) is
+        omitted → one ``missing`` record for the omitted artifact, exit 1."""
+
+        quest_id = "test-quest_omitted"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_01_plan"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        (phase_dir / "plan.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "handoff.json").write_text("seed", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [str(phase_dir / "plan.md")],
+                    "next": "plan-reviewer-a",
+                    "summary": "omitted handoff.json",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_01_plan",
+            role="planner",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=workspace,
+        )
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        missing = [r for r in records if r["reason"] == "missing"]
+        assert len(missing) == 1
+        assert Path(missing[0]["actual"]).name == "handoff.json"
+        assert missing[0]["declared"] == "(undeclared)"
+
+    def test_misplaced_canonical_named_file_inside_boundary_fails(
+        self, workspace: Path
+    ) -> None:
+        """Declared path is a canonical-named file at a nested subdir inside
+        the phase boundary (e.g., ``phase_01_plan/nested/plan.md``). Per-path
+        checks pass it (basename canonical, inside boundary), but the
+        coverage check records the canonical path as ``missing`` because it
+        was not declared at its expected location."""
+
+        quest_id = "test-quest_misplaced"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_01_plan"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        # Misplaced canonical-named file: phase_01_plan/nested/plan.md
+        misplaced = phase_dir / "nested" / "plan.md"
+        misplaced.parent.mkdir(parents=True, exist_ok=True)
+        misplaced.write_text("seed", encoding="utf-8")
+        (phase_dir / "handoff.json").write_text("seed", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(misplaced),
+                        str(phase_dir / "handoff.json"),
+                    ],
+                    "next": "plan-reviewer-a",
+                    "summary": "misplaced plan.md",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_01_plan",
+            role="planner",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=workspace,
+        )
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        missing = [r for r in records if r["reason"] == "missing"]
+        # The canonical plan.md location (phase_01_plan/plan.md) was not
+        # declared — one missing record for it.
+        assert any(
+            Path(r["actual"]).name == "plan.md"
+            and Path(r["actual"]).parent.name == "phase_01_plan"
+            and r["declared"] == "(undeclared)"
+            for r in missing
+        ), missing
+
+
+# ---------------------------------------------------------------------------
 # Slice D — Latency tests (#11, #12), perf-marker-gated
 # ---------------------------------------------------------------------------
 

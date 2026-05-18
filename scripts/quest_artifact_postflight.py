@@ -219,6 +219,36 @@ def run(
     boundary_dir = Path(expected_paths[0]).resolve().parent
 
     mismatches: list[dict[str, str]] = []
+
+    # Coverage check: every expected canonical artifact must be declared and
+    # exist on disk at the canonical location. Without this, an empty
+    # ``artifacts: []`` array or a handoff that omits one canonical path would
+    # pass silently (AC4: "mismatches cause non-zero exit and are not
+    # silently accepted").
+    resolved_declared = {Path(p).resolve() for p in declared_paths}
+    for expected in expected_paths:
+        resolved_expected = Path(expected).resolve()
+        if resolved_expected not in resolved_declared:
+            mismatches.append(
+                _make_mismatch(
+                    phase=phase,
+                    role=role,
+                    declared="(undeclared)",
+                    actual=str(expected),
+                    reason="missing",
+                )
+            )
+        elif not resolved_expected.exists():
+            mismatches.append(
+                _make_mismatch(
+                    phase=phase,
+                    role=role,
+                    declared=str(expected),
+                    actual=str(resolved_expected),
+                    reason="missing",
+                )
+            )
+
     for declared in declared_paths:
         mismatch = _check_one(
             declared=declared,
@@ -304,16 +334,9 @@ def _check_one(
             reason="noncanonical_name",
         )
 
-    # 5. Existence on disk.
-    if not resolved.exists():
-        return _make_mismatch(
-            phase=phase,
-            role=role,
-            declared=str(declared),
-            actual=str(resolved),
-            reason="missing",
-        )
-
+    # Missing-on-disk is owned by the coverage check in ``run(...)`` so we do
+    # not double-emit when a declared canonical path is also undeclared or
+    # absent. ``_check_one`` returns ``None`` once all path-shape checks pass.
     return None
 
 
