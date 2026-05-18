@@ -906,6 +906,122 @@ class TestFailureBranches:
             r["reason"] == "traversal_outside_repo" for r in records
         )
 
+    def test_worktree_mode_combined_smoke(self, tmp_path: Path) -> None:
+        """Combined worktree-mode smoke test exercising all four
+        classifications in a single handoff, with Quest's ``.quest``
+        symlink invariant in place:
+
+        1. **Our canonical quest artifact** — agent declares the absolute
+           repo path (per the ``workflow.md`` contract that orchestrators
+           pass canonical quest paths even in worktree mode). Passes the
+           quest-artifact check set.
+        2. **True workspace file in the worktree** — ``scripts/foo.py``;
+           anchors to ``workspace_root``, exists, passes.
+        3. **Shared ``.quest/`` infrastructure path** — ``.quest/cache/...``;
+           anchors to ``repo_root`` because it's under ``.quest/``,
+           exists, passes (shared-name allowlist).
+        4. **Sibling-quest path** — ``.quest/<OTHER-id>/...``; anchors to
+           ``repo_root``, present on disk so the ``missing`` branch can't
+           shadow this case, fires ``outside_boundary``.
+
+        The worktree's ``.quest`` symlink is provisioned as part of the
+        Quest invariant. Even though the orchestrator passes canonical
+        repo paths, the symlink remains present in the worktree (the
+        agent's tooling uses it for filesystem navigation). The test
+        confirms the validator handles the structural symlink without
+        false positives.
+
+        Pins the four classifications acting together (not just
+        individually) so a future change that reshuffles classification
+        order cannot silently break one path while another still passes.
+        """
+
+        repo = tmp_path / "main-repo"
+        repo.mkdir()
+        worktree = tmp_path / "main-repo-worktree"
+        worktree.mkdir()
+
+        # Quest's worktree invariant: <worktree>/.quest symlinks to <repo>/.quest.
+        (repo / ".quest").mkdir(parents=True, exist_ok=True)
+        (worktree / ".quest").symlink_to(repo / ".quest", target_is_directory=True)
+
+        quest_id = "test-quest_combined-self"
+        other_quest_id = "test-quest_combined-other"
+        quest_dir = repo / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        # (1) Canonical deliverables under repo's .quest/<id>/.
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        # (2) Workspace file in the worktree (NOT under repo).
+        workspace_file = worktree / "scripts" / "foo.py"
+        workspace_file.parent.mkdir(parents=True, exist_ok=True)
+        workspace_file.write_text("seed", encoding="utf-8")
+
+        # (3) Shared .quest/cache/ path under the repo.
+        shared_cache = repo / ".quest" / "cache" / "claude_bridge_codex.json"
+        shared_cache.parent.mkdir(parents=True, exist_ok=True)
+        shared_cache.write_text("seed", encoding="utf-8")
+
+        # (4) Sibling-quest path that exists on disk.
+        sibling = repo / ".quest" / other_quest_id / "phase_01_plan" / "plan.md"
+        sibling.parent.mkdir(parents=True, exist_ok=True)
+        sibling.write_text("sibling", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        # (1) Canonical quest artifacts — per workflow.md
+                        # contract, orchestrators pass canonical repo
+                        # paths even in worktree mode.
+                        str(phase_dir / "pr_description.md"),
+                        str(phase_dir / "builder_feedback_discussion.md"),
+                        # (2) Workspace file (worktree-rooted).
+                        str(workspace_file),
+                        # (3) Shared .quest/ infra path.
+                        str(shared_cache),
+                        # (4) Sibling-quest cross-write (should fail).
+                        str(sibling),
+                    ],
+                    "next": "code_review",
+                    "summary": "combined worktree smoke covering all classifications",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=repo,
+            workspace_root=worktree,
+        )
+        # Sibling-quest cross-write fires; everything else passes.
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        outside = [r for r in records if r["reason"] == "outside_boundary"]
+        assert len(outside) == 1
+        assert other_quest_id in outside[0]["actual"]
+        # No traversal/missing/noncanonical_name false positives from
+        # canonical quest artifacts, workspace file, or shared-infra path.
+        for r in records:
+            assert r["reason"] == "outside_boundary", (
+                f"unexpected mismatch {r!r} — combined smoke expects ONLY "
+                f"the sibling-quest case to fire"
+            )
+
     def test_nested_quest_path_records_nested_quest(self, workspace: Path) -> None:
         """#4: path contains .quest/<id>/.quest/ → reason=nested_quest."""
 

@@ -25,6 +25,23 @@ Path classification (matches the agent ARTIFACTS contract):
   ``outside_boundary``: writing into another quest's space is the
   precise wrong-location failure this validator exists to catch.
 
+Worktree symlink invariant
+--------------------------
+Quest always provisions a ``<worktree>/.quest`` symlink back to the repo's
+canonical ``<repo>/.quest/`` (regardless of whether the worktree is in-repo
+at ``<repo>/.worktrees/<x>/`` or outside the repo entirely). ``Path.resolve()``
+follows symlinks, so the three forms an agent might write for the same quest
+artifact —
+  * absolute repo path:     ``<repo>/.quest/<id>/.../pr_description.md``
+  * absolute worktree path: ``<worktree>/.quest/<id>/.../pr_description.md``
+  * worktree-relative path: ``.quest/<id>/.../pr_description.md``
+— all canonicalize to the same on-disk inode under the repo. Quest-artifact
+classification therefore does not depend on which mount the agent used; it
+depends only on whether the resolved path lives under ``<repo>/.quest/<id>/``.
+``--workspace-root`` only governs **non**-``.quest/`` workspace files, where
+the worktree-vs-repo distinction is real (and only matters when the worktree
+sits outside the repo).
+
 Mismatch reasons (enum-like tokens written to the log):
 * ``missing``               — declared path does not exist on disk, OR an
                               expected canonical quest artifact was not

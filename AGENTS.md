@@ -88,6 +88,8 @@ Quest ships two additive guardrails to reduce wrong-branch / wrong-directory edi
 
 Both guardrails are on by default and disabled by editing the hook script / validator directly. There is no `allowlist.json` key or env-var toggle.
 
+**Worktree symlink invariant (validator).** Quest provisions a `<worktree>/.quest` symlink back to the repo's `.quest/` whenever it creates a git worktree (in-repo at `<repo>/.worktrees/<x>/` or outside the repo entirely). The validator relies on `Path.resolve()` following that symlink so quest-artifact paths canonicalize to the repo regardless of mount point; the `--workspace-root` flag only governs non-`.quest/` workspace files.
+
 **Installer caveat for `.claude/settings.json`.** When upgrading an existing Quest install, the installer writes `.claude/settings.json.quest_updated` and the user must manually merge the new `PreToolUse` entry into their existing array. The repo-local `.claude/settings.json` is under `[merge-carefully]` in `.quest-manifest`; the installer does not JSON-aware-splice array entries.
 
 ## Where to Learn More
