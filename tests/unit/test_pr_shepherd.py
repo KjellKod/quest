@@ -249,6 +249,73 @@ def test_checkout_explicit_target_same_branch_checks_head_oid(monkeypatch: pytes
     assert payload["reason"] == "head_mismatch"
 
 
+def test_checkout_current_target_same_branch_checks_head_oid(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args[:3] == ["git", "branch", "--show-current"]:
+            return _Result(stdout="feature/current\n")
+        if args[:3] == ["git", "status", "--short"]:
+            return _Result(stdout="")
+        if args[:3] == ["gh", "pr", "view"]:
+            return _Result(
+                stdout=json.dumps(
+                    {
+                        "number": 12,
+                        "url": "u",
+                        "headRefName": "feature/current",
+                        "headRefOid": "remote-sha",
+                    }
+                )
+            )
+        if args == ["git", "rev-parse", "HEAD"]:
+            return _Result(stdout="local-sha\n")
+        raise AssertionError(f"unexpected call: {args}")
+
+    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
+    code, payload = pr_shepherd_checkout.inspect_checkout(None, apply=False)
+
+    assert code == 0
+    assert payload["action"] == "would_checkout"
+    assert payload["reason"] == "head_mismatch"
+
+
+def test_checkout_head_mismatch_apply_forces_checkout(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str]) -> _Result:
+        calls.append(args)
+        if args[:3] == ["git", "branch", "--show-current"]:
+            return _Result(stdout="feature/current\n")
+        if args[:3] == ["git", "status", "--short"]:
+            return _Result(stdout="")
+        if args[:3] == ["gh", "pr", "view"]:
+            return _Result(
+                stdout=json.dumps(
+                    {
+                        "number": 12,
+                        "url": "u",
+                        "headRefName": "feature/current",
+                        "headRefOid": "remote-sha",
+                    }
+                )
+            )
+        if args == ["git", "rev-parse", "HEAD"]:
+            return _Result(stdout="local-sha\n")
+        if args == ["git", "rev-parse", "--git-dir"]:
+            return _Result(stdout="/repo/.git\n")
+        if args == ["git", "rev-parse", "--git-common-dir"]:
+            return _Result(stdout="/repo/.git\n")
+        if args[:3] == ["gh", "pr", "checkout"]:
+            return _Result()
+        raise AssertionError(f"unexpected call: {args}")
+
+    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
+    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=True)
+
+    assert code == 0
+    assert payload["action"] == "checked_out"
+    assert ["gh", "pr", "checkout", "12", "--force"] in calls
+
+
 def test_checkout_refuses_worktree_branch_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run(args: list[str]) -> _Result:
         if args[:3] == ["git", "branch", "--show-current"]:

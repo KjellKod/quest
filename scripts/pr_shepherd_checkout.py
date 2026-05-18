@@ -111,23 +111,18 @@ def inspect_checkout(target: str | None, *, apply: bool) -> tuple[int, dict[str,
 
     if current_branch == target_branch:
         target_oid = str(pr.get("headRefOid") or "")
-        if target and target_oid and _head_oid() != target_oid:
+        if target_oid and _head_oid() != target_oid:
             if not apply:
                 payload["action"] = "would_checkout"
                 payload["reason"] = "head_mismatch"
                 return 0, payload
+            payload["reason"] = "head_mismatch"
         else:
             return 0, payload
-
-    if current_branch == target_branch:
-        payload["reason"] = "head_mismatch"
     else:
         payload["action"] = "would_checkout"
         if not apply:
             return 0, payload
-
-    if current_branch == target_branch and not apply:
-        return 0, payload
 
     if not clean:
         payload.update({"ok": False, "reason": "dirty_worktree", "action": "none"})
@@ -138,7 +133,10 @@ def inspect_checkout(target: str | None, *, apply: bool) -> tuple[int, dict[str,
         return 1, payload
 
     checkout_target = target or str(target_pr)
-    result = _run(["gh", "pr", "checkout", checkout_target])
+    checkout_args = ["gh", "pr", "checkout", checkout_target]
+    if payload.get("reason") == "head_mismatch":
+        checkout_args.append("--force")
+    result = _run(checkout_args)
     if result.returncode != 0:
         payload.update(
             {

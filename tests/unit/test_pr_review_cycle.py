@@ -411,6 +411,67 @@ def test_normalize_records_applies_shepherd_summary_fingerprints() -> None:
     assert findings == []
 
 
+def test_normalize_records_summary_fingerprint_uses_stable_fallback() -> None:
+    record = {
+        "source_kind": "review_body_item",
+        "source_label": "github-review-body",
+        "activity_state": "active",
+        "path": "pr/review",
+        "line": None,
+        "body": "Fingerprint-only review body.",
+    }
+    fingerprint = __import__("quest_runtime.pr_shepherd", fromlist=["stable_fingerprint"]).stable_fingerprint(record)
+
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                record,
+                {
+                    "source_kind": "shepherd_summary",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": f"PR shepherd status\n\n| state | fingerprint | url |\n|---|---|---|\n| addressed | `{fingerprint[:16]}` | https://x |",
+                },
+            ]
+        }
+    )
+
+    assert findings == []
+
+
+def test_normalize_records_summary_does_not_override_live_thread_state() -> None:
+    fingerprint = "abcdef1234567890feed"
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "github-review-thread",
+                    "activity_state": "active",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Live thread feedback.",
+                    "fingerprint": fingerprint,
+                    "reply_target": {"kind": "review_comment", "id": 1},
+                },
+                {
+                    "source_kind": "shepherd_summary",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": "PR shepherd status\n\n| state | fingerprint | url |\n|---|---|---|\n| addressed | `abcdef1234567890` | https://x |",
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["activity_state"] == "active"
+
+
 def test_classify_pr_operational_state_wraps_pass_facts() -> None:
     result = classify_pr_operational_state(
         {"outcome": "success"},

@@ -258,8 +258,13 @@ def _apply_summary_addressed_fingerprints(records: list[JsonObject]) -> list[Jso
     updated: list[JsonObject] = []
     for record in records:
         candidate = copy.deepcopy(record)
-        fingerprint = str(candidate.get("fingerprint") or "")
-        if fingerprint and any(fingerprint.startswith(prefix) for prefix in addressed):
+        fingerprint = str(candidate.get("fingerprint") or "").strip() or stable_fingerprint(candidate)
+        has_thread_state = candidate.get("reply_target") not in (None, "", [], {})
+        if (
+            not has_thread_state
+            and fingerprint
+            and any(fingerprint.startswith(prefix) for prefix in addressed)
+        ):
             candidate["activity_state"] = "addressed"
         updated.append(candidate)
     return updated
