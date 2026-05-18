@@ -772,6 +772,140 @@ class TestFailureBranches:
             for r in records
         )
 
+    def test_worktree_mode_shared_dot_quest_paths_pass(
+        self, tmp_path: Path
+    ) -> None:
+        """In worktree mode, paths under ``<repo>/.quest/`` shared
+        infrastructure directories (``cache/``, ``backlog/``,
+        ``audit.log``) MUST anchor to ``repo_root``, not
+        ``workspace_root``. Otherwise the traversal check would falsely
+        flag them because the worktree sits outside the original repo's
+        directory tree.
+        """
+
+        repo = tmp_path / "main-repo"
+        repo.mkdir()
+        worktree = tmp_path / "main-repo-worktree"
+        worktree.mkdir()
+
+        quest_id = "test-quest_worktree_shared"
+        quest_dir = repo / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        # Shared .quest paths in the original repo (NOT in the worktree).
+        shared_paths = [
+            repo / ".quest" / "cache" / "claude_bridge_codex.json",
+            repo / ".quest" / "backlog" / "deferred_findings.jsonl",
+            repo / ".quest" / "audit.log",
+        ]
+        for p in shared_paths:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text("seed", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(phase_dir / "pr_description.md"),
+                        str(phase_dir / "builder_feedback_discussion.md"),
+                        *[str(p) for p in shared_paths],
+                    ],
+                    "next": "code_review",
+                    "summary": "worktree-mode shared .quest paths",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=repo,
+            workspace_root=worktree,
+        )
+        assert rc == 0
+        if log_path.exists():
+            assert log_path.read_text(encoding="utf-8") == ""
+
+    def test_worktree_mode_sibling_quest_records_outside_boundary(
+        self, tmp_path: Path
+    ) -> None:
+        """In worktree mode, a sibling-quest path (under
+        ``<repo>/.quest/<OTHER-id>/``) MUST still be flagged as
+        ``outside_boundary``, not falsely flagged as
+        ``traversal_outside_repo`` just because the path sits in the
+        original repo and not the worktree.
+        """
+
+        repo = tmp_path / "main-repo"
+        repo.mkdir()
+        worktree = tmp_path / "main-repo-worktree"
+        worktree.mkdir()
+
+        quest_id = "test-quest_worktree_self"
+        other_quest_id = "test-quest_worktree_other"
+        quest_dir = repo / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        sibling = repo / ".quest" / other_quest_id / "phase_01_plan" / "plan.md"
+        sibling.parent.mkdir(parents=True, exist_ok=True)
+        sibling.write_text("sibling", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(phase_dir / "pr_description.md"),
+                        str(phase_dir / "builder_feedback_discussion.md"),
+                        str(sibling),
+                    ],
+                    "next": "code_review",
+                    "summary": "worktree-mode sibling quest cross-write",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=repo,
+            workspace_root=worktree,
+        )
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        # MUST be outside_boundary, NOT traversal_outside_repo.
+        assert any(r["reason"] == "outside_boundary" for r in records)
+        assert not any(
+            r["reason"] == "traversal_outside_repo" for r in records
+        )
+
     def test_nested_quest_path_records_nested_quest(self, workspace: Path) -> None:
         """#4: path contains .quest/<id>/.quest/ → reason=nested_quest."""
 

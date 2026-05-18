@@ -409,11 +409,24 @@ def _check_one(
     except ValueError:
         is_quest_artifact = False
 
+    # Anything inside ``<repo>/.quest/`` (our quest, a sibling quest, or
+    # shared infrastructure like ``cache/`` and ``backlog/``) lives with the
+    # original repo, NOT the worktree. Use ``repo_root`` as the traversal
+    # anchor for those paths so worktree-mode declarations don't falsely
+    # trip ``traversal_outside_repo`` when the worktree sits outside the
+    # original repo's directory tree.
+    try:
+        rel_to_dot_quest = resolved.relative_to(repo_root / ".quest")
+        in_dot_quest_tree = True
+    except ValueError:
+        rel_to_dot_quest = None
+        in_dot_quest_tree = False
+
     # 1. Traversal escape outside the relevant root.
-    # Quest-artifact paths must live under ``repo_root``. Workspace-file
-    # paths must live under ``workspace_root`` (which differs in worktree
-    # mode). A path outside both is genuine traversal.
-    traversal_anchor = repo_root if is_quest_artifact else workspace_root
+    # Paths under ``.quest/`` anchor to ``repo_root``; everything else
+    # anchors to ``workspace_root`` (which differs in worktree mode). A
+    # path outside both is genuine traversal.
+    traversal_anchor = repo_root if in_dot_quest_tree else workspace_root
     try:
         resolved.relative_to(traversal_anchor)
     except ValueError:
@@ -426,28 +439,23 @@ def _check_one(
         )
 
     if not is_quest_artifact:
-        # Workspace file: builder/fixer declare changed source/test/docs
-        # files here. Boundary and canonical-name don't apply, but the
-        # path must still exist on disk — a declared workspace file that
-        # was never actually written is path drift. Paths inside the
-        # ``.quest/`` tree that target a sibling quest's directory (not
-        # ours, and not one of the shared infrastructure paths) are
-        # wrong-location by definition.
+        # Workspace file OR sibling/shared ``.quest/`` path. Boundary and
+        # canonical-name don't apply, but the path must still exist on disk
+        # (a declared file that was never actually written is path drift),
+        # and paths inside ``.quest/`` that target a sibling quest's
+        # directory (not ours, not one of the shared infrastructure names)
+        # are wrong-location by definition.
         #
         # Order matters: check sibling-quest BEFORE existence so a
         # wrong-location declaration is reported as ``outside_boundary``,
-        # not downgraded to ``missing`` when the file happens not to
-        # exist. The shared-name allowlist excludes paths that are
-        # legitimately cross-quest (preflight cache, deferred-findings
-        # backlog, persistent audit log).
-        try:
-            rel_to_quest_dir = resolved.relative_to(repo_root / ".quest")
-            in_dot_quest = True
-        except ValueError:
-            in_dot_quest = False
-
-        if in_dot_quest:
-            first_segment = rel_to_quest_dir.parts[0] if rel_to_quest_dir.parts else ""
+        # not downgraded to ``missing`` when the file happens not to exist.
+        # The shared-name allowlist excludes paths that are legitimately
+        # cross-quest (preflight cache, deferred-findings backlog,
+        # persistent audit log).
+        if in_dot_quest_tree:
+            first_segment = (
+                rel_to_dot_quest.parts[0] if rel_to_dot_quest.parts else ""
+            )
             if first_segment not in _SHARED_DOT_QUEST_NAMES:
                 # Quest-id-keyed sibling directory (not ours, not shared).
                 return _make_mismatch(
