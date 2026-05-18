@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -131,10 +132,25 @@ def _load_declared_artifacts(handoff_path: Path, repo_root: Path) -> list[Path]:
 
     Relative paths are resolved against ``repo_root`` so the validator can
     compare them to the expected boundary, which is absolute.
+
+    Defensive parsing: an unreadable handoff (missing file, non-UTF-8 bytes,
+    invalid JSON) or a non-dict payload must not crash the validator — the
+    orchestrator's text-fallback path can produce any of these, and the
+    validator's contract is to report mismatches, not raise. In those cases
+    we return an empty declared list and let the run-level coverage check
+    flag every expected canonical path as ``missing``.
     """
 
-    raw = handoff_path.read_text(encoding="utf-8")
-    data = json.loads(raw)
+    try:
+        raw = handoff_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(data, dict):
+        return []
     artifacts = data.get("artifacts") or []
     if not isinstance(artifacts, list):
         return []
@@ -225,10 +241,19 @@ def run(
     # ``artifacts: []`` array or a handoff that omits one canonical path would
     # pass silently (AC4: "mismatches cause non-zero exit and are not
     # silently accepted").
-    resolved_declared = {Path(p).resolve() for p in declared_paths}
+    #
+    # Compare absolute, normalized paths (NOT ``Path.resolve()``) so a
+    # symlinked declared artifact cannot collapse onto a different expected
+    # canonical path and satisfy the coverage for an omitted one. Existence
+    # on disk is still checked with ``.exists()``, which follows symlinks —
+    # that is the right semantic for "is the file there?".
+    def _identity(p: Path) -> str:
+        return os.path.normpath(os.path.abspath(str(p)))
+
+    declared_identities = {_identity(p) for p in declared_paths}
     for expected in expected_paths:
-        resolved_expected = Path(expected).resolve()
-        if resolved_expected not in resolved_declared:
+        expected_identity = _identity(Path(expected))
+        if expected_identity not in declared_identities:
             mismatches.append(
                 _make_mismatch(
                     phase=phase,
@@ -238,13 +263,13 @@ def run(
                     reason="missing",
                 )
             )
-        elif not resolved_expected.exists():
+        elif not Path(expected_identity).exists():
             mismatches.append(
                 _make_mismatch(
                     phase=phase,
                     role=role,
                     declared=str(expected),
-                    actual=str(resolved_expected),
+                    actual=expected_identity,
                     reason="missing",
                 )
             )

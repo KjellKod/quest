@@ -17,7 +17,11 @@
 set -u
 
 branch="no-git"
-dir="$(pwd 2>/dev/null || printf '%s' '?')"
+raw_dir="$(pwd 2>/dev/null || printf '%s' '?')"
+# Defend the single-line stdout contract: collapse embedded LF/CR (legal in
+# POSIX path components, fatal for a one-line emitter) into escape sequences
+# so the consumer still sees one line. `tr` is portable.
+dir="$(printf '%s' "$raw_dir" | tr '\n' ' ' | tr '\r' ' ')"
 
 if command -v git >/dev/null 2>&1; then
     if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then

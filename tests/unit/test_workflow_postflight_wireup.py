@@ -11,6 +11,7 @@ other parts of the doc rely on.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -65,9 +66,25 @@ def _next_h3_after(start_line: int, text: str) -> int:
 
 
 def test_workflow_references_postflight_script(workflow_text: str) -> None:
-    """#1: postflight script literal appears at least once in workflow.md."""
+    """#1: postflight script literal appears at least once inside the
+    Handoff File Polling section (the only place the wire-in belongs).
 
-    assert workflow_text.count(_POSTFLIGHT_LITERAL) >= 1
+    Bare presence anywhere in the file (e.g., a comment, an out-of-section
+    code block) is not enough — the assertion must scope to the section
+    that owns the runtime contract.
+    """
+
+    handoff_idx = _line_index_of(_HANDOFF_HEADING, workflow_text)
+    next_h3_idx = _next_h3_after(handoff_idx, workflow_text)
+    lines = workflow_text.splitlines()
+    count_in_section = sum(
+        1 for i in range(handoff_idx, next_h3_idx) if _POSTFLIGHT_LITERAL in lines[i]
+    )
+    assert count_in_section >= 1, (
+        f"postflight script literal '{_POSTFLIGHT_LITERAL}' must appear at "
+        f"least once between Handoff File Polling heading (line "
+        f"{handoff_idx + 1}) and the next H3 heading (line {next_h3_idx + 1})"
+    )
 
 
 def test_workflow_references_expected_artifacts_helper(workflow_text: str) -> None:
@@ -126,15 +143,16 @@ def test_workflow_no_pre_invocation_postflight_reference(workflow_text: str) -> 
 
     pre_idx = _line_index_of(_PREINVOCATION_BULLET, workflow_text)
     lines = workflow_text.splitlines()
-    # Walk forward until we hit a top-level blank-separated bullet boundary.
-    # A reasonable boundary is the first line that begins with "6. " (next
-    # numbered item) or the next non-indented heading-like line.
+    # The Artifact preparation block is a numbered list item (e.g., "5. **...**:")
+    # that ends only when the next numbered list item begins at column 0
+    # (e.g., "6. **Three-tier fallback ladder...**"). Bold subheadings inside
+    # the block (such as ``**Codex sandbox permissions:**`` on its own line)
+    # are not block boundaries — terminating on them would truncate the scan
+    # and let a postflight reference at the tail of the block slip through.
     end_idx = len(lines)
+    numbered_item = re.compile(r"^\d+\.\s")
     for i in range(pre_idx + 1, len(lines)):
-        stripped = lines[i].lstrip()
-        if stripped.startswith("6.") or (
-            lines[i].startswith("**") and "Artifact" not in stripped
-        ):
+        if numbered_item.match(lines[i]):
             end_idx = i
             break
     for i in range(pre_idx, end_idx):

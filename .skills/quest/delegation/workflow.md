@@ -194,9 +194,11 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
        --quest-dir .quest/<id> \
        --phase <phase> \
        --role <agent> \
-       --handoff .quest/<id>/<phase>/handoff.json \
+       --handoff <expected_handoff_path_for_role> \
        --quest-mode <state.json.quest_mode>
    ```
+
+   `<expected_handoff_path_for_role>` is the role-specific handoff file from the table above (e.g., `.quest/<id>/phase_01_plan/handoff.json` for the planner, `.quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json` for Plan Reviewer A, `.quest/<id>/phase_03_review/handoff_fixer.json` for the fixer). Do not hard-code `handoff.json` — most sub-agent roles write a role-suffixed handoff filename.
 
    Placement note: this step sits at the END of the Handoff File Polling pattern (after the three-tier fallback ladder) so the existing numbered cross-references to the Artifact preparation step and the fallback ladder step elsewhere in this document remain stable. The runtime position is anchored by agent semantics, not by adjacent step numbers.
 
