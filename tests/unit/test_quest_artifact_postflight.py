@@ -266,30 +266,42 @@ class TestFailureBranches:
         assert records[0]["declared"].endswith("plan.md")
 
     def test_outside_boundary_records_outside_boundary(self, workspace: Path) -> None:
-        """#3: declared artifact resolves inside repo but outside the role
-        boundary → reason=outside_boundary."""
+        """#3: declared artifact lives inside ``.quest/<id>/`` but in the
+        wrong phase directory → reason=outside_boundary.
+
+        Workspace paths outside ``.quest/<id>/`` (changed source/test files
+        declared by builder/fixer) are NOT flagged — see
+        ``test_workspace_files_outside_quest_pass_through`` below.
+        """
 
         quest_id = "test-quest_outside"
         phase_dir = workspace / ".quest" / quest_id / "phase_01_plan"
         phase_dir.mkdir(parents=True, exist_ok=True)
         log_path = workspace / ".quest" / quest_id / "logs" / "path_compliance.log"
 
-        # Declared path is in src/, which is repo-local but outside the
-        # phase_01_plan boundary.
-        rogue = workspace / "src" / "plan.md"
-        rogue.parent.mkdir(parents=True, exist_ok=True)
+        # Declared path is inside .quest/<id>/ but in a different phase
+        # directory (phase_03_review) than the planner's boundary
+        # (phase_01_plan). Quest-artifact classification applies the
+        # boundary check.
+        rogue_phase = workspace / ".quest" / quest_id / "phase_03_review"
+        rogue_phase.mkdir(parents=True, exist_ok=True)
+        rogue = rogue_phase / "plan.md"
         rogue.write_text("rogue", encoding="utf-8")
+        (phase_dir / "plan.md").write_text("seed", encoding="utf-8")
         good_handoff = phase_dir / "handoff.json"
         good_handoff.write_text("seed", encoding="utf-8")
 
-        handoff_path = phase_dir / "handoff.json"
+        handoff_path = good_handoff
         handoff_path.write_text(
             json.dumps(
                 {
                     "status": "complete",
-                    "artifacts": [str(rogue), str(good_handoff)],
+                    "artifacts": [
+                        str(phase_dir / "plan.md"),
+                        str(rogue),
+                    ],
                     "next": "plan-reviewer-a",
-                    "summary": "outside boundary",
+                    "summary": "outside boundary (wrong phase dir)",
                 }
             ),
             encoding="utf-8",
@@ -307,6 +319,80 @@ class TestFailureBranches:
         assert rc == 1
         records = _read_log_lines(log_path)
         assert any(r["reason"] == "outside_boundary" for r in records)
+
+    def test_workspace_files_outside_quest_pass_through(
+        self, workspace: Path
+    ) -> None:
+        """Builder/fixer ARTIFACTS legitimately include changed workspace
+        files (source, tests, configs, docs) alongside the canonical
+        deliverables. Paths outside ``.quest/<id>/`` are classified as
+        workspace files: only traversal applies — boundary and canonical
+        name do NOT — and no mismatch should be recorded.
+
+        Regression: the prior contract treated every declared path as a
+        quest artifact and flagged real source files on every successful
+        build (16 false positives on the wrong-location-guardrails
+        build itself).
+        """
+
+        quest_id = "test-quest_workspace-files"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        # Canonical builder deliverables — these are the quest artifacts.
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        # Workspace files the builder declares as changed. These look just
+        # like the real wrong-location-guardrails builder handoff.
+        for rel in [
+            ".claude/hooks/branch-dir-context.sh",
+            "scripts/quest_artifact_postflight.py",
+            "tests/unit/test_quest_artifact_postflight.py",
+            "AGENTS.md",
+            "pyproject.toml",
+        ]:
+            p = workspace / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text("seed", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(phase_dir / "pr_description.md"),
+                        str(phase_dir / "builder_feedback_discussion.md"),
+                        str(workspace / ".claude/hooks/branch-dir-context.sh"),
+                        str(workspace / "scripts/quest_artifact_postflight.py"),
+                        str(workspace / "tests/unit/test_quest_artifact_postflight.py"),
+                        str(workspace / "AGENTS.md"),
+                        str(workspace / "pyproject.toml"),
+                    ],
+                    "next": "code_review",
+                    "summary": "builder declares canonical + workspace files",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=workspace,
+        )
+        assert rc == 0
+        if log_path.exists():
+            assert log_path.read_text(encoding="utf-8") == ""
 
     def test_nested_quest_path_records_nested_quest(self, workspace: Path) -> None:
         """#4: path contains .quest/<id>/.quest/ → reason=nested_quest."""

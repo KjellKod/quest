@@ -11,15 +11,30 @@ Design goals (per plan ``§3``):
 * Non-zero exit on any mismatch; structured JSON log on disk.
 * Pure stdlib + ``quest_runtime.artifacts`` (already imported elsewhere).
 
+Path classification (matches the agent ARTIFACTS contract):
+* **Quest-artifact path** — resolves under ``<repo_root>/.quest/<id>/``.
+  Subject to traversal + nested-``.quest`` + role-boundary + canonical-name
+  checks.
+* **Workspace-file path** — anywhere else in the repo (changed source files,
+  tests, configs, docs that the builder or fixer touched). The
+  builder/fixer ARTIFACTS contract lists these alongside the canonical
+  quest deliverables. Only the traversal check applies — boundary and
+  canonical-name are not meaningful for workspace files.
+
 Mismatch reasons (enum-like tokens written to the log):
-* ``missing``               — declared path does not exist on disk.
-* ``outside_boundary``      — declared path resolves outside the role's
-                              expected phase directory.
-* ``noncanonical_name``     — declared filename is not in the canonical set
-                              returned by ``expected_artifacts_for_role``.
+* ``missing``               — declared path does not exist on disk, OR an
+                              expected canonical quest artifact was not
+                              declared at all (coverage check).
+* ``outside_boundary``      — quest-artifact path resolves outside the
+                              role's expected phase directory.
+* ``noncanonical_name``     — quest-artifact filename is not in the
+                              canonical set returned by
+                              ``expected_artifacts_for_role``.
 * ``nested_quest``           — declared path contains
                               ``.quest/<id>/.quest/`` after the quest dir.
 * ``traversal_outside_repo`` — declared path resolves outside the repo root.
+* ``unsupported_role_or_phase`` — defensive: ``expected_artifacts_for_role``
+                              raised ``ValueError`` for the input.
 
 CLI exit code:
 * ``0`` — every declared artifact passed every check.
@@ -312,17 +327,29 @@ def _check_one(
     boundary_dir: Path,
     canonical_names: set[str],
 ) -> dict[str, str] | None:
-    """Apply the five validation checks to one declared path.
+    """Apply the per-path validation checks to one declared artifact.
+
+    Path classification (matches the agent ARTIFACTS contract):
+
+    * **Quest-artifact path** — resolves under ``<repo_root>/.quest/<id>/``.
+      Subject to the full check set: traversal, nested ``.quest``, role
+      boundary (must live in ``boundary_dir``), and canonical filename
+      match.
+    * **Workspace-file path** — anywhere else inside the repo (changed
+      source files, tests, docs, configs). The builder and fixer
+      contracts legitimately list these in ARTIFACTS alongside the
+      canonical quest deliverables. Only traversal applies — boundary and
+      canonical-name are not meaningful for workspace files.
 
     Returns a mismatch record on the first failing check, or ``None`` when
-    the path passes every check.
+    the path passes every applicable check.
     """
 
     # ``resolve(strict=False)`` collapses ``..`` segments without requiring
     # the target to exist (we still need to detect missing files).
     resolved = Path(declared).resolve()
 
-    # 1. Traversal escape outside the repo root.
+    # 1. Traversal escape outside the repo root (applies to every path).
     try:
         resolved.relative_to(repo_root)
     except ValueError:
@@ -334,8 +361,21 @@ def _check_one(
             reason="traversal_outside_repo",
         )
 
-    # 2. Nested ``.quest/<id>/.quest/...`` is always wrong.
+    # Classify: quest-artifact (inside <repo>/.quest/<id>/) vs workspace.
     quest_id = quest_dir.name
+    quest_root = repo_root / ".quest" / quest_id
+    try:
+        resolved.relative_to(quest_root)
+        is_quest_artifact = True
+    except ValueError:
+        is_quest_artifact = False
+
+    if not is_quest_artifact:
+        # Workspace file: builder/fixer declare changed source/test/docs
+        # files here. Boundary and canonical-name checks don't apply.
+        return None
+
+    # 2. Nested ``.quest/<id>/.quest/...`` is always wrong.
     nested_marker = f".quest/{quest_id}/.quest/"
     if nested_marker in resolved.as_posix():
         return _make_mismatch(
