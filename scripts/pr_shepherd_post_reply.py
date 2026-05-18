@@ -19,6 +19,8 @@ from quest_runtime.pr_shepherd import (
     has_marker,
 )
 
+PER_PAGE = 100
+
 
 def _run(args: list[str], *, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, check=False, text=True, capture_output=True, input=input_text)
@@ -44,6 +46,23 @@ def _gh_json(args: list[str]) -> tuple[Any | None, str]:
         return None, str(exc)
 
 
+def _collect_issue_comments(pr: int, *, page_cap: int) -> tuple[list[dict[str, Any]], str]:
+    comments: list[dict[str, Any]] = []
+    endpoint = f"repos/{{owner}}/{{repo}}/issues/{pr}/comments"
+    for page in range(1, max(page_cap, 1) + 1):
+        payload, error = _gh_json(
+            ["gh", "api", endpoint, "--method", "GET", "-F", f"per_page={PER_PAGE}", "-F", f"page={page}"]
+        )
+        if error:
+            return comments, error
+        if not isinstance(payload, list):
+            return comments, "unexpected comments payload"
+        comments.extend(comment for comment in payload if isinstance(comment, dict))
+        if len(payload) < PER_PAGE:
+            return comments, ""
+    return comments, "pagination_truncated"
+
+
 def _find_summary_comment(comments: list[dict[str, Any]]) -> dict[str, Any] | None:
     for comment in comments:
         if has_marker(str(comment.get("body") or ""), SUMMARY_MARKER):
@@ -61,6 +80,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--summary", action="store_true", help="Upsert marker-owned top-level summary comment")
     parser.add_argument("--summary-rows", help="JSON file with compact summary rows")
     parser.add_argument("--comments-json", help="Fixture/current top-level PR comments JSON")
+    parser.add_argument("--page-cap", type=int, default=10, help="Max issue-comment pages to scan for summary upsert")
     parser.add_argument("--dry-run", action="store_true", help="Do not call gh; emit action/body JSON")
     return parser.parse_args()
 
@@ -78,7 +98,7 @@ def main() -> int:
         if comments is None and not args.dry_run:
             if not args.pr:
                 raise ValueError("--pr is required when posting a summary")
-            comments, comments_error = _gh_json(["gh", "api", f"repos/{{owner}}/{{repo}}/issues/{args.pr}/comments"])
+            comments, comments_error = _collect_issue_comments(args.pr, page_cap=args.page_cap)
             if comments_error:
                 print(
                     json.dumps(

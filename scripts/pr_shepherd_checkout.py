@@ -42,11 +42,22 @@ def _worktree_clean() -> bool:
     return result.returncode == 0 and not result.stdout.strip()
 
 
-def _repo_root() -> Path | None:
-    result = _run(["git", "rev-parse", "--show-toplevel"])
+def _git_path(flag: str) -> Path | None:
+    result = _run(["git", "rev-parse", flag])
     if result.returncode != 0:
         return None
     return Path(result.stdout.strip())
+
+
+def _is_linked_worktree() -> bool:
+    git_dir = _git_path("--git-dir")
+    common_dir = _git_path("--git-common-dir")
+    if git_dir is None or common_dir is None:
+        return False
+    try:
+        return git_dir.resolve() != common_dir.resolve()
+    except OSError:
+        return git_dir != common_dir
 
 
 def _pr_view(target: str | None) -> tuple[dict[str, Any] | None, str]:
@@ -104,8 +115,7 @@ def inspect_checkout(target: str | None, *, apply: bool) -> tuple[int, dict[str,
         payload.update({"ok": False, "reason": "dirty_worktree", "action": "none"})
         return 1, payload
 
-    root = _repo_root()
-    if root is not None and ".worktrees" in root.parts:
+    if _is_linked_worktree():
         payload.update({"ok": False, "reason": "worktree_mismatch", "action": "none"})
         return 1, payload
 

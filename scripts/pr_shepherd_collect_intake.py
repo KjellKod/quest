@@ -204,7 +204,7 @@ def _check_records(checks: object) -> list[dict[str, Any]]:
             "activity_state": "active",
             "author": "",
             "author_kind": "automation",
-            "body_excerpt": f"Check state: {state}",
+            "body_excerpt": f"{name}: Check state: {state}",
             "path": "ci/check",
             "line": None,
             "url": check.get("detailsUrl") or check.get("url") or check.get("targetUrl") or "",

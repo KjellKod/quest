@@ -296,6 +296,34 @@ def test_normalize_records_preserves_all_duplicate_source_labels() -> None:
     assert findings[0]["source_label"] == ["first", "second"]
 
 
+def test_normalize_records_keeps_distinct_check_runs_with_same_summary() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "check_run",
+                    "source_label": "unit",
+                    "fingerprint": "unit-fp",
+                    "activity_state": "active",
+                    "path": "ci/check",
+                    "body_excerpt": "Check state: failure",
+                },
+                {
+                    "source_kind": "check_run",
+                    "source_label": "lint",
+                    "fingerprint": "lint-fp",
+                    "activity_state": "active",
+                    "path": "ci/check",
+                    "body_excerpt": "Check state: failure",
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 2
+    assert {finding["source_label"] for finding in findings} == {"unit", "lint"}
+
+
 def test_normalize_records_does_not_branch_on_source_label() -> None:
     findings = normalize_pr_review_intake(
         {

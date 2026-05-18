@@ -131,15 +131,22 @@ def _copy_optional_metadata(source: JsonObject, target: JsonObject) -> None:
             target[key] = copy.deepcopy(value)
 
 
-def _finding_key(finding: JsonObject) -> tuple[str, str, str, str]:
+def _finding_key(finding: JsonObject) -> tuple[str, str, str, str, str, str]:
     line_value = finding.get("line")
     line_part = "" if line_value is None else str(line_value)
     summary = " ".join(str(finding.get("summary") or "").lower().split())
+    identity_part = ""
+    fingerprint_part = ""
+    if finding.get("source_kind") == "check_run" and str(finding.get("path") or "") == "ci/check":
+        identity_part = str(finding.get("source_label") or "")
+        fingerprint_part = str(finding.get("fingerprint") or "")
     return (
         str(finding.get("path") or ""),
         line_part,
         str(finding.get("kind") or ""),
         summary,
+        identity_part,
+        fingerprint_part,
     )
 
 
@@ -179,6 +186,8 @@ def _record_to_finding(record: JsonObject, counter: int) -> JsonObject:
     source_label = str(record.get("source_label") or source_kind).strip() or source_kind
     body = str(record.get("body") or record.get("body_excerpt") or "").strip()
     summary = str(record.get("summary") or body[:120] or f"PR feedback from {source_label}.").strip()
+    if source_kind == "check_run" and source_label and summary.startswith("Check state:"):
+        summary = f"{source_label}: {summary}"
     path = str(record.get("path") or "pr/record").strip() or "pr/record"
     line = _finding_line(record.get("line"))
     fingerprint = str(record.get("fingerprint") or "").strip() or stable_fingerprint(record)

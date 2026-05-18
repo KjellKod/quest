@@ -231,13 +231,38 @@ def test_checkout_refuses_worktree_branch_mismatch(monkeypatch: pytest.MonkeyPat
         raise AssertionError(f"unexpected call: {args}")
 
     monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
-    monkeypatch.setattr(pr_shepherd_checkout, "_repo_root", lambda: Path("/repo/.worktrees/current"))
+    monkeypatch.setattr(pr_shepherd_checkout, "_is_linked_worktree", lambda: True)
 
     code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=True)
 
     assert code == 1
     assert payload["ok"] is False
     assert payload["reason"] == "worktree_mismatch"
+
+
+def test_checkout_branch_mismatch_uses_git_worktree_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str]) -> _Result:
+        calls.append(args)
+        if args[:3] == ["git", "branch", "--show-current"]:
+            return _Result(stdout="feature/current\n")
+        if args[:3] == ["git", "status", "--short"]:
+            return _Result(stdout="")
+        if args[:3] == ["gh", "pr", "view"]:
+            return _Result(stdout=json.dumps({"number": 12, "url": "u", "headRefName": "feature/other"}))
+        if args == ["git", "rev-parse", "--git-dir"]:
+            return _Result(stdout="/repo/.git/worktrees/current\n")
+        if args == ["git", "rev-parse", "--git-common-dir"]:
+            return _Result(stdout="/repo/.git\n")
+        raise AssertionError(f"unexpected call: {args}")
+
+    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
+    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=True)
+
+    assert code == 1
+    assert payload["reason"] == "worktree_mismatch"
+    assert ["gh", "pr", "checkout", "12"] not in calls
 
 
 def test_checkout_supports_target_option_alias(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -423,7 +448,7 @@ def test_collect_intake_skips_successful_legacy_status_contexts(monkeypatch: pyt
     check_records = [record for record in payload["records"] if record["source_kind"] == "check_run"]
     assert len(check_records) == 1
     assert check_records[0]["source_label"] == "ci/failing"
-    assert check_records[0]["body_excerpt"] == "Check state: failure"
+    assert check_records[0]["body_excerpt"] == "ci/failing: Check state: failure"
     assert check_records[0]["url"] == "https://ci.test/failing"
 
 
@@ -629,6 +654,35 @@ def test_post_reply_summary_live_updates_existing_marker_comment(
     def fake_run(args: list[str], *, input_text: str | None = None) -> _Result:
         calls.append((args, input_text))
         if args[:2] == ["gh", "api"] and args[2].endswith("/issues/12/comments"):
+            return _Result(stdout=json.dumps([{"id": 200, "body": SUMMARY_MARKER}]))
+        return _Result(stdout="{}")
+
+    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["pr_shepherd_post_reply.py", "--summary", "--pr", "12", "--body", "status"],
+    )
+
+    assert pr_shepherd_post_reply.main() == 0
+    assert calls[-1] == (
+        ["gh", "api", "repos/{owner}/{repo}/issues/comments/200", "-X", "PATCH", "--input", "-"],
+        json.dumps({"body": f"status\n\n{SUMMARY_MARKER}\n"}, ensure_ascii=True),
+    )
+    assert json.loads(capsys.readouterr().out)["action"] == "update_summary"
+
+
+def test_post_reply_summary_scans_bounded_comment_pages(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls: list[tuple[list[str], str | None]] = []
+
+    def fake_run(args: list[str], *, input_text: str | None = None) -> _Result:
+        calls.append((args, input_text))
+        if args[:2] == ["gh", "api"] and args[2].endswith("/issues/12/comments"):
+            page_arg = next(item for item in args if item.startswith("page="))
+            if page_arg == "page=1":
+                return _Result(stdout=json.dumps([{"id": index, "body": "old"} for index in range(100)]))
             return _Result(stdout=json.dumps([{"id": 200, "body": SUMMARY_MARKER}]))
         return _Result(stdout="{}")
 
