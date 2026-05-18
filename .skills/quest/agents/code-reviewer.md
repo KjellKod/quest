@@ -30,10 +30,10 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 - `.quest/<id>/phase_02_implementation/builder_feedback_discussion.md` for touched files/tests when VCS is unavailable
 - `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md` when present
 - Quest brief — **read fully; extract `ui_work` from `## Router Classification` before loading conditional skills. Treat missing as `false`.**
+- **If `ui_work` is absent from the brief (older format):** treat as `false` and skip the UX pass below.
 - **If the quest brief router classification has `ui_work: true`:**
   - `.skills/ux-review/SKILL.md` — run the UX stress test against the diff as part of the review pass. Emit UX findings into the canonical findings JSON alongside other findings, tagged with `kind: "ux"` and `principle_id` (format: `ux-guidebook§<section_number>`). Severity maps P0→critical, P1→high, P2→medium, P3→low. When `ui_work_evidence` is non-empty in the brief, focus the UX pass on those files first; when empty, run the UX pass against the full diff.
   - `.skills/ux-context/SKILL.md` — for principle references when interpreting findings.
-  - If `ui_work` is absent from the brief (older format), default to `false` and skip the UX pass.
 
 ## Responsibilities
 1. Read all changed files provided by the orchestrator, or determine the touched area from builder/fixer notes when VCS metadata is unavailable

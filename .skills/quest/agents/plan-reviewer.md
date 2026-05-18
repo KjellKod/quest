@@ -25,10 +25,10 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 - `.skills/review-anti-patterns.md` (shared review anti-patterns)
 - Plan artifact from Planner Agent
 - Quest brief — **read fully; extract `ui_work` from `## Router Classification` before loading conditional skills. Treat missing as `false`.**
+- **If `ui_work` is absent from the brief (older format):** treat as `false` and skip the UX pass below.
 - **If the quest brief router classification has `ui_work: true`:**
   - `.skills/ux-review/SKILL.md` — run the UX stress test against the plan as part of the review pass. **Embed UX findings inline in the markdown review** using the standard `[N]` format with severity (P0/P1/P2/P3) and a `principle_id` citation (e.g. `ux-guidebook§4.2`). Plan-reviewers do not write a separate findings JSON — the arbiter synthesizes findings from the markdown plan reviews.
   - `.skills/ux-context/SKILL.md` — for principle references when interpreting findings.
-  - If `ui_work` is absent from the brief (older format), default to `false` and skip the UX pass.
 
 ## Responsibilities (both instances)
 1. Read the plan artifact

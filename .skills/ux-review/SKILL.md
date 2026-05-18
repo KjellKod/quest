@@ -121,7 +121,7 @@ Embed UX findings inline in the markdown review using the standard `[N]` format 
 
 Example markdown finding:
 ```markdown
-[3] Must fix - plan.md:Acceptance Criteria - the settings page plan lists "Save" and "Cancel" buttons styled identically; no primary action is named (ux-guidebook§2 #1 — one primary action per screen).
+[N] Must fix - plan.md:Acceptance Criteria - the settings page plan lists "Save" and "Cancel" buttons styled identically; no primary action is named (ux-guidebook§2 #1 — one primary action per screen).
 ```
 
 **Code-review phase (code-reviewer-a / code-reviewer-b):**

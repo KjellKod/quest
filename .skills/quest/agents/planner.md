@@ -40,7 +40,7 @@ When running on Codex, this role is non-interactive:
 
 ### When `ui_work: true` — emit a UX Defaults section in the plan
 
-When the brief's router classification has `ui_work: true`, follow the **UX Defaults Emission Protocol** in `.skills/ux-context/SKILL.md` to emit a `## UX Defaults` section in the plan. The protocol covers the render-layer guard (suppresses emission on backend false-positives), the five required fields, and the opt-out for UX-savvy prompts.
+When the brief's router classification has `ui_work: true`, follow the **UX Defaults Emission Protocol** in `.skills/ux-context/SKILL.md` to emit a `## UX Defaults` section in the plan. The protocol covers the render-layer guard (suppresses emission on backend false-positives), the six required fields, and the opt-out for UX-savvy prompts.
 
 The canonical inference rubric (prompt-signal → defaults) lives in `.skills/ux-context/resources/ux-guidebook.md §4.9`. Pick the row whose signal matches the prompt; when in doubt, default to the last row.
 

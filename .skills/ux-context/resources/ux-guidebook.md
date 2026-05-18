@@ -158,7 +158,7 @@ Concrete, prescriptive rules. Each subsection is independently usable as a pre-c
 
 ### 4.9 Defaults for new UI work
 
-When a quest is classified as `ui_work: true`, the planner emits a `## UX Defaults` section in the plan with inferred values. This table is the canonical inference rubric: prompt signal → defaults. The planner picks the row whose signal best matches; sharpen's `ux-defaults` mode walks the same five fields one at a time.
+When a quest is classified as `ui_work: true`, the planner emits a `## UX Defaults` section in the plan with inferred values. This table is the canonical inference rubric: prompt signal → defaults. The planner picks the row whose signal best matches; sharpen's `ux-defaults` mode walks the same six fields one at a time.
 
 | Prompt signal | Gray ramp (§4.2 #2) | Density (§3) | Ratio (§4.2 #2) | Mobile (§5.2) |
 |---|---|---|---|---|
@@ -173,7 +173,7 @@ When a quest is classified as `ui_work: true`, the planner emits a `## UX Defaul
 | "utilitarian", "monochrome", "no brand color" | `neutral` | varies | varies | varies |
 | no signal / generic UI request | `slate` | comfortable | content-forward | required |
 
-**Brand accent:** default `#2563eb` (Tailwind `blue-600`) unless the prompt or brief names a hex. **Five fields** the planner must emit, in order: ramp, density, ratio, mobile, accent — plus a one-sentence plan for empty/loading/error states. Anything else (primary action placement, mobile divergence pattern) is decided at implementation time, citing the relevant §.
+**Brand accent:** default `#2563eb` (Tailwind `blue-600`) unless the prompt or brief names a hex. **Six fields** the planner must emit, in order: ramp, density, ratio, mobile, accent, destructive actions — plus a one-sentence plan for empty/loading/error states. Anything else (primary action placement, mobile divergence pattern) is decided at implementation time, citing the relevant §.
 
 ---
 

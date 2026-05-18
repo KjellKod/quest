@@ -615,7 +615,7 @@ After plan approval, present the plan interactively before proceeding to build.
    ```
    When the plan contains a `## UX Defaults` section, substitute option 2 wording with:
    ```
-     2. Sharpen UX defaults (gray ramp, density, mobile, accent) and the plan with me
+     2. Sharpen UX defaults (mobile, gray ramp, density, ratio, accent, destructive actions) and the plan with me
    ```
    Then add option 3:
    ```

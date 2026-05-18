@@ -61,7 +61,7 @@ Pick the inference row from `resources/ux-guidebook.md §4.9` that matches the p
 5. **Brand accent:** hex value, defaulting to `#2563eb` (Tailwind `blue-600`) if not specified.
 6. **Destructive actions:** `none` if the prompt names no deletion / revocation / billing / data-loss surfaces; otherwise list each one with the confirmation + undo plan. Default to `none — none identified in prompt`; sharpen Q6 catches anything the planner missed at refinement time.
 
-Plus a **one-sentence plan for empty, loading, and error states** — three sentences, total. Concrete copy, not "TBD."
+Plus a **one sentence each for empty, loading, and error states** — three sentences total. Concrete copy, not "TBD."
 
 The plan-presentation menu in `workflow.md` discloses to the user that `/sharpen ux-defaults` is available on UX quests (the menu wording branches on the presence of this section in the plan). **Do not append a `/sharpen ux-defaults` pointer at the end of the emitted block** — the menu carries that disclosure, and duplicating it inside the plan body buries it where the executive summary doesn't reach.
 

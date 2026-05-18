@@ -52,7 +52,7 @@ This reviews staged plus unstaged tracked-file changes. Untracked files are not 
 
 ## UI/UX Changes
 
-If the staged diff includes UI files (any of `*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.css`, `*.scss`, or `*.swift`), also invoke `.skills/ux-review/SKILL.md` against the diff and include any P0/P1 findings in the pre-commit report. P2/P3 UX findings are noted but do not block. The rubric source is `.skills/ux-context/resources/ux-stress-test.md`.
+If the review diff (staged plus unstaged tracked changes — same scope this skill already reviews) includes UI files (any of `*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.css`, `*.scss`, or `*.swift`), also invoke `.skills/ux-review/SKILL.md` against the same review diff and include any P0/P1 findings in the pre-commit report. P2/P3 UX findings are noted but do not block. The rubric source is `.skills/ux-context/resources/ux-stress-test.md`.
 
 Do NOT inherit PR-only behavior from `code-reviewer`:
 
