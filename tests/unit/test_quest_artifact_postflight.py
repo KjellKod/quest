@@ -636,6 +636,142 @@ class TestFailureBranches:
         if log_path.exists():
             assert log_path.read_text(encoding="utf-8") == ""
 
+    def test_worktree_mode_workspace_files_resolve_against_worktree(
+        self, tmp_path: Path
+    ) -> None:
+        """Worktree mode: ``.quest/<id>/`` stays in the original repo while
+        the builder edits files in the worktree. A declared relative
+        workspace-file path must resolve against ``workspace_root`` (the
+        worktree), and the resulting absolute path must satisfy traversal
+        + existence. Without ``--workspace-root``, the same handoff would
+        falsely flag ``traversal_outside_repo``.
+        """
+
+        # Two distinct trees:
+        # ``repo`` contains .quest/<id>/   ← quest-artifact tree
+        # ``worktree`` contains scripts/foo.py ← workspace-file tree
+        repo = tmp_path / "main-repo"
+        repo.mkdir()
+        worktree = tmp_path / "main-repo-worktree"
+        worktree.mkdir()
+
+        quest_id = "test-quest_worktree"
+        quest_dir = repo / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        # Canonical deliverables in the original repo's .quest tree.
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        # Workspace file in the worktree (NOT in the original repo).
+        worktree_file = worktree / "scripts" / "foo.py"
+        worktree_file.parent.mkdir(parents=True, exist_ok=True)
+        worktree_file.write_text("seed", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        # Absolute quest-artifact paths (per workflow doctrine).
+                        str(phase_dir / "pr_description.md"),
+                        str(phase_dir / "builder_feedback_discussion.md"),
+                        # Workspace-relative path — must resolve against
+                        # the worktree, not the repo.
+                        "scripts/foo.py",
+                    ],
+                    "next": "code_review",
+                    "summary": "worktree-mode builder handoff",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=repo,
+            workspace_root=worktree,
+        )
+        assert rc == 0
+        if log_path.exists():
+            assert log_path.read_text(encoding="utf-8") == ""
+
+    def test_worktree_mode_without_workspace_root_flag_breaks(
+        self, tmp_path: Path
+    ) -> None:
+        """Negative pin: the same worktree-mode handoff WITHOUT the
+        ``--workspace-root`` flag would fail. This documents why the flag
+        matters and guards against accidental removal of the
+        workspace-root threading.
+        """
+
+        repo = tmp_path / "main-repo"
+        repo.mkdir()
+        worktree = tmp_path / "main-repo-worktree"
+        worktree.mkdir()
+
+        quest_id = "test-quest_worktree_no_flag"
+        quest_dir = repo / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        worktree_file = worktree / "scripts" / "foo.py"
+        worktree_file.parent.mkdir(parents=True, exist_ok=True)
+        worktree_file.write_text("seed", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(phase_dir / "pr_description.md"),
+                        str(phase_dir / "builder_feedback_discussion.md"),
+                        # Absolute worktree path — would be outside the
+                        # original repo without workspace-root threading.
+                        str(worktree_file),
+                    ],
+                    "next": "code_review",
+                    "summary": "worktree-mode without --workspace-root flag",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=repo,
+            # workspace_root deliberately omitted — defaults to repo_root.
+        )
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        assert any(
+            r["reason"] == "traversal_outside_repo"
+            and "foo.py" in r["actual"]
+            for r in records
+        )
+
     def test_nested_quest_path_records_nested_quest(self, workspace: Path) -> None:
         """#4: path contains .quest/<id>/.quest/ → reason=nested_quest."""
 

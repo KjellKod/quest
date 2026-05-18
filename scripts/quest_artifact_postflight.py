@@ -161,11 +161,17 @@ def _append_mismatch_lines(log_path: Path, mismatches: Iterable[dict[str, str]])
 # ---------------------------------------------------------------------------
 
 
-def _load_declared_artifacts(handoff_path: Path, repo_root: Path) -> list[Path]:
+def _load_declared_artifacts(
+    handoff_path: Path, workspace_root: Path
+) -> list[Path]:
     """Read ``handoff.json`` and return declared artifact paths as Path objects.
 
-    Relative paths are resolved against ``repo_root`` so the validator can
-    compare them to the expected boundary, which is absolute.
+    Relative paths are resolved against ``workspace_root`` — the directory the
+    agent was actually editing in. In non-worktree mode this is the repo root;
+    in worktree mode (``state.json.worktree_path``) it is the worktree path.
+    The workflow doctrine says orchestrators pass quest-artifact paths as
+    absolute in worktree mode, so relative paths in the handoff are
+    workspace-relative by convention.
 
     Defensive parsing: an unreadable handoff (missing file, non-UTF-8 bytes,
     invalid JSON) or a non-dict payload must not crash the validator — the
@@ -194,7 +200,7 @@ def _load_declared_artifacts(handoff_path: Path, repo_root: Path) -> list[Path]:
             continue
         candidate = Path(entry)
         if not candidate.is_absolute():
-            candidate = repo_root / candidate
+            candidate = workspace_root / candidate
         paths.append(candidate)
     return paths
 
@@ -213,13 +219,26 @@ def run(
     quest_mode: str,
     log: Path | None = None,
     repo_root: Path | None = None,
+    workspace_root: Path | None = None,
 ) -> int:
     """Validate the handoff and return ``0`` (pass) or ``1`` (any mismatch).
 
-    Arguments mirror the CLI shape. ``repo_root`` is the workspace root used
-    to resolve relative declared paths and to detect ``traversal_outside_repo``;
-    when not supplied, it is computed from ``quest_dir`` (the parent of the
-    ``.quest`` directory).
+    Arguments mirror the CLI shape.
+
+    * ``repo_root`` — the directory that contains ``.quest/<id>/``. Used to
+      anchor quest-artifact path checks and the sibling-quest detector. When
+      not supplied, it is computed as ``quest_dir.parent.parent``.
+    * ``workspace_root`` — where the agent was actually editing (``state
+      .json.worktree_path`` in worktree mode, otherwise the repo root).
+      Used to anchor workspace-file path checks: traversal containment,
+      relative-path resolution in ``handoff.artifacts``, and existence on
+      disk. When not supplied, falls back to ``repo_root`` (non-worktree
+      mode).
+
+    In non-worktree mode the two are the same and the prior behavior is
+    preserved. In worktree mode the orchestrator MUST pass
+    ``workspace_root`` so workspace-file artifacts (changed source files in
+    the worktree) are validated against the right tree.
     """
 
     quest_dir = Path(quest_dir).resolve()
@@ -233,6 +252,10 @@ def run(
         # ``quest_dir`` is ``<repo_root>/.quest/<id>``. Walk two levels up.
         repo_root = quest_dir.parent.parent
     repo_root = Path(repo_root).resolve()
+
+    if workspace_root is None:
+        workspace_root = repo_root
+    workspace_root = Path(workspace_root).resolve()
 
     # Resolve expected boundary. A role with no expected artifacts (solo-mode
     # disabled or runtime-internal) is treated as a pass-through: nothing to
@@ -261,7 +284,7 @@ def run(
         # Solo-mode-disabled roles return empty. No artifacts to validate.
         return 0
 
-    declared_paths = _load_declared_artifacts(handoff_path, repo_root)
+    declared_paths = _load_declared_artifacts(handoff_path, workspace_root)
 
     canonical_names = {Path(p).name for p in expected_paths}
     # All expected_paths share the same phase directory by construction;
@@ -324,6 +347,7 @@ def run(
             role=role,
             quest_dir=quest_dir,
             repo_root=repo_root,
+            workspace_root=workspace_root,
             boundary_dir=boundary_dir,
             canonical_names=canonical_names,
         )
@@ -343,6 +367,7 @@ def _check_one(
     role: str,
     quest_dir: Path,
     repo_root: Path,
+    workspace_root: Path,
     boundary_dir: Path,
     canonical_names: set[str],
 ) -> dict[str, str] | None:
@@ -351,14 +376,20 @@ def _check_one(
     Path classification (matches the agent ARTIFACTS contract):
 
     * **Quest-artifact path** — resolves under ``<repo_root>/.quest/<id>/``.
-      Subject to the full check set: traversal, nested ``.quest``, role
-      boundary (must live in ``boundary_dir``), and canonical filename
-      match.
-    * **Workspace-file path** — anywhere else inside the repo (changed
-      source files, tests, docs, configs). The builder and fixer
+      Subject to the full check set: traversal (against ``repo_root``),
+      nested ``.quest``, role boundary (must live in ``boundary_dir``), and
+      canonical filename match.
+    * **Workspace-file path** — anywhere else inside ``workspace_root``
+      (changed source files, tests, docs, configs). The builder and fixer
       contracts legitimately list these in ARTIFACTS alongside the
-      canonical quest deliverables. Only traversal applies — boundary and
+      canonical quest deliverables. Traversal is checked against
+      ``workspace_root``; existence is required; boundary and
       canonical-name are not meaningful for workspace files.
+
+    In worktree mode ``workspace_root`` differs from ``repo_root``: quest
+    artifacts live with the original repo (``repo_root``) while changed
+    source files live in the worktree (``workspace_root``). The validator
+    uses the correct anchor for each class.
 
     Returns a mismatch record on the first failing check, or ``None`` when
     the path passes every applicable check.
@@ -368,9 +399,23 @@ def _check_one(
     # the target to exist (we still need to detect missing files).
     resolved = Path(declared).resolve()
 
-    # 1. Traversal escape outside the repo root (applies to every path).
+    # Classify first so we can pick the right traversal anchor.
+    # Quest artifacts always live under the repo containing ``.quest/<id>``.
+    quest_id = quest_dir.name
+    quest_root = repo_root / ".quest" / quest_id
     try:
-        resolved.relative_to(repo_root)
+        resolved.relative_to(quest_root)
+        is_quest_artifact = True
+    except ValueError:
+        is_quest_artifact = False
+
+    # 1. Traversal escape outside the relevant root.
+    # Quest-artifact paths must live under ``repo_root``. Workspace-file
+    # paths must live under ``workspace_root`` (which differs in worktree
+    # mode). A path outside both is genuine traversal.
+    traversal_anchor = repo_root if is_quest_artifact else workspace_root
+    try:
+        resolved.relative_to(traversal_anchor)
     except ValueError:
         return _make_mismatch(
             phase=phase,
@@ -379,15 +424,6 @@ def _check_one(
             actual=str(resolved),
             reason="traversal_outside_repo",
         )
-
-    # Classify: quest-artifact (inside <repo>/.quest/<id>/) vs workspace.
-    quest_id = quest_dir.name
-    quest_root = repo_root / ".quest" / quest_id
-    try:
-        resolved.relative_to(quest_root)
-        is_quest_artifact = True
-    except ValueError:
-        is_quest_artifact = False
 
     if not is_quest_artifact:
         # Workspace file: builder/fixer declare changed source/test/docs
@@ -505,6 +541,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "<quest-dir>/logs/path_compliance.log."
         ),
     )
+    parser.add_argument(
+        "--workspace-root",
+        default=None,
+        help=(
+            "Source-workspace root the agent was editing in (state.json."
+            "worktree_path in worktree mode; the repo root otherwise). "
+            "Workspace-file artifacts are anchored to this path. Defaults "
+            "to the repo containing .quest/<id>/."
+        ),
+    )
     return parser
 
 
@@ -512,6 +558,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
     log_path = Path(args.log) if args.log else None
+    workspace_root = Path(args.workspace_root) if args.workspace_root else None
     return run(
         quest_dir=Path(args.quest_dir),
         phase=args.phase,
@@ -519,6 +566,7 @@ def main(argv: list[str] | None = None) -> int:
         handoff=Path(args.handoff),
         quest_mode=args.quest_mode,
         log=log_path,
+        workspace_root=workspace_root,
     )
 
 

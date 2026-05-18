@@ -195,10 +195,13 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
        --phase <phase> \
        --role <agent> \
        --handoff <expected_handoff_path_for_role> \
-       --quest-mode <state.json.quest_mode>
+       --quest-mode <state.json.quest_mode> \
+       --workspace-root <source_workspace_root>
    ```
 
    `<expected_handoff_path_for_role>` is the role-specific handoff file from the table above (e.g., `.quest/<id>/phase_01_plan/handoff.json` for the planner, `.quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json` for Plan Reviewer A, `.quest/<id>/phase_03_review/handoff_fixer.json` for the fixer). Do not hard-code `handoff.json` — most sub-agent roles write a role-suffixed handoff filename.
+
+   `<source_workspace_root>` is the worktree path in worktree mode (`state.json.worktree_path`) and the repo root otherwise. The validator anchors quest-artifact path checks to the repo containing `.quest/<id>/` and workspace-file path checks to the workspace root, so this flag is required for worktree-mode correctness. May be omitted in non-worktree mode (the validator defaults workspace root to the repo root).
 
    Placement note: this step sits at the END of the Handoff File Polling pattern (after the three-tier fallback ladder) so the existing numbered cross-references to the Artifact preparation step and the fallback ladder step elsewhere in this document remain stable. The runtime position is anchored by agent semantics, not by adjacent step numbers.
 
