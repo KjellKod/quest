@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 # Ensure ``scripts/`` is on sys.path before importing the validator module.
+import subprocess
 import sys
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -1361,6 +1362,172 @@ class TestFailureBranches:
                 "traversal_outside_repo",
                 "unsupported_role_or_phase",
             }
+
+
+# ---------------------------------------------------------------------------
+# CLI stdout contract — current-run-only mismatch attribution
+# ---------------------------------------------------------------------------
+
+
+class TestCliStdoutContract:
+    """The CLI prints current-run mismatches to stdout so the orchestrator
+    can surface them without misattributing prior runs from the append-only
+    ``path_compliance.log`` audit trail.
+    """
+
+    def _run_cli(
+        self,
+        *,
+        quest_dir: Path,
+        phase: str,
+        role: str,
+        handoff: Path,
+        quest_mode: str,
+        repo_root: Path | None = None,
+    ) -> subprocess.CompletedProcess:
+        import sys as _sys
+
+        script = (
+            Path(__file__).resolve().parent.parent.parent
+            / "scripts"
+            / "quest_artifact_postflight.py"
+        )
+        argv = [
+            _sys.executable,
+            str(script),
+            "--quest-dir",
+            str(quest_dir),
+            "--phase",
+            phase,
+            "--role",
+            role,
+            "--handoff",
+            str(handoff),
+            "--quest-mode",
+            quest_mode,
+        ]
+        if repo_root is not None:
+            argv.extend(["--workspace-root", str(repo_root)])
+        return subprocess.run(argv, capture_output=True, text=True, timeout=20)
+
+    def test_clean_run_emits_no_stdout(self, workspace: Path) -> None:
+        """Exit 0 → stdout is empty so the orchestrator can use stdout
+        presence as a 'had mismatches' signal."""
+
+        quest_dir, handoff_path, _ = _make_planner_handoff(repo_root=workspace)
+        result = self._run_cli(
+            quest_dir=quest_dir,
+            phase="phase_01_plan",
+            role="planner",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            repo_root=workspace,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == "", repr(result.stdout)
+
+    def test_mismatch_run_emits_only_current_records_to_stdout(
+        self, workspace: Path
+    ) -> None:
+        """Two sequential invocations: the second declares one undeclared
+        canonical deliverable. Stdout from the second run must contain
+        ONLY that run's mismatch, not earlier records from the first run.
+        The persistent log retains BOTH runs' records (append-only audit).
+        """
+
+        # First invocation: builder omits builder_feedback_discussion.md.
+        quest_id = "test-quest_stdout-attribution"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [str(phase_dir / "pr_description.md")],
+                    "next": "code_review",
+                    "summary": "first run — omits feedback discussion",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        first = self._run_cli(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            repo_root=workspace,
+        )
+        assert first.returncode == 1
+        first_stdout_lines = [
+            json.loads(line) for line in first.stdout.splitlines() if line.strip()
+        ]
+        assert len(first_stdout_lines) == 1
+        assert (
+            Path(first_stdout_lines[0]["actual"]).name
+            == "builder_feedback_discussion.md"
+        )
+
+        # Second invocation: planner role in the SAME quest. The role's
+        # canonical artifacts differ from the first run; the mismatch
+        # surfaced now must not be confused with the first run's record
+        # that's still sitting in path_compliance.log.
+        plan_phase = quest_dir / "phase_01_plan"
+        plan_phase.mkdir(parents=True, exist_ok=True)
+        (plan_phase / "plan.md").write_text("seed", encoding="utf-8")
+        (plan_phase / "handoff.json").write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [],  # empty -> plan.md missing
+                    "next": "plan-reviewer-a",
+                    "summary": "second run — planner with empty artifacts",
+                }
+            ),
+            encoding="utf-8",
+        )
+        second_handoff = plan_phase / "handoff.json"
+
+        second = self._run_cli(
+            quest_dir=quest_dir,
+            phase="phase_01_plan",
+            role="planner",
+            handoff=second_handoff,
+            quest_mode="workflow",
+            repo_root=workspace,
+        )
+        assert second.returncode == 1
+        second_stdout_lines = [
+            json.loads(line) for line in second.stdout.splitlines() if line.strip()
+        ]
+        # Exactly one record from this run — plan.md missing.
+        assert len(second_stdout_lines) == 1
+        assert Path(second_stdout_lines[0]["actual"]).name == "plan.md"
+        # The earlier run's builder_feedback record MUST NOT appear here.
+        assert not any(
+            Path(r["actual"]).name == "builder_feedback_discussion.md"
+            for r in second_stdout_lines
+        )
+
+        # The persistent log retains BOTH runs (append-only audit).
+        log_path = quest_dir / "logs" / "path_compliance.log"
+        all_log_records = [
+            json.loads(line)
+            for line in log_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        assert len(all_log_records) == 2
+        log_names = {Path(r["actual"]).name for r in all_log_records}
+        assert log_names == {"builder_feedback_discussion.md", "plan.md"}
 
 
 # ---------------------------------------------------------------------------

@@ -175,6 +175,26 @@ def _append_mismatch_lines(log_path: Path, mismatches: Iterable[dict[str, str]])
             fh.write(json.dumps(mismatch, sort_keys=True) + "\n")
 
 
+def _emit_mismatch_lines(mismatches: Iterable[dict[str, str]]) -> None:
+    """Print one JSON line per mismatch to stdout.
+
+    The orchestrator's ``workflow.md`` instruction surfaces the **current
+    run's** mismatches to the user. The persistent ``path_compliance.log``
+    is an append-only audit trail spanning every validator invocation in
+    the quest — reading it after the fact would surface stale records
+    from earlier roles, retries, or iterations and misattribute them to
+    the current handoff. Writing the current-run mismatches to stdout
+    lets the orchestrator capture exactly the records produced by this
+    invocation, with no offset bookkeeping required.
+
+    Stdout stays empty on a clean run (exit 0) so callers can use the
+    presence of output as a "had mismatches" signal.
+    """
+
+    for mismatch in mismatches:
+        print(json.dumps(mismatch, sort_keys=True))
+
+
 # ---------------------------------------------------------------------------
 # Handoff loading
 # ---------------------------------------------------------------------------
@@ -297,6 +317,7 @@ def run(
             )
         ]
         _append_mismatch_lines(log_path, mismatches)
+        _emit_mismatch_lines(mismatches)
         return 1
 
     if not expected_paths:
@@ -397,6 +418,7 @@ def run(
 
     if mismatches:
         _append_mismatch_lines(log_path, mismatches)
+        _emit_mismatch_lines(mismatches)
         return 1
     return 0
 
