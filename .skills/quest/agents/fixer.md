@@ -17,7 +17,7 @@ When running on Codex, this role is non-interactive:
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
-- **Step 0 (mandatory):** Read `.quest/<id>/quest_brief.md` end-to-end and extract the `## Router Classification` block before deciding which skills to load. Treat missing `ui_work` as `false`.
+- Quest brief — **read fully; extract `ui_work` from `## Router Classification` before loading conditional skills. Treat missing as `false`.**
 - `.skills/implementer/SKILL.md` (implementation skill, fix mode)
 - `.skills/review-anti-patterns.md` (shared review anti-patterns)
 - Code review artifacts (issues to fix):

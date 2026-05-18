@@ -35,6 +35,7 @@ This repository uses **skills** for specialized workflows. Skills are automatica
 - **quest:** Multi-agent orchestration for features
 - **plan-reviewer:** Review implementation plans and PR specifications for test coverage
 - **code-reviewer:** Review actual code for quality, security, and patterns
+- **sharpen:** Adversarial Q&A against a plan, design, or write-up — one question at a time with a recommended answer. `ux-defaults` mode locks UX choices (gray ramp, density, mobile, accent) for a UI project; auto-fires when invoked during plan presentation on a `ui_work: true` quest.
 - **ux-review:** Run the canonical UX stress-test rubric against a target (file, directory, URL, screenshot, or diff) and produce a P0–P3 critique with principle citations
 - **ux-context:** UX principles primer (auto-attached by quest orchestration when `ui_work: true`); bundles the canonical UX guidebook as a resource so the standard travels with the skill
 - **implementer:** Step-by-step implementation with traceability

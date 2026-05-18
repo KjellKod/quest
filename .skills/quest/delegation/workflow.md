@@ -15,6 +15,17 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 - **Timebox structure discovery:** Avoid full repo inventories. Do a quick top-level scan + targeted `rg` searches instead of browsing directory-by-directory.
 - **If the user wants speed:** Offer to proceed with minimal questions + explicit assumptions (fast intake).
 
+### UI Work Propagation (cross-cutting — applies to every phase)
+
+When the brief's router classification has `ui_work: true`, the dispatched agent auto-loads `.skills/ux-context/SKILL.md` (planner / builder / fixer) or `.skills/ux-review/SKILL.md` (plan-reviewer / code-reviewer). **The orchestrator does not inject UX skills; the agent role files enforce this directly from the brief.** The orchestrator's only job is to preserve the full router JSON in `.quest/<id>/quest_brief.md` so each agent can read it.
+
+When `ui_work_evidence` is non-empty, the named files are the primary surface for planning and review. When empty, the planner uses the inference table at `.skills/ux-context/resources/ux-guidebook.md §4.9`; reviewers run the UX pass against the full diff.
+
+Phase-specific notes (just pointers — the propagation rule itself does not vary):
+- Plan phase: plan-reviewer embeds UX findings inline in markdown using `[N]` format; arbiter synthesizes findings from the markdown.
+- Code review phase: code-reviewer writes canonical findings JSON with `kind: "ux"` and `principle_id`.
+- Fix phase: fixer cites `ux-guidebook§<n>` in commit messages for UX-resolved findings.
+
 ### Codex Availability Probe (Run Once Per Session — Applies to ALL Codex MCP calls)
 
 Tool naming is platform-specific (depends on the MCP server name in config):
@@ -546,7 +557,7 @@ gates.max_plan_iterations (default: 4)
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
      - Otherwise: Loop back to step 0 (stale handoff/scratch cleanup)
 
-- **UI work:** If the brief's router classification has `ui_work: true`, the dispatched agent will auto-load `.skills/ux-context/SKILL.md` (planner/builder/fixer) or `.skills/ux-review/SKILL.md` (plan-reviewer/code-reviewer). The orchestrator does not need to inject anything — the agent files already enforce this. Just make sure the full router JSON is in `.quest/<id>/quest_brief.md`.
+- **UI work:** see [UI Work Propagation](#ui-work-propagation-cross-cutting--applies-to-every-phase) at the top of this file — the rule is uniform across phases.
 
 ### Step 3.5: Interactive Plan Presentation (MANDATORY HUMAN GATE)
 
@@ -594,19 +605,25 @@ After plan approval, present the plan interactively before proceeding to build.
    Target ~150–300 words across the five sections combined. Always print the header bar and the artifact path footer. In workflow mode, print the arbiter NEXT line. In solo mode, print Reviewer A's next value after solo remapping. Always print the closing bar last.
 
 **2. Offer the Plan Presentation Menu:**
-   After the executive summary, ask exactly. When the brief's router classification has `ui_work: true`, use the UX-aware wording for option 2; otherwise use the generic wording.
+   After the executive summary, ask exactly. Option 2's wording depends on whether the plan actually contains a `## UX Defaults` section (not just the brief's `ui_work` flag — render-layer guards may have suppressed emission on a false-positive). If the plan has the section, use the UX-aware wording; otherwise the generic wording.
    ```
    How would you like to proceed?
      1. Walk me through it phase by phase
      2. Sharpen the plan with me — I'll challenge assumptions and tradeoffs (Q&A, ~5–10 questions)
-        [ui_work=true: "Sharpen UX defaults (gray ramp, density, mobile, accent) and the plan with me"]
+   ```
+   When the plan contains a `## UX Defaults` section, substitute option 2 wording with:
+   ```
+     2. Sharpen UX defaults (gray ramp, density, mobile, accent) and the plan with me
+   ```
+   Then add option 3:
+   ```
      3. Looks good, proceed to build
    ```
    STOP and wait for the human to respond. Do not assume a default.
 
 **3. Handle Menu Response:**
    - **Option 1 (walkthrough)** — also matches `walk`, `walkthrough`, `phases`, `detail`, `detailed`, `yes`: Continue to substep 4 (Phase Extraction). After the walkthrough completes (substep 7's last-phase branch), return here and re-show the menu **with option 1 removed** (only options 2 and 3 remain). Repeat handling.
-   - **Option 2 (sharpen)** — also matches `sharpen`, `grill`, `stress`, `challenge`: Invoke the `/sharpen` skill (`.skills/sharpen/SKILL.md`). **When the brief's `ui_work: true`, pass `ux-defaults` as the argument so sharpen runs its six-question UX interview against the plan; otherwise invoke sharpen against `.quest/<id>/phase_01_plan/plan.md` for a generic sharpen pass.** When sharpen completes, read its structured exit summary (Resolved / Open / Next):
+   - **Option 2 (sharpen)** — also matches `sharpen`, `grill`, `stress`, `challenge`: Invoke the `/sharpen` skill (`.skills/sharpen/SKILL.md`). **When the plan contains a `## UX Defaults` section, pass `ux-defaults` as the argument so sharpen runs its six-question UX interview against the plan; otherwise invoke sharpen against `.quest/<id>/phase_01_plan/plan.md` for a generic sharpen pass.** When sharpen completes, read its structured exit summary (Resolved / Open / Next):
      - If the **Next** field says `no changes needed` (or equivalent — no revisions listed): Transition state atomically `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presentation_complete --status complete --expect-phase presenting` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to Step 4. **Sharpen completion is terminal — do not re-show the menu.**
      - If the **Next** field lists revisions (e.g. `re-plan with these revisions: …`): Jump to substep 8 (Change Handling) using the **sharpen entry path**. Substep 8(a) is skipped; substep 8(b) writes the sharpen-format block to user_feedback.md.
    - **Option 3 (proceed)** — also matches `proceed`, `build`, `looks good`, `ship it`, `no`, `n`, `skip`: Transition state atomically `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition presentation_complete --status complete --expect-phase presenting` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually. Then proceed to Step 4 (Build Phase).
@@ -749,7 +766,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
 4. Proceed to Step 5
 
-- **UI work:** If the brief's router classification has `ui_work: true`, the dispatched agent will auto-load `.skills/ux-context/SKILL.md` (planner/builder/fixer) or `.skills/ux-review/SKILL.md` (plan-reviewer/code-reviewer). The orchestrator does not need to inject anything — the agent files already enforce this. Just make sure the full router JSON is in `.quest/<id>/quest_brief.md`.
+- **UI work:** see [UI Work Propagation](#ui-work-propagation-cross-cutting--applies-to-every-phase) at the top of this file — the rule is uniform across phases.
 
 ### Step 5: Review Phase
 
@@ -965,7 +982,7 @@ After plan approval, present the plan interactively before proceeding to build.
      - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete --expect-phase reviewing`
      - Proceed to Step 7
 
-- **UI work:** If the brief's router classification has `ui_work: true`, the dispatched agent will auto-load `.skills/ux-context/SKILL.md` (planner/builder/fixer) or `.skills/ux-review/SKILL.md` (plan-reviewer/code-reviewer). The orchestrator does not need to inject anything — the agent files already enforce this. Just make sure the full router JSON is in `.quest/<id>/quest_brief.md`.
+- **UI work:** see [UI Work Propagation](#ui-work-propagation-cross-cutting--applies-to-every-phase) at the top of this file — the rule is uniform across phases.
 
 ### Step 6: Fix Phase
 
@@ -1040,7 +1057,7 @@ After plan approval, present the plan interactively before proceeding to build.
        - Append `defer` entries to `.quest/backlog/deferred_findings.jsonl`
        - Warn user, ask to proceed manually or accept remaining items as deferred debt
 
-- **UI work:** If the brief's router classification has `ui_work: true`, the dispatched agent will auto-load `.skills/ux-context/SKILL.md` (planner/builder/fixer) or `.skills/ux-review/SKILL.md` (plan-reviewer/code-reviewer). The orchestrator does not need to inject anything — the agent files already enforce this. Just make sure the full router JSON is in `.quest/<id>/quest_brief.md`.
+- **UI work:** see [UI Work Propagation](#ui-work-propagation-cross-cutting--applies-to-every-phase) at the top of this file — the rule is uniform across phases.
 
 ### Step 7: Complete
 

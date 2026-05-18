@@ -64,7 +64,9 @@ Plus a **one-sentence plan for empty, loading, and error states** — three sent
 
 ### Opt-out for UX-savvy prompts
 
-If the user prompt or quest brief already names **≥3 of the five defaults** (ramp, density, ratio, mobile, accent), emit a shortened block listing only the unspecified fields, plus a one-line acknowledgement of the ones the user did specify. Skip the closing sharpen pointer — the user signaled they don't need it.
+If the user prompt or quest brief already **explicitly names ≥3 of the five defaults** (ramp, density, ratio, mobile, accent), emit a shortened block listing only the unspecified fields, plus a one-line acknowledgement of the ones the user did specify. Skip the closing sharpen pointer — the user signaled they don't need it.
+
+**"Explicitly named" means a token that directly maps to one of the five field values:** `slate`/`stone`/`neutral`/`zinc`/`gray` for ramp; `comfortable`/`compact`/`dense` (and synonyms `tight`/`spacious`) for density; `content-forward`/`chrome-dense` for ratio; `mobile`/`mobile-first`/`desktop-only`/`responsive` for mobile relevance; a literal hex (`#0070f3`) or named brand color for accent. **Brand references like "Vercel-like" or "Linear-style" do NOT count as named defaults** — even when they imply a default, the protocol uses literal naming for trigger consistency. If the user wants the shortened block, they must say it.
 
 Example shortened block:
 

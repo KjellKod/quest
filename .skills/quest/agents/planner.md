@@ -16,16 +16,13 @@ When running on Codex, this role is non-interactive:
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
 - `.skills/plan-maker/SKILL.md` (planning skill)
-- Quest brief
+- Quest brief — **read fully; extract `ui_work` and `ui_work_evidence` from the `## Router Classification` JSON block before loading conditional skills. Treat missing `ui_work` as `false`.** A skim-to-acceptance-criteria read silently disables the UX pipeline.
 - Relevant architecture docs (as needed)
 - Deferred backlog match artifact when present: `.quest/<id>/phase_01_plan/deferred_backlog_matches.json`
 - **On iteration 2+:** Arbiter verdict with synthesized feedback (`.quest/<id>/phase_01_plan/arbiter_verdict.md`)
 - **If the quest brief router classification has `ui_work: true`:** `.skills/ux-context/SKILL.md` and its bundled resources (`resources/ux-guidebook.md`, `resources/ux-stress-test.md`). When `ui_work_evidence` is non-empty, treat those files/areas as the primary surface to plan against. The UX Defaults emission protocol lives in the ux-context SKILL.md and is mandatory when this skill is loaded. If `ui_work` is absent from the brief (older brief format), default to `false` and do not load ux-context.
 
 ## Responsibilities
-
-### Step 0: Read the quest brief end-to-end (mandatory)
-Before loading any skills or making any decisions, read `.quest/<id>/quest_brief.md` fully. Extract the `## Router Classification` JSON block — the `ui_work`, `ui_work_evidence`, and other fields gate downstream context loading. **A skim-to-acceptance-criteria read silently disables the entire UX pipeline.** Treat missing `ui_work` as `false`.
 
 ### First invocation
 1. Read the quest brief and acceptance criteria
@@ -43,9 +40,11 @@ Before loading any skills or making any decisions, read `.quest/<id>/quest_brief
 
 ### When `ui_work: true` — emit a UX Defaults section in the plan
 
-When the brief's router classification has `ui_work: true`, follow the **UX Defaults Emission Protocol** in `.skills/ux-context/SKILL.md` to emit a `## UX Defaults` section in the plan. The protocol covers the render-layer guard (suppresses emission on backend false-positives), the five required fields, the opt-out for UX-savvy prompts, and the closing `/sharpen ux-defaults` pointer.
+When the brief's router classification has `ui_work: true`, follow the **UX Defaults Emission Protocol** in `.skills/ux-context/SKILL.md` to emit a `## UX Defaults` section in the plan. The protocol covers the render-layer guard (suppresses emission on backend false-positives), the five required fields, and the opt-out for UX-savvy prompts.
 
 The canonical inference rubric (prompt-signal → defaults) lives in `.skills/ux-context/resources/ux-guidebook.md §4.9`. Pick the row whose signal matches the prompt; when in doubt, default to the last row.
+
+The plan-presentation menu in `workflow.md` already discloses to the user that `/sharpen ux-defaults` is available on `ui_work: true` quests — do not duplicate that pointer at the end of the emitted block.
 
 ## Refinement Rules
 - The Arbiter's feedback is the **only** input for refinement. Do not re-read raw reviewer notes.

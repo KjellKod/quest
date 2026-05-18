@@ -15,10 +15,9 @@ When running on Codex, this role is non-interactive:
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
-- **Step 0 (mandatory):** Read `.quest/<id>/quest_brief.md` end-to-end and extract the `## Router Classification` block before deciding which skills to load. Treat missing `ui_work` as `false`.
 - `.skills/implementer/SKILL.md` (implementation skill)
 - Approved plan artifact
-- Quest brief (for acceptance criteria)
+- Quest brief — **read fully; extract `ui_work` and `ui_work_evidence` from the `## Router Classification` JSON block before loading conditional skills. Treat missing `ui_work` as `false`.**
 - **If the quest brief router classification has `ui_work: true`:** read `.skills/ux-context/SKILL.md` and honor §4 of the guidebook (`resources/ux-guidebook.md`) as you write code. When `ui_work_evidence` is non-empty, those files are the primary surface. If `ui_work` is absent from the brief (older brief format), default to `false` and skip ux-context loading.
 
 ## Responsibilities

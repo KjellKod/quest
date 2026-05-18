@@ -23,14 +23,13 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
-- **Step 0 (mandatory):** Read `.quest/<id>/quest_brief.md` end-to-end and extract the `## Router Classification` block before deciding which skills to load. Treat missing `ui_work` as `false`.
 - `.skills/code-reviewer/SKILL.md` (review skill)
 - `.skills/review-anti-patterns.md` (shared review anti-patterns)
 - Changed files from `git diff --name-only` when VCS is available
 - Optional diff summary from `git diff --stat` when VCS is available
 - `.quest/<id>/phase_02_implementation/builder_feedback_discussion.md` for touched files/tests when VCS is unavailable
 - `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md` when present
-- Quest brief (for acceptance criteria reference)
+- Quest brief — **read fully; extract `ui_work` from `## Router Classification` before loading conditional skills. Treat missing as `false`.**
 - **If the quest brief router classification has `ui_work: true`:**
   - `.skills/ux-review/SKILL.md` — run the UX stress test against the diff as part of the review pass. Emit UX findings into the canonical findings JSON alongside other findings, tagged with `kind: "ux"` and `principle_id` (format: `ux-guidebook§<section_number>`). Severity maps P0→critical, P1→high, P2→medium, P3→low. When `ui_work_evidence` is non-empty in the brief, focus the UX pass on those files first; when empty, run the UX pass against the full diff.
   - `.skills/ux-context/SKILL.md` — for principle references when interpreting findings.

@@ -25,7 +25,7 @@ The word doing the second most work is *task-appropriate*. Density is not the en
 
 ---
 
-## 2. The 12 durable principles
+## 2. The 14 durable principles
 
 The spine. Every recommendation in the rest of this book derives from these; none contradicts them.
 
@@ -41,6 +41,8 @@ The spine. Every recommendation in the rest of this book derives from these; non
 10. **Be as little design as possible — but no less than the task requires.** Complexity is conserved ([Tesler](https://lawsofux.com/teslers-law/)); you can only relocate it. ([Rams #10](https://www.vitsoe.com/us/about/good-design); [Nielsen #8](https://www.nngroup.com/articles/ten-usability-heuristics/); [Tufte](https://faculty.cc.gatech.edu/~stasko/7450/16/Notes/tufte.pdf))
 11. **Keep the user in control: explorable, reversible, never trapped.** (Shneiderman #7; Nielsen #3)
 12. **Respect the user's attention and time: anticipate needs, stay within perf budgets, get out of the way.** *Performance is a UX feature — perceived latency is real latency. Ship perf budgets in the design system alongside colors and spacings.* ([Tognazzini](https://asktog.com/atc/principles-of-interaction-design/); [Krug](https://blas.com/dont-make-me-think/))
+13. **Design for the perpetual intermediate, not the novice or expert.** Most users are neither — they're learning but not learners; productive but not power-users. Learnable but not condescending, efficient but not opaque. ([Cooper](https://www.gregbulla.com/TechStuff/Docs/NotesFromAboutFace3.htm))
+14. **Heuristics catch ~75% of issues. Watch one real user before shipping.** Heuristic evaluation is a complement to user testing, not a replacement. One user, one task, observed end-to-end will find what 14 rubric items can't. ([Nielsen](https://www.nngroup.com/articles/ten-usability-heuristics/))
 
 ---
 
@@ -48,7 +50,7 @@ The spine. Every recommendation in the rest of this book derives from these; non
 
 > **Visual chrome should be restrained. Task content should be as dense as the task earns. Density without grouping is noise; minimalism without signifiers is mystery.**
 
-**Deciding test for task-appropriate density:** if an expert uses this screen ≥10×/day, density wins; if a stranger uses it once a month, chrome restraint wins. Anything between defaults to chrome restraint and earns density as it earns frequency.
+**Deciding test for task-appropriate density:** if an expert uses this screen ≥10×/day, density wins; if a stranger uses it once a month, chrome restraint wins. The middle case is "restraint as floor, density as opt-in" — e.g. Stripe Dashboard ships chrome-restrained by default with dense table views the user can toggle. Earn density as you earn frequency; don't impose it upfront.
 
 Two flanking pitfalls:
 
@@ -65,7 +67,7 @@ Concrete, prescriptive rules. Each subsection is independently usable as a pre-c
 
 1. **Two typefaces max.** One sans for UI, one mono for code/numerics. Three is a tell; four is broken.
 2. **Modular scale, not arbitrary px.** Use Apple's [system text styles](https://developer.apple.com/design/human-interface-guidelines/typography) or Tailwind's `text-xs / sm / base / lg / xl / 2xl / 3xl`. Never `font-size: 13px` next to `font-size: 14px` — pick one.
-3. **App chrome 13–15px; prose 16–18px.** **Deciding test:** is the text *the user's content* (an article, a doc, the editor body)? Prose at 16+. Everything else — including modal bodies, empty-state copy, toast text — is chrome at 13–15. 16px-everywhere is a children's-tutorial smell. On Mac native, system body is 13pt.
+3. **App chrome 13–15px; prose 16–18px.** **Default to chrome at 13–15** — modal bodies, empty-state copy, toast text, error explanations, settings descriptions all count as chrome even when the text is long. **Only the user's actual content** (an article, a doc, the editor body) gets prose at 16+. 16px-everywhere is a children's-tutorial smell. On Mac native, system body is 13pt.
 4. **Line-height inversely with size.** Body 1.5–1.6. UI labels 1.2. Display headings 1.1–1.25.
 5. **Cap measure at 60–75 ch.** `max-width: 65ch` on prose.
 6. **Weight is hierarchy. Use it before size.** Semibold (600) next to Regular (400) creates hierarchy without layout shift.
@@ -82,7 +84,7 @@ Concrete, prescriptive rules. Each subsection is independently usable as a pre-c
    | Brand color / aesthetic | Recommended ramp | Examples that ship this |
    |---|---|---|
    | No brand yet / cool brand (blue/purple/teal/green) | `slate` (cool blue-gray) | Linear, Vercel, Stripe, shadcn defaults |
-   | Warm brand (orange/amber/red/yellow) | `stone` (warm beige-gray) | Some Apple ecosystem product pages |
+   | Warm brand (orange/amber/red/yellow) | `stone` (warm beige-gray) | Things, Day One, Substack |
    | Utilitarian / monochrome (no brand color) | `neutral` (true gray) | Bloomberg, terminal UIs |
    | Tech/scientific (high-contrast, blue-heavy) | `zinc` (slightly bluer than slate) | GitHub dark, Linear-dark |
    | Content-forward / paper feel (white-dominant, generous whitespace) | `gray` (true gray, light usage — surfaces mostly `#fff`, borders at `gray-200`, body at `gray-900`, middle steps rare) | Google, GitHub light, mockdown.design |
@@ -213,22 +215,9 @@ Concrete pattern, tested in real products:
 - **`active:` replaces `hover:` everywhere on mobile.**
 - **Drop features that touch-degrade rather than touch-port them.**
 
-### 5.4 Native platforms
+### 5.4 Native platforms (one rule)
 
-Native platforms have their own checklists. macOS, iOS, watchOS, Android, Windows — read the platform's HIG/style guide before shipping, and use the Mac-native and mobile-feel pass/fail lists in [ux-stress-test.md](./ux-stress-test.md). One principle that always holds: **same icon across platforms is fine; same chrome is broken.** Don't paste a macOS menu bar into a web app.
-
-### 5.5 The cross-platform decision
-
-| Approach | Native feel | When to pick |
-|---|---|---|
-| **Native (SwiftUI / Kotlin / etc.)** | best | OS integration is core (background work, widgets, system extensions, file-provider, Continuity, platform AI) |
-| **Mac Catalyst** | medium | Existing iPad app, 60% native feel acceptable |
-| **Tauri** | medium-high | Single web codebase, can't accept Electron's bloat, team tolerates Rust glue |
-| **Electron** | medium | JS-only team, fast shipping, users don't notice (internal tools, VS Code-scale) |
-| **PWA on iOS** | low-medium | Content-driven, infrequent, accept manual Add-to-Home-Screen + no background sync + ~50MB cache cap |
-| **Native iOS** | best on mobile | Offline, background, widgets, push without home-screen install |
-
-**Deciding rule:** if any of {background work, widgets, system extensions, platform AI, file-provider, Continuity} are core to the value, go native. Otherwise Tauri for desktop, PWA for mobile, native iOS only when PWA limits bite.
+**Same icon across platforms is fine; same chrome is broken.** Don't paste a macOS menu bar into a web app. For platform-specific checklists (Mac-native pass/fail, iOS thumb zone, etc.) use [ux-stress-test.md](./ux-stress-test.md). The cross-platform stack decision (Native / Tauri / Electron / PWA) is shipping/architecture, not UX — it lives in `docs/guides/` if anywhere.
 
 ---
 
@@ -329,10 +318,7 @@ The canon insists on these even when the design discourse looks away. Re-read wh
 6. **The user's mental model wins over your data model.** If you find yourself explaining your schema in the UI, you have already lost (Norman, Cooper).
 7. **Complexity is conserved.** You did not remove the step; you moved it. Decide whose step it is now (Tesler).
 8. **Feedback is non-negotiable, even when "quiet by default" is the aesthetic.** Quiet means unobtrusive (good); it cannot mean silent on commit (bad).
-9. **Most UIs are used by intermediates, not novices or experts.** Design for the perpetual intermediate: learnable but not condescending, efficient but not opaque (Cooper).
-10. **Honesty includes performance honesty.** Don't fake instant when you mean pending. A spinner that finishes in 50ms is worse than no spinner. A spinner that runs forever without progress is worst.
-11. **Heuristics catch ~75% of issues.** Watch one real user complete one real task before shipping.
-
+9. **Honesty includes performance honesty.** Don't fake instant when you mean pending. A spinner that finishes in 50ms is worse than no spinner. A spinner that runs forever without progress is worst.
 ---
 
 ## Appendix B — Source map
