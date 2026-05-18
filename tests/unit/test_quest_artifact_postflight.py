@@ -585,7 +585,13 @@ class TestCanonicalCoverage:
         self, workspace: Path
     ) -> None:
         """Planner role expects plan.md + handoff.json. An empty artifacts
-        list omits both → two ``missing`` records, exit 1."""
+        list omits plan.md → one ``missing`` record, exit 1.
+
+        The handoff file is excluded from coverage by design: the validator
+        was invoked on the --handoff path so that file's existence is
+        implicit. Roles list deliverables in ``artifacts``, not the
+        meta-handoff envelope.
+        """
 
         quest_id = "test-quest_empty-artifacts"
         quest_dir = workspace / ".quest" / quest_id
@@ -618,25 +624,70 @@ class TestCanonicalCoverage:
         assert rc == 1
         records = _read_log_lines(log_path)
         missing = [r for r in records if r["reason"] == "missing"]
-        assert len(missing) == 2
-        actuals = {Path(r["actual"]).name for r in missing}
-        assert actuals == {"plan.md", "handoff.json"}
-        for r in missing:
-            assert r["declared"] == "(undeclared)"
+        assert len(missing) == 1
+        assert Path(missing[0]["actual"]).name == "plan.md"
+        assert missing[0]["declared"] == "(undeclared)"
 
-    def test_omitted_canonical_artifact_fails(self, workspace: Path) -> None:
-        """Planner declares plan.md only — handoff.json (also canonical) is
-        omitted → one ``missing`` record for the omitted artifact, exit 1."""
+    def test_omitted_canonical_deliverable_fails(self, workspace: Path) -> None:
+        """Builder declares pr_description.md only — builder_feedback_discussion.md
+        (also canonical) is omitted → one ``missing`` record for the omitted
+        deliverable, exit 1. The handoff file is excluded from coverage.
+        """
 
-        quest_id = "test-quest_omitted"
+        quest_id = "test-quest_omitted-deliverable"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        (phase_dir / "pr_description.md").write_text("seed", encoding="utf-8")
+        (phase_dir / "builder_feedback_discussion.md").write_text("seed", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [str(phase_dir / "pr_description.md")],
+                    "next": "code_review",
+                    "summary": "omitted builder_feedback_discussion.md",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=workspace,
+        )
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        missing = [r for r in records if r["reason"] == "missing"]
+        assert len(missing) == 1
+        assert Path(missing[0]["actual"]).name == "builder_feedback_discussion.md"
+        assert missing[0]["declared"] == "(undeclared)"
+
+    def test_undeclared_handoff_file_does_not_record_missing(
+        self, workspace: Path
+    ) -> None:
+        """Real-world handoffs do not list the handoff file itself in their
+        ``artifacts`` array — agents declare deliverables only. The validator
+        must NOT emit a ``missing`` record for the handoff path it was
+        invoked on. This is the case the in-tree builder/planner/reviewer
+        contracts already produce."""
+
+        quest_id = "test-quest_undeclared-handoff"
         quest_dir = workspace / ".quest" / quest_id
         phase_dir = quest_dir / "phase_01_plan"
         phase_dir.mkdir(parents=True, exist_ok=True)
         log_path = quest_dir / "logs" / "path_compliance.log"
 
         (phase_dir / "plan.md").write_text("seed", encoding="utf-8")
-        (phase_dir / "handoff.json").write_text("seed", encoding="utf-8")
-
         handoff_path = phase_dir / "handoff.json"
         handoff_path.write_text(
             json.dumps(
@@ -644,7 +695,7 @@ class TestCanonicalCoverage:
                     "status": "complete",
                     "artifacts": [str(phase_dir / "plan.md")],
                     "next": "plan-reviewer-a",
-                    "summary": "omitted handoff.json",
+                    "summary": "handoff not in artifacts (real-world shape)",
                 }
             ),
             encoding="utf-8",
@@ -659,12 +710,9 @@ class TestCanonicalCoverage:
             log=log_path,
             repo_root=workspace,
         )
-        assert rc == 1
-        records = _read_log_lines(log_path)
-        missing = [r for r in records if r["reason"] == "missing"]
-        assert len(missing) == 1
-        assert Path(missing[0]["actual"]).name == "handoff.json"
-        assert missing[0]["declared"] == "(undeclared)"
+        assert rc == 0
+        if log_path.exists():
+            assert log_path.read_text(encoding="utf-8") == ""
 
     def test_misplaced_canonical_named_file_inside_boundary_fails(
         self, workspace: Path

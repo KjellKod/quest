@@ -250,9 +250,18 @@ def run(
     def _identity(p: Path) -> str:
         return os.path.normpath(os.path.abspath(str(p)))
 
+    # The handoff file itself is part of ``expected_artifacts_for_role(...)``
+    # by construction (every role writes one), but agent contracts do NOT ask
+    # roles to declare their own handoff envelope inside ``artifacts`` — that
+    # field is reserved for the role's deliverables. Exclude the handoff path
+    # from the coverage comparison: the validator was invoked on that exact
+    # file via ``--handoff``, so its existence and identity are implicit.
+    handoff_identity = _identity(handoff_path)
     declared_identities = {_identity(p) for p in declared_paths}
     for expected in expected_paths:
         expected_identity = _identity(Path(expected))
+        if expected_identity == handoff_identity:
+            continue
         if expected_identity not in declared_identities:
             mismatches.append(
                 _make_mismatch(
