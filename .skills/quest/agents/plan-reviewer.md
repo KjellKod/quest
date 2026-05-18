@@ -26,7 +26,7 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 - Plan artifact from Planner Agent
 - Quest brief (for acceptance criteria reference)
 - **If the quest brief router classification has `ui_work: true`:**
-  - `.skills/ux-review/SKILL.md` — run the UX stress test against the plan as part of the review pass. Emit UX findings (P0–P3) into the canonical findings JSON alongside other findings, tagged with `kind: "ux"` and `principle_id`.
+  - `.skills/ux-review/SKILL.md` — run the UX stress test against the plan as part of the review pass. **Embed UX findings inline in the markdown review** using the standard `[N]` format with severity (P0/P1/P2/P3) and a `principle_id` citation (e.g. `ux-guidebook§4.2`). Plan-reviewers do not write a separate findings JSON — the arbiter synthesizes findings from the markdown plan reviews.
   - `.skills/ux-context/SKILL.md` — for principle references when interpreting findings.
 
 ## Responsibilities (both instances)

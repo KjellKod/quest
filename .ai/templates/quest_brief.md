@@ -22,3 +22,20 @@
 
 ## Notes
 <!-- Optional: anything the Creator wants the agents to know -->
+
+## Router Classification
+
+<!-- The orchestrator records the full router JSON here at quest creation. Downstream agents read this block to decide which conditional skills to load — e.g. `ux-context` when `ui_work: true`. -->
+
+```json
+{
+  "route": "workflow",
+  "confidence": 0.0,
+  "risk_level": "low",
+  "complexity": "moderate",
+  "ui_work": false,
+  "ui_work_evidence": [],
+  "reason": "",
+  "missing_information": []
+}
+```

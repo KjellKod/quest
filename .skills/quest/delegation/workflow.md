@@ -546,6 +546,8 @@ gates.max_plan_iterations (default: 4)
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
      - Otherwise: Loop back to step 0 (stale handoff/scratch cleanup)
 
+- **UI work:** If the brief's router classification has `ui_work: true`, the dispatched agent will auto-load `.skills/ux-context/SKILL.md` (planner/builder/fixer) or `.skills/ux-review/SKILL.md` (plan-reviewer/code-reviewer). The orchestrator does not need to inject anything — the agent files already enforce this. Just make sure the full router JSON is in `.quest/<id>/quest_brief.md`.
+
 ### Step 3.5: Interactive Plan Presentation (MANDATORY HUMAN GATE)
 
 After plan approval, present the plan interactively before proceeding to build.
@@ -745,6 +747,8 @@ After plan approval, present the plan interactively before proceeding to build.
 3. **Atomic transition:** `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition reviewing --status in_progress --expect-phase building` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually.
 
 4. Proceed to Step 5
+
+- **UI work:** If the brief's router classification has `ui_work: true`, the dispatched agent will auto-load `.skills/ux-context/SKILL.md` (planner/builder/fixer) or `.skills/ux-review/SKILL.md` (plan-reviewer/code-reviewer). The orchestrator does not need to inject anything — the agent files already enforce this. Just make sure the full router JSON is in `.quest/<id>/quest_brief.md`.
 
 ### Step 5: Review Phase
 
@@ -960,6 +964,8 @@ After plan approval, present the plan interactively before proceeding to build.
      - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition complete --status complete --expect-phase reviewing`
      - Proceed to Step 7
 
+- **UI work:** If the brief's router classification has `ui_work: true`, the dispatched agent will auto-load `.skills/ux-context/SKILL.md` (planner/builder/fixer) or `.skills/ux-review/SKILL.md` (plan-reviewer/code-reviewer). The orchestrator does not need to inject anything — the agent files already enforce this. Just make sure the full router JSON is in `.quest/<id>/quest_brief.md`.
+
 ### Step 6: Fix Phase
 
 **Read allowlist:** `gates.max_fix_iterations` (default: 3)
@@ -1032,6 +1038,8 @@ After plan approval, present the plan interactively before proceeding to build.
        - Convert remaining findings to `defer` (accepted debt rationale) or `needs_human_decision`
        - Append `defer` entries to `.quest/backlog/deferred_findings.jsonl`
        - Warn user, ask to proceed manually or accept remaining items as deferred debt
+
+- **UI work:** If the brief's router classification has `ui_work: true`, the dispatched agent will auto-load `.skills/ux-context/SKILL.md` (planner/builder/fixer) or `.skills/ux-review/SKILL.md` (plan-reviewer/code-reviewer). The orchestrator does not need to inject anything — the agent files already enforce this. Just make sure the full router JSON is in `.quest/<id>/quest_brief.md`.
 
 ### Step 7: Complete
 

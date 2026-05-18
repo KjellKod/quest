@@ -132,6 +132,7 @@ Solo mode skips Reviewer B and the Arbiter. Same pipeline, just faster.
 - **Smart intake**, asks structured questions when your input needs more detail
 - **Full audit trail**, every artifact saved in `.quest/`
 - **Multi-runtime**, runs from Claude Code (`/quest`), Codex (`$quest`), or [OpenCode](https://opencode.ai/)
+- **Built-in UX rigor**, when the router sees UI work it auto-attaches a canonical UX guidebook to the planner/builder/fixer and runs a stress-test rubric in code review. Invoke `/ux-review` on any file, URL, or screenshot to get a P0–P3 critique with principle citations.
 
 ## Philosophy
 
@@ -170,6 +171,7 @@ Read the [full philosophy](docs/guides/philosophy.md).
 - **[OpenCode Field Notes](docs/guides/opencode-model-observations.md)**, multi-model testing and architecture comparison
 - **[Architecture](docs/architecture/)**, platform direction and runtime contracts
 - **[Portfolio Dashboard](https://kjellkod.github.io/quest/)**, live quest outcomes and journal entries
+- **[UX Guidebook](.skills/ux-context/resources/ux-guidebook.md)**, canonical UX standards bundled with the ux-context skill so they travel with the install; auto-loaded for UI work
 
 ## License
 

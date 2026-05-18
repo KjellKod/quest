@@ -31,7 +31,7 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 - `.quest/<id>/phase_03_review/review_fix_feedback_discussion.md` when present
 - Quest brief (for acceptance criteria reference)
 - **If the quest brief router classification has `ui_work: true`:**
-  - `.skills/ux-review/SKILL.md` — run the UX stress test against the diff as part of the review pass. Emit UX findings (P0–P3) into the canonical findings JSON alongside other findings, tagged with `kind: "ux"` and `principle_id`.
+  - `.skills/ux-review/SKILL.md` — run the UX stress test against the diff as part of the review pass. Emit UX findings into the canonical findings JSON alongside other findings, tagged with `kind: "ux"` and `principle_id` (format: `ux-guidebook§<section_number>`). Severity maps P0→critical, P1→high, P2→medium, P3→low. When `ui_work_evidence` is non-empty in the brief, focus the UX pass on those files first.
   - `.skills/ux-context/SKILL.md` — for principle references when interpreting findings.
 
 ## Responsibilities

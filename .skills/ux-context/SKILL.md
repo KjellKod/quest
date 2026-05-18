@@ -60,10 +60,30 @@ Any UX-affecting decision in your plan, code, or commit should cite the principl
 
 For *reviewing* existing UI (your own or someone else's), see `.skills/ux-review/SKILL.md`. This skill is for *producing* work; ux-review is for critiquing it. Both consume the same guidebook in `.skills/ux-context/resources/`.
 
+## UX Defaults inference table
+
+When the router sets `ui_work: true`, the planner must emit a `## UX Defaults` section in the plan. This table is the rubric for inferring defaults from prompt signals. The planner picks the row whose signal best matches the prompt; when in doubt, default to the last row (`slate / comfortable / content-forward / mobile required / blue accent`) — it's the safest "no brand opinion yet" stance.
+
+| Prompt signal | Gray ramp | Density | Ratio | Mobile |
+|---|---|---|---|---|
+| "modern SaaS", "dashboard", "admin panel" | `slate` | comfortable | content-forward | optional |
+| "developer tool", "IDE", "terminal", "CLI ui" | `zinc` | compact | chrome-dense | rare |
+| "consumer mobile app", "iOS", "Android" | `slate` | comfortable | content-forward | required (thumb zone) |
+| "marketing site", "landing page", "blog" | `gray` | comfortable | content-forward | required |
+| "settings page", "preferences" | `slate` | comfortable | content-forward | optional |
+| "data table", "analytics", "Bloomberg-style" | `zinc` | compact | chrome-dense | rare |
+| "warm consumer brand", "food", "hospitality" | `stone` | comfortable | content-forward | required |
+| "utilitarian", "monochrome", "no brand color" | `neutral` | varies | varies | varies |
+| no signal / generic UI request | `slate` | comfortable | content-forward | required |
+
+For brand accent, default `#2563eb` (Tailwind `blue-600`) unless the prompt or quest brief names a specific hex / brand color.
+
+Two decisions, not one: the *ramp* (slate / stone / neutral / zinc / gray) sets the temperature; the *white-to-gray ratio* sets the feel. Linear and Vercel use slate at high gray density (chrome dense). Google and GitHub use cool-grays at low gray density (white dominant). Pick both.
+
 ## Bundled Resources
 
-- `resources/ux-guidebook.md` — canonical guidebook, ~530 lines
-- `resources/ux-stress-test.md` — runnable rubric and checklists, ~150 lines
+- `resources/ux-guidebook.md` — canonical guidebook
+- `resources/ux-stress-test.md` — runnable rubric and checklists
 
 ## Related Skills
 

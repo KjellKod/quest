@@ -28,6 +28,19 @@ REQUIRED_FINDING_FIELDS: tuple[str, ...] = (
 
 ALLOWED_SEVERITIES = ("critical", "high", "medium", "low", "info")
 ALLOWED_CONFIDENCE = ("high", "medium", "low")
+ALLOWED_KINDS = (
+    "code",
+    "plan",
+    "ux",
+    "regression-risk",
+    "review_comment",
+    "ci",
+    "correctness",
+    "plan_review",
+    "edge-case",
+    "test_failure",
+    "build_failure",
+)
 ALLOWED_DECISIONS = (
     "fix_now",
     "verify_first",
@@ -127,6 +140,12 @@ def validate_finding(finding: dict[str, Any]) -> list[str]:
         value = finding.get(field)
         if not isinstance(value, str) or not value.strip():
             errors.append(f"field '{field}' must be a non-empty string")
+
+    kind_value = finding.get("kind")
+    if kind_value not in ALLOWED_KINDS:
+        errors.append(
+            f"field 'kind' must be one of {', '.join(ALLOWED_KINDS)}"
+        )
 
     line_value = finding.get("line")
     if line_value is not None and (isinstance(line_value, bool) or not isinstance(line_value, int) or line_value < 1):

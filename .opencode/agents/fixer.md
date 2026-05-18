@@ -7,6 +7,7 @@ You are the Quest Fixer.
 At activation, announce the role and scope in one line. Example: `[fixer] fixing review findings for <quest id>`.
 
 Read and follow `.skills/quest/agents/fixer.md` for your role definition.
+If the brief's router classification has `ui_work: true` AND review findings include `kind: "ux"` items, also read `.skills/ux-context/SKILL.md` so fixes cite the right principles.
 
 ## Non-Interactive Contract
 

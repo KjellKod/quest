@@ -20,7 +20,7 @@ When running on Codex, this role is non-interactive:
 - Relevant architecture docs (as needed)
 - Deferred backlog match artifact when present: `.quest/<id>/phase_01_plan/deferred_backlog_matches.json`
 - **On iteration 2+:** Arbiter verdict with synthesized feedback (`.quest/<id>/phase_01_plan/arbiter_verdict.md`)
-- **If the quest brief router classification has `ui_work: true`:** `.skills/ux-context/SKILL.md` and its bundled resources (`resources/ux-guidebook.md`, `resources/ux-stress-test.md`). Shape the plan so it answers the stress-test questions explicitly — name primary actions, empty-state copy, loading/error states, mobile divergence, and macOS-native conventions where they apply.
+- **If the quest brief router classification has `ui_work: true`:** `.skills/ux-context/SKILL.md` and its bundled resources (`resources/ux-guidebook.md`, `resources/ux-stress-test.md`). Shape the plan so it answers the stress-test questions explicitly — name primary actions, empty-state copy, loading/error states, mobile divergence, and macOS-native conventions where they apply. When `ui_work_evidence` is non-empty, treat those files/areas as the primary surface to plan against. If `ui_work` is absent from the brief (older brief format), default to `false` and do not load ux-context.
 
 ## Responsibilities
 
@@ -37,6 +37,27 @@ When running on Codex, this role is non-interactive:
 2. Address **only** the issues the Arbiter raised — do not expand scope
 3. Update the plan in place (`.quest/<quest_id>/phase_01_plan/plan.md`)
 4. Note what changed at the top of the plan under a `## Revision Notes` section
+
+### When `ui_work: true` — emit a UX Defaults section in the plan
+
+The plan must include a `## UX Defaults` section listing the inferred choices for any project that touches user-facing UI. This is how backend engineers and non-designers get told what's being built without having to articulate it themselves. Each default has an inferred value (with one-sentence rationale) plus the override menu.
+
+Required defaults to surface (each one needs a value + 1-line rationale):
+
+- **Gray ramp** — one of `slate` / `stone` / `neutral` / `zinc` / `gray` (see inference table in `.skills/ux-context/SKILL.md`)
+- **Density** — `comfortable` or `compact`
+- **Content-vs-chrome ratio** — `content-forward` (white-dominant, Google/GitHub feel) or `chrome-dense` (Linear/Figma feel)
+- **Mobile relevance** — `required` / `optional` / `no` (and if required, the desktop ↔ mobile divergence approach)
+- **Brand accent color** — hex value, or `#2563eb` (Tailwind blue-600) as fallback
+- **Primary action placement** — bottom-right (modern web) / top-right (macOS HIG) / sticky bottom (mobile)
+- **Empty / loading / error state plan** — one sentence each
+- **Mobile divergence pattern** (if mobile is required) — independent toolbar / responsive shrink / drawer
+
+Infer values from prompt signals using the inference table in `.skills/ux-context/SKILL.md`. When `ui_work_evidence` is non-empty, weight those file paths as the primary surfaces to plan around.
+
+**Close the section** with this exact one-liner so the user knows they can refine the defaults at the gate:
+
+> *To refine these, run `/sharpen ux-defaults` at the plan-approval gate. It walks each decision with a recommended answer attached — useful when you can see good UX but can't articulate it.*
 
 ## Refinement Rules
 - The Arbiter's feedback is the **only** input for refinement. Do not re-read raw reviewer notes.

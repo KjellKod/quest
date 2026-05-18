@@ -58,6 +58,36 @@ Then ask once: `Anything I missed before we wrap?` If yes, address it and re-emi
 - A quick yes/no question.
 - The user asks primarily for implementation planning deliverables, code patches, or PR review findings instead of adversarial interview questions.
 
+## Special mode: `/sharpen ux-defaults`
+
+Invoke this when the user wants to lock in UX defaults for a UI project — typically right before plan approval on a quest where the router set `ui_work: true`, or any time a backend engineer has built something that "needs to look right" but can't articulate the design choices.
+
+**Auto-route:** If the user invokes `/sharpen` with no argument AND the active artifact (e.g. the plan being presented for approval) has `ui_work: true` in its router classification, default to this mode. State the auto-route once: `Auto-routing to ux-defaults — this quest is UI work. Override with /sharpen <other-artifact> if you meant something else.`
+
+**The five questions** — same one-at-a-time, recommended-answer-attached rhythm as standard sharpen:
+
+1. **Temperature.** "What's the brand color, if any? Recommended: no brand yet → cool (Tailwind `slate`). Linear, Stripe, Vercel, shadcn default. Override: warm brand → `stone`; utilitarian / no brand → `neutral`; tech/scientific → `zinc`; content-forward (Google/GitHub feel) → `gray`."
+2. **Density.** "How dense is the UI? Recommended: comfortable for consumer/settings/marketing; compact for IDE/data-dense/power-user. Override: pick the other."
+3. **Content-vs-chrome ratio.** "Is the product content-forward (Google, GitHub, mockdown — chrome recedes, white dominant) or chrome-dense (Linear, Figma — chrome is the product)? Recommended: content-forward unless the chrome IS the value."
+4. **Mobile relevance.** "Will this be used on phone-class viewports? Recommended: yes for any consumer or web-public surface; no for internal admin / desktop-only tools. If yes, the plan must address desktop ↔ mobile divergence (see guidebook §5.3)."
+5. **Brand accent.** "Have a brand accent color? Recommended: `#2563eb` (Tailwind `blue-600`) if no other answer — used by sketch2md, ships with shadcn, reads as 'modern web'. Override: any hex."
+
+**On exit**, emit a fenced `## UX Defaults` block that can be pasted into the plan or used to update the plan in place:
+
+```markdown
+## UX Defaults (locked via /sharpen ux-defaults)
+
+- Gray ramp: <slate | stone | neutral | zinc | gray>
+- Density: <comfortable | compact>
+- Ratio: <content-forward | chrome-dense>
+- Mobile: <required | optional | no>
+- Accent: <hex>
+
+Principle citations: ux-guidebook§4.1, §4.2, §4.3, §5.2, §5.3.
+```
+
+If the user only wants to adjust some of the five, walk only those branches and emit a partial block. Skip questions where the answer is already visible in the prompt or plan.
+
 ## Style
 
 Direct. Opinionated. No hedging. Short questions, short follow-ups. Restate the tree state periodically so the user can see what's locked and what's open.

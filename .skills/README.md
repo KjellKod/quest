@@ -12,43 +12,7 @@ Skills are modular, self-contained packages that extend AI capabilities with spe
 
 ## Available Skills
 
-### plan-reviewer
-**Purpose:** Review implementation plans, PR specifications, and feature documentation to ensure comprehensive test coverage and validation strategies.
-
-**Use when:** Reviewing any implementation plan or feature specification before coding begins.
-
-**Key focus areas:**
-- Acceptance criteria completeness
-- Manual validation procedures
-- Automated testing specifications
-- Integration point validation
-
-### code-reviewer
-**Purpose:** Review actual code implementations (Python, JavaScript, TypeScript, React) for correctness, maintainability, security, and adherence to patterns.
-
-**Use when:** Reviewing pull requests, code changes, or implementations.
-
-**Key focus areas:**
-- Architecture boundary compliance
-- Code quality and patterns
-- Security review
-- Test coverage
-- Performance considerations
-
-### implementer
-**Purpose:** Implement an approved implementation plan step by step, producing small reviewable changes and mapping code/tests to acceptance criteria.
-
-**Use when:** The plan/spec is already agreed and you want disciplined execution with traceability and a lightweight decision log.
-
-### git-commit-assistant
-**Purpose:** Generate commit messages from staged changes by matching repo conventions (Conventional Commits or plain English), leading with intent, and appending the Quest co-author trailer.
-
-**Use when:** The user asks for a commit message, help with git commit, or when reviewing staged changes for commit.
-
-### pr-assistant
-**Purpose:** Create and update GitHub pull requests in draft mode. Generates PR title and description from all branch commits, shows for approval before executing.
-
-**Use when:** The user asks to create a PR, update a PR description, or open a pull request.
+See **[SKILLS.md](SKILLS.md)** for the canonical, up-to-date index of every skill in this repo. That file is the single source of truth — this README intentionally does not duplicate the enumeration to avoid drift.
 
 ## How to Use Skills
 

@@ -85,6 +85,7 @@ Customize `.ai/allowlist.json` for your project's:
 | SKILLs directory  | `.skills/SKILLS.md` |
 | Quest setup guide | `docs/guides/quest_setup.md` |
 | Architecture | `docs/architecture/` (if present) |
+| UX standards and review | `.skills/ux-context/resources/ux-guidebook.md` (canon) and `.skills/ux-review/SKILL.md` (`/ux-review` to invoke) |
 
 ## Quest Execution Discipline
 - For `$quest`, follow the full gate sequence: routing -> plan -> dual plan review -> arbiter -> walkthrough -> explicit approval -> build -> dual code review -> fixes.

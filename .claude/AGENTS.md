@@ -41,6 +41,7 @@ This repository uses **layered documentation** for AI agent context management.
 - **Reviewing an implementation plan?** → Use `.skills/plan-reviewer/` skill
 - **Reviewing code?** → Use `.skills/code-reviewer/` skill
 - **Pressure-test a plan or design?** → Use `/sharpen` command or `.skills/sharpen/` skill
+- **Lock in UX defaults (gray ramp, density, mobile, accent) for a UI project?** → Use `/sharpen ux-defaults` — walks each decision with a recommended answer attached. Auto-invoked when `/sharpen` is called during plan presentation on a `ui_work: true` quest.
 - **Review a UI / screen / component for UX?** → Use `/ux-review` command or `.skills/ux-review/` skill
 - **Producing UI work in a quest?** → The orchestrator auto-attaches `.skills/ux-context/` to planner, builder, and fixer when the router classifies the quest as `ui_work: true`
 - **Commit message?** → Use `.skills/git-commit-assistant/` skill

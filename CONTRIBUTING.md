@@ -47,3 +47,7 @@ The validation script checks:
 ## CI
 
 GitHub Actions runs the same validation on every push and PR. See `.github/workflows/validate-quest.yml`.
+
+## UI/UX Contributions
+
+If your change touches user-facing UI (any of `*.tsx`/`*.jsx`/`*.css`/`*.svelte`/SwiftUI files, or modifies a visible surface), run `/ux-review <path>` against the change before opening the PR. The rubric and principles live in `.skills/ux-context/resources/`. In a quest, the router will auto-attach these when `ui_work: true`.

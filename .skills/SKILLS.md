@@ -104,9 +104,9 @@ This directory contains specialized skills for AI agents working in this reposit
 **Location:** `.skills/celebrate/SKILL.md`
 
 ### sharpen
-**Purpose:** Adversarial interview against a plan, design, or write-up — one question at a time, each with a recommended answer attached — to surface contradictions, hidden assumptions, and unresolved tradeoffs before they ship.
+**Purpose:** Adversarial interview against a plan, design, or write-up — one question at a time, each with a recommended answer attached — to surface contradictions, hidden assumptions, and unresolved tradeoffs before they ship. Also has a `ux-defaults` mode for locking in UX choices (gray ramp, density, mobile relevance, accent) when a backend engineer can recognize good UX but can't articulate it from scratch.
 
-**Use when:** The user invokes `/sharpen` or `$sharpen`, says "sharpen this", "stress-test this", "find the holes", "challenge my plan", or wants to confirm shared understanding before locking a decision.
+**Use when:** The user invokes `/sharpen` or `$sharpen`, says "sharpen this", "stress-test this", "find the holes", "challenge my plan", or wants to confirm shared understanding before locking a decision. Auto-routes to `ux-defaults` mode when invoked during plan presentation on a `ui_work: true` quest; can also be invoked explicitly as `/sharpen ux-defaults`.
 
 **Location:** `.skills/sharpen/SKILL.md`
 

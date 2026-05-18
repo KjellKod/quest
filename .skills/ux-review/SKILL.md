@@ -110,38 +110,47 @@ Output a markdown report in this exact shape:
 - N/A items: <count>
 ```
 
-### Step 6: In a quest pipeline, write canonical findings JSON
+### Step 6: Phase-specific output routing
 
-When invoked by `plan-reviewer` or `code-reviewer` in a quest run, also produce a canonical findings JSON alongside the markdown report. Use the schema from `.skills/code-reviewer/SKILL.md`:
+**`principle_id` format:** `ux-guidebook§<section_number>` — e.g. `ux-guidebook§4.2`. No spaces, no sub-bullet numbers, no `#` suffix. This format is greppable for audit and enforcement.
+
+**Plan-review phase (plan-reviewer-a / plan-reviewer-b):**
+Embed UX findings inline in the markdown review using the standard `[N]` format with the principle citation appended. The arbiter synthesizes findings from the two markdown plan reviews; plan-reviewers do **not** write a separate findings JSON.
+
+Example markdown finding:
+```markdown
+[3] Must fix - plan.md:Acceptance Criteria - the settings page plan lists "Save" and "Cancel" buttons styled identically; no primary action is named (ux-guidebook§2 #1 — one primary action per screen).
+```
+
+**Code-review phase (code-reviewer-a / code-reviewer-b):**
+Write canonical findings JSON to the reviewer's slot path under `.quest/<id>/phase_03_review/`. Use the canonical schema from `.skills/code-reviewer/SKILL.md`. All list fields must be `list[str]`, never scalar:
 
 ```json
 {
-  "finding_id": "ux-<short-slug>",
+  "finding_id": "ux-button-no-hover-7",
   "source": "ux-review",
   "kind": "ux",
-  "severity": "critical | high | medium | low | info",
-  "confidence": "high | medium | low",
-  "path": "<file>",
-  "line": <int>,
-  "summary": "<one line>",
-  "why_it_matters": "<user-impact sentence>",
-  "evidence": "<symptom + quoted code or visible text>",
-  "action": "<smallest fix>",
+  "severity": "high",
+  "confidence": "high",
+  "path": "src/components/Settings.tsx",
+  "line": 87,
+  "summary": "Primary Save button has no hover or active state",
+  "why_it_matters": "Users cannot tell the button is interactive without clicking; keyboard users have no focus indicator.",
+  "evidence": ["<button className=\"bg-blue-600 text-white px-4 py-2\">Save</button>"],
+  "action": "Add hover:bg-blue-700 active:bg-blue-800 focus-visible:ring-2 focus-visible:ring-blue-400",
   "needs_test": false,
-  "write_scope": "<which directory the fix touches>",
+  "write_scope": ["src/components/"],
   "related_acceptance_criteria": [],
-  "principle_id": "ux-guidebook§<section>",
-  "principle_ref": ".skills/ux-context/resources/ux-guidebook.md#<anchor>"
+  "principle_id": "ux-guidebook§4.8",
+  "principle_ref": ".skills/ux-context/resources/ux-guidebook.md#48-keyboard--accessibility"
 }
 ```
 
-Map severity:
-- P0 → `critical`
-- P1 → `high`
-- P2 → `medium`
-- P3 → `low`
-
-Write to the reviewer's slot path under `.quest/<id>/phase_03_review/` (or `phase_01_plan/` for plan-review). The orchestrator merges these into the canonical review backlog.
+**Severity mapping:**
+- P0 → `critical` (block ship — signifier loss)
+- P1 → `high` (block ship — feedback loss, destructive trap)
+- P2 → `medium` (consistency violation — fix this sprint)
+- P3 → `low` (chrome bloat — `select_decision` auto-defers UX findings at `low` severity)
 
 ## Key Principles
 

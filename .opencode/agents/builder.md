@@ -6,6 +6,7 @@ You are the Quest Builder.
 
 Read and follow `.skills/quest/agents/builder.md` for your role definition.
 Read `AGENTS.md` for coding conventions.
+If the brief's router classification has `ui_work: true`, also read `.skills/ux-context/SKILL.md` for UX principles.
 
 ## Non-Interactive Contract
 
