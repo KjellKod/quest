@@ -278,7 +278,7 @@ def test_checkout_current_target_same_branch_checks_head_oid(monkeypatch: pytest
     assert payload["reason"] == "head_mismatch"
 
 
-def test_checkout_head_mismatch_apply_forces_checkout(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_checkout_head_mismatch_apply_refuses_to_overwrite(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[list[str]] = []
 
     def fake_run(args: list[str]) -> _Result:
@@ -311,9 +311,10 @@ def test_checkout_head_mismatch_apply_forces_checkout(monkeypatch: pytest.Monkey
     monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
     code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=True)
 
-    assert code == 0
-    assert payload["action"] == "checked_out"
-    assert ["gh", "pr", "checkout", "12", "--force"] in calls
+    assert code == 1
+    assert payload["action"] == "none"
+    assert payload["reason"] == "head_mismatch"
+    assert not any(args[:3] == ["gh", "pr", "checkout"] for args in calls)
 
 
 def test_checkout_refuses_worktree_branch_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -546,6 +547,33 @@ def test_collect_intake_skips_successful_legacy_status_contexts(monkeypatch: pyt
     assert check_records[0]["source_label"] == "ci/failing"
     assert check_records[0]["body_excerpt"] == "ci/failing: Check state: failure"
     assert check_records[0]["url"] == "https://ci.test/failing"
+
+
+def test_collect_intake_skips_pending_check_states(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_gh_json(args: list[str]) -> tuple[object | None, str]:
+        if args[:3] == ["gh", "pr", "view"]:
+            return {
+                "number": 12,
+                "url": "https://example.test/pull/12",
+                "headRefName": "feature",
+                "baseRefName": "main",
+                "isDraft": True,
+                "statusCheckRollup": [
+                    {"name": "queued", "status": "QUEUED"},
+                    {"name": "pending", "status": "PENDING"},
+                    {"name": "running", "status": "IN_PROGRESS"},
+                    {"name": "skipped", "conclusion": "SKIPPED"},
+                    {"name": "failed", "conclusion": "FAILURE"},
+                ],
+            }, ""
+        return [], ""
+
+    monkeypatch.setattr(pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
+
+    payload = pr_shepherd_collect_intake.collect(12, page_cap=1)
+
+    check_records = [record for record in payload["records"] if record["source_kind"] == "check_run"]
+    assert [record["source_label"] for record in check_records] == ["failed"]
 
 
 def test_collect_intake_reports_pagination_truncated_when_page_cap_reached(

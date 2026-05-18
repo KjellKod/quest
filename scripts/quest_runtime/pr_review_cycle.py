@@ -259,7 +259,8 @@ def _apply_summary_addressed_fingerprints(records: list[JsonObject]) -> list[Jso
     for record in records:
         candidate = copy.deepcopy(record)
         fingerprint = str(candidate.get("fingerprint") or "").strip() or stable_fingerprint(candidate)
-        has_thread_state = candidate.get("reply_target") not in (None, "", [], {})
+        reply_target = candidate.get("reply_target")
+        has_thread_state = isinstance(reply_target, dict) and reply_target.get("kind") == "review_comment"
         if (
             not has_thread_state
             and fingerprint

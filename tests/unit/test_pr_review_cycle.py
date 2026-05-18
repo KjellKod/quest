@@ -472,6 +472,36 @@ def test_normalize_records_summary_does_not_override_live_thread_state() -> None
     assert findings[0]["activity_state"] == "active"
 
 
+def test_normalize_records_summary_can_address_issue_comment_records() -> None:
+    fingerprint = "abcdef1234567890feed"
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "issue_comment",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": "General PR feedback.",
+                    "fingerprint": fingerprint,
+                    "reply_target": {"kind": "issue_comment", "id": 1},
+                },
+                {
+                    "source_kind": "shepherd_summary",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": "PR shepherd status\n\n| state | fingerprint | url |\n|---|---|---|\n| addressed | `abcdef1234567890` | https://x |",
+                },
+            ]
+        }
+    )
+
+    assert findings == []
+
+
 def test_classify_pr_operational_state_wraps_pass_facts() -> None:
     result = classify_pr_operational_state(
         {"outcome": "success"},

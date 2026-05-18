@@ -18,6 +18,15 @@ from quest_runtime.pr_shepherd import (
 )
 
 PER_PAGE = 100
+CHECK_FAILURE_STATES = {
+    "action_required",
+    "cancelled",
+    "error",
+    "failure",
+    "failed",
+    "startup_failure",
+    "timed_out",
+}
 
 
 def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -195,7 +204,7 @@ def _check_records(checks: object) -> list[dict[str, Any]]:
         status = str(check.get("status") or "").lower()
         context_state = str(check.get("state") or "").lower()
         state = conclusion or status or context_state or "unknown"
-        if state == "success":
+        if state not in CHECK_FAILURE_STATES:
             continue
         name = str(check.get("name") or check.get("workflowName") or check.get("context") or "check")
         record = {

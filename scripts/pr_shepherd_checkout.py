@@ -116,7 +116,15 @@ def inspect_checkout(target: str | None, *, apply: bool) -> tuple[int, dict[str,
                 payload["action"] = "would_checkout"
                 payload["reason"] = "head_mismatch"
                 return 0, payload
-            payload["reason"] = "head_mismatch"
+            payload.update(
+                {
+                    "ok": False,
+                    "action": "none",
+                    "reason": "head_mismatch",
+                    "message": "Current branch name matches the PR, but HEAD differs from the PR head.",
+                }
+            )
+            return 1, payload
         else:
             return 0, payload
     else:
@@ -133,10 +141,7 @@ def inspect_checkout(target: str | None, *, apply: bool) -> tuple[int, dict[str,
         return 1, payload
 
     checkout_target = target or str(target_pr)
-    checkout_args = ["gh", "pr", "checkout", checkout_target]
-    if payload.get("reason") == "head_mismatch":
-        checkout_args.append("--force")
-    result = _run(checkout_args)
+    result = _run(["gh", "pr", "checkout", checkout_target])
     if result.returncode != 0:
         payload.update(
             {
