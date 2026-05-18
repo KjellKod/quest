@@ -5,8 +5,9 @@ audience:
   - quest-developers
   - quest-users
 scope: Hook-level observability guardrails for Edit/Write actions.
-status: proposed
+status: in-progress
 owner: kjell
+superseded_by: ideas/2026-05-17-wrong-location-guardrails.md
 ---
 
 ## Problem

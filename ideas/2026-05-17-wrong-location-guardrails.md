@@ -5,7 +5,7 @@ audience:
   - quest-users
   - quest-maintainers
 scope: PreToolUse hook for branch/dir visibility, plus post-invocation artifact-path validation for sub-agents.
-status: proposed
+status: in-progress
 date: 2026-05-17
 supersedes:
   - ideas/2026-04-15-pretooluse-branch-dir-verification-hook.md
