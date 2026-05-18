@@ -23,12 +23,23 @@ run_test() {
 }
 
 # Helper: create a minimal valid state.json
+#
+# Sets orchestration_compat="legacy" by default so the new orchestration.json
+# validator does not fire against tests that predate it. Orchestration-specific
+# tests pass an explicit value (including "") in the 6th argument to enable
+# the orchestration check.
 create_state_json() {
   local dir="$1"
   local phase="$2"
   local plan_iter="${3:-1}"
   local fix_iter="${4:-0}"
   local quest_mode="${5:-workflow}"
+  local compat="${6-legacy}"
+  local compat_field=""
+  if [ -n "$compat" ]; then
+    compat_field=",
+  \"orchestration_compat\": \"$compat\""
+  fi
   cat > "$dir/state.json" <<EOF
 {
   "quest_id": "test-quest_2026-01-01__0000",
@@ -40,9 +51,39 @@ create_state_json() {
   "fix_iteration": $fix_iter,
   "last_role": "test",
   "created_at": "2026-01-01T00:00:00Z",
-  "updated_at": "2026-01-01T00:00:00Z"
+  "updated_at": "2026-01-01T00:00:00Z"$compat_field
 }
 EOF
+}
+
+# Helper: write a valid .quest/<id>/orchestration.json artifact.
+# Defaults to a workflow-mode default block; tests can override by passing
+# raw JSON body via arg 2.
+write_orchestration_json() {
+  local filepath="$1"
+  local body="${2:-}"
+  if [ -z "$body" ]; then
+    cat > "$filepath" <<'EOF'
+{
+  "version": 1,
+  "models": {
+    "planner": "gpt-5.5",
+    "plan-reviewer-a": "claude",
+    "plan-reviewer-b": "gpt-5.5",
+    "arbiter": "claude",
+    "builder": "gpt-5.5",
+    "code-reviewer-a": "claude",
+    "code-reviewer-b": "gpt-5.5",
+    "fixer": "gpt-5.5"
+  },
+  "source": "default",
+  "overridden_roles": [],
+  "preflight_validated_at": "2026-05-18T05:42:13Z"
+}
+EOF
+  else
+    printf '%s\n' "$body" > "$filepath"
+  fi
 }
 
 write_valid_review_findings() {
@@ -1019,7 +1060,8 @@ test_non_numeric_iteration_fields() {
   "fix_iteration": "bad",
   "last_role": "test",
   "created_at": "2026-01-01T00:00:00Z",
-  "updated_at": "2026-01-01T00:00:00Z"
+  "updated_at": "2026-01-01T00:00:00Z",
+  "orchestration_compat": "legacy"
 }
 EOF
   mkdir -p "$tmpdir/phase_01_plan"
@@ -1145,7 +1187,7 @@ test_validation_log_written() {
   local tmpdir
   tmpdir=$(mktemp -d)
   mkdir -p "$tmpdir/phase_01_plan" "$tmpdir/logs"
-  echo '{"phase":"plan_reviewed","plan_iteration":1,"fix_iteration":0}' > "$tmpdir/state.json"
+  echo '{"phase":"plan_reviewed","plan_iteration":1,"fix_iteration":0,"orchestration_compat":"legacy"}' > "$tmpdir/state.json"
   echo "plan content" > "$tmpdir/phase_01_plan/plan.md"
 
   bash "$SCRIPT" "$tmpdir" "presenting" > /dev/null 2>&1
@@ -1156,6 +1198,280 @@ test_validation_log_written() {
   fi
   rm -rf "$tmpdir"
   [ "$rc" -eq 0 ] && [ "$has_log" = true ]
+}
+
+# ---- Orchestration.json validation tests ----
+
+test_validate_rejects_missing_orchestration_json() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  # compat="" disables the legacy skip so the orchestration check fires.
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "orchestration.json not found"
+}
+
+test_validate_rejects_malformed_orchestration_json() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  echo "{ not json" > "$tmpdir/orchestration.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "orchestration.json is not valid JSON"
+}
+
+test_validate_rejects_wrong_version_orchestration() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  write_orchestration_json "$tmpdir/orchestration.json" '{
+  "version": 2,
+  "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":"claude","builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","fixer":"claude"},
+  "source": "default",
+  "overridden_roles": [],
+  "preflight_validated_at": "2026-05-18T05:42:13Z"
+}'
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "orchestration.json version must be 1"
+}
+
+test_validate_rejects_missing_models_block_orchestration() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  write_orchestration_json "$tmpdir/orchestration.json" '{
+  "version": 1,
+  "source": "default",
+  "overridden_roles": [],
+  "preflight_validated_at": "2026-05-18T05:42:13Z"
+}'
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "missing required object: models"
+}
+
+test_validate_rejects_bad_source_orchestration() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  write_orchestration_json "$tmpdir/orchestration.json" '{
+  "version": 1,
+  "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":"claude","builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","fixer":"claude"},
+  "source": "hacked",
+  "overridden_roles": [],
+  "preflight_validated_at": "2026-05-18T05:42:13Z"
+}'
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "source must be 'default' or 'overridden'"
+}
+
+test_validate_rejects_unset_active_role_model() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  # arbiter required in workflow mode but null
+  write_orchestration_json "$tmpdir/orchestration.json" '{
+  "version": 1,
+  "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":null,"builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","fixer":"claude"},
+  "source": "default",
+  "overridden_roles": [],
+  "preflight_validated_at": "2026-05-18T05:42:13Z"
+}'
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "required model unset for active mode (workflow): arbiter"
+}
+
+test_validate_accepts_null_unused_role_solo() {
+  # In solo mode, plan-reviewer-b and code-reviewer-b may be null without
+  # tripping the validator.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "solo" ""
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  write_orchestration_json "$tmpdir/orchestration.json" '{
+  "version": 1,
+  "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":null,"arbiter":"claude","builder":"claude","code-reviewer-a":"claude","code-reviewer-b":null,"fixer":"claude"},
+  "source": "default",
+  "overridden_roles": [],
+  "preflight_validated_at": "2026-05-18T05:42:13Z"
+}'
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
+}
+
+test_validate_accepts_workflow_default_block() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  write_orchestration_json "$tmpdir/orchestration.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
+}
+
+test_validate_state_compat_legacy_skips_orchestration_check() {
+  # When state.json.orchestration_compat == "legacy", the orchestration check
+  # is bypassed even with orchestration.json absent.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" "legacy"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ] && echo "$output" | grep -q "orchestration.json check skipped"
+}
+
+test_validate_state_compat_unknown_value_does_not_skip() {
+  # A typo / unknown value must NOT bypass the orchestration check.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" "true"
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "orchestration.json not found"
+}
+
+test_validate_state_compat_empty_value_does_not_skip() {
+  # An empty value must NOT bypass the orchestration check.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "orchestration.json not found"
+}
+
+test_validate_state_compat_missing_field_does_not_skip() {
+  # Field absent (not just empty) must also NOT bypass the orchestration
+  # check. Pass an unusual sentinel that the helper omits.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  # Manually write state.json without orchestration_compat at all.
+  cat > "$tmpdir/state.json" <<'EOF'
+{
+  "quest_id": "test-quest_2026-01-01__0000",
+  "slug": "test-quest",
+  "phase": "plan",
+  "status": "in_progress",
+  "quest_mode": "workflow",
+  "plan_iteration": 1,
+  "fix_iteration": 0,
+  "last_role": "test",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z"
+}
+EOF
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "orchestration.json not found"
 }
 
 # ---- Run all tests ----
@@ -1215,6 +1531,18 @@ run_test test_plan_to_plan_reviewed_accepts_canonical_raw_write_scope_sorting
 run_test test_non_numeric_allowlist_iterations
 run_test test_zero_allowlist_iterations_are_rejected
 run_test test_validation_log_written
+run_test test_validate_rejects_missing_orchestration_json
+run_test test_validate_rejects_malformed_orchestration_json
+run_test test_validate_rejects_wrong_version_orchestration
+run_test test_validate_rejects_missing_models_block_orchestration
+run_test test_validate_rejects_bad_source_orchestration
+run_test test_validate_rejects_unset_active_role_model
+run_test test_validate_accepts_null_unused_role_solo
+run_test test_validate_accepts_workflow_default_block
+run_test test_validate_state_compat_legacy_skips_orchestration_check
+run_test test_validate_state_compat_unknown_value_does_not_skip
+run_test test_validate_state_compat_empty_value_does_not_skip
+run_test test_validate_state_compat_missing_field_does_not_skip
 
 echo ""
 echo "=== Results ==="

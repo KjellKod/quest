@@ -226,3 +226,7 @@ KILL CRITERIA
 - Chooser raises false-positive validation errors for valid model names.
 - workflow.md dispatch still reads .ai/allowlist.json for any role."
 ```
+
+## Implementation status
+
+**Implemented (2026-05-18, commit `<this PR>`):** Quest `orchestration-override_2026-05-18__0540` shipped this proposal as Option B with the "always-prompt" chooser policy. The per-quest source of truth lives at `.quest/<id>/orchestration.json`; see `.skills/quest/SKILL.md` Step 3 sub-step 8.5 (chooser + writer) and Step 1 sub-step 1a (resume migration), `.skills/quest/delegation/workflow.md` for the dispatch-site swap, `scripts/quest_validate-quest-state.sh` for the new `validate_orchestration_json` check, and `scripts/quest_runtime/orchestration.py` plus `tests/test-quest-orchestration.sh` for the testable contract that mirrors the SKILL.md prose. Phase 2 follow-ups (presets, per-user memory, celebration "cast roster") remain open.

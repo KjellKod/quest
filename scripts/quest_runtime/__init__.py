@@ -1,5 +1,20 @@
 """Quest runtime helpers for orchestration scripts."""
 
+from .orchestration import (
+    CANONICAL_ROLES,
+    ORCHESTRATION_VERSION,
+    SOLO_UNUSED_ROLES,
+    Override,
+    OverrideParseError,
+    apply_overrides,
+    build_default_models,
+    is_model_available,
+    load_codex_available_from_cache,
+    migrate_from_snapshot,
+    parse_override_line,
+    write_default_from_allowlist,
+    write_orchestration_json,
+)
 from .artifacts import (
     ROLE_ARTIFACTS,
     any_artifact_missing_or_empty,
@@ -23,21 +38,34 @@ from .quest_ids import (
 )
 
 __all__ = [
+    "CANONICAL_ROLES",
     "DATE_FIRST",
     "DEFAULT_QUEST_ID_FORMAT",
+    "ORCHESTRATION_VERSION",
+    "Override",
+    "OverrideParseError",
     "SLUG_FIRST",
+    "SOLO_UNUSED_ROLES",
     "ROLE_ARTIFACTS",
     "VALID_QUEST_ID_FORMATS",
     "ParsedQuestId",
     "any_artifact_missing_or_empty",
+    "apply_overrides",
+    "build_default_models",
     "check_artifact_paths",
     "default_quest_dir",
     "expected_artifacts_for_role",
     "format_quest_id",
+    "is_model_available",
     "is_quest_id",
     "is_workspace_local",
+    "load_codex_available_from_cache",
     "load_quest_id_format",
+    "migrate_from_snapshot",
     "normalize_quest_id_format",
+    "parse_override_line",
     "parse_quest_id",
     "prepare_artifact_files",
+    "write_default_from_allowlist",
+    "write_orchestration_json",
 ]
