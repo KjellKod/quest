@@ -88,7 +88,7 @@ Invoke this when the user wants to lock in UX defaults for a UI project — typi
 Principle citations: ux-guidebook§4.2, §4.3, §4.7, §5.2, §5.3.
 ```
 
-If the user only wants to adjust some of the five, walk only those branches and emit a partial block. Skip questions where the answer is already visible in the prompt or plan.
+If the user only wants to adjust some of the six, walk only those branches and emit a partial block. Skip questions where the answer is already visible in the prompt or plan.
 
 ## Style
 

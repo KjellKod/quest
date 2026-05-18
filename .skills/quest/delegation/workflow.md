@@ -15,6 +15,8 @@ Quest is opinionated: default to **thorough**, but be **progressive** and avoid 
 - **Timebox structure discovery:** Avoid full repo inventories. Do a quick top-level scan + targeted `rg` searches instead of browsing directory-by-directory.
 - **If the user wants speed:** Offer to proceed with minimal questions + explicit assumptions (fast intake).
 
+<!-- Heading text below drives four anchor references in this file (#ui-work-propagation-cross-cutting--applies-to-every-phase). If you rename, update the cross-references too. -->
+
 ### UI Work Propagation (cross-cutting — applies to every phase)
 
 When the brief's router classification has `ui_work: true`, the dispatched agent auto-loads `.skills/ux-context/SKILL.md` (planner / builder / fixer) or `.skills/ux-review/SKILL.md` (plan-reviewer / code-reviewer). **The orchestrator does not inject UX skills; the agent role files enforce this directly from the brief.** The orchestrator's only job is to preserve the full router JSON in `.quest/<id>/quest_brief.md` so each agent can read it.

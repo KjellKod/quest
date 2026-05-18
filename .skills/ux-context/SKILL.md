@@ -50,7 +50,7 @@ The router biases toward `ui_work: true`. Before emitting `## UX Defaults`, veri
 
 This prevents a backend task ("dump UI config to JSON") from triggering a defaults section it doesn't need.
 
-### Required fields (five, plus state plan)
+### Required fields (six, plus state plan)
 
 Pick the inference row from `resources/ux-guidebook.md §4.9` that matches the prompt's strongest signal. When in doubt, default to the last row (`slate / comfortable / content-forward / required` + accent `#2563eb`).
 
@@ -59,14 +59,17 @@ Pick the inference row from `resources/ux-guidebook.md §4.9` that matches the p
 3. **Content-vs-chrome ratio:** `content-forward` or `chrome-dense`. One-line rationale.
 4. **Mobile relevance:** `required / optional / no`. If `required`, name the desktop ↔ mobile divergence approach (independent toolbars / responsive shrink / drawer).
 5. **Brand accent:** hex value, defaulting to `#2563eb` (Tailwind `blue-600`) if not specified.
+6. **Destructive actions:** `none` if the prompt names no deletion / revocation / billing / data-loss surfaces; otherwise list each one with the confirmation + undo plan. Default to `none — none identified in prompt`; sharpen Q6 catches anything the planner missed at refinement time.
 
 Plus a **one-sentence plan for empty, loading, and error states** — three sentences, total. Concrete copy, not "TBD."
 
+The plan-presentation menu in `workflow.md` discloses to the user that `/sharpen ux-defaults` is available on UX quests (the menu wording branches on the presence of this section in the plan). **Do not append a `/sharpen ux-defaults` pointer at the end of the emitted block** — the menu carries that disclosure, and duplicating it inside the plan body buries it where the executive summary doesn't reach.
+
 ### Opt-out for UX-savvy prompts
 
-If the user prompt or quest brief already **explicitly names ≥3 of the five defaults** (ramp, density, ratio, mobile, accent), emit a shortened block listing only the unspecified fields, plus a one-line acknowledgement of the ones the user did specify. Skip the closing sharpen pointer — the user signaled they don't need it.
+If the user prompt or quest brief already **explicitly names ≥3 of the six defaults** (ramp, density, ratio, mobile, accent, destructive), emit a shortened block listing only the unspecified fields, plus a one-line acknowledgement of the ones the user did specify.
 
-**"Explicitly named" means a token that directly maps to one of the five field values:** `slate`/`stone`/`neutral`/`zinc`/`gray` for ramp; `comfortable`/`compact`/`dense` (and synonyms `tight`/`spacious`) for density; `content-forward`/`chrome-dense` for ratio; `mobile`/`mobile-first`/`desktop-only`/`responsive` for mobile relevance; a literal hex (`#0070f3`) or named brand color for accent. **Brand references like "Vercel-like" or "Linear-style" do NOT count as named defaults** — even when they imply a default, the protocol uses literal naming for trigger consistency. If the user wants the shortened block, they must say it.
+**"Explicitly named" means a token that directly maps to one of the six field values:** `slate`/`stone`/`neutral`/`zinc`/`gray` for ramp; `comfortable`/`compact`/`dense` (and synonyms `tight`/`spacious`) for density; `content-forward`/`chrome-dense` for ratio; `mobile`/`mobile-first`/`desktop-only`/`responsive` for mobile relevance; a literal hex (`#0070f3`) or named brand color for accent; an explicit mention of deletion/revocation/billing/data-loss surfaces for destructive. **Brand references like "Vercel-like" or "Linear-style" do NOT count as named defaults** — even when they imply a default, the protocol uses literal naming for trigger consistency. If the user wants the shortened block, they must say it.
 
 Example shortened block:
 
@@ -77,16 +80,9 @@ User specified: gray ramp `slate`, density `compact`, accent `#0f172a` text. Inf
 
 - Ratio: chrome-dense — implied by Vercel-like reference.
 - Mobile: optional — internal dashboard.
+- Destructive actions: none — none identified in prompt.
 - Empty / loading / error: skeleton rows, inline form-error preservation, plain-language messages.
 ```
-
-### Closing pointer (when emitting the full block)
-
-End the `## UX Defaults` section with one line so the user knows the interview path exists:
-
-> *To refine these, run `/sharpen ux-defaults` at the plan-approval gate. It walks each decision with a recommended answer attached — useful when you can see good UX but can't articulate it.*
-
-This line is omitted when the opt-out short form is used.
 
 ---
 
@@ -114,7 +110,7 @@ For *reviewing* existing UI, see `.skills/ux-review/SKILL.md`. This skill is for
 ## Related Skills
 
 - `.skills/ux-review/SKILL.md` — invokes the stress test against a target
-- `.skills/sharpen/SKILL.md` — `ux-defaults` mode walks the same five fields one at a time as a refinement interview
+- `.skills/sharpen/SKILL.md` — `ux-defaults` mode walks the same six fields one at a time as a refinement interview
 - `.skills/plan-maker/SKILL.md` — the planner consumes both during plan creation
 - `.skills/implementer/SKILL.md` — the builder consumes ux-context during implementation
 - `.skills/code-reviewer/SKILL.md` — code reviewers cross-reference ux-review findings
