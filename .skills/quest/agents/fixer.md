@@ -24,6 +24,7 @@ When running on Codex, this role is non-interactive:
   - `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
 - Changed files from `git diff --name-only` when VCS is available
 - `.quest/<id>/phase_02_implementation/builder_feedback_discussion.md` for touched files/tests when VCS is unavailable
+- **If the quest brief router classification has `ui_work: true` and findings include UX-tagged items:** `.skills/ux-context/SKILL.md` and its resources. Cite the principle by section ID (e.g. `ux-guidebook §4.7 #1`) in the commit message and fix discussion when resolving a UX finding.
 
 ## Responsibilities
 1. Read the code review notes
@@ -76,3 +77,4 @@ The fixer always hands back to `code_review` for re-review. The orchestrator enf
 
 ## Skills Used
 - `.skills/implementer/SKILL.md` (fix mode)
+- `.skills/ux-context/SKILL.md` (when quest brief has `ui_work: true` and findings include UX-tagged items)

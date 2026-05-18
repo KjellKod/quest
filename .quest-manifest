@@ -35,6 +35,7 @@
 .claude/skills/quest/SKILL.md
 .claude/skills/pre-commit-review/SKILL.md
 .claude/skills/sharpen/SKILL.md
+.claude/skills/ux-review/SKILL.md
 .claude/AGENTS.md
 .codex/AGENTS.md
 .opencode/agents/arbiter.md
@@ -55,6 +56,7 @@
 .agents/skills/quest/SKILL.md
 .agents/skills/pre-commit-review/SKILL.md
 .agents/skills/sharpen/SKILL.md
+.agents/skills/ux-review/SKILL.md
 .skills/BOOTSTRAP.md
 .skills/README.md
 .skills/SKILLS.md
@@ -70,6 +72,10 @@
 .skills/review-anti-patterns.md
 .skills/celebrate/SKILL.md
 .skills/sharpen/SKILL.md
+.skills/ux-context/SKILL.md
+.skills/ux-context/resources/ux-guidebook.md
+.skills/ux-context/resources/ux-stress-test.md
+.skills/ux-review/SKILL.md
 .skills/gpt/SKILL.md
 .skills/quest/SKILL.md
 .skills/quest/delegation/questioner.md

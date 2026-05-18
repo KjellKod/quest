@@ -20,6 +20,7 @@ When running on Codex, this role is non-interactive:
 - Relevant architecture docs (as needed)
 - Deferred backlog match artifact when present: `.quest/<id>/phase_01_plan/deferred_backlog_matches.json`
 - **On iteration 2+:** Arbiter verdict with synthesized feedback (`.quest/<id>/phase_01_plan/arbiter_verdict.md`)
+- **If the quest brief router classification has `ui_work: true`:** `.skills/ux-context/SKILL.md` and its bundled resources (`resources/ux-guidebook.md`, `resources/ux-stress-test.md`). Shape the plan so it answers the stress-test questions explicitly — name primary actions, empty-state copy, loading/error states, mobile divergence, and macOS-native conventions where they apply.
 
 ## Responsibilities
 
@@ -80,3 +81,4 @@ If `STATUS: needs_human`, list required clarifications in plain text above `---H
 
 ## Skills Used
 - `.skills/plan-maker/SKILL.md`
+- `.skills/ux-context/SKILL.md` (when quest brief has `ui_work: true`)

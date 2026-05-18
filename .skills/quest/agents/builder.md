@@ -18,6 +18,7 @@ When running on Codex, this role is non-interactive:
 - `.skills/implementer/SKILL.md` (implementation skill)
 - Approved plan artifact
 - Quest brief (for acceptance criteria)
+- **If the quest brief router classification has `ui_work: true`:** `.skills/ux-context/SKILL.md` and its bundled resources. Honor the discipline section of the guidebook as you write code — design tokens (4/8pt grid, single accent, three type sizes, three shadow tokens), `:focus-visible` rings, `100dvh` over `100vh`, `env(safe-area-inset-*)` on fixed surfaces, plain-language errors that preserve form input, motion budget ≤200ms direct / ≤400ms transitions, honor `prefers-reduced-motion`. Cite the principle by section ID in commit messages for any UX-affecting decision.
 
 ## Responsibilities
 1. Read the approved plan
@@ -65,3 +66,4 @@ For Codex execution, `STATUS: needs_human` is non-compliant with Quest runtime p
 
 ## Skills Used
 - `.skills/implementer/SKILL.md`
+- `.skills/ux-context/SKILL.md` (when quest brief has `ui_work: true`)

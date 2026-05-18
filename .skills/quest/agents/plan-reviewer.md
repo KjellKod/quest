@@ -25,6 +25,9 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 - `.skills/review-anti-patterns.md` (shared review anti-patterns)
 - Plan artifact from Planner Agent
 - Quest brief (for acceptance criteria reference)
+- **If the quest brief router classification has `ui_work: true`:**
+  - `.skills/ux-review/SKILL.md` — run the UX stress test against the plan as part of the review pass. Emit UX findings (P0–P3) into the canonical findings JSON alongside other findings, tagged with `kind: "ux"` and `principle_id`.
+  - `.skills/ux-context/SKILL.md` — for principle references when interpreting findings.
 
 ## Responsibilities (both instances)
 1. Read the plan artifact
@@ -88,3 +91,4 @@ For Reviewer A, `STATUS: needs_human` remains valid because Claude runtime may s
 
 ## Skills Used
 - `.skills/plan-reviewer/SKILL.md`
+- `.skills/ux-review/SKILL.md` (when quest brief has `ui_work: true`)
