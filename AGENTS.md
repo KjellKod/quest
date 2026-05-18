@@ -79,6 +79,17 @@ Customize `.ai/allowlist.json` for your project's:
 
 The `.ai/allowlist.json` `models.*` block is the **default** source for per-role model assignments. At each quest startup, the chooser in `.skills/quest/SKILL.md` Step 3 sub-step 8.5 writes `.quest/<id>/orchestration.json` from that block, and every role dispatch in `.skills/quest/delegation/workflow.md` reads `models.<role>` from the per-quest file rather than the repo allowlist.
 
+## Wrong-location guardrails
+
+Quest ships two additive guardrails to reduce wrong-branch / wrong-directory edits:
+
+- **PreToolUse branch/dir hook** — `.claude/hooks/branch-dir-context.sh` prints `[quest-context] branch=<name|no-git> dir=<path>` before every Edit/Write tool call. Observational only; never blocks the tool call.
+- **Post-invocation artifact-path validator** — `scripts/quest_artifact_postflight.py` checks that sub-agent handoff artifacts landed inside the role's expected path boundary. Mismatches are appended to `.quest/<id>/logs/path_compliance.log` and the validator exits non-zero; the orchestrator marks the handoff `accepted_with_warnings` and surfaces the mismatch records.
+
+Both guardrails are on by default and disabled by editing the hook script / validator directly. There is no `allowlist.json` key or env-var toggle.
+
+**Installer caveat for `.claude/settings.json`.** When upgrading an existing Quest install, the installer writes `.claude/settings.json.quest_updated` and the user must manually merge the new `PreToolUse` entry into their existing array. The repo-local `.claude/settings.json` is under `[merge-carefully]` in `.quest-manifest`; the installer does not JSON-aware-splice array entries.
+
 ## Where to Learn More
 
 | Topic | Location |

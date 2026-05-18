@@ -185,6 +185,21 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
    - **Other failures** (missing/unparsable handoff, non-compliant output, `blocked`): Re-run the same Codex role once with a strict reminder. If the second attempt still fails, invoke the equivalent Claude `Task` fallback for that step.
    - Only after this fallback chain, if the final attempt still has no parseable `handoff.json`, parse text `---HANDOFF---` as last-resort compatibility fallback.
 
+7. **Postflight artifact-path validation (sub-agent roles).** After the orchestrator has read the handoff and processed routing fields, and before the agent response context is discarded for sub-agent roles, the orchestrator invokes `quest_artifact_postflight.py` against the just-accepted handoff. On exit code `0`, continue normally. On non-zero exit, mark the handoff `accepted_with_warnings`, surface the structured mismatch records from `.quest/<id>/logs/path_compliance.log` to the user, and continue (advisory in this quest; auto-halting is a follow-up). This step applies only to sub-agent roles whose `expected_artifacts_for_role(...)` returns a non-empty path set.
+
+   Example orchestrator invocation:
+
+   ```
+   python3 scripts/quest_artifact_postflight.py \
+       --quest-dir .quest/<id> \
+       --phase <phase> \
+       --role <agent> \
+       --handoff .quest/<id>/<phase>/handoff.json \
+       --quest-mode <state.json.quest_mode>
+   ```
+
+   Placement note: this step sits at the END of the Handoff File Polling pattern (after the three-tier fallback ladder) so the existing numbered cross-references to the Artifact preparation step and the fallback ladder step elsewhere in this document remain stable. The runtime position is anchored by agent semantics, not by adjacent step numbers.
+
 **Expected handoff.json locations:**
 
 | Phase | Agent | handoff.json path |

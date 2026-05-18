@@ -26,6 +26,7 @@
 .claude/agents/fixer.md
 .claude/agents/plan-reviewer.md
 .claude/agents/planner.md
+.claude/hooks/branch-dir-context.sh
 .claude/hooks/enforce-allowlist.sh
 .claude/hooks/session-start.sh
 .claude/skills/git-commit-assistant/SKILL.md
@@ -91,6 +92,7 @@ scripts/quest_claude_bridge.py
 scripts/quest_claude_probe.py
 scripts/quest_claude_runner.py
 scripts/quest_allowlist_matcher.py
+scripts/quest_artifact_postflight.py
 scripts/quest_review_intelligence.py
 scripts/quest_select_tests.py
 scripts/quest_startup_branch.py

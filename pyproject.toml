@@ -13,3 +13,6 @@ where = ["scripts"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "perf: opt-in performance/latency tests (skipped by default; run with `-m perf`)",
+]

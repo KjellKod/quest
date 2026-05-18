@@ -1,7 +1,9 @@
 {
   "sandbox": {
     "network": {
-      "allowedDomains": ["api.openai.com"]
+      "allowedDomains": [
+        "api.openai.com"
+      ]
     }
   },
   "hooks": {
@@ -11,6 +13,17 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/branch-dir-context.sh"
           }
         ]
       }

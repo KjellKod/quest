@@ -66,14 +66,11 @@ Current roadmap:
 ### Execution Discipline and Observability
 | File | Status | Purpose |
 |---|---|---|
-| `2026-05-17-wrong-location-guardrails.md` | in-progress | Consolidated brief for PreToolUse branch/dir hook + sub-agent artifact-path validator. Supersedes the two 2026-04-15 sub-ideas below. |
 | `2026-04-15-claude-insights-priorities.md` | proposed | Canonical Tier/Skip index mapping evaluation suggestions to sanity-checked Quest proposals. |
-| `2026-04-15-pretooluse-branch-dir-verification-hook.md` | in-progress | Safe branch/directory verification hook strategy with non-git and existing-hook compatibility. Superseded by `2026-05-17-wrong-location-guardrails.md`. |
 | `2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md` | proposed | CLAUDE.md context-confirmation rule to reduce wrong-repo/branch edits. |
 | `2026-04-15-claude-rule-never-dismiss-acceptance-criteria.md` | proposed | Guardrail against rejecting explicit acceptance criteria as optional. |
 | `2026-04-15-pr-create-checklist-via-pr-assistant.md` | proposed | PR checklist workflow via existing `pr-assistant` to avoid duplicate skill drift. |
 | `2026-04-15-precommit-status-diffstat-discipline.md` | proposed | Pre-commit staging verification discipline with optional bounded hook. |
-| `2026-04-15-subagent-path-constraints-hardening.md` | in-progress | Hardening plan for sub-agent path constraints and output-path validation. Superseded by `2026-05-17-wrong-location-guardrails.md`. |
 | `2026-04-15-tool-failure-two-attempt-cap.md` | proposed | Two-attempt cap rule for failing tool investigations to limit rabbit-holing. |
 | `2026-04-29-test-driven-bug-fix-loops.md` | proposed | Safer bug-fix mode: failing test first, bounded distinct strategies, preserved attempt evidence, and no destructive rollback. |
 | `2026-04-15-autonomous-pr-shepherd-headless.md` | idea | Long-horizon autonomous PR shepherd design with strict safety boundaries. |
@@ -91,6 +88,7 @@ Current roadmap:
 | Status | Idea | Note |
 |---|---|---|
 | done | ~~2026-05-14-pr-shepherd-operational-intake~~ | Implemented PR targeting, idempotent reply markers, compact PR intake scripts, failed-log records, scope annotation, and operational stop states. Archived at [`ideas/archive/2026-05-14-pr-shepherd-operational-intake.md`](archive/2026-05-14-pr-shepherd-operational-intake.md); see [journal](../docs/quest-journal/pr-shepherd-operational-intake_2026-05-15.md). |
+| done | ~~2026-05-17-wrong-location-guardrails~~ | Wrong-location guardrails shipped: `PreToolUse` branch/dir hook plus sub-agent artifact-path validator (`scripts/quest_artifact_postflight.py`). Both halves of the 2026-04-15 sub-ideas (pretooluse hook + subagent path constraints) are absorbed and archived. See [journal](../docs/quest-journal/wrong-location-guardrails_2026-05-18.md). |
 | done | ~~2026-04-13-review-intelligence-canonical~~ | Phases 1-3 shipped: canonical findings/backlog, targeted validation/PR batching, and bounded Deep CI whole-file review. Archived at [`ideas/archive/2026-04-13-review-intelligence-canonical.md`](archive/2026-04-13-review-intelligence-canonical.md). |
 | done | ~~deep-ci-review-context-manifest-plan~~ | Implemented as Review Intelligence Phase 3.2 in PR #101. Archived at [`ideas/archive/deep-ci-review-context-manifest-plan.md`](archive/deep-ci-review-context-manifest-plan.md). |
 | done | ~~deep-ci-chunked-context-plan~~ | Implemented as Review Intelligence Phase 3.1 in PR #98. Archived at [`ideas/archive/deep-ci-chunked-context-plan.md`](archive/deep-ci-chunked-context-plan.md). |
