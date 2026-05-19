@@ -18,11 +18,8 @@ set -u
 
 branch="no-git"
 raw_dir="$(pwd 2>/dev/null || printf '%s' '?')"
-# Defend the single-line stdout contract: collapse embedded LF/CR (legal in
-# POSIX path components, fatal for a one-line emitter) into spaces using
-# bash parameter expansion. No external commands — when ``git`` is absent
-# because PATH is restricted, ``tr`` or other coreutils can be too; the
-# hook must remain self-contained on the shell builtin path.
+# Collapse embedded LF/CR (legal in POSIX paths) into spaces to keep the
+# stdout contract single-line.
 dir="${raw_dir//$'\n'/ }"
 dir="${dir//$'\r'/ }"
 
