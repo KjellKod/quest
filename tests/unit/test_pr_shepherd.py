@@ -701,6 +701,21 @@ def test_collect_intake_trusts_bot_authored_summary_markers() -> None:
     assert record["author_kind"] == "bot"
 
 
+def test_collect_intake_skips_approved_review_bodies() -> None:
+    record = pr_shepherd_collect_intake._review_body_record(
+        {
+            "id": 300,
+            "body": "LGTM",
+            "state": "APPROVED",
+            "user": {"login": "alice", "type": "User"},
+            "created_at": "2026-01-01T00:00:00Z",
+            "html_url": "https://example.test/review300",
+        }
+    )
+
+    assert record is None
+
+
 def test_collect_intake_preserves_full_summary_comment_body() -> None:
     body = "PR shepherd status\n\n" + ("| addressed | abc | https://example.test |\n" * 80) + SUMMARY_MARKER
     record = pr_shepherd_collect_intake._issue_comment_record(
@@ -946,8 +961,14 @@ def test_post_reply_summary_live_updates_existing_marker_comment(
 
     def fake_run(args: list[str], *, input_text: str | None = None) -> _Result:
         calls.append((args, input_text))
+        if args == ["gh", "api", "user"]:
+            return _Result(stdout=json.dumps({"login": "KjellKod"}))
         if args[:2] == ["gh", "api"] and args[2].endswith("/issues/12/comments"):
-            return _Result(stdout=json.dumps([{"id": 200, "body": SUMMARY_MARKER}]))
+            return _Result(
+                stdout=json.dumps(
+                    [{"id": 200, "body": SUMMARY_MARKER, "user": {"login": "KjellKod", "type": "User"}}]
+                )
+            )
         return _Result(stdout="{}")
 
     monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
@@ -972,11 +993,17 @@ def test_post_reply_summary_scans_bounded_comment_pages(
 
     def fake_run(args: list[str], *, input_text: str | None = None) -> _Result:
         calls.append((args, input_text))
+        if args == ["gh", "api", "user"]:
+            return _Result(stdout=json.dumps({"login": "KjellKod"}))
         if args[:2] == ["gh", "api"] and args[2].endswith("/issues/12/comments"):
             page_arg = next(item for item in args if item.startswith("page="))
             if page_arg == "page=1":
                 return _Result(stdout=json.dumps([{"id": index, "body": "old"} for index in range(100)]))
-            return _Result(stdout=json.dumps([{"id": 200, "body": SUMMARY_MARKER}]))
+            return _Result(
+                stdout=json.dumps(
+                    [{"id": 200, "body": SUMMARY_MARKER, "user": {"login": "KjellKod", "type": "User"}}]
+                )
+            )
         return _Result(stdout="{}")
 
     monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
@@ -1012,6 +1039,35 @@ def test_post_reply_summary_allows_exactly_full_page_cap(
     )
 
     assert pr_shepherd_post_reply.main() == 0
+    assert json.loads(capsys.readouterr().out)["action"] == "create_summary"
+
+
+def test_post_reply_summary_ignores_untrusted_human_marker_comment(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls: list[tuple[list[str], str | None]] = []
+
+    def fake_run(args: list[str], *, input_text: str | None = None) -> _Result:
+        calls.append((args, input_text))
+        if args == ["gh", "api", "user"]:
+            return _Result(stdout=json.dumps({"login": "KjellKod"}))
+        if args[:2] == ["gh", "api"] and args[2].endswith("/issues/12/comments"):
+            return _Result(
+                stdout=json.dumps(
+                    [{"id": 200, "body": SUMMARY_MARKER, "user": {"login": "alice", "type": "User"}}]
+                )
+            )
+        return _Result(stdout="{}")
+
+    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["pr_shepherd_post_reply.py", "--summary", "--pr", "12", "--body", "status"],
+    )
+
+    assert pr_shepherd_post_reply.main() == 0
+    assert calls[-1] == (["gh", "pr", "comment", "12", "--body", f"status\n\n{SUMMARY_MARKER}\n"], None)
     assert json.loads(capsys.readouterr().out)["action"] == "create_summary"
 
 

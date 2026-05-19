@@ -190,6 +190,9 @@ def _review_body_record(review: dict[str, Any], *, trusted_marker_author: str = 
     body = str(review.get("body") or "").strip()
     if not body:
         return None
+    state = str(review.get("state") or "").strip().upper()
+    if state in {"APPROVED", "DISMISSED"}:
+        return None
     author, author_kind = _author(review)
     record = {
         "source_kind": "review_body_item",

@@ -46,6 +46,27 @@ def _gh_json(args: list[str]) -> tuple[Any | None, str]:
         return None, str(exc)
 
 
+def _author(comment: dict[str, Any]) -> tuple[str, str]:
+    user = comment.get("user")
+    if not isinstance(user, dict):
+        return "", "unknown"
+    login = str(user.get("login") or "")
+    user_type = str(user.get("type") or "").lower()
+    return login, "bot" if user_type == "bot" or login.endswith("[bot]") else "human"
+
+
+def _current_login() -> str:
+    payload, _error = _gh_json(["gh", "api", "user"])
+    if isinstance(payload, dict):
+        return str(payload.get("login") or "")
+    return ""
+
+
+def _trusted_summary_author(comment: dict[str, Any], trusted_marker_author: str) -> bool:
+    author, author_kind = _author(comment)
+    return author_kind != "human" or bool(trusted_marker_author and author == trusted_marker_author)
+
+
 def _collect_issue_comments(pr: int, *, page_cap: int) -> tuple[list[dict[str, Any]], str]:
     comments: list[dict[str, Any]] = []
     endpoint = f"repos/{{owner}}/{{repo}}/issues/{pr}/comments"
@@ -66,9 +87,12 @@ def _collect_issue_comments(pr: int, *, page_cap: int) -> tuple[list[dict[str, A
     return comments, ""
 
 
-def _find_summary_comment(comments: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _find_summary_comment(comments: list[dict[str, Any]], *, trusted_marker_author: str = "") -> dict[str, Any] | None:
     for comment in comments:
-        if has_marker(str(comment.get("body") or ""), SUMMARY_MARKER):
+        if has_marker(str(comment.get("body") or ""), SUMMARY_MARKER) and _trusted_summary_author(
+            comment,
+            trusted_marker_author,
+        ):
             return comment
     return None
 
@@ -114,7 +138,8 @@ def main() -> int:
             comments = []
         if not isinstance(comments, list):
             raise ValueError("--comments-json must contain a JSON list")
-        existing = _find_summary_comment(comments)
+        trusted_marker_author = _current_login() if not args.dry_run else ""
+        existing = _find_summary_comment(comments, trusted_marker_author=trusted_marker_author)
         action = "update_summary" if existing else "create_summary"
         payload = {
             "ok": True,
