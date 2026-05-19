@@ -24,6 +24,7 @@ CHECK_FAILURE_STATES = {
     "error",
     "failure",
     "failed",
+    "stale",
     "startup_failure",
     "timed_out",
 }
@@ -98,14 +99,21 @@ def _author(comment: dict[str, Any]) -> tuple[str, str]:
     return login, "bot" if user_type == "bot" or login.endswith("[bot]") else "human"
 
 
-def _activity(comment: dict[str, Any]) -> dict[str, Any]:
+def _trusted_marker_author(author: str, author_kind: str, trusted_marker_author: str) -> bool:
+    return author_kind != "human" or bool(trusted_marker_author and author == trusted_marker_author)
+
+
+def _activity(comment: dict[str, Any], *, trusted_marker_author: str = "") -> dict[str, Any]:
     author, author_kind = _author(comment)
+    body = str(comment.get("body") or "")
+    marker_trusted = _trusted_marker_author(author, author_kind, trusted_marker_author)
     return {
-        "body": str(comment.get("body") or ""),
+        "body": body,
         "created_at": comment.get("created_at") or "",
         "updated_at": comment.get("updated_at") or "",
         "author": author,
         "author_kind": author_kind,
+        "marker_trusted": marker_trusted,
     }
 
 
@@ -120,7 +128,7 @@ def _excerpt(text: object, limit: int = 600) -> str:
     return " ".join(str(text or "").split())[:limit]
 
 
-def _review_thread_records(comments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _review_thread_records(comments: list[dict[str, Any]], *, trusted_marker_author: str = "") -> list[dict[str, Any]]:
     grouped: dict[int, list[dict[str, Any]]] = {}
     roots: dict[int, dict[str, Any]] = {}
     for comment in comments:
@@ -139,7 +147,9 @@ def _review_thread_records(comments: list[dict[str, Any]]) -> list[dict[str, Any
         record = {
             "source_kind": "review_thread",
             "source_label": "github-review-thread",
-            "activity_state": activity_state([_activity(item) for item in ordered]),
+            "activity_state": activity_state(
+                [_activity(item, trusted_marker_author=trusted_marker_author) for item in ordered]
+            ),
             "author": author,
             "author_kind": author_kind,
             "path": root.get("path") or "",
@@ -153,14 +163,15 @@ def _review_thread_records(comments: list[dict[str, Any]]) -> list[dict[str, Any
     return records
 
 
-def _issue_comment_record(comment: dict[str, Any]) -> dict[str, Any]:
+def _issue_comment_record(comment: dict[str, Any], *, trusted_marker_author: str = "") -> dict[str, Any]:
     author, author_kind = _author(comment)
     body = str(comment.get("body") or "")
-    source_kind = "shepherd_summary" if author_kind != "human" and has_marker(body, SUMMARY_MARKER) else "issue_comment"
+    marker_trusted = _trusted_marker_author(author, author_kind, trusted_marker_author)
+    source_kind = "shepherd_summary" if marker_trusted and has_marker(body, SUMMARY_MARKER) else "issue_comment"
     record = {
         "source_kind": source_kind,
         "source_label": "github-pr-comment",
-        "activity_state": activity_state([_activity(comment)]),
+        "activity_state": activity_state([_activity(comment, trusted_marker_author=trusted_marker_author)]),
         "author": author,
         "author_kind": author_kind,
         "path": "pr/comment",
@@ -169,11 +180,13 @@ def _issue_comment_record(comment: dict[str, Any]) -> dict[str, Any]:
         "url": comment.get("html_url") or "",
         "reply_target": {"kind": "issue_comment", "id": comment.get("id")},
     }
+    if source_kind == "shepherd_summary":
+        record["body"] = body
     record["fingerprint"] = stable_fingerprint(record)
     return record
 
 
-def _review_body_record(review: dict[str, Any]) -> dict[str, Any] | None:
+def _review_body_record(review: dict[str, Any], *, trusted_marker_author: str = "") -> dict[str, Any] | None:
     body = str(review.get("body") or "").strip()
     if not body:
         return None
@@ -181,7 +194,7 @@ def _review_body_record(review: dict[str, Any]) -> dict[str, Any] | None:
     record = {
         "source_kind": "review_body_item",
         "source_label": "github-review-body",
-        "activity_state": activity_state([_activity(review)]),
+        "activity_state": activity_state([_activity(review, trusted_marker_author=trusted_marker_author)]),
         "author": author,
         "author_kind": author_kind,
         "path": "pr/review",
@@ -293,7 +306,20 @@ def _load_failed_log_summary(path: str) -> dict[str, Any]:
     return payload
 
 
-def collect(pr: int, *, page_cap: int, failed_log_summaries: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def _current_login() -> str:
+    payload, _error = _gh_json(["gh", "api", "user"])
+    if isinstance(payload, dict):
+        return str(payload.get("login") or "")
+    return ""
+
+
+def collect(
+    pr: int,
+    *,
+    page_cap: int,
+    failed_log_summaries: list[dict[str, Any]] | None = None,
+    trusted_marker_author: str = "",
+) -> dict[str, Any]:
     pr_payload, pr_error = _gh_json(["gh", "pr", "view", str(pr), "--json", "number,url,headRefName,baseRefName,isDraft,statusCheckRollup"])
     payload: dict[str, Any] = {
         "pr": pr_payload or {"number": pr},
@@ -320,10 +346,14 @@ def collect(pr: int, *, page_cap: int, failed_log_summaries: list[dict[str, Any]
         page_cap=page_cap,
     )
 
-    payload["records"].extend(_review_thread_records(review_comments))
-    payload["records"].extend(_issue_comment_record(comment) for comment in issue_comments)
+    payload["records"].extend(_review_thread_records(review_comments, trusted_marker_author=trusted_marker_author))
     payload["records"].extend(
-        record for record in (_review_body_record(review) for review in reviews) if record is not None
+        _issue_comment_record(comment, trusted_marker_author=trusted_marker_author) for comment in issue_comments
+    )
+    payload["records"].extend(
+        record
+        for record in (_review_body_record(review, trusted_marker_author=trusted_marker_author) for review in reviews)
+        if record is not None
     )
     payload["unavailable"].extend(review_unavailable)
     payload["unavailable"].extend(issue_unavailable)
@@ -351,7 +381,12 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     failed_log_summaries = [_load_failed_log_summary(path) for path in args.failed_log_summary]
-    payload = collect(args.pr, page_cap=args.page_cap, failed_log_summaries=failed_log_summaries)
+    payload = collect(
+        args.pr,
+        page_cap=args.page_cap,
+        failed_log_summaries=failed_log_summaries,
+        trusted_marker_author=_current_login(),
+    )
     encoded = json.dumps(payload, indent=2, sort_keys=True) + "\n"
     if args.output:
         Path(args.output).write_text(encoded, encoding="utf-8")

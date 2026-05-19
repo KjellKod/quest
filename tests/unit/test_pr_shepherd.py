@@ -63,6 +63,39 @@ def test_activity_state_uncertain_when_automation_after_marker() -> None:
     ) == "uncertain"
 
 
+def test_activity_state_ignores_untrusted_human_marker() -> None:
+    assert activity_state(
+        [
+            {"created_at": "1", "author_kind": "human", "body": "Please fix"},
+            {
+                "created_at": "2",
+                "author_kind": "human",
+                "body": ADDRESSED_MARKER,
+                "marker_trusted": False,
+            },
+        ]
+    ) == "active"
+
+
+def test_activity_state_uses_updated_at_for_marker_recency() -> None:
+    assert activity_state(
+        [
+            {
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:03:00Z",
+                "author_kind": "human",
+                "body": "Still broken",
+            },
+            {
+                "created_at": "2026-01-01T00:01:00Z",
+                "updated_at": "2026-01-01T00:01:00Z",
+                "author_kind": "bot",
+                "body": ADDRESSED_MARKER,
+            },
+        ]
+    ) == "active"
+
+
 def test_fingerprint_is_stable_for_same_source_payload() -> None:
     payload = {"source_kind": "review_thread", "path": "a.py", "line": 4, "body": "Fix it"}
     assert stable_fingerprint(payload) == stable_fingerprint(dict(reversed(payload.items())))
@@ -137,6 +170,21 @@ def test_operational_state_progressing_when_replies_or_commits_happened() -> Non
             "pushed_commits_count": 1,
             "posted_replies_count": 0,
             "active_feedback_count": 0,
+            "uncertain_feedback_count": 0,
+            "unresolved_human_decision_count": 0,
+        },
+    )
+    assert result["operational_state"] == "progressing"
+
+
+def test_operational_state_progressing_when_feedback_was_addressed_this_pass() -> None:
+    result = classify_operational_state(
+        {"outcome": "continue"},
+        {
+            "ci_state": "pending",
+            "pushed_commits_count": 0,
+            "posted_replies_count": 1,
+            "active_feedback_count": 1,
             "uncertain_feedback_count": 0,
             "unresolved_human_decision_count": 0,
         },
@@ -362,6 +410,41 @@ def test_checkout_branch_mismatch_uses_git_worktree_metadata(monkeypatch: pytest
     assert ["gh", "pr", "checkout", "12"] not in calls
 
 
+def test_checkout_verifies_head_oid_after_apply_checkout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args[:3] == ["git", "branch", "--show-current"]:
+            return _Result(stdout="feature/current\n")
+        if args[:3] == ["git", "status", "--short"]:
+            return _Result(stdout="")
+        if args[:3] == ["gh", "pr", "view"]:
+            return _Result(
+                stdout=json.dumps(
+                    {
+                        "number": 12,
+                        "url": "u",
+                        "headRefName": "feature/other",
+                        "headRefOid": "remote-sha",
+                    }
+                )
+            )
+        if args == ["git", "rev-parse", "--git-dir"]:
+            return _Result(stdout="/repo/.git\n")
+        if args == ["git", "rev-parse", "--git-common-dir"]:
+            return _Result(stdout="/repo/.git\n")
+        if args[:3] == ["gh", "pr", "checkout"]:
+            return _Result()
+        if args == ["git", "rev-parse", "HEAD"]:
+            return _Result(stdout="stale-sha\n")
+        raise AssertionError(f"unexpected call: {args}")
+
+    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
+    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=True)
+
+    assert code == 1
+    assert payload["reason"] == "head_mismatch"
+    assert payload["message"] == "Checked out branch HEAD does not match the PR head."
+
+
 def test_checkout_supports_target_option_alias(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: dict[str, object] = {}
 
@@ -549,6 +632,29 @@ def test_collect_intake_skips_successful_legacy_status_contexts(monkeypatch: pyt
     assert check_records[0]["url"] == "https://ci.test/failing"
 
 
+def test_collect_intake_treats_stale_check_as_failure_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_gh_json(args: list[str]) -> tuple[object | None, str]:
+        if args[:3] == ["gh", "pr", "view"]:
+            return {
+                "number": 12,
+                "url": "https://example.test/pull/12",
+                "headRefName": "feature",
+                "baseRefName": "main",
+                "isDraft": True,
+                "statusCheckRollup": [{"name": "review", "conclusion": "STALE"}],
+            }, ""
+        return [], ""
+
+    monkeypatch.setattr(pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
+
+    payload = pr_shepherd_collect_intake.collect(12, page_cap=1)
+
+    check_records = [record for record in payload["records"] if record["source_kind"] == "check_run"]
+    assert len(check_records) == 1
+    assert check_records[0]["source_label"] == "review"
+    assert check_records[0]["body_excerpt"] == "review: Check state: stale"
+
+
 def test_collect_intake_ignores_human_authored_summary_markers() -> None:
     record = pr_shepherd_collect_intake._issue_comment_record(
         {
@@ -561,6 +667,22 @@ def test_collect_intake_ignores_human_authored_summary_markers() -> None:
     )
 
     assert record["source_kind"] == "issue_comment"
+    assert record["author_kind"] == "human"
+
+
+def test_collect_intake_trusts_current_user_summary_markers() -> None:
+    record = pr_shepherd_collect_intake._issue_comment_record(
+        {
+            "id": 200,
+            "body": "PR shepherd status\n\n" + SUMMARY_MARKER,
+            "user": {"login": "KjellKod", "type": "User"},
+            "created_at": "2026-01-01T00:00:00Z",
+            "html_url": "https://example.test/c200",
+        },
+        trusted_marker_author="KjellKod",
+    )
+
+    assert record["source_kind"] == "shepherd_summary"
     assert record["author_kind"] == "human"
 
 
@@ -577,6 +699,23 @@ def test_collect_intake_trusts_bot_authored_summary_markers() -> None:
 
     assert record["source_kind"] == "shepherd_summary"
     assert record["author_kind"] == "bot"
+
+
+def test_collect_intake_preserves_full_summary_comment_body() -> None:
+    body = "PR shepherd status\n\n" + ("| addressed | abc | https://example.test |\n" * 80) + SUMMARY_MARKER
+    record = pr_shepherd_collect_intake._issue_comment_record(
+        {
+            "id": 200,
+            "body": body,
+            "user": {"login": "bot[bot]", "type": "Bot"},
+            "created_at": "2026-01-01T00:00:00Z",
+            "html_url": "https://example.test/c200",
+        }
+    )
+
+    assert record["source_kind"] == "shepherd_summary"
+    assert record["body"] == body
+    assert len(record["body_excerpt"]) <= 600
 
 
 def test_collect_intake_skips_pending_check_states(monkeypatch: pytest.MonkeyPatch) -> None:

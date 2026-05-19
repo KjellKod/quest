@@ -58,17 +58,22 @@ def stable_fingerprint(payload: JsonObject) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
+def _activity_timestamp(activity: JsonObject) -> str:
+    return max(str(activity.get("created_at") or ""), str(activity.get("updated_at") or ""))
+
+
 def activity_state(activities: list[JsonObject]) -> str:
     """Classify marker recency for one thread/comment/fingerprint activity list."""
 
     ordered = sorted(
         activities,
-        key=lambda item: str(item.get("created_at") or item.get("updated_at") or ""),
+        key=_activity_timestamp,
     )
     last_marker_index: int | None = None
     for index, activity in enumerate(ordered):
         body = str(activity.get("body") or "")
-        if has_marker(body, ADDRESSED_MARKER) or has_marker(body, SUMMARY_MARKER):
+        marker_trusted = activity.get("marker_trusted") is not False
+        if marker_trusted and (has_marker(body, ADDRESSED_MARKER) or has_marker(body, SUMMARY_MARKER)):
             last_marker_index = index
 
     if last_marker_index is None:
@@ -158,7 +163,7 @@ def classify_operational_state(loop_result: JsonObject, pass_facts: JsonObject) 
         hard_blockers.append("human_decision_required")
     if ci_state in {"failing", "unknown"}:
         hard_blockers.append(f"ci_{ci_state}")
-    if active or uncertain:
+    if (active or uncertain) and not (pushed or replies):
         hard_blockers.append("feedback_remaining")
 
     progress = {"pushed_commits_count": pushed, "posted_replies_count": replies}

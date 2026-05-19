@@ -97,6 +97,7 @@ def inspect_checkout(target: str | None, *, apply: bool) -> tuple[int, dict[str,
         }
 
     target_branch = str(pr.get("headRefName") or "")
+    target_oid = str(pr.get("headRefOid") or "")
     target_pr = pr.get("number")
     payload: dict[str, Any] = {
         "ok": True,
@@ -110,7 +111,6 @@ def inspect_checkout(target: str | None, *, apply: bool) -> tuple[int, dict[str,
     }
 
     if current_branch == target_branch:
-        target_oid = str(pr.get("headRefOid") or "")
         if target_oid and _head_oid() != target_oid:
             if not apply:
                 payload["action"] = "would_checkout"
@@ -155,6 +155,16 @@ def inspect_checkout(target: str | None, *, apply: bool) -> tuple[int, dict[str,
     payload["action"] = "checked_out"
     payload["current_branch"] = _current_branch()
     payload["worktree_clean"] = _worktree_clean()
+    if target_oid and _head_oid() != target_oid:
+        payload.update(
+            {
+                "ok": False,
+                "action": "none",
+                "reason": "head_mismatch",
+                "message": "Checked out branch HEAD does not match the PR head.",
+            }
+        )
+        return 1, payload
     return 0, payload
 
 
