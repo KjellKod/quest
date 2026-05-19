@@ -1,0 +1,25 @@
+scripts/pr_shepherd_checkout.py
+  s_ff228af2578ae3::t_020e86826b4e90 100,158-167
+scripts/pr_shepherd_collect_intake.py
+  s_ff228af2578ae3::t_006fa036b1cf97 27,102-106,108-109,111,116,131,150-152,166,169-170,174,183-184,189,197,309-322,349-352,354-356,384-389
+scripts/quest_runtime/pr_shepherd.py
+  s_ff228af2578ae3::t_15195aa696843a 61-64,70,75-76,166
+tests/unit/test_pr_shepherd.py
+  s_ff228af2578ae3::t_e1829dbb7264fd 66-98,180-194,413-447,635-657,673-688,704-718
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "70a6e3b3df156001ab10e659fe4881ca3701a3d3",
+  "prompts": {},
+  "sessions": {
+    "s_ff228af2578ae3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3cca-d3ea-7d40-bb56-a8bcc888668f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
