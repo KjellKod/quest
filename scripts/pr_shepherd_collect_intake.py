@@ -100,7 +100,9 @@ def _author(comment: dict[str, Any]) -> tuple[str, str]:
 
 
 def _trusted_marker_author(author: str, author_kind: str, trusted_marker_author: str) -> bool:
-    return author_kind != "human" or bool(trusted_marker_author and author == trusted_marker_author)
+    if author_kind == "bot":
+        return True
+    return author_kind == "human" and bool(trusted_marker_author and author == trusted_marker_author)
 
 
 def _activity(comment: dict[str, Any], *, trusted_marker_author: str = "") -> dict[str, Any]:

@@ -670,6 +670,20 @@ def test_collect_intake_ignores_human_authored_summary_markers() -> None:
     assert record["author_kind"] == "human"
 
 
+def test_collect_intake_ignores_unknown_authored_summary_markers() -> None:
+    record = pr_shepherd_collect_intake._issue_comment_record(
+        {
+            "id": 200,
+            "body": "Looks good.\n\n" + SUMMARY_MARKER,
+            "created_at": "2026-01-01T00:00:00Z",
+            "html_url": "https://example.test/c200",
+        }
+    )
+
+    assert record["source_kind"] == "issue_comment"
+    assert record["author_kind"] == "unknown"
+
+
 def test_collect_intake_trusts_current_user_summary_markers() -> None:
     record = pr_shepherd_collect_intake._issue_comment_record(
         {
