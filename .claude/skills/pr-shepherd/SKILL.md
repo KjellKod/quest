@@ -1,6 +1,6 @@
 ---
 name: pr-shepherd
-description: Push draft PR, monitor CI, respond to review comments, fix issues, then mark ready for review when clean.
+description: Shepherd an existing PR through CI and review feedback, then mark ready for review when clean. PR creation belongs to pr-assistant.
 user-invocable: true
 ---
 

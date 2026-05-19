@@ -12,10 +12,11 @@ import pytest
 
 from quest_runtime.pr_review_cycle import (
     build_fix_batches,
+    classify_pr_operational_state,
     classify_pr_loop_stop,
     normalize_pr_review_intake,
 )
-from quest_runtime.review_intelligence import validate_findings
+from quest_runtime.review_intelligence import build_review_backlog, validate_findings
 
 
 def _validation_step(target: str, *, level: int = 1) -> list[dict[str, object]]:
@@ -182,6 +183,385 @@ def test_normalize_pr_review_intake_preserves_review_local_index_when_present() 
     assert "review_local_index" not in by_id["pr-inline-002"]
     assert by_id["pr-general-001"]["review_local_index"] == 2
     assert by_id["existing-001"]["review_local_index"] == 8
+
+
+def test_normalize_records_preserves_source_kind_and_fingerprint() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "generic-review",
+                    "fingerprint": "fp-1",
+                    "activity_state": "active",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Please fix this.",
+                    "reply_target": {"kind": "thread", "id": "1"},
+                }
+            ]
+        }
+    )
+
+    assert validate_findings(findings) == []
+    assert findings[0]["source_kind"] == "review_thread"
+    assert findings[0]["fingerprint"] == "fp-1"
+    assert findings[0]["reply_target"] == {"kind": "thread", "id": "1"}
+
+
+def test_normalize_records_prefers_active_over_addressed_on_activity_conflict() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "one",
+                    "activity_state": "addressed",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                },
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "two",
+                    "activity_state": "active",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                    "reply_target": {"kind": "thread", "id": "2"},
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["activity_state"] == "active"
+    assert findings[0]["reply_target"] == {"kind": "thread", "id": "2"}
+
+
+def test_normalize_records_preserves_active_over_later_uncertain_duplicate() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "human",
+                    "activity_state": "active",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                    "reply_target": {"kind": "thread", "id": "1"},
+                },
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "automation",
+                    "activity_state": "uncertain",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["activity_state"] == "active"
+
+
+def test_normalize_records_preserves_all_duplicate_source_labels() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "first",
+                    "activity_state": "active",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                },
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "second",
+                    "activity_state": "uncertain",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same comment",
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["source_label"] == ["first", "second"]
+
+
+def test_normalize_records_keeps_distinct_check_runs_with_same_summary() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "check_run",
+                    "source_label": "unit",
+                    "fingerprint": "unit-fp",
+                    "activity_state": "active",
+                    "path": "ci/check",
+                    "body_excerpt": "Check state: failure",
+                },
+                {
+                    "source_kind": "check_run",
+                    "source_label": "lint",
+                    "fingerprint": "lint-fp",
+                    "activity_state": "active",
+                    "path": "ci/check",
+                    "body_excerpt": "Check state: failure",
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 2
+    assert {finding["source_label"] for finding in findings} == {"unit", "lint"}
+
+
+def test_normalize_records_does_not_branch_on_source_label() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_body_item",
+                    "source_label": "specific-product-name",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Same generic feedback.",
+                }
+            ]
+        }
+    )
+
+    assert findings[0]["kind"] == "review_comment"
+    assert findings[0]["source_label"] == "specific-product-name"
+
+
+def test_normalize_records_excludes_addressed_and_shepherd_summary_records() -> None:
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "thread",
+                    "activity_state": "addressed",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Already handled.",
+                },
+                {
+                    "source_kind": "shepherd_summary",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": "PR shepherd status",
+                },
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "thread",
+                    "activity_state": "uncertain",
+                    "path": "scripts/example.py",
+                    "line": 12,
+                    "body": "Automation changed after marker.",
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["activity_state"] == "uncertain"
+
+    backlog = build_review_backlog(findings, at_loop_cap=False)
+    assert len(backlog["items"]) == 1
+
+
+def test_normalize_records_applies_shepherd_summary_fingerprints() -> None:
+    fingerprint = "abcdef1234567890feed"
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_body_item",
+                    "source_label": "github-review-body",
+                    "activity_state": "active",
+                    "path": "pr/review",
+                    "line": None,
+                    "body": "Fingerprint-only review body.",
+                    "fingerprint": fingerprint,
+                },
+                {
+                    "source_kind": "shepherd_summary",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": "PR shepherd status\n\n| state | fingerprint | url |\n|---|---|---|\n| addressed | `abcdef1234567890` | https://x |",
+                },
+            ]
+        }
+    )
+
+    assert findings == []
+
+
+def test_normalize_records_summary_fingerprint_uses_stable_fallback() -> None:
+    record = {
+        "source_kind": "review_body_item",
+        "source_label": "github-review-body",
+        "activity_state": "active",
+        "path": "pr/review",
+        "line": None,
+        "body": "Fingerprint-only review body.",
+    }
+    fingerprint = __import__("quest_runtime.pr_shepherd", fromlist=["stable_fingerprint"]).stable_fingerprint(record)
+
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                record,
+                {
+                    "source_kind": "shepherd_summary",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": f"PR shepherd status\n\n| state | fingerprint | url |\n|---|---|---|\n| addressed | `{fingerprint[:16]}` | https://x |",
+                },
+            ]
+        }
+    )
+
+    assert findings == []
+
+
+def test_normalize_records_summary_does_not_override_live_thread_state() -> None:
+    fingerprint = "abcdef1234567890feed"
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "review_thread",
+                    "source_label": "github-review-thread",
+                    "activity_state": "active",
+                    "path": "scripts/example.py",
+                    "line": 10,
+                    "body": "Live thread feedback.",
+                    "fingerprint": fingerprint,
+                    "reply_target": {"kind": "review_comment", "id": 1},
+                },
+                {
+                    "source_kind": "shepherd_summary",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": "PR shepherd status\n\n| state | fingerprint | url |\n|---|---|---|\n| addressed | `abcdef1234567890` | https://x |",
+                },
+            ]
+        }
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["activity_state"] == "active"
+
+
+def test_normalize_records_summary_can_address_issue_comment_records() -> None:
+    fingerprint = "abcdef1234567890feed"
+    findings = normalize_pr_review_intake(
+        {
+            "records": [
+                {
+                    "source_kind": "issue_comment",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": "General PR feedback.",
+                    "fingerprint": fingerprint,
+                    "reply_target": {"kind": "issue_comment", "id": 1},
+                },
+                {
+                    "source_kind": "shepherd_summary",
+                    "source_label": "github-pr-comment",
+                    "activity_state": "active",
+                    "path": "pr/comment",
+                    "line": None,
+                    "body": "PR shepherd status\n\n| state | fingerprint | url |\n|---|---|---|\n| addressed | `abcdef1234567890` | https://x |",
+                },
+            ]
+        }
+    )
+
+    assert findings == []
+
+
+def test_classify_pr_operational_state_wraps_pass_facts() -> None:
+    result = classify_pr_operational_state(
+        {"outcome": "success"},
+        {
+            "ci_state": "green",
+            "pushed_commits_count": 0,
+            "posted_replies_count": 0,
+            "active_feedback_count": 0,
+            "uncertain_feedback_count": 0,
+            "unresolved_human_decision_count": 0,
+        },
+    )
+
+    assert result["operational_state"] == "clean"
+
+
+def test_cli_classify_pr_stop_passes_ci_state_to_operational_fallback(tmp_path: Path) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    backlog_path = tmp_path / "review_backlog.json"
+    pass_facts_path = tmp_path / "pass_facts.json"
+    backlog_path.write_text(json.dumps({"items": []}), encoding="utf-8")
+    pass_facts_path.write_text(
+        json.dumps(
+            {
+                "pushed_commits_count": 0,
+                "posted_replies_count": 0,
+                "active_feedback_count": 0,
+                "uncertain_feedback_count": 0,
+                "unresolved_human_decision_count": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "classify-pr-stop",
+            "--ci-state",
+            "green",
+            "--actionable",
+            "0",
+            "--iteration",
+            "1",
+            "--backlog",
+            str(backlog_path),
+            "--pass-facts",
+            str(pass_facts_path),
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["outcome"] == "success"
+    assert payload["operational_state"] == "clean"
 
 
 def test_build_fix_batches_groups_by_write_scope_and_validation_scope() -> None:

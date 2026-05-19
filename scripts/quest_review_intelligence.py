@@ -11,6 +11,7 @@ from typing import Any
 from quest_runtime.pr_review_cycle import (
     allowlist_path_from_context,
     build_fix_batches,
+    classify_pr_operational_state,
     classify_pr_loop_stop,
     normalize_pr_review_intake,
     retag_backlog_at_cap,
@@ -252,6 +253,15 @@ def _cmd_classify_pr_stop(args: argparse.Namespace) -> int:
 
     payload = dict(classification)
     payload["deferred_count"] = deferred_count
+    if args.pass_facts:
+        pass_facts_payload = _load_json(Path(args.pass_facts))
+        if not isinstance(pass_facts_payload, dict):
+            raise ValueError("pass facts must be a JSON object")
+        pass_facts_payload.setdefault("ci_state", args.ci_state)
+        operational = classify_pr_operational_state(payload, pass_facts_payload)
+        payload.update(operational)
+        if args.operational_output:
+            _write_json(Path(args.operational_output), operational)
     print(json.dumps(payload, sort_keys=True))
     return 0
 
@@ -433,6 +443,16 @@ def parse_args() -> argparse.Namespace:
         "--proposed-followup",
         default="Create a follow-up quest to resolve deferred review findings.",
         help="Deferred lineage follow-up recommendation",
+    )
+    classify.add_argument(
+        "--pass-facts",
+        default=None,
+        help="Optional compact PR shepherd pass facts JSON for clean/progressing/stuck classification",
+    )
+    classify.add_argument(
+        "--operational-output",
+        default=None,
+        help="Optional path to write only the operational classification JSON",
     )
     classify.set_defaults(func=_cmd_classify_pr_stop)
 

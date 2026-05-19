@@ -18,6 +18,11 @@ Build and utility scripts for the Quest repository.
 | `quest_startup_branch.py` | Creates the startup branch or worktree for a new quest from `.ai/allowlist.json` and returns machine-readable branch context JSON. |
 | `quest_claude_runner.py` | Runs Claude-designated Quest roles through the additive Codex-host Claude adapter, using `scripts/quest_claude_bridge.py` as transport plus `bypassPermissions`, explicit `--add-dir` access, handoff polling, and `context_health.log` updates. Native Claude-led Quest behavior stays on `Task(...)`. |
 | `quest_review_intelligence.py` | CLI wrapper around review-intelligence helpers (`validate-findings`, `merge-findings`, `build-backlog`, `append-deferred`, `scan-backlog`, `normalize-pr-intake`, `select-batch-validation`, `build-fix-batches`, `classify-pr-stop`). |
+| `pr_shepherd_checkout.py` | Inspection-first PR target helper; reports current/target branch state and only runs `gh pr checkout` with `--apply`. |
+| `pr_shepherd_collect_intake.py` | Collects compact records-shaped PR shepherd intake for normalization. |
+| `pr_shepherd_annotate_scope.py` | Annotates normalized findings with deterministic `in_diff` or `unknown` changed-line scope. |
+| `pr_shepherd_post_reply.py` | Appends shepherd markers and posts or dry-runs thread replies / marker-owned summary comments. |
+| `pr_shepherd_fetch_failed_logs.py` | Fetches failed run logs with deterministic head/tail truncation and unavailable diagnostics. |
 | `quest_select_tests.py` | Thin CLI that returns ordered `validation_steps` for a single canonical finding (Level 0/1/2 test-selection heuristic). |
 | `quest_installer.sh` | Installs and updates Quest in any repository. Handles fresh installs, updates, and checksum-based change detection. |
 | `quest_validate-quest-config.sh` | Validates quest configuration files (allowlist JSON schema, role markdown completeness). Used by pre-commit hooks and CI. |
@@ -62,6 +67,17 @@ python3 scripts/quest_review_intelligence.py build-fix-batches --backlog /tmp/re
 
 # 5. Classify stop conditions and enforce cap retagging when needed
 python3 scripts/quest_review_intelligence.py classify-pr-stop --ci-state failing --actionable 2 --iteration 3 --backlog /tmp/review_backlog.json
+
+# PR shepherd operational intake
+python3 scripts/pr_shepherd_checkout.py 123 --json
+python3 scripts/pr_shepherd_checkout.py 123 --apply --json
+python3 scripts/pr_shepherd_fetch_failed_logs.py --run-id 987654 --check-name unit --raw-log-url https://github.com/OWNER/REPO/actions/runs/987654 --output /tmp/failed_log.json
+python3 scripts/pr_shepherd_collect_intake.py --pr 123 --output /tmp/pr_intake.json
+python3 scripts/pr_shepherd_collect_intake.py --pr 123 --failed-log-summary /tmp/failed_log.json --output /tmp/pr_intake.json
+python3 scripts/quest_review_intelligence.py normalize-pr-intake --input /tmp/pr_intake.json --output /tmp/review_findings.json
+python3 scripts/pr_shepherd_annotate_scope.py --pr 123 --findings /tmp/review_findings.json --output /tmp/review_findings_scoped.json
+python3 scripts/pr_shepherd_post_reply.py --pr 123 --thread-id 456 --body "Fixed in the latest push."
+python3 scripts/quest_review_intelligence.py classify-pr-stop --ci-state green --actionable 0 --iteration 1 --pass-facts /tmp/pass_facts.json
 
 # Debug: select targeted validation steps for a single finding (single-finding preview)
 python3 scripts/quest_select_tests.py --finding /tmp/finding.json --repo-inventory /tmp/repo_inventory.json --output /tmp/validation_steps.json

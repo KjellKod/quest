@@ -14,8 +14,13 @@ from quest_runtime.review_intelligence import (
     select_decision,
     validate_findings,
 )
+from quest_runtime.pr_shepherd import (
+    classify_operational_state,
+    merge_activity_state,
+    stable_fingerprint,
+)
 
-INTAKE_SOURCES = ("ci_check", "inline_comment", "general_comment", "existing_finding")
+INTAKE_SOURCES = ("ci_check", "inline_comment", "general_comment", "existing_finding", "record")
 BLOCKER_KEYWORDS = ("blocker", "blocking", "critical")
 _BLOCKER_TOKEN_STRIP = ".,:;!?()[]{}\"'"
 FALLBACK_LOOP_CAP = 3
@@ -111,6 +116,161 @@ def _copy_review_local_index(source: JsonObject, target: JsonObject) -> None:
         target["review_local_index"] = index
 
 
+def _copy_optional_metadata(source: JsonObject, target: JsonObject) -> None:
+    for key in (
+        "source_kind",
+        "fingerprint",
+        "reply_target",
+        "url",
+        "scope",
+        "scope_reason",
+        "author_kind",
+    ):
+        value = source.get(key)
+        if value not in (None, "", [], {}):
+            target[key] = copy.deepcopy(value)
+
+
+def _finding_key(finding: JsonObject) -> tuple[str, str, str, str, str, str]:
+    line_value = finding.get("line")
+    line_part = "" if line_value is None else str(line_value)
+    summary = " ".join(str(finding.get("summary") or "").lower().split())
+    identity_part = ""
+    fingerprint_part = ""
+    if finding.get("source_kind") == "check_run" and str(finding.get("path") or "") == "ci/check":
+        identity_part = str(finding.get("source_label") or "")
+        fingerprint_part = str(finding.get("fingerprint") or "")
+    return (
+        str(finding.get("path") or ""),
+        line_part,
+        str(finding.get("kind") or ""),
+        summary,
+        identity_part,
+        fingerprint_part,
+    )
+
+
+def _merge_record_findings(findings: list[JsonObject]) -> list[JsonObject]:
+    merged: dict[tuple[str, str, str, str], JsonObject] = {}
+    for finding in findings:
+        key = _finding_key(finding)
+        existing = merged.get(key)
+        if existing is None:
+            merged[key] = copy.deepcopy(finding)
+            continue
+        _copy_optional_metadata(finding, existing)
+        existing["activity_state"] = merge_activity_state(
+            existing.get("activity_state"),
+            finding.get("activity_state"),
+        )
+        labels: list[str] = []
+        for value in (existing.get("source_label"), finding.get("source_label")):
+            if isinstance(value, list):
+                labels.extend(str(item) for item in value if str(item).strip())
+            elif isinstance(value, str) and value.strip():
+                labels.append(value.strip())
+        if labels:
+            unique_labels = []
+            seen: set[str] = set()
+            for label in labels:
+                if label in seen:
+                    continue
+                seen.add(label)
+                unique_labels.append(label)
+            existing["source_label"] = unique_labels if len(unique_labels) > 1 else unique_labels[0]
+    return list(merged.values())
+
+
+def _record_to_finding(record: JsonObject, counter: int) -> JsonObject:
+    source_kind = str(record.get("source_kind") or "record").strip() or "record"
+    source_label = str(record.get("source_label") or source_kind).strip() or source_kind
+    body = str(record.get("body") or record.get("body_excerpt") or "").strip()
+    summary = str(record.get("summary") or body[:120] or f"PR feedback from {source_label}.").strip()
+    if source_kind == "check_run" and source_label and summary.startswith("Check state:"):
+        summary = f"{source_label}: {summary}"
+    path = str(record.get("path") or "pr/record").strip() or "pr/record"
+    line = _finding_line(record.get("line"))
+    fingerprint = str(record.get("fingerprint") or "").strip() or stable_fingerprint(record)
+
+    finding: JsonObject = {
+        "finding_id": f"pr-record-{counter:03d}",
+        "source": f"pr-record:{source_label}",
+        "kind": str(record.get("kind") or "review_comment").strip() or "review_comment",
+        "severity": str(record.get("severity") or "medium").strip() or "medium",
+        "confidence": str(record.get("confidence") or "medium").strip() or "medium",
+        "path": path,
+        "line": line,
+        "summary": summary,
+        "why_it_matters": str(
+            record.get("why_it_matters")
+            or "PR feedback can signal unresolved quality, CI, or review concerns."
+        ),
+        "evidence": [str(record.get("body_excerpt") or body)[:200]],
+        "action": str(record.get("action") or "Address PR feedback."),
+        "needs_test": bool(record.get("needs_test", False)),
+        "write_scope": [path] if path and not path.startswith("pr/") else [],
+        "related_acceptance_criteria": [],
+        "source_kind": source_kind,
+        "source_label": source_label,
+        "fingerprint": fingerprint,
+    }
+    activity = record.get("activity_state")
+    if activity not in (None, "", [], {}):
+        finding["activity_state"] = copy.deepcopy(activity)
+    _copy_optional_metadata(record, finding)
+    _copy_review_local_index(record, finding)
+    return finding
+
+
+def _record_is_actionable(record: JsonObject) -> bool:
+    source_kind = str(record.get("source_kind") or "").strip()
+    activity = str(record.get("activity_state") or "").strip()
+    if source_kind == "shepherd_summary":
+        return False
+    if activity == "addressed":
+        return False
+    return True
+
+
+def _summary_addressed_fingerprints(records: list[JsonObject]) -> set[str]:
+    addressed: set[str] = set()
+    terminal_states = {"addressed", "defer", "deferred", "drop", "dropped", "fixed"}
+    for record in records:
+        if str(record.get("source_kind") or "") != "shepherd_summary":
+            continue
+        body = str(record.get("body") or record.get("body_excerpt") or "")
+        for line in body.splitlines():
+            cells = [cell.strip().strip("`") for cell in line.strip().strip("|").split("|")]
+            if len(cells) < 2:
+                continue
+            state = cells[0].strip().lower()
+            fingerprint = cells[1].strip()
+            if state in terminal_states and fingerprint:
+                addressed.add(fingerprint)
+    return addressed
+
+
+def _apply_summary_addressed_fingerprints(records: list[JsonObject]) -> list[JsonObject]:
+    addressed = _summary_addressed_fingerprints(records)
+    if not addressed:
+        return records
+
+    updated: list[JsonObject] = []
+    for record in records:
+        candidate = copy.deepcopy(record)
+        fingerprint = str(candidate.get("fingerprint") or "").strip() or stable_fingerprint(candidate)
+        reply_target = candidate.get("reply_target")
+        has_thread_state = isinstance(reply_target, dict) and reply_target.get("kind") == "review_comment"
+        if (
+            not has_thread_state
+            and fingerprint
+            and any(fingerprint.startswith(prefix) for prefix in addressed)
+        ):
+            candidate["activity_state"] = "addressed"
+        updated.append(candidate)
+    return updated
+
+
 def _normalize_scope_entry(value: str) -> str:
     trimmed = value.strip().strip("/")
     if not trimmed:
@@ -128,10 +288,21 @@ def normalize_pr_review_intake(intake: JsonObject) -> list[JsonObject]:
     inline_comments = _as_dict_list(intake.get("inline_comments"), field_name="inline_comments")
     general_comments = _as_dict_list(intake.get("general_comments"), field_name="general_comments")
     existing_findings = _as_dict_list(intake.get("existing_findings"), field_name="existing_findings")
+    records = _as_dict_list(intake.get("records"), field_name="records")
 
     existing_errors = validate_findings(existing_findings)
     if existing_errors:
         raise ValueError("; ".join(existing_errors))
+
+    if records:
+        records = _apply_summary_addressed_fingerprints(records)
+        actionable_records = [record for record in records if _record_is_actionable(record)]
+        record_findings = [
+            _record_to_finding(record, index)
+            for index, record in enumerate(actionable_records, start=1)
+        ]
+        merged_records = _merge_record_findings(record_findings)
+        return merge_and_dedupe([merged_records, existing_findings])
 
     normalized_findings: list[JsonObject] = []
     ci_counter = 0
@@ -705,6 +876,12 @@ def classify_pr_loop_stop(
         "reason": "Continue loop: CI/actionable state has not met a stop condition.",
         "retag_required": False,
     }
+
+
+def classify_pr_operational_state(loop_result: JsonObject, pass_facts: JsonObject) -> JsonObject:
+    """Classify whole-pass PR shepherd state using compact pass facts."""
+
+    return classify_operational_state(loop_result, pass_facts)
 
 
 def retag_backlog_at_cap(backlog: JsonObject) -> JsonObject:
