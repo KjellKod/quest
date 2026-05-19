@@ -549,6 +549,36 @@ def test_collect_intake_skips_successful_legacy_status_contexts(monkeypatch: pyt
     assert check_records[0]["url"] == "https://ci.test/failing"
 
 
+def test_collect_intake_ignores_human_authored_summary_markers() -> None:
+    record = pr_shepherd_collect_intake._issue_comment_record(
+        {
+            "id": 200,
+            "body": "Looks good.\n\n" + SUMMARY_MARKER,
+            "user": {"login": "alice", "type": "User"},
+            "created_at": "2026-01-01T00:00:00Z",
+            "html_url": "https://example.test/c200",
+        }
+    )
+
+    assert record["source_kind"] == "issue_comment"
+    assert record["author_kind"] == "human"
+
+
+def test_collect_intake_trusts_bot_authored_summary_markers() -> None:
+    record = pr_shepherd_collect_intake._issue_comment_record(
+        {
+            "id": 200,
+            "body": "PR shepherd status\n\n" + SUMMARY_MARKER,
+            "user": {"login": "bot[bot]", "type": "Bot"},
+            "created_at": "2026-01-01T00:00:00Z",
+            "html_url": "https://example.test/c200",
+        }
+    )
+
+    assert record["source_kind"] == "shepherd_summary"
+    assert record["author_kind"] == "bot"
+
+
 def test_collect_intake_skips_pending_check_states(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_gh_json(args: list[str]) -> tuple[object | None, str]:
         if args[:3] == ["gh", "pr", "view"]:

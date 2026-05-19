@@ -156,7 +156,7 @@ def _review_thread_records(comments: list[dict[str, Any]]) -> list[dict[str, Any
 def _issue_comment_record(comment: dict[str, Any]) -> dict[str, Any]:
     author, author_kind = _author(comment)
     body = str(comment.get("body") or "")
-    source_kind = "shepherd_summary" if has_marker(body, SUMMARY_MARKER) else "issue_comment"
+    source_kind = "shepherd_summary" if author_kind != "human" and has_marker(body, SUMMARY_MARKER) else "issue_comment"
     record = {
         "source_kind": source_kind,
         "source_label": "github-pr-comment",
