@@ -1,0 +1,21 @@
+scripts/pr_shepherd_collect_intake.py
+  s_9d94a1f72d26f2::t_fd0ae1ae3e3c93 103-105
+tests/unit/test_pr_shepherd.py
+  s_9d94a1f72d26f2::t_1d098898466f7f 673-686
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "487fcf5cd3e6f8099784d20234d73c5367a96c1e",
+  "prompts": {},
+  "sessions": {
+    "s_9d94a1f72d26f2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4137-afd9-7e12-9f4a-d6fb3bf85264",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
