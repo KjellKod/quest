@@ -1,0 +1,27 @@
+scripts/quest_runtime/orchestration.py
+  s_afff939c42b320::t_e2048cb43addb1 141-142,144
+tests/test-quest-orchestration.sh
+  s_afff939c42b320::t_e2048cb43addb1 15,260,567-582,610
+.skills/quest/SKILL.md
+  s_afff939c42b320::t_e2048cb43addb1 236
+.skills/quest/delegation/workflow.md
+  s_afff939c42b320::t_960c5956b43d0d 1272
+.opencode/agents/quest.md
+  s_afff939c42b320::t_e2048cb43addb1 42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "6d8f6eb89947352c5c1dcf170bfcabaa3d127456",
+  "prompts": {},
+  "sessions": {
+    "s_afff939c42b320": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e47a3-9066-7a62-b6f2-61ceb72a7d48",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
