@@ -153,7 +153,7 @@ Three integration points in `scripts/quest_startup_branch.py` and
      --worktree "$WORKTREE_PATH" \
      --branch "$BRANCH" \
      --phase "phase_00_intake" \
-     --pid $$
+     --pid $ORCHESTRATOR_PID  # caller must inject its own PID (e.g. os.getpid() in Python, $$ in a real shell invocation — NOT a subprocess wrapper, which would record the throwaway shell's PID and the liveness probe would immediately read it as dead)
    ```
 
 2. **Phase transitions (`quest_state.py`).** Wherever the orchestrator
