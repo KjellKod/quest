@@ -50,3 +50,53 @@ def test_ux_skills_listed_in_quest_manifest() -> None:
         ".agents/skills/ux-review/SKILL.md",
     ):
         assert required in manifest, f"{required} missing from .quest-manifest"
+
+
+def test_ux_context_uses_progressive_resource_loading() -> None:
+    root = _repo_root()
+    skill = (root / ".skills" / "ux-context" / "SKILL.md").read_text(encoding="utf-8")
+    assert "Do not read the whole guidebook by default" in skill
+    assert "Load the smallest relevant sections" in skill
+    assert "Read `resources/ux-guidebook.md` in full" not in skill
+
+
+def test_ux_guidebook_stays_portable() -> None:
+    root = _repo_root()
+    guidebook = (
+        root / ".skills" / "ux-context" / "resources" / "ux-guidebook.md"
+    ).read_text(encoding="utf-8")
+
+    assert "## 6. Case studies" not in guidebook
+    for repo_local_term in (
+        "sketch2md",
+        "shadcn",
+        "zustand",
+        "sonner",
+        "PersonaLogo",
+        "CatLogo",
+    ):
+        assert repo_local_term not in guidebook
+
+
+def test_ux_guidebook_has_no_stale_field_or_principle_counts() -> None:
+    root = _repo_root()
+    ux_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            root / ".skills" / "ux-context" / "SKILL.md",
+            root / ".skills" / "ux-context" / "resources" / "ux-guidebook.md",
+            root / ".skills" / "ux-review" / "SKILL.md",
+            root / ".skills" / "sharpen" / "SKILL.md",
+        )
+    )
+
+    assert "five fields" not in ux_text
+    assert "12 principles" not in ux_text
+
+
+def test_ux_review_has_visual_evidence_path_without_quest_mutation() -> None:
+    root = _repo_root()
+    skill = (root / ".skills" / "ux-review" / "SKILL.md").read_text(encoding="utf-8")
+    assert "Visual evidence path" in skill
+    assert "Capture screenshots at `375px`, `768px`, `1280px`, and `1920px`" in skill
+    assert "Quest-pipeline invocations are review-only" in skill

@@ -121,7 +121,7 @@ Independent of the substance/complexity/risk evaluation, classify whether the wo
 - Referenced files matching `*.tsx`, `*.jsx`, `*.css`, `*.scss`, `*.html`, `*.vue`, `*.svelte`, `*.swift`, `*.swiftui`, `*.kt`/`*.kts` for Compose, `tailwind.config.*`, `components.json`, `theme.ts`
 - Referenced design surfaces: a Figma URL, a screenshot, a mockup, a design doc under `docs/design/` or similar
 
-**Bias toward `true`.** The cost of a false positive is loading ~10KB of extra context for an agent that doesn't need it. The cost of a false negative is shipping unaccountable UX. When in doubt, set `ui_work: true`.
+**Bias toward `true`.** The cost of a false positive is extra UX context and review attention; the render-layer guard in `ux-context` suppresses unnecessary UX Defaults sections. The cost of a false negative is shipping unaccountable UX. When in doubt, set `ui_work: true`.
 
 Record one or two short evidence strings in `ui_work_evidence` so downstream agents can see what triggered the classification (e.g. `["touches src/components/*.tsx", "prompt mentions 'mobile' and 'sidebar'"]`).
 

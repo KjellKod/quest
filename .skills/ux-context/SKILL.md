@@ -10,9 +10,9 @@ At activation, announce the skill name and scope in one line. Example: `[ux-cont
 
 Loaded by orchestration when the planner, builder/implementer, or fixer is about to produce user-facing work. Supplies the principles the agent shapes its output against — it does not perform a review.
 
-Agents reading this skill should also read its resources:
+Agents reading this skill load resources progressively, by role and surface:
 
-- `resources/ux-guidebook.md` — the canonical 10-section guidebook (single source of truth for principles, inference tables, and all named defaults)
+- `resources/ux-guidebook.md` — the canonical guidebook (single source of truth for principles, inference tables, and named defaults)
 - `resources/ux-stress-test.md` — the runnable 12-question rubric, 15 red flags, mobile checklist, Mac-native checklist
 
 ## Procedure
@@ -20,19 +20,26 @@ Agents reading this skill should also read its resources:
 ### Step 0: Read the brief end-to-end (mandatory before anything else)
 Before loading any UX context, read `.quest/<id>/quest_brief.md` fully and extract `ui_work` from the `## Router Classification` JSON block. Treat a missing field as `false` — do not load this skill for legacy briefs without the classification block. If `ui_work_evidence` is present, use it to scope your attention to the named files/areas.
 
-### Step 1: Load the guidebook
-Read `resources/ux-guidebook.md` in full. Central reconciling rule:
+### Step 1: Load only the guidebook sections your role needs
+Do not read the whole guidebook by default. Load the smallest relevant sections:
+
+- **All roles:** §2 durable principles and §3 central reconciling rule.
+- **Planner:** §4.9 defaults for new UI work, then the UX Defaults emission protocol below.
+- **Builder / implementer:** §4 discipline sections for touched UI concerns; add §5 only for responsive, mobile, or native-platform work.
+- **Fixer:** the guidebook section cited by each UX finding, plus nearby context if the fix is ambiguous.
+
+Central reconciling rule:
 
 > **Visual chrome should be restrained. Task content should be as dense as the task earns. Density without grouping is noise; minimalism without signifiers is mystery.**
 
-### Step 2: Load the stress-test rubric
-Read `resources/ux-stress-test.md`.
+### Step 2: Load the stress-test rubric only when reviewing or fixing findings
+Read `resources/ux-stress-test.md` when your task is to review, validate a UX finding, or verify a fix. Planners and builders do not need the full rubric unless the prompt asks for a self-review checklist.
 
 ### Step 3: Apply to your role
 
 **If you are a planner** — follow the UX Defaults emission protocol below.
 
-**If you are a builder / implementer** — honor §4 of the guidebook as you write code. Use the design tokens from §4.2, the spacing rules from §4.3, the motion budgets from §4.5, the mobile rules from §5.2. If `ui_work_evidence` is non-empty, prioritize those files.
+**If you are a builder / implementer** — honor the relevant §4 guidebook sections as you write code. Use the design tokens from §4.2, the spacing rules from §4.3, the motion budgets from §4.5, and the mobile rules from §5.2 only when the change touches those concerns. If `ui_work_evidence` is non-empty, prioritize those files.
 
 **If you are a fixer** — cite the principle being fixed by section ID in your commit message and PR comment. Example: `Fix: empty layer panel had no instruction (ux-guidebook §4.7 #1).` Smallest fix that resolves the violation; resist redesigning.
 
@@ -44,7 +51,7 @@ When the brief has `ui_work: true`, the planner must emit a `## UX Defaults` sec
 
 ### Render-layer guard (false-positive suppression)
 
-The router biases toward `ui_work: true`. Before emitting `## UX Defaults`, verify the plan actually touches a render layer (`*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.css`, `*.scss`, `*.swift`, `*.html`). If none, **omit the section** and append a one-line note in the plan:
+The router biases toward `ui_work: true`. Before emitting `## UX Defaults`, verify the plan actually touches a render layer or visible styling surface (`*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.css`, `*.scss`, `*.html`, `*.swift`, `*.swiftui`, `*.kt`, `*.kts`, `tailwind.config.*`, `components.json`, `theme.ts`). If none, **omit the section** and append a one-line note in the plan:
 
 > *Router flagged `ui_work: true`, but plan touches no render layer — UX Defaults section omitted.*
 
@@ -70,6 +77,8 @@ The plan-presentation menu in `workflow.md` discloses to the user that `/sharpen
 If the user prompt or quest brief already **explicitly names ≥3 of the six defaults** (ramp, density, ratio, mobile, accent, destructive), emit a shortened block listing only the unspecified fields, plus a one-line acknowledgement of the ones the user did specify.
 
 **"Explicitly named" means a token that directly maps to one of the six field values:** `slate`/`stone`/`neutral`/`zinc`/`gray` for ramp; `comfortable`/`compact`/`dense` (and synonyms `tight`/`spacious`) for density; `content-forward`/`chrome-dense` for ratio; `mobile`/`mobile-first`/`desktop-only`/`responsive` for mobile relevance; a literal hex (`#0070f3`) or named brand color for accent; an explicit mention of deletion/revocation/billing/data-loss surfaces for destructive. **Brand references like "Vercel-like" or "Linear-style" do NOT count as named defaults** — even when they imply a default, the protocol uses literal naming for trigger consistency. If the user wants the shortened block, they must say it.
+
+**Why brand references are excluded — and what to use instead.** Brand-implied defaults drift over time (one company's "Vercel-like" today is not the same as next year), so the opt-out predicate stays on literal tokens for stability rather than a maintenance-heavy brand-mapping layer. The planner can still use a brand reference as a *signal* for picking an inferred row from the §4.9 table (e.g. "Linear-style" → the `slate / comfortable / content-forward` row), and the resulting `## UX Defaults` block is still surfaced to the user at the plan-approval gate. If the inferred row needs refinement, `/sharpen ux-defaults` walks the six fields one at a time — that is the user's lightweight path when literal tokens were missing from the prompt.
 
 Example shortened block:
 
@@ -104,7 +113,7 @@ For *reviewing* existing UI, see `.skills/ux-review/SKILL.md`. This skill is for
 
 ## Bundled Resources
 
-- `resources/ux-guidebook.md` — canonical guidebook (10 sections + appendices, inference table at §4.9)
+- `resources/ux-guidebook.md` — canonical guidebook (inference table at §4.9)
 - `resources/ux-stress-test.md` — runnable rubric and checklists
 
 ## Related Skills

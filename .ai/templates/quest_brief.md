@@ -40,5 +40,4 @@
 }
 ```
 
-<!-- Placeholders MUST be overwritten by the orchestrator at quest creation. A brief that still contains `<...>` literal markers in this block is a contract violation: downstream agents will treat `ui_work` as `false` and the UX pipeline will silently disable. -->
-
+<!-- Placeholders MUST be overwritten by the orchestrator at quest creation. A brief that still contains `<...>` literal markers in this block is a contract violation. Downstream agents must treat `ui_work` as true only when the parsed JSON value is the boolean `true`; missing values, placeholder strings, and `"true"` string values are false and should be reported as malformed router data. -->

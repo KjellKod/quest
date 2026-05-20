@@ -9,7 +9,11 @@ Review the local working-tree diff before a commit exists for review. At activat
 
 `[pre-commit-review] reviewing local working-tree diff before commit`
 
-## Required Inputs And Preflight
+## What this skill does
+
+- Reviews staged plus unstaged tracked-file changes against repo conventions (`AGENTS.md`), the code-reviewer severity model, and shared review anti-patterns.
+- **Includes a local UX gate on UI files.** When the diff contains `*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.css`, `*.scss`, or `*.swift` changes, invokes `.skills/ux-review/SKILL.md` against the same diff and folds any P0/P1 UX findings into the report as blocking findings. P2/P3 UX findings are noted but do not block. A one-line CSS or component tweak triggers the rubric.
+- Does **not** push, comment on PRs, write Quest decision artifacts, or commit on its own. The terminal choice (`fix`, `skip`, `commit`) rests with the user.
 
 Run these checks before reviewing:
 

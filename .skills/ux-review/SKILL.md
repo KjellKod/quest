@@ -36,6 +36,18 @@ Determine what is being reviewed:
 | Git diff | Run `git diff --name-only` and review only the UI-relevant changed files. |
 | No target | Review the staged and locally-uncommitted UI changes in the current repo. |
 
+### Visual evidence path (URL / local app targets)
+
+When the target is a URL, local dev server, or rendered app surface and browser automation is available, collect visual evidence before filing findings:
+
+1. Capture screenshots at `375px`, `768px`, `1280px`, and `1920px` widths when practical.
+2. Retrieve the DOM / accessibility snapshot if the tool supports it.
+3. Check keyboard focus visibility, obvious contrast failures, overflow, overlap, clipping, and touch-target problems at the relevant viewports.
+4. Include viewport or screenshot-region evidence in each finding.
+5. If a standalone user explicitly asks you to fix issues, fix one issue at a time and re-capture the affected viewport before reporting it resolved.
+
+Quest-pipeline invocations are review-only: produce findings and evidence, but leave source edits to the builder/fixer phases.
+
 ### Step 2: Load the rubric
 
 Read `.skills/ux-context/resources/ux-stress-test.md` in full. The rubric has four sections:

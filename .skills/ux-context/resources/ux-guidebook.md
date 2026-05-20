@@ -83,7 +83,7 @@ Concrete, prescriptive rules. Each subsection is independently usable as a pre-c
 
    | Brand color / aesthetic | Recommended ramp | Examples that ship this |
    |---|---|---|
-   | No brand yet / cool brand (blue/purple/teal/green) | `slate` (cool blue-gray) | Linear, Vercel, Stripe, shadcn defaults |
+   | No brand yet / cool brand (blue/purple/teal/green) | `slate` (cool blue-gray) | Linear, Vercel, Stripe, modern SaaS defaults |
    | Warm brand (orange/amber/red/yellow) | `stone` (warm beige-gray) | Things, Day One, Substack |
    | Utilitarian / monochrome (no brand color) | `neutral` (true gray) | Bloomberg, terminal UIs |
    | Tech/scientific (high-contrast, blue-heavy) | `zinc` (slightly bluer than slate) | GitHub dark, Linear-dark |
@@ -166,7 +166,8 @@ When a quest is classified as `ui_work: true`, the planner emits a `## UX Defaul
 | "developer tool", "IDE", "terminal", "CLI ui" | `zinc` | compact | chrome-dense | no |
 | "consumer mobile app", "iOS", "Android" | `slate` | comfortable | content-forward | required |
 | "marketing site", "landing page", "blog" | `gray` | comfortable | content-forward | required |
-| "settings page", "preferences" | `slate` | comfortable | content-forward | **required** (settings are high-frequency mobile destinations — see GitHub mobile, Stripe mobile) |
+| "consumer settings", "account settings", "profile settings" | `slate` | comfortable | content-forward | required |
+| "admin settings", "developer settings", "internal preferences" | `slate` | comfortable | content-forward | optional unless the prompt names mobile |
 | "data table", "analytics" | `zinc` | compact | chrome-dense | no |
 | "Bloomberg-style" (warm dense) | `stone` | compact | chrome-dense | no |
 | "warm consumer brand", "food", "hospitality" | `stone` | comfortable | content-forward | required |
@@ -221,39 +222,7 @@ Concrete pattern, tested in real products:
 
 ---
 
-## 6. Case studies
-
-Cited not as the standard but as worked examples. **Lift the principles; do not lift the specifics blindly.**
-
-### 6.1 A well-documented framework (Quest)
-
-Quest is a CLI orchestration framework whose UX lives in documentation, an ASCII pipeline diagram, and a static dashboard. Transferable patterns:
-
-- **Diagram before paragraph.** The headline ASCII flow appears *before* "How It Works." Picture is the explanation, prose is the caption. Honors [Krug](https://blas.com/dont-make-me-think/) ("users scan, don't read") and Nielsen #6 (recognition over recall).
-- **Headings carry meaning; first sentences carry the most important word.** A scanning reader who reads only the H2s and first lines must still be able to act. This is generalizable to any documentation; the test is whether your doc passes the scan test (§7 Q12).
-- **A tiny, named design system.** Five status colors, three surfaces, three text shades, two radii, one shadow, one 200ms transition. That is the whole `:root`. Honors Rams #10.
-- **Documents declare themselves.** YAML frontmatter (`title`, `purpose`, `audience`, `scope`, `status`, `owner`). A reader or agent decides in 5 seconds whether to keep reading.
-
-Where the canon pushes back: decorative radial-gradient glows and `backdrop-filter: blur(12px)` look expensive but communicate "premium," not state. Rams #6 (honest) and Tufte (data-ink ratio) would prefer them removed.
-
-### 6.2 A web app with mobile-first divergence (sketch2md)
-
-sketch2md is a Next.js + shadcn editor with separate desktop and mobile toolbars. Transferable patterns:
-
-- **One accent (`#2563eb`), one warning (`destructive`), everything else neutral.** The blue thing on the screen is always the next action.
-- **Define one radius token at the root, enforce it globally.** sketch2md's `* { border-radius: 0 !important; }` is brutal but works *for this product* because the brand IS a grid of monospace cells. Replicate the principle (one radius, enforced) — not the specific value of `0` unless your product also is an ASCII canvas.
-- **Hand-roll toolbar buttons past shadcn.** When density matters, the CVA-variant abstraction tax isn't worth it. Reach for the primitive `<button>` and Tailwind directly.
-- **One global press animation.** `button:active { transform: scale(0.96); }` — cheap, universal, satisfying, no per-component animation library.
-- **Three type sizes for an editor is enough.** Choose them and stop.
-- **Empty states as instructions.** Every empty hint names the action that fills it.
-- **Reserve toasts for events the user can't see themselves.** sonner is wired for exactly one thing: confirming "Copied!" after a clipboard write.
-- **The desktop ↔ mobile divergence model** — two independent toolbars sharing one zustand store. The single biggest transferable pattern in the repo. See §5.3.
-
-Local taste that should not generalize: lowercase headings (a register choice — Nielsen #4 says be consistent, not lowercase), monospace identity (justified *because* the product makes ASCII), and a personality detail component (`src/components/editor/PersonaLogo.tsx`) — see §4.6 #8 on personality budget.
-
----
-
-## 7. The stress test
+## 6. The stress test
 
 The runnable 12-question pre-commit checklist. Full version with checkable items in [ux-stress-test.md](./ux-stress-test.md).
 
@@ -274,7 +243,7 @@ Any "no" requires either a fix or an explicit, defensible exception.
 
 ---
 
-## 8. Red flags
+## 7. Red flags
 
 Fifteen telltale signs of "built without UX care." Use this list to triage a clunky project before deciding what to redesign.
 
@@ -296,7 +265,7 @@ Fifteen telltale signs of "built without UX care." Use this list to triage a clu
 
 ---
 
-## 9. Bootstrapping a new repo (Day 1)
+## 8. Bootstrapping a new repo (Day 1)
 
 1. **Design system:** 4pt or 8pt grid, one accent color, one warning color, 8–10 tinted grays (pick the ramp from §4.2), three type sizes, three shadow tokens, one transition timing. Lock it.
 2. **Pick a voice register** (default: sentence case). Lock it.
