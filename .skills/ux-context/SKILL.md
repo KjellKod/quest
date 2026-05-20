@@ -21,19 +21,22 @@ Agents reading this skill load resources progressively, by role and surface:
 Before loading any UX context, read `.quest/<id>/quest_brief.md` fully and extract `ui_work` from the `## Router Classification` JSON block. Treat a missing field as `false` — do not load this skill for legacy briefs without the classification block. If `ui_work_evidence` is present, use it to scope your attention to the named files/areas.
 
 ### Step 1: Load only the guidebook sections your role needs
-Do not read the whole guidebook by default. Load the smallest relevant sections:
+Do not read the whole guidebook by default. Find your row in the table and read those sections only:
 
-- **All roles:** §2 durable principles and §3 central reconciling rule.
-- **Planner:** §4.9 defaults for new UI work, then the UX Defaults emission protocol below.
-- **Builder / implementer:** §4 discipline sections for touched UI concerns; add §5 only for responsive, mobile, or native-platform work.
-- **Fixer:** the guidebook section cited by each UX finding, plus nearby context if the fix is ambiguous.
+| Role | Required guidebook sections | Stress-test? |
+|---|---|---|
+| Planner | §2 (14 principles), §3 (central rule), §4.9 (inference table) — then the UX Defaults emission protocol below | no |
+| Builder / implementer | §2, §3, and the §4 subsections matching the file types being touched (4.1 typography for prose/labels, 4.2 color for tokens, 4.3 spacing/density for layout, 4.5 motion for transitions, 4.7 empty/loading/error states for state UI, 4.8 a11y for any interactive surface). Add §5 only for responsive, mobile, or native-platform work. | no |
+| Fixer | The guidebook section(s) cited by each UX finding, plus nearby context if the fix is ambiguous | no — unless verifying the fix |
+| Plan-reviewer | §2, §3, §4.9, plus the section cited by any finding the reviewer is interpreting | §7 (12-question rubric summary) + §8 (red flags); full rubric only if running the stress test against the plan via `ux-review` |
+| Code-reviewer | Sections cited by the findings under review, plus §2 + §3 for principle anchoring | Yes — the full rubric in `resources/ux-stress-test.md` is the review tool |
 
-Central reconciling rule:
+Central reconciling rule (loaded by every role):
 
 > **Visual chrome should be restrained. Task content should be as dense as the task earns. Density without grouping is noise; minimalism without signifiers is mystery.**
 
-### Step 2: Load the stress-test rubric only when reviewing or fixing findings
-Read `resources/ux-stress-test.md` when your task is to review, validate a UX finding, or verify a fix. Planners and builders do not need the full rubric unless the prompt asks for a self-review checklist.
+### Step 2: Load the stress-test rubric per the table above
+The Step 1 table names exactly when each role reads `resources/ux-stress-test.md`. Planners and builders do not load the full rubric unless the prompt explicitly asks for a self-review checklist.
 
 ### Step 3: Apply to your role
 

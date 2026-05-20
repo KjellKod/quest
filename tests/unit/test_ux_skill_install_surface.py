@@ -56,8 +56,10 @@ def test_ux_context_uses_progressive_resource_loading() -> None:
     root = _repo_root()
     skill = (root / ".skills" / "ux-context" / "SKILL.md").read_text(encoding="utf-8")
     assert "Do not read the whole guidebook by default" in skill
-    assert "Load the smallest relevant sections" in skill
+    assert "Find your row in the table and read those sections only" in skill
     assert "Read `resources/ux-guidebook.md` in full" not in skill
+    for required_role in ("Planner", "Builder", "Fixer", "Plan-reviewer", "Code-reviewer"):
+        assert required_role in skill, f"role {required_role} missing from Step 1 table"
 
 
 def test_ux_guidebook_stays_portable() -> None:

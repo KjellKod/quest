@@ -20,7 +20,7 @@ When running on Codex, this role is non-interactive:
 - Relevant architecture docs (as needed)
 - Deferred backlog match artifact when present: `.quest/<id>/phase_01_plan/deferred_backlog_matches.json`
 - **On iteration 2+:** Arbiter verdict with synthesized feedback (`.quest/<id>/phase_01_plan/arbiter_verdict.md`)
-- **If the quest brief router classification has `ui_work: true`:** `.skills/ux-context/SKILL.md` and its bundled resources (`resources/ux-guidebook.md`, `resources/ux-stress-test.md`). When `ui_work_evidence` is non-empty, treat those files/areas as the primary surface to plan against. The UX Defaults emission protocol lives in the ux-context SKILL.md and is mandatory when this skill is loaded. If `ui_work` is absent from the brief (older brief format), default to `false` and do not load ux-context.
+- **If the quest brief router classification has `ui_work: true`:** read `.skills/ux-context/SKILL.md` and follow its Step 1 role table — the planner row reads §2, §3, and §4.9 of `resources/ux-guidebook.md` (not the full guidebook; the stress-test is not loaded). When `ui_work_evidence` is non-empty, treat those files/areas as the primary surface to plan against. The UX Defaults emission protocol lives in the ux-context SKILL.md and is mandatory when this skill is loaded. If `ui_work` is absent from the brief (older brief format), default to `false` and do not load ux-context.
 
 ## Responsibilities
 

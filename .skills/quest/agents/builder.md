@@ -18,7 +18,7 @@ When running on Codex, this role is non-interactive:
 - `.skills/implementer/SKILL.md` (implementation skill)
 - Approved plan artifact
 - Quest brief — **read fully; extract `ui_work` and `ui_work_evidence` from the `## Router Classification` JSON block before loading conditional skills. Treat missing `ui_work` as `false`.**
-- **If the quest brief router classification has `ui_work: true`:** read `.skills/ux-context/SKILL.md` and honor §4 of the guidebook (`resources/ux-guidebook.md`) as you write code. When `ui_work_evidence` is non-empty, those files are the primary surface. If `ui_work` is absent from the brief (older brief format), default to `false` and skip ux-context loading.
+- **If the quest brief router classification has `ui_work: true`:** read `.skills/ux-context/SKILL.md` and follow its Step 1 role table — the builder row reads §2 and §3 plus the §4 subsections matching the file types you're touching (not all of §4; not the stress-test). When `ui_work_evidence` is non-empty, those files are the primary surface. If `ui_work` is absent from the brief (older brief format), default to `false` and skip ux-context loading.
 
 ## Responsibilities
 1. Read the approved plan
