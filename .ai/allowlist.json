@@ -156,6 +156,7 @@
         "bash scripts/quest_validate-quest-config.sh",
         "bash scripts/quest_validate-quest-state.sh",
         "bash tests/test-quest-preflight.sh",
+        "bash tests/test-quest-orchestration.sh",
         "bash tests/test-quest-runtime.sh",
         "bash tests/test-validate-handoff-contracts.sh",
         "bash tests/test-validate-quest-state.sh"
@@ -219,6 +220,7 @@
         "bash scripts/quest_validate-quest-config.sh",
         "bash scripts/quest_validate-quest-state.sh",
         "bash tests/test-quest-preflight.sh",
+        "bash tests/test-quest-orchestration.sh",
         "bash tests/test-quest-runtime.sh",
         "bash tests/test-validate-handoff-contracts.sh",
         "bash tests/test-validate-quest-state.sh"

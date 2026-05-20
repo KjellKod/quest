@@ -163,6 +163,30 @@ PY
   rm -rf "$tmpdir"
 }
 
+test_chooser_ignores_unused_solo_roles() {
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import apply_overrides, build_default_models, parse_override_line
+defaults = build_default_models({
+    "planner": "claude",
+    "plan-reviewer-a": "claude",
+    "plan-reviewer-b": "gpt-5.5",
+    "arbiter": "gpt-5.5",
+    "builder": "claude",
+    "code-reviewer-a": "claude",
+    "code-reviewer-b": "gpt-5.5",
+    "fixer": "claude",
+})
+overrides = parse_override_line("arbiter=claude, plan-reviewer-b=claude, builder=gpt-5.5")
+merged, overridden, ignored = apply_overrides(defaults, overrides, quest_mode="solo")
+assert merged["arbiter"] == "gpt-5.5", merged
+assert merged["plan-reviewer-b"] == "gpt-5.5", merged
+assert merged["builder"] == "gpt-5.5", merged
+assert overridden == ["builder"], overridden
+assert ignored == ["arbiter", "plan-reviewer-b"], ignored
+PY
+}
+
 test_chooser_rejects_unavailable_codex_model() {
   # When preflight cache reports payload.available == false, a non-claude
   # model is unavailable and is_model_available must reject it.
@@ -187,6 +211,57 @@ assert is_model_available("claude", codex_available=codex_available) is True
 assert is_model_available("codex", codex_available=codex_available) is False
 assert is_model_available("gpt-5.5", codex_available=codex_available) is False
 # When cache flips true, non-claude models are accepted again
+PY
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
+}
+
+test_chooser_accepts_top_level_preflight_available() {
+  # Claude-led preflight emits top-level available=true rather than
+  # payload.available.
+  local tmpdir cache_file
+  tmpdir=$(mktemp -d)
+  cache_file="$tmpdir/cache/codex_preflight.json"
+  mkdir -p "$(dirname "$cache_file")"
+  cat > "$cache_file" <<'EOF'
+{
+  "available": true
+}
+EOF
+
+  python3 - "$cache_file" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import load_codex_available_from_cache
+assert load_codex_available_from_cache(Path(sys.argv[1])) is True
+PY
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
+}
+
+test_chooser_requires_literal_true_preflight_available() {
+  # Truthy-looking strings must not enable non-Claude models.
+  local tmpdir cache_file
+  tmpdir=$(mktemp -d)
+  cache_file="$tmpdir/cache/codex_preflight.json"
+  mkdir -p "$(dirname "$cache_file")"
+  cat > "$cache_file" <<'EOF'
+{
+  "payload": {
+    "available": "true"
+  }
+}
+EOF
+
+  python3 - "$cache_file" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import load_codex_available_from_cache
+assert load_codex_available_from_cache(Path(sys.argv[1])) is False
 PY
   local rc=$?
   rm -rf "$tmpdir"
@@ -298,6 +373,41 @@ PY
   rm -rf "$tmpdir"
 }
 
+test_resume_reports_missing_or_invalid_snapshot() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/logs"
+
+  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import migrate_from_snapshot
+try:
+    migrate_from_snapshot(Path(sys.argv[1]))
+except ValueError as exc:
+    assert "Snapshot not readable" in str(exc), exc
+else:
+    raise SystemExit("expected missing snapshot to raise ValueError")
+PY
+
+  printf '{ not json\n' > "$tmpdir/logs/allowlist_snapshot.json"
+  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import migrate_from_snapshot
+try:
+    migrate_from_snapshot(Path(sys.argv[1]))
+except ValueError as exc:
+    assert "is not valid JSON" in str(exc), exc
+else:
+    raise SystemExit("expected invalid snapshot to raise ValueError")
+PY
+
+  rm -rf "$tmpdir"
+}
+
 test_resume_does_not_modify_existing_orchestration_json() {
   # An existing orchestration.json must be preserved byte-for-byte by the
   # resume migration helper.
@@ -376,13 +486,17 @@ echo ""
 
 run_test test_chooser_default_writer_contract
 run_test test_chooser_override_writer_contract
+run_test test_chooser_ignores_unused_solo_roles
 run_test test_chooser_rejects_unavailable_codex_model
+run_test test_chooser_accepts_top_level_preflight_available
+run_test test_chooser_requires_literal_true_preflight_available
 run_test test_chooser_accepts_valid_model_names_with_dashes
 run_test test_chooser_rejects_unknown_role
 run_test test_chooser_rejects_multiple_equals
 run_test test_chooser_skips_empty_pieces
 run_test test_chooser_normalizes_role_case
 run_test test_resume_migrates_missing_orchestration_json
+run_test test_resume_reports_missing_or_invalid_snapshot
 run_test test_resume_does_not_modify_existing_orchestration_json
 run_test test_workflow_dispatch_reads_orchestration_json_not_allowlist
 run_test test_workflow_no_allowlist_models_string

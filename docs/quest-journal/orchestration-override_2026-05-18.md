@@ -6,12 +6,12 @@
 - Mode: solo
 - Quality: Platinum
 - Celebration: [`celebrations/orchestration-override_2026-05-18.md`](celebrations/orchestration-override_2026-05-18.md)
-- Outcome: 1. New per-quest config file `.quest/<id>/orchestration.json` written at quest startup. This file is the single source of truth for `models.<role>` during the quest. 2. A startup "chooser" sub-step in `.skills/quest/SKILL.md` Step 3 (Quest Folder Creation) that surfaces on every fresh quest and l...
+- Outcome: Added `.quest/<id>/orchestration.json` as the per-quest source of truth for role model assignments, plus a startup chooser that lets users keep defaults or override models for the current quest only.
 
 ## What Shipped
 
 1. New per-quest config file `.quest/<id>/orchestration.json` written at quest startup. This file is the single source of truth for `models.<role>` during the quest.
-2. A startup "chooser" sub-step in `.skills/quest/SKILL.md` Step 3 (Quest Folder Creation) that surfaces on every fresh quest and l...
+2. A startup "chooser" sub-step in `.skills/quest/SKILL.md` Step 3 (Quest Folder Creation) that surfaces on every fresh quest and lets users keep defaults or override role models for that quest only.
 
 ## Files Changed
 

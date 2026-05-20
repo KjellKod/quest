@@ -34,7 +34,9 @@ CANONICAL_ROLES: tuple[str, ...] = (
 )
 
 # Roles that may legitimately be unused (and therefore null) in solo mode.
-SOLO_UNUSED_ROLES: frozenset[str] = frozenset({"plan-reviewer-b", "code-reviewer-b"})
+SOLO_UNUSED_ROLES: frozenset[str] = frozenset(
+    {"plan-reviewer-b", "code-reviewer-b", "arbiter"}
+)
 
 ORCHESTRATION_VERSION = 1
 
@@ -112,22 +114,26 @@ def is_model_available(model: str, *, codex_available: bool) -> bool:
 
 
 def load_codex_available_from_cache(cache_path: Path) -> bool:
-    """Read `.quest/cache/claude_bridge_codex.json` payload.available.
+    """Read a Codex-availability preflight cache.
 
-    Returns False if the file is missing, unreadable, or does not record an
-    affirmative `available: true` value. Callers may want to also enforce the
-    preflight TTL — that is left to the orchestrator since it knows when the
-    quest started.
+    Claude-led preflight writes top-level `available`; Codex-led bridge probing
+    may write `payload.available`. Only a literal JSON boolean true is accepted.
+    Callers may want to also enforce the preflight TTL — that is left to the
+    orchestrator since it knows when the quest started.
     """
     try:
         with cache_path.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
     except (OSError, json.JSONDecodeError):
         return False
-    payload = data.get("payload") if isinstance(data, dict) else None
-    if not isinstance(payload, dict):
+    if not isinstance(data, dict):
         return False
-    return bool(payload.get("available", False))
+    if data.get("available") is True:
+        return True
+    payload = data.get("payload")
+    if isinstance(payload, dict):
+        return payload.get("available") is True
+    return False
 
 
 def build_default_models(allowlist_models: dict[str, str | None]) -> dict[str, str | None]:
@@ -222,8 +228,13 @@ def migrate_from_snapshot(
     if orch_path.exists():
         return False
     snapshot_path = quest_dir / "logs" / "allowlist_snapshot.json"
-    with snapshot_path.open("r", encoding="utf-8") as handle:
-        snapshot = json.load(handle)
+    try:
+        with snapshot_path.open("r", encoding="utf-8") as handle:
+            snapshot = json.load(handle)
+    except OSError as exc:
+        raise ValueError(f"Snapshot not readable at {snapshot_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Snapshot at {snapshot_path} is not valid JSON") from exc
     models = snapshot.get("models")
     if not isinstance(models, dict):
         raise ValueError(

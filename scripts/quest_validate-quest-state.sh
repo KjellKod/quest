@@ -215,16 +215,15 @@ validate_orchestration_json() {
   # Keep this list in sync with workflow.md dispatch sites
   # (planner, plan-reviewer-a, plan-reviewer-b, arbiter, builder,
   # code-reviewer-a, code-reviewer-b, fixer).
-  local required_roles=("planner" "plan-reviewer-a" "arbiter" "builder" "code-reviewer-a" "fixer")
+  local required_roles=("planner" "plan-reviewer-a" "builder" "code-reviewer-a" "fixer")
   if [ "$QUEST_MODE" != "solo" ]; then
-    required_roles+=("plan-reviewer-b" "code-reviewer-b")
+    required_roles+=("plan-reviewer-b" "arbiter" "code-reviewer-b")
   fi
 
   local missing_roles=()
-  local role val
+  local role
   for role in "${required_roles[@]}"; do
-    val=$(jq -r --arg r "$role" '.models[$r] // empty' "$orch_file" 2>/dev/null)
-    if [ -z "$val" ] || [ "$val" = "null" ]; then
+    if ! jq -e --arg r "$role" '.models[$r] | type == "string" and length > 0' "$orch_file" >/dev/null 2>&1; then
       missing_roles+=("$role")
     fi
   done

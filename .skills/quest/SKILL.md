@@ -194,7 +194,7 @@ Before creating the quest folder, present the routing classification to the user
    - Questioner summary (if questioning occurred)
    - **Router classification JSON** (the final routing decision that sent the quest to workflow). This is the classification produced by the most recent router evaluation — if the router ran twice (once before questioning, once after), record the second (final) classification.
 8. Copy `.ai/allowlist.json` to `.quest/<id>/logs/allowlist_snapshot.json`
-8.5. **Per-quest orchestration chooser.** Display the active `models` block from `.ai/allowlist.json`. For each role unused in the chosen `quest_mode` (e.g., `plan-reviewer-b` and `code-reviewer-b` in solo mode), append `  (unused in this mode)` after the model name. Then prompt:
+8.5. **Per-quest orchestration chooser.** Display the active `models` block from `.ai/allowlist.json`. For each role unused in the chosen `quest_mode` (e.g., `plan-reviewer-b`, `arbiter`, and `code-reviewer-b` in solo mode), append `  (unused in this mode)` after the model name. Then prompt:
 
    ```
    Quest orchestration for `<slug>` (<mode>):
@@ -202,7 +202,7 @@ Before creating the quest folder, present the routing classification to the user
      planner           <model>
      plan-reviewer-a   <model>
      plan-reviewer-b   <model>  (unused in this mode)   [solo only]
-     arbiter           <model>
+     arbiter           <model>  (unused in this mode)   [solo only]
      builder           <model>
      code-reviewer-a   <model>
      code-reviewer-b   <model>  (unused in this mode)   [solo only]
@@ -236,8 +236,8 @@ Before creating the quest folder, present the routing classification to the user
    2. **One `=` per piece.** Each non-empty piece must contain exactly one `=` character. Reject pieces with zero `=` or two or more `=` characters using `Override syntax error: '<piece>' (expected role=model). Re-enter overrides.`
    3. **Role name (LHS of `=`).** Trim, normalize to lowercase, then exact-match against the canonical role list (`planner`, `plan-reviewer-a`, `plan-reviewer-b`, `arbiter`, `builder`, `code-reviewer-a`, `code-reviewer-b`, `fixer`). Reject unknown names with `Unknown role: <input> (valid: planner, plan-reviewer-a, plan-reviewer-b, arbiter, builder, code-reviewer-a, code-reviewer-b, fixer)` and re-prompt.
    4. **Model name (RHS of `=`).** Trim. Lexeme is `[^,=]+` non-empty. No further character constraints — `gpt-5.5`, `claude-opus-4.7`, `o1-mini` and similar tokens are all accepted at the parser level.
-   5. **Unused-in-mode roles** (`plan-reviewer-b` and `code-reviewer-b` in solo). Warn `Role <name> is unused in <mode> mode — override ignored.` and skip the override; do not record it in `overridden_roles`.
-   6. **Availability check.** `model == "claude"` is always allowed. Any other model name requires Codex MCP to be available per the preflight cache `.quest/cache/claude_bridge_codex.json` (and, for Codex-led sessions, the matching Codex preflight result). If the cache file is missing or stale (older than the preflight TTL), rerun `scripts/quest_preflight.sh --orchestrator <self>` once and reuse the fresh result. Reject unavailable models with the preflight `warning` text and re-prompt the override line.
+   5. **Unused-in-mode roles** (`plan-reviewer-b`, `arbiter`, and `code-reviewer-b` in solo). Warn `Role <name> is unused in <mode> mode — override ignored.` and skip the override; do not record it in `overridden_roles`.
+   6. **Availability check.** `model == "claude"` is always allowed. Any other model name requires Codex MCP to be available from the Step 2b preflight result. For Claude-led sessions, use the top-level `available` boolean emitted by `scripts/quest_preflight.sh --orchestrator claude`; for Codex-led sessions, use the matching Codex preflight result or bridge cache. If the cache/result is missing or stale (older than the preflight TTL), rerun `scripts/quest_preflight.sh --orchestrator <self>` once and reuse the fresh result. Reject unavailable models with the preflight `warning` text and re-prompt the override line.
    7. **Re-prompt cap.** An "attempt" is one full override-line submission, not one role=model pair. Three rejected attempts in a row abort startup with `Override validation failed after 3 attempts — quest startup cancelled.`
 
    Once all overrides pass validation, build the merged `models` block (defaults from `.ai/allowlist.json` overlaid with the validated overrides — `overridden_roles` excludes ignored-because-unused entries) and write `.quest/<id>/orchestration.json` with:

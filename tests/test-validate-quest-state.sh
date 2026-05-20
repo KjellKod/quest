@@ -1340,8 +1340,33 @@ test_validate_rejects_unset_active_role_model() {
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "required model unset for active mode (workflow): arbiter"
 }
 
+test_validate_rejects_non_string_active_role_model() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  write_orchestration_json "$tmpdir/orchestration.json" '{
+  "version": 1,
+  "models": {"planner":true,"plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":"claude","builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","fixer":"claude"},
+  "source": "default",
+  "overridden_roles": [],
+  "preflight_validated_at": "2026-05-18T05:42:13Z"
+}'
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "required model unset for active mode (workflow): planner"
+}
+
 test_validate_accepts_null_unused_role_solo() {
-  # In solo mode, plan-reviewer-b and code-reviewer-b may be null without
+  # In solo mode, plan-reviewer-b, arbiter, and code-reviewer-b may be null without
   # tripping the validator.
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -1351,7 +1376,7 @@ test_validate_accepts_null_unused_role_solo() {
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
   write_orchestration_json "$tmpdir/orchestration.json" '{
   "version": 1,
-  "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":null,"arbiter":"claude","builder":"claude","code-reviewer-a":"claude","code-reviewer-b":null,"fixer":"claude"},
+  "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":null,"arbiter":null,"builder":"claude","code-reviewer-a":"claude","code-reviewer-b":null,"fixer":"claude"},
   "source": "default",
   "overridden_roles": [],
   "preflight_validated_at": "2026-05-18T05:42:13Z"
@@ -1537,6 +1562,7 @@ run_test test_validate_rejects_wrong_version_orchestration
 run_test test_validate_rejects_missing_models_block_orchestration
 run_test test_validate_rejects_bad_source_orchestration
 run_test test_validate_rejects_unset_active_role_model
+run_test test_validate_rejects_non_string_active_role_model
 run_test test_validate_accepts_null_unused_role_solo
 run_test test_validate_accepts_workflow_default_block
 run_test test_validate_state_compat_legacy_skips_orchestration_check
