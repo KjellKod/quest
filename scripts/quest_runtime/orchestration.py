@@ -112,14 +112,19 @@ def parse_override_line(line: str) -> list[Override]:
     return parsed
 
 
+def is_claude_model(model: str) -> bool:
+    """Return True for model names that run on the Claude runtime."""
+    return model == "claude" or model.startswith("claude-")
+
+
 def is_model_available(model: str, *, codex_available: bool) -> bool:
     """Return True if the requested model can run with the current preflight.
 
-    `claude` is always allowed. Any other model name requires Codex MCP to be
-    available per the preflight cache. This is the contract from SKILL.md
+    Claude-family model names are always allowed. Any other model name requires
+    Codex MCP to be available per the preflight cache. This is the contract from SKILL.md
     §8.5 step 6.
     """
-    if model == "claude":
+    if is_claude_model(model):
         return True
     return codex_available
 

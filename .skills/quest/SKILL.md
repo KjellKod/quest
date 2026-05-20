@@ -23,7 +23,7 @@ When starting, say: "Now I understand the Quest." Then proceed.
 
 If the user provides a quest ID matching either supported Quest ID format (`<slug>_YYYY-MM-DD__HHMM` or `YYYY-MM-DD_HHMM__<slug>`):
 1. Read `.quest/<id>/state.json` and resume from the recorded phase
-1a. **Orchestration config migration.** If `.quest/<id>/orchestration.json` is missing, copy the `models` object out of `.quest/<id>/logs/allowlist_snapshot.json` and write it as the `models` field of a new `.quest/<id>/orchestration.json` with: `version: 1`, `source: "default"`, `overridden_roles: []`, `preflight_validated_at: <ISO8601 now>`. Preserve the snapshot's saved model values; if any canonical role is missing from the snapshot, stop with a malformed-snapshot error instead of inventing a replacement. Roles unused in the active `quest_mode` MAY remain populated (they are harmless on resume). **Never prompt the chooser on resume.** If `orchestration.json` already exists, leave it untouched.
+1a. **Orchestration config migration.** If `.quest/<id>/orchestration.json` is missing, read the `models` object from `.quest/<id>/logs/allowlist_snapshot.json` and write those saved role values as the `models` field of a new `.quest/<id>/orchestration.json` with: `version: 1`, `source: "default"`, `overridden_roles: []`, `preflight_validated_at: <ISO8601 now>`. Resume migration preserves the snapshot baseline; if any canonical role is missing from the snapshot, stop with a malformed-snapshot error instead of filling from current defaults. Roles unused in the active `quest_mode` MAY remain populated (they are harmless on resume). **Never prompt the chooser on resume.** If `orchestration.json` already exists, leave it untouched.
 2. Delegate to `delegation/workflow.md`
 
 If the user says `/quest status` or `$quest status`, handle as a utility command (see `delegation/workflow.md` Utility Commands).
@@ -213,7 +213,7 @@ Before creating the quest folder, present the routing classification to the user
 
    **On N (default; single Enter):** write `.quest/<id>/orchestration.json` with:
    - `version: 1`
-   - `models`: copy of `.ai/allowlist.json` `.models` (full block, all 8 keys)
+   - `models`: `.ai/allowlist.json` `.models` expanded to all 8 canonical keys; omitted keys use the documented defaults (`planner=claude`, `plan-reviewer-a=claude`, `plan-reviewer-b=gpt-5.5`, `arbiter=claude`, `builder=gpt-5.5`, `code-reviewer-a=claude`, `code-reviewer-b=gpt-5.5`, `fixer=gpt-5.5`)
    - `source: "default"`
    - `overridden_roles: []`
    - `preflight_validated_at: <ISO8601 now>`
@@ -237,10 +237,10 @@ Before creating the quest folder, present the routing classification to the user
    3. **Role name (LHS of `=`).** Trim, normalize to lowercase, then exact-match against the canonical role list (`planner`, `plan-reviewer-a`, `plan-reviewer-b`, `arbiter`, `builder`, `code-reviewer-a`, `code-reviewer-b`, `fixer`). Reject unknown names with `Unknown role: <input> (valid: planner, plan-reviewer-a, plan-reviewer-b, arbiter, builder, code-reviewer-a, code-reviewer-b, fixer)` and re-prompt.
    4. **Model name (RHS of `=`).** Trim. Lexeme is `[^,=]+` non-empty. No further character constraints — `gpt-5.5`, `claude-opus-4.7`, `o1-mini` and similar tokens are all accepted at the parser level.
    5. **Unused-in-mode roles** (`plan-reviewer-b`, `arbiter`, and `code-reviewer-b` in solo). Warn `Role <name> is unused in <mode> mode — override ignored.` and skip the override; do not record it in `overridden_roles`.
-   6. **Availability check.** `model == "claude"` is always allowed. Any other model name requires Codex MCP to be available from the Step 2b preflight result. For Claude-led sessions, use the top-level `available` boolean emitted by `scripts/quest_preflight.sh --orchestrator claude`; for Codex-led sessions, use the matching Codex preflight result or bridge cache. If the cache/result is missing or stale (older than the preflight TTL), rerun `scripts/quest_preflight.sh --orchestrator <self>` once and reuse the fresh result. Reject unavailable models with the preflight `warning` text and re-prompt the override line.
+   6. **Availability check.** Claude-family model names (`claude` and `claude-*`, for example `claude-opus-4.7`) are always allowed. Any other model name requires Codex MCP to be available from the Step 2b preflight result. For Claude-led sessions, use the top-level `available` boolean emitted by `scripts/quest_preflight.sh --orchestrator claude`; for Codex-led sessions, use the matching Codex preflight result or bridge cache. If the cache/result is missing or stale (older than the preflight TTL), rerun `scripts/quest_preflight.sh --orchestrator <self>` once and reuse the fresh result. Reject unavailable models with the preflight `warning` text and re-prompt the override line.
    7. **Re-prompt cap.** An "attempt" is one full override-line submission, not one role=model pair. Three rejected attempts in a row abort startup with `Override validation failed after 3 attempts — quest startup cancelled.`
 
-   Once all overrides pass validation, build the merged `models` block (defaults from `.ai/allowlist.json` overlaid with the validated overrides — `overridden_roles` excludes ignored-because-unused entries) and write `.quest/<id>/orchestration.json` with:
+   Once all overrides pass validation, build the merged `models` block (defaults from `.ai/allowlist.json`, with omitted role keys filled from the documented defaults above, overlaid with the validated overrides — `overridden_roles` excludes ignored-because-unused entries) and write `.quest/<id>/orchestration.json` with:
    - `version: 1`
    - `models`: merged block (all 8 keys present; unused-in-mode roles still carry the default value)
    - `source: "overridden"`

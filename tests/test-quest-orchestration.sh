@@ -205,7 +205,8 @@ PY
 
 test_chooser_rejects_unavailable_codex_model() {
   # When preflight cache reports payload.available == false, a non-claude
-  # model is unavailable and is_model_available must reject it.
+  # model is unavailable and is_model_available must reject it. Claude-family
+  # model names are still available because they do not use the Codex runtime.
   local tmpdir cache_file
   tmpdir=$(mktemp -d)
   cache_file="$tmpdir/cache/claude_bridge_codex.json"
@@ -223,6 +224,8 @@ codex_available = load_codex_available_from_cache(cache)
 assert codex_available is False, codex_available
 # claude is always allowed
 assert is_model_available("claude", codex_available=codex_available) is True
+assert is_model_available("claude-opus-4.7", codex_available=codex_available) is True
+assert is_model_available("claude-sonnet-4-5", codex_available=codex_available) is True
 # codex / gpt-5.5 should be rejected when codex unavailable
 assert is_model_available("codex", codex_available=codex_available) is False
 assert is_model_available("gpt-5.5", codex_available=codex_available) is False
