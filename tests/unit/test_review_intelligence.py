@@ -76,6 +76,12 @@ def test_validate_findings_accepts_valid_record() -> None:
     assert errors == []
 
 
+def test_validate_findings_accepts_shared_infrastructure_kinds() -> None:
+    for kind in ("shared_infrastructure", "cross_cutting"):
+        errors = validate_findings([_finding(kind=kind)])
+        assert errors == []
+
+
 def test_validate_findings_rejects_missing_required_field() -> None:
     invalid = _finding()
     invalid.pop("summary")

@@ -40,6 +40,8 @@ ALLOWED_KINDS = (
     "edge-case",
     "test_failure",
     "build_failure",
+    "shared_infrastructure",
+    "cross_cutting",
 )
 ALLOWED_DECISIONS = (
     "fix_now",

@@ -85,7 +85,7 @@ Concrete, prescriptive rules. Each subsection is independently usable as a pre-c
    |---|---|---|
    | No brand yet / cool brand (blue/purple/teal/green) | `slate` (cool blue-gray) | Linear, Vercel, Stripe, modern SaaS defaults |
    | Warm brand (orange/amber/red/yellow) | `stone` (warm beige-gray) | Things, Day One, Substack |
-   | Utilitarian / monochrome (no brand color) | `neutral` (true gray) | Bloomberg, terminal UIs |
+   | Utilitarian / explicitly monochrome | `neutral` (true gray) | Bloomberg, terminal UIs |
    | Tech/scientific (high-contrast, blue-heavy) | `zinc` (slightly bluer than slate) | GitHub dark, Linear-dark |
    | Content-forward / paper feel (white-dominant, generous whitespace) | `gray` (true gray, light usage — surfaces mostly `#fff`, borders at `gray-200`, body at `gray-900`, middle steps rare) | Google, GitHub light, mockdown.design |
 
@@ -171,7 +171,7 @@ When a quest is classified as `ui_work: true`, the planner emits a `## UX Defaul
 | "data table", "analytics" | `zinc` | compact | chrome-dense | no |
 | "Bloomberg-style" (warm dense) | `stone` | compact | chrome-dense | no |
 | "warm consumer brand", "food", "hospitality" | `stone` | comfortable | content-forward | required |
-| "utilitarian", "monochrome", "no brand color" | `neutral` | varies | varies | varies |
+| "utilitarian", "monochrome" | `neutral` | varies | varies | varies |
 | no signal / generic UI request | `slate` | comfortable | content-forward | required |
 
 **Brand accent:** default `#2563eb` (Tailwind `blue-600`) unless the prompt or brief names a hex. **Six fields** the planner must emit, in order: ramp, density, ratio, mobile, accent, destructive actions — plus a one-sentence plan for empty/loading/error states. Anything else (primary action placement, mobile divergence pattern) is decided at implementation time, citing the relevant §.
