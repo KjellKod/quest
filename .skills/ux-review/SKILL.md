@@ -133,7 +133,7 @@ Embed UX findings inline in the markdown review using the standard `[N]` format 
 
 Example markdown finding:
 ```markdown
-[N] Must fix - plan.md:Acceptance Criteria - the settings page plan lists "Save" and "Cancel" buttons styled identically; no primary action is named (ux-guidebook§2 #1 — one primary action per screen).
+[N] Must fix - plan.md:Acceptance Criteria - the settings page plan lists "Save" and "Cancel" buttons styled identically; no primary action is named (ux-guidebook§2 — make the possible visible: every affordance needs a signifier).
 ```
 
 **Code-review phase (code-reviewer-a / code-reviewer-b):**
@@ -183,7 +183,7 @@ Write canonical findings JSON to the reviewer's slot path under `.quest/<id>/pha
 
 - **Where:** src/components/Settings.tsx:87 — `<button className="bg-blue-600 text-white px-4 py-2">Save</button>`
 - **Symptom:** No `hover:`, `active:`, or `focus-visible:` styling. The button looks the same before, during, and after the cursor lands on it.
-- **Principle violated:** [§RF-12 — buttons without hover or active states](.skills/ux-context/resources/ux-stress-test.md#red-flags-15-point-diagnostic) and Norman's signifier rule from §2 #2.
+- **Principle violated:** [§RF-12 — buttons without hover or active states](.skills/ux-context/resources/ux-stress-test.md#red-flags-15-point-diagnostic) and Norman's signifier rule from `ux-guidebook§2`.
 - **Smallest fix:** Add `hover:bg-blue-700 active:bg-blue-800 focus-visible:ring-2 focus-visible:ring-blue-400`.
 - **User impact:** User cannot tell the button is interactive without clicking it; keyboard users have no focus indicator.
 ```

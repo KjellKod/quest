@@ -230,7 +230,7 @@ Iteration 3: "Remaining feedback is cosmetic, APPROVE"
 
 When the router classifies a quest as `ui_work: true`, plan-reviewer and code-reviewer agents run the `ux-review` skill alongside their normal review. UX findings carry `kind: "ux"` and a `principle_id` citation to the UX guidebook, and merge into the same `review_findings.json` and `review_backlog.json` that drives the fix loop. Severity maps P0 → critical, P1 → high, P2 → medium, P3 → low.
 
-P3 chrome-bloat findings auto-defer to keep the fix loop focused on correctness and important UX. See `.skills/ux-review/SKILL.md` for the rubric and `.skills/ux-context/resources/ux-guidebook.md` for the principles.
+P3 chrome-bloat findings ride the existing `select_decision` rules (typically `drop` at high confidence, `defer` at low confidence per the canonical review-decisions policy) — there is no UX-specific override. See `.skills/ux-review/SKILL.md` for the rubric and `.skills/ux-context/resources/ux-guidebook.md` for the principles.
 
 ### Permission Enforcement
 
