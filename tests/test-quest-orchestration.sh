@@ -206,7 +206,8 @@ PY
 test_chooser_rejects_unavailable_codex_model() {
   # When preflight cache reports payload.available == false, a non-claude
   # model is unavailable and is_model_available must reject it. Claude-family
-  # model names are still available because they do not use the Codex runtime.
+  # model names are still available in Claude-led sessions because they do not
+  # use the Codex runtime.
   local tmpdir cache_file
   tmpdir=$(mktemp -d)
   cache_file="$tmpdir/cache/claude_bridge_codex.json"
@@ -234,6 +235,32 @@ PY
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 0 ]
+}
+
+test_chooser_gates_claude_family_in_codex_led_session() {
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import is_model_available_for_orchestrator
+
+assert is_model_available_for_orchestrator(
+    "gpt-5.5",
+    orchestrator="codex",
+    codex_available=True,
+    claude_available=False,
+) is True
+assert is_model_available_for_orchestrator(
+    "claude",
+    orchestrator="codex",
+    codex_available=True,
+    claude_available=False,
+) is False
+assert is_model_available_for_orchestrator(
+    "claude-opus-4.7",
+    orchestrator="codex",
+    codex_available=True,
+    claude_available=True,
+) is True
+PY
 }
 
 test_chooser_accepts_top_level_preflight_available() {
@@ -532,6 +559,13 @@ test_workflow_no_allowlist_models_string() {
   return 0
 }
 
+test_workflow_defaults_are_not_dispatch_fallbacks() {
+  if grep -n 'defaults above apply when a key is missing' "$WORKFLOW_MD"; then
+    return 1
+  fi
+  return 0
+}
+
 # ---- Run all tests ----
 
 echo "=== Quest Orchestration Tests ==="
@@ -542,6 +576,7 @@ run_test test_chooser_override_writer_contract
 run_test test_default_models_fill_missing_allowlist_keys
 run_test test_chooser_ignores_unused_solo_roles
 run_test test_chooser_rejects_unavailable_codex_model
+run_test test_chooser_gates_claude_family_in_codex_led_session
 run_test test_chooser_accepts_top_level_preflight_available
 run_test test_chooser_requires_literal_true_preflight_available
 run_test test_chooser_accepts_valid_model_names_with_dashes
@@ -554,6 +589,7 @@ run_test test_resume_reports_missing_or_invalid_snapshot
 run_test test_resume_does_not_modify_existing_orchestration_json
 run_test test_workflow_dispatch_reads_orchestration_json_not_allowlist
 run_test test_workflow_no_allowlist_models_string
+run_test test_workflow_defaults_are_not_dispatch_fallbacks
 
 echo ""
 echo "=== Results ==="

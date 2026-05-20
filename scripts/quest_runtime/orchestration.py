@@ -120,13 +120,29 @@ def is_claude_model(model: str) -> bool:
 def is_model_available(model: str, *, codex_available: bool) -> bool:
     """Return True if the requested model can run with the current preflight.
 
-    Claude-family model names are always allowed. Any other model name requires
-    Codex MCP to be available per the preflight cache. This is the contract from SKILL.md
-    §8.5 step 6.
+    Backward-compatible wrapper for Claude-led availability checks.
     """
-    if is_claude_model(model):
-        return True
-    return codex_available
+    return is_model_available_for_orchestrator(
+        model,
+        orchestrator="claude",
+        codex_available=codex_available,
+        claude_available=True,
+    )
+
+
+def is_model_available_for_orchestrator(
+    model: str,
+    *,
+    orchestrator: str,
+    codex_available: bool,
+    claude_available: bool,
+) -> bool:
+    """Return True if the model can run in the active orchestrator session."""
+    if orchestrator not in {"claude", "codex"}:
+        raise ValueError(f"Unknown orchestrator: {orchestrator!r}")
+    if orchestrator == "claude":
+        return True if is_claude_model(model) else codex_available
+    return claude_available if is_claude_model(model) else True
 
 
 def load_codex_available_from_cache(cache_path: Path) -> bool:
