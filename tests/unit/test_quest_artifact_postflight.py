@@ -1731,6 +1731,62 @@ class TestCanonicalCoverage:
             for r in missing
         ), missing
 
+    def test_extra_canonical_named_file_in_nested_subdir_records_outside_boundary(
+        self, workspace: Path
+    ) -> None:
+        """Coverage passes (canonical ``phase_01_plan/plan.md`` is declared
+        and exists), but the handoff also declares an off-spec second copy at
+        ``phase_01_plan/nested/plan.md``. The per-path shape check must reject
+        the nested declaration as ``outside_boundary`` — equal parent, not
+        merely ``relative_to``."""
+
+        quest_id = "test-quest_extra-nested"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_01_plan"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        # Canonical location — satisfies the coverage check.
+        canonical = phase_dir / "plan.md"
+        canonical.write_text("seed", encoding="utf-8")
+
+        # Off-spec nested duplicate with the canonical basename.
+        nested = phase_dir / "nested" / "plan.md"
+        nested.parent.mkdir(parents=True, exist_ok=True)
+        nested.write_text("seed", encoding="utf-8")
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(canonical),
+                        str(nested),
+                    ],
+                    "next": "plan-reviewer-a",
+                    "summary": "canonical + extra nested copy",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_01_plan",
+            role="planner",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=workspace,
+        )
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        outside = [r for r in records if r["reason"] == "outside_boundary"]
+        assert any(
+            Path(r["declared"]) == nested for r in outside
+        ), outside
+
 
 # ---------------------------------------------------------------------------
 # Slice D — Latency tests (#11, #12), perf-marker-gated

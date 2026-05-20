@@ -552,9 +552,12 @@ def _check_one(
         )
 
     # 3. Inside the role's expected boundary (parent directory).
-    try:
-        resolved.relative_to(boundary_dir)
-    except ValueError:
+    # Require exact-parent equality, not ``relative_to(boundary_dir)``: a
+    # canonical-named file at a nested depth inside the boundary (e.g.
+    # ``phase_01_plan/nested/plan.md``) would otherwise pass the shape
+    # checks and let an off-spec declaration through whenever the real
+    # canonical path is also declared (which satisfies coverage).
+    if resolved.parent != boundary_dir:
         return _make_mismatch(
             phase=phase,
             role=role,
