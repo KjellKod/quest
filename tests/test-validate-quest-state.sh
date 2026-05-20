@@ -24,10 +24,9 @@ run_test() {
 
 # Helper: create a minimal valid state.json
 #
-# Sets orchestration_compat="legacy" by default so the new orchestration.json
-# validator does not fire against tests that predate it. Orchestration-specific
-# tests pass an explicit value (including "") in the 6th argument to enable
-# the orchestration check.
+# Writes a valid orchestration.json by default so tests that focus on other
+# transition rules do not fail on the orchestration validator. Orchestration-
+# specific tests pass an explicit empty 6th argument to omit this fixture.
 create_state_json() {
   local dir="$1"
   local phase="$2"
@@ -54,6 +53,9 @@ create_state_json() {
   "updated_at": "2026-01-01T00:00:00Z"$compat_field
 }
 EOF
+  if [ -n "$compat" ]; then
+    write_orchestration_json "$dir/orchestration.json"
+  fi
 }
 
 # Helper: write a valid .quest/<id>/orchestration.json artifact.
@@ -1188,6 +1190,7 @@ test_validation_log_written() {
   tmpdir=$(mktemp -d)
   mkdir -p "$tmpdir/phase_01_plan" "$tmpdir/logs"
   echo '{"quest_id":"orchestration-override_2026-05-18__0540","slug":"orchestration-override","phase":"plan_reviewed","plan_iteration":1,"fix_iteration":0,"orchestration_compat":"legacy"}' > "$tmpdir/state.json"
+  write_orchestration_json "$tmpdir/orchestration.json"
   echo "plan content" > "$tmpdir/phase_01_plan/plan.md"
 
   bash "$SCRIPT" "$tmpdir" "presenting" > /dev/null 2>&1
@@ -1407,37 +1410,17 @@ test_validate_accepts_workflow_default_block() {
   [ "$rc" -eq 0 ]
 }
 
-test_validate_state_compat_legacy_skips_orchestration_check() {
-  # The one known in-flight quest that introduced orchestration.json may use
-  # state.json.orchestration_compat == "legacy" to bypass this new check.
+test_validate_state_compat_legacy_does_not_skip_orchestration_check() {
+  # A legacy compatibility marker in mutable state.json does not bypass
+  # orchestration validation.
   local tmpdir
   tmpdir=$(mktemp -d)
-  create_state_json "$tmpdir" "plan" 1 0 "workflow" "legacy"
-  mkdir -p "$tmpdir/phase_01_plan"
-  touch "$tmpdir/phase_01_plan/plan.md"
-  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
-  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
-  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
-  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
-  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
-  local output
-  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
-  local rc=$?
-  rm -rf "$tmpdir"
-  [ "$rc" -eq 0 ] && echo "$output" | grep -q "orchestration.json check skipped"
-}
-
-test_validate_state_compat_legacy_wrong_quest_does_not_skip() {
-  # Future quests cannot bypass orchestration validation by mutating state.json.
-  local tmpdir
-  tmpdir=$(mktemp -d)
-  create_state_json "$tmpdir" "plan" 1 0 "workflow" "legacy"
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
   python3 - "$tmpdir/state.json" <<'PY'
 import json, sys
 path = sys.argv[1]
 data = json.loads(open(path).read())
-data["quest_id"] = "other-quest_2026-01-01__0000"
-data["slug"] = "other-quest"
+data["orchestration_compat"] = "legacy"
 open(path, "w").write(json.dumps(data, indent=2) + "\n")
 PY
   mkdir -p "$tmpdir/phase_01_plan"
@@ -1458,7 +1441,14 @@ test_validate_state_compat_unknown_value_does_not_skip() {
   # A typo / unknown value must NOT bypass the orchestration check.
   local tmpdir
   tmpdir=$(mktemp -d)
-  create_state_json "$tmpdir" "plan" 1 0 "workflow" "true"
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
+  python3 - "$tmpdir/state.json" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.loads(open(path).read())
+data["orchestration_compat"] = "true"
+open(path, "w").write(json.dumps(data, indent=2) + "\n")
+PY
   mkdir -p "$tmpdir/phase_01_plan"
   touch "$tmpdir/phase_01_plan/plan.md"
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
@@ -1592,8 +1582,7 @@ run_test test_validate_rejects_unset_active_role_model
 run_test test_validate_rejects_non_string_active_role_model
 run_test test_validate_accepts_null_unused_role_solo
 run_test test_validate_accepts_workflow_default_block
-run_test test_validate_state_compat_legacy_skips_orchestration_check
-run_test test_validate_state_compat_legacy_wrong_quest_does_not_skip
+run_test test_validate_state_compat_legacy_does_not_skip_orchestration_check
 run_test test_validate_state_compat_unknown_value_does_not_skip
 run_test test_validate_state_compat_empty_value_does_not_skip
 run_test test_validate_state_compat_missing_field_does_not_skip

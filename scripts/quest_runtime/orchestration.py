@@ -160,6 +160,20 @@ def build_default_models(allowlist_models: dict[str, str | None]) -> dict[str, s
     }
 
 
+def build_snapshot_models(snapshot_models: dict[str, str | None]) -> dict[str, str | None]:
+    """Return a shape-stable model block from a saved snapshot.
+
+    Unlike fresh allowlist defaults, resume migration must not silently invent
+    values for roles that were absent from the saved snapshot baseline.
+    """
+    missing = [role for role in CANONICAL_ROLES if role not in snapshot_models]
+    if missing:
+        raise ValueError(
+            "Snapshot models missing required role(s): " + ", ".join(missing)
+        )
+    return {role: snapshot_models.get(role) for role in CANONICAL_ROLES}
+
+
 def apply_overrides(
     defaults: dict[str, str | None],
     overrides: Iterable[Override],
@@ -259,7 +273,7 @@ def migrate_from_snapshot(
         )
     write_orchestration_json(
         orch_path,
-        models=build_default_models(models),
+        models=build_snapshot_models(models),
         source="default",
         overridden_roles=[],
         preflight_validated_at=preflight_validated_at,

@@ -435,6 +435,26 @@ else:
     raise SystemExit("expected non-object snapshot to raise ValueError")
 PY
 
+  cat > "$tmpdir/logs/allowlist_snapshot.json" <<'EOF'
+{
+  "models": {
+    "planner": "claude"
+  }
+}
+EOF
+  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import migrate_from_snapshot
+try:
+    migrate_from_snapshot(Path(sys.argv[1]))
+except ValueError as exc:
+    assert "Snapshot models missing required role" in str(exc), exc
+else:
+    raise SystemExit("expected incomplete snapshot to raise ValueError")
+PY
+
   rm -rf "$tmpdir"
 }
 

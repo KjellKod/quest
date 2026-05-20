@@ -23,7 +23,7 @@ When starting, say: "Now I understand the Quest." Then proceed.
 
 If the user provides a quest ID matching either supported Quest ID format (`<slug>_YYYY-MM-DD__HHMM` or `YYYY-MM-DD_HHMM__<slug>`):
 1. Read `.quest/<id>/state.json` and resume from the recorded phase
-1a. **Orchestration config migration.** If `.quest/<id>/orchestration.json` is missing, copy the `models` object out of `.quest/<id>/logs/allowlist_snapshot.json` and write it as the `models` field of a new `.quest/<id>/orchestration.json` with: `version: 1`, `source: "default"`, `overridden_roles: []`, `preflight_validated_at: <ISO8601 now>`. Keep the `models` block byte-for-byte from the snapshot. Roles unused in the active `quest_mode` MAY remain populated (they are harmless on resume). **Never prompt the chooser on resume.** If `orchestration.json` already exists, leave it untouched.
+1a. **Orchestration config migration.** If `.quest/<id>/orchestration.json` is missing, copy the `models` object out of `.quest/<id>/logs/allowlist_snapshot.json` and write it as the `models` field of a new `.quest/<id>/orchestration.json` with: `version: 1`, `source: "default"`, `overridden_roles: []`, `preflight_validated_at: <ISO8601 now>`. Preserve the snapshot's saved model values; if any canonical role is missing from the snapshot, stop with a malformed-snapshot error instead of inventing a replacement. Roles unused in the active `quest_mode` MAY remain populated (they are harmless on resume). **Never prompt the chooser on resume.** If `orchestration.json` already exists, leave it untouched.
 2. Delegate to `delegation/workflow.md`
 
 If the user says `/quest status` or `$quest status`, handle as a utility command (see `delegation/workflow.md` Utility Commands).

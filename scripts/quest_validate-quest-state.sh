@@ -171,18 +171,6 @@ validate_orchestration_json() {
   local quest_dir="$1"
   local orch_file="$quest_dir/orchestration.json"
 
-  # Migration vent for the in-flight self-modifying quest that introduced this
-  # validator. Scope the bypass to that quest ID so future quests cannot opt
-  # out by mutating state.json.
-  local compat
-  local quest_id
-  compat=$(jq -r '.orchestration_compat // empty' "$quest_dir/state.json" 2>/dev/null)
-  quest_id=$(jq -r '.quest_id // empty' "$quest_dir/state.json" 2>/dev/null)
-  if [ "$compat" = "legacy" ] && [ "$quest_id" = "orchestration-override_2026-05-18__0540" ]; then
-    pass "orchestration.json check skipped (state.json orchestration_compat=legacy)"
-    return
-  fi
-
   if [ ! -f "$orch_file" ]; then
     fail "orchestration.json not found at $orch_file"
     return
