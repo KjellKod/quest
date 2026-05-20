@@ -1,0 +1,45 @@
+.ai/templates/quest_brief.md
+  s_19e0d8b0b8c9bf::t_43d5b2f73571bc 43
+.skills/ux-context/resources/ux-guidebook.md
+  s_19e0d8b0b8c9bf::t_efd29271deaba9 86
+  s_19e0d8b0b8c9bf::t_91bfc9b85d3eff 169-170,225,246,268
+.skills/sharpen/SKILL.md
+  s_19e0d8b0b8c9bf::t_efd29271deaba9 56,59
+.skills/quest/delegation/router.md
+  s_19e0d8b0b8c9bf::t_bc60f79837de33 124
+.skills/pre-commit-review/SKILL.md
+  s_2b9934475e8831::t_4accec72cd5aa5 12-16
+.skills/ux-review/SKILL.md
+  s_19e0d8b0b8c9bf::t_92e29eb8512477 39-50
+tests/unit/test_quest_brief_template_router_section.py
+  s_19e0d8b0b8c9bf::t_c0626c49e2c486 23-33
+.skills/ux-context/SKILL.md
+  s_2b9934475e8831::t_7b8d90f8c72910 81-82
+  s_19e0d8b0b8c9bf::t_4976e0a9cd94fd 13,15,23-31,35-36,42,54,116
+tests/unit/test_ux_skill_install_surface.py
+  s_19e0d8b0b8c9bf::t_4ee8d6e583b421 53-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "b95a474494c7c808ac93dff9496798501560e995",
+  "prompts": {},
+  "sessions": {
+    "s_19e0d8b0b8c9bf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4359-d18c-7163-9855-fff63d75f5a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_2b9934475e8831": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8562c44-8cdd-40ac-9ad3-6bc59ac8b831",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
