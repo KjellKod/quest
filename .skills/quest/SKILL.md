@@ -32,7 +32,7 @@ If the user says `/quest status` or `$quest status`, handle as a utility command
 If no quest ID is provided:
 1. Read `delegation/router.md`
 2. Evaluate the user's input against the 7 substance dimensions
-3. Produce the routing decision JSON: `{route, confidence (0.0-1.0), risk_level, complexity, reason, missing_information}`
+3. Produce the routing decision JSON: `{route, confidence (0.0-1.0), risk_level, complexity, ui_work, ui_work_evidence, reason, missing_information}`
 
 ### Step 2b: Second Model Availability Probe (New Quest Only)
 
@@ -147,8 +147,12 @@ Before creating the quest folder, present the routing classification to the user
    - If `risk_level` is "high": **"Risk: HIGH — <reason>"**
    - If `risk_level` is "medium": **"Risk: MEDIUM — <reason>"**
    - If `risk_level` is "low": "Risk: low — <reason>"
-2. If the quest went through the questioner path, note this: "Questioning phase completed — gaps addressed before planning."
-3. Wait for user acknowledgment before proceeding (for high risk only). For medium and low, display and continue.
+2. Display the UI classification:
+   - If `ui_work` is `true`: **"UI work: yes — <ui_work_evidence>"**
+   - If `ui_work` is `false`: "UI work: no"
+   - If `ui_work` is missing or not a boolean: "UI work: malformed router data — treating as no until corrected"
+3. If the quest went through the questioner path, note this: "Questioning phase completed — gaps addressed before planning."
+4. Wait for user acknowledgment before proceeding (for high risk only). For medium and low, display and continue.
 
 ### Quest Folder Structure
 

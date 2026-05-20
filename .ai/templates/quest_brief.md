@@ -30,10 +30,10 @@
 ```json
 {
   "route": "<workflow|solo|manual|questioner>",
-  "confidence": "<0.0..1.0>",
+  "confidence": 0.0,
   "risk_level": "<low|medium|high>",
   "complexity": "<trivial|moderate|substantial>",
-  "ui_work": "<true|false>",
+  "ui_work": false,
   "ui_work_evidence": [],
   "reason": "<one-sentence justification>",
   "missing_information": []

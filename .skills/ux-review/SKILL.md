@@ -129,6 +129,14 @@ Output a markdown report in this exact shape:
 **`principle_id` format:** `ux-guidebook§<section_number>` — e.g. `ux-guidebook§4.2`. No spaces, no sub-bullet numbers, no `#` suffix. This format is greppable for audit and enforcement.
 
 **Plan-review phase (plan-reviewer-a / plan-reviewer-b):**
+Run a plan-phase UX intent pass instead of the rendered-UI stress test. Check whether the plan makes the UX decisions explicit enough to build and review:
+
+- `## UX Defaults` is present when the plan touches a render layer and the brief has `ui_work: true`.
+- The defaults cover the six required fields from `ux-context`: gray ramp, density, content-vs-chrome ratio, mobile relevance, brand accent, and destructive actions.
+- Empty, loading, and error states have concrete copy/behavior, not `TBD`.
+- Mobile relevance is justified; if mobile is required, the plan names a divergence approach.
+- Destructive actions have confirmation and undo/recovery treatment, or are explicitly marked `none`.
+
 Embed UX findings inline in the markdown review using the standard `[N]` format with the principle citation appended. The arbiter synthesizes findings from the two markdown plan reviews; plan-reviewers do **not** write a separate findings JSON.
 
 Example markdown finding:

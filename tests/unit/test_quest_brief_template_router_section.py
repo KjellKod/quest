@@ -31,3 +31,6 @@ def test_quest_brief_template_documents_boolean_ui_work_contract() -> None:
 
     assert "parsed JSON value is the boolean `true`" in template
     assert 'placeholder strings, and `"true"` string values are false' in template
+    assert '"confidence": 0.0' in template
+    assert '"ui_work": false' in template
+    assert '"ui_work": "<true|false>"' not in template

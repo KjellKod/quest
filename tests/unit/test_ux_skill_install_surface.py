@@ -102,3 +102,26 @@ def test_ux_review_has_visual_evidence_path_without_quest_mutation() -> None:
     assert "Visual evidence path" in skill
     assert "Capture screenshots at `375px`, `768px`, `1280px`, and `1920px`" in skill
     assert "Quest-pipeline invocations are review-only" in skill
+
+
+def test_plan_review_uses_ux_intent_pass_not_rendered_stress_test() -> None:
+    root = _repo_root()
+    files = [
+        root / ".skills" / "quest" / "agents" / "plan-reviewer.md",
+        root / ".claude" / "agents" / "plan-reviewer.md",
+        root / ".opencode" / "agents" / "plan-reviewer.md",
+        root / ".skills" / "ux-review" / "SKILL.md",
+    ]
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in files)
+
+    assert "plan-phase UX intent pass" in combined
+    assert "stress test against the plan" not in combined
+
+
+def test_quest_skill_discloses_ui_work_routing_to_user() -> None:
+    root = _repo_root()
+    skill = (root / ".skills" / "quest" / "SKILL.md").read_text(encoding="utf-8")
+
+    assert "ui_work, ui_work_evidence" in skill
+    assert "UI work: yes" in skill
+    assert "UI work: no" in skill
