@@ -328,8 +328,12 @@ def run(
 
     canonical_names = {Path(p).name for p in expected_paths}
     # All expected_paths share the same phase directory by construction;
-    # take it once for the boundary check.
-    boundary_dir = Path(expected_paths[0]).resolve().parent
+    # take it once for the boundary check. Resolve the PARENT (to
+    # canonicalize a worktree ``.quest`` directory symlink) but not the
+    # file itself — if the canonical artifact is provisioned as a
+    # file-level symlink to outside the quest tree, ``.resolve()`` would
+    # follow the link and corrupt the boundary to wherever it points.
+    boundary_dir = Path(expected_paths[0]).parent.resolve()
 
     mismatches: list[dict[str, str]] = []
 
@@ -462,12 +466,21 @@ def _check_one(
     # the target to exist (we still need to detect missing files).
     resolved = Path(declared).resolve()
 
-    # Classify first so we can pick the right traversal anchor.
-    # Quest artifacts always live under the repo containing ``.quest/<id>``.
+    # Classify by the DECLARED path's directory, not the resolved target.
+    # A symlink at a canonical quest path (e.g.
+    # ``.quest/<id>/phase_X/pr_description.md`` -> ``scripts/foo.py``)
+    # would otherwise be misclassified as a workspace file — ``resolved``
+    # lives outside ``.quest/<id>/`` — and slip through with success.
+    # Canonicalizing the PARENT lets the worktree ``.quest`` symlink
+    # resolve to the real inode while keeping the file-level symlink
+    # visible to the downstream boundary check, which now flags the
+    # escape via the ``resolved.parent != boundary_dir`` invariant.
+    declared_path = Path(declared)
+    declared_logical = declared_path.parent.resolve() / declared_path.name
     quest_id = quest_dir.name
     quest_root = repo_root / ".quest" / quest_id
     try:
-        resolved.relative_to(quest_root)
+        declared_logical.relative_to(quest_root)
         is_quest_artifact = True
     except ValueError:
         is_quest_artifact = False

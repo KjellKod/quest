@@ -321,6 +321,71 @@ class TestFailureBranches:
         records = _read_log_lines(log_path)
         assert any(r["reason"] == "outside_boundary" for r in records)
 
+    def test_quest_artifact_symlink_escaping_boundary_records_outside_boundary(
+        self, workspace: Path
+    ) -> None:
+        """A canonical quest path implemented as a symlink to a workspace
+        file (e.g. ``pr_description.md`` -> ``scripts/foo.py``) must be
+        flagged. Classifying by the resolved target lets the symlink slip
+        through ``_check_one`` as a workspace file (the resolved path lives
+        outside ``.quest/<id>/``) while coverage still considers the
+        canonical path declared. Classification keys on the declared
+        parent; the boundary check then fires on ``resolved.parent !=
+        boundary_dir``."""
+
+        quest_id = "test-quest_symlink-escape"
+        quest_dir = workspace / ".quest" / quest_id
+        phase_dir = quest_dir / "phase_02_implementation"
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        log_path = quest_dir / "logs" / "path_compliance.log"
+
+        scripts_dir = workspace / "scripts"
+        scripts_dir.mkdir(parents=True, exist_ok=True)
+        target = scripts_dir / "foo.py"
+        target.write_text("print('hi')\n", encoding="utf-8")
+
+        # Canonical quest artifact, implemented as a symlink that escapes
+        # the quest boundary.
+        pr_desc = phase_dir / "pr_description.md"
+        pr_desc.symlink_to(target)
+        # Second canonical artifact as a real file so coverage doesn't
+        # also fire ``missing`` for the unrelated path.
+        (phase_dir / "builder_feedback_discussion.md").write_text(
+            "seed", encoding="utf-8"
+        )
+
+        handoff_path = phase_dir / "handoff.json"
+        handoff_path.write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": [
+                        str(pr_desc),
+                        str(phase_dir / "builder_feedback_discussion.md"),
+                    ],
+                    "next": "code_review",
+                    "summary": "pr_description.md symlinks outside .quest",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        rc = postflight.run(
+            quest_dir=quest_dir,
+            phase="phase_02_implementation",
+            role="builder",
+            handoff=handoff_path,
+            quest_mode="workflow",
+            log=log_path,
+            repo_root=workspace,
+        )
+        assert rc == 1
+        records = _read_log_lines(log_path)
+        outside = [r for r in records if r["reason"] == "outside_boundary"]
+        assert any(
+            Path(r["declared"]) == pr_desc for r in outside
+        ), outside
+
     def test_workspace_files_outside_quest_pass_through(
         self, workspace: Path
     ) -> None:
