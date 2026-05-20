@@ -1,0 +1,26 @@
+tests/test-validate-quest-state.sh
+  s_afff939c42b320::t_2a56abb39cb6da 1190
+  s_afff939c42b320::t_3c9754c9c864a9 45-46,1411-1412,1430-1456,1596
+tests/test-quest-orchestration.sh
+  s_afff939c42b320::t_088b00866598dd 166-181,519
+scripts/quest_validate-quest-state.sh
+  s_afff939c42b320::t_19c302c0f4e24e 175-176,178,180-181
+scripts/quest_runtime/orchestration.py
+  s_afff939c42b320::t_931626b59f52ad 36-46,153-155,157-160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "536b461b736b69b0dae39d7f59b9179ddd6cddb1",
+  "prompts": {},
+  "sessions": {
+    "s_afff939c42b320": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e47a3-9066-7a62-b6f2-61ceb72a7d48",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
