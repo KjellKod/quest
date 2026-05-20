@@ -405,6 +405,20 @@ else:
     raise SystemExit("expected invalid snapshot to raise ValueError")
 PY
 
+  printf '[]\n' > "$tmpdir/logs/allowlist_snapshot.json"
+  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import migrate_from_snapshot
+try:
+    migrate_from_snapshot(Path(sys.argv[1]))
+except ValueError as exc:
+    assert "must be a JSON object" in str(exc), exc
+else:
+    raise SystemExit("expected non-object snapshot to raise ValueError")
+PY
+
   rm -rf "$tmpdir"
 }
 

@@ -235,6 +235,8 @@ def migrate_from_snapshot(
         raise ValueError(f"Snapshot not readable at {snapshot_path}") from exc
     except json.JSONDecodeError as exc:
         raise ValueError(f"Snapshot at {snapshot_path} is not valid JSON") from exc
+    if not isinstance(snapshot, dict):
+        raise ValueError(f"Snapshot at {snapshot_path} must be a JSON object")
     models = snapshot.get("models")
     if not isinstance(models, dict):
         raise ValueError(
