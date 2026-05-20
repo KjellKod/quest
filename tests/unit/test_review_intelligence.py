@@ -583,6 +583,37 @@ def test_synthesize_findings_from_review_markdown_parses_path_and_skips_short_bu
     assert validate_findings(findings) == []
 
 
+def test_synthesize_findings_from_review_markdown_promotes_ux_citations_to_kind_ux() -> None:
+    """Plan-reviewers embed UX findings inline with `ux-guidebook§<section>` citations.
+
+    The synthesis function must detect those citations and emit findings with
+    `kind: "ux"` + `principle_id` — otherwise plan-phase UX findings silently
+    land in the canonical backlog as plain `plan_review` entries, losing the
+    audit hook the integration was built around.
+    """
+    markdown = """
+[1] Must fix - plan.md:Acceptance Criteria - settings page lists "Save" and "Cancel" identically; no primary action is named (ux-guidebook§2 — every affordance needs a signifier).
+[2] Nit - plan.md:Files - missing test stub.
+[3] Should fix - plan.md:UX Defaults - destructive actions left as TBD (ux-guidebook§4.7).
+"""
+    findings = synthesize_findings_from_review_markdown(
+        markdown,
+        source="plan-reviewer-a",
+        default_path="phase_01_plan/plan.md",
+    )
+
+    assert len(findings) == 3
+    assert findings[0]["kind"] == "ux"
+    assert findings[0]["principle_id"] == "ux-guidebook§2"
+    assert findings[1]["kind"] == "plan_review"
+    assert "principle_id" not in findings[1]
+    assert findings[2]["kind"] == "ux"
+    assert findings[2]["principle_id"] == "ux-guidebook§4.7"
+
+    # Synthesized UX findings must satisfy validate_finding's principle_id rule.
+    assert validate_findings(findings) == []
+
+
 def test_synthesize_findings_from_review_markdown_preserves_bracketed_review_local_index() -> None:
     markdown = """
 - [7] High - scripts/quest_runtime/review_intelligence.py:387 - Parser drops review numbering.
