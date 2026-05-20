@@ -125,3 +125,20 @@ def test_quest_skill_discloses_ui_work_routing_to_user() -> None:
     assert "ui_work, ui_work_evidence" in skill
     assert "UI work: yes" in skill
     assert "UI work: no" in skill
+
+
+def test_ux_defaults_contract_uses_canonical_order_and_state_sentence_limit() -> None:
+    root = _repo_root()
+    ux_context = (root / ".skills" / "ux-context" / "SKILL.md").read_text(encoding="utf-8")
+    ux_guidebook = (
+        root / ".skills" / "ux-context" / "resources" / "ux-guidebook.md"
+    ).read_text(encoding="utf-8")
+    ux_review = (root / ".skills" / "ux-review" / "SKILL.md").read_text(encoding="utf-8")
+
+    canonical_order = "mobile, gray ramp, density, ratio, accent, destructive actions"
+    assert canonical_order in ux_context
+    assert canonical_order in ux_guidebook
+    assert canonical_order in ux_review
+    assert "exactly one sentence each for empty, loading, and error states" in ux_context
+    assert "exactly one sentence each for empty/loading/error states" in ux_guidebook
+    assert "exactly one sentence each" in ux_review

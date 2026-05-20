@@ -174,7 +174,7 @@ When a quest is classified as `ui_work: true`, the planner emits a `## UX Defaul
 | "utilitarian", "monochrome" | `neutral` | varies | varies | varies |
 | no signal / generic UI request | `slate` | comfortable | content-forward | required |
 
-**Brand accent:** default `#2563eb` (Tailwind `blue-600`) unless the prompt or brief names a hex. **Six fields** the planner must emit, in order: ramp, density, ratio, mobile, accent, destructive actions — plus a one-sentence plan for empty/loading/error states. Anything else (primary action placement, mobile divergence pattern) is decided at implementation time, citing the relevant §.
+**Brand accent:** default `#2563eb` (Tailwind `blue-600`) unless the prompt or brief names a hex. **Six fields** the planner must emit, in order: mobile, gray ramp, density, ratio, accent, destructive actions — plus exactly one sentence each for empty/loading/error states. Anything else (primary action placement, mobile divergence pattern) is decided at implementation time, citing the relevant §.
 
 ---
 
