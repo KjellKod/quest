@@ -12,6 +12,7 @@
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 WORKFLOW_MD="$REPO_ROOT/.skills/quest/delegation/workflow.md"
+OPENCODE_QUEST_MD="$REPO_ROOT/.opencode/agents/quest.md"
 PY_HELPER='import sys, pathlib; sys.path.insert(0, str(pathlib.Path("'"$REPO_ROOT"'/scripts").resolve()));'
 
 TESTS_RUN=0
@@ -256,7 +257,7 @@ assert is_model_available_for_orchestrator(
 ) is False
 assert is_model_available_for_orchestrator(
     "claude-opus-4.7",
-    orchestrator="codex",
+    orchestrator=" Codex ",
     codex_available=True,
     claude_available=True,
 ) is True
@@ -563,6 +564,22 @@ test_workflow_defaults_are_not_dispatch_fallbacks() {
   if grep -n 'defaults above apply when a key is missing' "$WORKFLOW_MD"; then
     return 1
   fi
+  if grep -n 'missing or non-string active-role model keys' "$WORKFLOW_MD"; then
+    return 1
+  fi
+  return 0
+}
+
+test_opencode_dispatch_uses_orchestration_json() {
+  if grep -n 'For these roles, use `codex_codex`' "$OPENCODE_QUEST_MD"; then
+    return 1
+  fi
+  if grep -n 'All other roles use `task`' "$OPENCODE_QUEST_MD"; then
+    return 1
+  fi
+  if ! grep -q '.quest/<id>/orchestration.json' "$OPENCODE_QUEST_MD"; then
+    return 1
+  fi
   return 0
 }
 
@@ -590,6 +607,7 @@ run_test test_resume_does_not_modify_existing_orchestration_json
 run_test test_workflow_dispatch_reads_orchestration_json_not_allowlist
 run_test test_workflow_no_allowlist_models_string
 run_test test_workflow_defaults_are_not_dispatch_fallbacks
+run_test test_opencode_dispatch_uses_orchestration_json
 
 echo ""
 echo "=== Results ==="

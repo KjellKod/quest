@@ -138,9 +138,10 @@ def is_model_available_for_orchestrator(
     claude_available: bool,
 ) -> bool:
     """Return True if the model can run in the active orchestrator session."""
-    if orchestrator not in {"claude", "codex"}:
+    normalized_orchestrator = orchestrator.strip().lower()
+    if normalized_orchestrator not in {"claude", "codex"}:
         raise ValueError(f"Unknown orchestrator: {orchestrator!r}")
-    if orchestrator == "claude":
+    if normalized_orchestrator == "claude":
         return True if is_claude_model(model) else codex_available
     return claude_available if is_claude_model(model) else True
 
