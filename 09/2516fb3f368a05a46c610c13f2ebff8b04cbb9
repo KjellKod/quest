@@ -1,0 +1,24 @@
+tests/unit/test_review_intelligence.py
+  s_19e0d8b0b8c9bf::t_74505515376304 79-84
+.skills/ux-context/resources/ux-guidebook.md
+  s_19e0d8b0b8c9bf::t_20ba9ed96ac97d 174
+  s_19e0d8b0b8c9bf::t_3bf10a5c3359fe 88
+scripts/quest_runtime/review_intelligence.py
+  s_19e0d8b0b8c9bf::t_20ba9ed96ac97d 43-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "092516fb3f368a05a46c610c13f2ebff8b04cbb9",
+  "prompts": {},
+  "sessions": {
+    "s_19e0d8b0b8c9bf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4359-d18c-7163-9855-fff63d75f5a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
