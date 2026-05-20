@@ -82,6 +82,21 @@ def test_validate_findings_accepts_shared_infrastructure_kinds() -> None:
         assert errors == []
 
 
+def test_validate_findings_requires_principle_id_for_ux_findings() -> None:
+    missing = _finding(kind="ux")
+    missing_errors = validate_findings([missing])
+    assert any("field 'principle_id' is required for UX findings" in error for error in missing_errors)
+
+    invalid = _finding(kind="ux")
+    invalid["principle_id"] = "ux-guidebook §4.8 #1"
+    invalid_errors = validate_findings([invalid])
+    assert any("field 'principle_id' is required for UX findings" in error for error in invalid_errors)
+
+    valid = _finding(kind="ux")
+    valid["principle_id"] = "ux-guidebook§4.8"
+    assert validate_findings([valid]) == []
+
+
 def test_validate_findings_rejects_missing_required_field() -> None:
     invalid = _finding()
     invalid.pop("summary")

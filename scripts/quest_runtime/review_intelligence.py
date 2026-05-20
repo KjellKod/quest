@@ -50,6 +50,7 @@ ALLOWED_DECISIONS = (
     "drop",
     "needs_human_decision",
 )
+_UX_PRINCIPLE_ID_RE = re.compile(r"^ux-guidebook§\d+(?:\.\d+)?$")
 
 _SEVERITY_RANK = {name: index for index, name in enumerate(ALLOWED_SEVERITIES)}
 _CONFIDENCE_RANK = {name: index for index, name in enumerate(ALLOWED_CONFIDENCE)}
@@ -148,6 +149,12 @@ def validate_finding(finding: dict[str, Any]) -> list[str]:
         errors.append(
             f"field 'kind' must be one of {', '.join(ALLOWED_KINDS)}"
         )
+    if kind_value == "ux":
+        principle_id = finding.get("principle_id")
+        if not isinstance(principle_id, str) or not _UX_PRINCIPLE_ID_RE.match(principle_id):
+            errors.append(
+                "field 'principle_id' is required for UX findings and must match ux-guidebook§<section_number>"
+            )
 
     line_value = finding.get("line")
     if line_value is not None and (isinstance(line_value, bool) or not isinstance(line_value, int) or line_value < 1):

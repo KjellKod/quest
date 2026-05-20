@@ -28,7 +28,7 @@ Do not read the whole guidebook by default. Find your row in the table and read 
 | Planner | §2 (14 principles), §3 (central rule), §4.9 (inference table) — then the UX Defaults emission protocol below | no |
 | Builder / implementer | §2, §3, and the §4 subsections matching the file types being touched (4.1 typography for prose/labels, 4.2 color for tokens, 4.3 spacing/density for layout, 4.5 motion for transitions, 4.7 empty/loading/error states for state UI, 4.8 a11y for any interactive surface). Add §5 only for responsive, mobile, or native-platform work. | no |
 | Fixer | The guidebook section(s) cited by each UX finding, plus nearby context if the fix is ambiguous | no — unless verifying the fix |
-| Plan-reviewer | §2, §3, §4.9, plus the section cited by any finding the reviewer is interpreting | §7 (12-question rubric summary) + §8 (red flags); full rubric only if running the stress test against the plan via `ux-review` |
+| Plan-reviewer | §2, §3, §4.9, plus the section cited by any finding the reviewer is interpreting | §6 (12-question rubric summary) + §7 (red flags); full rubric only if running the stress test against the plan via `ux-review` |
 | Code-reviewer | Sections cited by the findings under review, plus §2 + §3 for principle anchoring | Yes — the full rubric in `resources/ux-stress-test.md` is the review tool |
 
 Central reconciling rule (loaded by every role):
