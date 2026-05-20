@@ -1,0 +1,30 @@
+tests/unit/test_ux_skill_install_surface.py
+  s_2b9934475e8831::t_97967f9ddc2b63 59,61-62
+.claude/agents/builder.md
+  s_2b9934475e8831::t_a196eeade969ef 20
+.claude/agents/planner.md
+  s_2b9934475e8831::t_7c8e792d0a279d 20
+.skills/quest/agents/planner.md
+  s_2b9934475e8831::t_9b61f8efa68789 23
+.skills/ux-context/SKILL.md
+  s_2b9934475e8831::t_71f04787100b68 24,26-32,34
+  s_2b9934475e8831::t_5aae71f4a12f95 38-39
+.skills/quest/agents/builder.md
+  s_2b9934475e8831::t_dcb087473e19b5 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "bd006110818100c20ee8036be0397bcea142a3d6",
+  "prompts": {},
+  "sessions": {
+    "s_2b9934475e8831": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8562c44-8cdd-40ac-9ad3-6bc59ac8b831",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
