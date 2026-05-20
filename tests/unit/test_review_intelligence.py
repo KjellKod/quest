@@ -219,6 +219,29 @@ def test_merge_and_dedupe_preserves_primary_review_local_index() -> None:
     assert merged[0]["finding_id_lineage"] == ["F-primary", "F-duplicate"]
 
 
+def test_merge_and_dedupe_keeps_distinct_ux_principles_separate() -> None:
+    finding_a = _finding(
+        finding_id="F-ux-a",
+        kind="ux",
+        summary="Button affordance is unclear.",
+    )
+    finding_a["principle_id"] = "ux-guidebook§2"
+    finding_b = _finding(
+        finding_id="F-ux-b",
+        kind="ux",
+        summary="Button affordance is unclear.",
+    )
+    finding_b["principle_id"] = "ux-guidebook§4.8"
+
+    merged = merge_and_dedupe([[finding_a], [finding_b]])
+
+    assert len(merged) == 2
+    assert {finding["principle_id"] for finding in merged} == {
+        "ux-guidebook§2",
+        "ux-guidebook§4.8",
+    }
+
+
 def test_build_review_backlog_merges_dedupes_and_decides() -> None:
     findings = [
         _finding(finding_id="F-1", severity="high", confidence="high", evidence=["one", "two"]),

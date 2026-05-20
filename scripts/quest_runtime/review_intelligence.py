@@ -92,13 +92,16 @@ def review_local_index_from_value(value: Any) -> int | None:
     return value
 
 
-def _dedupe_key(finding: dict[str, Any]) -> tuple[str, str, str, str]:
+def _dedupe_key(finding: dict[str, Any]) -> tuple[str, str, str, str, str]:
     line_value = finding.get("line")
     line_part = "" if line_value is None else str(line_value)
+    kind = str(finding.get("kind", ""))
+    principle_part = str(finding.get("principle_id", "")) if kind == "ux" else ""
     return (
         str(finding.get("path", "")),
         line_part,
-        str(finding.get("kind", "")),
+        kind,
+        principle_part,
         _normalize_summary(str(finding.get("summary", ""))),
     )
 
@@ -215,7 +218,7 @@ def merge_and_dedupe(findings_by_source: list[list[dict[str, Any]]]) -> list[dic
     if validation_errors:
         raise ValueError("; ".join(validation_errors))
 
-    merged_by_key: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    merged_by_key: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
     for finding in flattened:
         key = _dedupe_key(finding)
         existing = merged_by_key.get(key)
