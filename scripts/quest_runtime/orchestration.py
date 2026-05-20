@@ -33,6 +33,17 @@ CANONICAL_ROLES: tuple[str, ...] = (
     "fixer",
 )
 
+DEFAULT_MODELS: dict[str, str] = {
+    "planner": "claude",
+    "plan-reviewer-a": "claude",
+    "plan-reviewer-b": "gpt-5.5",
+    "arbiter": "claude",
+    "builder": "gpt-5.5",
+    "code-reviewer-a": "claude",
+    "code-reviewer-b": "gpt-5.5",
+    "fixer": "gpt-5.5",
+}
+
 # Roles that may legitimately be unused (and therefore null) in solo mode.
 SOLO_UNUSED_ROLES: frozenset[str] = frozenset(
     {"plan-reviewer-b", "code-reviewer-b", "arbiter"}
@@ -139,10 +150,14 @@ def load_codex_available_from_cache(cache_path: Path) -> bool:
 def build_default_models(allowlist_models: dict[str, str | None]) -> dict[str, str | None]:
     """Return a fresh copy of an allowlist `models` block with all 8 keys.
 
-    Missing keys are filled with None so the schema stays shape-stable. This
-    matches the validator's expectation that all 8 keys are always present.
+    Missing keys are filled from the documented workflow defaults so older or
+    customized allowlists that omit a role do not write unusable null entries.
+    Explicit null values are preserved for compatibility with legacy snapshots.
     """
-    return {role: allowlist_models.get(role) for role in CANONICAL_ROLES}
+    return {
+        role: allowlist_models[role] if role in allowlist_models else DEFAULT_MODELS[role]
+        for role in CANONICAL_ROLES
+    }
 
 
 def apply_overrides(

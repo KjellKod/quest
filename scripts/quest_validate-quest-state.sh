@@ -172,12 +172,13 @@ validate_orchestration_json() {
   local orch_file="$quest_dir/orchestration.json"
 
   # Migration vent for the in-flight self-modifying quest that introduced this
-  # validator. New quests will never set this flag; do not document in SKILL.md.
-  # Only the literal string "legacy" disables the check — any other value
-  # (including empty/missing) keeps the orchestration.json check active.
+  # validator. Scope the bypass to that quest ID so future quests cannot opt
+  # out by mutating state.json.
   local compat
+  local quest_id
   compat=$(jq -r '.orchestration_compat // empty' "$quest_dir/state.json" 2>/dev/null)
-  if [ "$compat" = "legacy" ]; then
+  quest_id=$(jq -r '.quest_id // empty' "$quest_dir/state.json" 2>/dev/null)
+  if [ "$compat" = "legacy" ] && [ "$quest_id" = "orchestration-override_2026-05-18__0540" ]; then
     pass "orchestration.json check skipped (state.json orchestration_compat=legacy)"
     return
   fi

@@ -163,6 +163,22 @@ PY
   rm -rf "$tmpdir"
 }
 
+test_default_models_fill_missing_allowlist_keys() {
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import build_default_models
+result = build_default_models({"planner": "gpt-5.5", "builder": "claude"})
+assert result["planner"] == "gpt-5.5", result
+assert result["builder"] == "claude", result
+assert result["plan-reviewer-a"] == "claude", result
+assert result["plan-reviewer-b"] == "gpt-5.5", result
+assert result["arbiter"] == "claude", result
+assert result["code-reviewer-a"] == "claude", result
+assert result["code-reviewer-b"] == "gpt-5.5", result
+assert result["fixer"] == "gpt-5.5", result
+PY
+}
+
 test_chooser_ignores_unused_solo_roles() {
   python3 - <<PY
 ${PY_HELPER}
@@ -500,6 +516,7 @@ echo ""
 
 run_test test_chooser_default_writer_contract
 run_test test_chooser_override_writer_contract
+run_test test_default_models_fill_missing_allowlist_keys
 run_test test_chooser_ignores_unused_solo_roles
 run_test test_chooser_rejects_unavailable_codex_model
 run_test test_chooser_accepts_top_level_preflight_available

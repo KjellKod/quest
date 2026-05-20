@@ -42,8 +42,8 @@ create_state_json() {
   fi
   cat > "$dir/state.json" <<EOF
 {
-  "quest_id": "test-quest_2026-01-01__0000",
-  "slug": "test-quest",
+  "quest_id": "orchestration-override_2026-05-18__0540",
+  "slug": "orchestration-override",
   "phase": "$phase",
   "status": "in_progress",
   "quest_mode": "$quest_mode",
@@ -1187,7 +1187,7 @@ test_validation_log_written() {
   local tmpdir
   tmpdir=$(mktemp -d)
   mkdir -p "$tmpdir/phase_01_plan" "$tmpdir/logs"
-  echo '{"phase":"plan_reviewed","plan_iteration":1,"fix_iteration":0,"orchestration_compat":"legacy"}' > "$tmpdir/state.json"
+  echo '{"quest_id":"orchestration-override_2026-05-18__0540","slug":"orchestration-override","phase":"plan_reviewed","plan_iteration":1,"fix_iteration":0,"orchestration_compat":"legacy"}' > "$tmpdir/state.json"
   echo "plan content" > "$tmpdir/phase_01_plan/plan.md"
 
   bash "$SCRIPT" "$tmpdir" "presenting" > /dev/null 2>&1
@@ -1408,8 +1408,8 @@ test_validate_accepts_workflow_default_block() {
 }
 
 test_validate_state_compat_legacy_skips_orchestration_check() {
-  # When state.json.orchestration_compat == "legacy", the orchestration check
-  # is bypassed even with orchestration.json absent.
+  # The one known in-flight quest that introduced orchestration.json may use
+  # state.json.orchestration_compat == "legacy" to bypass this new check.
   local tmpdir
   tmpdir=$(mktemp -d)
   create_state_json "$tmpdir" "plan" 1 0 "workflow" "legacy"
@@ -1425,6 +1425,33 @@ test_validate_state_compat_legacy_skips_orchestration_check() {
   local rc=$?
   rm -rf "$tmpdir"
   [ "$rc" -eq 0 ] && echo "$output" | grep -q "orchestration.json check skipped"
+}
+
+test_validate_state_compat_legacy_wrong_quest_does_not_skip() {
+  # Future quests cannot bypass orchestration validation by mutating state.json.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" "legacy"
+  python3 - "$tmpdir/state.json" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.loads(open(path).read())
+data["quest_id"] = "other-quest_2026-01-01__0000"
+data["slug"] = "other-quest"
+open(path, "w").write(json.dumps(data, indent=2) + "\n")
+PY
+  mkdir -p "$tmpdir/phase_01_plan"
+  touch "$tmpdir/phase_01_plan/plan.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  touch "$tmpdir/phase_01_plan/review_plan-reviewer-b.md"
+  touch "$tmpdir/phase_01_plan/arbiter_verdict.md"
+  write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
+  write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "orchestration.json not found"
 }
 
 test_validate_state_compat_unknown_value_does_not_skip() {
@@ -1566,6 +1593,7 @@ run_test test_validate_rejects_non_string_active_role_model
 run_test test_validate_accepts_null_unused_role_solo
 run_test test_validate_accepts_workflow_default_block
 run_test test_validate_state_compat_legacy_skips_orchestration_check
+run_test test_validate_state_compat_legacy_wrong_quest_does_not_skip
 run_test test_validate_state_compat_unknown_value_does_not_skip
 run_test test_validate_state_compat_empty_value_does_not_skip
 run_test test_validate_state_compat_missing_field_does_not_skip
