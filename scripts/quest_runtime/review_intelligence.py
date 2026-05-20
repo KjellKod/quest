@@ -632,6 +632,13 @@ def scan_deferred_backlog(
 
 
 _SEVERITY_RE = re.compile(r"\b(critical|high|medium|low|info)\b", flags=re.IGNORECASE)
+# P-marker severity used by UX plan-review embeds (per ux-review/SKILL.md
+# Step 6 + plan-reviewer.md). P-markers take priority over the English
+# severity word above when both appear; this lets a plan-reviewer write
+# `[1] P0 - ...` and have the synthesized finding land as `critical`
+# instead of falling back to `medium`.
+_P_SEVERITY_RE = re.compile(r"\bP([0-3])\b")
+_P_SEVERITY_MAP = {"0": "critical", "1": "high", "2": "medium", "3": "low"}
 _PATH_RE = re.compile(
     r"([A-Za-z0-9_][A-Za-z0-9_.-]*/[A-Za-z0-9_./-]+\.[A-Za-z0-9]+)(?::(\d+))?"
 )
@@ -675,8 +682,15 @@ def synthesize_findings_from_review_markdown(
         if len(normalized) < 8:
             continue
 
-        severity_match = _SEVERITY_RE.search(normalized)
-        severity = severity_match.group(1).lower() if severity_match else "medium"
+        # Severity: P-marker (P0/P1/P2/P3) wins if present, mapped per the
+        # canonical UX severity table in ux-review/SKILL.md; otherwise fall
+        # back to the English word and finally to `medium`.
+        p_severity_match = _P_SEVERITY_RE.search(normalized)
+        if p_severity_match:
+            severity = _P_SEVERITY_MAP[p_severity_match.group(1)]
+        else:
+            severity_match = _SEVERITY_RE.search(normalized)
+            severity = severity_match.group(1).lower() if severity_match else "medium"
 
         path_match = _PATH_RE.search(normalized)
         finding_path = default_path

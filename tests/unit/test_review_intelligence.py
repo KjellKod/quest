@@ -583,6 +583,55 @@ def test_synthesize_findings_from_review_markdown_parses_path_and_skips_short_bu
     assert validate_findings(findings) == []
 
 
+def test_synthesize_findings_from_review_markdown_maps_p_severity_markers() -> None:
+    """P0/P1/P2/P3 markers map to canonical severities per ux-review/SKILL.md.
+
+    The plan-reviewer embed format uses `[N] P0/P1/P2/P3 - ...`; the synthesis
+    must map those to critical/high/medium/low. Without this, a P0 UX plan
+    finding silently lands at the default `medium` and loses its ship-blocking
+    severity.
+    """
+    markdown = """
+[1] P0 - plan.md:Acceptance Criteria - signifier loss (ux-guidebook§2).
+[2] P1 - plan.md:UX Defaults - destructive trap, no undo (ux-guidebook§4.7).
+[3] P2 - plan.md:Files - consistency violation (ux-guidebook§4.6).
+[4] P3 - plan.md:Notes - chrome bloat (ux-guidebook§4.2).
+[5] Should fix - plan.md:Tests - no severity marker, plain prose.
+"""
+    findings = synthesize_findings_from_review_markdown(
+        markdown,
+        source="plan-reviewer-a",
+        default_path="phase_01_plan/plan.md",
+    )
+
+    assert [f["severity"] for f in findings] == [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "medium",  # no P-marker, falls back to default
+    ]
+    # P-marker findings with UX citations still validate against the
+    # principle_id rule.
+    assert validate_findings(findings[:4]) == []
+
+
+def test_synthesize_findings_from_review_markdown_p_marker_overrides_english_word() -> None:
+    """When both markers are present, P-marker wins."""
+    markdown = """
+[1] P0 - plan.md - critical-sounding but the P-marker is the source of truth (ux-guidebook§2).
+[2] P3 Medium - plan.md - P-marker overrides the English word (ux-guidebook§4.2).
+"""
+    findings = synthesize_findings_from_review_markdown(
+        markdown,
+        source="plan-reviewer-a",
+        default_path="phase_01_plan/plan.md",
+    )
+
+    assert findings[0]["severity"] == "critical"
+    assert findings[1]["severity"] == "low"
+
+
 def test_synthesize_findings_from_review_markdown_promotes_ux_citations_to_kind_ux() -> None:
     """Plan-reviewers embed UX findings inline with `ux-guidebook§<section>` citations.
 
