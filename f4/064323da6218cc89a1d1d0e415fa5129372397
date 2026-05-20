@@ -1,0 +1,34 @@
+scripts/quest_validate-quest-state.sh
+  s_afff939c42b320::t_07f7556e1f03de 218,220,224,226
+.skills/quest/SKILL.md
+  s_afff939c42b320::t_cd1822cb600108 193,201,235-236
+tests/test-quest-orchestration.sh
+  s_afff939c42b320::t_d456a0a0a24e89 220-270,376-407,491-492,499
+  s_afff939c42b320::t_d29f395dc5eab3 166-189,489
+ideas/2026-05-18-per-quest-orchestration-override.md
+  s_afff939c42b320::t_e5485eebb7fb6b 232
+.ai/allowlist.json
+  s_afff939c42b320::t_50e5b2eb10ee5b 159,223
+docs/quest-journal/orchestration-override_2026-05-18.md
+  s_afff939c42b320::t_66529602f42b6a 9,14
+scripts/quest_runtime/orchestration.py
+  s_afff939c42b320::t_1ef32b5d30e1cf 37-39,117,119-122,129,131-136,231-237
+tests/test-validate-quest-state.sh
+  s_afff939c42b320::t_22515a04258256 1343-1367,1369,1379,1565
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "f4064323da6218cc89a1d1d0e415fa5129372397",
+  "prompts": {},
+  "sessions": {
+    "s_afff939c42b320": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e47a3-9066-7a62-b6f2-61ceb72a7d48",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
