@@ -96,7 +96,7 @@ f. **Rule:** Fail if any workflow declares `id-token: write` outside an explicit
 - `open-pull-requests-limit: 5`.
 - Do NOT add the `npm` ecosystem (repo has no package.json after step 1).
 
-**5. Add `.github/workflows/codex-version-drift.yml` as a tracking-only signal for the Codex CLI npm package.**
+**5. Add a tracking-only signal for Codex CLI package drift.**
 
 **PLANNER MUST FIRST DECIDE** whether this workflow is duplicative of the SHA pin on `openai/codex-action@<sha>`:
 - WebFetch `action.yml` / README at `github.com/openai/codex-action` to determine whether the action self-bundles `@openai/codex` or fetches it at runtime.
@@ -106,11 +106,11 @@ f. **Rule:** Fail if any workflow declares `id-token: write` outside an explicit
 If proceeding:
 - Triggers: `schedule: cron: '0 12 * * 1'` (Monday noon UTC) plus `workflow_dispatch`.
 - Top-level permissions: `contents: read, issues: write`.
-- Add a checked-in `.github/codex-cli-version.txt` seeded at quest build time with the current `npm view @openai/codex version` output.
+- Add a checked-in baseline file seeded at quest build time with the current `npm view @openai/codex version` output.
 - Workflow steps:
   a. Checkout (`actions/checkout@<sha>` or tag — first-party, tag OK for now).
   b. `npm view @openai/codex version` → write to `/tmp/latest_version`.
-  c. Read `.github/codex-cli-version.txt` → `/tmp/pinned_version`.
+  c. Read the checked-in baseline version into `/tmp/pinned_version`.
   d. If they differ: use `gh issue list --search "in:title [codex-drift]"` to find an existing tracking issue with a deterministic title like `[codex-drift] Codex CLI drift: <pinned> → <latest>`. If found, update body via `gh issue edit`. If not found, create with `gh issue create`. Idempotent.
   e. If versions match: no-op (exit 0).
 - No version pinning is added to codex-ci-review.yml. Watcher, not enforcer.
