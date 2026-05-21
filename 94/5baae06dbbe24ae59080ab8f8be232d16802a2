@@ -1,0 +1,19 @@
+docs/quest-journal/ci-supply-chain-hardening_2026-05-13.md
+  s_28c731aa517139::t_51a28fa56220e8 99,109,113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "945baae06dbbe24ae59080ab8f8be232d16802a2",
+  "prompts": {},
+  "sessions": {
+    "s_28c731aa517139": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4b23-db19-7c53-8942-e6b7b1d1d763",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
