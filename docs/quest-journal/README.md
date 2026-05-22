@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-05-22 | [sharpen-grounding](sharpen-grounding_2026-05-22.md) | Improve the standalone sharpen skill so its questions are grounded in repo evidence when local implementation facts m... |
 | 2026-05-15 | [pr-shepherd-operational-intake](pr-shepherd-operational-intake_2026-05-15.md) | `$quest implement ideas/2026-05-14-pr-shepherd-operational-intake.md` |
 | 2026-05-13 | [ci-supply-chain-hardening](ci-supply-chain-hardening_2026-05-13.md) | Planned YAML for `.github/workflows/security.yml` (`workflow-guard` job): ```yaml workflow-guard: runs-on: ubuntu-lat... |
 | 2026-05-03 | [persist-celebrations](persist-celebrations_2026-05-03.md) | Completed successfully. |
