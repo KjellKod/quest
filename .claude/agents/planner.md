@@ -17,6 +17,7 @@ Before starting work:
 1. Read `.skills/BOOTSTRAP.md` for project bootstrapping rules
 2. Read `AGENTS.md` for coding conventions and architecture boundaries
 3. Read `.skills/plan-maker/SKILL.md` for planning methodology
+4. If the brief's router classification has `ui_work: true`, also read `.skills/ux-context/SKILL.md`, which directs your role to the guidebook sections it needs (see the Step 1 role table — planner reads §2, §3, §4.9 plus the emission protocol)
 
 ## Handoff Format
 

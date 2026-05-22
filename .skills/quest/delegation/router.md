@@ -105,6 +105,26 @@ The router **recommends** a route. The human always chooses (override happens in
 
 **Keyword heuristics are secondary signals only.** The presence or absence of specific keywords (like "spec", "test", "deploy") should inform the dimension assessment but never override the substance evaluation.
 
+## UI/UX Detection
+
+Independent of the substance/complexity/risk evaluation, classify whether the work is user-facing UI/UX work. Set `ui_work: true` when **any** of these signals are present:
+
+**Prompt vocabulary (any of):**
+- UI/UX surface words: button, layout, screen, view, page, sidebar, toolbar, menu, modal, sheet, dropdown, popover, dialog, form, input, panel, navbar, footer, card, tab, banner
+- Output-channel words: design, UI, UX, frontend, interface, look-and-feel, visual, appearance, styling, theme
+- Quality words applied to a surface: prettier, cleaner, polish, redesign, refresh, intuitive, accessible, mobile, responsive
+- Behavior words: hover, click, tap, focus, swipe, scroll, gesture, animation, transition, motion
+- Platform words: web, desktop, mobile, iOS, macOS, Mac, iPad, Android, dark mode, light mode, theme
+- Specific UX vocabulary: empty state, loading state, error state, skeleton, spinner, toast, snackbar, breadcrumb, contrast, typography, spacing, hierarchy
+
+**Input artifacts (if any of):**
+- Referenced files matching `*.tsx`, `*.jsx`, `*.css`, `*.scss`, `*.html`, `*.vue`, `*.svelte`, `*.swift`, `*.swiftui`, `*.kt`/`*.kts` for Compose, `tailwind.config.*`, `components.json`, `theme.ts`
+- Referenced design surfaces: a Figma URL, a screenshot, a mockup, a design doc under `docs/design/` or similar
+
+**Bias toward `true`.** The cost of a false positive is extra UX context and review attention; the render-layer guard in `ux-context` suppresses unnecessary UX Defaults sections. The cost of a false negative is shipping unaccountable UX. When in doubt, set `ui_work: true`.
+
+Record one or two short evidence strings in `ui_work_evidence` so downstream agents can see what triggered the classification (e.g. `["touches src/components/*.tsx", "prompt mentions 'mobile' and 'sidebar'"]`).
+
 ## Output Contract
 
 Produce this JSON structure as your routing decision:
@@ -115,6 +135,8 @@ Produce this JSON structure as your routing decision:
   "confidence": 0.0,
   "risk_level": "low | medium | high",
   "complexity": "trivial | moderate | substantial",
+  "ui_work": false,
+  "ui_work_evidence": [],
   "reason": "One sentence explaining the decision",
   "missing_information": []
 }
@@ -124,9 +146,11 @@ Produce this JSON structure as your routing decision:
 - `confidence` is a numeric float from 0.0 to 1.0. If confidence < 0.70, route is always `questioner` regardless of complexity.
 - `risk_level` assesses inherent task risk independent of information completeness. Domains like migrations, security, payments, and data loss scenarios are typically `high`. High risk should bias toward `questioner`.
 - `complexity` assesses the scope and breadth of the change. Always populated, even for `questioner` routes (use best estimate).
+- `ui_work` is `true` when the work is user-facing UI/UX (see UI/UX Detection above). Always populated. Defaults to `false`.
+- `ui_work_evidence` is ALWAYS an array of short evidence strings explaining the `ui_work` classification. Use `[]` when `ui_work: false` with no signals. Never omit or set to null.
 - `missing_information` is ALWAYS an array. Use an empty array `[]` when routing with no gaps. Never omit this field or set it to null.
 
-The classification MUST be recorded in the quest brief during Quest Folder Creation (see SKILL.md). The brief must contain the full JSON block — not a summary, not a paraphrase, the actual JSON. This is how risk visibility is preserved for the user and for downstream agents (planner, reviewers).
+The classification MUST be recorded in the quest brief during Quest Folder Creation (see SKILL.md). The brief must contain the full JSON block — not a summary, not a paraphrase, the actual JSON. This is how risk visibility and `ui_work` propagation are preserved for the user and for downstream agents (planner, reviewers, builder, fixer). When `ui_work: true`, planner / builder / fixer auto-load `.skills/ux-context/SKILL.md`, and plan-reviewer / code-reviewer auto-load `.skills/ux-review/SKILL.md`.
 
 ## Re-run Behavior
 

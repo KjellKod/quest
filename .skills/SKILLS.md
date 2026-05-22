@@ -104,11 +104,27 @@ This directory contains specialized skills for AI agents working in this reposit
 **Location:** `.skills/celebrate/SKILL.md`
 
 ### sharpen
-**Purpose:** Adversarial interview against a plan, design, or write-up — one question at a time, each with a recommended answer attached — to surface contradictions, hidden assumptions, and unresolved tradeoffs before they ship.
+**Purpose:** Adversarial interview against a plan, design, or write-up — one question at a time, each with a recommended answer attached — to surface contradictions, hidden assumptions, and unresolved tradeoffs before they ship. Also has a `ux-defaults` mode for locking in UX choices (gray ramp, density, mobile relevance, accent) when a backend engineer can recognize good UX but can't articulate it from scratch.
 
-**Use when:** The user invokes `/sharpen` or `$sharpen`, says "sharpen this", "stress-test this", "find the holes", "challenge my plan", or wants to confirm shared understanding before locking a decision.
+**Use when:** The user invokes `/sharpen` or `$sharpen`, says "sharpen this", "stress-test this", "find the holes", "challenge my plan", or wants to confirm shared understanding before locking a decision. Auto-routes to `ux-defaults` mode when invoked during plan presentation on a `ui_work: true` quest; can also be invoked explicitly as `/sharpen ux-defaults`.
 
 **Location:** `.skills/sharpen/SKILL.md`
+
+### ux-context
+**Purpose:** Primer skill that loads the canonical UX guidebook and stress-test rubric. Auto-attached by the orchestrator when the router classifies a quest as `ui_work: true`, so planners, builders, and fixers shape their output against durable UX principles (Norman, Rams, Nielsen, Apple HIG, Refactoring UI, Linear/Vercel/Rauno). Bundles the canonical guidebook so the standard travels with the skill into installed repos.
+
+**Use when:** Auto-attached by quest orchestration when `ui_work: true`. Not user-invocable directly — for direct critique, use `ux-review`.
+
+**Location:** `.skills/ux-context/SKILL.md`
+
+**Resources:** `.skills/ux-context/resources/ux-guidebook.md`, `.skills/ux-context/resources/ux-stress-test.md`
+
+### ux-review
+**Purpose:** Run the canonical UX stress-test rubric against a target (file, directory, URL, screenshot, or git diff) and produce a structured critique report with P0–P3 severity, principle citations, and a bright-spots section. Sources its rubric from the `ux-context` skill's bundled guidebook.
+
+**Use when:** The user invokes `/ux-review` or `$ux-review`, asks for a UX critique of a screen / component / app, asks to triage a clunky existing project, or is reviewing UI changes before commit. Also auto-attached to plan-reviewer and code-reviewer agents when the quest router sets `ui_work: true`.
+
+**Location:** `.skills/ux-review/SKILL.md`
 
 ## How Skills Work
 

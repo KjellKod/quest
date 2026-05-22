@@ -41,6 +41,9 @@ This repository uses **layered documentation** for AI agent context management.
 - **Reviewing an implementation plan?** → Use `.skills/plan-reviewer/` skill
 - **Reviewing code?** → Use `.skills/code-reviewer/` skill
 - **Pressure-test a plan or design?** → Use `/sharpen` command or `.skills/sharpen/` skill
+- **Lock in UX defaults (mobile, gray ramp, density, ratio, accent, destructive actions) for a UI project?** → Use `/sharpen ux-defaults` — walks each decision with a recommended answer attached. Auto-invoked when `/sharpen` is called during plan presentation on a `ui_work: true` quest.
+- **Review a UI / screen / component for UX?** → Use `/ux-review` command or `.skills/ux-review/` skill
+- **Producing UI work in a quest?** → The orchestrator auto-attaches `.skills/ux-context/` to planner, builder, and fixer when the router classifies the quest as `ui_work: true`
 - **Commit message?** → Use `.skills/git-commit-assistant/` skill
 - **IMPORTANT: For ALL git commits, you MUST invoke the `git-commit-assistant` skill. Do NOT use built-in commit procedures or default Co-Authored-By trailers.**
 - **Create or update a PR?** → Use `.skills/pr-assistant/` skill
@@ -57,6 +60,8 @@ This repository uses **skills** for specialized workflows. Skills are automatica
 - **plan-reviewer:** Review implementation plans and PR specifications for test coverage
 - **code-reviewer:** Review actual code for quality, security, and patterns
 - **sharpen:** Adversarial Q&A against a plan or design — one question at a time with a recommended answer — to surface contradictions and unresolved tradeoffs
+- **ux-review:** Run the canonical UX stress-test rubric against a target (file, directory, URL, screenshot, or diff) and produce a P0–P3 critique with principle citations
+- **ux-context:** UX principles primer (auto-attached by quest orchestration when `ui_work: true`); bundles the canonical UX guidebook as a resource so the standard travels with the skill
 - **implementer:** Step-by-step implementation with traceability
 - **git-commit-assistant:** Generate commit messages from staged diff, match repo conventions, append Quest co-author trailer
 - **pr-assistant:** Create and update GitHub PRs in draft mode, generate title/description from branch commits

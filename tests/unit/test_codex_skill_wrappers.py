@@ -10,6 +10,7 @@ EXPECTED_QUEST_WRAPPERS = {
     "pr-shepherd",
     "quest",
     "sharpen",
+    "ux-review",
 }
 
 

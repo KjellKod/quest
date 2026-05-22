@@ -28,6 +28,21 @@ REQUIRED_FINDING_FIELDS: tuple[str, ...] = (
 
 ALLOWED_SEVERITIES = ("critical", "high", "medium", "low", "info")
 ALLOWED_CONFIDENCE = ("high", "medium", "low")
+ALLOWED_KINDS = (
+    "code",
+    "plan",
+    "ux",
+    "regression-risk",
+    "review_comment",
+    "ci",
+    "correctness",
+    "plan_review",
+    "edge-case",
+    "test_failure",
+    "build_failure",
+    "shared_infrastructure",
+    "cross_cutting",
+)
 ALLOWED_DECISIONS = (
     "fix_now",
     "verify_first",
@@ -35,6 +50,10 @@ ALLOWED_DECISIONS = (
     "drop",
     "needs_human_decision",
 )
+_UX_PRINCIPLE_ID_RE = re.compile(r"^ux-guidebook§\d+(?:\.\d+)?$")
+# Search form (used inside synthesize_findings_from_review_markdown to detect a
+# citation embedded in a markdown bullet, anchored neither at start nor end):
+_UX_CITATION_IN_TEXT_RE = re.compile(r"ux-guidebook§(\d+(?:\.\d+)?)")
 
 _SEVERITY_RANK = {name: index for index, name in enumerate(ALLOWED_SEVERITIES)}
 _CONFIDENCE_RANK = {name: index for index, name in enumerate(ALLOWED_CONFIDENCE)}
@@ -76,13 +95,16 @@ def review_local_index_from_value(value: Any) -> int | None:
     return value
 
 
-def _dedupe_key(finding: dict[str, Any]) -> tuple[str, str, str, str]:
+def _dedupe_key(finding: dict[str, Any]) -> tuple[str, str, str, str, str]:
     line_value = finding.get("line")
     line_part = "" if line_value is None else str(line_value)
+    kind = str(finding.get("kind", ""))
+    principle_part = str(finding.get("principle_id", "")) if kind == "ux" else ""
     return (
         str(finding.get("path", "")),
         line_part,
-        str(finding.get("kind", "")),
+        kind,
+        principle_part,
         _normalize_summary(str(finding.get("summary", ""))),
     )
 
@@ -127,6 +149,18 @@ def validate_finding(finding: dict[str, Any]) -> list[str]:
         value = finding.get(field)
         if not isinstance(value, str) or not value.strip():
             errors.append(f"field '{field}' must be a non-empty string")
+
+    kind_value = finding.get("kind")
+    if kind_value not in ALLOWED_KINDS:
+        errors.append(
+            f"field 'kind' must be one of {', '.join(ALLOWED_KINDS)}"
+        )
+    if kind_value == "ux":
+        principle_id = finding.get("principle_id")
+        if not isinstance(principle_id, str) or not _UX_PRINCIPLE_ID_RE.match(principle_id):
+            errors.append(
+                "field 'principle_id' is required for UX findings and must match ux-guidebook§<section_number>"
+            )
 
     line_value = finding.get("line")
     if line_value is not None and (isinstance(line_value, bool) or not isinstance(line_value, int) or line_value < 1):
@@ -187,7 +221,7 @@ def merge_and_dedupe(findings_by_source: list[list[dict[str, Any]]]) -> list[dic
     if validation_errors:
         raise ValueError("; ".join(validation_errors))
 
-    merged_by_key: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    merged_by_key: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
     for finding in flattened:
         key = _dedupe_key(finding)
         existing = merged_by_key.get(key)
@@ -598,6 +632,13 @@ def scan_deferred_backlog(
 
 
 _SEVERITY_RE = re.compile(r"\b(critical|high|medium|low|info)\b", flags=re.IGNORECASE)
+# P-marker severity used by UX plan-review embeds (per ux-review/SKILL.md
+# Step 6 + plan-reviewer.md). P-markers take priority over the English
+# severity word above when both appear; this lets a plan-reviewer write
+# `[1] P0 - ...` and have the synthesized finding land as `critical`
+# instead of falling back to `medium`.
+_P_SEVERITY_RE = re.compile(r"\bP([0-3])\b")
+_P_SEVERITY_MAP = {"0": "critical", "1": "high", "2": "medium", "3": "low"}
 _PATH_RE = re.compile(
     r"([A-Za-z0-9_][A-Za-z0-9_.-]*/[A-Za-z0-9_./-]+\.[A-Za-z0-9]+)(?::(\d+))?"
 )
@@ -641,8 +682,15 @@ def synthesize_findings_from_review_markdown(
         if len(normalized) < 8:
             continue
 
-        severity_match = _SEVERITY_RE.search(normalized)
-        severity = severity_match.group(1).lower() if severity_match else "medium"
+        # Severity: P-marker (P0/P1/P2/P3) wins if present, mapped per the
+        # canonical UX severity table in ux-review/SKILL.md; otherwise fall
+        # back to the English word and finally to `medium`.
+        p_severity_match = _P_SEVERITY_RE.search(normalized)
+        if p_severity_match:
+            severity = _P_SEVERITY_MAP[p_severity_match.group(1)]
+        else:
+            severity_match = _SEVERITY_RE.search(normalized)
+            severity = severity_match.group(1).lower() if severity_match else "medium"
 
         path_match = _PATH_RE.search(normalized)
         finding_path = default_path
@@ -654,11 +702,25 @@ def synthesize_findings_from_review_markdown(
             line_number = int(line_token) if line_token else None
             write_scope = [finding_path]
 
+        # Detect UX citation embedded in the markdown bullet. Plan-reviewers emit
+        # `ux-guidebook§<section>` inline (per plan-reviewer.md + ux-review/SKILL.md
+        # Step 6), so we extract that citation, retag the finding as `kind: "ux"`,
+        # and preserve `principle_id` in canonical form. Without this, plan-phase
+        # UX findings would silently land in the backlog as plain `plan_review`
+        # entries, dropping the audit hook the integration was built around.
+        ux_citation_match = _UX_CITATION_IN_TEXT_RE.search(normalized)
+        if ux_citation_match:
+            kind = "ux"
+            principle_id: str | None = f"ux-guidebook§{ux_citation_match.group(1)}"
+        else:
+            kind = "plan_review"
+            principle_id = None
+
         index = len(findings) + 1
         finding: dict[str, Any] = {
             "finding_id": f"{source}-{index:03d}",
             "source": source,
-            "kind": "plan_review",
+            "kind": kind,
             "severity": severity,
             "confidence": "medium",
             "path": finding_path,
@@ -671,6 +733,8 @@ def synthesize_findings_from_review_markdown(
             "write_scope": write_scope,
             "related_acceptance_criteria": [],
         }
+        if principle_id is not None:
+            finding["principle_id"] = principle_id
         if review_local_index is not None:
             finding["review_local_index"] = review_local_index
         findings.append(finding)

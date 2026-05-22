@@ -8,6 +8,7 @@ At activation, announce the role and scope in one line. Example: `[plan-reviewer
 
 Read and follow `.skills/quest/agents/plan-reviewer.md` for your role definition.
 Read `AGENTS.md` for coding conventions.
+If the brief's router classification has `ui_work: true`, also read `.skills/ux-review/SKILL.md` to run the plan-phase UX intent pass as part of your review.
 
 ## Non-Interactive Contract
 

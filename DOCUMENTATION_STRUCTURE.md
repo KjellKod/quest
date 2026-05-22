@@ -68,7 +68,11 @@ Repository Root
 ├── AGENTS.md                    ← START HERE (coding rules & boundaries)
 ├── .skills
 │   ├── BOOTSTRAP.md             ← How to discover and use skills
-│   └── SKILLS.md                ← Available skills index
+│   ├── SKILLS.md                ← Available skills index
+│   └── ux-context/
+│       └── resources/
+│           ├── ux-guidebook.md  ← Canonical UX standards (travels with skill)
+│           └── ux-stress-test.md
 ├── README.md                    ← Product overview & setup
 ├── DOCUMENTATION_STRUCTURE.md   ← You are here (navigation guide)
 │
@@ -139,6 +143,7 @@ Repository Root
 | **Using quest** | `.ai/quest.md` | `docs/guides/quest_setup.md` |
 | **Debugging an issue** | `docs/architecture/` | Relevant component docs |
 | **Adding a feature** | `docs/implementation/README.md` | Specific feature plan |
+| **Shipping UI** | `.skills/ux-context/resources/ux-guidebook.md` | `/ux-review <path>` before PR |
 
 ---
 

@@ -76,6 +76,27 @@ def test_validate_findings_accepts_valid_record() -> None:
     assert errors == []
 
 
+def test_validate_findings_accepts_shared_infrastructure_kinds() -> None:
+    for kind in ("shared_infrastructure", "cross_cutting"):
+        errors = validate_findings([_finding(kind=kind)])
+        assert errors == []
+
+
+def test_validate_findings_requires_principle_id_for_ux_findings() -> None:
+    missing = _finding(kind="ux")
+    missing_errors = validate_findings([missing])
+    assert any("field 'principle_id' is required for UX findings" in error for error in missing_errors)
+
+    invalid = _finding(kind="ux")
+    invalid["principle_id"] = "ux-guidebook §4.8 #1"
+    invalid_errors = validate_findings([invalid])
+    assert any("field 'principle_id' is required for UX findings" in error for error in invalid_errors)
+
+    valid = _finding(kind="ux")
+    valid["principle_id"] = "ux-guidebook§4.8"
+    assert validate_findings([valid]) == []
+
+
 def test_validate_findings_rejects_missing_required_field() -> None:
     invalid = _finding()
     invalid.pop("summary")
@@ -196,6 +217,29 @@ def test_merge_and_dedupe_preserves_primary_review_local_index() -> None:
     assert len(merged) == 1
     assert merged[0]["review_local_index"] == 3
     assert merged[0]["finding_id_lineage"] == ["F-primary", "F-duplicate"]
+
+
+def test_merge_and_dedupe_keeps_distinct_ux_principles_separate() -> None:
+    finding_a = _finding(
+        finding_id="F-ux-a",
+        kind="ux",
+        summary="Button affordance is unclear.",
+    )
+    finding_a["principle_id"] = "ux-guidebook§2"
+    finding_b = _finding(
+        finding_id="F-ux-b",
+        kind="ux",
+        summary="Button affordance is unclear.",
+    )
+    finding_b["principle_id"] = "ux-guidebook§4.8"
+
+    merged = merge_and_dedupe([[finding_a], [finding_b]])
+
+    assert len(merged) == 2
+    assert {finding["principle_id"] for finding in merged} == {
+        "ux-guidebook§2",
+        "ux-guidebook§4.8",
+    }
 
 
 def test_build_review_backlog_merges_dedupes_and_decides() -> None:
@@ -536,6 +580,86 @@ def test_synthesize_findings_from_review_markdown_parses_path_and_skips_short_bu
     # v1.2 should not be mistaken for a filesystem path.
     assert second["path"] == "phase_01_plan/plan.md"
     assert second["line"] is None
+    assert validate_findings(findings) == []
+
+
+def test_synthesize_findings_from_review_markdown_maps_p_severity_markers() -> None:
+    """P0/P1/P2/P3 markers map to canonical severities per ux-review/SKILL.md.
+
+    The plan-reviewer embed format uses `[N] P0/P1/P2/P3 - ...`; the synthesis
+    must map those to critical/high/medium/low. Without this, a P0 UX plan
+    finding silently lands at the default `medium` and loses its ship-blocking
+    severity.
+    """
+    markdown = """
+[1] P0 - plan.md:Acceptance Criteria - signifier loss (ux-guidebook§2).
+[2] P1 - plan.md:UX Defaults - destructive trap, no undo (ux-guidebook§4.7).
+[3] P2 - plan.md:Files - consistency violation (ux-guidebook§4.6).
+[4] P3 - plan.md:Notes - chrome bloat (ux-guidebook§4.2).
+[5] Should fix - plan.md:Tests - no severity marker, plain prose.
+"""
+    findings = synthesize_findings_from_review_markdown(
+        markdown,
+        source="plan-reviewer-a",
+        default_path="phase_01_plan/plan.md",
+    )
+
+    assert [f["severity"] for f in findings] == [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "medium",  # no P-marker, falls back to default
+    ]
+    # P-marker findings with UX citations still validate against the
+    # principle_id rule.
+    assert validate_findings(findings[:4]) == []
+
+
+def test_synthesize_findings_from_review_markdown_p_marker_overrides_english_word() -> None:
+    """When both markers are present, P-marker wins."""
+    markdown = """
+[1] P0 - plan.md - critical-sounding but the P-marker is the source of truth (ux-guidebook§2).
+[2] P3 Medium - plan.md - P-marker overrides the English word (ux-guidebook§4.2).
+"""
+    findings = synthesize_findings_from_review_markdown(
+        markdown,
+        source="plan-reviewer-a",
+        default_path="phase_01_plan/plan.md",
+    )
+
+    assert findings[0]["severity"] == "critical"
+    assert findings[1]["severity"] == "low"
+
+
+def test_synthesize_findings_from_review_markdown_promotes_ux_citations_to_kind_ux() -> None:
+    """Plan-reviewers embed UX findings inline with `ux-guidebook§<section>` citations.
+
+    The synthesis function must detect those citations and emit findings with
+    `kind: "ux"` + `principle_id` — otherwise plan-phase UX findings silently
+    land in the canonical backlog as plain `plan_review` entries, losing the
+    audit hook the integration was built around.
+    """
+    markdown = """
+[1] Must fix - plan.md:Acceptance Criteria - settings page lists "Save" and "Cancel" identically; no primary action is named (ux-guidebook§2 — every affordance needs a signifier).
+[2] Nit - plan.md:Files - missing test stub.
+[3] Should fix - plan.md:UX Defaults - destructive actions left as TBD (ux-guidebook§4.7).
+"""
+    findings = synthesize_findings_from_review_markdown(
+        markdown,
+        source="plan-reviewer-a",
+        default_path="phase_01_plan/plan.md",
+    )
+
+    assert len(findings) == 3
+    assert findings[0]["kind"] == "ux"
+    assert findings[0]["principle_id"] == "ux-guidebook§2"
+    assert findings[1]["kind"] == "plan_review"
+    assert "principle_id" not in findings[1]
+    assert findings[2]["kind"] == "ux"
+    assert findings[2]["principle_id"] == "ux-guidebook§4.7"
+
+    # Synthesized UX findings must satisfy validate_finding's principle_id rule.
     assert validate_findings(findings) == []
 
 

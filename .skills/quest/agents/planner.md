@@ -16,10 +16,11 @@ When running on Codex, this role is non-interactive:
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
 - `.skills/plan-maker/SKILL.md` (planning skill)
-- Quest brief
+- Quest brief — **read fully; extract `ui_work` and `ui_work_evidence` from the `## Router Classification` JSON block before loading conditional skills. Treat missing `ui_work` as `false`.** A skim-to-acceptance-criteria read silently disables the UX pipeline.
 - Relevant architecture docs (as needed)
 - Deferred backlog match artifact when present: `.quest/<id>/phase_01_plan/deferred_backlog_matches.json`
 - **On iteration 2+:** Arbiter verdict with synthesized feedback (`.quest/<id>/phase_01_plan/arbiter_verdict.md`)
+- **If the quest brief router classification has `ui_work: true`:** read `.skills/ux-context/SKILL.md` and follow its Step 1 role table — the planner row reads §2, §3, and §4.9 of `resources/ux-guidebook.md` (not the full guidebook; the stress-test is not loaded). When `ui_work_evidence` is non-empty, treat those files/areas as the primary surface to plan against. The UX Defaults emission protocol lives in the ux-context SKILL.md and is mandatory when this skill is loaded. If `ui_work` is absent from the brief (older brief format), default to `false` and do not load ux-context.
 
 ## Responsibilities
 
@@ -36,6 +37,14 @@ When running on Codex, this role is non-interactive:
 2. Address **only** the issues the Arbiter raised — do not expand scope
 3. Update the plan in place (`.quest/<quest_id>/phase_01_plan/plan.md`)
 4. Note what changed at the top of the plan under a `## Revision Notes` section
+
+### When `ui_work: true` — emit a UX Defaults section in the plan
+
+When the brief's router classification has `ui_work: true`, follow the **UX Defaults Emission Protocol** in `.skills/ux-context/SKILL.md` to emit a `## UX Defaults` section in the plan. The protocol covers the render-layer guard (suppresses emission on backend false-positives), the six required fields, and the opt-out for UX-savvy prompts.
+
+The canonical inference rubric (prompt-signal → defaults) lives in `.skills/ux-context/resources/ux-guidebook.md §4.9`. Pick the row whose signal matches the prompt; when in doubt, default to the last row.
+
+The plan-presentation menu in `workflow.md` already discloses to the user that `/sharpen ux-defaults` is available on `ui_work: true` quests — do not duplicate that pointer at the end of the emitted block.
 
 ## Refinement Rules
 - The Arbiter's feedback is the **only** input for refinement. Do not re-read raw reviewer notes.
@@ -80,3 +89,4 @@ If `STATUS: needs_human`, list required clarifications in plain text above `---H
 
 ## Skills Used
 - `.skills/plan-maker/SKILL.md`
+- `.skills/ux-context/SKILL.md` (when quest brief has `ui_work: true`)

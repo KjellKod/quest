@@ -19,6 +19,7 @@ Before starting work:
 1. Read `.skills/BOOTSTRAP.md` for project bootstrapping rules
 2. Read `AGENTS.md` for coding conventions and architecture boundaries
 3. Read `.skills/code-reviewer/SKILL.md` for review methodology
+4. If the brief's router classification has `ui_work: true`, also read `.skills/ux-review/SKILL.md` to run the UX stress test against the diff as part of your review pass
 
 ## Important
 

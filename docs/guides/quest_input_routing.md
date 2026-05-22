@@ -81,6 +81,16 @@ This matrix determines which route Quest recommends:
 - **Solo** — Lightweight quest: single plan reviewer, no arbiter, single code reviewer, capped fix iterations. Same pipeline, fewer stages.
 - **Full quest** — The works: dual reviewers (Claude + Codex), arbiter synthesis, full fix loop.
 
+## UI/UX Classification (Independent of Complexity)
+
+Alongside complexity and risk, the router classifies whether your quest is user-facing UI work and sets `ui_work: true` when prompt vocabulary (button, layout, screen, mobile, etc.), file references (`*.tsx`, `*.css`, etc.), or design surfaces (Figma URL, screenshot) are present. The router biases toward `true` — false positives just load extra context, while false negatives ship unaccountable UX.
+
+When `ui_work: true`:
+- Planner, builder, and fixer auto-load `.skills/ux-context/SKILL.md` so the UX guidebook shapes plan and code output.
+- Plan-reviewer and code-reviewer auto-load `.skills/ux-review/SKILL.md` and emit UX findings (P0–P3) into the canonical review backlog alongside other findings.
+
+The full classification logic lives in `.skills/quest/delegation/router.md`.
+
 ## Solo Mode
 
 Solo mode is a lighter version of the same quest pipeline — not a separate system. Here's what changes:

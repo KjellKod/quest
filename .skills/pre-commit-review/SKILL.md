@@ -9,7 +9,11 @@ Review the local working-tree diff before a commit exists for review. At activat
 
 `[pre-commit-review] reviewing local working-tree diff before commit`
 
-## Required Inputs And Preflight
+## What this skill does
+
+- Reviews staged plus unstaged tracked-file changes against repo conventions (`AGENTS.md`), the code-reviewer severity model, and shared review anti-patterns.
+- **Includes a local UX gate on UI files.** When the diff contains `*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.css`, `*.scss`, or `*.swift` changes, invokes `.skills/ux-review/SKILL.md` against the same diff and folds any P0/P1 UX findings into the report as blocking findings. P2/P3 UX findings are noted but do not block. A one-line CSS or component tweak triggers the rubric.
+- Does **not** push, comment on PRs, write Quest decision artifacts, or commit on its own. The terminal choice (`fix`, `skip`, `commit`) rests with the user.
 
 Run these checks before reviewing:
 
@@ -49,6 +53,10 @@ This reviews staged plus unstaged tracked-file changes. Untracked files are not 
 3. Read `.skills/review-anti-patterns.md` and apply the shared review anti-pattern guidance.
 4. Focus on correctness, security hygiene, tests for touched behavior, maintainability, and commit-readiness.
 5. Keep feedback high signal. Omit `Nit` findings by default unless they are bundled with a higher-value issue or the user explicitly requested nits.
+
+## UI/UX Changes
+
+If the review diff (staged plus unstaged tracked changes — same scope this skill already reviews) includes UI files (any of `*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.css`, `*.scss`, or `*.swift`), also invoke `.skills/ux-review/SKILL.md` against the same review diff and include any P0/P1 findings in the pre-commit report. P2/P3 UX findings are noted but do not block. The rubric source is `.skills/ux-context/resources/ux-stress-test.md`.
 
 Do NOT inherit PR-only behavior from `code-reviewer`:
 

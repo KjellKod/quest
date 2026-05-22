@@ -17,6 +17,7 @@ Before starting work:
 1. Read `.skills/BOOTSTRAP.md` for project bootstrapping rules
 2. Read `AGENTS.md` for coding conventions and architecture boundaries
 3. Read `.skills/implementer/SKILL.md` for implementation methodology
+4. If the brief's router classification has `ui_work: true`, also read `.skills/ux-context/SKILL.md`, which directs your role to the guidebook sections it needs (see the Step 1 role table — builder reads §2, §3, and the §4 subsections matching the file types you're touching)
 
 ## Important
 
