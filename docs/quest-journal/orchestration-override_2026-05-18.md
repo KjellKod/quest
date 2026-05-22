@@ -39,7 +39,7 @@
 
 ## Agents
 
-- **The Implementer** (builder): 
+- **The Implementer** (builder):
 
 ## Quest Brief
 
