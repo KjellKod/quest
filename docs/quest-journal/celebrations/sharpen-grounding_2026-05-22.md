@@ -43,14 +43,14 @@ Improve the standalone sharpen skill so its questions are grounded in repo evide
 
 ## Achievements
 
-- [BUG] **Gremlin Slayer** — Tackled 5 review findings
+- [BUG] **Gremlin Slayer** — Tackled 4 review findings
 - [TEST] **Battle Tested** — Survived 4 reviews
 - [PLAN] **Plan Perfectionist** — Iterated plan 2 times
 - [WIN] **Quest Complete** — All phases finished successfully
 
 ## Impact Metrics
 
-- Review findings addressed: **5**
+- Review findings addressed: **4**
 - Review rounds completed: **4**
 - Plan iterations: **2**
 - Fix iterations: **0**
@@ -60,7 +60,7 @@ Improve the standalone sharpen skill so its questions are grounded in repo evide
 - Handoffs parsed: 2
 - Reviewer handoffs: 0
 - Fixer handoffs: 0
-- Review findings tracked: 5
+- Review findings tracked: 4
 - Reliability signal: high
 
 ## Carry-Over Findings
