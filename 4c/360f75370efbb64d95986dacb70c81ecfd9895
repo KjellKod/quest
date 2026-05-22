@@ -1,0 +1,21 @@
+docs/quest-journal/orchestration-override_2026-05-18.md
+  s_928cb093184dcf::t_7ca05b53e637c8 42
+docs/quest-journal/celebrations/orchestration-override_2026-05-18.md
+  s_928cb093184dcf::t_7ca05b53e637c8 11,20-22,41-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "4c360f75370efbb64d95986dacb70c81ecfd9895",
+  "prompts": {},
+  "sessions": {
+    "s_928cb093184dcf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5215-e4d4-78c0-9064-5262ece7d0bb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
