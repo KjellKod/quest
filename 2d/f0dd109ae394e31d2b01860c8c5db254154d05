@@ -1,0 +1,21 @@
+docs/quest-journal/celebrations/sharpen-grounding_2026-05-22.md
+  s_2b7daf5e1ff7ce::t_05ebbfc5501b77 46,53,63
+docs/quest-journal/sharpen-grounding_2026-05-22.md
+  s_2b7daf5e1ff7ce::t_05ebbfc5501b77 113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "2df0dd109ae394e31d2b01860c8c5db254154d05",
+  "prompts": {},
+  "sessions": {
+    "s_2b7daf5e1ff7ce": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4cf1-7dd8-7a12-8f6c-bce1dd5c4709",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
