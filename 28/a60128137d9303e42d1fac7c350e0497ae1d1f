@@ -1,0 +1,40 @@
+ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md
+  s_82c0dc78d8a0d0::t_5c0015b307b4d4 407-412
+  s_0b622b20388dc4::t_54a97fedf6c59d 227-230,242-245,255-257
+  s_82c0dc78d8a0d0::t_f78351ab071f1f 261-376
+  s_82c0dc78d8a0d0::t_d4694ea16520fc 392
+docs/architecture/install-posture-outside-in.md
+  s_df1c86e236aa80::t_ffb386196d7898 1-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "28a60128137d9303e42d1fac7c350e0497ae1d1f",
+  "prompts": {},
+  "sessions": {
+    "s_0b622b20388dc4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4d54-153b-7142-8b23-113d96cd565b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_82c0dc78d8a0d0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "269fbcfd-4df2-4543-9d89-2eff190296c3",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_df1c86e236aa80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c3252d71-b45e-4486-bf00-9cd337f33a51",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
