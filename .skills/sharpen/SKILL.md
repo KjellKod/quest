@@ -69,6 +69,6 @@ Before (ungrounded):
 - Recommended: "Yes, keep it."
 
 After (grounded):
-- Grounded on: `scripts/smoke_runner.sh`, `tests/integration/test-smoke-runner.sh`, artifact acceptance criteria
-- Q1: "The artifact keeps the smoke-runner but does not define ownership for failures. Should failures block merge or only warn?"
-- Recommended: "Block merge in CI and allow local warn-only mode, because the current test contract already treats CI smoke failures as release risk."
+- Grounded on: `<smoke-runner script path>`, `<smoke-runner test path>`, artifact acceptance criteria
+- Q1: "The artifact keeps the smoke runner, but the referenced acceptance criteria do not say who owns failures. Should CI failures block merge, or should the runner warn only?"
+- Recommended: "Block merge only if the acceptance criteria define smoke failures as release-blocking; otherwise keep CI warn-only until ownership is explicit."
