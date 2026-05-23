@@ -112,6 +112,49 @@ PY
   rm -rf "$tmpdir"
 }
 
+test_chooser_default_writer_remaps_unavailable_active_models() {
+  # If the user continues a Codex-led quest without Claude bridge availability,
+  # the default path must not persist unavailable Claude-family active roles.
+  local tmpdir orch_file
+  tmpdir=$(mktemp -d)
+  orch_file="$tmpdir/orchestration.json"
+
+  python3 - "$orch_file" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import json, sys
+from pathlib import Path
+from quest_runtime.orchestration import write_default_from_allowlist
+
+write_default_from_allowlist(
+    Path(sys.argv[1]),
+    {
+        "planner": "gpt-5.5",
+        "plan-reviewer-a": "claude",
+        "plan-reviewer-b": "gpt-5.5",
+        "arbiter": "claude",
+        "builder": "gpt-5.5",
+        "code-reviewer-a": "claude-opus-4.7",
+        "code-reviewer-b": "gpt-5.5",
+        "fixer": "gpt-5.5",
+    },
+    orchestrator="codex",
+    codex_available=True,
+    claude_available=False,
+    quest_mode="workflow",
+    remap_unavailable=True,
+    preflight_validated_at="2026-05-18T05:42:13Z",
+)
+orch = json.loads(Path(sys.argv[1]).read_text())
+assert orch["models"]["plan-reviewer-a"] == "gpt-5.5", orch
+assert orch["models"]["arbiter"] == "gpt-5.5", orch
+assert orch["models"]["code-reviewer-a"] == "gpt-5.5", orch
+assert orch["models"]["builder"] == "gpt-5.5", orch
+PY
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
+}
+
 test_chooser_override_writer_contract() {
   # Override path: requested role swapped, the rest match the snapshot.
   local tmpdir orch_file
@@ -589,6 +632,7 @@ echo "=== Quest Orchestration Tests ==="
 echo ""
 
 run_test test_chooser_default_writer_contract
+run_test test_chooser_default_writer_remaps_unavailable_active_models
 run_test test_chooser_override_writer_contract
 run_test test_default_models_fill_missing_allowlist_keys
 run_test test_chooser_ignores_unused_solo_roles

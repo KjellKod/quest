@@ -50,6 +50,7 @@ SOLO_UNUSED_ROLES: frozenset[str] = frozenset(
 )
 
 ORCHESTRATION_VERSION = 1
+CODEX_NATIVE_FALLBACK_MODEL = "gpt-5.5"
 
 
 class OverrideParseError(ValueError):
@@ -144,6 +145,65 @@ def is_model_available_for_orchestrator(
     if normalized_orchestrator == "claude":
         return True if is_claude_model(model) else codex_available
     return claude_available if is_claude_model(model) else True
+
+
+def active_roles_for_mode(quest_mode: str) -> tuple[str, ...]:
+    """Return roles that are actually dispatched for the selected quest mode."""
+    if quest_mode == "solo":
+        return tuple(role for role in CANONICAL_ROLES if role not in SOLO_UNUSED_ROLES)
+    return CANONICAL_ROLES
+
+
+def validate_or_remap_models_for_orchestrator(
+    models: dict[str, str | None],
+    *,
+    orchestrator: str,
+    codex_available: bool,
+    claude_available: bool,
+    quest_mode: str,
+    remap_unavailable: bool = False,
+) -> tuple[dict[str, str | None], list[str]]:
+    """Validate active role models against the preflight result.
+
+    When a user explicitly continues with a single-model quest after preflight
+    reports the second runtime unavailable, the chooser can remap active
+    unavailable roles to the current orchestrator's native model before writing
+    orchestration.json. Otherwise, unavailable active role models are rejected.
+    """
+    normalized_orchestrator = orchestrator.strip().lower()
+    if normalized_orchestrator not in {"claude", "codex"}:
+        raise ValueError(f"Unknown orchestrator: {orchestrator!r}")
+
+    result = dict(models)
+    fallback_model = (
+        "claude" if normalized_orchestrator == "claude" else CODEX_NATIVE_FALLBACK_MODEL
+    )
+    remapped_roles: list[str] = []
+    unavailable_roles: list[str] = []
+
+    for role in active_roles_for_mode(quest_mode):
+        model = result.get(role)
+        if not isinstance(model, str) or not model:
+            continue
+        if is_model_available_for_orchestrator(
+            model,
+            orchestrator=normalized_orchestrator,
+            codex_available=codex_available,
+            claude_available=claude_available,
+        ):
+            continue
+        if remap_unavailable:
+            result[role] = fallback_model
+            remapped_roles.append(role)
+        else:
+            unavailable_roles.append(role)
+
+    if unavailable_roles:
+        raise ValueError(
+            "Unavailable model for active role(s): " + ", ".join(unavailable_roles)
+        )
+
+    return result, remapped_roles
 
 
 def load_codex_available_from_cache(cache_path: Path) -> bool:
@@ -252,9 +312,23 @@ def write_default_from_allowlist(
     allowlist_models: dict[str, str | None],
     *,
     preflight_validated_at: str | None = None,
+    orchestrator: str | None = None,
+    codex_available: bool = True,
+    claude_available: bool = True,
+    quest_mode: str = "workflow",
+    remap_unavailable: bool = False,
 ) -> None:
     """Default-path writer: copy allowlist models into orchestration.json."""
     defaults = build_default_models(allowlist_models)
+    if orchestrator is not None:
+        defaults, _ = validate_or_remap_models_for_orchestrator(
+            defaults,
+            orchestrator=orchestrator,
+            codex_available=codex_available,
+            claude_available=claude_available,
+            quest_mode=quest_mode,
+            remap_unavailable=remap_unavailable,
+        )
     write_orchestration_json(
         orchestration_path,
         models=defaults,

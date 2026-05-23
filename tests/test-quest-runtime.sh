@@ -391,6 +391,24 @@ test_quest_state_transition_valid() {
   mkdir -p "$tmpdir/phase_01_plan"
   touch "$tmpdir/phase_01_plan/plan.md"
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  cat > "$tmpdir/orchestration.json" <<'EOF'
+{
+  "version": 1,
+  "models": {
+    "planner": "gpt-5.5",
+    "plan-reviewer-a": "claude",
+    "plan-reviewer-b": "gpt-5.5",
+    "arbiter": "claude",
+    "builder": "gpt-5.5",
+    "code-reviewer-a": "claude",
+    "code-reviewer-b": "gpt-5.5",
+    "fixer": "gpt-5.5"
+  },
+  "source": "default",
+  "overridden_roles": [],
+  "preflight_validated_at": "2026-01-01T00:00:00Z"
+}
+EOF
   cat > "$tmpdir/state.json" <<EOF
 {
   "quest_id": "test_quest",

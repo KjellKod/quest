@@ -211,7 +211,7 @@ Before creating the quest folder, present the routing classification to the user
    Customize for this quest only? [y/N]
    ```
 
-   **On N (default; single Enter):** write `.quest/<id>/orchestration.json` with:
+   **On N (default; single Enter):** before writing, validate every active-role model from the expanded default block against the Step 2b preflight result using the same availability rules as overrides below. If Step 2b was healthy, reject any unavailable active-role model as malformed config and stop before dispatch. If the user explicitly chose the single-model continuation after Step 2b failed, remap unavailable active-role models to this orchestrator's native runtime (`claude` for Claude-led sessions, `gpt-5.5` for Codex-led sessions) before writing so `orchestration.json` only contains runnable active-role assignments. Then write `.quest/<id>/orchestration.json` with:
    - `version: 1`
    - `models`: `.ai/allowlist.json` `.models` expanded to all 8 canonical keys; omitted keys use the documented defaults (`planner=claude`, `plan-reviewer-a=claude`, `plan-reviewer-b=gpt-5.5`, `arbiter=claude`, `builder=gpt-5.5`, `code-reviewer-a=claude`, `code-reviewer-b=gpt-5.5`, `fixer=gpt-5.5`)
    - `source: "default"`
