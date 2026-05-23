@@ -62,7 +62,7 @@ Then ask once: `Anything I missed before we wrap?` If yes, address it and re-emi
 
 Invoke this when the user wants to lock in UX defaults for a UI project — typically right before plan approval on a quest where the router set `ui_work: true`, or any time a backend engineer has built something that "needs to look right" but can't articulate the design choices.
 
-**Invocation:** `/sharpen ux-defaults` is the explicit invocation. When an orchestration workflow invokes sharpen on a `ui_work: true` plan, it should pass `ux-defaults` as the argument so this mode runs automatically. Outside a workflow, the user types `/sharpen ux-defaults` directly. If a user types `/sharpen` with no argument and you cannot resolve an active artifact, prompt them once: "Did you mean `/sharpen ux-defaults` on the current plan, or `/sharpen <path>` for a specific artifact?"
+**Invocation:** `/sharpen ux-defaults` is the explicit invocation. When a workflow invokes sharpen on a `ui_work: true` plan, it passes `ux-defaults` as the argument so this mode runs automatically. Outside a workflow, the user types `/sharpen ux-defaults` directly. If a user types `/sharpen` with no argument and you cannot resolve an active artifact, prompt them once: "Did you mean `/sharpen ux-defaults` on the current plan, or `/sharpen <path>` for a specific artifact?"
 
 **The six questions** — same one-at-a-time, recommended-answer-attached rhythm as standard sharpen. Skip any question whose answer is already visible in the prompt or plan.
 
