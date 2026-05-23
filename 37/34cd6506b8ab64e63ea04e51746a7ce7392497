@@ -1,0 +1,29 @@
+scripts/quest_runtime/__init__.py
+  s_f60a419caaf44c::t_f9c4f1da7bbdea 9,12,19,57,61,78
+.skills/quest/SKILL.md
+  s_f60a419caaf44c::t_93a85920c27156 214
+tests/test-quest-runtime.sh
+  s_f60a419caaf44c::t_cc2879df2fec4f 394-411
+tests/test-quest-orchestration.sh
+  s_f60a419caaf44c::t_cf2b41c68ab5c4 115-157,635
+scripts/quest_runtime/orchestration.py
+  s_f60a419caaf44c::t_c30acfd40d0042 53,150-208,315-319,323-331
+.quest-manifest
+  s_f60a419caaf44c::t_1f57b3f1563109 85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "3734cd6506b8ab64e63ea04e51746a7ce7392497",
+  "prompts": {},
+  "sessions": {
+    "s_f60a419caaf44c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5224-c51d-7151-974e-a006fcdfeea1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
