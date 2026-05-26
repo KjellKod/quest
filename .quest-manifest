@@ -4,6 +4,7 @@
 
 [copy-as-is]
 # These files are replaced with upstream version (if unmodified locally)
+.quest-manifest
 .ai/quest.md
 .skills/quest/agents/README.md
 .skills/quest/agents/arbiter.md
