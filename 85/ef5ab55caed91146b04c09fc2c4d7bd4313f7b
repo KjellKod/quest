@@ -1,0 +1,23 @@
+tests/unit/test_quest_ids.py
+  s_a5aa33fefecbb4::t_74ab89bbd9265d 39-43
+scripts/quest_runtime/quest_ids.py
+  s_a5aa33fefecbb4::t_2bbe810bd79437 54-55
+.skills/quest/SKILL.md
+  s_a5aa33fefecbb4::t_2e3bdeac0785e0 187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "85ef5ab55caed91146b04c09fc2c4d7bd4313f7b",
+  "prompts": {},
+  "sessions": {
+    "s_a5aa33fefecbb4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e665e-02e3-7550-8ad5-bb544a304131",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
