@@ -1,0 +1,22 @@
+docs/architecture/README.md
+  s_d40c1fe7ad90e6::t_224025250c8f01 29
+  s_d40c1fe7ad90e6::t_e7df47563ac403 12
+docs/architecture/quest-install-posture.md
+  s_d40c1fe7ad90e6::t_4a23180de385f3 1-14,16-19,21-22,26,28-41,44-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "8897784a77438b10843802b2d7ce26b994b96d47",
+  "prompts": {},
+  "sessions": {
+    "s_d40c1fe7ad90e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4f28a25f-823a-4c16-bc52-c88c933395c3",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
