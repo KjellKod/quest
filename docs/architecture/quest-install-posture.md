@@ -1,105 +1,143 @@
-# Install Posture — Outside-In By Default
+---
+title: Quest Install Posture — In-Repo vs Outside-In
+purpose: Describe the two ways to install/run Quest against a project, their trade-offs, and how to choose.
+audience: Maintainers, contributors, and anyone setting up Quest in a project
+scope: Distribution and install topology only — not the runtime contract
+status: active
+owner: maintainers
+last_updated: 2026-05-26
+related:
+  - docs/architecture/orchestration-runtime-v1.md
+  - docs/guides/codex-quest-install.md
+---
 
-Quest is a **generic orchestrator** whose value is consistency across
-repos. The recommended install posture is **outside-in**: the
-canonical skill install lives once, at `~/ws/extra/quest/` (or
-wherever the user keeps their Quest install), and every project
-using Quest only carries **per-repo state** — never copies of the
-skill itself.
+# Quest Install Posture — In-Repo vs Outside-In
 
-This document records the decision and explains when (rarely) to
-deviate.
+Quest is a **generic orchestrator**: its value is consistency across
+repos. There are two ways to make Quest available to a project, and
+they trade off differently. This document describes both honestly so
+you can choose, and records where the shipped tooling currently sits.
+
+Whichever mode you pick, **per-project state always lives in the
+project** — only the skill's *location* differs.
 
 ---
 
-## What "outside-in" looks like
+## Mode 1 — In-Repo (vendored)
 
-```
-~/ws/extra/quest/                      ← canonical install
-├── .skills/quest/                      ← the orchestration skill
-├── scripts/                            ← quest_state.py, quest_startup_branch.py, …
-├── docs/                               ← this file lives here
-├── ideas/                              ← canonical proposals
-└── tests/
+The Quest skill set and helper scripts are copied **into the project
+repo**. The repo then carries its own copy and the orchestrator
+discovers the skill through normal host skill discovery
+(`.claude/skills/`, `.agents/skills/`, `.opencode/`, `.skills/`,
+`scripts/quest_*`).
 
-~/ws/extra/<project>/                  ← any project using Quest
-├── .quest/                             ← per-project state
-│   ├── <quest-slug>_YYYY-MM-DD__HHMM/  ← in-flight quest folder
-│   ├── archive/                        ← completed quests
-│   ├── audit.log                       ← shared append-only log
-│   └── active_quests.json              ← cross-worktree registry
-├── scripts/                            ← optional project-local helpers
-│   └── quest-active.py                 ← reference impl pending canonical adoption
-└── …                                   ← regular project files
+This is the **tooling-supported, primary path today**. `scripts/quest_installer.sh`,
+run from the root of a target repo, installs and updates Quest:
+
+```bash
+cd /path/to/your/repo
+/path/to/quest_installer.sh            # interactive install/update
+/path/to/quest_installer.sh --check    # dry-run preview
+/path/to/quest_installer.sh --force    # CI/non-interactive
 ```
 
-The skill is read by the orchestrator from the canonical install. The
-project working directory provides only the **state and the context**.
-A symlink `<worktree>/.quest → <main-repo>/.quest` (created by
-`quest_startup_branch.py`) means every worktree of the same project
-sees the same state directory.
+It honours `.quest-manifest` categories (`copy-as-is`,
+`user-customized`, `merge-carefully`), self-updates, and can target a
+branch. Updating means re-running it.
 
-## Why outside-in
+**Strengths**
+- Self-contained: works offline after install; CI can run Quest with no
+  external dependency.
+- Pinned/version-controlled alongside the project; reproducible.
+- Per-repo customization is possible (and can be re-synced via the
+  manifest's merge handling).
 
-1. **Updates propagate once.** When a canonical change lands (e.g.
-   the cross-worktree `active_quests.json` registry hooks proposed
-   in `ideas/active-quests-registry.md`), every project using Quest
-   benefits the next time its orchestrator runs. With per-repo
-   install, the same change would require N edits across N project
-   copies — and would inevitably drift.
-2. **Single source of truth.** Bug reports, feature requests, and
-   ideas all flow into one canonical location. Per-repo install
-   creates a maintenance burden where each project owner needs to
-   re-pull updates manually.
-3. **Smaller per-project footprint.** Projects only carry the state
-   and any project-specific overrides. The skill itself (which is
-   substantial — workflow.md alone is ~1300 lines) lives once.
-4. **Cleaner repo diffs.** PRs to a project repo don't show Quest
-   internals churning. Quest's evolution is visible only in the
-   canonical install.
+**Costs**
+- N copies across N repos can drift; updates must be re-pulled per repo.
+- Quest internals show up in the project's diffs/PRs.
 
-## When per-repo install would be appropriate (rare)
+## Mode 2 — Outside-In (referenced)
 
-- **Forked customisation that can't be merged upstream.** If a
-  regulated codebase requires mandatory extra review phases that
-  don't belong in the generic skill, a per-repo Quest fork can hold
-  them. Mark the fork's deviations clearly so re-syncing with
-  canonical is feasible later.
-- **Product-embedded Quest.** If a project ships a binary that
-  itself embeds Quest at runtime for its own users, bundling makes
-  sense — the project effectively becomes a Quest *redistributor*.
-  This is not the same as a project *using* Quest for development.
-- **Air-gapped environments.** A project that develops without
-  network access to the canonical install needs a local copy.
-  Document the sync cadence.
+One canonical Quest install (e.g. `~/ws/extra/quest/`) holds the skill
+and scripts. Projects carry **only `.quest/` state**; the orchestrator
+reads the skill from the canonical install.
 
-In all three cases, the per-repo install is an exceptional state
-that needs explicit ownership and a re-sync plan, not the default.
+There is **no dedicated installer flag** for this mode today. You set it
+up by host-specific means:
 
-## State that lives in the project, not the canonical install
+- **Claude Code:** run the agent from the canonical Quest checkout, or
+  install Quest's skill at the user level (`~/.claude/skills/`) so it is
+  discoverable in every repo. The in-repo installer does *not* do this
+  for you.
+- **Codex:** install Quest as a global Codex skill — see
+  [`docs/guides/codex-quest-install.md`](../guides/codex-quest-install.md).
+  Note this is still a *copy* into `~/.codex/skills/`, not a live
+  reference.
 
-- **`.quest/`** — quest folders, archive, audit log, registry. State.
-- **Project-local scripts** that bridge the canonical install to the
-  project's conventions. Example: `scripts/quest-active.py` in
-  diffly is a reference implementation living in the project while
-  the canonical install catches up.
-- **Project-specific quest briefs** stored in scratch
-  (`.ws/quest-prompts.md` in diffly).
+> Caveat: a user-level/global skill install is still a copy that you
+> update in one place — it is "outside-in" relative to each *project*,
+> not a single live source the orchestrator reads in place. A true
+> read-from-canonical setup means literally running the agent inside the
+> canonical checkout.
 
-## How to refer to Quest from a project
+**Strengths**
+- Single place to update; the change reaches every project the next time
+  its orchestrator runs.
+- Tiny per-project footprint; clean project diffs (no Quest internals
+  churning in project PRs).
 
-- In project READMEs / docs: link to the canonical install path or
-  to the public Quest repository if open-sourced.
-- In CI: invoke the canonical install's entrypoint scripts directly.
-  Do not vendor copies of `quest_*.py` into the project.
+**Costs**
+- No one-command setup; the mechanism is host-specific.
+- Harder for offline/air-gapped projects and for forks that need
+  customization the canonical install shouldn't carry.
 
-## References
+---
 
-- Reference implementation of `quest-active` in any project's
-  `scripts/quest-active.py` — canonical adoption tracked in
-  `ideas/active-quests-registry.md`.
-- This posture was confirmed in conversation 2026-05-20 when a user
-  asked: "should we just use the quest installer and install quest
-  orchestration in diffly like we can do, or should we operate with
-  quest from Outside -> in. like we currently are doing?" The answer
-  is outside-in unless one of the exceptions above applies.
+## Choosing a mode
+
+**Pick in-repo when:**
+- The repo must be self-contained (CI, air-gapped, regulated/forked
+  setups with extra phases that don't belong upstream).
+- You want Quest pinned and version-controlled with the project.
+- It's a one-off project and propagation across repos is a non-issue.
+
+**Pick outside-in when:**
+- You maintain several repos with Quest and want updates to land in one
+  place.
+- You want project diffs to stay free of Quest internals.
+- You're comfortable wiring up host-specific skill discovery instead of a
+  one-command installer.
+
+A fork that customizes Quest (e.g. mandatory extra review phases for a
+regulated codebase) is an in-repo case by nature — mark the deviations
+so re-syncing with canonical stays feasible.
+
+## State always lives in the project
+
+Regardless of mode, the project owns its state:
+
+- **`.quest/`** — quest folders, `archive/`, `audit.log`, and the
+  cross-worktree registry. A symlink `<worktree>/.quest →
+  <main-repo>/.quest` (created by `scripts/quest_startup_branch.py`)
+  lets every worktree of the same project share one state directory.
+  This symlink shares **state**, not the **skill** — it is independent
+  of which install mode you use.
+- **Project-local scripts** that bridge Quest to project conventions.
+- **Project-specific quest briefs** kept in scratch.
+
+## Referring to Quest from a project
+
+- In project READMEs/docs: link to the canonical install path or the
+  public Quest repository.
+- In CI: in-repo installs invoke the vendored `scripts/quest_*` directly;
+  outside-in installs invoke the canonical install's scripts. Do not
+  hand-vendor stray copies of individual `quest_*.py` files outside the
+  installer's manifest.
+
+---
+
+*Origin: the outside-in posture was first articulated in a 2026-05-20
+conversation about whether to install Quest into a project (diffly) or
+operate it from a canonical install. This document was later broadened
+to present both modes after noting the shipped installer makes in-repo a
+first-class path, not a rare exception.*
