@@ -184,7 +184,7 @@ Before creating the quest folder, present the routing classification to the user
      - `branch_mode`
      - `worktree_path` (if present)
 4. Read `quest_id_format` from `.ai/allowlist.json` using `quest_runtime.quest_ids.load_quest_id_format`; missing config defaults to `slug-first`.
-5. Create the Quest ID with `quest_runtime.quest_ids.format_quest_id(slug, timestamp, quest_id_format)`:
+5. Create the Quest ID with `quest_runtime.quest_ids.format_quest_id(slug, datetime.now(), quest_id_format)`. Pass a `datetime.datetime` object, not a preformatted timestamp string; the helper formats date/time internally.
    - Default slug-first: `<slug>_YYYY-MM-DD__HHMM`
    - Optional date-first: `YYYY-MM-DD_HHMM__<slug>`
 6. Create `.quest/<id>/` with subfolders:
