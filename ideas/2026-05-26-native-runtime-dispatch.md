@@ -68,6 +68,15 @@ less faithful to the selected runtime:
 The practical rule should be simpler: same-family roles use same-family native
 sub-agents first; cross-family roles use bridges.
 
+This is not primarily a speed argument. The reason to prefer the built-in
+native sub-agent mechanism over CLI/MCP/bridge transports is robustness and
+direction of travel: native sub-agent spawning is first-party to each model
+host and is under active development by the model vendors, so it is the path
+they are optimizing and hardening. Bridges and MCP transports are useful glue
+for cross-family work, but they add a moving part we maintain rather than one
+the vendor maintains. Prefer the first-party mechanism for same-family roles and
+keep bridges scoped to the cross-family case they exist for.
+
 ## Proposed Policy
 
 ### Runtime selection
@@ -85,6 +94,50 @@ Then dispatch using this precedence:
 2. Same-family adapter fallback, if the native runtime is unavailable.
 3. Cross-family fallback only when explicitly allowed by the configured role,
    the workflow section, or the user.
+
+### Slots, role types, and runtimes are independent
+
+A single review position carries different names in different subsystems, and
+they are not 1:1. Keeping them distinct is what makes mixed configurations work.
+
+- **Slot** (`orchestration.json` key): `plan-reviewer-a`, `plan-reviewer-b`,
+  `code-reviewer-a`, etc. This is the *position*, and each slot is assigned its
+  own model.
+- **Runtime/family**: resolved from that slot's model — `claude` or `codex`.
+  Resolved **per slot, independently** of the orchestrator's own model and of
+  the other slot.
+- **Role type / agent definition** (`subagent_type`): one shared definition per
+  role — `plan-reviewer`, not `plan-reviewer-a`. Both slots share
+  `.claude/agents/plan-reviewer.md` and `.skills/quest/agents/plan-reviewer.md`.
+  The `-a`/`-b` distinction lives only in the prompt ("You are Reviewer A/B")
+  and the artifact filenames. **Never create per-slot agent definitions.**
+
+Consequences the dispatcher must respect:
+
+- A+B may be any family mix — `claude`+`claude`, `codex`+`codex`, or
+  `claude`+`codex` — regardless of the orchestrator. The default config is
+  already mixed (`plan-reviewer-a=claude`, `plan-reviewer-b=codex`), so this is
+  the normal case, not an edge case.
+- The orchestrator model does not constrain slot runtimes; a Claude
+  orchestrator routinely drives a Codex reviewer slot and vice-versa.
+- Dispatch keys off the slot: resolve its runtime, strip the `-a/-b` suffix to
+  get the Claude `subagent_type`, and carry slot identity via the prompt +
+  artifact paths.
+
+Worked example — Claude orchestrator, default config:
+
+| Slot | Model | Runtime | Dispatch | Role instructions | Artifacts |
+|---|---|---|---|---|---|
+| `plan-reviewer-a` | `claude` | Claude | `Task(subagent_type: "plan-reviewer")` | `.skills/quest/agents/plan-reviewer.md` | `review_plan-reviewer-a.md`, `handoff_plan-reviewer-a.json` |
+| `plan-reviewer-b` | `gpt-5.5` | Codex | `mcp__codex__codex` | same file | `review_plan-reviewer-b.md`, `handoff_plan-reviewer-b.json` |
+
+Both calls are issued in one message, so they run in parallel.
+
+A fourth naming scheme — the allowlist `role_permissions` keys (`plan_review_a`,
+`code_review_agent`, …) — is **not** 1:1 with slots (plan review splits a/b,
+code review does not). Reconciling slot ↔ `subagent_type` ↔ permission key is an
+enforcement concern, not a dispatch concern; see the permission-posture note
+below and the enforcement roadmap. This dispatch policy does not depend on it.
 
 ### Codex-led sessions
 
@@ -117,17 +170,33 @@ When the orchestrator is Codex:
 
 When the orchestrator is Claude:
 
+**Current state:** native Claude `Task(subagent_type: ...)` dispatch is already
+how Claude-family roles run today — e.g. `Task(subagent_type: "plan-reviewer")`
+backed by `.claude/agents/plan-reviewer.md`. This section codifies and
+guard-rails the existing path; it does not introduce a new capability.
+
 1. Claude-family role:
-   - Prefer native Claude task/sub-agent dispatch.
+   - Use native Claude `Task` dispatch.
    - Preserve the same artifact preparation, handoff polling, and
      context-health logging contract.
-   - Use the Claude equivalent of `fork_context=false` when available: do not
-     pass the full orchestrator transcript to role agents unless the workflow
-     explicitly needs it. If Claude's native task API does not expose this
-     control, document the actual behavior before changing dispatch.
-   - Require compact final handoffs for the same reason as Codex: artifacts
-     are the durable source of truth; the orchestrator should retain only
-     paths, status, next, and a one-line summary.
+   - Context isolation is automatic and needs no `fork_context` equivalent: a
+     `Task` sub-agent starts in its own fresh context window and does not
+     inherit the orchestrator transcript — it only sees the prompt it is given.
+     The real containment vector is the *return* path: the sub-agent's final
+     message comes back as the `Task` tool result and cannot be suppressed.
+     Therefore the durable contract is a compact handoff OUT — the child writes
+     full plan/review/build output to artifacts and limits its final message to
+     STATUS/ARTIFACTS/NEXT/SUMMARY; the orchestrator routes from `handoff.json`
+     on disk and discards the response body.
+   - Honor the per-role model from `orchestration.json`. The agent definitions
+     are `model: inherit`, which uses the *orchestrator's* model. If a slot's
+     `orchestration.json` value names a specific Claude variant (e.g.
+     `claude-haiku`, `claude-opus-4.7`), pass it explicitly to the `Task` model
+     parameter; inherit only when the value is the bare family token `claude`.
+     Otherwise a deliberate per-role model choice is silently voided — the same
+     failure mode this proposal forbids for cross-family switches.
+   - Issue parallel roles (e.g. both plan reviewers) as multiple `Task`
+     tool-uses in a single message; the harness runs them concurrently.
 2. Codex-family role:
    - Use the Codex MCP / companion runtime.
 3. If native Claude task dispatch is unavailable:
@@ -158,17 +227,22 @@ Quest role dispatch. Use `fork_context=true` only for exceptional cases where
 the child must inherit the exact parent context, and record that exception in
 the prompt or context-health log.
 
-For Claude native task/sub-agent dispatch, the implementation needs a targeted
-API check:
+For Claude native `Task` dispatch the isolation model is the inverse of Codex's
+and needs no research hedge:
 
-- Does the native task call always inherit the parent context?
-- Is there an option equivalent to `fork_context=false`?
-- If not, can Quest emulate containment by using the existing artifact-first
-  bridge/runner for Claude roles, or by issuing a minimal prompt through a
-  fresh session?
+- A `Task` sub-agent does not inherit the orchestrator transcript. It starts in
+  a fresh context window seeded only by its prompt, so there is nothing to
+  "fork" and no `fork_context` knob — isolation-in is automatic and stronger
+  than `fork_context=false`.
+- The exposure is the return path: the sub-agent's final message is delivered
+  to the orchestrator as the `Task` tool result and lands in orchestrator
+  context. This cannot be turned off.
 
-This should be researched before claiming Claude native dispatch has the same
-context-isolation semantics as Codex `spawn_agent`.
+So for Claude, containment is enforced entirely by the compact-handoff-OUT
+contract: full output to artifacts, final message limited to
+STATUS/ARTIFACTS/NEXT/SUMMARY, orchestrator routes from `handoff.json` on disk
+and ignores the response body. This is documented Claude Code behavior, not an
+open question.
 
 ### Cross-family fallback
 
@@ -185,6 +259,25 @@ Examples:
   silently treating the role as Codex.
 
 This keeps `orchestration.json` meaningful.
+
+### Permission posture (state it plainly)
+
+Native dispatch is permission-neutral. Per-role file/bash boundaries in
+`.ai/allowlist.json` `role_permissions` are **not enforced at runtime today**:
+the `PreToolUse` hook `.claude/hooks/enforce-allowlist.sh` is not wired in
+`.claude/settings.json`, and even if it were, it cannot yet identify which role
+is calling (it reads a positional role argument, but `PreToolUse` provides
+stdin only). This is tracked in the enforcement-activation work
+(`ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md`, plus the archived
+`ideas/archive/2026-04-20-allowlist-enforcement-activation.md`).
+
+So role boundaries — planner/reviewers not editing source, the hard pre-build
+phase gate — currently hold by **agent instruction and orchestrator
+discipline**, not by a sandbox. Native same-family dispatch does not change
+this in either direction; it neither adds nor removes enforcement. Any docs or
+PR description for this work must say so plainly: this proposal does not make
+per-role permissions robust. It is orthogonal to that effort, and routing more
+real work through native sub-agents raises the value of landing that roadmap.
 
 ## Workflow Text Changes
 
@@ -237,6 +330,24 @@ from Codex to Claude or Claude to Codex requires the role to be configured for
 that family or explicit user approval.
 ```
 
+## Documentation Updates Required
+
+Implementing this policy MUST update the user-facing Quest documentation, not
+just the workflow internals. Whoever lands the quest is responsible for:
+
+- Explaining the slot / role-type / runtime / permission-key distinction in
+  plain language, with the worked mixed-runtime example above.
+- Documenting that A/B slots can be any family mix and that the orchestrator
+  model does not constrain slot runtimes.
+- Documenting the native-first dispatch rule and the no-silent-cross-family
+  fallback rule where users actually look — the Quest setup/usage guides and the
+  orchestration-override docs — cross-linked from `orchestration.json`.
+- Stating the permission posture honestly (instruction-level today).
+
+The bar: a new user can read one place and understand exactly how their
+per-quest model choices map to real dispatch. Treat the docs as part of the
+definition of done, not a follow-up.
+
 ## Tests And Validation
 
 Add focused tests that do not require live model calls:
@@ -252,9 +363,12 @@ Add focused tests that do not require live model calls:
 - A context-containment test or prompt-contract check confirms native Codex
   role dispatch uses `fork_context=false` by default and requires compact final
   responses.
-- A research task verifies whether Claude native task dispatch has a direct
-  equivalent to `fork_context=false`; until verified, docs must label Claude
-  context isolation as an implementation question, not an assumption.
+- A text-contract test confirms the Claude dispatch section documents
+  fresh-context-in (automatic, no `fork_context`) plus compact-handoff-out
+  (enforced), and requires compact final responses.
+- A text-contract test confirms a specific same-family model variant in
+  `orchestration.json` is dispatched explicitly rather than left to
+  `model: inherit`.
 
 If a runtime dispatcher helper exists or is introduced later, add unit coverage
 for this matrix:
@@ -274,8 +388,9 @@ for this matrix:
 - Adding per-user model preferences.
 - Treating native sub-agent availability as globally guaranteed across every
   host or client.
-- Claiming Claude native task context-isolation semantics without verifying
-  the current API behavior.
+- Wiring or fixing per-role permission enforcement (the `PreToolUse` hook and
+  role-identification gap). This proposal is permission-neutral; enforcement is
+  tracked separately.
 
 ## Acceptance Criteria
 
@@ -289,8 +404,19 @@ for this matrix:
   per-quest roles stay meaningful.
 - Codex native role dispatch uses `fork_context=false` by default and compact
   handoffs so sub-agent work does not poison orchestrator context.
-- Claude native context behavior is either documented from a verified API
-  check or explicitly left as a research item.
+- Claude native context behavior is documented as fresh-context-in (automatic,
+  no `fork_context`) plus compact-handoff-out (enforced), routing from
+  `handoff.json` on disk.
+- Slot runtime is resolved independently per slot; A/B family mixes (including
+  the default claude+codex) are documented as normal, and the orchestrator model
+  does not constrain slot runtimes.
+- A specific same-family model variant named in `orchestration.json` is passed
+  explicitly to native dispatch rather than silently replaced by
+  `model: inherit`.
+- The permission posture is stated honestly: instruction-level today, native
+  dispatch enforcement-neutral.
+- Implementing the policy updates user-facing Quest documentation, not just
+  workflow internals.
 
 ## Recommended Quest Prompt
 
