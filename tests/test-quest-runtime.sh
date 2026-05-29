@@ -391,6 +391,24 @@ test_quest_state_transition_valid() {
   mkdir -p "$tmpdir/phase_01_plan"
   touch "$tmpdir/phase_01_plan/plan.md"
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
+  cat > "$tmpdir/orchestration.json" <<'EOF'
+{
+  "version": 1,
+  "models": {
+    "planner": "gpt-5.5",
+    "plan-reviewer-a": "claude",
+    "plan-reviewer-b": "gpt-5.5",
+    "arbiter": "claude",
+    "builder": "gpt-5.5",
+    "code-reviewer-a": "claude",
+    "code-reviewer-b": "gpt-5.5",
+    "fixer": "gpt-5.5"
+  },
+  "source": "default",
+  "overridden_roles": [],
+  "preflight_validated_at": "2026-01-01T00:00:00Z"
+}
+EOF
   cat > "$tmpdir/state.json" <<EOF
 {
   "quest_id": "test_quest",
@@ -1038,6 +1056,82 @@ test_installer_preserves_customized_agents_file_with_sidecar() {
     [ "$(cat AGENTS.md)" = "old agents" ] &&
       [ -e AGENTS.md.quest_updated ] &&
       [ "$(cat AGENTS.md.quest_updated)" = "$(cat "$tmpdir/upstream_AGENTS.md")" ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_overwrites_modified_quest_manifest_and_backs_up_local_copy() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  printf 'old manifest\n' > "$tmpdir/.quest-manifest"
+  printf 'new manifest\n' > "$tmpdir/upstream_manifest"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    QUEST_UPDATED_FILES=()
+    LOCAL_CHECKSUM_FILES=(".quest-manifest")
+    LOCAL_CHECKSUM_VALUES=("different-stored-checksum")
+    init_updated_checksums
+
+    fetch_file_to_temp() {
+      cp "$tmpdir/upstream_manifest" "$2"
+    }
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    install_copy_as_is_file ".quest-manifest"
+
+    # Even in force mode, a locally modified manifest is overwritten with
+    # upstream (so target validation passes), and the old copy is preserved.
+    [ "$(cat .quest-manifest)" = "new manifest" ] &&
+      [ -e .quest-manifest.quest_updated ] &&
+      [ "$(cat .quest-manifest.quest_updated)" = "old manifest" ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_updates_pristine_quest_manifest_without_sidecar() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  printf 'pristine manifest\n' > "$tmpdir/.quest-manifest"
+  printf 'new manifest\n' > "$tmpdir/upstream_manifest"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+
+    DRY_RUN=false
+    FORCE_MODE=true
+    QUEST_UPDATED_FILES=()
+    LOCAL_CHECKSUM_FILES=(".quest-manifest")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum .quest-manifest)")
+    init_updated_checksums
+
+    fetch_file_to_temp() {
+      cp "$tmpdir/upstream_manifest" "$2"
+    }
+    log_info() { :; }
+    log_warn() { :; }
+    log_success() { :; }
+    log_action() { :; }
+    clear_progress() { :; }
+
+    install_copy_as_is_file ".quest-manifest"
+
+    # Pristine manifest updates in place with no sidecar litter.
+    [ "$(cat .quest-manifest)" = "new manifest" ] &&
+      [ ! -e .quest-manifest.quest_updated ]
   )
   local rc=$?
   rm -rf "$tmpdir"
@@ -2007,6 +2101,8 @@ run_test test_installer_cleans_up_renamed_scripts
 run_test test_installer_updates_pristine_agents_file_in_place
 run_test test_installer_records_checksum_for_new_agents_file
 run_test test_installer_preserves_customized_agents_file_with_sidecar
+run_test test_installer_overwrites_modified_quest_manifest_and_backs_up_local_copy
+run_test test_installer_updates_pristine_quest_manifest_without_sidecar
 run_test test_installer_prunes_pristine_removed_managed_files
 run_test test_installer_preserves_modified_removed_managed_files_for_manual_cleanup
 run_test test_load_local_checksums_skips_unsafe_paths

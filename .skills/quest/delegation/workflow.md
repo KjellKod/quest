@@ -325,7 +325,7 @@ gates.max_plan_iterations (default: 4)
    - If matches exist, surface: `N deferred findings touch this code -- pull into scope?`
 
 2. **Invoke Planner** (default Codex `mcp__codex__codex`, Claude runtime fallback):
-   - Read `models.planner` from allowlist.
+   - Read `models.planner` from `.quest/<id>/orchestration.json`.
    - If planner model is Codex, invoke via `mcp__codex__codex` with `sandbox_permissions: "workspace-write"`.
    - If planner model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - **Artifact preparation** (per Handoff File Polling §5): Resolve and prepare `plan.md` and `handoff.json` in `.quest/<id>/phase_01_plan/`.
@@ -359,7 +359,7 @@ gates.max_plan_iterations (default: 4)
 
    **If `quest_mode == "workflow"` (default):** Invoke BOTH Plan Reviewers IN PARALLEL.
 
-   Read `models.plan-reviewer-a` and `models.plan-reviewer-b` from allowlist to determine runtime for each slot. If model is Claude, use Claude runtime; if Codex, use `mcp__codex__codex`.
+   Read `models.plan-reviewer-a` and `models.plan-reviewer-b` from `.quest/<id>/orchestration.json` to determine runtime for each slot. If model is Claude, use Claude runtime; if Codex, use `mcp__codex__codex`.
 
    Two different models review independently for model diversity:
    - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
@@ -367,7 +367,7 @@ gates.max_plan_iterations (default: 4)
 
    **Artifact preparation** (per Handoff File Polling §5): Before issuing reviewer calls, resolve and prepare artifacts for both Reviewer A (`review_plan-reviewer-a.md`, `handoff_plan-reviewer-a.json`) and Reviewer B (`review_plan-reviewer-b.md`, `handoff_plan-reviewer-b.json`) in `.quest/<id>/phase_01_plan/`.
 
-   **Slot A** (runtime per `models.plan-reviewer-a`; full and fast modes):
+   **Slot A** (runtime per `models.plan-reviewer-a` from `.quest/<id>/orchestration.json`; full and fast modes):
    **Full mode** (default for plan review):
    ```
    Task(
@@ -417,7 +417,7 @@ gates.max_plan_iterations (default: 4)
    **Full mode** (default for plan review):
    ```
    mcp__codex__codex(
-     model: <models.plan-reviewer-b from allowlist>,
+     model: <models.plan-reviewer-b from .quest/<id>/orchestration.json>,
      sandbox_permissions: "workspace-write",
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
@@ -441,7 +441,7 @@ gates.max_plan_iterations (default: 4)
    **Fast mode** (only if `review_mode: fast`):
    ```
    mcp__codex__codex(
-     model: <models.plan-reviewer-b from allowlist>,
+     model: <models.plan-reviewer-b from .quest/<id>/orchestration.json>,
      sandbox_permissions: "workspace-write",
      prompt: "You are Plan Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
@@ -488,7 +488,7 @@ gates.max_plan_iterations (default: 4)
    - Do not require `review_backlog.json` for the solo transition path.
    - Log: `Plan review: arbiter=skipped (solo mode, using reviewer-a verdict)` to `.quest/<id>/logs/parallelism.log`
 
-   **If `quest_mode == "workflow"` (default):** Read `models.arbiter` from allowlist. Invoke Arbiter through the corresponding runtime:
+   **If `quest_mode == "workflow"` (default):** Read `models.arbiter` from `.quest/<id>/orchestration.json`. Invoke Arbiter through the corresponding runtime:
    - Contract-hardening rollout order (required when implementing this behavior): land workflow + helper CLI (`build-backlog --phase`) + runtime `.next` artifact wiring first; trim arbiter output contract second. This prevents transient mismatches during migration.
    - Before each arbiter attempt, remove stale scratch artifacts:
      - `.quest/<id>/phase_01_plan/review_findings.json.next`
@@ -731,7 +731,7 @@ After plan approval, present the plan interactively before proceeding to build.
 1. **Atomic transition:** `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition building --status in_progress --last-role builder_agent --expect-phase presentation_complete` — if this fails, report the validation error to the user and STOP. Do NOT modify state.json manually.
 
 2. **Invoke Builder** (default Codex `mcp__codex__codex`, Claude runtime fallback):
-   - Read `models.builder` from allowlist.
+   - Read `models.builder` from `.quest/<id>/orchestration.json`.
    - If builder model is Codex, invoke via `mcp__codex__codex` with `sandbox_permissions: "workspace-write"`.
    - If builder model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - Run the builder from `source_workspace_root`. If this quest uses a separate worktree, source changes happen there while `.quest/<id>/...` artifacts still point at the original repo root.
@@ -802,7 +802,7 @@ After plan approval, present the plan interactively before proceeding to build.
 
    **If `quest_mode == "workflow"` (default):** Invoke BOTH Code Reviewers IN PARALLEL.
 
-   Read `models.code-reviewer-a` and `models.code-reviewer-b` from allowlist to determine runtime for each slot. If model is Claude, use Claude runtime; if Codex, use `mcp__codex__codex`.
+   Read `models.code-reviewer-a` and `models.code-reviewer-b` from `.quest/<id>/orchestration.json` to determine runtime for each slot. If model is Claude, use Claude runtime; if Codex, use `mcp__codex__codex`.
 
    Two different models review independently for model diversity:
    - **Reviewer A**: dispatched by orchestrator → `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
@@ -813,7 +813,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - Reviewer B: `review_code-reviewer-b.md`, `review_findings_code-reviewer-b.json`, `handoff_code-reviewer-b.json`
    in `.quest/<id>/phase_03_review/` (Reviewer B only in workflow mode).
 
-   **Slot A** (runtime per `models.code-reviewer-a`; full and fast modes):
+   **Slot A** (runtime per `models.code-reviewer-a` from `.quest/<id>/orchestration.json`; full and fast modes):
    **Full mode**:
    ```
    Task(
@@ -878,7 +878,7 @@ After plan approval, present the plan interactively before proceeding to build.
    **Full mode**:
    ```
    mcp__codex__codex(
-     model: <models.code-reviewer-b from allowlist>,
+     model: <models.code-reviewer-b from .quest/<id>/orchestration.json>,
      sandbox_permissions: "workspace-write",
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
@@ -910,7 +910,7 @@ After plan approval, present the plan interactively before proceeding to build.
    **Fast mode**:
    ```
    mcp__codex__codex(
-     model: <models.code-reviewer-b from allowlist>,
+     model: <models.code-reviewer-b from .quest/<id>/orchestration.json>,
      sandbox_permissions: "workspace-write",
      prompt: "You are Code Reviewer B.
      Non-interactive rule: do not ask questions and do not return STATUS: needs_human. If details are missing, make explicit assumptions and continue.
@@ -1003,7 +1003,7 @@ After plan approval, present the plan interactively before proceeding to build.
 1. **Update state:** `phase: fixing`, `fix_iteration += 1`, `last_role: fixer_agent`
 
 2. **Invoke Fixer** (default Codex `mcp__codex__codex`, Claude runtime fallback):
-   - Read `models.fixer` from allowlist.
+   - Read `models.fixer` from `.quest/<id>/orchestration.json`.
    - If fixer model is Codex, invoke via `mcp__codex__codex` with `sandbox_permissions: "workspace-write"`.
    - If fixer model is Claude, invoke through Claude runtime (native `Task(...)` when available, bridge in Codex-led sessions).
    - Run the fixer from `source_workspace_root`. If this quest uses a separate worktree, source fixes happen there while `.quest/<id>/...` artifacts remain in the original repo root.
@@ -1297,7 +1297,7 @@ If a Claude role returns `STATUS: needs_human`:
 | Code Reviewer B | `models.code-reviewer-b` | `gpt-5.5` | Claude runtime or Codex per config |
 | Fixer | `models.fixer` | `gpt-5.5` | Codex or Claude runtime per config |
 
-All role-to-model assignments are read from `.ai/allowlist.json` → `models`. The defaults above apply when a key is missing. **Model diversity** in review phases gives independent perspectives from different model families. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
+All role-to-model assignments are read from `.quest/<id>/orchestration.json` → `models` for the active quest. `.ai/allowlist.json` → `models` is consulted only at quest startup as the default source the chooser pre-fills; see `.skills/quest/SKILL.md` Step 3 sub-step 8.5 and Step 1 sub-step 1a. The defaults above are startup defaults only: once `orchestration.json` exists, dispatch must stop on missing active-role model keys or active-role model keys that are not non-empty strings instead of falling back. **Model diversity** in review phases gives independent perspectives from different model families. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
 
 ### Codex MCP Prompt Pattern
 
@@ -1356,7 +1356,7 @@ Codex MCP calls can be slower when each run must:
 **Example minimal prompt:**
 ```
 mcp__codex__codex(
-  model: <models.plan-reviewer-b from allowlist>,
+  model: <models.plan-reviewer-b from .quest/<id>/orchestration.json>,
   prompt: "Review .quest/<id>/phase_01_plan/plan.md
 
   List any issues (max 5 bullets). Write to .quest/<id>/phase_01_plan/review_plan-reviewer-b.md

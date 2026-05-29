@@ -163,6 +163,68 @@ validate_state_json() {
   fi
 }
 
+# Validate orchestration.json exists and contains valid models for the active mode.
+# This is the per-quest source of truth for models.<role>; see
+# .skills/quest/SKILL.md Step 3 sub-step 8.5 (chooser) and Step 1 sub-step 1a
+# (resume migration) for how the file is produced.
+validate_orchestration_json() {
+  local quest_dir="$1"
+  local orch_file="$quest_dir/orchestration.json"
+
+  if [ ! -f "$orch_file" ]; then
+    fail "orchestration.json not found at $orch_file"
+    return
+  fi
+
+  if ! jq empty "$orch_file" 2>/dev/null; then
+    fail "orchestration.json is not valid JSON"
+    return
+  fi
+
+  local version
+  version=$(jq -r '.version // empty' "$orch_file" 2>/dev/null)
+  if [ "$version" != "1" ]; then
+    fail "orchestration.json version must be 1 (got '$version')"
+    return
+  fi
+
+  if ! jq -e 'has("models") and (.models | type == "object")' "$orch_file" >/dev/null 2>&1; then
+    fail "orchestration.json missing required object: models"
+    return
+  fi
+
+  local source
+  source=$(jq -r '.source // empty' "$orch_file" 2>/dev/null)
+  case "$source" in
+    default|overridden) ;;
+    *) fail "orchestration.json source must be 'default' or 'overridden' (got '$source')"; return ;;
+  esac
+
+  # Required roles depend on quest_mode.
+  # Keep this list in sync with workflow.md dispatch sites
+  # (planner, plan-reviewer-a, plan-reviewer-b, arbiter, builder,
+  # code-reviewer-a, code-reviewer-b, fixer).
+  local required_roles=("planner" "plan-reviewer-a" "builder" "code-reviewer-a" "fixer")
+  if [ "$QUEST_MODE" != "solo" ]; then
+    required_roles+=("plan-reviewer-b" "arbiter" "code-reviewer-b")
+  fi
+
+  local missing_roles=()
+  local role
+  for role in "${required_roles[@]}"; do
+    if ! jq -e --arg r "$role" '.models[$r] | type == "string" and length > 0' "$orch_file" >/dev/null 2>&1; then
+      missing_roles+=("$role")
+    fi
+  done
+
+  if [ "${#missing_roles[@]}" -gt 0 ]; then
+    fail "orchestration.json: required model unset for active mode ($QUEST_MODE): ${missing_roles[*]}"
+    return
+  fi
+
+  pass "orchestration.json valid (source=$source, mode=$QUEST_MODE)"
+}
+
 # Validate the transition is allowed
 # Returns the transition key if valid, empty string if not
 validate_transition() {
@@ -732,6 +794,11 @@ main() {
     echo "Report this validation failure to the user and STOP."
     exit 1
   fi
+
+  # Per-quest orchestration config check (introduced by the
+  # per-quest-orchestration-override quest). Runs on every transition once
+  # state.json is known-valid.
+  validate_orchestration_json "$quest_dir"
 
   local checkpoint_plan_reviewed=false
   if [ "$used_flag_syntax" = true ] && [ "$target_phase" = "plan_reviewed" ]; then

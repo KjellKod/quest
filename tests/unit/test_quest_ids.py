@@ -36,6 +36,11 @@ def test_format_quest_id_supports_date_first() -> None:
     )
 
 
+def test_format_quest_id_rejects_preformatted_timestamp_string() -> None:
+    with pytest.raises(TypeError, match="expected a datetime.datetime"):
+        format_quest_id("portable-pre-commit-review", "2026-04-29__1430")  # type: ignore[arg-type]
+
+
 def test_parse_quest_id_accepts_slug_first() -> None:
     parsed = parse_quest_id("portable-pre-commit-review_2026-04-29__1430")
 

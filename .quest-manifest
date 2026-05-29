@@ -4,6 +4,7 @@
 
 [copy-as-is]
 # These files are replaced with upstream version (if unmodified locally)
+.quest-manifest
 .ai/quest.md
 .skills/quest/agents/README.md
 .skills/quest/agents/arbiter.md
@@ -103,6 +104,7 @@ scripts/quest_checks/cli.py
 scripts/quest_runtime/__init__.py
 scripts/quest_runtime/artifacts.py
 scripts/quest_runtime/claude_runner.py
+scripts/quest_runtime/orchestration.py
 scripts/quest_runtime/pr_review_cycle.py
 scripts/quest_runtime/pr_shepherd.py
 scripts/quest_runtime/quest_ids.py

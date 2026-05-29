@@ -224,6 +224,10 @@ Goal: reduce PR and commit helper drift before writes happen.
 Scope:
 
 - Require status and diffstat before commit/push helpers act.
+- Add a `quest-pr-closeout` skill or Quest closeout section that bundles the
+  post-Quest path: verify Quest completion, stage intended files, prepare the
+  commit message, request commit approval, commit, push, prepare/create the
+  draft PR through `pr-assistant`, and hand off to `pr-shepherd` when requested.
 - Ensure PR review prompts do not claim tests were run when CI-only review
   cannot run them.
 - Support maintainer-triggered reruns such as `/review` without duplicating
@@ -235,6 +239,10 @@ Acceptance criteria:
 
 - Commit helpers inspect branch, status, staged files, and diffstat before
   proposing or creating commits.
+- A completed Quest can be closed out through one documented path that preserves
+  the existing human approval gates for commit and PR creation while removing
+  repeated manual glue between Quest, commit assistant, `pr-assistant`, and
+  `pr-shepherd`.
 - PR helpers verify referenced commands and paths exist before presenting a PR
   body.
 - CI-only review text distinguishes "not run" from "run in CI".
@@ -244,8 +252,127 @@ Acceptance criteria:
 Tests:
 
 - Skill/wrapper tests for commit and PR helper instructions.
+- Skill-surface test or scripted fixture proving `quest-pr-closeout` stops for
+  commit approval and PR approval, then resumes into push/PR/shepherd actions
+  without skipping either gate.
 - Unit tests for PR body validation helpers if scripted.
 - Workflow contract tests for permission separation and trusted checkout.
+
+### Track 7: Output Honesty and Lane Separation
+
+Cross-pollination from the doc2md repo. Doc2md's CI shipped a successor to
+its `ci-trustworthiness` proposal that closed three gaps Quest still has
+today. Quest's depth machinery (Deep CI chunked context, manifest, omission
+reasons) is already ahead of doc2md, but Quest's output contract and lane
+shape are behind. This track imports the parts of doc2md's design that are
+worth porting verbatim.
+
+Reference implementations in doc2md:
+
+- `scripts/codex_review_prepare.py` and `scripts/codex_review_post.py` (the
+  prepare/post phase split).
+- `codex_review_post.py:510-688` (the always-post-summary contract: every
+  terminal path calls `require_summary_posted`).
+- `codex_review_post.py:360-376` (the post-step diff-range validator that
+  drops out-of-range findings with a `::notice` annotation).
+- `.github/workflows/ci.yml` (separated `lint-and-type`, `test`, `build`,
+  `e2e`, and aggregate `ci` jobs).
+- `.github/workflows/intent-review.yml` (intent-review as a CI lane with
+  job-level `continue-on-error: true`, advisory by design).
+- `ideas/agentic-ci-scale-and-signal.md` (doc2md's successor proposal,
+  including the cross-link back to Quest's Deep CI).
+
+Goal: a Quest reviewer can answer "did the lane actually run, what did it
+see, and did it leave a visible record?" without clicking into the
+workflow logs.
+
+Scope:
+
+- **Always-post-summary contract.** Refactor `codex_review.py`'s
+  `post-review` subcommand so every terminal path produces a visible PR
+  comment, not just the "inline posting failed" fallback. Cover: Codex
+  timeout, Codex non-zero exit, missing or empty output file, output that
+  is not parseable JSON, output that is a valid array but contains zero
+  findings, every finding deduped against an existing thread, every
+  finding dropped as out-of-range. Each path emits a single PR comment
+  identifying the outcome. Reuse the existing fallback marker as the
+  durable thread anchor so a follow-up push updates the same comment.
+- **Post-step diff-range validator.** Quest already parses
+  `changed_line_ranges` for Deep CI context. Add a complementary validator
+  in `post-review` that, after the model returns its findings, rejects any
+  finding whose `(path, line, side)` does not land inside a parsed hunk.
+  Rejected findings should emit a `::notice` annotation, not silently
+  vanish. Prompt-side guidance ("omit that comment entirely rather than
+  guessing") is necessary but not sufficient: trust the model but verify.
+- **Split `codex_review.py` into prepare and post phases.** The current
+  1700-line monolith conflates context gathering, prompt assembly, and
+  post-model publishing. Split into `codex_review_prepare.py` (gather
+  context, build prompt, parse diff ranges, emit metadata) and
+  `codex_review_post.py` (validate, dedupe, post inline, post summary).
+  Keep Deep CI logic in a shared module both phases import. Upload the
+  prepared inputs (prompt, metadata, diff ranges) as a workflow artifact
+  so a failing review is forensically inspectable without re-running.
+- **Separate the CI check lanes.** Today `test-python.yml` is a single
+  job and `validate-quest-config.yml` lumps four validators into one
+  step. Failures show up as "test" or "validate" with no further detail.
+  Split test-python into per-package or per-suite jobs where the runtime
+  cost permits, and split the validators into per-validator steps with
+  named GitHub Actions step IDs so the failing step name appears in the
+  check list. Mirror the aggregator job pattern from doc2md's `ci` job
+  so branch protection still depends on a single name.
+- **Policy and reality must match.** If `codex-review` is advisory, the
+  job must set `continue-on-error: true` at the job level (not just on
+  the model step) and the workflow display name should make that
+  visible. If blocking-severity findings are intended to fail the
+  workflow, document that in the prompt template and the review policy
+  doc together. Doc2md currently has this same inconsistency open; do
+  not import the inconsistency, just import the awareness.
+
+Acceptance criteria:
+
+- For every Codex exit path enumerated in scope, a PR receives exactly
+  one visible summary comment that names the outcome. A clean exit with
+  zero findings is distinguishable from a timeout, an unparseable
+  response, and a fully-deduped response.
+- A model-produced finding whose `line` is not inside the diff range for
+  its `path` and `side` is dropped, annotated, and counted in the summary
+  as "dropped: N out-of-range."
+- `.github/scripts/` contains at least `codex_review_prepare.py`,
+  `codex_review_post.py`, and a shared module for Deep CI; the monolithic
+  `codex_review.py` either becomes a thin CLI shim that dispatches to the
+  phase modules or is removed. The workflow uploads a `codex-review`
+  artifact containing the prepared prompt and metadata on every run.
+- `test-python` and `validate-quest-config` produce per-job or per-step
+  failure names that identify the failing check without log inspection.
+  Branch protection points at the same set of names as today (the
+  aggregator may be the protected name, individual jobs may be added
+  later).
+- The `codex-review` workflow's behavior matches a single sentence in
+  the review policy doc. Either "advisory; never blocks merge" or
+  "blocks merge on critical/high findings" but not both at once.
+
+Tests:
+
+- Unit tests for every `post-review` exit path proving the summary
+  comment is posted and contains the expected outcome string. The
+  existing 91 tests in `tests/unit/test_codex_review.py` are the base
+  to extend.
+- Diff-range validator unit tests: in-range pass, off-by-one pass and
+  fail on hunk boundaries, side mismatch, missing path, missing range.
+- Workflow contract test proving the artifact upload step runs on every
+  exit path, including model timeout and non-zero exit.
+- Workflow guard test proving `codex-ci-review.yml`'s job-level
+  `continue-on-error` matches the policy doc's stated behavior. If they
+  drift, the guard fails CI.
+- Smoke test or contract test proving the new per-step names in
+  `validate-quest-config.yml` and `test-python.yml` are stable so
+  branch protection does not silently drop them on rename.
+
+Sequencing note: Track 7 partially overlaps Track 1 (review signal
+quality) on the dedup and malformed-output items. If Track 1 lands
+first, Track 7 picks up after the taxonomy migration. If Track 7 lands
+first, it should preserve the three-level taxonomy until Track 1's
+migration completes, then re-render summaries against the new taxonomy.
 
 ## Overlap and Merge Decisions
 
@@ -262,6 +389,7 @@ Tests:
 | PR create checklist / autonomous PR shepherd notes | Track 6 |
 | Tool failure two-attempt cap | Track 5 where it applies to bug-fix retries |
 | Deep CI chunked context, context manifest, and whole-file logic review | Baseline foundations |
+| Always-post-summary, diff-range validation, phase split, lane separation (cross-pollinated from doc2md) | Track 7 |
 
 ## Prerequisites and Sequencing
 
@@ -276,6 +404,12 @@ Tests:
    ownership is separate.
 6. Track 6 sixth: commit / PR readiness. Pieces may land earlier when touching
    related helpers, but avoid mixing them into CI review PRs.
+7. Track 7 can land in parallel with Track 1 or after. The always-post-summary
+   contract and the post-step diff-range validator are independent of the
+   taxonomy migration and produce immediate trust improvements. The phase
+   split is best paired with Track 1's signal-quality work since both touch
+   `codex_review.py`. The lane-separation work is independent of every other
+   track and can land any time.
 
 ## First Implementation Slice
 

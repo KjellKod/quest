@@ -9,6 +9,7 @@ last_updated: 2026-03-04
 related:
   - docs/architecture/quest-platform-constellations.md
   - docs/architecture/orchestration-runtime-v1.md
+  - docs/architecture/quest-install-posture.md
 ---
 
 # Architecture
@@ -25,6 +26,7 @@ directory wins.
 |---|---|
 | `quest-platform-constellations.md` | Product and system direction beyond single `/quest` workflow. Defines named approaches, host portability, and visual composition direction. |
 | `orchestration-runtime-v1.md` | Concrete runtime contract: execution model, events, heartbeat, failure policy, and adapter interface. |
+| `quest-install-posture.md` | The two install modes (in-repo vs outside-in), their trade-offs, and how to choose. Distribution topology, not runtime contract. |
 
 ## Scope Boundary
 

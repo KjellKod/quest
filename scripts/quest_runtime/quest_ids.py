@@ -51,6 +51,8 @@ def format_quest_id(
     normalized = normalize_quest_id_format(quest_id_format)
     if not re.fullmatch(_SLUG_PATTERN, slug):
         raise ValueError("Invalid slug. Expected lowercase letters, numbers, and hyphens.")
+    if not isinstance(when, datetime):
+        raise TypeError("format_quest_id expected a datetime.datetime for 'when'.")
 
     date_part = when.strftime("%Y-%m-%d")
     time_part = when.strftime("%H%M")
