@@ -134,9 +134,8 @@ These are deterministic, repetitive, and naturally tied to lifecycle events:
    - Best fit: `PreToolUse`
    - Why: tool boundary, clear allow/deny outcome, existing script already present
 
-2. Branch and directory visibility before file edits
-   - Best fit: `PreToolUse` on `Edit|Write`
-   - Why: cheap observability, catches wrong-repo and wrong-branch mistakes early
+2. ~~Branch and directory visibility before file edits~~ — **RETIRED (won't-do, PR #116).**
+   - A `PreToolUse` `Edit|Write` hook was tried and closed: its stdout on exit 0 is debug-log-only (invisible to user and model), it reports the orchestrator's `pwd`/branch rather than the edit target, and it never fires under Codex/MCP. Statusline already covers this visibility on the Claude side. Do not re-propose. See [`archive/2026-04-15-pretooluse-branch-dir-verification-hook.md`](archive/2026-04-15-pretooluse-branch-dir-verification-hook.md). The portable lesson — put cross-runtime guardrails in the Quest Python seam (state machine / validators), not in Claude-only hooks — is reflected in the "Move To Scripts And Validators" section below.
 
 3. Pre-build write blocking for non-`.quest/**` edits
    - Best fit: `PreToolUse` on `Edit|Write`
@@ -398,7 +397,7 @@ This proposal is successful when:
 Reference:
 - ideas/2026-04-24-quest-hooks-vs-instructions-boundary.md
 - ideas/2026-04-20-allowlist-enforcement-activation.md
-- ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md (won't-do: hook stdout invisible, Codex-blind)
+- ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md (RETIRED won't-do — do NOT implement the branch/dir hook; included only so it is not re-proposed)
 - ideas/quest-policy-canonicalization-and-enforcement-roadmap.md
 
 Goal:
