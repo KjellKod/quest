@@ -990,6 +990,10 @@ After plan approval, present the plan interactively before proceeding to build.
      - Read `models.review-arbiter` from `.quest/<id>/orchestration.json`; invoke through the corresponding runtime.
      - Before each attempt, remove stale scratch artifacts: `.quest/<id>/phase_03_review/review_findings.json.next`, `.quest/<id>/phase_03_review/review_backlog.json.next`.
      - **Artifact preparation** (per Handoff File Polling §5): prepare `review_arbiter_verdict.md.next`, `review_findings.json.next`, and `handoff_review-arbiter.json` in `.quest/<id>/phase_03_review/`. The canonical `review_findings.json` / `review_arbiter_verdict.md` are NOT prepared or truncated; publish the `.next` files only after validation succeeds.
+     - **Provide the actual diff as evidence (REQUIRED).** The arbiter's contract is to judge each finding *against the diff*, but the review-arbiter runtime has no Bash and cannot run `git diff` itself. Before invoking, the orchestrator MUST write the full patch the reviewers saw to `.quest/<id>/phase_03_review/review_diff.patch` and pass that path in the prompt:
+       - If `vcs_available == true`: `git -C <source_workspace_root> diff > .quest/<id>/phase_03_review/review_diff.patch` (same diff scope the reviewers were given; append any untracked new files).
+       - If `vcs_available == false`: skip the patch file and instead tell the arbiter to read the changed source files directly (same no-VCS scope the reviewers used).
+       - Do not pass only `git diff --stat`; the stat alone is insufficient evidence for adjudication.
      - Prompt (paths only, no embedded artifact content):
        ```
        You are the Review Arbiter Agent.
@@ -1000,6 +1004,8 @@ After plan approval, present the plan interactively before proceeding to build.
        Plan: .quest/<id>/phase_01_plan/plan.md
        Reviewer A findings: .quest/<id>/phase_03_review/review_findings_code-reviewer-a.json
        Reviewer B findings: .quest/<id>/phase_03_review/review_findings_code-reviewer-b.json
+       Full diff/patch (judge findings against this): .quest/<id>/phase_03_review/review_diff.patch
+         (no-VCS: read the changed source files directly — see <file list>)
        Changed files: <file list>
        Diff summary: <git diff --stat>
 
@@ -1039,7 +1045,7 @@ After plan approval, present the plan interactively before proceeding to build.
      - (The review-arbiter additionally persists dismissed findings + rationale to a separate `.quest/backlog/dismissed_findings.jsonl` log — NOT the deferred reservoir, so dismissed findings are never rescanned as deferred work; see `review-arbiter.md`.)
 
 6. **Route after decisions stage:**
-   - **Safety check (re-anchored to the arbiter verdict — Q5):** In workflow mode, the **arbiter's** verdict is the authoritative signal. If the arbiter handoff has `next: "fixer"` but the canonical backlog has no `fix_now`/`verify_first` items, warn the user: "Review arbiter flagged issues but canonical backlog is empty — review findings may be incomplete." Per-reviewer `next` hints become **diagnostic-only** when the arbiter ran. **When the arbiter is skipped — solo mode (no review-arbiter role) or the workflow dual-empty fast path (`[]` / `[]`) — the existing per-reviewer check applies instead:** if any reviewer handoff has `next: "fixer"` but the backlog has no actionable items, raise the same warning against the per-reviewer signal. In all cases ask the user how to proceed (re-review or manually inspect and repair the findings/handoffs). Do not auto-transition to fixing with an empty actionable backlog, and do not offer `accept as-is` unless an explicit waiver path is added to the validator contract.
+   - **Safety check (re-anchored to the arbiter verdict — Q5):** In workflow mode, when the arbiter **ran and produced a trustworthy verdict**, the **arbiter's** verdict is the authoritative signal: if the arbiter handoff has `next: "fixer"` but the canonical backlog has no `fix_now`/`verify_first` items, warn the user: "Review arbiter flagged issues but canonical backlog is empty — review findings may be incomplete." In that case per-reviewer `next` hints are **diagnostic-only**. **When there is no trustworthy arbiter verdict — solo mode (no review-arbiter role), the workflow dual-empty fast path (`[]` / `[]`), OR the arbiter fail-open path (fell back to deterministic `merge-findings`) — the per-reviewer check applies instead:** if any reviewer handoff has `next: "fixer"` but the backlog has no actionable items, raise the same warning against the per-reviewer signal (the fail-open path has no arbiter verdict to anchor on, so reviewer hints must NOT be treated as diagnostic-only there). In all cases ask the user how to proceed (re-review or manually inspect and repair the findings/handoffs). Do not auto-transition to fixing with an empty actionable backlog, and do not offer `accept as-is` unless an explicit waiver path is added to the validator contract.
    - If `review_backlog.json` contains any `fix_now` or `verify_first` item:
      - Transition atomically: `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition fixing --status in_progress --expect-phase reviewing`
      - Proceed to Step 6

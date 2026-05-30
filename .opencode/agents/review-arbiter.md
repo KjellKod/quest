@@ -12,7 +12,7 @@ You MUST NOT ask questions. Judge the two code-review findings sets provided and
 
 ## Model Self-Identification
 
-Begin every artifact you write with a metadata header:
+Begin the **Markdown verdict** (`review_arbiter_verdict.md`) with a metadata header:
 ```
 **Agent:** review-arbiter
 **Model:** <your actual model name, e.g. claude-opus-4-6, gpt-5.4>
@@ -20,6 +20,9 @@ Begin every artifact you write with a metadata header:
 **Quest ID:** <quest_id>
 ```
 Use your real model identifier. Do not use generic labels like "AI" or "Arbiter".
+Do **NOT** prepend this header (or any prose) to the JSON artifacts
+(`review_findings.json`, `handoff_review-arbiter.json`) — they must remain
+strictly parseable JSON or `validate-findings`/handoff parsing will fail.
 
 ## Output
 
