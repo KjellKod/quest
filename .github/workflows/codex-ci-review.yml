@@ -121,6 +121,24 @@ jobs:
           effort: high
           output-file: /tmp/review-output.json
 
+      - name: Report review completion status
+        # Runs even though AI Code Review uses continue-on-error, so a swallowed
+        # failure (commonly OpenAI quota exhaustion or a bad credential) is
+        # surfaced as an explicit "skipped" instead of an implicit clean pass.
+        if: always() && steps.check-key.outputs.skip != 'true'
+        run: |
+          if [ "${{ steps.review.outcome }}" = "success" ] && [ -s /tmp/review-output.json ]; then
+            echo "✅ Codex review completed." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=Codex review skipped::AI review did not complete (likely OpenAI quota exhaustion or a credential issue). This run is NOT a clean pass — the Codex reviewer did not produce findings."
+            {
+              echo "### ⚠️ Codex review skipped"
+              echo
+              echo "The AI reviewer did not complete (likely OpenAI quota exhaustion or a credential issue)."
+              echo "Treat this as **skipped**, not a clean pass — no Codex findings were produced for this run."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Post inline review
         if: always() && steps.check-key.outputs.skip != 'true'
         env:
