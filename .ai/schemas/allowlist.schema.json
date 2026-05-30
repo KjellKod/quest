@@ -22,6 +22,7 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
+        "on_complete": { "type": "string", "enum": ["ask", "celebrate", "archive_silent"] },
         "animation_style": { "type": "string" },
         "show_end_credits": { "type": "boolean" },
         "show_progress_bars": { "type": "boolean" },
