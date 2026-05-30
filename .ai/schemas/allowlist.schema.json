@@ -34,7 +34,7 @@
     "models": {
       "type": "object",
       "propertyNames": {
-        "enum": ["planner", "plan-reviewer-a", "plan-reviewer-b", "arbiter", "builder", "code-reviewer-a", "code-reviewer-b", "fixer"]
+        "enum": ["planner", "plan-reviewer-a", "plan-reviewer-b", "arbiter", "builder", "code-reviewer-a", "code-reviewer-b", "review-arbiter", "fixer"]
       },
       "additionalProperties": { "type": "string" }
     },
