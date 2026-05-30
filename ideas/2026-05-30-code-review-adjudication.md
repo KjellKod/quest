@@ -128,6 +128,18 @@ silent automatic mid-happy-path repair we are banning. It is logged as a degrade
 run. A hard `blocked` state remains only for "user chose pause" or the truly
 nothing-salvageable case (both slots failed *and* no prose — extremely rare).
 
+### Observability — make the new gate visible
+Today `context_health.log` tracks a **single** compliance dimension —
+`handoff.json` (`found` / `text_fallback` / `found (retry)`). Part 1 introduces a
+**second** dimension (findings JSON), and a real run shows why this matters: a
+reviewer can log `handoff=text_fallback` (a known graceful path) while its
+*missing findings JSON was silently hand-authored by the orchestrator* — invisible
+in the log. **Extend the compliance log with a findings-compliance status** per
+slot (e.g. `findings=found` / `found(retry: structured from prose)` /
+`cross-runtime fallback` / `MISSING→block`), so every retry, fallback, and block
+the new gate produces is as auditable as handoff compliance already is. Without
+this, the gate's activity is only half-captured.
+
 **`scripts/quest_review_intelligence.py`**
 - Confirm `validate-findings` treats `[]` as valid and missing/unparsable as a
   hard failure. No new subcommand expected; per-slot validation reuses the
