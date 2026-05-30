@@ -29,17 +29,17 @@ Outside-in use needs explicit compatibility annotations (especially `vcs_availab
 Without this index, overlapping governance docs can diverge. This file resolves overlap by pointing each evaluation item to one destination file (or explicit skip reason), then cross-linking canonicals.
 
 ## Canonical Priority Ranking (User-Authoritative)
-This ordering is copied from the quest brief and treated as authoritative.
+This ordering is the **historical evaluation order** copied from the original quest brief. It is preserved for provenance, not as current actionable guidance — several items have since been retired or shipped. **Current status tags are inline below; do not action a `RETIRED`/`SUPERSEDED`/`DONE` item.**
 
 ### Tier 1 — Do this week (highest ROI)
-1. **PreToolUse hook for branch/directory verification** — Directly attacks #1 friction (wrong-branch edits). Low effort, automatic, zero behavior change from user. The `.claude/settings.json` snippet in the report is copy-paste ready.
-2. **CLAUDE.md rule: confirm `pwd` + `git branch --show-current` before edits** — Belt-and-suspenders with the hook. Costs nothing; Claude self-corrects when hook output looks wrong.
+1. ~~**PreToolUse hook for branch/directory verification**~~ — **RETIRED (won't-do, PR #116).** Hook stdout on exit 0 is debug-log-only (invisible) and never fires under Codex/MCP; statusline covers the intent. See [`archive/2026-04-15-pretooluse-branch-dir-verification-hook.md`](archive/2026-04-15-pretooluse-branch-dir-verification-hook.md).
+2. ~~**CLAUDE.md rule: confirm `pwd` + `git branch --show-current` before edits**~~ — **RETIRED (won't-do).** Soft prose, no enforcement; superseded by statusline. See [`archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md`](archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md).
 3. **CLAUDE.md rule: never dismiss acceptance criteria** — Zero-effort addition that prevents a recurring, specific failure mode (the `--help timeout` episode, pytest-as-manual-validation, etc.).
 
 ### Tier 2 — Do this month (compound returns)
 4. **Custom `/pr-create` skill with verification checklist** — 20 PR-management + 18 PR-shepherding sessions; small per-PR wins compound fast. Encodes "verify script names, run documented commands, stage all files."
 5. **CLAUDE.md rule: pre-commit `git status` + `git diff --stat`** — Fixes the "forgot to stage `.skills` changes" pattern. Cheap.
-6. **CLAUDE.md rule: sub-agent path constraints** — 268 Agent invocations with recurring wrong-directory writes from Codex sub-agents. Meaningful, but only kicks in during quest workflows.
+6. ~~**CLAUDE.md rule: sub-agent path constraints**~~ — **SUPERSEDED.** `quest_validate-quest-state.sh` already blocks transitions on missing/misplaced canonical artifacts (both runtimes); residual failure-diagnostics belong to `handoff-validation-and-failure-ux`. See [`archive/2026-04-15-subagent-path-constraints-hardening.md`](archive/2026-04-15-subagent-path-constraints-hardening.md).
 
 ### Tier 3 — Higher-leverage but more investment
 7. **CLAUDE.md rule: cap tool-failure investigation at 2 attempts** — Targets rabbit-holing (#2 friction). Harder to enforce via text rules alone; interrupting early may still work better in practice.
