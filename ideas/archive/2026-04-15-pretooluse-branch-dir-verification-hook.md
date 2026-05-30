@@ -5,9 +5,20 @@ audience:
   - quest-developers
   - quest-users
 scope: Hook-level observability guardrails for Edit/Write actions.
-status: proposed
+status: wont-do
 owner: kjell
 ---
+
+> **WON'T-DO — retired 2026-05-30.** Implemented in PR #116 and closed without merge.
+> A `PreToolUse` hook that echoes branch/dir to stdout is invisible in practice: on exit 0,
+> plain stdout goes to the **debug log only** — not the UI, not transcript mode (Ctrl-R), and not
+> the model's context. (Only `UserPromptSubmit` / `SessionStart` hooks inject stdout as context;
+> see the Claude Code hooks docs.) The hook also reads the **orchestrator's** `pwd`/branch, not the
+> edit's target path, so it cannot detect a wrong-directory edit even if the output were visible.
+> And hooks are `.claude/settings.json`-only — they **never fire** when Codex orchestrates or a Codex
+> sub-agent edits via MCP, so this covers at most half of Quest's runtimes. A configured **statusline**
+> already provides the persistent "branch + dir" visibility this was reaching for on the Claude side.
+> Retained for history; see closed PR #116.
 
 ## Problem
 The evaluation identifies wrong-location edits as the top friction pattern (`Wrong Approach` = 55), with repeated incidents where changes landed in the wrong branch, wrong directory, or wrong nested Quest path. The report explicitly calls out that Codex sub-agents wrote to incorrect directories and forced recovery cycles.

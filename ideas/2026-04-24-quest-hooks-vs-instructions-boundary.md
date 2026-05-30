@@ -398,7 +398,7 @@ This proposal is successful when:
 Reference:
 - ideas/2026-04-24-quest-hooks-vs-instructions-boundary.md
 - ideas/2026-04-20-allowlist-enforcement-activation.md
-- ideas/2026-04-15-pretooluse-branch-dir-verification-hook.md
+- ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md (won't-do: hook stdout invisible, Codex-blind)
 - ideas/quest-policy-canonicalization-and-enforcement-roadmap.md
 
 Goal:

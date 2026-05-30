@@ -9,6 +9,17 @@ status: proposed
 owner: kjell
 ---
 
+> **Execution note (2026-05-30).** PR #116 built a first cut of this (`scripts/quest_artifact_postflight.py`)
+> and it was **closed without merge** — not because the idea is wrong, but because that execution was
+> inert: it was *advisory* (`accepted_with_warnings`, non-halting) and only *doc-wired* into
+> `workflow.md`, so it never auto-fired and never blocked. The kept kernel — an **orchestrator-agnostic,
+> filesystem-only, after-the-fact** path check that works for both Claude and Codex runs — remains the
+> one piece of the "wrong-location" cluster with real value (a statusline and a `PreToolUse` hook cannot
+> validate where a sub-agent actually wrote). A shippable version MUST: (1) auto-invoke at handoff
+> acceptance, not rely on prose; (2) have a defined blocking/retry policy, not just log; (3) prove a
+> near-zero false-positive rate on real handoffs before it's allowed to halt. Until those are designed,
+> this stays `proposed`, not built.
+
 ## Problem
 The evaluation highlights repeated sub-agent path failures: wrong directories, nested quest folders, and wiped workspace artifacts across high-volume agent usage (268 Agent invocations). These incidents were costly because errors were discovered after work completed, not at post-run validation time.
 
@@ -37,7 +48,7 @@ No structural conflict with current workflow. Required adaptation is additive: v
 5. Reference `expected_artifacts_for_role(...)` and `prepare_artifact_files(...)` directly in validator docs to avoid rule drift.
 
 ## Cross-References
-- `ideas/2026-04-15-pretooluse-branch-dir-verification-hook.md`
+- `ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md` (won't-do)
 - `ideas/quest-policy-canonicalization-and-enforcement-roadmap.md`
 - `ideas/handoff-validation-and-failure-ux.md`
 

@@ -50,8 +50,8 @@ This ordering is copied from the quest brief and treated as authoritative.
 - **TDD bug-fix agent** — Nice framing, but bug-fix sessions aren't the top pain point; wrong-branch edits are.
 
 ## File Pointers
-- `ideas/2026-04-15-pretooluse-branch-dir-verification-hook.md` — Hook-level context visibility before write/edit.
-- `ideas/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md` — Policy-level pre-edit context confirmation.
+- `ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md` — **WON'T-DO** (built + closed in PR #116; hook stdout is invisible, Codex-blind). Hook-level context visibility before write/edit.
+- `ideas/archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md` — **WON'T-DO** (retired with the hook). Policy-level pre-edit context confirmation.
 - `ideas/2026-04-15-claude-rule-never-dismiss-acceptance-criteria.md` — Completion gate for explicit ACs.
 - `ideas/2026-04-15-pr-create-checklist-via-pr-assistant.md` — PR checklist via existing `pr-assistant`.
 - `ideas/2026-04-15-precommit-status-diffstat-discipline.md` — Staging/diffstat discipline before commit.
@@ -74,8 +74,8 @@ This ordering is copied from the quest brief and treated as authoritative.
 ## Coverage Map
 | Evaluation suggestion | Destination |
 |---|---|
-| CLAUDE.md add: confirm directory+branch before edits | `ideas/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md` |
-| Hook: `PreToolUse` branch/dir echo | `ideas/2026-04-15-pretooluse-branch-dir-verification-hook.md` |
+| CLAUDE.md add: confirm directory+branch before edits | `ideas/archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md` (won't-do) |
+| Hook: `PreToolUse` branch/dir echo | `ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md` (won't-do) |
 | CLAUDE.md add: never dismiss acceptance criteria | `ideas/2026-04-15-claude-rule-never-dismiss-acceptance-criteria.md` |
 | CLAUDE.md add: PR descriptions must match real scripts/paths/tests | `ideas/2026-04-15-pr-create-checklist-via-pr-assistant.md` |
 | Custom skill suggestion: `/pr-create` checklist | `ideas/2026-04-15-pr-create-checklist-via-pr-assistant.md` (extension of existing `pr-assistant`) |

@@ -13,6 +13,7 @@ architecture docs.
 - `proposed`: concrete plan exists, not started
 - `in-progress`: partially implemented or actively iterating
 - `reference`: operational note or incident record (not a build proposal)
+- `wont-do`: evaluated and deliberately rejected; kept (archived) with reasoning to prevent re-proposal
 
 ## Active Index
 
@@ -67,12 +68,10 @@ Current roadmap:
 | File | Status | Purpose |
 |---|---|---|
 | `2026-04-15-claude-insights-priorities.md` | proposed | Canonical Tier/Skip index mapping evaluation suggestions to sanity-checked Quest proposals. |
-| `2026-04-15-pretooluse-branch-dir-verification-hook.md` | proposed | Safe branch/directory verification hook strategy with non-git and existing-hook compatibility. |
-| `2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md` | proposed | CLAUDE.md context-confirmation rule to reduce wrong-repo/branch edits. |
 | `2026-04-15-claude-rule-never-dismiss-acceptance-criteria.md` | proposed | Guardrail against rejecting explicit acceptance criteria as optional. |
 | `2026-04-15-pr-create-checklist-via-pr-assistant.md` | proposed | PR checklist workflow via existing `pr-assistant` to avoid duplicate skill drift. |
 | `2026-04-15-precommit-status-diffstat-discipline.md` | proposed | Pre-commit staging verification discipline with optional bounded hook. |
-| `2026-04-15-subagent-path-constraints-hardening.md` | proposed | Hardening plan for sub-agent path constraints and output-path validation. |
+| `2026-04-15-subagent-path-constraints-hardening.md` | proposed | Sub-agent output-path validation. Kept as the one valuable piece of the wrong-location cluster; PR #116's inert execution was rejected — needs auto-invocation + a blocking policy before it ships. |
 | `2026-04-15-tool-failure-two-attempt-cap.md` | proposed | Two-attempt cap rule for failing tool investigations to limit rabbit-holing. |
 | `2026-04-29-test-driven-bug-fix-loops.md` | proposed | Safer bug-fix mode: failing test first, bounded distinct strategies, preserved attempt evidence, and no destructive rollback. |
 | `2026-04-15-autonomous-pr-shepherd-headless.md` | idea | Long-horizon autonomous PR shepherd design with strict safety boundaries. |
@@ -89,6 +88,8 @@ Current roadmap:
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| won't-do | ~~2026-04-15-pretooluse-branch-dir-verification-hook~~ | `PreToolUse` stdout is debug-log-only (invisible), reads orchestrator cwd not the edit target, and never fires under Codex/MCP. Statusline covers the intent on the Claude side. Built + closed in PR #116. Archived at [`ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md`](archive/2026-04-15-pretooluse-branch-dir-verification-hook.md). |
+| won't-do | ~~2026-04-15-claude-rule-confirm-pwd-branch-before-edits~~ | Soft "run `pwd`/`git branch` before edits" prose — no enforcement, instruction sprawl, visibility already covered by statusline. Retired with the hook (PR #116). Archived at [`ideas/archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md`](archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md). |
 | done | ~~2026-05-14-pr-shepherd-operational-intake~~ | Implemented PR targeting, idempotent reply markers, compact PR intake scripts, failed-log records, scope annotation, and operational stop states. Archived at [`ideas/archive/2026-05-14-pr-shepherd-operational-intake.md`](archive/2026-05-14-pr-shepherd-operational-intake.md); see [journal](../docs/quest-journal/pr-shepherd-operational-intake_2026-05-15.md). |
 | done | ~~2026-04-13-review-intelligence-canonical~~ | Phases 1-3 shipped: canonical findings/backlog, targeted validation/PR batching, and bounded Deep CI whole-file review. Archived at [`ideas/archive/2026-04-13-review-intelligence-canonical.md`](archive/2026-04-13-review-intelligence-canonical.md). |
 | done | ~~deep-ci-review-context-manifest-plan~~ | Implemented as Review Intelligence Phase 3.2 in PR #101. Archived at [`ideas/archive/deep-ci-review-context-manifest-plan.md`](archive/deep-ci-review-context-manifest-plan.md). |
