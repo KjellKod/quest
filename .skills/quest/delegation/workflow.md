@@ -1036,7 +1036,7 @@ After plan approval, present the plan interactively before proceeding to build.
      - `verify_first`
    - Deferred backlog handling:
      - For entries with decision `defer`, append to `.quest/backlog/deferred_findings.jsonl` with lineage fields using `append-deferred`
-     - (The review-arbiter additionally persists dismissed findings + rationale to the same `.quest/backlog/deferred_findings.jsonl` reservoir; see `review-arbiter.md`.)
+     - (The review-arbiter additionally persists dismissed findings + rationale to a separate `.quest/backlog/dismissed_findings.jsonl` log — NOT the deferred reservoir, so dismissed findings are never rescanned as deferred work; see `review-arbiter.md`.)
 
 6. **Route after decisions stage:**
    - **Safety check (re-anchored to the arbiter verdict — Q5):** In workflow mode, the **arbiter's** verdict is the authoritative signal. If the arbiter handoff has `next: "fixer"` but the canonical backlog has no `fix_now`/`verify_first` items, warn the user: "Review arbiter flagged issues but canonical backlog is empty — review findings may be incomplete." Per-reviewer `next` hints become **diagnostic-only** when the arbiter ran. **When the arbiter is skipped — solo mode (no review-arbiter role) or the workflow dual-empty fast path (`[]` / `[]`) — the existing per-reviewer check applies instead:** if any reviewer handoff has `next: "fixer"` but the backlog has no actionable items, raise the same warning against the per-reviewer signal. In all cases ask the user how to proceed (re-review or manually inspect and repair the findings/handoffs). Do not auto-transition to fixing with an empty actionable backlog, and do not offer `accept as-is` unless an explicit waiver path is added to the validator contract.

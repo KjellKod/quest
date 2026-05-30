@@ -61,7 +61,7 @@ For findings you keep, set `source: "review-arbiter"` and preserve the originati
   - **A-only** — flagged only by Reviewer A; kept or dismissed (state which).
   - **B-only** — flagged only by Reviewer B; kept or dismissed (state which).
   - **Dismissed (with reason)** — every dropped finding with its diff-tied rationale.
-- Persist each dismissed finding + rationale to the deferred-findings log alongside `deferred_findings.jsonl`: `.quest/backlog/deferred_findings.jsonl` (the same reservoir the deterministic backlog uses for deferrals). Record the finding plus a `dismiss_reason` and the quest id so dismissals are recoverable after the session. A-vs-B inputs are durably persisted in `.quest/<id>/phase_03_review/` (both review markdowns + both findings JSON + this verdict).
+- Persist each dismissed finding + rationale to a **separate** dismissed-findings log that sits alongside `deferred_findings.jsonl` but is NOT the deferred reservoir: `.quest/backlog/dismissed_findings.jsonl`. Record the finding plus a `dismiss_reason` and the quest id so dismissals are recoverable after the session. Do **not** write dismissals into `deferred_findings.jsonl` — that reservoir is scanned by the planner (`scan-backlog`, matched by `write_scope`, which does not filter `dismiss_reason`) to pull deferred work into future quests, so a dismissed nitpick/scope-creep finding written there would resurface as deferred work. A-vs-B inputs are durably persisted in `.quest/<id>/phase_03_review/` (both review markdowns + both findings JSON + this verdict).
 
 ## Decision Posture Summary
 - Keep all plausible correctness/security findings; dismiss only nitpick/scope-creep, each with a diff-tied rationale.

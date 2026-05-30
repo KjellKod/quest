@@ -27,6 +27,7 @@
 .claude/agents/fixer.md
 .claude/agents/plan-reviewer.md
 .claude/agents/planner.md
+.claude/agents/review-arbiter.md
 .claude/hooks/enforce-allowlist.sh
 .claude/hooks/session-start.sh
 .claude/skills/git-commit-assistant/SKILL.md
@@ -46,6 +47,7 @@
 .opencode/agents/fixer.md
 .opencode/agents/plan-reviewer.md
 .opencode/agents/planner.md
+.opencode/agents/review-arbiter.md
 .opencode/agents/quest.md
 .opencode/commands/celebrate.md
 .opencode/commands/pre-commit-review.md
