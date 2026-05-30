@@ -1,6 +1,15 @@
 # Idea: Runner `cwd`-Relative Path Hygiene Sweep
 
-## Status: proposed (follow-up quest)
+## Status: DONE — fixed in PR #96 (`Fix cwd double-apply in Claude probe and runner bridge paths`)
+
+> The reported double-apply is resolved. Both callers now wrap the script in
+> `resolve_path(args.cwd, args.bridge_script)` (`quest_claude_probe.py:30`,
+> `quest_claude_runner.py:114`), which returns an **absolute** path, so the subprocess `argv`
+> no longer carries a relative path that `cwd=` would double-apply. A 2026-05-30 sweep of
+> `scripts/` found no remaining instances: the only `Path(cwd) / candidate` left is inside
+> `resolve_path` itself, which `.resolve()`s to absolute by design, and every `Popen(cwd=…)` in
+> `claude_runner.py` is fed pre-resolved (`resolved_prompt_file`, absolute `bridge_script`) paths.
+> Archived as resolved.
 
 ## Origin
 

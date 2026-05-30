@@ -5,20 +5,26 @@ audience:
   - quest-developers
   - quest-users
 scope: Delegation safety and output-path compliance.
-status: proposed
+status: wont-do
 owner: kjell
 ---
 
-> **Execution note (2026-05-30).** PR #116 built a first cut of this (`scripts/quest_artifact_postflight.py`)
-> and it was **closed without merge** — not because the idea is wrong, but because that execution was
-> inert: it was *advisory* (`accepted_with_warnings`, non-halting) and only *doc-wired* into
-> `workflow.md`, so it never auto-fired and never blocked. The kept kernel — an **orchestrator-agnostic,
-> filesystem-only, after-the-fact** path check that works for both Claude and Codex runs — remains the
-> one piece of the "wrong-location" cluster with real value (a statusline and a `PreToolUse` hook cannot
-> validate where a sub-agent actually wrote). A shippable version MUST: (1) auto-invoke at handoff
-> acceptance, not rely on prose; (2) have a defined blocking/retry policy, not just log; (3) prove a
-> near-zero false-positive rate on real handoffs before it's allowed to halt. Until those are designed,
-> this stays `proposed`, not built.
+> **SUPERSEDED — retired 2026-05-30. The core protection already exists.**
+> This asked for an after-the-fact check that sub-agent artifacts land at their expected paths, so
+> misplaced output is caught at "post-run validation time" rather than after recovery. That gate is
+> already shipped: `scripts/quest_validate-quest-state.sh` runs on **every** `quest_state.py --transition`
+> (both Claude- and Codex-orchestrated), and `check_file` asserts each canonical artifact path
+> (`$quest_dir/phase_01_plan/plan.md`, `…/arbiter_verdict.md`, etc.) exists before the transition is
+> allowed. If a sub-agent writes to the wrong directory, the canonical path is empty and **the transition
+> is rejected as a missing artifact** — exactly the wrong-location protection this proposed, firing the
+> moment the phase completes.
+>
+> PR #116 (closed) tried to add a second validator (`scripts/quest_artifact_postflight.py`) and was both
+> inertly wired (advisory + doc-only, never auto-fired) **and** substantially redundant with the
+> transition validator above. The only residual gap is **failure diagnostics** — the validator says
+> "missing artifact," not "you likely wrote it to the wrong place; here's what I found nearby" — and that
+> belongs to the in-progress [`handoff-validation-and-failure-ux.md`](handoff-validation-and-failure-ux.md),
+> not a new validator. Retained for history.
 
 ## Problem
 The evaluation highlights repeated sub-agent path failures: wrong directories, nested quest folders, and wiped workspace artifacts across high-volume agent usage (268 Agent invocations). These incidents were costly because errors were discovered after work completed, not at post-run validation time.

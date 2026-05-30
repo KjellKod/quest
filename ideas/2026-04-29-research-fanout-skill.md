@@ -11,7 +11,7 @@ related:
   - .skills/quest/agents/planner.md
   - .skills/quest/delegation/workflow.md
   - docs/quest-journal/thin-orchestrator_2026-02-09.md
-  - ideas/2026-04-15-subagent-path-constraints-hardening.md
+  - ideas/archive/2026-04-15-subagent-path-constraints-hardening.md
 ---
 
 # Summary

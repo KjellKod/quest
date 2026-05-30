@@ -55,7 +55,7 @@ This ordering is copied from the quest brief and treated as authoritative.
 - `ideas/2026-04-15-claude-rule-never-dismiss-acceptance-criteria.md` — Completion gate for explicit ACs.
 - `ideas/2026-04-15-pr-create-checklist-via-pr-assistant.md` — PR checklist via existing `pr-assistant`.
 - `ideas/2026-04-15-precommit-status-diffstat-discipline.md` — Staging/diffstat discipline before commit.
-- `ideas/2026-04-15-subagent-path-constraints-hardening.md` — Postflight path-compliance hardening for sub-agents.
+- `ideas/archive/2026-04-15-subagent-path-constraints-hardening.md` — **SUPERSEDED** (transition validator already gates misplaced artifacts). Postflight path-compliance hardening for sub-agents.
 - `ideas/2026-04-15-tool-failure-two-attempt-cap.md` — Two-attempt investigation cap.
 - `ideas/2026-04-15-autonomous-pr-shepherd-headless.md` — Staged headless PR shepherd concept.
 
@@ -81,8 +81,8 @@ This ordering is copied from the quest brief and treated as authoritative.
 | Custom skill suggestion: `/pr-create` checklist | `ideas/2026-04-15-pr-create-checklist-via-pr-assistant.md` (extension of existing `pr-assistant`) |
 | CLAUDE.md add: pre-commit `git status` + `git diff --stat` | `ideas/2026-04-15-precommit-status-diffstat-discipline.md` |
 | Hook: `PostToolUse Bash` unstaged-diff print | `ideas/2026-04-15-precommit-status-diffstat-discipline.md` (bounded/noise-controlled adaptation) |
-| CLAUDE.md add: explicit sub-agent path constraints and validation | `ideas/2026-04-15-subagent-path-constraints-hardening.md` |
-| New usage pattern: sub-agent path constraints in delegation | `ideas/2026-04-15-subagent-path-constraints-hardening.md` |
+| CLAUDE.md add: explicit sub-agent path constraints and validation | `ideas/archive/2026-04-15-subagent-path-constraints-hardening.md` (superseded) |
+| New usage pattern: sub-agent path constraints in delegation | `ideas/archive/2026-04-15-subagent-path-constraints-hardening.md` (superseded) |
 | CLAUDE.md add: cap tool investigation at 2 attempts | `ideas/2026-04-15-tool-failure-two-attempt-cap.md` |
 | Headless mode: autonomous PR shepherd | `ideas/2026-04-15-autonomous-pr-shepherd-headless.md` |
 | Headless mode: batch security scans | Skip bucket (defer to standalone script path) |
