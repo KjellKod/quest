@@ -23,7 +23,7 @@ owner: kjell
 > inertly wired (advisory + doc-only, never auto-fired) **and** substantially redundant with the
 > transition validator above. The only residual gap is **failure diagnostics** — the validator says
 > "missing artifact," not "you likely wrote it to the wrong place; here's what I found nearby" — and that
-> belongs to the in-progress [`handoff-validation-and-failure-ux.md`](handoff-validation-and-failure-ux.md),
+> belongs to the in-progress [`handoff-validation-and-failure-ux.md`](../handoff-validation-and-failure-ux.md),
 > not a new validator. Retained for history.
 
 ## Problem
