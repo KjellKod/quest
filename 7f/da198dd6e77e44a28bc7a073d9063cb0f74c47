@@ -1,0 +1,19 @@
+ideas/archive/2026-04-15-subagent-path-constraints-hardening.md
+  s_e0ad3d90d6be31::t_48879547ff0c98 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7fda198dd6e77e44a28bc7a073d9063cb0f74c47",
+  "prompts": {},
+  "sessions": {
+    "s_e0ad3d90d6be31": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6259e105-be92-4dbb-9362-b6f073b1b56c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
