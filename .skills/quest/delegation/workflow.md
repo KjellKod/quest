@@ -1065,14 +1065,14 @@ After plan approval, present the plan interactively before proceeding to build.
 
 1. **Update state:** `phase: complete`, `status: complete`
 
-2. **Celebration behavior (read `quest_completion.on_complete` from allowlist; default `ask`):**
+2. **Celebration behavior (read `quest_completion.on_complete` from allowlist; default `celebrate`):**
    `on_complete` controls **only the prompt and the animation**. Every path
    still continues through step 4 onward (journal + summary + archive) — the
    quest always journals, summarizes, and archives regardless of this setting.
-   - **`ask`** (default — current behavior): Prompt "Quest is complete! What would you like to do?"
+   - **`celebrate`** (default): skip the prompt and proceed directly to step 3 (run the celebration animation), then step 4 (journal + summary + archive).
+   - **`ask`**: Prompt "Quest is complete! What would you like to do?"
      - **Celebrate!** — proceed to step 3 (run the celebration animation), then step 4
      - **Skip celebration** — go straight to step 4 (journal + summary + archive, no animation)
-   - **`celebrate`**: skip the prompt and proceed directly to step 3 (run the celebration animation), then step 4 (journal + summary + archive).
    - **`archive_silent`**: skip the prompt and skip the animation; go straight to step 4 (journal + summary + archive). No celebration.
    - In non-interactive / CI environments: honor `archive_silent` (no animation); for `ask` or `celebrate`, run the celebration automatically. All paths still archive.
 

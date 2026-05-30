@@ -3,7 +3,7 @@
   "description": "Creator-managed permissions for quest orchestration. Edit this file to pre-approve or restrict quest agent actions. Changes take effect on next quest run.",
   "quest_completion": {
     "enabled": true,
-    "on_complete": "ask",
+    "on_complete": "celebrate",
     "animation_style": "epic",
     "show_end_credits": true,
     "show_progress_bars": true,
