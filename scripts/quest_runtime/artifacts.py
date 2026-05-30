@@ -42,13 +42,23 @@ ROLE_ARTIFACTS: dict[str, tuple[str, tuple[str, ...]]] = {
             "handoff_code-reviewer-b.json",
         ),
     ),
+    "review-arbiter": (
+        "phase_03_review",
+        (
+            "review_arbiter_verdict.md.next",
+            "review_findings.json.next",
+            "handoff_review-arbiter.json",
+        ),
+    ),
     "fixer": (
         "phase_03_review",
         ("review_fix_feedback_discussion.md", "handoff_fixer.json"),
     ),
 }
 
-SOLO_DISABLED_AGENTS = frozenset({"plan-reviewer-b", "code-reviewer-b", "arbiter"})
+SOLO_DISABLED_AGENTS = frozenset(
+    {"plan-reviewer-b", "code-reviewer-b", "arbiter", "review-arbiter"}
+)
 
 ROLE_PHASE_ALIASES: dict[str, frozenset[str]] = {
     "planner": frozenset({"plan"}),
@@ -58,6 +68,7 @@ ROLE_PHASE_ALIASES: dict[str, frozenset[str]] = {
     "builder": frozenset({"build", "building", "implementation"}),
     "code-reviewer-a": frozenset({"code_review", "review", "reviewing"}),
     "code-reviewer-b": frozenset({"code_review", "review", "reviewing"}),
+    "review-arbiter": frozenset({"code_review", "review", "reviewing"}),
     "fixer": frozenset({"fix", "fixing"}),
 }
 

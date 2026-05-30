@@ -41,7 +41,7 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 3. Verify test coverage for new/changed code
 4. Identify bugs, logic errors, or architectural violations
 5. Write markdown review to the assigned artifact path for the current slot
-6. Write canonical findings JSON to the assigned findings path for the current slot
+6. Write canonical findings JSON to the assigned findings path for the current slot (see the **Output Contract** — this file is a hard, always-required output, written every run, `[]` when clean)
 
 Canonical findings schema (required fields per finding):
 `finding_id, source, kind, severity, confidence, path, line, summary, why_it_matters, evidence, action, needs_test, write_scope, related_acceptance_criteria`
@@ -62,6 +62,14 @@ Allowed enum values:
 - Quest brief and plan
 
 ## Output Contract
+
+You MUST write **two** required artifacts every run — the canonical findings JSON and `handoff.json` — alongside your markdown review. Both are hard contracts; neither is conditional on whether you found issues.
+
+**Required findings JSON (always, every run):** Write the canonical findings JSON to your slot's findings path:
+- Reviewer A: `.quest/<id>/phase_03_review/review_findings_code-reviewer-a.json`
+- Reviewer B: `.quest/<id>/phase_03_review/review_findings_code-reviewer-b.json`
+
+This file is **never optional and is never omitted**. When the review is clean and there are no findings, write an empty JSON array (`[]`) — exactly as the plan arbiter does. Do not skip the file, do not leave it empty (a zero-byte file is invalid), and do not rely on the orchestrator to author it for you. The orchestrator validates this file per-slot the moment you return; a missing, empty, or malformed findings file is treated as a non-compliant return.
 
 **Step 1 — Write handoff.json** to your slot's path:
 - Reviewer A: `.quest/<id>/phase_03_review/handoff_code-reviewer-a.json`

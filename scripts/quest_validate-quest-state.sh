@@ -203,10 +203,10 @@ validate_orchestration_json() {
   # Required roles depend on quest_mode.
   # Keep this list in sync with workflow.md dispatch sites
   # (planner, plan-reviewer-a, plan-reviewer-b, arbiter, builder,
-  # code-reviewer-a, code-reviewer-b, fixer).
+  # code-reviewer-a, code-reviewer-b, review-arbiter, fixer).
   local required_roles=("planner" "plan-reviewer-a" "builder" "code-reviewer-a" "fixer")
   if [ "$QUEST_MODE" != "solo" ]; then
-    required_roles+=("plan-reviewer-b" "arbiter" "code-reviewer-b")
+    required_roles+=("plan-reviewer-b" "arbiter" "code-reviewer-b" "review-arbiter")
   fi
 
   local missing_roles=()

@@ -27,6 +27,7 @@
     "builder": "gpt-5.5",
     "code-reviewer-a": "claude",
     "code-reviewer-b": "gpt-5.5",
+    "review-arbiter": "claude",
     "fixer": "gpt-5.5"
   },
   "quest_startup": {

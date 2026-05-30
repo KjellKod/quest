@@ -804,6 +804,94 @@ def test_scan_backlog_cli_accepts_empty_paths(tmp_path: Path) -> None:
     assert payload["count"] == 0
 
 
+def test_validate_findings_cli_accepts_empty_array(tmp_path: Path) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    findings_path = tmp_path / "findings.json"
+    findings_path.write_text("[]\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, str(script), "validate-findings", "--input", str(findings_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is True
+    assert payload["count"] == 0
+    assert payload["errors"] == []
+
+
+def test_validate_findings_cli_missing_file_emits_structured_failure(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    missing_path = tmp_path / "does_not_exist.json"
+
+    result = subprocess.run(
+        [sys.executable, str(script), "validate-findings", "--input", str(missing_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert result.stderr == ""  # no raw traceback for an expected bad-input case
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["count"] == 0
+    assert payload["errors"]
+    assert "errors" in payload and "error" not in payload  # plural shape, not singular
+
+
+def test_validate_findings_cli_unparsable_file_emits_structured_failure(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    bad_path = tmp_path / "bad.json"
+    bad_path.write_text("{ not valid json\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, str(script), "validate-findings", "--input", str(bad_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["count"] == 0
+    assert payload["errors"]
+    assert "error" not in payload
+
+
+def test_validate_findings_cli_malformed_shape_emits_structured_failure(
+    tmp_path: Path,
+) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    shape_path = tmp_path / "shape.json"
+    # Valid JSON, but not a findings list nor an object with findings/items.
+    shape_path.write_text('{"unexpected": "object"}\n', encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, str(script), "validate-findings", "--input", str(shape_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["count"] == 0
+    assert payload["errors"]
+    assert "error" not in payload
+
+
 def test_build_backlog_cli_plan_phase_uses_builder_defaults(tmp_path: Path) -> None:
     script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
     findings_path = tmp_path / "findings.json"

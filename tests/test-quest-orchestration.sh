@@ -46,6 +46,7 @@ write_allowlist_snapshot() {
     "builder": "gpt-5.5",
     "code-reviewer-a": "claude",
     "code-reviewer-b": "gpt-5.5",
+    "review-arbiter": "claude",
     "fixer": "gpt-5.5"
   }
 }
@@ -104,7 +105,7 @@ assert orch["version"] == 1, orch
 assert orch["source"] == "default", orch
 assert orch["overridden_roles"] == [], orch
 assert orch["preflight_validated_at"] == "2026-05-18T05:42:13Z", orch
-expected_keys = ["planner","plan-reviewer-a","plan-reviewer-b","arbiter","builder","code-reviewer-a","code-reviewer-b","fixer"]
+expected_keys = ["planner","plan-reviewer-a","plan-reviewer-b","arbiter","builder","code-reviewer-a","code-reviewer-b","review-arbiter","fixer"]
 assert list(orch["models"].keys()) == expected_keys, orch["models"]
 for k in expected_keys:
     assert orch["models"][k] == snap["models"][k], (k, orch["models"][k], snap["models"][k])
@@ -457,7 +458,7 @@ assert orch["version"] == 1
 assert orch["source"] == "default"
 assert orch["overridden_roles"] == []
 assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", orch["preflight_validated_at"]), orch["preflight_validated_at"]
-for k in ["planner","plan-reviewer-a","plan-reviewer-b","arbiter","builder","code-reviewer-a","code-reviewer-b","fixer"]:
+for k in ["planner","plan-reviewer-a","plan-reviewer-b","arbiter","builder","code-reviewer-a","code-reviewer-b","review-arbiter","fixer"]:
     assert orch["models"][k] == snap["models"][k], (k, orch["models"][k], snap["models"][k])
 PY
   rm -rf "$tmpdir"
@@ -512,6 +513,33 @@ PY
   cat > "$tmpdir/logs/allowlist_snapshot.json" <<'EOF'
 {
   "models": {
+    "planner": "claude",
+    "plan-reviewer-a": "claude",
+    "plan-reviewer-b": "claude",
+    "arbiter": "claude",
+    "builder": "claude",
+    "code-reviewer-a": "claude",
+    "code-reviewer-b": "claude",
+    "fixer": "claude"
+  }
+}
+EOF
+  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import json
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import migrate_from_snapshot
+written = migrate_from_snapshot(Path(sys.argv[1]))
+assert written is True, "expected legacy role backfill write"
+orch = json.loads((Path(sys.argv[1]) / "orchestration.json").read_text())
+assert orch["models"]["review-arbiter"] == "claude", orch["models"]
+PY
+
+  rm -f "$tmpdir/orchestration.json"
+  cat > "$tmpdir/logs/allowlist_snapshot.json" <<'EOF'
+{
+  "models": {
     "planner": "claude"
   }
 }
@@ -532,9 +560,52 @@ PY
   rm -rf "$tmpdir"
 }
 
-test_resume_does_not_modify_existing_orchestration_json() {
-  # An existing orchestration.json must be preserved byte-for-byte by the
-  # resume migration helper.
+test_resume_backfills_existing_legacy_orchestration_json() {
+  # Existing orchestration.json created before review-arbiter was introduced
+  # should self-heal on resume.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/logs"
+  write_allowlist_snapshot "$tmpdir/logs/allowlist_snapshot.json"
+  cat > "$tmpdir/orchestration.json" <<'EOF'
+{
+  "version": 1,
+  "models": {
+    "planner": "claude",
+    "plan-reviewer-a": "claude",
+    "plan-reviewer-b": "claude",
+    "arbiter": "claude",
+    "builder": "claude",
+    "code-reviewer-a": "claude",
+    "code-reviewer-b": "claude",
+    "fixer": "claude"
+  },
+  "source": "overridden",
+  "overridden_roles": ["planner", "builder"],
+  "preflight_validated_at": "2026-05-18T05:42:13Z"
+}
+EOF
+
+  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import json
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import migrate_from_snapshot
+quest_dir = Path(sys.argv[1])
+written = migrate_from_snapshot(quest_dir)
+assert written is True, "expected legacy backfill write"
+orch = json.loads((quest_dir / "orchestration.json").read_text())
+assert orch["models"]["review-arbiter"] == "claude", orch["models"]
+assert orch["source"] == "overridden", orch
+assert orch["overridden_roles"] == ["planner", "builder"], orch
+PY
+
+  rm -rf "$tmpdir"
+}
+
+test_resume_does_not_modify_existing_complete_orchestration_json() {
+  # Existing complete orchestration.json must be preserved byte-for-byte.
   local tmpdir orig_bytes new_bytes
   tmpdir=$(mktemp -d)
   mkdir -p "$tmpdir/logs"
@@ -550,6 +621,7 @@ test_resume_does_not_modify_existing_orchestration_json() {
     "builder": "claude",
     "code-reviewer-a": "claude",
     "code-reviewer-b": "claude",
+    "review-arbiter": "claude",
     "fixer": "claude"
   },
   "source": "overridden",
@@ -647,7 +719,8 @@ run_test test_chooser_skips_empty_pieces
 run_test test_chooser_normalizes_role_case
 run_test test_resume_migrates_missing_orchestration_json
 run_test test_resume_reports_missing_or_invalid_snapshot
-run_test test_resume_does_not_modify_existing_orchestration_json
+run_test test_resume_backfills_existing_legacy_orchestration_json
+run_test test_resume_does_not_modify_existing_complete_orchestration_json
 run_test test_workflow_dispatch_reads_orchestration_json_not_allowlist
 run_test test_workflow_no_allowlist_models_string
 run_test test_workflow_defaults_are_not_dispatch_fallbacks

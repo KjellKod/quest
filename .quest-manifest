@@ -13,6 +13,7 @@
 .skills/quest/agents/fixer.md
 .skills/quest/agents/plan-reviewer.md
 .skills/quest/agents/planner.md
+.skills/quest/agents/review-arbiter.md
 .ai/roles/quest_agent.md
 .ai/schemas/allowlist.schema.json
 .ai/schemas/handoff.schema.json

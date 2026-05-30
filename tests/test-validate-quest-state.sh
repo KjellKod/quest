@@ -76,6 +76,7 @@ write_orchestration_json() {
     "builder": "gpt-5.5",
     "code-reviewer-a": "claude",
     "code-reviewer-b": "gpt-5.5",
+    "review-arbiter": "claude",
     "fixer": "gpt-5.5"
   },
   "source": "default",
@@ -1331,7 +1332,7 @@ test_validate_rejects_unset_active_role_model() {
   # arbiter required in workflow mode but null
   write_orchestration_json "$tmpdir/orchestration.json" '{
   "version": 1,
-  "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":null,"builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","fixer":"claude"},
+  "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":null,"builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","review-arbiter":"claude","fixer":"claude"},
   "source": "default",
   "overridden_roles": [],
   "preflight_validated_at": "2026-05-18T05:42:13Z"
@@ -1356,7 +1357,7 @@ test_validate_rejects_non_string_active_role_model() {
   write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
   write_orchestration_json "$tmpdir/orchestration.json" '{
   "version": 1,
-  "models": {"planner":true,"plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":"claude","builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","fixer":"claude"},
+  "models": {"planner":true,"plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":"claude","builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","review-arbiter":"claude","fixer":"claude"},
   "source": "default",
   "overridden_roles": [],
   "preflight_validated_at": "2026-05-18T05:42:13Z"
