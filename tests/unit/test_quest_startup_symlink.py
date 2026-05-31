@@ -119,6 +119,26 @@ def test_apply_quest_symlink_existing_symlink_is_present_noop(tmp_path: Path) ->
     assert _target(worktree_quest) == shared_quest
 
 
+def test_apply_quest_symlink_wrong_symlink_preserves_and_replaces(
+    tmp_path: Path,
+) -> None:
+    worktree_quest = tmp_path / "worktree" / ".quest"
+    shared_quest = tmp_path / "main" / ".quest"
+    wrong_quest = tmp_path / "wrong" / ".quest"
+    worktree_quest.parent.mkdir()
+    shared_quest.mkdir(parents=True)
+    wrong_quest.mkdir(parents=True)
+    worktree_quest.symlink_to(wrong_quest)
+
+    assert apply_quest_symlink(worktree_quest, shared_quest) == "conflict"
+
+    assert worktree_quest.is_symlink()
+    assert _target(worktree_quest) == shared_quest
+    preserved = shared_quest.parent / ".quest_conflicts" / "worktree" / ".quest"
+    assert preserved.is_symlink()
+    assert _target(preserved) == wrong_quest
+
+
 def test_apply_quest_symlink_empty_real_dir_returns_created(tmp_path: Path) -> None:
     worktree_quest = tmp_path / "worktree" / ".quest"
     shared_quest = tmp_path / "main" / ".quest"

@@ -174,10 +174,27 @@ def _conflict_dir_for(worktree_quest: Path, shared_quest: Path) -> Path:
     return shared_quest.parent / ".quest_conflicts" / worktree_name
 
 
+def _symlink_points_to(path: Path, target: Path) -> bool:
+    link_target = path.readlink()
+    if not link_target.is_absolute():
+        link_target = path.parent / link_target
+    return link_target.resolve() == target.resolve()
+
+
 def apply_quest_symlink(worktree_quest: Path, shared_quest: Path) -> str:
     """Ensure a worktree .quest symlink with migration and no data loss."""
     if worktree_quest.is_symlink():
-        return "present"
+        if _symlink_points_to(worktree_quest, shared_quest):
+            return "present"
+        shared_quest.mkdir(parents=True, exist_ok=True)
+        conflict_dir = _conflict_dir_for(worktree_quest, shared_quest)
+        conflict_dir.mkdir(parents=True, exist_ok=True)
+        shutil.move(
+            str(worktree_quest),
+            str(_unique_destination(conflict_dir / ".quest")),
+        )
+        worktree_quest.symlink_to(shared_quest)
+        return "conflict"
 
     shared_quest.mkdir(parents=True, exist_ok=True)
 
