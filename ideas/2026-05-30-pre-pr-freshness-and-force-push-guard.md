@@ -50,9 +50,36 @@ As the first step of PR creation (before push / before `gh pr create`):
 3. If the branch is already up to date with the default branch → do nothing,
    continue.
 4. Otherwise sync the branch onto it (rebase by default; see Open Questions).
-   - **Clean sync** → continue to push + open the PR. No prompts.
-   - **Conflict** → stop and surface the conflicting files to the human. This is
-     the *only* human-interaction point.
+   - **Auto-merges cleanly** (the common case — our changes and main's touch
+     different lines, so git merges them with no conflict at all) → continue to
+     push + open the PR. No prompts.
+   - **Conflicting hunks** (overlapping edits to the same lines) → *attempt* a
+     resolution, but only when it is clearly safe and non-destructive:
+     - additive / adjacent / whitespace / import-or-list ordering, where both
+       sides' intent is preserved and **nothing from main is dropped** → resolve
+       and continue.
+     - if a correct resolution would **overwrite or delete code/instructions that
+       came from main**, or the right resolution is ambiguous → **pause and
+       surface the specific conflicting hunks to the human.** When in doubt,
+       pause. (Same posture as the review-arbiter: never silently discard
+       someone else's work.)
+
+### What git can and can't do here
+
+- **It already does the 9/10 case for free.** Non-overlapping changes are not
+  conflicts — `git rebase`/`merge` merges them automatically. Most "I'm behind
+  main" syncs finish with zero conflicts.
+- **It can detect and locate conflicts precisely, without touching your tree.**
+  `git merge-tree <base> <branch>` does a virtual merge and reports the
+  conflicted files/hunks up front; once in a conflicted state, `git ls-files -u`,
+  the `<<<<<<<`/`=======`/`>>>>>>>` markers, and `git diff --check` pinpoint them.
+- **It does *not* judge whether a resolution is safe vs destructive.** The blunt
+  strategy options (`-X theirs` / `-X ours`) force a blanket pick of one side and
+  can silently drop the other — exactly the overwrite risk to avoid. There is no
+  built-in "this conflict is just line-alignment" classifier. So the
+  safe-resolve-vs-pause decision is a *semantic judgment* the skill makes
+  conservatively: resolve only clearly-additive/non-destructive hunks; pause on
+  anything that removes main's content or is ambiguous.
 
 ### No permissions to grant — it just works
 
@@ -81,7 +108,10 @@ conflict.
   the PR; re-running it here would just duplicate CI and add latency. The feature
   is about *not being stale*, not about re-validating. (If a repo ever wants a
   fast local pre-check, that's a separate, optional, opt-in idea — likely YAGNI.)
-- **No auto-resolving conflicts.** Conflicts always stop and ask.
+- **No blind/blanket conflict resolution.** No `-X theirs` / `-X ours` sweeps and
+  no auto-resolution that drops content from main. Clearly-safe, non-destructive
+  conflicts may be resolved; anything destructive or ambiguous pauses for the
+  human.
 - **Not a CI change.** This runs locally, before the PR exists.
 
 ## Open questions
