@@ -6,7 +6,6 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
-| 2026-05-31 | [pre-pr-sync](pre-pr-sync_2026-05-31.md) | **Abandoned.** Plan approved for default-branch pre-PR sync, but no implementation, remote branch, or PR shipped. |
 | 2026-05-22 | [sharpen-grounding](sharpen-grounding_2026-05-22.md) | Improve the standalone sharpen skill so its questions are grounded in repo evidence when local implementation facts m... |
 | 2026-05-18 | [orchestration-override](orchestration-override_2026-05-18.md) | 1. New per-quest config file `.quest/<id>/orchestration.json` written at quest startup. This file is the single sourc... |
 | 2026-05-15 | [pr-shepherd-operational-intake](pr-shepherd-operational-intake_2026-05-15.md) | `$quest implement ideas/2026-05-14-pr-shepherd-operational-intake.md` |
