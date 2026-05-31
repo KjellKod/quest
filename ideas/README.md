@@ -47,7 +47,6 @@ Current roadmap:
 | `2026-04-29-research-fanout-skill.md` | proposed | Add a reusable research fan-out skill for human-triggered and planner-requested parallel investigation with reconciled findings. |
 | `2026-05-19-sharpen-context-grounding.md` | proposed | Require sharpening questions to be grounded in targeted repo evidence before asking the user. |
 | `2026-05-26-native-runtime-dispatch.md` | proposed | Prefer native same-family sub-agent dispatch before cross-family bridge/MCP adapters. |
-| `2026-05-30-pre-pr-freshness-and-force-push-guard.md` | proposed | `pr-assistant` syncs the branch with the remote default branch as part of PR creation so we never open a PR stale against main; clean sync proceeds automatically, only conflicts stop for the human. |
 | `dual-model-planning.md` | proposed | Explore parallel plan generation with arbiter synthesis instead of a single planner output. |
 | `2026-04-13-codex-companion-runtime.md` | proposed | Phased prove-it roadmap for a shared Codex runtime serving both the human `/gpt` command surface and Quest orchestration, with strict go/no-go criteria after the minimum slice. |
 | `2026-04-13-feedback-intent-routing.md` | proposed | Canonical feedback-routing proposal: classify live quest feedback by intent and route to clarify, replan, second-opinion, or escalation paths deliberately. |
@@ -89,6 +88,7 @@ Current roadmap:
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| done | ~~2026-05-30-pre-pr-freshness-and-force-push-guard.md~~ | Implemented shared pre-PR default-branch sync helper and skill wiring. See [journal](../docs/quest-journal/pre-pr-sync_2026-05-31.md). |
 | won't-do | ~~2026-04-15-pretooluse-branch-dir-verification-hook~~ | `PreToolUse` stdout is debug-log-only (invisible), reads orchestrator cwd not the edit target, and never fires under Codex/MCP. Statusline covers the intent on the Claude side. Built + closed in PR #116. Archived at [`ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md`](archive/2026-04-15-pretooluse-branch-dir-verification-hook.md). |
 | won't-do | ~~2026-04-15-claude-rule-confirm-pwd-branch-before-edits~~ | Soft "run `pwd`/`git branch` before edits" prose — no enforcement, instruction sprawl, visibility already covered by statusline. Retired with the hook (PR #116). Archived at [`ideas/archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md`](archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md). |
 | won't-do | ~~2026-04-15-subagent-path-constraints-hardening~~ | Superseded — `quest_validate-quest-state.sh` already blocks transitions on missing/misplaced canonical artifacts (both runtimes); PR #116's second validator was inert + redundant. Residual failure-diagnostics belong to `handoff-validation-and-failure-ux`. Archived at [`ideas/archive/2026-04-15-subagent-path-constraints-hardening.md`](archive/2026-04-15-subagent-path-constraints-hardening.md). |

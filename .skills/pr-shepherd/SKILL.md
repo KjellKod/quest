@@ -57,6 +57,23 @@ workspace still matches the PR branch:
    is that worktree before committing.
 6. If branch or workspace verification fails, stop and ask the user to confirm
    the intended workspace before editing, committing, or pushing.
+7. After workspace verification, sync with the remote default branch from this
+   PR worktree using the shared helper:
+   - For normal shepherding of an already-open PR, run
+     `python3 scripts/pr_sync_default_branch.py --strategy merge --apply --json`.
+     Merge is the default shepherd strategy because it avoids rewriting an
+     under-review PR's commit SHAs and preserves inline review-thread anchoring.
+   - If the payload is `status: "up_to_date"` or `status: "synced"`, continue.
+   - If the payload is `status: "conflict"`, surface `conflict_files` and the
+     specific hunks. Resolve only clearly safe, non-destructive conflicts
+     (additive / adjacent / whitespace / import-or-list ordering where nothing
+     from `main` is dropped); otherwise pause and ask the human. Never use
+     blanket `-X theirs` or `-X ours`.
+   - If a repo-specific decision uses `--strategy rebase` instead, honor the
+     helper payload: push with `git push --force-with-lease` when
+     `force_with_lease: true`; otherwise push normally. This is the same narrow
+     lease-protected own-PR-branch exception documented in
+     `.skills/pr-assistant/SKILL.md` under `Force-with-lease exception`.
 
 This guard is mandatory before:
 - any CI-fix commit/push in Step 3,
