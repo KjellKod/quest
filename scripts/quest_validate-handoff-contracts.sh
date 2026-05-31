@@ -14,9 +14,10 @@ ROLE_FILES=(
   ".skills/quest/agents/arbiter.md"
   ".skills/quest/agents/builder.md"
   ".skills/quest/agents/code-reviewer.md"
+  ".skills/quest/agents/review-arbiter.md"
   ".skills/quest/agents/fixer.md"
 )
-EXPECTED_ROLE_COUNT=6
+EXPECTED_ROLE_COUNT=7
 
 if [ "${#ROLE_FILES[@]}" -ne "$EXPECTED_ROLE_COUNT" ]; then
   echo "❌ Role file enumeration error: expected $EXPECTED_ROLE_COUNT, got ${#ROLE_FILES[@]}"

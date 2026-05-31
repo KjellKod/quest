@@ -60,7 +60,7 @@ $quest "Add a loading skeleton to the user list"
 
 That's it. Quest evaluates complexity, asks clarifying questions if needed, and routes to solo or full workflow. Before implementation, you get a plan summary menu: walk through the phases, sharpen the plan with adversarial Q&A, or proceed to build. You approve at each gate.
 
-**Recommended:** Add [Codex CLI](https://developers.openai.com/codex/cli/) for dual-model reviews. See the [Setup Guide](docs/guides/quest_setup.md) for full instructions including Codex as orchestrator (BETA). To use Quest as a global Codex skill outside a specific repo, see [Installing Quest for Codex](docs/guides/codex-quest-install.md).
+**Recommended:** Add both [Codex CLI](https://developers.openai.com/codex/cli/) and [Claude CLI](https://code.claude.com/docs/en/quickstart) for dual-model reviews. See the [Setup Guide](docs/guides/quest_setup.md) for full instructions, which include using either Codex or Claude as the orchestrator.
 
 ## Writing a Good Brief
 

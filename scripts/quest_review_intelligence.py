@@ -77,7 +77,37 @@ def _deferred_jsonl_from_backlog(backlog_path: Path) -> Path:
 
 
 def _cmd_validate_findings(args: argparse.Namespace) -> int:
-    findings = _extract_findings(_load_json(Path(args.input)))
+    # Fail closed on the contract: missing, unparsable, or wrong-shape input is a
+    # hard validation failure, not a crash. Emit the same plural count/errors
+    # shape as a content-level failure so Step 5 can key off exit code + payload
+    # without parsing a traceback. The empty array [] remains valid input.
+    input_path = Path(args.input)
+    try:
+        findings = _extract_findings(_load_json(input_path))
+    except FileNotFoundError:
+        payload = {
+            "ok": False,
+            "count": 0,
+            "errors": [f"findings file not found: {input_path}"],
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 1
+    except json.JSONDecodeError as exc:
+        payload = {
+            "ok": False,
+            "count": 0,
+            "errors": [f"findings file is not valid JSON: {input_path} ({exc})"],
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 1
+    except ValueError as exc:
+        payload = {
+            "ok": False,
+            "count": 0,
+            "errors": [str(exc)],
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 1
     errors = validate_findings(findings)
     payload = {"ok": not errors, "count": len(findings), "errors": errors}
     print(json.dumps(payload, indent=2, sort_keys=True))

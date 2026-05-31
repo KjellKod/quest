@@ -12,6 +12,16 @@ They are **not** the skills themselves. The portable review/build/fix methodolog
 | Tool and model selection | No | Yes |
 | Parallel slot config | No | Yes |
 
+## Agent wiring files
+
+- `planner.md`
+- `plan-reviewer.md`
+- `arbiter.md` — plan-phase adjudicator
+- `builder.md`
+- `code-reviewer.md`
+- `review-arbiter.md` — code-review-phase adjudicator (replaces deterministic `merge-findings` in workflow mode; mirrors `arbiter.md` mechanics with the opposite correctness risk posture)
+- `fixer.md`
+
 This separation keeps skills portable across repos while letting Quest define its own orchestration layer on top.
 
 For background on why these files were split from `.ai/roles/`, see `docs/quest-journal/phase4-role-wiring_2026-02-18.md`.

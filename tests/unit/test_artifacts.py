@@ -72,6 +72,22 @@ class TestExpectedArtifactsForRole:
             "handoff_arbiter.json",
         ]
 
+    def test_review_arbiter_uses_next_artifacts_in_review_phase(self, tmp_path: Path):
+        paths = expected_artifacts_for_role(tmp_path, "code_review", "review-arbiter")
+        names = [p.name for p in paths]
+        assert names == [
+            "review_arbiter_verdict.md.next",
+            "review_findings.json.next",
+            "handoff_review-arbiter.json",
+        ]
+        assert all("phase_03_review" in str(p) for p in paths)
+
+    def test_review_arbiter_returns_empty_in_solo_mode(self, tmp_path: Path):
+        paths = expected_artifacts_for_role(
+            tmp_path, "code_review", "review-arbiter", quest_mode="solo"
+        )
+        assert paths == []
+
     def test_solo_mode_excludes_disabled_agents(self, tmp_path: Path):
         for agent in SOLO_DISABLED_AGENTS:
             paths = expected_artifacts_for_role(
@@ -102,6 +118,7 @@ class TestExpectedArtifactsForRole:
             "builder": "implementation",
             "code-reviewer-a": "code_review",
             "code-reviewer-b": "code_review",
+            "review-arbiter": "code_review",
             "fixer": "fix",
         }
         for role in ROLE_ARTIFACTS:

@@ -104,8 +104,6 @@ The installer:
 - Updates `AGENTS.md` in place only when it still matches the stored Quest-managed checksum
 - Self-updates when a newer version is available
 
-To use Quest as a global Codex skill outside a specific repo, see [Installing Quest for Codex](codex-quest-install.md).
-
 ### Option B: Manual Copy
 
 ## What to Copy
@@ -231,8 +229,6 @@ If you don't have Codex or prefer Claude for all roles, set in `allowlist.json`:
 
 The plan and code reviewers will also fall back to Claude if Codex is unavailable.
 
-If you want Codex to discover Quest as a global skill (outside the repository), see [Installing Quest for Codex](codex-quest-install.md).
-
 ## Codex-Led Claude Bridge
 
 When Codex orchestrates a quest, it probes and sets up the Claude bridge before the first Claude-designated role. For browser-login auth, Quest treats Claude availability as host-context state, not sandbox-local state.
@@ -280,8 +276,6 @@ python3 scripts/quest_claude_probe.py \
 ```
 
 This is the same probe Quest runs automatically. It asks Claude to write a real artifact and a handoff JSON, proving the bridge works end-to-end. Useful for debugging if Claude-designated roles aren't connecting.
-
-If you need Codex to discover Quest as a global skill outside the repository, see [Installing Quest for Codex](codex-quest-install.md).
 
 ## Verification
 

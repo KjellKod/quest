@@ -203,10 +203,10 @@ validate_orchestration_json() {
   # Required roles depend on quest_mode.
   # Keep this list in sync with workflow.md dispatch sites
   # (planner, plan-reviewer-a, plan-reviewer-b, arbiter, builder,
-  # code-reviewer-a, code-reviewer-b, fixer).
+  # code-reviewer-a, code-reviewer-b, review-arbiter, fixer).
   local required_roles=("planner" "plan-reviewer-a" "builder" "code-reviewer-a" "fixer")
   if [ "$QUEST_MODE" != "solo" ]; then
-    required_roles+=("plan-reviewer-b" "arbiter" "code-reviewer-b")
+    required_roles+=("plan-reviewer-b" "arbiter" "code-reviewer-b" "review-arbiter")
   fi
 
   local missing_roles=()
@@ -641,25 +641,63 @@ validate_semantic_content() {
         fail "Semantic check: review backlog has $REVIEW_BACKLOG_HUMAN_DECISION_COUNT needs_human_decision item(s); cannot auto-complete"
       fi
 
-      # Safety check: block completion if any reviewer handoff requested fixes
+      # Safety check. Two separable concerns:
+      #  (1) The required reviewer handoffs must always be PRESENT and well-formed
+      #      (valid JSON, status=complete, next null|fixer) — validated in every
+      #      mode/path via read_required_reviewer_handoff.
+      #  (2) Whether a reviewer's next=fixer BLOCKS completion is conditional: it
+      #      is authoritative only when there is no trustworthy review-arbiter
+      #      verdict. Once the review-arbiter has adjudicated (handoff present and
+      #      complete), the arbiter's verdict is authoritative and per-reviewer
+      #      next hints are diagnostic-only (workflow.md Step 5, Q5). Solo mode,
+      #      the dual-empty skip, and the arbiter fail-open path have no trustworthy
+      #      arbiter verdict (the orchestrator deletes/clears handoff_review-arbiter.json
+      #      on fail-open and between rounds), so the per-reviewer next gate applies.
+
+      # (1) Always validate reviewer handoff presence/shape (and capture next).
       local reviewer_a_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
       local next_a
       if ! read_required_reviewer_handoff "$reviewer_a_handoff"; then
         return
       fi
       next_a="$REQUIRED_HANDOFF_NEXT"
-      if [ "$next_a" = "fixer" ]; then
-        fail "Semantic check: code-reviewer-a requested fixes (next=fixer) but completion attempted"
-      fi
 
+      local next_b=""
+      local has_reviewer_b=0
       if [ "$QUEST_MODE" != "solo" ]; then
+        has_reviewer_b=1
         local reviewer_b_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
-        local next_b
         if ! read_required_reviewer_handoff "$reviewer_b_handoff"; then
           return
         fi
         next_b="$REQUIRED_HANDOFF_NEXT"
-        if [ "$next_b" = "fixer" ]; then
+      fi
+
+      # Is there a trustworthy review-arbiter verdict this round?
+      local arbiter_handoff="$quest_dir/phase_03_review/handoff_review-arbiter.json"
+      local arbiter_trustworthy=0
+      local arbiter_next=""
+      if [ "$QUEST_MODE" != "solo" ] && [ -f "$arbiter_handoff" ] \
+        && jq empty "$arbiter_handoff" 2>/dev/null \
+        && jq -e 'has("status") and .status == "complete" and has("next") and (.next == null or .next == "fixer")' "$arbiter_handoff" >/dev/null 2>&1; then
+        arbiter_trustworthy=1
+        arbiter_next=$(jq -r '.next' "$arbiter_handoff" 2>/dev/null)
+        [ "$arbiter_next" = "null" ] && arbiter_next=""
+      fi
+
+      # (2) next-based gating.
+      if [ "$arbiter_trustworthy" -eq 1 ]; then
+        # Arbiter verdict authoritative; reviewer next hints are diagnostic-only.
+        if [ "$arbiter_next" = "fixer" ]; then
+          fail "Semantic check: review-arbiter requested fixes (next=fixer) but completion attempted"
+        fi
+      else
+        # No trustworthy arbiter verdict (solo / dual-empty skip / fail-open):
+        # the per-reviewer signal applies.
+        if [ "$next_a" = "fixer" ]; then
+          fail "Semantic check: code-reviewer-a requested fixes (next=fixer) but completion attempted"
+        fi
+        if [ "$has_reviewer_b" -eq 1 ] && [ "$next_b" = "fixer" ]; then
           fail "Semantic check: code-reviewer-b requested fixes (next=fixer) but completion attempted"
         fi
       fi

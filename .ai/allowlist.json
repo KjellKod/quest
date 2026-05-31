@@ -27,6 +27,7 @@
     "builder": "gpt-5.5",
     "code-reviewer-a": "claude",
     "code-reviewer-b": "gpt-5.5",
+    "review-arbiter": "claude",
     "fixer": "gpt-5.5"
   },
   "quest_startup": {
@@ -109,6 +110,19 @@
       ]
     },
     "arbiter_agent": {
+      "file_write": [
+        ".quest/**"
+      ],
+      "file_read": [
+        "**"
+      ],
+      "bash": [
+        "git status",
+        "git diff",
+        "gh pr view"
+      ]
+    },
+    "review_arbiter_agent": {
       "file_write": [
         ".quest/**"
       ],

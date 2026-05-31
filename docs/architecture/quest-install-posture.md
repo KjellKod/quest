@@ -8,7 +8,6 @@ owner: maintainers
 last_updated: 2026-05-26
 related:
   - docs/architecture/orchestration-runtime-v1.md
-  - docs/guides/codex-quest-install.md
 ---
 
 # Quest Install Posture — In-Repo vs Outside-In
@@ -69,10 +68,9 @@ up by host-specific means:
   install Quest's skill at the user level (`~/.claude/skills/`) so it is
   discoverable in every repo. The in-repo installer does *not* do this
   for you.
-- **Codex:** install Quest as a global Codex skill — see
-  [`docs/guides/codex-quest-install.md`](../guides/codex-quest-install.md).
-  Note this is still a *copy* into `~/.codex/skills/`, not a live
-  reference.
+- **Codex:** install Quest as a global Codex skill — still a *copy* into
+  `~/.codex/skills/`, not a live reference. The in-repo installer does not
+  do this for you.
 
 > Caveat: a user-level/global skill install is still a copy that you
 > update in one place — it is "outside-in" relative to each *project*,

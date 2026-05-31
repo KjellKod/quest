@@ -30,6 +30,7 @@ CANONICAL_ROLES: tuple[str, ...] = (
     "builder",
     "code-reviewer-a",
     "code-reviewer-b",
+    "review-arbiter",
     "fixer",
 )
 
@@ -41,12 +42,17 @@ DEFAULT_MODELS: dict[str, str] = {
     "builder": "gpt-5.5",
     "code-reviewer-a": "claude",
     "code-reviewer-b": "gpt-5.5",
+    "review-arbiter": "claude",
     "fixer": "gpt-5.5",
 }
 
+# Roles added after early snapshots/existing orchestration files were already
+# written. These keys may be backfilled from DEFAULT_MODELS during resume.
+LEGACY_COMPAT_BACKFILL_ROLES: frozenset[str] = frozenset({"review-arbiter"})
+
 # Roles that may legitimately be unused (and therefore null) in solo mode.
 SOLO_UNUSED_ROLES: frozenset[str] = frozenset(
-    {"plan-reviewer-b", "code-reviewer-b", "arbiter"}
+    {"plan-reviewer-b", "code-reviewer-b", "arbiter", "review-arbiter"}
 )
 
 ORCHESTRATION_VERSION = 1
@@ -230,7 +236,7 @@ def load_codex_available_from_cache(cache_path: Path) -> bool:
 
 
 def build_default_models(allowlist_models: dict[str, str | None]) -> dict[str, str | None]:
-    """Return a fresh copy of an allowlist `models` block with all 8 keys.
+    """Return a fresh copy of an allowlist `models` block with all 9 keys.
 
     Missing keys are filled from the documented workflow defaults so older or
     customized allowlists that omit a role do not write unusable null entries.
@@ -242,18 +248,35 @@ def build_default_models(allowlist_models: dict[str, str | None]) -> dict[str, s
     }
 
 
+def _backfill_legacy_compatible_roles(
+    models: dict[str, str | None],
+) -> tuple[dict[str, str | None], list[str]]:
+    """Backfill known legacy-compatible missing roles with defaults."""
+    merged = dict(models)
+    backfilled: list[str] = []
+    for role in CANONICAL_ROLES:
+        if role in merged:
+            continue
+        if role in LEGACY_COMPAT_BACKFILL_ROLES:
+            merged[role] = DEFAULT_MODELS[role]
+            backfilled.append(role)
+    return merged, backfilled
+
+
 def build_snapshot_models(snapshot_models: dict[str, str | None]) -> dict[str, str | None]:
     """Return a shape-stable model block from a saved snapshot.
 
-    Unlike fresh allowlist defaults, resume migration must not silently invent
-    values for roles that were absent from the saved snapshot baseline.
+    Unlike fresh allowlist defaults, resume migration stays fail-closed for
+    genuinely missing roles. The only exception is explicitly legacy-compatible
+    role introductions listed in LEGACY_COMPAT_BACKFILL_ROLES.
     """
-    missing = [role for role in CANONICAL_ROLES if role not in snapshot_models]
+    merged, _ = _backfill_legacy_compatible_roles(snapshot_models)
+    missing = [role for role in CANONICAL_ROLES if role not in merged]
     if missing:
         raise ValueError(
             "Snapshot models missing required role(s): " + ", ".join(missing)
         )
-    return {role: snapshot_models.get(role) for role in CANONICAL_ROLES}
+    return {role: merged.get(role) for role in CANONICAL_ROLES}
 
 
 def apply_overrides(
@@ -345,13 +368,36 @@ def migrate_from_snapshot(
 ) -> bool:
     """Resume migration: copy snapshot models into orchestration.json.
 
-    Returns True if a new orchestration.json was written, False if the file
-    already existed (in which case it is left untouched per SKILL.md Step 1
-    sub-step 1a — `Never prompt the chooser on resume`).
+    Returns True if orchestration.json was written or legacy-backfilled.
+    Existing files are preserved unless they are missing known
+    legacy-compatible role introductions.
     """
     orch_path = quest_dir / "orchestration.json"
     if orch_path.exists():
-        return False
+        try:
+            with orch_path.open("r", encoding="utf-8") as handle:
+                existing = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(existing, dict):
+            return False
+        existing_models = existing.get("models")
+        if not isinstance(existing_models, dict):
+            return False
+        merged_models, backfilled = _backfill_legacy_compatible_roles(existing_models)
+        if not backfilled:
+            return False
+        existing["models"] = {
+            role: merged_models.get(role) for role in CANONICAL_ROLES
+        }
+        if not isinstance(existing.get("preflight_validated_at"), str) or not existing.get(
+            "preflight_validated_at"
+        ):
+            existing["preflight_validated_at"] = preflight_validated_at or _now_iso()
+        with orch_path.open("w", encoding="utf-8") as handle:
+            json.dump(existing, handle, indent=2)
+            handle.write("\n")
+        return True
     snapshot_path = quest_dir / "logs" / "allowlist_snapshot.json"
     try:
         with snapshot_path.open("r", encoding="utf-8") as handle:

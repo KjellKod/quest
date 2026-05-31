@@ -25,6 +25,7 @@
           "builder": "allow",
           "code-reviewer-a": "allow",
           "code-reviewer-b": "allow",
+          "review-arbiter": "allow",
           "fixer": "allow"
         },
         "edit": {
@@ -144,6 +145,19 @@
           "git log*": "allow",
           "git status*": "allow"
         }
+      }
+    },
+    "review-arbiter": {
+      "description": "Impartial judge for the code-review phase; adjudicates A/B findings against the diff and emits canonical review_findings.json",
+      "mode": "subagent",
+      "model": "opencode/claude-opus-4-6",
+      "prompt": "{file:agents/review-arbiter.md}",
+      "permission": {
+        "edit": {
+          "*": "deny",
+          ".quest/**": "allow"
+        },
+        "bash": "deny"
       }
     },
     "fixer": {
