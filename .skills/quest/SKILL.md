@@ -24,7 +24,7 @@ When starting, say: "Now I understand the Quest." Then proceed.
 If the user provides a quest ID matching either supported Quest ID format (`<slug>_YYYY-MM-DD__HHMM` or `YYYY-MM-DD_HHMM__<slug>`):
 1. Read `.quest/<id>/state.json` and resume from the recorded phase
 1a. **Orchestration config migration.** On resume, run `quest_runtime.orchestration.migrate_from_snapshot` before dispatch (it is tested; keep the behavior in one place):
-   - **Missing `orchestration.json`** → it is written from `.quest/<id>/logs/allowlist_snapshot.json` (`models`), filling any missing canonical role (including newly-introduced ones like `review-arbiter`) from `DEFAULT_MODELS`; only a structurally invalid snapshot (unreadable, not valid JSON, or no `models` object) is malformed.
+   - **Missing `orchestration.json`** → it is written from `.quest/<id>/logs/allowlist_snapshot.json` (`models`). Only explicitly legacy-compatible newly-introduced roles (`LEGACY_COMPAT_BACKFILL_ROLES`, currently `review-arbiter`) are backfilled from `DEFAULT_MODELS`; a snapshot missing any **other** canonical role (e.g. `builder`) is **malformed** — fail closed, never invent a default (that would bypass the saved per-quest model contract). A structurally invalid snapshot (unreadable, not valid JSON, or no `models` object) is also malformed.
    - **Existing `orchestration.json`** → it is backfilled in place with any newly-introduced canonical roles at their default, preserving every existing value/metadata field, and left byte-identical when nothing is missing — so an in-flight quest that predates a new required role does not fail validation/dispatch on resume.
    - **Never prompt the chooser on resume.**
 2. Delegate to `delegation/workflow.md`
