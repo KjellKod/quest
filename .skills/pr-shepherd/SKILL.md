@@ -58,7 +58,10 @@ workspace still matches the PR branch:
 6. If branch or workspace verification fails, stop and ask the user to confirm
    the intended workspace before editing, committing, or pushing.
 7. After workspace verification, sync with the remote default branch from this
-   PR worktree using the shared helper:
+   PR worktree using the shared helper only when the worktree is clean. If the
+   worktree is dirty because a local fix is being prepared, do not apply sync
+   over those edits; finish and validate the fix commit first, then rerun this
+   guard before pushing:
    - For normal shepherding of an already-open PR, run
      `python3 scripts/pr_sync_default_branch.py --strategy merge --apply --json`.
      Merge is the default shepherd strategy because it avoids rewriting an

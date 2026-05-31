@@ -60,7 +60,22 @@ def _message(result: subprocess.CompletedProcess[str]) -> str:
     return (result.stderr or result.stdout).strip()[:500]
 
 
+def _parse_remote_head(output: str) -> str:
+    prefix = "refs/heads/"
+    for raw_line in output.splitlines():
+        parts = raw_line.strip().split()
+        if len(parts) == 3 and parts[0] == "ref:" and parts[2] == "HEAD" and parts[1].startswith(prefix):
+            return parts[1][len(prefix) :]
+    return ""
+
+
 def detect_default_branch() -> tuple[str, str]:
+    remote_head = _run(["git", "ls-remote", "--symref", "origin", "HEAD"])
+    if remote_head.returncode == 0:
+        branch = _parse_remote_head(remote_head.stdout)
+        if branch:
+            return branch, "ls-remote"
+
     symbolic = _run(["git", "symbolic-ref", "refs/remotes/origin/HEAD"])
     if symbolic.returncode == 0:
         ref = symbolic.stdout.strip()
@@ -150,6 +165,25 @@ def _apply_sync(strategy: str, default_ref: str) -> tuple[int, str]:
     return result.returncode, _message(result)
 
 
+def _pre_apply_error() -> tuple[str, str]:
+    status = _run(["git", "status", "--porcelain"])
+    if status.returncode != 0:
+        return "status_failed", _message(status)
+    if status.stdout.strip():
+        return "worktree_dirty", ""
+
+    for ref, reason in (
+        ("MERGE_HEAD", "merge_in_progress"),
+        ("REBASE_HEAD", "rebase_in_progress"),
+        ("CHERRY_PICK_HEAD", "cherry_pick_in_progress"),
+    ):
+        result = _run(["git", "rev-parse", "--verify", "-q", ref])
+        if result.returncode == 0:
+            return reason, ""
+
+    return "", ""
+
+
 def sync(strategy: str = "rebase", *, apply: bool = False) -> tuple[int, dict[str, Any]]:
     payload = _base_payload(strategy)
 
@@ -210,6 +244,13 @@ def sync(strategy: str = "rebase", *, apply: bool = False) -> tuple[int, dict[st
             }
         )
         return 0, payload
+
+    guard_reason, guard_message = _pre_apply_error()
+    if guard_reason:
+        payload.update({"status": STATUS_ERROR, "reason": guard_reason})
+        if guard_message:
+            payload["message"] = guard_message
+        return 1, payload
 
     apply_code, apply_message = _apply_sync(strategy, default_ref)
     if apply_code != 0:

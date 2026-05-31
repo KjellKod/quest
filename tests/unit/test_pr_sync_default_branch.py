@@ -24,29 +24,50 @@ def _install_runner(monkeypatch, handler):
 def _standard_success(args: list[str]) -> _Result:
     if args == ["git", "fetch", "origin"]:
         return _Result()
-    if args == ["git", "symbolic-ref", "refs/remotes/origin/HEAD"]:
-        return _Result(stdout="refs/remotes/origin/main\n")
+    if args == ["git", "ls-remote", "--symref", "origin", "HEAD"]:
+        return _Result(stdout="ref: refs/heads/main\tHEAD\n")
     if args == ["git", "merge-base", "--is-ancestor", "origin/main", "HEAD"]:
         return _Result(returncode=1)
     if args[:4] == ["git", "merge-tree", "--write-tree", "--no-messages"]:
         return _Result(stdout="a" * 40 + "\0")
+    if args == ["git", "status", "--porcelain"]:
+        return _Result()
+    if len(args) == 5 and args[:4] == ["git", "rev-parse", "--verify", "-q"]:
+        return _Result(returncode=1)
     return _Result()
 
 
-def test_detects_default_branch_via_symbolic_ref(monkeypatch) -> None:
+def test_detects_default_branch_via_remote_head(monkeypatch) -> None:
     calls = _install_runner(
         monkeypatch,
-        lambda args: _Result(stdout="refs/remotes/origin/trunk\n")
-        if args == ["git", "symbolic-ref", "refs/remotes/origin/HEAD"]
+        lambda args: _Result(stdout="ref: refs/heads/trunk\tHEAD\nc0ffee\tHEAD\n")
+        if args == ["git", "ls-remote", "--symref", "origin", "HEAD"]
         else _Result(returncode=1),
     )
+
+    assert pr_sync_default_branch.detect_default_branch() == ("trunk", "ls-remote")
+    assert ["git", "symbolic-ref", "refs/remotes/origin/HEAD"] not in calls
+    assert ["gh", "repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"] not in calls
+
+
+def test_falls_back_to_symbolic_ref_when_remote_head_fails(monkeypatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args == ["git", "ls-remote", "--symref", "origin", "HEAD"]:
+            return _Result(returncode=1)
+        if args == ["git", "symbolic-ref", "refs/remotes/origin/HEAD"]:
+            return _Result(stdout="refs/remotes/origin/trunk\n")
+        raise AssertionError(f"unexpected call: {args}")
+
+    calls = _install_runner(monkeypatch, fake_run)
 
     assert pr_sync_default_branch.detect_default_branch() == ("trunk", "symbolic-ref")
     assert ["gh", "repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"] not in calls
 
 
-def test_falls_back_to_gh_when_symbolic_ref_fails(monkeypatch) -> None:
+def test_falls_back_to_gh_when_git_default_detection_fails(monkeypatch) -> None:
     def fake_run(args: list[str]) -> _Result:
+        if args == ["git", "ls-remote", "--symref", "origin", "HEAD"]:
+            return _Result(returncode=1)
         if args == ["git", "symbolic-ref", "refs/remotes/origin/HEAD"]:
             return _Result(returncode=1)
         if args == ["gh", "repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"]:
@@ -62,8 +83,8 @@ def test_up_to_date_is_noop_no_rebase(monkeypatch) -> None:
     def fake_run(args: list[str]) -> _Result:
         if args == ["git", "fetch", "origin"]:
             return _Result()
-        if args == ["git", "symbolic-ref", "refs/remotes/origin/HEAD"]:
-            return _Result(stdout="refs/remotes/origin/main\n")
+        if args == ["git", "ls-remote", "--symref", "origin", "HEAD"]:
+            return _Result(stdout="ref: refs/heads/main\tHEAD\n")
         if args == ["git", "merge-base", "--is-ancestor", "origin/main", "HEAD"]:
             return _Result(returncode=0)
         raise AssertionError(f"unexpected call: {args}")
@@ -114,6 +135,36 @@ def test_clean_apply_merge_sets_force_with_lease_false(monkeypatch) -> None:
     assert payload["push_required"] is True
     assert payload["force_with_lease"] is False
     assert ["git", "merge", "--no-edit", "origin/main"] in calls
+
+
+def test_apply_dirty_worktree_reports_error_without_rebase(monkeypatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args == ["git", "status", "--porcelain"]:
+            return _Result(stdout=" M scripts/pr_sync_default_branch.py\n")
+        return _standard_success(args)
+
+    calls = _install_runner(monkeypatch, fake_run)
+    code, payload = pr_sync_default_branch.sync("rebase", apply=True)
+
+    assert code == 1
+    assert payload["status"] == "error"
+    assert payload["reason"] == "worktree_dirty"
+    assert ["git", "rebase", "origin/main"] not in calls
+
+
+def test_apply_in_progress_merge_reports_error_without_merge(monkeypatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args == ["git", "rev-parse", "--verify", "-q", "MERGE_HEAD"]:
+            return _Result(stdout="abc123\n")
+        return _standard_success(args)
+
+    calls = _install_runner(monkeypatch, fake_run)
+    code, payload = pr_sync_default_branch.sync("merge", apply=True)
+
+    assert code == 1
+    assert payload["status"] == "error"
+    assert payload["reason"] == "merge_in_progress"
+    assert ["git", "merge", "--no-edit", "origin/main"] not in calls
 
 
 def test_conflict_lists_files_and_exits_nonzero(monkeypatch) -> None:
@@ -215,6 +266,7 @@ def test_default_branch_undetected_reports_error(monkeypatch) -> None:
         if args == ["git", "fetch", "origin"]:
             return _Result()
         if args in (
+            ["git", "ls-remote", "--symref", "origin", "HEAD"],
             ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
             ["gh", "repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"],
         ):
