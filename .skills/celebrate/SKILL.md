@@ -71,6 +71,8 @@ Before rendering, explicitly decide whether the celebration should show the carr
 
 **IMPORTANT: Write the celebration directly as your response text. Do NOT run a script. Do NOT wrap the entire celebration in a code block. The UI renders agent markdown beautifully, but ASCII/block-letter title art must be wrapped in a fenced code block (triple backticks) so spacing is preserved without turning the whole celebration into a code block.**
 
+When invoked from Quest completion, surface the celebration in the chat response before final status, archive-only summaries, PR creation, or shepherding. Persisted celebration files and links are supplemental; they do not count as showing the celebration.
+
 You have all the data from the artifacts. Now **create your own celebration**. Be creative. Make it feel like an achievement, not a status report.
 
 **Required sections** (present them however you like):
