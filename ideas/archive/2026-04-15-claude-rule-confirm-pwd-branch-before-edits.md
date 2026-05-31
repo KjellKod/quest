@@ -5,9 +5,15 @@ audience:
   - quest-developers
   - quest-users
 scope: Policy-level pre-edit context verification.
-status: proposed
+status: wont-do
 owner: kjell
 ---
+
+> **WON'T-DO — retired 2026-05-30.** A soft "always run `pwd` / `git branch` before edits" policy is
+> theatre: it depends on the agent choosing to obey prose, adds instruction sprawl (the exact failure
+> mode `2026-04-24-quest-hooks-vs-instructions-boundary.md` warns against), and the visibility it wants
+> is already provided persistently by a configured **statusline**. No mechanical enforcement, no
+> measurable value. Retired alongside the `PreToolUse` hook (PR #116, closed). Retained for history.
 
 ## Problem
 The evaluation reports 55 wrong-approach events, with repeated branch/directory mistakes across multi-repo sessions and worktrees. The same pattern appears both in direct edits and in delegated work, so a policy-level check is needed in addition to hook-level visibility.

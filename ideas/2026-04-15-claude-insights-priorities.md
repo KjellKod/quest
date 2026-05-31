@@ -29,17 +29,17 @@ Outside-in use needs explicit compatibility annotations (especially `vcs_availab
 Without this index, overlapping governance docs can diverge. This file resolves overlap by pointing each evaluation item to one destination file (or explicit skip reason), then cross-linking canonicals.
 
 ## Canonical Priority Ranking (User-Authoritative)
-This ordering is copied from the quest brief and treated as authoritative.
+This ordering is the **historical evaluation order** copied from the original quest brief. It is preserved for provenance, not as current actionable guidance — several items have since been retired or shipped. **Current status tags are inline below; do not action a `RETIRED`/`SUPERSEDED`/`DONE` item.**
 
 ### Tier 1 — Do this week (highest ROI)
-1. **PreToolUse hook for branch/directory verification** — Directly attacks #1 friction (wrong-branch edits). Low effort, automatic, zero behavior change from user. The `.claude/settings.json` snippet in the report is copy-paste ready.
-2. **CLAUDE.md rule: confirm `pwd` + `git branch --show-current` before edits** — Belt-and-suspenders with the hook. Costs nothing; Claude self-corrects when hook output looks wrong.
+1. ~~**PreToolUse hook for branch/directory verification**~~ — **RETIRED (won't-do, PR #116).** Hook stdout on exit 0 is debug-log-only (invisible) and never fires under Codex/MCP; statusline covers the intent. See [`archive/2026-04-15-pretooluse-branch-dir-verification-hook.md`](archive/2026-04-15-pretooluse-branch-dir-verification-hook.md).
+2. ~~**CLAUDE.md rule: confirm `pwd` + `git branch --show-current` before edits**~~ — **RETIRED (won't-do).** Soft prose, no enforcement; superseded by statusline. See [`archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md`](archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md).
 3. **CLAUDE.md rule: never dismiss acceptance criteria** — Zero-effort addition that prevents a recurring, specific failure mode (the `--help timeout` episode, pytest-as-manual-validation, etc.).
 
 ### Tier 2 — Do this month (compound returns)
 4. **Custom `/pr-create` skill with verification checklist** — 20 PR-management + 18 PR-shepherding sessions; small per-PR wins compound fast. Encodes "verify script names, run documented commands, stage all files."
 5. **CLAUDE.md rule: pre-commit `git status` + `git diff --stat`** — Fixes the "forgot to stage `.skills` changes" pattern. Cheap.
-6. **CLAUDE.md rule: sub-agent path constraints** — 268 Agent invocations with recurring wrong-directory writes from Codex sub-agents. Meaningful, but only kicks in during quest workflows.
+6. ~~**CLAUDE.md rule: sub-agent path constraints**~~ — **SUPERSEDED.** `quest_validate-quest-state.sh` already blocks transitions on missing/misplaced canonical artifacts (both runtimes); residual failure-diagnostics belong to `handoff-validation-and-failure-ux`. See [`archive/2026-04-15-subagent-path-constraints-hardening.md`](archive/2026-04-15-subagent-path-constraints-hardening.md).
 
 ### Tier 3 — Higher-leverage but more investment
 7. **CLAUDE.md rule: cap tool-failure investigation at 2 attempts** — Targets rabbit-holing (#2 friction). Harder to enforce via text rules alone; interrupting early may still work better in practice.
@@ -50,12 +50,12 @@ This ordering is copied from the quest brief and treated as authoritative.
 - **TDD bug-fix agent** — Nice framing, but bug-fix sessions aren't the top pain point; wrong-branch edits are.
 
 ## File Pointers
-- `ideas/2026-04-15-pretooluse-branch-dir-verification-hook.md` — Hook-level context visibility before write/edit.
-- `ideas/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md` — Policy-level pre-edit context confirmation.
+- `ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md` — **WON'T-DO** (built + closed in PR #116; hook stdout is invisible, Codex-blind). Hook-level context visibility before write/edit.
+- `ideas/archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md` — **WON'T-DO** (retired with the hook). Policy-level pre-edit context confirmation.
 - `ideas/2026-04-15-claude-rule-never-dismiss-acceptance-criteria.md` — Completion gate for explicit ACs.
 - `ideas/2026-04-15-pr-create-checklist-via-pr-assistant.md` — PR checklist via existing `pr-assistant`.
 - `ideas/2026-04-15-precommit-status-diffstat-discipline.md` — Staging/diffstat discipline before commit.
-- `ideas/2026-04-15-subagent-path-constraints-hardening.md` — Postflight path-compliance hardening for sub-agents.
+- `ideas/archive/2026-04-15-subagent-path-constraints-hardening.md` — **SUPERSEDED** (transition validator already gates misplaced artifacts). Postflight path-compliance hardening for sub-agents.
 - `ideas/2026-04-15-tool-failure-two-attempt-cap.md` — Two-attempt investigation cap.
 - `ideas/2026-04-15-autonomous-pr-shepherd-headless.md` — Staged headless PR shepherd concept.
 
@@ -74,15 +74,15 @@ This ordering is copied from the quest brief and treated as authoritative.
 ## Coverage Map
 | Evaluation suggestion | Destination |
 |---|---|
-| CLAUDE.md add: confirm directory+branch before edits | `ideas/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md` |
-| Hook: `PreToolUse` branch/dir echo | `ideas/2026-04-15-pretooluse-branch-dir-verification-hook.md` |
+| CLAUDE.md add: confirm directory+branch before edits | `ideas/archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md` (won't-do) |
+| Hook: `PreToolUse` branch/dir echo | `ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md` (won't-do) |
 | CLAUDE.md add: never dismiss acceptance criteria | `ideas/2026-04-15-claude-rule-never-dismiss-acceptance-criteria.md` |
 | CLAUDE.md add: PR descriptions must match real scripts/paths/tests | `ideas/2026-04-15-pr-create-checklist-via-pr-assistant.md` |
 | Custom skill suggestion: `/pr-create` checklist | `ideas/2026-04-15-pr-create-checklist-via-pr-assistant.md` (extension of existing `pr-assistant`) |
 | CLAUDE.md add: pre-commit `git status` + `git diff --stat` | `ideas/2026-04-15-precommit-status-diffstat-discipline.md` |
 | Hook: `PostToolUse Bash` unstaged-diff print | `ideas/2026-04-15-precommit-status-diffstat-discipline.md` (bounded/noise-controlled adaptation) |
-| CLAUDE.md add: explicit sub-agent path constraints and validation | `ideas/2026-04-15-subagent-path-constraints-hardening.md` |
-| New usage pattern: sub-agent path constraints in delegation | `ideas/2026-04-15-subagent-path-constraints-hardening.md` |
+| CLAUDE.md add: explicit sub-agent path constraints and validation | `ideas/archive/2026-04-15-subagent-path-constraints-hardening.md` (superseded) |
+| New usage pattern: sub-agent path constraints in delegation | `ideas/archive/2026-04-15-subagent-path-constraints-hardening.md` (superseded) |
 | CLAUDE.md add: cap tool investigation at 2 attempts | `ideas/2026-04-15-tool-failure-two-attempt-cap.md` |
 | Headless mode: autonomous PR shepherd | `ideas/2026-04-15-autonomous-pr-shepherd-headless.md` |
 | Headless mode: batch security scans | Skip bucket (defer to standalone script path) |
