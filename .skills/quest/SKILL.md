@@ -181,11 +181,18 @@ Before creating the quest folder, present the routing classification to the user
    - Parse the JSON result
    - If `status` is `"blocked"`: show the returned `message`, do NOT create the quest folder yet, and stop for the user to resolve the git state or config
    - If `status` is `"created"` or `"skipped"`: continue and surface the returned `message` to the user
+   - Surface the returned `quest_symlink` outcome after startup:
+     - `created`: note that the worktree `.quest/` symlink was created.
+     - `present`: note that the worktree `.quest/` symlink was already present.
+     - `migrated`: tell the user that an existing worktree `.quest/` was safely migrated into the shared store.
+     - `conflict`: warn the user that same-name `.quest/` entries were preserved under `.quest_conflicts/` and need manual review.
+     - `n/a`: no linked-worktree symlink action was needed.
    - Record these fields for `state.json` initialization:
      - `vcs_available`
      - `branch`
      - `branch_mode`
      - `worktree_path` (if present)
+     - `quest_symlink`
 4. Read `quest_id_format` from `.ai/allowlist.json` using `quest_runtime.quest_ids.load_quest_id_format`; missing config defaults to `slug-first`.
 5. Create the Quest ID with `quest_runtime.quest_ids.format_quest_id(slug, datetime.now(), quest_id_format)`. Pass a `datetime.datetime` object, not a preformatted timestamp string; the helper formats date/time internally.
    - Default slug-first: `<slug>_YYYY-MM-DD__HHMM`
@@ -263,6 +270,7 @@ Before creating the quest folder, present the routing classification to the user
      "branch": "quest/<slug> or current branch",
      "branch_mode": "branch | worktree | none",
      "worktree_path": "/absolute/path/to/worktree (worktree mode only)",
+     "quest_symlink": "created | present | migrated | conflict | n/a",
      "plan_iteration": 0,
      "fix_iteration": 0,
      "created_at": "<timestamp>",
@@ -272,6 +280,7 @@ Before creating the quest folder, present the routing classification to the user
    Set `quest_mode` to the user's final selection: `"workflow"` (default) or `"solo"`. This field is read by `workflow.md` to determine agent dispatch and by `validate-quest-state.sh` for artifact checks.
    `vcs_available` must be copied directly from `scripts/quest_startup_branch.py` output. Do not infer it from `branch_mode`.
    `branch_mode` records the actual startup mode used for this quest run after no-op handling. If Quest starts on an existing feature branch, set `branch_mode` to `"none"` and record that branch in `branch`.
+   `quest_symlink` must be copied directly from `scripts/quest_startup_branch.py` output. Do not infer it from `branch_mode` or `worktree_path`.
 
 ### UI Work Propagation
 

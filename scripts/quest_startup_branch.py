@@ -120,6 +120,115 @@ def repo_dirty(repo_root: Path) -> bool:
     )
 
 
+def resolve_shared_quest_dir(workdir: Path) -> Path | None:
+    """Return the main repo's shared .quest dir for a linked worktree."""
+    try:
+        common_dir_raw = run_git(
+            workdir,
+            "rev-parse",
+            "--path-format=absolute",
+            "--git-common-dir",
+            check=True,
+        )
+    except Exception:
+        try:
+            common_dir_raw = run_git(
+                workdir,
+                "rev-parse",
+                "--git-common-dir",
+                check=True,
+            )
+        except Exception:
+            return None
+
+    common_dir = Path(common_dir_raw)
+    if not common_dir.is_absolute():
+        common_dir = (workdir / common_dir).resolve()
+    else:
+        common_dir = common_dir.resolve()
+
+    main_root = common_dir.parent.resolve()
+    if main_root == workdir.resolve():
+        return None
+    return main_root / ".quest"
+
+
+def _unique_destination(path: Path) -> Path:
+    if not path.exists() and not path.is_symlink():
+        return path
+    for index in range(1, 10_000):
+        candidate = path.with_name(f"{path.name}-{index}")
+        if not candidate.exists() and not candidate.is_symlink():
+            return candidate
+    raise RuntimeError(f"Unable to find unique destination for {path}")
+
+
+def _conflict_dir_for(worktree_quest: Path, shared_quest: Path) -> Path:
+    worktree_name = re.sub(
+        r"[^A-Za-z0-9_.-]+",
+        "-",
+        worktree_quest.parent.name,
+    ).strip("-")
+    if not worktree_name:
+        worktree_name = "worktree"
+    return shared_quest.parent / ".quest_conflicts" / worktree_name
+
+
+def apply_quest_symlink(worktree_quest: Path, shared_quest: Path) -> str:
+    """Ensure a worktree .quest symlink with migration and no data loss."""
+    if worktree_quest.is_symlink():
+        return "present"
+
+    shared_quest.mkdir(parents=True, exist_ok=True)
+
+    if not worktree_quest.exists():
+        worktree_quest.symlink_to(shared_quest)
+        return "created"
+
+    if not worktree_quest.is_dir():
+        return "conflict"
+
+    moved_any = False
+    had_conflict = False
+    conflict_dir = _conflict_dir_for(worktree_quest, shared_quest)
+
+    try:
+        for entry in list(worktree_quest.iterdir()):
+            destination = shared_quest / entry.name
+            if destination.exists() or destination.is_symlink():
+                conflict_dir.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(entry), str(_unique_destination(conflict_dir / entry.name)))
+                had_conflict = True
+                continue
+
+            shutil.move(str(entry), str(destination))
+            moved_any = True
+
+        # Empty-only removal is deliberate: never force-delete migrated state.
+        worktree_quest.rmdir()
+        worktree_quest.symlink_to(shared_quest)
+    except Exception:
+        return "conflict"
+
+    if had_conflict:
+        return "conflict"
+    if moved_any:
+        return "migrated"
+    return "created"
+
+
+def ensure_shared_quest_symlink(repo_root: Path, workdir: Path) -> str:
+    """Ensure linked worktrees use the main repo's shared .quest directory."""
+    del repo_root  # Signature keeps the caller contract explicit.
+    shared_quest = resolve_shared_quest_dir(workdir)
+    if shared_quest is None:
+        return "n/a"
+    try:
+        return apply_quest_symlink(workdir / ".quest", shared_quest)
+    except Exception:
+        return "conflict"
+
+
 def build_result(
     *,
     status: str,
@@ -132,6 +241,7 @@ def build_result(
     branch_created: bool,
     worktree_path: Path | None,
     message: str,
+    quest_symlink: str = "n/a",
 ) -> dict[str, Any]:
     return {
         "status": status,
@@ -143,6 +253,7 @@ def build_result(
         "default_branch": default_branch,
         "branch_created": branch_created,
         "worktree_path": str(worktree_path) if worktree_path else None,
+        "quest_symlink": quest_symlink,
         "message": message,
     }
 
@@ -241,6 +352,7 @@ def main() -> int:
         branch_name = f"{branch_prefix}{args.slug}"
 
         if current_branch != default_branch:
+            quest_symlink = ensure_shared_quest_symlink(repo_root, repo_root)
             payload = build_result(
                 status="skipped",
                 vcs_available=True,
@@ -251,12 +363,14 @@ def main() -> int:
                 default_branch=default_branch,
                 branch_created=False,
                 worktree_path=None,
+                quest_symlink=quest_symlink,
                 message=f"Already on branch {current_branch} — skipping quest startup branch creation.",
             )
             print(json.dumps(payload, indent=2))
             return 0
 
         if requested_branch_mode == "none":
+            quest_symlink = ensure_shared_quest_symlink(repo_root, repo_root)
             payload = build_result(
                 status="skipped",
                 vcs_available=True,
@@ -267,6 +381,7 @@ def main() -> int:
                 default_branch=default_branch,
                 branch_created=False,
                 worktree_path=None,
+                quest_symlink=quest_symlink,
                 message="Quest startup branch mode disabled — staying on the current branch.",
             )
             print(json.dumps(payload, indent=2))
@@ -312,6 +427,7 @@ def main() -> int:
                 return 0
 
             run_git(repo_root, "checkout", "-b", branch_name)
+            quest_symlink = ensure_shared_quest_symlink(repo_root, repo_root)
             payload = build_result(
                 status="created",
                 vcs_available=True,
@@ -322,6 +438,7 @@ def main() -> int:
                 default_branch=default_branch,
                 branch_created=True,
                 worktree_path=None,
+                quest_symlink=quest_symlink,
                 message=f"Created and checked out quest branch {branch_name}.",
             )
             print(json.dumps(payload, indent=2))
@@ -358,20 +475,7 @@ def main() -> int:
             default_branch,
         )
 
-        # Symlink .quest/ into the worktree so subagents can use
-        # relative .quest/<id>/... paths without special handling.
-        # git worktree checkout may create a real .quest/ dir from
-        # force-tracked files — replace it with a symlink to the
-        # main repo's .quest/ so the active quest is visible.
-        quest_link = worktree_path / ".quest"
-        quest_source = repo_root / ".quest"
-        if quest_link.is_symlink():
-            pass  # already a symlink, leave it
-        elif quest_link.is_dir():
-            shutil.rmtree(quest_link)
-            quest_link.symlink_to(quest_source)
-        elif not quest_link.exists():
-            quest_link.symlink_to(quest_source)
+        quest_symlink = ensure_shared_quest_symlink(repo_root, worktree_path)
 
         payload = build_result(
             status="created",
@@ -383,6 +487,7 @@ def main() -> int:
             default_branch=default_branch,
             branch_created=True,
             worktree_path=worktree_path,
+            quest_symlink=quest_symlink,
             message=f"Created quest worktree {worktree_path} on branch {branch_name}.",
         )
         print(json.dumps(payload, indent=2))
