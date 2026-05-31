@@ -97,8 +97,9 @@ Quest mode determines agent dispatch and iteration limits:
 | Aspect              | workflow (default) | solo              |
 |---------------------|-------------------|-------------------|
 | Plan reviewers      | Dual (A + B)      | Single (A only)   |
-| Arbiter             | Yes               | No — Reviewer A's verdict is used directly |
+| Plan arbiter        | Yes               | No — Reviewer A's verdict is used directly |
 | Code reviewers      | Dual (A + B)      | Single (A only)   |
+| Code-review arbiter | Yes               | No — single reviewer, nothing to adjudicate |
 | Max fix iterations  | From allowlist gates (default 3) | min(solo.max_fix_iterations, allowlist gates) |
 
 **Solo verdict remapping:** In solo mode, Reviewer A's handoff says `next: "arbiter"` per the reviewer agent contract. The workflow remaps this: when `quest_mode == "solo"` and Reviewer A says `next: "arbiter"`, treat it as `next: "builder"` (approved). Write the remapped value to state for downstream consumers. If Reviewer A says `next: "planner"`, it means revision needed — no remapping.
@@ -984,14 +985,14 @@ After plan approval, present the plan interactively before proceeding to build.
 
    Both per-slot findings files have already passed the **per-slot findings gate** (§4). This stage produces the phase-level canonical `review_findings.json`, then runs `validate-findings` + `build-backlog` unchanged.
 
-   **Workflow mode — review-arbiter REPLACES `merge-findings`:** A peer judgment step adjudicates A-vs-B findings instead of a deterministic union. The arbiter judges each finding's truth against the diff; deterministic `build-backlog` still classifies the survivors.
-   - **Skip the arbiter ONLY when both reviewers returned empty (`[]` / `[]`).** The orchestrator already knows whether the per-slot inputs are empty (it just validated them), so the gate is free. When both are `[]`, skip the arbiter and use the deterministic single-pass `merge-findings` passthrough below (it yields `[]`). Do NOT try to detect "identical non-empty findings" — fuzzy, and the arbiter still adds nitpick-filtering value when reviewers agree. Otherwise (any non-empty slot), **always run the arbiter** — including the asymmetric case (A clean, B found N), which is the primary reason this role exists.
+   **Workflow mode — review-arbiter REPLACES `merge-findings`:** the arbiter judges each finding's truth against the diff; deterministic `build-backlog` still classifies the survivors.
+   - **Skip the arbiter ONLY when both reviewers returned empty (`[]` / `[]`)** — use the deterministic `merge-findings` passthrough below (it yields `[]`). Otherwise (any non-empty slot), **always run the arbiter**, including the asymmetric case (A clean, B found N) that is the primary reason this role exists. Do not try to detect "identical non-empty findings".
    - **Arbiter invocation** (mirrors the plan-arbiter `.next` staging pattern in Step 3 §5):
      - Read `models.review-arbiter` from `.quest/<id>/orchestration.json`; invoke through the corresponding runtime.
      - Before each attempt, remove stale scratch artifacts: `.quest/<id>/phase_03_review/review_findings.json.next`, `.quest/<id>/phase_03_review/review_backlog.json.next`.
      - **Artifact preparation** (per Handoff File Polling §5): prepare `review_arbiter_verdict.md.next`, `review_findings.json.next`, and `handoff_review-arbiter.json` in `.quest/<id>/phase_03_review/`. The canonical `review_findings.json` / `review_arbiter_verdict.md` are NOT prepared or truncated; publish the `.next` files only after validation succeeds.
-     - **Provide the actual diff as evidence (REQUIRED).** The arbiter's contract is to judge each finding *against the diff*, but the review-arbiter runtime has no Bash and cannot run `git diff` itself. Before invoking, the orchestrator MUST write the full patch the reviewers saw to `.quest/<id>/phase_03_review/review_diff.patch` and pass that path in the prompt:
-       - If `vcs_available == true`: write the patch to the **absolute** quest artifact path — the `.quest/<id>/` tree lives in the original repo root, which may differ from `source_workspace_root` in worktree mode, and the shell redirect target is NOT affected by `git -C`. Resolve the absolute path first, e.g. `git -C <source_workspace_root> diff > <repo_root_abs>/.quest/<id>/phase_03_review/review_diff.patch` (same diff scope the reviewers were given; append any untracked new files).
+     - **Provide the actual diff as evidence (REQUIRED).** The review-arbiter has no Bash, so the orchestrator MUST write the patch the reviewers saw to `.quest/<id>/phase_03_review/review_diff.patch` and pass that path in the prompt:
+       - If `vcs_available == true`: write the patch to the **absolute** quest path (the redirect target is not affected by `git -C`), e.g. `git -C <source_workspace_root> diff > <repo_root_abs>/.quest/<id>/phase_03_review/review_diff.patch` — same diff scope the reviewers were given; append any untracked new files.
        - If `vcs_available == false`: skip the patch file and instead tell the arbiter to read the changed source files directly (same no-VCS scope the reviewers used).
        - Do not pass only `git diff --stat`; the stat alone is insufficient evidence for adjudication.
      - Prompt (paths only, no embedded artifact content):
@@ -1020,7 +1021,7 @@ After plan approval, present the plan interactively before proceeding to build.
      - Wait for the runtime; read `.quest/<id>/phase_03_review/handoff_review-arbiter.json`; apply Handoff File Polling precedence and the three-tier ladder. Log a `context_health.log` line for `(phase=code_review, agent=review-arbiter)`.
      - Validate the arbiter's scratch findings before any canonical publish:
        - `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_03_review/review_findings.json.next`
-     - **Arbiter failure → fail open to deterministic merge (Q4):** if the arbiter fails (block, missing/unparsable handoff after the ladder, or `validate-findings` on `.next` still fails) after **one retry / cross-runtime attempt**, FALL OPEN to the deterministic `merge-findings` union below. Log the degradation and surface a one-line degraded note to the user (`Review arbiter unavailable — fell back to deterministic merge-findings union for this round`), record `findings=fallback` for the phase in `context_health.log`. This worst case lands at today's behavior, never worse. The fallback still runs `validate-findings` + `build-backlog` afterward (fail open on the value, NOT around the gates).
+     - **Arbiter failure → fail open to deterministic merge (Q4):** if the arbiter fails (block, missing/unparsable handoff after the ladder, or `validate-findings` on `.next` still fails) after **one retry / cross-runtime attempt**, FALL OPEN to the deterministic `merge-findings` union below. Log the degradation and surface a one-line degraded note to the user (`Review arbiter unavailable — fell back to deterministic merge-findings union for this round`), record `findings=fallback` for the phase in `context_health.log`. The fallback still runs `validate-findings` + `build-backlog` afterward (fail open on the value, NOT around the gates).
      - On arbiter success: publish atomically only after `validate-findings` on `.next` passes:
        - `os.replace(".quest/<id>/phase_03_review/review_arbiter_verdict.md.next", ".quest/<id>/phase_03_review/review_arbiter_verdict.md")`
        - `os.replace(".quest/<id>/phase_03_review/review_findings.json.next", ".quest/<id>/phase_03_review/review_findings.json")`

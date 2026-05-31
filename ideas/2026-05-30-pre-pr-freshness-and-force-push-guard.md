@@ -16,7 +16,7 @@ owner: kjell
 ## Why these two are one feature
 
 These came out of the same real run as the code-review adjudication work
-(`2026-05-30-code-review-adjudication.md`) but belong to a **different phase** —
+(`archive/2026-05-30-code-review-adjudication.md`, shipped in PR #124) but belong to a **different phase** —
 quest closing and PR handoff, not code review. They are bundled here because
 they are **causally linked**: the freshness gate's job is to *rebase/merge onto
 the remote default branch*, and that rebase is precisely what creates the
@@ -170,4 +170,4 @@ is that it's a deliberate, visible decision.
   `.skills/pr-shepherd/SKILL.md`.
 - Force-push policy memory: `feedback_force_push_authorization.md`.
 - Sibling closing-phase concern (different phase, same retro):
-  `ideas/2026-05-30-code-review-adjudication.md`.
+  `ideas/archive/2026-05-30-code-review-adjudication.md`.

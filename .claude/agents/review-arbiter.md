@@ -1,6 +1,6 @@
 ---
 name: review-arbiter
-description: Disinterested judge for the code-review phase. Adjudicates the two code-reviewer slot findings against the diff and emits the canonical review_findings.json. Not the fixer; does not call the fixer.
+description: Impartial judge for the code-review phase. Adjudicates the two code-reviewer slot findings against the diff and emits the canonical review_findings.json.
 tools: Read, Glob, Grep, Write
 model: inherit
 ---

@@ -3,15 +3,13 @@ title: Code-Review Adjudication — enforce per-slot findings, then add a code-r
 purpose: Close two linked gaps in the code-review phase — silently-repairable findings JSON, and the absence of an LLM adjudicator — so A-vs-B findings are guaranteed present and then judged for truth, instead of leaning on the orchestrator/human.
 audience: Quest maintainers
 scope: .skills/quest workflow Step 5, agent contracts, review-intelligence scripts, orchestration model config
-status: proposed
+status: shipped
 owner: kjell
 ---
 
 # Code-Review Adjudication
 
-> **Living draft.** Direction is agreed; concrete wiring is proposed but NOT
-> final. Hash out the "Open Questions" before implementation. Do not `/quest`
-> this yet.
+> **Shipped in PR #124.** This idea is implemented; archived for history.
 
 ## Two linked gaps
 

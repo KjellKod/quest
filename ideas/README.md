@@ -28,7 +28,7 @@ architecture docs.
 | File | Status | Purpose |
 |---|---|---|
 | `2026-04-27-agent-commit-guard-pre-commit-review.md` | proposed | Add an opt-in agent-level commit guard that offers `pre-commit-review` before local commits without installing a raw Git hook. |
-| `2026-05-30-code-review-adjudication.md` | proposed | Enforce per-slot findings JSON (fail closed) and add a code-review arbiter so A-vs-B findings are judged for truth, bringing the build phase to plan-phase adjudication parity. |
+| [`archive/2026-05-30-code-review-adjudication.md`](archive/2026-05-30-code-review-adjudication.md) | shipped (PR #124) | Enforce per-slot findings JSON (fail closed) and add a code-review arbiter so A-vs-B findings are judged for truth, bringing the build phase to plan-phase adjudication parity. |
 
 Current roadmap:
 

@@ -69,7 +69,7 @@ You MUST write **two** required artifacts every run — the canonical findings J
 - Reviewer A: `.quest/<id>/phase_03_review/review_findings_code-reviewer-a.json`
 - Reviewer B: `.quest/<id>/phase_03_review/review_findings_code-reviewer-b.json`
 
-This file is **never optional and is never omitted**. When the review is clean and there are no findings, write an empty JSON array (`[]`) — exactly as the plan arbiter does. Do not skip the file, do not leave it empty (a zero-byte file is invalid), and do not rely on the orchestrator to author it for you. The orchestrator validates this file per-slot the moment you return; a missing, empty, or malformed findings file is treated as a non-compliant return.
+This file is **never optional**: write an empty JSON array (`[]`) when the review is clean, never a zero-byte file, and never rely on the orchestrator to author it. The orchestrator validates it per slot the moment you return — a missing, empty, or malformed file fails validation and is sent back to you to structure (the "structure what you already wrote" retry), never hand-authored for you.
 
 **Step 1 — Write handoff.json** to your slot's path:
 - Reviewer A: `.quest/<id>/phase_03_review/handoff_code-reviewer-a.json`
