@@ -1,0 +1,19 @@
+.skills/pr-shepherd/SKILL.md
+  s_b4d3f30546fb4c::t_3495c009fe8c77 77-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f6733b552784f8f559460c639a4a988c5b88323e",
+  "prompts": {},
+  "sessions": {
+    "s_b4d3f30546fb4c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7f39-6686-7b61-80c9-75313126649f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
