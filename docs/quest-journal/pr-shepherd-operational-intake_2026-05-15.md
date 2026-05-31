@@ -51,7 +51,6 @@
 
 This journal embeds the celebration payload used by `/celebrate`.
 
-- Full celebration: [`celebrations/pr-shepherd-operational-intake_2026-05-15.md`](celebrations/pr-shepherd-operational-intake_2026-05-15.md)
 - [Jump to Celebration Data](#celebration-data)
 - Replay locally: `/celebrate docs/quest-journal/pr-shepherd-operational-intake_2026-05-15.md`
 

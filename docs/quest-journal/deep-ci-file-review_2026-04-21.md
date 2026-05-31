@@ -67,6 +67,35 @@ $quest "Implement Phase 3 of review-intelligence-canonical: bounded Deep CI whol
   - Broad refactor of the CI workflow beyond what is needed."
 ```
 
+### Archived Brief
+
+```text
+$quest "Implement Phase 3 of review-intelligence-canonical: bounded Deep CI whole-file logic review.
+
+  Reference:
+  - ideas/2026-04-13-review-intelligence-canonical.md
+  - ideas/deep-ci-whole-file-logic-review.md
+
+  Goal:
+  Extend the existing Codex CI review so it keeps normal diff review, but adds a bounded whole-file logic pass for a small deterministic subset of
+  changed code files.
+
+  Deliverables:
+  1. Select changed code files only (*.py, *.sh, *.js, *.ts), excluding docs/markdown/generated/large files.
+  2. Fetch full current file contents for selected files.
+  3. Build a Deep CI prompt focused on resulting file behavior, not style.
+  4. Post findings inline using the existing review-comment machinery.
+  5. Dedupe against existing comments/replies.
+  6. Start warn-only or non-blocking unless a finding is clearly blocker/must-fix.
+  7. Add focused tests for file filtering, subset selection, prompt assembly, and markdown exclusion.
+
+  Out of scope:
+  - Quest memory retrieval.
+  - Headless PR shepherding.
+  - New hosted review system.
+  - Broad refactor of the CI workflow beyond what is needed."
+```
+
 ## Carry-Over Findings
 
 - No carry-over findings this round; nothing was inherited from earlier quests and nothing needs to be saved for the next one.

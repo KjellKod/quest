@@ -72,6 +72,15 @@ Reference: `ideas/archive/2026-04-13-review-intelligence-canonical.md` (Section 
 - Backlog retention/staleness sweeps.
 - Rewriting pr-shepherd PR creation or approval-posting logic.
 
+### Archived Brief
+
+Implement Phase 2 of review-intelligence-canonical: targeted validation and batched PR response.
+
+Reference: ideas/2026-04-13-review-intelligence-canonical.md (Section 3: Targeted Validation Strategy, Section 4: Bounded Fix-Loop Rules — PR shepherd loop)
+
+Extend pr-shepherd so it normalizes incoming review items, groups actionable fixes by write scope and validation scope, runs the smallest falsifying checks, and pushes one validated batch at a time.
+Add a quest_select_tests helper, explicit stop conditions, and focused tests. Do not add review memory loading in this quest.
+
 ## Plan Review Notes (iteration 1 → 2)
 
 Both reviewers converged on APPROVE WITH MUST_RESOLVE and independently flagged six specification-precision gaps: validation-scope equivalence definition + Phase 2/3 dependency inversion; cap-retag reuse + batch-key derivation; `write_scope` overlap semantics (prefix + trailing slash); 24-cell stop-condition truth table (pending/unknown + iter>cap); CLI-level test per new subcommand; intake source→canonical-field mapping + deterministic sort keys.
@@ -104,3 +113,78 @@ pr-shepherd and the quest arbiter now share:
 4. **Cap behavior**: both consumers route through `select_decision(..., at_loop_cap=True)` and persist deferred-at-cap entries through the same `append-deferred` CLI.
 
 The `quest_select_tests` helper is deterministic (pure function over finding + optional repo inventory) and degrades gracefully when scaffolding is missing — Level 0 guards are always emitted, falling back to `true` with an explicit reason string when commands are not declared.
+
+## Celebration
+
+This journal embeds the celebration payload used by `/celebrate`.
+
+- [Jump to Celebration Data](#celebration-data)
+- Replay locally: `/celebrate docs/quest-journal/review-intel-phase-2_2026-04-17.md`
+
+## Celebration Data
+
+<!-- celebration-data-start -->
+```json
+{
+  "quest_mode": "workflow",
+  "agents": [
+    {
+      "name": "arbiter",
+      "model": "",
+      "role": "The Judge"
+    },
+    {
+      "name": "builder",
+      "model": "",
+      "role": "The Implementer"
+    }
+  ],
+  "achievements": [
+    {
+      "icon": "[BUG]",
+      "title": "Gremlin Slayer",
+      "desc": "Tackled 37 review findings"
+    },
+    {
+      "icon": "[TEST]",
+      "title": "Battle Tested",
+      "desc": "Survived 5 reviews"
+    },
+    {
+      "icon": "[WIN]",
+      "title": "Quest Complete",
+      "desc": "All phases finished successfully"
+    }
+  ],
+  "metrics": [
+    {
+      "icon": "📊",
+      "label": "Plan iterations: 0"
+    },
+    {
+      "icon": "🔧",
+      "label": "Fix iterations: 1"
+    },
+    {
+      "icon": "📝",
+      "label": "Review findings: 5"
+    }
+  ],
+  "quality": {
+    "tier": "Platinum",
+    "grade": "P"
+  },
+  "inherited_findings_used": {
+    "count": 0,
+    "summaries": []
+  },
+  "findings_left_for_future_quests": {
+    "count": 0,
+    "summaries": []
+  },
+  "test_count": null,
+  "tests_added": null,
+  "files_changed": 18
+}
+```
+<!-- celebration-data-end -->

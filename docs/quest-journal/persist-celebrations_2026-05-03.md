@@ -166,7 +166,6 @@ Persist full quest celebrations in the journal"
 
 This journal embeds the celebration payload used by `/celebrate`.
 
-- Full celebration: [`celebrations/persist-celebrations_2026-05-03.md`](celebrations/persist-celebrations_2026-05-03.md)
 - [Jump to Celebration Data](#celebration-data)
 - Replay locally: `/celebrate docs/quest-journal/persist-celebrations_2026-05-03.md`
 

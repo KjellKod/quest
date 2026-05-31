@@ -154,6 +154,14 @@ This journal embeds the celebration payload used by `/celebrate`.
     "tier": "Gold",
     "grade": "G"
   },
+  "inherited_findings_used": {
+    "count": 0,
+    "summaries": []
+  },
+  "findings_left_for_future_quests": {
+    "count": 0,
+    "summaries": []
+  },
   "test_count": null,
   "tests_added": null,
   "files_changed": 9
