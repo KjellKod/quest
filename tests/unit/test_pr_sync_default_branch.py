@@ -32,6 +32,8 @@ def _standard_success(args: list[str]) -> _Result:
         return _Result(stdout="a" * 40 + "\0")
     if args == ["git", "status", "--porcelain"]:
         return _Result()
+    if args == ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]:
+        return _Result(returncode=1)
     if len(args) == 5 and args[:4] == ["git", "rev-parse", "--verify", "-q"]:
         return _Result(returncode=1)
     return _Result()
@@ -165,6 +167,24 @@ def test_apply_in_progress_merge_reports_error_without_merge(monkeypatch) -> Non
     assert payload["status"] == "error"
     assert payload["reason"] == "merge_in_progress"
     assert ["git", "merge", "--no-edit", "origin/main"] not in calls
+
+
+def test_rebase_apply_refuses_when_upstream_not_contained(monkeypatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args == ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]:
+            return _Result(stdout="origin/feature\n")
+        if args == ["git", "merge-base", "--is-ancestor", "origin/feature", "HEAD"]:
+            return _Result(returncode=1)
+        return _standard_success(args)
+
+    calls = _install_runner(monkeypatch, fake_run)
+    code, payload = pr_sync_default_branch.sync("rebase", apply=True)
+
+    assert code == 1
+    assert payload["status"] == "error"
+    assert payload["reason"] == "upstream_not_contained"
+    assert payload["message"] == "local HEAD does not contain origin/feature"
+    assert ["git", "rebase", "origin/main"] not in calls
 
 
 def test_conflict_lists_files_and_exits_nonzero(monkeypatch) -> None:

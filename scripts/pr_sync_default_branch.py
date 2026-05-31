@@ -184,6 +184,20 @@ def _pre_apply_error() -> tuple[str, str]:
     return "", ""
 
 
+def _pre_rebase_lease_error() -> tuple[str, str]:
+    upstream = _run(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+    if upstream.returncode != 0 or not upstream.stdout.strip():
+        return "", ""
+
+    upstream_ref = upstream.stdout.strip()
+    contains = _run(["git", "merge-base", "--is-ancestor", upstream_ref, "HEAD"])
+    if contains.returncode == 0:
+        return "", ""
+    if contains.returncode == 1:
+        return "upstream_not_contained", f"local HEAD does not contain {upstream_ref}"
+    return "upstream_check_failed", _message(contains)
+
+
 def sync(strategy: str = "rebase", *, apply: bool = False) -> tuple[int, dict[str, Any]]:
     payload = _base_payload(strategy)
 
@@ -251,6 +265,14 @@ def sync(strategy: str = "rebase", *, apply: bool = False) -> tuple[int, dict[st
         if guard_message:
             payload["message"] = guard_message
         return 1, payload
+
+    if strategy == "rebase":
+        lease_reason, lease_message = _pre_rebase_lease_error()
+        if lease_reason:
+            payload.update({"status": STATUS_ERROR, "reason": lease_reason})
+            if lease_message:
+                payload["message"] = lease_message
+            return 1, payload
 
     apply_code, apply_message = _apply_sync(strategy, default_ref)
     if apply_code != 0:
