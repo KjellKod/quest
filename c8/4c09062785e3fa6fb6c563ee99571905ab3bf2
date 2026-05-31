@@ -1,0 +1,24 @@
+scripts/pr_sync_default_branch.py
+  s_b4d3f30546fb4c::t_269df7da794da8 63-71,73-78,168-186,248-253
+tests/unit/test_pr_sync_default_branch.py
+  s_b4d3f30546fb4c::t_4e779eb924d1a8 35
+  s_b4d3f30546fb4c::t_be8f48d3a955ef 27-28,33-34,36,40,43-44,48-62,67,69-70,86-87,140-169,269
+.skills/pr-shepherd/SKILL.md
+  s_b4d3f30546fb4c::t_89fd63e7b9b750 61-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c84c09062785e3fa6fb6c563ee99571905ab3bf2",
+  "prompts": {},
+  "sessions": {
+    "s_b4d3f30546fb4c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7f39-6686-7b61-80c9-75313126649f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
