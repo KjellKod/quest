@@ -1,0 +1,22 @@
+.skills/quest/delegation/workflow.md
+  s_12e86289f48771::t_46666c148f436d 1116
+  s_12e86289f48771::t_c2c48ae7c456c5 1024
+.ai/allowlist.json
+  s_12e86289f48771::t_85714d94298629 125-137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7b7cbdc26e2392ee8d4060a0476f98a21df9990b",
+  "prompts": {},
+  "sessions": {
+    "s_12e86289f48771": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d57fa54d-645b-45d5-bb3e-afe1c783f2ef",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
