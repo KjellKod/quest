@@ -6,26 +6,38 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-05-30 | [code-review-adjudication](code-review-adjudication_2026-05-30.md) | **Completed (PR #124).** Enforce per-slot findings JSON (fail closed) + add an impartial code-review arbiter; brought code review to plan-phase adjudication parity. |
 | 2026-05-22 | [sharpen-grounding](sharpen-grounding_2026-05-22.md) | Improve the standalone sharpen skill so its questions are grounded in repo evidence when local implementation facts m... |
 | 2026-05-18 | [orchestration-override](orchestration-override_2026-05-18.md) | 1. New per-quest config file `.quest/<id>/orchestration.json` written at quest startup. This file is the single sourc... |
 | 2026-05-15 | [pr-shepherd-operational-intake](pr-shepherd-operational-intake_2026-05-15.md) | `$quest implement ideas/2026-05-14-pr-shepherd-operational-intake.md` |
 | 2026-05-13 | [ci-supply-chain-hardening](ci-supply-chain-hardening_2026-05-13.md) | Planned YAML for `.github/workflows/security.yml` (`workflow-guard` job): ```yaml workflow-guard: runs-on: ubuntu-lat... |
 | 2026-05-03 | [persist-celebrations](persist-celebrations_2026-05-03.md) | Completed successfully. |
 | 2026-05-02 | [installer-branch-conflict](installer-branch-conflict_2026-05-02.md) | `$quest https://github.com/KjellKod/quest/issues/110 fix this.` Issue: https://github.com/KjellKod/quest/issues/110 T... |
+| 2026-04-29 | [configurable-quest-id-format](configurable-quest-id-format_2026-04-29.md) | Implement issue #106: configurable Quest ID format. Goal: Add a config option that keeps the current slug-first quest... |
 | 2026-04-27 | [portable-pre-commit-review](portable-pre-commit-review_2026-04-27.md) | Completed successfully. |
 | 2026-04-25 | [review-ergonomics-batch](review-ergonomics-batch_2026-04-25.md) | Completed successfully. |
 | 2026-04-24 | [deep-ci-manifest](deep-ci-manifest_2026-04-24.md) | Impact: - Adds one canonical machine-readable artifact (`/tmp/deep_ci_context_manifest.json`) per run so selection/ch... |
+| 2026-04-21 | [deep-ci-chunk-fallback](deep-ci-chunk-fallback_2026-04-21.md) | Completed successfully. |
 | 2026-04-21 | [deep-ci-file-review](deep-ci-file-review_2026-04-21.md) | Completed successfully. |
+| 2026-04-20 | [runner-cwd-path-hygiene](runner-cwd-path-hygiene_2026-04-20.md) | - Problem: CLI wrappers precompute `bridge_script` as `Path(args.cwd) / args.bridge_script` and then call runtime hel... |
+| 2026-04-20 | [allowlist-pattern-hygiene](allowlist-pattern-hygiene_2026-04-20.md) | Harden allowlist command matching so role permissions no longer rely on dangerous bare command tokens or shell-prefix... |
+| 2026-04-17 | [codex-skill-wrappers](codex-skill-wrappers_2026-04-17.md) | User wants Quest to fix Codex repo-local skill access so project skills such as `pr-shepherd`, `pr-assistant`, and `g... |
 | 2026-04-16 | [celebration-review-intel](celebration-review-intel_2026-04-16.md) | Add two narrow, artifact-backed carry-over sections to Quest celebration/journal output so Phase 1 review intelligenc... |
 | 2026-04-16 | [review-intelligence-canonical](review-intelligence-canonical_2026-04-16.md) | Implement Phase 1 of review-intelligence-canonical: normalize review findings and add a review-decisions stage betwee... |
 | 2026-04-16 | [quest-dashboard-briefs](quest-dashboard-briefs_2026-04-16.md) | Dashboard quest detail pages now include the brief and celebration context, and archived journal pages were backfill... |
 | 2026-04-15 | [claude-insights-ideas](claude-insights-ideas_2026-04-15.md) | > review ~/Documents/Evaluations/2026-04-15-claude-insights.html (you can also see the markdown, 2026-04-15-claude-in... |
+| 2026-04-13 | [memory-docs-consolidation](memory-docs-consolidation_2026-04-13.md) | Completed successfully. |
+| 2026-04-13 | [review-intel-canonical](review-intel-canonical_2026-04-13.md) | Consolidate Quest review hardening docs into one canonical review intelligence proposal. Use `ideas/2026-04-13-review... |
 | 2026-04-13 | [feedback-intent-routing](feedback-intent-routing_2026-04-13.md) | Consolidate the Quest routing and feedback-intent ideas into one canonical delegation proposal. Use `ideas/2026-04-13... |
 | 2026-04-13 | [prompt-surface-consolidation](prompt-surface-consolidation_2026-04-13.md) | > 3. Prompt Surface / Instruction Architecture > > Consolidate Quest prompt-surface improvement docs into one canonic... |
 | 2026-04-12 | [caveman-review](caveman-review_2026-04-12.md) | Review completed. Decision: NO ACTION. |
+| 2026-04-11 | [execution-discipline-guardrails](execution-discipline-guardrails_2026-04-11.md) | Completed successfully. |
 | 2026-04-11 | [multi-cleanup](multi-cleanup_2026-04-11.md) | Multi-cleanup quest. Continuing on our existing branch. fix/quest-startup-outside-repo. In ideas, we have several thi... |
 | 2026-04-08 | [extract-ci-review-python](extract-ci-review-python_2026-04-08.md) | Extract the embedded Python from .github/workflows/codex-ci-review.yml into a standalone script at .github/scripts/co... |
 | 2026-04-07 | [ci-review-severity](ci-review-severity_2026-04-07.md) | User selection: full quest. |
+| 2026-04-06 | [pdf-formatting](pdf-formatting_2026-04-06.md) | Improve doc2md's PDF converter to better preserve formatting from structured PDFs, using only existing pdfjs-dist pos... |
+| 2026-03-31 | [branch-or-worktree-start](branch-or-worktree-start_2026-03-31.md) | **Agent:** Planner \| **Model:** claude-opus-4-6 \| **Date:** 2026-03-31 \| **Quest ID:** branch-or-worktree-start_20... |
+| 2026-03-22 | [direct-cli-guidance](direct-cli-guidance_2026-03-22.md) | Claude Code permission prefixes (e.g. `["gh","api"]`, `["gh","pr"]`) only match when the command is the top-level exe... |
 | 2026-03-21 | [quest-housekeeping-blitz](quest-housekeeping-blitz_2026-03-21.md) | Forensic sweep of stale quests, missing journal entries, broken archive/celebration automation, and a Codex sandbox p... |
 | 2026-03-21 | [installer-codex-and-bridge-timeout](installer-codex-and-bridge-timeout_2026-03-21.md) | Installer handles Codex MCP setup; bridge timeout raised from 90s to 30 minutes. (PRs #78, #80) |
 | 2026-03-20 | [atomic-state-transitions](atomic-state-transitions_2026-03-20.md) | Atomic state transitions close the validate+mutate footgun; mandatory presentation gate enforced. (PR #77) |
