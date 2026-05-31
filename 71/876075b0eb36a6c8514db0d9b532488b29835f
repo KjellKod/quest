@@ -1,0 +1,22 @@
+scripts/quest_validate-quest-state.sh
+  s_12e86289f48771::t_7dbb32f53345e5 644-676,688,690,700-701
+tests/test-validate-quest-state.sh
+  s_12e86289f48771::t_063db702e46908 488-508
+  s_12e86289f48771::t_2481e3d2447428 1605
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "71876075b0eb36a6c8514db0d9b532488b29835f",
+  "prompts": {},
+  "sessions": {
+    "s_12e86289f48771": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d57fa54d-645b-45d5-bb3e-afe1c783f2ef",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
