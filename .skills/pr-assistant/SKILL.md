@@ -36,6 +36,12 @@ Generate a pull request title and description from the current branch, then crea
 Use this format:
 
 ```
+## ⭐ Why this matters
+<1–3 sentences in plain language that make a busy human immediately see the VALUE — the problem this removes or the capability it unlocks — before any technical detail. Lead with impact, not mechanics.>
+<Optionally follow with 2–3 bold one-line benefit bullets.>
+
+---
+
 ## Summary
 <Single sentence capturing the full intent — what this PR does and why.>
 - Supporting bullet with additional context if needed.
@@ -60,6 +66,16 @@ Watch for: <known risk or edge case, if any>
 - Important implementation/deployment/reviewer context that is not obvious from the diff.
 - Do not repeat the Summary; only include unique, high-signal details reviewers should know.
 ```
+
+### Why this matters section (required — first thing in the body)
+
+This is the value-first executive summary. It sits at the very top so a busy human grasps **why they should care** at a glance, before any technical detail.
+
+- **Lead with impact, not mechanics.** State the problem this removes or the capability it unlocks in human terms — what was painful/risky/impossible before, and what is true now.
+- Keep it to 1–3 sentences, optionally followed by 2–3 bold one-line benefit bullets. A reader who stops after this section should still understand why the PR is worth merging.
+- Do **not** restate the file-by-file changes here (that's `## Changes`) and do **not** hedge with implementation caveats (that's `## Notes`).
+- Close the section with a `---` horizontal rule before `## Summary`.
+- Every PR gets this section. For a tiny/mechanical PR, one honest sentence is enough — never pad it.
 
 ### Summary section
 
