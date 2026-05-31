@@ -74,6 +74,9 @@ workspace still matches the PR branch:
      (additive / adjacent / whitespace / import-or-list ordering where nothing
      from `main` is dropped); otherwise pause and ask the human. Never use
      blanket `-X theirs` or `-X ours`.
+   - If the payload is `status: "error"`, stop before any commit or push and
+     surface the `reason` and `message` fields. Do not continue shepherding from
+     a stale or partially checked sync state.
    - If a repo-specific decision uses `--strategy rebase` instead, honor the
      helper payload: push with `git push --force-with-lease` when
      `force_with_lease: true`; otherwise push normally. This is the same narrow
