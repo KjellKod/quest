@@ -57,6 +57,31 @@ workspace still matches the PR branch:
    is that worktree before committing.
 6. If branch or workspace verification fails, stop and ask the user to confirm
    the intended workspace before editing, committing, or pushing.
+7. After workspace verification, sync with the remote default branch from this
+   PR worktree using the shared helper only when the worktree is clean. If the
+   worktree is dirty because a local fix is being prepared, do not apply sync
+   over those edits; finish and validate the fix commit first, then rerun this
+   guard before pushing:
+   - For normal shepherding of an already-open PR, run
+     `python3 scripts/pr_sync_default_branch.py --strategy merge --apply --json`.
+     Merge is the default shepherd strategy because it avoids rewriting an
+     under-review PR's commit SHAs and preserves inline review-thread anchoring.
+   - If the payload is `status: "up_to_date"` or `status: "synced"`, continue.
+   - If the payload is `status: "conflict"`, surface `conflict_files` and the
+     specific hunks when they are available. The inspect path can be
+     filename-only; when hunks or conflict markers are not available, pause
+     instead of guessing. Resolve only clearly safe, non-destructive conflicts
+     (additive / adjacent / whitespace / import-or-list ordering where nothing
+     from `main` is dropped); otherwise pause and ask the human. Never use
+     blanket `-X theirs` or `-X ours`.
+   - If the payload is `status: "error"`, stop before any commit or push and
+     surface the `reason` and `message` fields. Do not continue shepherding from
+     a stale or partially checked sync state.
+   - If a repo-specific decision uses `--strategy rebase` instead, honor the
+     helper payload: push with `git push --force-with-lease` when
+     `force_with_lease: true`; otherwise push normally. This is the same narrow
+     lease-protected own-PR-branch exception documented in
+     `.skills/pr-assistant/SKILL.md` under `Force-with-lease exception`.
 
 This guard is mandatory before:
 - any CI-fix commit/push in Step 3,
