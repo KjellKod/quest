@@ -1,0 +1,19 @@
+.skills/pr-assistant/SKILL.md
+  s_b4d3f30546fb4c::t_23724f5166c5ba 22-27,34-40,235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "40c8148888be08261fc821fbc4f7a72da0f47042",
+  "prompts": {},
+  "sessions": {
+    "s_b4d3f30546fb4c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7f39-6686-7b61-80c9-75313126649f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
