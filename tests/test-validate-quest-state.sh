@@ -485,6 +485,27 @@ test_reviewing_to_complete_blocked_by_arbiter_fixer_handoff() {
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "review-arbiter requested fixes"
 }
 
+# Even with a trustworthy review-arbiter verdict, the required reviewer handoffs
+# must still be present and well-formed — a trustworthy arbiter does NOT excuse a
+# missing/malformed reviewer handoff (reviewer next is diagnostic-only, not its presence).
+test_reviewing_to_complete_arbiter_trustworthy_still_requires_reviewer_handoffs() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  # Arbiter handoff is complete + clean, but reviewer-a handoff is MISSING.
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  echo '{"status":"complete","next":null,"summary":"all clean"}' > "$tmpdir/phase_03_review/handoff_review-arbiter.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "handoff_code-reviewer-a.json"
+}
+
 test_reviewing_to_complete_requires_reviewer_handoffs() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -1581,6 +1602,7 @@ run_test test_reviewing_to_complete_blocked_by_needs_human_decision
 run_test test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff
 run_test test_reviewing_to_complete_allows_arbiter_cleared_despite_reviewer_fixer
 run_test test_reviewing_to_complete_blocked_by_arbiter_fixer_handoff
+run_test test_reviewing_to_complete_arbiter_trustworthy_still_requires_reviewer_handoffs
 run_test test_reviewing_to_complete_requires_reviewer_handoffs
 run_test test_reviewing_to_complete_rejects_invalid_reviewer_handoff_json
 run_test test_reviewing_to_complete_rejects_missing_next_in_handoff
