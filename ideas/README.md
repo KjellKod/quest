@@ -47,7 +47,7 @@ Current roadmap:
 | `2026-04-29-research-fanout-skill.md` | proposed | Add a reusable research fan-out skill for human-triggered and planner-requested parallel investigation with reconciled findings. |
 | `2026-05-19-sharpen-context-grounding.md` | proposed | Require sharpening questions to be grounded in targeted repo evidence before asking the user. |
 | `2026-05-26-native-runtime-dispatch.md` | proposed | Prefer native same-family sub-agent dispatch before cross-family bridge/MCP adapters. |
-| `2026-05-30-pre-pr-freshness-and-force-push-guard.md` | proposed | Config-driven pre-PR freshness gate (sync with remote default branch, re-run repo-declared install/validate) plus a non-fast-forward force-push guard that never auto-forces. |
+| `2026-05-30-pre-pr-freshness-and-force-push-guard.md` | proposed | `pr-assistant` syncs the branch with the remote default branch as part of PR creation so we never open a PR stale against main; clean sync proceeds automatically, only conflicts stop for the human. |
 | `dual-model-planning.md` | proposed | Explore parallel plan generation with arbiter synthesis instead of a single planner output. |
 | `2026-04-13-codex-companion-runtime.md` | proposed | Phased prove-it roadmap for a shared Codex runtime serving both the human `/gpt` command surface and Quest orchestration, with strict go/no-go criteria after the minimum slice. |
 | `2026-04-13-feedback-intent-routing.md` | proposed | Canonical feedback-routing proposal: classify live quest feedback by intent and route to clarify, replan, second-opinion, or escalation paths deliberately. |
