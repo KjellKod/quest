@@ -1,5 +1,7 @@
 # Quest ephemeral state
+.quest
 .quest/
+.quest_conflicts/
 .worktrees/
 .claude/worktrees/
 

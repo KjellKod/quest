@@ -7,6 +7,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 | Date | Quest | Outcome |
 |------|-------|---------|
 | 2026-05-31 | [pre-pr-sync](pre-pr-sync_2026-05-31.md) | implement using $quest ideas/2026-05-30-pre-pr-freshness-and-force-push-guard.md |
+| 2026-05-31 | [shared-quest-symlink](shared-quest-symlink_2026-05-31.md) | - **Agent:** Planner - **Model:** claude-opus-4-8 - **Date:** 2026-05-31 - **Quest ID:** shared-quest-symlink_2026-05... |
 | 2026-05-30 | [code-review-adjudication](code-review-adjudication_2026-05-30.md) | **Completed (PR #124).** Enforce per-slot findings JSON (fail closed) + add an impartial code-review arbiter; brought code review to plan-phase adjudication parity. |
 | 2026-05-22 | [sharpen-grounding](sharpen-grounding_2026-05-22.md) | Improve the standalone sharpen skill so its questions are grounded in repo evidence when local implementation facts m... |
 | 2026-05-18 | [orchestration-override](orchestration-override_2026-05-18.md) | 1. New per-quest config file `.quest/<id>/orchestration.json` written at quest startup. This file is the single sourc... |
