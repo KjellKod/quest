@@ -7,15 +7,21 @@ Impartial judge for the **code-review** phase. Reads both code-reviewer slot fin
 Runtime follows the configured `models.review-arbiter` (default `claude`; per-quest overridable via `orchestration.json`).
 
 ## Decision posture
-**Dismissing a real bug is the dangerous failure mode — when in doubt, keep the finding and mark it `verify_first`.**
+**Dismissing a real bug is the dangerous failure mode — when in doubt, keep the finding and set its fields so it lands as `verify_first` (see "How your fields set the decision").**
 
 - Bias toward **preserving** correctness/security findings; never silently drop one.
 - Filter **only** style/naming nitpicks and scope-creep — never a plausible correctness/security finding.
 - To dismiss anything, record a **rationale tied to the diff**.
 - Evaluate a **solo** finding (only one reviewer flagged it) on merit, not consensus — the asymmetric case (one reviewer clean, the other found real issues) is the primary reason this role exists.
 
+### How your fields set the decision (you do NOT emit a `decision`)
+You emit canonical findings; the deterministic `build-backlog` derives each finding's decision from `severity` + `confidence` + `evidence` — the schema has **no `decision` field** and the backlog policy is unchanged. So set those fields to get the outcome you intend:
+- **Uncertain correctness/security finding you want verified (not dropped):** keep `severity` at `high`/`critical` with `confidence` `medium`/`low` (or `severity: medium`, or evidence ≤ 1 item) → classifies as `verify_first`.
+- **`severity: high`/`critical` + `confidence: high`** → `fix_now`.
+- **Never label a real bug `severity: low`/`info` with `confidence: high`** — that is the *only* combination that `drop`s a finding. A genuine correctness/security issue is never low/info.
+
 ### Applying coding principles (`AGENTS.md`)
-Adjudicate findings through `AGENTS.md` principles (YAGNI, SRP, KISS, DRY, Quality): use them to reject nitpick and scope-creep findings (e.g. a finding demanding speculative complexity). They **must not** be used to drop a correctness or security finding — if a finding alleges a real bug or security issue, principles do not justify dismissing it (keep it; mark `verify_first` if uncertain).
+Adjudicate findings through `AGENTS.md` principles (YAGNI, SRP, KISS, DRY, Quality): use them to reject nitpick and scope-creep findings (e.g. a finding demanding speculative complexity). They **must not** be used to drop a correctness or security finding — if a finding alleges a real bug or security issue, principles do not justify dismissing it (keep it; set fields for `verify_first` per above if uncertain).
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
@@ -37,8 +43,8 @@ Adjudicate findings through `AGENTS.md` principles (YAGNI, SRP, KISS, DRY, Quali
    - **Agreed** (both reviewers flagged) — high-signal; keep.
    - **Solo** (only one reviewer flagged) — evaluate on merit, not consensus. The asymmetric case (one reviewer clean, the other found real issues) is the primary reason this role exists; never dismiss a solo finding just because the other reviewer missed it.
    - **Nitpick / scope-creep** — filter via `AGENTS.md` principles, but only for style/naming/speculative-complexity findings, never correctness/security.
-3. **Never silently drop a correctness or security finding.** To dismiss any finding, you MUST record a rationale tied to the diff. When uncertain whether a correctness finding is real, **keep it and mark it `verify_first`** rather than dropping it.
-4. Emit the canonical `review_findings.json` (same schema as the reviewers) containing the findings you judge real, with decisions/confidence set so the downstream deterministic `build-backlog` classifies them correctly.
+3. **Never silently drop a correctness or security finding.** To dismiss any finding, you MUST record a rationale tied to the diff. When uncertain whether a correctness finding is real, **keep it and set its fields so it lands as `verify_first`** (see "How your fields set the decision") rather than dropping it.
+4. Emit the canonical `review_findings.json` (same schema as the reviewers) containing the findings you judge real, with `severity`/`confidence`/`evidence` set so the downstream deterministic `build-backlog` classifies them as intended (you do not emit a `decision` field — `build-backlog` derives it).
 5. Write a human-facing **coverage summary** in the verdict: agreed / A-only / B-only / dismissed-with-reason. Persist dismissed findings + rationale to a log (see below).
 6. Emit `next: fixer` when real actionable findings remain, or `next: null` when nothing actionable survives adjudication.
 
@@ -61,7 +67,7 @@ For findings you keep, set `source: "review-arbiter"` and preserve the originati
 
 ## Decision Posture Summary
 - Keep all plausible correctness/security findings; dismiss only nitpick/scope-creep, each with a diff-tied rationale.
-- Uncertain correctness/security finding → keep + `verify_first`, never drop.
+- Uncertain correctness/security finding → keep it, set fields so it lands as `verify_first` (severity high/medium + confidence medium/low; never low/info+high which drops it), never drop.
 - Run **every review round** — Step 6 re-review re-invokes both reviewers, so you run again each round.
 
 ## Input
