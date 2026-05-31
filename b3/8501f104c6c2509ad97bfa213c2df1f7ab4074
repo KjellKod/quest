@@ -1,0 +1,78 @@
+.skills/quest/delegation/workflow.md
+  s_12e86289f48771::t_fc01d2d8f05a19 199
+  s_12e86289f48771::t_796fc7e50dcb3e 229-240
+  s_12e86289f48771::t_83d9a5bb61fbe8 964-974
+  s_12e86289f48771::t_280755947f015f 983-1030
+  s_12e86289f48771::t_f378860d5c90f6 1184
+  s_12e86289f48771::t_0aa4a6ef47402d 1205
+  s_12e86289f48771::t_0adb75ad4496ec 1371
+.skills/quest/agents/code-reviewer.md
+  s_12e86289f48771::t_ec8cacf973e203 44
+  s_12e86289f48771::t_a4f83faa8e9684 66-73
+.ai/allowlist.json
+  s_12e86289f48771::t_f228be6fc3d9f9 30
+tests/unit/test_artifacts.py
+  s_12e86289f48771::t_812d13acfb822a 75-90
+  s_12e86289f48771::t_3cc5d8d165fe52 121
+tests/test-validate-quest-state.sh
+  s_12e86289f48771::t_5ebff17cd24809 79
+  s_12e86289f48771::t_a2b4f63b1ff2c3 1335
+  s_12e86289f48771::t_9117440ba12cbc 1360
+scripts/quest_runtime/artifacts.py
+  s_12e86289f48771::t_386b5bf5cf9b2c 45-52
+  s_12e86289f48771::t_369ac59441a042 59-61
+  s_12e86289f48771::t_9bb35d75595056 71
+tests/test-quest-orchestration.sh
+  s_12e86289f48771::t_8269c184f2a858 49
+  s_12e86289f48771::t_7e7fee6ed83994 108
+  s_12e86289f48771::t_b207adffc2583b 461
+  s_d552ed26d76dea::t_21dc742e912539 516-539,563-608,624,722-723
+scripts/quest_runtime/orchestration.py
+  s_12e86289f48771::t_fe031bf37fe11b 33,45,55
+  s_d552ed26d76dea::t_d84a2fc778b52d 49-52,251-265,269-271,273-274,279,371-373,377-400
+  s_12e86289f48771::t_fa40d4656b2949 239
+.skills/quest/SKILL.md
+  s_12e86289f48771::t_9a9459645f20f2 197
+  s_12e86289f48771::t_57c39591bec412 209
+  s_12e86289f48771::t_1e7dd745bf0ea8 217
+  s_12e86289f48771::t_6ae233138aadec 226
+  s_12e86289f48771::t_1e6c1b7fa9d2d7 238
+  s_12e86289f48771::t_aed989b776fb19 240
+  s_12e86289f48771::t_e0e7751446211b 246
+.quest-manifest
+  s_12e86289f48771::t_4680ec48850d74 16
+.skills/quest/agents/README.md
+  s_12e86289f48771::t_9066e9965268f8 15-24
+.skills/quest/agents/review-arbiter.md
+  s_12e86289f48771::t_d4e68c388cba83 1-8,10-63,65-111,113-115
+scripts/quest_review_intelligence.py
+  s_12e86289f48771::t_6cc38d36ce6abd 80-110
+scripts/quest_validate-quest-state.sh
+  s_12e86289f48771::t_b822c7e85fce71 206,209
+tests/unit/test_review_intelligence.py
+  s_12e86289f48771::t_b2fea1cbd2c302 807-894
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b38501f104c6c2509ad97bfa213c2df1f7ab4074",
+  "prompts": {},
+  "sessions": {
+    "s_12e86289f48771": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d57fa54d-645b-45d5-bb3e-afe1c783f2ef",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_d552ed26d76dea": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7a3c-86d4-7192-be7c-236e51c325aa",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
