@@ -246,6 +246,18 @@ def ensure_shared_quest_symlink(repo_root: Path, workdir: Path) -> str:
         return "conflict"
 
 
+def combine_quest_symlink_outcomes(*outcomes: str) -> str:
+    """Return the most important .quest symlink outcome to surface."""
+    priority = {
+        "n/a": 0,
+        "present": 1,
+        "created": 2,
+        "migrated": 3,
+        "conflict": 4,
+    }
+    return max(outcomes, key=lambda outcome: priority.get(outcome, 0))
+
+
 def build_result(
     *,
     status: str,
@@ -348,6 +360,8 @@ def main() -> int:
             print(json.dumps(payload, indent=2))
             return 0
 
+        current_quest_symlink = ensure_shared_quest_symlink(repo_root, repo_root)
+
         current_branch = run_git(repo_root, "branch", "--show-current", check=False)
         if not current_branch:
             payload = build_result(
@@ -360,6 +374,7 @@ def main() -> int:
                 default_branch=None,
                 branch_created=False,
                 worktree_path=None,
+                quest_symlink=current_quest_symlink,
                 message="Detached HEAD detected. Quest startup branch setup requires a named branch checkout.",
             )
             print(json.dumps(payload, indent=2))
@@ -369,7 +384,6 @@ def main() -> int:
         branch_name = f"{branch_prefix}{args.slug}"
 
         if current_branch != default_branch:
-            quest_symlink = ensure_shared_quest_symlink(repo_root, repo_root)
             payload = build_result(
                 status="skipped",
                 vcs_available=True,
@@ -380,14 +394,13 @@ def main() -> int:
                 default_branch=default_branch,
                 branch_created=False,
                 worktree_path=None,
-                quest_symlink=quest_symlink,
+                quest_symlink=current_quest_symlink,
                 message=f"Already on branch {current_branch} — skipping quest startup branch creation.",
             )
             print(json.dumps(payload, indent=2))
             return 0
 
         if requested_branch_mode == "none":
-            quest_symlink = ensure_shared_quest_symlink(repo_root, repo_root)
             payload = build_result(
                 status="skipped",
                 vcs_available=True,
@@ -398,7 +411,7 @@ def main() -> int:
                 default_branch=default_branch,
                 branch_created=False,
                 worktree_path=None,
-                quest_symlink=quest_symlink,
+                quest_symlink=current_quest_symlink,
                 message="Quest startup branch mode disabled — staying on the current branch.",
             )
             print(json.dumps(payload, indent=2))
@@ -415,6 +428,7 @@ def main() -> int:
                 default_branch=default_branch,
                 branch_created=False,
                 worktree_path=None,
+                quest_symlink=current_quest_symlink,
                 message=(
                     f"Branch {branch_name} already exists. "
                     "Choose a different quest slug or clean up the existing branch first."
@@ -435,6 +449,7 @@ def main() -> int:
                     default_branch=default_branch,
                     branch_created=False,
                     worktree_path=None,
+                    quest_symlink=current_quest_symlink,
                     message=(
                         "Working tree is dirty on the default branch. "
                         "Commit or stash changes before Quest creates a startup branch."
@@ -444,7 +459,6 @@ def main() -> int:
                 return 0
 
             run_git(repo_root, "checkout", "-b", branch_name)
-            quest_symlink = ensure_shared_quest_symlink(repo_root, repo_root)
             payload = build_result(
                 status="created",
                 vcs_available=True,
@@ -455,7 +469,7 @@ def main() -> int:
                 default_branch=default_branch,
                 branch_created=True,
                 worktree_path=None,
-                quest_symlink=quest_symlink,
+                quest_symlink=current_quest_symlink,
                 message=f"Created and checked out quest branch {branch_name}.",
             )
             print(json.dumps(payload, indent=2))
@@ -473,6 +487,7 @@ def main() -> int:
                 default_branch=default_branch,
                 branch_created=False,
                 worktree_path=worktree_path,
+                quest_symlink=current_quest_symlink,
                 message=(
                     f"Worktree path already exists: {worktree_path}. "
                     "Remove it or choose a different quest slug first."
@@ -492,7 +507,10 @@ def main() -> int:
             default_branch,
         )
 
-        quest_symlink = ensure_shared_quest_symlink(repo_root, worktree_path)
+        quest_symlink = combine_quest_symlink_outcomes(
+            current_quest_symlink,
+            ensure_shared_quest_symlink(repo_root, worktree_path),
+        )
 
         payload = build_result(
             status="created",

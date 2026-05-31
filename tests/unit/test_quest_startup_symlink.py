@@ -276,6 +276,33 @@ def test_startup_worktree_mode_creates_symlink_and_reports_created(
     assert _target(worktree / ".quest") == repo / ".quest"
 
 
+def test_startup_worktree_mode_from_linked_worktree_migrates_current_workspace(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path / "repo")
+    allowlist = _write_allowlist(repo, "worktree")
+    _git(repo, "checkout", "-b", "holder")
+    current_worktree = tmp_path / "main-linked"
+    _git(repo, "worktree", "add", str(current_worktree), "main")
+    (current_worktree / ".quest" / "orphaned-quest").mkdir(parents=True)
+    (current_worktree / ".quest" / "orphaned-quest" / "state.json").write_text(
+        "orphan",
+        encoding="utf-8",
+    )
+
+    payload = _run_startup(current_worktree, allowlist, "new-quest", "worktree")
+    created_worktree = Path(payload["worktree_path"])
+
+    assert payload["status"] == "created"
+    assert payload["branch_mode"] == "worktree"
+    assert payload["quest_symlink"] == "migrated"
+    assert (current_worktree / ".quest").is_symlink()
+    assert _target(current_worktree / ".quest") == repo / ".quest"
+    assert (created_worktree / ".quest").is_symlink()
+    assert _target(created_worktree / ".quest") == repo / ".quest"
+    assert (repo / ".quest" / "orphaned-quest" / "state.json").read_text() == "orphan"
+
+
 def test_startup_main_repo_none_and_branch_report_na(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path / "repo")
     allowlist = _write_allowlist(repo, "none")
