@@ -248,6 +248,27 @@ def test_apply_time_rebase_conflict_aborts_and_reports_conflict(monkeypatch) -> 
     assert "-X ours" not in flattened
 
 
+def test_apply_failure_without_conflicted_files_reports_error(monkeypatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args == ["git", "rebase", "origin/main"]:
+            return _Result(returncode=1, stderr="fatal: unable to auto-detect email address\n")
+        if args == ["git", "diff", "--name-only", "--diff-filter=U"]:
+            return _Result(stdout="")
+        if args == ["git", "rebase", "--abort"]:
+            return _Result()
+        return _standard_success(args)
+
+    calls = _install_runner(monkeypatch, fake_run)
+    code, payload = pr_sync_default_branch.sync("rebase", apply=True)
+
+    assert code == 1
+    assert payload["status"] == "error"
+    assert payload["reason"] == "rebase_failed"
+    assert payload["conflict_files"] == []
+    assert "auto-detect email" in payload["message"]
+    assert ["git", "rebase", "--abort"] in calls
+
+
 def test_fetch_failure_reports_error(monkeypatch) -> None:
     _install_runner(
         monkeypatch,

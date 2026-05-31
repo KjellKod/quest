@@ -256,6 +256,17 @@ def sync(strategy: str = "rebase", *, apply: bool = False) -> tuple[int, dict[st
     if apply_code != 0:
         conflict_files = _conflicted_files_from_index()
         _abort(strategy)
+        if not conflict_files:
+            payload.update(
+                {
+                    "status": STATUS_ERROR,
+                    "conflict_files": [],
+                    "reason": f"{strategy}_failed",
+                }
+            )
+            if apply_message:
+                payload["message"] = apply_message
+            return 1, payload
         payload.update(
             {
                 "status": STATUS_CONFLICT,
