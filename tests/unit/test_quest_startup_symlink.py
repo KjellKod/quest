@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 import quest_startup_branch
 from quest_startup_branch import apply_quest_symlink, ensure_shared_quest_symlink
 
@@ -182,6 +184,18 @@ def test_apply_quest_symlink_conflict_preserves_both_outside_quest(
     assert not list(shared_quest.glob("**/.quest_conflicts"))
 
 
+def test_apply_quest_symlink_non_dir_blocks_startup(tmp_path: Path) -> None:
+    worktree_quest = tmp_path / "worktree" / ".quest"
+    shared_quest = tmp_path / "main" / ".quest"
+    worktree_quest.parent.mkdir()
+    worktree_quest.write_text("not a quest dir\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="not a directory or symlink"):
+        apply_quest_symlink(worktree_quest, shared_quest)
+
+    assert worktree_quest.is_file()
+
+
 def test_ensure_shared_quest_symlink_main_repo_returns_na(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path / "repo")
 
@@ -301,6 +315,24 @@ def test_startup_worktree_mode_from_linked_worktree_migrates_current_workspace(
     assert (created_worktree / ".quest").is_symlink()
     assert _target(created_worktree / ".quest") == repo / ".quest"
     assert (repo / ".quest" / "orphaned-quest" / "state.json").read_text() == "orphan"
+
+
+def test_startup_none_mode_in_linked_worktree_blocks_when_symlink_cannot_install(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path / "repo")
+    allowlist = _write_allowlist(repo, "none")
+    _git(repo, "checkout", "-b", "holder")
+    worktree = tmp_path / "main-linked"
+    _git(repo, "worktree", "add", str(worktree), "main")
+    (worktree / ".quest").write_text("not a quest dir\n", encoding="utf-8")
+
+    payload = _run_startup(worktree, allowlist, "new-quest", "none")
+
+    assert payload["status"] == "blocked"
+    assert payload["quest_symlink"] == "n/a"
+    assert "not a directory or symlink" in payload["message"]
+    assert (worktree / ".quest").is_file()
 
 
 def test_startup_main_repo_none_and_branch_report_na(tmp_path: Path) -> None:

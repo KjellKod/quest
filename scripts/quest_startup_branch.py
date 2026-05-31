@@ -203,7 +203,7 @@ def apply_quest_symlink(worktree_quest: Path, shared_quest: Path) -> str:
         return "created"
 
     if not worktree_quest.is_dir():
-        return "conflict"
+        raise RuntimeError(f"{worktree_quest} exists but is not a directory or symlink")
 
     moved_any = False
     had_conflict = False
@@ -224,8 +224,8 @@ def apply_quest_symlink(worktree_quest: Path, shared_quest: Path) -> str:
         # Empty-only removal is deliberate: never force-delete migrated state.
         worktree_quest.rmdir()
         worktree_quest.symlink_to(shared_quest)
-    except Exception:
-        return "conflict"
+    except Exception as exc:
+        raise RuntimeError(f"Unable to replace {worktree_quest} with shared symlink") from exc
 
     if had_conflict:
         return "conflict"
@@ -240,10 +240,7 @@ def ensure_shared_quest_symlink(repo_root: Path, workdir: Path) -> str:
     shared_quest = resolve_shared_quest_dir(workdir)
     if shared_quest is None:
         return "n/a"
-    try:
-        return apply_quest_symlink(workdir / ".quest", shared_quest)
-    except Exception:
-        return "conflict"
+    return apply_quest_symlink(workdir / ".quest", shared_quest)
 
 
 def combine_quest_symlink_outcomes(*outcomes: str) -> str:
