@@ -102,6 +102,7 @@ scripts/pr_shepherd_checkout.py
 scripts/pr_shepherd_collect_intake.py
 scripts/pr_shepherd_fetch_failed_logs.py
 scripts/pr_shepherd_post_reply.py
+scripts/pr_sync_default_branch.py
 scripts/quest_checks/__init__.py
 scripts/quest_checks/cli.py
 scripts/quest_runtime/__init__.py

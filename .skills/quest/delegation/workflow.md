@@ -1150,7 +1150,11 @@ After plan approval, present the plan interactively before proceeding to build.
    - In non-interactive / CI environments: honor `archive_silent` (no animation); for `ask` or `celebrate`, run the celebration automatically. All paths still archive.
 
 3. **Run celebration (skill-first):**
-   - Invoke the `celebrate` skill and provide the quest ID/path so it reads artifacts and renders rich markdown directly
+   - Invoke the `celebrate` skill and provide the quest ID/path so it reads artifacts and renders rich markdown directly in the assistant response
+   - The user-visible celebration is required whenever `on_complete` is `celebrate`, the user chooses `Celebrate!`, or the user explicitly asks to celebrate
+   - Do not treat a generated journal entry, persisted celebration markdown file, command output, or artifact link as a substitute for showing the celebration in chat
+   - Render the celebration before final archive-only status, PR creation, PR shepherding, cleanup, or any other requested post-Quest follow-through
+   - If `archive_silent` is configured or the user explicitly chooses `Skip celebration`, say the celebration was intentionally skipped
    - Do NOT call the Python celebration script from this step in interactive agent flows
    - Optional fallback (non-interactive/runtime-only): `python3 scripts/quest_celebrate/celebrate.py --quest-dir .quest/<id> --style epic || true`
    - This step is fire-and-forget: if celebration fails, quest completion continues

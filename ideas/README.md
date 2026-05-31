@@ -90,6 +90,7 @@ Current roadmap:
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| done | ~~2026-05-30-pre-pr-freshness-and-force-push-guard.md~~ | Implemented shared pre-PR default-branch sync helper and skill wiring. See [journal](../docs/quest-journal/pre-pr-sync_2026-05-31.md). |
 | won't-do | ~~2026-04-15-pretooluse-branch-dir-verification-hook~~ | `PreToolUse` stdout is debug-log-only (invisible), reads orchestrator cwd not the edit target, and never fires under Codex/MCP. Statusline covers the intent on the Claude side. Built + closed in PR #116. Archived at [`ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md`](archive/2026-04-15-pretooluse-branch-dir-verification-hook.md). |
 | won't-do | ~~2026-04-15-claude-rule-confirm-pwd-branch-before-edits~~ | Soft "run `pwd`/`git branch` before edits" prose — no enforcement, instruction sprawl, visibility already covered by statusline. Retired with the hook (PR #116). Archived at [`ideas/archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md`](archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md). |
 | won't-do | ~~2026-04-15-subagent-path-constraints-hardening~~ | Superseded — `quest_validate-quest-state.sh` already blocks transitions on missing/misplaced canonical artifacts (both runtimes); PR #116's second validator was inert + redundant. Residual failure-diagnostics belong to `handoff-validation-and-failure-ux`. Archived at [`ideas/archive/2026-04-15-subagent-path-constraints-hardening.md`](archive/2026-04-15-subagent-path-constraints-hardening.md). |
