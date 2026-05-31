@@ -444,6 +444,47 @@ test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff() {
   [ "$rc" -eq 1 ] && echo "$output" | grep -q "code-reviewer-a requested fixes"
 }
 
+# Workflow mode: once the review-arbiter has adjudicated (trustworthy verdict,
+# next=null) and the backlog is clean, a reviewer's diagnostic next=fixer must
+# NOT block completion (workflow.md Step 5, Q5 — reviewer hints are diagnostic-only).
+test_reviewing_to_complete_allows_arbiter_cleared_despite_reviewer_fixer() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo '{"status":"complete","next":"fixer","summary":"found candidate issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  echo '{"status":"complete","next":null,"summary":"all dismissed as nitpicks"}' > "$tmpdir/phase_03_review/handoff_review-arbiter.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
+}
+
+# Workflow mode: when the review-arbiter itself says next=fixer but the backlog is
+# clean, completion is blocked (mismatch guard, arbiter-anchored).
+test_reviewing_to_complete_blocked_by_arbiter_fixer_handoff() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "reviewing"
+  mkdir -p "$tmpdir/phase_03_review"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-a.md"
+  touch "$tmpdir/phase_03_review/review_code-reviewer-b.md"
+  write_review_backlog "$tmpdir/phase_03_review/review_backlog.json" "clean"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-a.json"
+  echo '{"status":"complete","next":null,"summary":"no issues"}' > "$tmpdir/phase_03_review/handoff_code-reviewer-b.json"
+  echo '{"status":"complete","next":"fixer","summary":"real findings survived"}' > "$tmpdir/phase_03_review/handoff_review-arbiter.json"
+  local output
+  output=$(bash "$SCRIPT" "$tmpdir" "complete" 2>&1)
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "review-arbiter requested fixes"
+}
+
 test_reviewing_to_complete_requires_reviewer_handoffs() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -1538,6 +1579,8 @@ run_test test_valid_reviewing_to_complete
 run_test test_reviewing_to_complete_has_issues
 run_test test_reviewing_to_complete_blocked_by_needs_human_decision
 run_test test_reviewing_to_complete_blocked_by_reviewer_fixer_handoff
+run_test test_reviewing_to_complete_allows_arbiter_cleared_despite_reviewer_fixer
+run_test test_reviewing_to_complete_blocked_by_arbiter_fixer_handoff
 run_test test_reviewing_to_complete_requires_reviewer_handoffs
 run_test test_reviewing_to_complete_rejects_invalid_reviewer_handoff_json
 run_test test_reviewing_to_complete_rejects_missing_next_in_handoff

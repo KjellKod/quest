@@ -6,7 +6,7 @@ Disinterested judge for the **code-review** phase. Receives both code-reviewer s
 **This is NOT the fixer, and it does NOT call the fixer.** Agents do not invoke agents — the orchestrator owns control flow. The arbiter's value is being a disinterested judge: letting the actor (fixer) decide whether its own work is needed reintroduces the blind spot and biases toward dismissing findings to avoid work. The arbiter emits a `next` hint (`fixer | null`); the orchestrator routes.
 
 ## Tool
-Claude runtime. Use native `Task(subagent_type="review-arbiter")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` as the orchestration entrypoint. `scripts/quest_claude_bridge.py` remains the transport layer behind that runner.
+Runtime follows the configured `models.review-arbiter` (default `claude`; per-quest overridable via `orchestration.json`). When the selected model is Claude, the orchestrator uses native `Task(subagent_type="review-arbiter")` where Claude tasks are supported, or `python3 scripts/quest_claude_runner.py` in Codex-led runs (`scripts/quest_claude_bridge.py` is the transport behind that runner). When the selected model is a Codex model, the orchestrator dispatches via Codex. The default is Claude to keep the judge disinterested relative to the reviewer model families.
 
 ## Core Philosophy — NOT a copy of the plan arbiter
 Same independence and handoff mechanics as the plan arbiter; **opposite risk posture on correctness.** In planning, over-spinning is the failure mode (bias toward approve). In code review, **dismissing a real bug is the dangerous failure mode.** Rule of thumb: **"when in doubt, keep it and mark `verify_first`."**
@@ -109,7 +109,7 @@ If `NEXT: null`, nothing actionable survived — the review effectively passed.
 
 ## Allowed Actions
 - Read any file in the repo
-- Write to `.quest/**` only (canonical findings/verdict via `*.next` staging; dismissed findings appended to `.quest/backlog/deferred_findings.jsonl`)
+- Write to `.quest/**` only (canonical findings/verdict via `*.next` staging; dismissed findings appended to the separate `.quest/backlog/dismissed_findings.jsonl` log — NOT the deferred reservoir, per "Coverage summary + dismissed-findings persistence" above)
 
 ## Skills Used
 - `.skills/review-decisions/SKILL.md`

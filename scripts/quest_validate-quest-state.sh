@@ -641,26 +641,54 @@ validate_semantic_content() {
         fail "Semantic check: review backlog has $REVIEW_BACKLOG_HUMAN_DECISION_COUNT needs_human_decision item(s); cannot auto-complete"
       fi
 
-      # Safety check: block completion if any reviewer handoff requested fixes
-      local reviewer_a_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
-      local next_a
-      if ! read_required_reviewer_handoff "$reviewer_a_handoff"; then
-        return
-      fi
-      next_a="$REQUIRED_HANDOFF_NEXT"
-      if [ "$next_a" = "fixer" ]; then
-        fail "Semantic check: code-reviewer-a requested fixes (next=fixer) but completion attempted"
+      # Safety check: a reviewer's next=fixer is authoritative ONLY when there is
+      # no trustworthy review-arbiter verdict. In workflow mode, once the
+      # review-arbiter has adjudicated (its handoff is present and complete), the
+      # arbiter's verdict is authoritative and per-reviewer next hints are
+      # diagnostic-only (workflow.md Step 5, Q5). Solo mode, the dual-empty skip,
+      # and the arbiter fail-open path have no trustworthy arbiter verdict, so the
+      # per-reviewer check still applies. The orchestrator truncates
+      # handoff_review-arbiter.json during artifact prep, so a skipped/failed-open
+      # arbiter leaves a non-complete handoff and falls through to the reviewer check.
+      local arbiter_handoff="$quest_dir/phase_03_review/handoff_review-arbiter.json"
+      local arbiter_trustworthy=0
+      local arbiter_next=""
+      if [ "$QUEST_MODE" != "solo" ] && [ -f "$arbiter_handoff" ] \
+        && jq empty "$arbiter_handoff" 2>/dev/null \
+        && jq -e 'has("status") and .status == "complete" and has("next") and (.next == null or .next == "fixer")' "$arbiter_handoff" >/dev/null 2>&1; then
+        arbiter_trustworthy=1
+        arbiter_next=$(jq -r '.next' "$arbiter_handoff" 2>/dev/null)
+        [ "$arbiter_next" = "null" ] && arbiter_next=""
       fi
 
-      if [ "$QUEST_MODE" != "solo" ]; then
-        local reviewer_b_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
-        local next_b
-        if ! read_required_reviewer_handoff "$reviewer_b_handoff"; then
+      if [ "$arbiter_trustworthy" -eq 1 ]; then
+        # Arbiter verdict is authoritative; reviewer next hints are diagnostic-only.
+        if [ "$arbiter_next" = "fixer" ]; then
+          fail "Semantic check: review-arbiter requested fixes (next=fixer) but completion attempted"
+        fi
+      else
+        # No trustworthy arbiter verdict (solo / dual-empty skip / fail-open):
+        # the per-reviewer signal applies.
+        local reviewer_a_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-a.json"
+        local next_a
+        if ! read_required_reviewer_handoff "$reviewer_a_handoff"; then
           return
         fi
-        next_b="$REQUIRED_HANDOFF_NEXT"
-        if [ "$next_b" = "fixer" ]; then
-          fail "Semantic check: code-reviewer-b requested fixes (next=fixer) but completion attempted"
+        next_a="$REQUIRED_HANDOFF_NEXT"
+        if [ "$next_a" = "fixer" ]; then
+          fail "Semantic check: code-reviewer-a requested fixes (next=fixer) but completion attempted"
+        fi
+
+        if [ "$QUEST_MODE" != "solo" ]; then
+          local reviewer_b_handoff="$quest_dir/phase_03_review/handoff_code-reviewer-b.json"
+          local next_b
+          if ! read_required_reviewer_handoff "$reviewer_b_handoff"; then
+            return
+          fi
+          next_b="$REQUIRED_HANDOFF_NEXT"
+          if [ "$next_b" = "fixer" ]; then
+            fail "Semantic check: code-reviewer-b requested fixes (next=fixer) but completion attempted"
+          fi
         fi
       fi
       ;;
