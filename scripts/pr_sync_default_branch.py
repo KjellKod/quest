@@ -186,15 +186,28 @@ def _pre_apply_error() -> tuple[str, str]:
 
 def _pre_rebase_lease_error() -> tuple[str, str]:
     upstream = _run(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
-    if upstream.returncode != 0 or not upstream.stdout.strip():
+    if upstream.returncode == 0 and upstream.stdout.strip():
+        return _branch_contains(upstream.stdout.strip())
+
+    branch = _run(["git", "branch", "--show-current"])
+    if branch.returncode != 0 or not branch.stdout.strip():
         return "", ""
 
-    upstream_ref = upstream.stdout.strip()
-    contains = _run(["git", "merge-base", "--is-ancestor", upstream_ref, "HEAD"])
+    remote_ref = f"origin/{branch.stdout.strip()}"
+    remote_tracking_ref = f"refs/remotes/{remote_ref}"
+    remote_exists = _run(["git", "rev-parse", "--verify", "-q", remote_tracking_ref])
+    if remote_exists.returncode != 0:
+        return "", ""
+
+    return _branch_contains(remote_ref)
+
+
+def _branch_contains(ref: str) -> tuple[str, str]:
+    contains = _run(["git", "merge-base", "--is-ancestor", ref, "HEAD"])
     if contains.returncode == 0:
         return "", ""
     if contains.returncode == 1:
-        return "upstream_not_contained", f"local HEAD does not contain {upstream_ref}"
+        return "upstream_not_contained", f"local HEAD does not contain {ref}"
     return "upstream_check_failed", _message(contains)
 
 

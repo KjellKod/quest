@@ -68,7 +68,9 @@ workspace still matches the PR branch:
      under-review PR's commit SHAs and preserves inline review-thread anchoring.
    - If the payload is `status: "up_to_date"` or `status: "synced"`, continue.
    - If the payload is `status: "conflict"`, surface `conflict_files` and the
-     specific hunks. Resolve only clearly safe, non-destructive conflicts
+     specific hunks when they are available. The inspect path can be
+     filename-only; when hunks or conflict markers are not available, pause
+     instead of guessing. Resolve only clearly safe, non-destructive conflicts
      (additive / adjacent / whitespace / import-or-list ordering where nothing
      from `main` is dropped); otherwise pause and ask the human. Never use
      blanket `-X theirs` or `-X ours`.

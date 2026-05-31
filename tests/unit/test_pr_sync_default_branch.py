@@ -34,6 +34,10 @@ def _standard_success(args: list[str]) -> _Result:
         return _Result()
     if args == ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]:
         return _Result(returncode=1)
+    if args == ["git", "branch", "--show-current"]:
+        return _Result(stdout="feature\n")
+    if args == ["git", "rev-parse", "--verify", "-q", "refs/remotes/origin/feature"]:
+        return _Result(returncode=1)
     if len(args) == 5 and args[:4] == ["git", "rev-parse", "--verify", "-q"]:
         return _Result(returncode=1)
     return _Result()
@@ -184,6 +188,28 @@ def test_rebase_apply_refuses_when_upstream_not_contained(monkeypatch) -> None:
     assert payload["status"] == "error"
     assert payload["reason"] == "upstream_not_contained"
     assert payload["message"] == "local HEAD does not contain origin/feature"
+    assert ["git", "rebase", "origin/main"] not in calls
+
+
+def test_rebase_apply_refuses_when_same_named_remote_branch_not_contained(monkeypatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args == ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]:
+            return _Result(returncode=1)
+        if args == ["git", "branch", "--show-current"]:
+            return _Result(stdout="quest/pre-pr-sync\n")
+        if args == ["git", "rev-parse", "--verify", "-q", "refs/remotes/origin/quest/pre-pr-sync"]:
+            return _Result(stdout="abc123\n")
+        if args == ["git", "merge-base", "--is-ancestor", "origin/quest/pre-pr-sync", "HEAD"]:
+            return _Result(returncode=1)
+        return _standard_success(args)
+
+    calls = _install_runner(monkeypatch, fake_run)
+    code, payload = pr_sync_default_branch.sync("rebase", apply=True)
+
+    assert code == 1
+    assert payload["status"] == "error"
+    assert payload["reason"] == "upstream_not_contained"
+    assert payload["message"] == "local HEAD does not contain origin/quest/pre-pr-sync"
     assert ["git", "rebase", "origin/main"] not in calls
 
 

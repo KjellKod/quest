@@ -25,12 +25,14 @@ default branch from the source worktree:
    estimate; the `--apply` result is the source of truth for the default rebase
    strategy.
 4. If either payload is `status: "conflict"`, surface the listed
-   `conflict_files` and the specific hunks to the human. Attempt a resolution
-   only when it is clearly safe and non-destructive: additive / adjacent /
-   whitespace / import-or-list ordering, where both sides' intent is preserved
-   and nothing from `main` is dropped. If the correct resolution would overwrite
-   or delete code/instructions from `main`, or the right resolution is
-   ambiguous, pause and ask the human. When in doubt, pause.
+   `conflict_files`. The inspect path can be filename-only; when hunks or
+   conflict markers are not available, pause instead of guessing. Attempt a
+   resolution only when the hunks are available and the fix is clearly safe and
+   non-destructive: additive / adjacent / whitespace / import-or-list ordering,
+   where both sides' intent is preserved and nothing from `main` is dropped. If
+   the correct resolution would overwrite or delete code/instructions from
+   `main`, or the right resolution is ambiguous, pause and ask the human. When
+   in doubt, pause.
 5. If either payload is `status: "error"`, stop and surface the `reason` and
    `message` fields before any push or PR mutation.
 6. Never use blanket `-X theirs` or `-X ours` resolution.
