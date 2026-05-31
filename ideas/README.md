@@ -66,6 +66,7 @@ Current roadmap:
 | `claude-bridge-timeout-diagnosis-2026-03-23.md` | reference | Incident record showing sandbox-local Claude bridge probes can fail even when host execution is healthy. |
 | `claude-cli-login-context.md` | reference | Operational note: external `claude` CLI login must be validated in the same execution context; an open app session is not enough. |
 | `codex_calls_claude.sh` | reference | Older experimental bash bridge prototype retained as a reference alongside the supported Python bridge. |
+| `2026-05-31-codex-driven-interactive-claude-relay.md` | proposed | Hard-switch transport that runs Codex-led Claude roles through a self-bootstrapping interactive `claude` session (subscription pool) instead of `claude --print` (API-metered after June 15, 2026). |
 
 ### Execution Discipline and Observability
 | File | Status | Purpose |
