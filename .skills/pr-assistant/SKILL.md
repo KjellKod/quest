@@ -19,19 +19,25 @@ default branch from the source worktree:
 2. If the payload is `status: "up_to_date"`, continue with the normal PR
    creation flow.
 3. If the payload is `status: "clean"`, run
-   `python3 scripts/pr_sync_default_branch.py --apply --json`, then continue.
-   The inspect result is a best-effort merge-based estimate; the `--apply`
-   result is the source of truth for the default rebase strategy.
-4. If the payload is `status: "conflict"`, surface the listed
+   `python3 scripts/pr_sync_default_branch.py --apply --json`, parse the apply
+   payload, and continue only when it reports `status: "synced"` or
+   `status: "up_to_date"`. The inspect result is a best-effort merge-based
+   estimate; the `--apply` result is the source of truth for the default rebase
+   strategy.
+4. If either payload is `status: "conflict"`, surface the listed
    `conflict_files` and the specific hunks to the human. Attempt a resolution
    only when it is clearly safe and non-destructive: additive / adjacent /
    whitespace / import-or-list ordering, where both sides' intent is preserved
    and nothing from `main` is dropped. If the correct resolution would overwrite
    or delete code/instructions from `main`, or the right resolution is
    ambiguous, pause and ask the human. When in doubt, pause.
-5. Never use blanket `-X theirs` or `-X ours` resolution.
-6. If the applied sync reports `force_with_lease: true`, push with
-   `git push --force-with-lease`; otherwise push normally.
+5. If either payload is `status: "error"`, stop and surface the `reason` and
+   `message` fields before any push or PR mutation.
+6. Never use blanket `-X theirs` or `-X ours` resolution.
+7. If the applied sync reports `force_with_lease: true`, push with
+   `git push --force-with-lease -u origin HEAD` on the first push, or
+   `git push --force-with-lease` when the branch already has an upstream;
+   otherwise push normally.
 
 ### Force-with-lease exception
 
@@ -226,7 +232,7 @@ When updating an existing PR body, preserve bot-managed sections exactly:
 
 - Create: `gh pr create --draft --title "..." --body "..."`
 - Update: `gh pr edit <number> --title "..." --body "..."`
-- Push only after the default-branch sync above. Use `git push --force-with-lease` when the sync payload reports `force_with_lease: true`; otherwise use `git push -u origin HEAD`.
+- Push only after the default-branch sync above. Use `git push --force-with-lease -u origin HEAD` for a first push when the sync payload reports `force_with_lease: true`, or `git push --force-with-lease` when the branch already has an upstream; otherwise use `git push -u origin HEAD`.
 - Run `gh` directly — do not wrap in `bash -lc` or `sh -c`. Permission prefixes only match when `gh` is the top-level command.
 
 ### Truthfulness
