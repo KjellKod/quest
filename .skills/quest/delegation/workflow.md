@@ -33,6 +33,7 @@ Phase-specific notes (just pointers — the propagation rule itself does not var
 Quest dispatch separates **runtime** from **entrypoint**:
 - `runtime` is the backend family assigned by `.quest/<id>/orchestration.json` (`claude` or `codex`).
 - `entrypoint` is how the current orchestrator invokes that runtime.
+- The selected model/runtime value chooses the backend family only; it does not choose the transport or tool entrypoint.
 
 | Orchestrator | Selected role runtime | Entrypoint | Rule |
 |--------------|-----------------------|------------|------|
