@@ -4,7 +4,7 @@
 Impartial judge for the **code-review** phase. Reads both code-reviewer slot findings (A and B), judges whether each finding is **true** against the diff, and emits the canonical `review_findings.json` plus a human-facing verdict. In workflow mode it replaces the deterministic `merge-findings` union.
 
 ## Tool
-Runtime follows the configured `models.review-arbiter` (default `claude`; per-quest overridable via `orchestration.json`).
+Runtime follows the configured `models.review-arbiter` (default `claude`; per-quest overridable via `orchestration.json`). If a Codex-led Quest assigns this role to Codex, dispatch it through local Codex subagents and inherit the active Codex model by default. Codex MCP is only for Claude-led dispatch to Codex.
 
 ## Decision posture
 **Dismissing a real bug is the dangerous failure mode — when in doubt, keep the finding and set its fields so it lands as `verify_first` (see "How your fields set the decision").**

@@ -1,18 +1,24 @@
 ---
 name: gpt
-description: Delegate a task to OpenAI Codex via MCP. Use when the user invokes /gpt, asks to "use codex", "ask codex", "have codex do X", or when a second opinion or parallel implementation from a different model would be valuable.
+description: Delegate a task to OpenAI Codex via MCP from Claude-led sessions. Use when the user invokes /gpt, asks to "use codex", "ask codex", "have codex do X", or when a second opinion or parallel implementation from a different model would be valuable.
 ---
 
 # Skill: GPT (Codex)
 
-Delegate tasks to OpenAI Codex via the `mcp__codex-cli__codex` MCP tool.
+Delegate tasks to OpenAI Codex via the `mcp__codex-cli__codex` MCP tool from Claude-led sessions.
 
 ## When to Use
 
 - User types `/gpt` or `/gpt <task>`
 - User asks to "use codex", "ask codex", "have codex review/write/analyze..."
 - User wants a second opinion from a different model
-- Quest workflow routes a role to Codex (builder, fixer, code-reviewer-b, plan-reviewer-b)
+- Claude-led Quest workflow routes a role to Codex (builder, fixer, code-reviewer-b, plan-reviewer-b)
+
+## Not for Codex-Led Quest Role Dispatch
+
+If you are already Codex and a Quest role is assigned to Codex, do not call Codex MCP to create another Codex role. Codex-led Quest dispatch must use local Codex subagents (`multi_agent_v1.spawn_agent` or the repo-supported equivalent) and inherit the active Codex model unless the user explicitly requested a model override.
+
+Codex MCP is only the cross-runtime path when the orchestrator is Claude-led and needs to dispatch a Codex runtime role. A Codex-led attempt to use `mcp__codex*`, `codex_codex`, `codex mcp-server`, or Codex CLI model aliases for a Codex role is an orchestration violation, not a model-selection problem.
 
 ## Prerequisites
 
@@ -24,9 +30,9 @@ If Codex isn't connecting, also run `claude mcp add codex-cli -- codex mcp-serve
 
 If the tool `mcp__codex-cli__codex` is not available, tell the user to add the config above and restart Claude Code.
 
-## Step 1: Confirm Before Calling
+## Step 1: Confirm Before Calling From Claude
 
-Before invoking Codex, **always tell the user what you're about to do** and wait for confirmation:
+Before invoking Codex from a Claude-led session, **always tell the user what you're about to do** and wait for confirmation:
 
 ```
 I'll delegate this to Codex with:
@@ -45,9 +51,9 @@ Adjust the defaults based on task complexity:
 
 If the user specifies reasoning or model in their request, use what they asked for.
 
-## Step 2: Call via MCP
+## Step 2: Call via MCP From Claude
 
-Always use the MCP tool. **Never shell out to `codex exec`.**
+For this Claude-led skill, use the MCP tool. **Never shell out to `codex exec`.** Do not use this step for Codex-led Quest role dispatch; use local Codex subagents there.
 
 ```
 mcp__codex-cli__codex({
@@ -82,7 +88,7 @@ Known working models:
 - **`read-only`** — Pure analysis, explanation, Q&A. No file writes at all.
 - **`danger-full-access`** — Full system access. **Always ask the user before using this.** Needed when: installing dependencies, network calls, accessing files outside the workspace.
 
-When called from Quest orchestration, match the sandbox to the role:
+When called from Claude-led Quest orchestration, match the sandbox to the role:
 - Builder/Fixer: `workspace-write`
 - Reviewers: `workspace-write` (may write review artifacts)
 - Analysis-only: `read-only`

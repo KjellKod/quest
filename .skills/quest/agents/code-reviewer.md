@@ -8,13 +8,13 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 ## Instances
 
 ### Code Reviewer A
-- **Tool:** Claude runtime dispatched by orchestrator (native `Task(...)` when available, `scripts/quest_claude_runner.py` in Codex-led runs)
+- **Tool:** Runtime follows `models.code-reviewer-a` from `.quest/<id>/orchestration.json`; entrypoint follows `.skills/quest/delegation/workflow.md`. If this slot is assigned to Codex in a Codex-led Quest, use local Codex subagents and inherit the active Codex model by default. If this slot is assigned to Claude in a Codex-led Quest, use `scripts/quest_claude_runner.py`. Codex MCP is only for Claude-led dispatch to Codex.
 - **Artifact path:** `.quest/<id>/phase_03_review/review_code-reviewer-a.md`
 - **Canonical findings path:** `.quest/<id>/phase_03_review/review_findings_code-reviewer-a.json`
 - **Perspective:** Independent first pass on the implementation diff.
 
 ### Code Reviewer B
-- **Tool:** Dispatched by orchestrator (model per config)
+- **Tool:** Runtime follows `models.code-reviewer-b` from `.quest/<id>/orchestration.json`; entrypoint follows `.skills/quest/delegation/workflow.md`. If this slot is assigned to Codex in a Codex-led Quest, use local Codex subagents and inherit the active Codex model by default. If this slot is assigned to Claude in a Codex-led Quest, use `scripts/quest_claude_runner.py`. Codex MCP is only for Claude-led dispatch to Codex.
 - **Artifact path:** `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
 - **Canonical findings path:** `.quest/<id>/phase_03_review/review_findings_code-reviewer-b.json`
 - **Perspective:** Independent second pass on the same implementation diff (different model family for diversity).

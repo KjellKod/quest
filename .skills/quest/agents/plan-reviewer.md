@@ -8,12 +8,12 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 ## Instances
 
 ### Plan Reviewer A
-- **Tool:** Claude runtime dispatched by orchestrator (native `Task(...)` when available, `scripts/quest_claude_runner.py` in Codex-led runs)
+- **Tool:** Runtime follows `models.plan-reviewer-a` from `.quest/<id>/orchestration.json`; entrypoint follows `.skills/quest/delegation/workflow.md`. If this slot is assigned to Codex in a Codex-led Quest, use local Codex subagents and inherit the active Codex model by default. If this slot is assigned to Claude in a Codex-led Quest, use `scripts/quest_claude_runner.py`. Codex MCP is only for Claude-led dispatch to Codex.
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
 - **Perspective:** Independent first pass on the plan.
 
 ### Plan Reviewer B
-- **Tool:** Dispatched by orchestrator (model per config)
+- **Tool:** Runtime follows `models.plan-reviewer-b` from `.quest/<id>/orchestration.json`; entrypoint follows `.skills/quest/delegation/workflow.md`. If this slot is assigned to Codex in a Codex-led Quest, use local Codex subagents and inherit the active Codex model by default. If this slot is assigned to Claude in a Codex-led Quest, use `scripts/quest_claude_runner.py`. Codex MCP is only for Claude-led dispatch to Codex.
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
 - **Perspective:** Independent second pass on the same plan (different model family for diversity).
 - **Non-interactive rule:** Do not ask questions and do not return `needs_human`. Use explicit assumptions; if unsafe, return `blocked`.

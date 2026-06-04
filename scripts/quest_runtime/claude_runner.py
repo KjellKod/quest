@@ -36,6 +36,13 @@ class RunResult:
     stderr: str
 
 
+CODEX_LED_CODEX_VIOLATION_GUIDANCE = (
+    "Orchestration violation: Codex-led Codex roles must use local Codex "
+    "subagents that inherit the active Codex model. Codex MCP is only valid "
+    "for Claude-led sessions dispatching Codex roles."
+)
+
+
 def _effective_permission_mode(
     permission_mode: str, permission_escalation: bool
 ) -> str:
@@ -55,18 +62,35 @@ def select_role_runtime(
 ) -> RuntimeSelection:
     """Select the additive runtime path for a Quest role.
 
-    This preserves native Claude execution for Claude-led quests and activates the
-    bridge-backed Claude runner only for Codex-led Claude-designated roles.
+    Runtime names describe the backend family. Entrypoints describe how the
+    current orchestrator invokes that backend.
     """
 
     normalized_orchestrator = orchestrator.strip().lower()
     normalized_target = target_runtime.strip().lower()
 
+    if normalized_orchestrator not in {"claude", "codex"}:
+        raise ValueError(f"Unsupported orchestrator: {orchestrator}")
+
     if normalized_target == "codex":
+        if normalized_orchestrator == "codex":
+            return RuntimeSelection(
+                runtime="codex",
+                entrypoint="subagent",
+                reason=(
+                    "runtime=codex entrypoint=subagent: Codex-led Codex role "
+                    "uses local Codex subagents and inherits the active Codex "
+                    f"model. {CODEX_LED_CODEX_VIOLATION_GUIDANCE}"
+                ),
+                requires_probe=False,
+            )
         return RuntimeSelection(
             runtime="codex",
-            entrypoint="mcp__codex-cli__codex",
-            reason="Codex-designated role stays on Codex tooling.",
+            entrypoint="codex_mcp",
+            reason=(
+                "runtime=codex entrypoint=codex_mcp: Claude-led session may "
+                "dispatch Codex roles through Codex MCP."
+            ),
             requires_probe=False,
         )
 
@@ -78,15 +102,22 @@ def select_role_runtime(
             return RuntimeSelection(
                 runtime="claude",
                 entrypoint="scripts/quest_claude_runner.py",
-                reason="Codex-led Claude role uses the additive bridge-backed Quest runner.",
+                reason=(
+                    "runtime=claude entrypoint=scripts/quest_claude_runner.py: "
+                    "Codex-led Claude role uses the additive bridge-backed "
+                    "Quest runner."
+                ),
                 requires_probe=True,
             )
         return RuntimeSelection(
             runtime="blocked",
             entrypoint="",
             reason=(
-                "Codex-led Claude role requires the Quest Claude bridge runner, "
-                "but the bridge probe is unavailable."
+                "runtime=claude entrypoint=blocked: Codex-led Claude role "
+                "requires the Quest Claude bridge runner "
+                "(scripts/quest_claude_runner.py), but the bridge probe is "
+                "unavailable. Re-run the host-context Claude bridge probe or "
+                "assign this role to Codex."
             ),
             requires_probe=True,
         )
@@ -95,7 +126,10 @@ def select_role_runtime(
         return RuntimeSelection(
             runtime="claude",
             entrypoint="Task(...)",
-            reason="Claude-led or native-Claude host keeps native Claude task execution.",
+            reason=(
+                "runtime=claude entrypoint=Task(...): Claude-led or "
+                "native-Claude host keeps native Claude task execution."
+            ),
             requires_probe=False,
         )
 
