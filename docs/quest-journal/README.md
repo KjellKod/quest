@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-06-04 | [codex-subagent-dispatch-guardrails](codex-subagent-dispatch-guardrails_2026-06-04.md) | Fix Quest Codex-led role dispatch so Codex roles use local subagents, never Codex MCP. Context: In Codex-led Quest ru... |
 | 2026-05-31 | [pre-pr-sync](pre-pr-sync_2026-05-31.md) | implement using $quest ideas/2026-05-30-pre-pr-freshness-and-force-push-guard.md |
 | 2026-05-31 | [shared-quest-symlink](shared-quest-symlink_2026-05-31.md) | - **Agent:** Planner - **Model:** claude-opus-4-8 - **Date:** 2026-05-31 - **Quest ID:** shared-quest-symlink_2026-05... |
 | 2026-05-30 | [code-review-adjudication](code-review-adjudication_2026-05-30.md) | **Completed (PR #124).** Enforce per-slot findings JSON (fail closed) + add an impartial code-review arbiter; brought code review to plan-phase adjudication parity. |
