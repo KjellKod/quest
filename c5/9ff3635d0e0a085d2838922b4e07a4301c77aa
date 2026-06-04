@@ -1,0 +1,57 @@
+.skills/quest/agents/builder.md
+  s_3fc2b5fd20866d::t_a87f8b88b08df6 7
+.skills/quest/agents/code-reviewer.md
+  s_3fc2b5fd20866d::t_2c3405e8dfc89e 11,17
+.skills/gpt/SKILL.md
+  s_3fc2b5fd20866d::t_cc8700678dc898 3,8,15-21
+  s_3fc2b5fd20866d::t_9760341c21fe80 33,35,54,56,91
+tests/unit/test_quest_runtime.py
+  s_3fc2b5fd20866d::t_53e18309bbe6e6 14,40-72,85,100-109
+.skills/quest/delegation/workflow.md
+  s_3fc2b5fd20866d::t_4c511d62b26661 350,352,385,438,756,758,828,899,1087,1089
+  s_3fc2b5fd20866d::t_96687c15f4b996 122,143,189-192,214,216,220,256-257
+  s_3fc2b5fd20866d::t_488c0b5c22aad6 1396,1398,1432,1434,1450,1462
+  s_3fc2b5fd20866d::t_e530e2cc5f6c64 31,33-46,50,59,67,69,71,92
+.skills/quest/agents/plan-reviewer.md
+  s_3fc2b5fd20866d::t_1449696cc8b96d 11,16
+.skills/quest/agents/fixer.md
+  s_3fc2b5fd20866d::t_e2d080fc31e638 9
+.agents/skills/quest/SKILL.md
+  s_3fc2b5fd20866d::t_6838faaa5d63f4 8
+  s_3fc2b5fd20866d::t_017fa253d87600 6-7,9-11
+scripts/quest_runtime/claude_runner.py
+  s_3fc2b5fd20866d::t_7992f9bb06afaf 117-120
+  s_3fc2b5fd20866d::t_c26256164d07d8 39-45,65-66,72-74,76-86,89-93,105-109,116,129-132
+tests/unit/test_quest_dispatch_guardrails.py
+  s_3fc2b5fd20866d::t_bbf5ef8074387a 1-9,11-22,24-25,34-54,56-62,67-82,86-89,92-112,138-189,248-250,252-259,261-275
+  s_3fc2b5fd20866d::t_7274e995873834 10,55,63-66,113-124,130-137,190-247
+  s_3fc2b5fd20866d::t_582753553b1726 83-85
+  s_3fc2b5fd20866d::t_daebdbfc5d22e5 90-91
+  s_3fc2b5fd20866d::t_c77ccaa3469f11 125-129
+  s_3fc2b5fd20866d::t_81c282224d2af6 26-33,251,260
+  s_3fc2b5fd20866d::t_d91ad2760bca06 23
+.skills/quest/agents/planner.md
+  s_3fc2b5fd20866d::t_b14105077a368d 7
+.skills/quest/agents/review-arbiter.md
+  s_3fc2b5fd20866d::t_21f160ed488282 7
+.skills/quest/agents/arbiter.md
+  s_3fc2b5fd20866d::t_9fa94bc5c13116 7
+.codex/AGENTS.md
+  s_3fc2b5fd20866d::t_b2923e382ae11a 46-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "c59ff3635d0e0a085d2838922b4e07a4301c77aa",
+  "prompts": {},
+  "sessions": {
+    "s_3fc2b5fd20866d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e93a6-9aed-7550-b02a-4d9355ed7acf",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
