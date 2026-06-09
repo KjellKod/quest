@@ -15,4 +15,5 @@ proposals live in `ideas/` until they are implementation-ready.
 
 | Plan | Status | Summary |
 |------|--------|---------|
-| [claude-bg-transport-migration.md](claude-bg-transport-migration.md) | draft — for review | Migrate Codex-led Claude role execution from the `claude --print` bridge (API-metered after June 15, 2026) to the official background-agent transport (`claude --bg` + supervisor, subscription pool); bridge demoted to fallback/CI path, not deleted. |
+| [claude-bg-run-script.md](claude-bg-run-script.md) | draft — for review | Step 1: a quest-agnostic standalone `claude --bg` runner (dispatch → confirm → wait-on-files → collect → teardown) we can validate and iterate on outside quest, before any quest wiring. |
+| [claude-bg-transport-migration.md](claude-bg-transport-migration.md) | draft — for review | Step 2 (later): migrate Codex-led Claude role execution from the `claude --print` bridge (API-metered after June 15, 2026) to the background-agent transport behind a config switch; bridge demoted to fallback/CI path, not deleted. |
