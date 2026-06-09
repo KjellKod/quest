@@ -51,8 +51,18 @@ def test_select_role_runtime_uses_subagent_for_codex_led_codex_roles():
     assert "local Codex subagents" in selection.reason
     assert "inherits the active Codex model" in selection.reason
     assert "runtime=codex entrypoint=subagent" in selection.reason
-    assert CODEX_LED_CODEX_VIOLATION_GUIDANCE in selection.reason
+    assert "Codex MCP is only valid for Claude-led sessions" in selection.reason
+    # A correct selection must not log violation language, or the log line
+    # itself becomes the misdiagnosis trap this contract exists to prevent.
+    assert "Orchestration violation" not in selection.reason
     assert "gpt-5" not in selection.reason
+
+
+def test_codex_led_codex_violation_guidance_names_the_correction():
+    assert CODEX_LED_CODEX_VIOLATION_GUIDANCE.startswith("Orchestration violation")
+    assert "local Codex subagents" in CODEX_LED_CODEX_VIOLATION_GUIDANCE
+    assert "inherit the active Codex model" in CODEX_LED_CODEX_VIOLATION_GUIDANCE
+    assert "Claude-led sessions" in CODEX_LED_CODEX_VIOLATION_GUIDANCE
 
 
 def test_select_role_runtime_uses_codex_mcp_for_claude_led_codex_roles():

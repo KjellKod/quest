@@ -36,6 +36,10 @@ class RunResult:
     stderr: str
 
 
+# Canonical message for reporting an actual violation (a Codex-led session
+# attempting to dispatch a Codex role through Codex MCP). Not part of the
+# success-path selection reason — a correct selection must not log
+# "Orchestration violation", or the log itself becomes a misdiagnosis trap.
 CODEX_LED_CODEX_VIOLATION_GUIDANCE = (
     "Orchestration violation: Codex-led Codex roles must use local Codex "
     "subagents that inherit the active Codex model. Codex MCP is only valid "
@@ -64,6 +68,11 @@ def select_role_runtime(
 
     Runtime names describe the backend family. Entrypoints describe how the
     current orchestrator invokes that backend.
+
+    This is the reference implementation of the dispatch matrix in
+    `.skills/quest/delegation/workflow.md`. Orchestrators follow that
+    document at runtime; this helper and its tests keep the matrix
+    semantics pinned in code.
     """
 
     normalized_orchestrator = orchestrator.strip().lower()
@@ -80,7 +89,8 @@ def select_role_runtime(
                 reason=(
                     "runtime=codex entrypoint=subagent: Codex-led Codex role "
                     "uses local Codex subagents and inherits the active Codex "
-                    f"model. {CODEX_LED_CODEX_VIOLATION_GUIDANCE}"
+                    "model. Codex MCP is only valid for Claude-led sessions "
+                    "dispatching Codex roles."
                 ),
                 requires_probe=False,
             )
