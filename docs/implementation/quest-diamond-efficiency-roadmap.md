@@ -150,14 +150,14 @@ WP1 (contracts)        ──────┤  parallel with WP0           ▲
 WP2 (workflow split)   ──────┤  after WP1                   │
 WP3 (fix-loop delta)   ──────┤  after WP2                   │
 WP4 (reviewer signal)  ──────┤  after WP2; needs WP0 data   │
-WP5 (planning lessons) ──────┤  parallel anytime ───────────┤
+WP5 (planning lessons) ──────┤  after WP2 ──────────────────┤
 WP6 (CI prompt cleanup)──────┤  parallel anytime ───────────┤
 WP7 (model plumbing)   ──────┤  parallel anytime ───────────┤
 WP8 (completion UX)    ──────┴  after WP2; needs WP0 data ──┘
 ```
 
-Sequence the workflow-file work (WP1 → WP2 → WP3/WP4/WP8) because they edit
-the same files. WP5, WP6, WP7 touch disjoint files and can run in parallel
+Sequence the workflow-file work (WP1 → WP2 → WP3/WP4/WP5/WP8) because they
+edit the same files. WP6 and WP7 touch disjoint files and can run in parallel
 with anything after WP0.
 
 ---
@@ -197,6 +197,7 @@ of those claims are checkable. Also generates the data WP4 and WP7 need.
 - [ ] Journal entries for new quests contain the rollup table.
 - [ ] `tests/benchmark/baseline/` holds three rollups generated from `main`.
 - [ ] Unit tests cover the rollup math (tokens summed by role, precision ratio).
+- [ ] `.quest-manifest` lists the new runtime/benchmark files (`scripts/quest_runtime/*.py` is installer-managed); `quest_validate-manifest.sh` passes.
 
 **Quest prompt:**
 
@@ -245,6 +246,10 @@ SKILL produces findings the backlog automation can't classify.
    pointer, platform-specific invocation notes only). Resolve the known drift:
    planner question-handling (`needs_human` vs forbidden) follows the canonical
    rule; reviewer output formats follow the canonical findings schema.
+   **Exception:** `.opencode/agents/quest.md` is the OpenCode orchestrator
+   stub with no per-role canonical file — leave it pointing at
+   `.skills/quest/SKILL.md` and the workflow docs; it is out of scope for the
+   stub contraction.
 4. Add a guard test (`tests/unit/`) that fails if a platform stub redefines
    severity values or handoff fields (simple grep-style assertions), so drift
    can't silently return.
@@ -425,19 +430,24 @@ overkill for clean reviews — WP0's data decides.
 **Why:** raising first-pass plan approval is the single biggest token saver
 (each avoided plan iteration ≈ planner + 2 reviewers + arbiter). The machinery
 already exists for code findings (`deferred_findings.jsonl`); this applies the
-same pattern to plan quality. Runs in parallel with anything.
+same pattern to plan quality. Depends on WP2 (it edits `workflow/plan.md`);
+otherwise independent.
 
 **Steps:**
 
-1. At quest completion, `quest_complete.py` extracts the arbiter's
-   iterate-reasons (from `arbiter_verdict.md` / `review_findings.json` of
-   non-first plan iterations) and appends one-line lessons to
+1. **Archive iterate verdicts first** — the plan-review flow overwrites
+   `arbiter_verdict.md` on each iteration, so non-final rejection reasons are
+   gone by completion time. In the plan phase (post-WP2 `workflow/plan.md`),
+   when the arbiter returns `iterate`, the orchestrator copies the verdict to
+   `arbiter_verdict_iter<n>.md` before the next planning round.
+2. At quest completion, `quest_complete.py` extracts the iterate-reasons from
+   the archived per-iteration verdicts and appends one-line lessons to
    `.quest/backlog/planning_lessons.md` (capped at 30 lines, FIFO — newest
    lessons replace oldest; dedupe identical lessons).
-2. The planner prompt (in `workflow/plan.md`) references the lessons file when
+3. The planner prompt (in `workflow/plan.md`) references the lessons file when
    it exists: "Known causes of past plan rejections: read
    `.quest/backlog/planning_lessons.md` and avoid repeating them."
-3. Lessons are repo-local state (gitignored under `.quest/`), same lifecycle as
+4. Lessons are repo-local state (gitignored under `.quest/`), same lifecycle as
    the deferred findings reservoir.
 
 **Acceptance criteria:**
