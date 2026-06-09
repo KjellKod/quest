@@ -124,6 +124,19 @@ def is_claude_model(model: str) -> bool:
     return model == "claude" or model.startswith("claude-")
 
 
+def runtime_for_model(model: str) -> str:
+    """Map a persisted `models.<role>` model ID to its runtime family.
+
+    `models.*` stores model IDs (for example `claude`, `claude-opus-4-6`,
+    `gpt-5.5`), not runtime names. The Quest contract is binary: Claude-family
+    IDs run on the Claude runtime; every other ID runs on Codex tooling.
+    """
+    normalized = model.strip().lower()
+    if not normalized:
+        raise ValueError("model must be a non-empty string")
+    return "claude" if is_claude_model(normalized) else "codex"
+
+
 def is_model_available(model: str, *, codex_available: bool) -> bool:
     """Return True if the requested model can run with the current preflight.
 

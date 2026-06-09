@@ -15,6 +15,7 @@ from quest_runtime.artifacts import (
     check_artifact_paths,
     prepare_artifact_files,
 )
+from quest_runtime.orchestration import runtime_for_model
 from quest_runtime.state import utc_now_iso
 
 
@@ -69,6 +70,12 @@ def select_role_runtime(
     Runtime names describe the backend family. Entrypoints describe how the
     current orchestrator invokes that backend.
 
+    `target_runtime` accepts either a runtime family (`claude`/`codex`) or a
+    persisted `models.<role>` model ID (for example `gpt-5.5` or
+    `claude-opus-4-6`) — model IDs are normalized through the canonical
+    `runtime_for_model()` mapping before entrypoint selection, so callers do
+    not need their own model-to-runtime translation.
+
     This is the reference implementation of the dispatch matrix in
     `.skills/quest/delegation/workflow.md`. Orchestrators follow that
     document at runtime; this helper and its tests keep the matrix
@@ -76,7 +83,7 @@ def select_role_runtime(
     """
 
     normalized_orchestrator = orchestrator.strip().lower()
-    normalized_target = target_runtime.strip().lower()
+    normalized_target = runtime_for_model(target_runtime)
 
     if normalized_orchestrator not in {"claude", "codex"}:
         raise ValueError(f"Unsupported orchestrator: {orchestrator}")
@@ -103,9 +110,6 @@ def select_role_runtime(
             ),
             requires_probe=False,
         )
-
-    if normalized_target != "claude":
-        raise ValueError(f"Unsupported target runtime: {target_runtime}")
 
     if normalized_orchestrator == "codex":
         if claude_bridge_available:

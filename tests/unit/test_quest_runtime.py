@@ -16,6 +16,7 @@ from quest_runtime.claude_runner import (
     run_claude_role,
     select_role_runtime,
 )
+from quest_runtime.orchestration import runtime_for_model
 
 
 def _write_executable(path: Path, body: str) -> None:
@@ -117,6 +118,42 @@ def test_select_role_runtime_rejects_unknown_orchestrator():
         assert "Unsupported orchestrator" in str(exc)
     else:
         raise AssertionError("Expected unsupported orchestrator to raise ValueError")
+
+
+def test_runtime_for_model_maps_model_ids_to_runtime_families():
+    assert runtime_for_model("claude") == "claude"
+    assert runtime_for_model("claude-opus-4-6") == "claude"
+    assert runtime_for_model("Claude-Opus-4-6") == "claude"
+    assert runtime_for_model("codex") == "codex"
+    assert runtime_for_model("gpt-5.5") == "codex"
+    assert runtime_for_model("opencode/gpt-5.4") == "codex"
+
+    try:
+        runtime_for_model("   ")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected empty model to raise ValueError")
+
+
+def test_select_role_runtime_accepts_persisted_model_ids():
+    codex_selection = select_role_runtime(
+        orchestrator="codex",
+        target_runtime="gpt-5.5",
+        native_claude_available=False,
+        claude_bridge_available=False,
+    )
+    assert codex_selection.runtime == "codex"
+    assert codex_selection.entrypoint == "subagent"
+
+    claude_selection = select_role_runtime(
+        orchestrator="codex",
+        target_runtime="claude-opus-4-6",
+        native_claude_available=False,
+        claude_bridge_available=True,
+    )
+    assert claude_selection.runtime == "claude"
+    assert claude_selection.entrypoint == "scripts/quest_claude_runner.py"
 
 
 def test_run_claude_role_reports_timeout_result_kind(tmp_path):

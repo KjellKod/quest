@@ -31,7 +31,7 @@ Phase-specific notes (just pointers — the propagation rule itself does not var
 ### Runtime And Entrypoint Selection (Run Once Per Session)
 
 Quest dispatch separates **runtime** from **entrypoint**:
-- `runtime` is the backend family assigned by `.quest/<id>/orchestration.json` (`claude` or `codex`).
+- `runtime` is the backend family **derived from** the role's `models.<role>` model ID in `.quest/<id>/orchestration.json`: `claude` / `claude-*` IDs select the Claude runtime; every other model ID (for example `gpt-5.5`) selects the Codex runtime. `models.*` stores model IDs, not runtime names — `runtime_for_model()` in `scripts/quest_runtime/orchestration.py` is the canonical mapping.
 - `entrypoint` is how the current orchestrator invokes that runtime.
 - The selected model/runtime value chooses the backend family only; it does not choose the transport or tool entrypoint.
 
@@ -90,7 +90,7 @@ Before the first Claude-designated role invocation in a Codex-orchestrated sessi
    - Claude-designated roles may be invoked through the bridge with the same artifact paths and handoff contract used by native Claude execution.
    - **Preferred Codex-led execution path:** use `python3 scripts/quest_claude_runner.py` instead of calling `scripts/quest_claude_bridge.py` directly, and run that helper in the same host-visible context used for the successful probe/cache refresh. The helper sets `--permission-mode bypassPermissions` by default, adds explicit repo/quest filesystem access via `--add-dir`, polls `handoff.json`, and appends the `context_health.log` line for `runtime=claude`.
 
-**Global runtime-selection rule:** the workflow chooses execution path by selected runtime plus orchestrator, not by role label alone. For every role, resolve `runtime` from `.quest/<id>/orchestration.json`, then resolve `entrypoint` from the matrix above before invoking the role.
+**Global runtime-selection rule:** the workflow chooses execution path by selected runtime plus orchestrator, not by role label alone. For every role, read the `models.<role>` model ID from `.quest/<id>/orchestration.json`, derive `runtime` from it (`runtime_for_model()` mapping above), then resolve `entrypoint` from the matrix above before invoking the role.
 
 **Role permissions:** Per-role file and bash access is enforced by `.claude/hooks/enforce-allowlist.sh`, which reads `role_permissions` from `.ai/allowlist.json` on every tool invocation. See the allowlist for the current permission grants per role.
 

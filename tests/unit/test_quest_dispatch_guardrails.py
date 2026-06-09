@@ -196,6 +196,8 @@ def test_dispatch_matrix_documents_runtime_entrypoint_split() -> None:
     workflow = _read(".skills/quest/delegation/workflow.md")
 
     assert "Quest dispatch separates **runtime** from **entrypoint**" in workflow
+    assert "`models.*` stores model IDs, not runtime names" in workflow
+    assert "`runtime_for_model()` in `scripts/quest_runtime/orchestration.py`" in workflow
     assert "| Codex-led | Codex | local Codex subagent" in workflow
     assert "| Codex-led | Claude | `python3 scripts/quest_claude_runner.py`" in workflow
     assert "| Claude-led | Codex | Codex MCP" in workflow
