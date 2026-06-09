@@ -1,0 +1,22 @@
+tests/unit/test_quest_runtime.py
+  s_882d9f35de4fef::t_4c4d540b291a2a 127-128,133-138
+  s_882d9f35de4fef::t_d7beef335d3767 160-168
+scripts/quest_runtime/orchestration.py
+  s_882d9f35de4fef::t_4001f93462853a 133-134,139-142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "2544e2353555116a26f6b03f607b13f9b722ae0d",
+  "prompts": {},
+  "sessions": {
+    "s_882d9f35de4fef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3c03860-753a-4dbf-a0a2-fd9a3a552f83",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
