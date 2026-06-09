@@ -130,11 +130,16 @@ def runtime_for_model(model: str) -> str:
     `models.*` stores model IDs (for example `claude`, `claude-opus-4-6`,
     `gpt-5.5`), not runtime names. The Quest contract is binary: Claude-family
     IDs run on the Claude runtime; every other ID runs on Codex tooling.
+    Provider-qualified IDs (for example `opencode/claude-opus-4-6`) are
+    classified on the segment after the final `/`.
     """
     normalized = model.strip().lower()
     if not normalized:
         raise ValueError("model must be a non-empty string")
-    return "claude" if is_claude_model(normalized) else "codex"
+    unqualified = normalized.rsplit("/", 1)[-1]
+    if not unqualified:
+        raise ValueError(f"model ID has no name after provider prefix: {model!r}")
+    return "claude" if is_claude_model(unqualified) else "codex"
 
 
 def is_model_available(model: str, *, codex_available: bool) -> bool:

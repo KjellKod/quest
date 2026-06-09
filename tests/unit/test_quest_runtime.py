@@ -124,16 +124,18 @@ def test_runtime_for_model_maps_model_ids_to_runtime_families():
     assert runtime_for_model("claude") == "claude"
     assert runtime_for_model("claude-opus-4-6") == "claude"
     assert runtime_for_model("Claude-Opus-4-6") == "claude"
+    assert runtime_for_model("opencode/claude-opus-4-6") == "claude"
+    assert runtime_for_model("opencode/claude") == "claude"
     assert runtime_for_model("codex") == "codex"
     assert runtime_for_model("gpt-5.5") == "codex"
     assert runtime_for_model("opencode/gpt-5.4") == "codex"
 
-    try:
-        runtime_for_model("   ")
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected empty model to raise ValueError")
+    for invalid in ("   ", "opencode/"):
+        try:
+            runtime_for_model(invalid)
+        except ValueError:
+            continue
+        raise AssertionError(f"Expected ValueError for model ID {invalid!r}")
 
 
 def test_select_role_runtime_accepts_persisted_model_ids():
@@ -154,6 +156,15 @@ def test_select_role_runtime_accepts_persisted_model_ids():
     )
     assert claude_selection.runtime == "claude"
     assert claude_selection.entrypoint == "scripts/quest_claude_runner.py"
+
+    provider_qualified_selection = select_role_runtime(
+        orchestrator="codex",
+        target_runtime="opencode/claude-opus-4-6",
+        native_claude_available=False,
+        claude_bridge_available=True,
+    )
+    assert provider_qualified_selection.runtime == "claude"
+    assert provider_qualified_selection.entrypoint == "scripts/quest_claude_runner.py"
 
 
 def test_run_claude_role_reports_timeout_result_kind(tmp_path):
