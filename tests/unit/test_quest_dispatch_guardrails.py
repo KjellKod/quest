@@ -16,6 +16,7 @@ FORBIDDEN_CODEX_MCP_TERMS = (
 CODEX_FACING_PATHS = (
     ".skills/quest/delegation/workflow.md",
     ".skills/gpt/SKILL.md",
+    ".skills/SKILLS.md",
     ".agents/skills/quest/SKILL.md",
     ".codex/AGENTS.md",
 )
@@ -154,6 +155,16 @@ def test_gpt_skill_excludes_codex_led_quest_dispatch() -> None:
     assert "use local Codex subagents" in skill
     assert "inherit the active Codex model" in skill
     assert "Codex MCP is only the cross-runtime path when the orchestrator is Claude-led" in skill
+
+
+def test_skills_index_scopes_gpt_to_claude_led_dispatch() -> None:
+    index = _read(".skills/SKILLS.md")
+
+    assert "a Claude-led Quest workflow routes a role to Codex" in index
+    assert "or Quest routes a role to Codex" not in index
+    assert "**Not for:** Codex-led Quest role dispatch" in index
+    assert "use local Codex subagents" in index
+    assert "Codex MCP is only for Claude-led dispatch to Codex" in index
 
 
 def test_codex_wrapper_and_entrypoint_require_local_subagents() -> None:
