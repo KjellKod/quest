@@ -329,22 +329,32 @@ expensive failure mode has only an advisory guard.
 
 **Steps:**
 
-1. In `workflow/review-fix.md` (post-WP2), change re-review (fix_iteration ≥ 1)
-   to a **delta review**: the orchestrator writes `review_delta.patch`
-   (diff since the last reviewed commit) plus the list of backlog items the
-   fixer addressed; reviewers are instructed to (a) verify each addressed item,
-   (b) scan only the changed regions for regressions. Full-PR review remains
-   for iteration 0 only.
-2. Drop to a **single re-reviewer** (reviewer-a) on iterations ≥ 2; the dual +
+1. **Review checkpoint contract first** (Quest applies builder/fixer changes
+   as working-tree edits — there is no "last reviewed commit" to diff
+   against): at the end of each review round the orchestrator snapshots the
+   exact patch the reviewers saw to
+   `.quest/<id>/phase_03_review/review_checkpoint_<n>.patch` (the
+   review-arbiter flow already writes this as `review_diff.patch` — reuse it,
+   numbered per round).
+2. In `workflow/review-fix.md` (post-WP2), change re-review (fix_iteration ≥ 1)
+   to a **delta review**: the orchestrator writes `review_delta.patch` — the
+   interdiff between the previous round's checkpoint and the current
+   working-tree diff — plus the list of backlog items the fixer addressed;
+   reviewers are instructed to (a) verify each addressed item, (b) scan only
+   the changed regions for regressions. Full-PR review remains for iteration 0.
+   **Fallbacks:** if the interdiff is empty-but-backlog-nonempty, unreliable,
+   or the quest has no VCS (`vcs_available: false`), fall back to the current
+   full re-review with a one-line note.
+3. Drop to a **single re-reviewer** (reviewer-a) on iterations ≥ 2; the dual +
    arbiter pass already covered the full diff. Make both behaviors explicit in
    `code-reviewer.md` (a short "re-review mode" section).
-3. Convert iteration caps to hard stops: when `plan_iteration` or
+4. Convert iteration caps to hard stops: when `plan_iteration` or
    `fix_iteration` would exceed the allowlist gate,
    `quest_validate-quest-state.sh` fails the transition (exit non-zero) instead
    of warning, and the orchestrator routes to `needs_human` with the remaining
    backlog summarized. Keep the existing defer-to-backlog path
    (`append_deferred_findings`) as the exit ramp.
-4. Update solo-mode caps the same way (`solo.max_fix_iterations`).
+5. Update solo-mode caps the same way (`solo.max_fix_iterations`).
 
 **Acceptance criteria:**
 
@@ -534,10 +544,13 @@ allowlist and stated up front at quest startup.
 **Steps:**
 
 1. Make celebration unconditional in `workflow/complete.md` (post-WP2 file):
-   remove the `ask` and `archive_silent` branches. `quest_completion.on_complete`
-   is replaced by a style knob (`celebration_style: "epic" | "compact"`,
-   default `epic`); non-interactive/CI runs always render the compact markdown
-   celebration. Keep the existing fire-and-forget rule: a celebration render
+   remove the `ask` and `archive_silent` branches and retire
+   `quest_completion.on_complete` (legacy values migrate with a deprecation
+   warning, never a crash). **Do not introduce a new style knob** — the
+   existing `quest_completion.animation_style`
+   (`minimal | standard | epic | silly`) keeps controlling presentation,
+   unchanged; non-interactive/CI runs always render the markdown celebration
+   at `minimal`. Keep the existing fire-and-forget rule: a celebration render
    failure never blocks journal + archive.
 2. Add a **quest value report** block to the celebration (celebrate skill +
    `scripts/quest_celebrate/`): WP0 rollup highlights (total tokens by role,
@@ -545,12 +558,17 @@ allowlist and stated up front at quest startup.
    counts, and planning lessons applied. This is user-facing VALUE feedback,
    not raw logs — the celebration reads the rollup `quest_complete.py` already
    embeds in the journal; it never recomputes.
-3. **Default draft PR:** after celebration and archive, the orchestrator
-   invokes `.skills/pr-assistant/SKILL.md` to open a draft PR for the quest
-   branch when `quest_completion.auto_pr` is `true` (new allowlist key,
-   default `true`). When `vcs_available` is false or `branch_mode` is `none`,
-   skip with a one-line note. `auto_pr: false` skips with an explicit
-   "auto-PR disabled in allowlist" note.
+3. **Default draft PR:** after celebration and archive, when
+   `quest_completion.auto_pr` is `true` (new allowlist key, default `true`):
+   quest completion currently leaves implementation changes uncommitted, and
+   pr-assistant builds PR content from branch commits — so auto-PR first runs
+   the existing **gated commit flow** (git-commit-assistant; the allowlist
+   `gates` for commit/push still require approval). Only after the quest
+   branch has committed changes does the orchestrator invoke
+   `.skills/pr-assistant/SKILL.md` to open the draft PR. Skip with an explicit
+   one-line note when: the user declines the commit gate, the branch has no
+   committed changes, `vcs_available` is false, `branch_mode` is `none`, or
+   `auto_pr: false`.
    **Deliberate contract change to pr-assistant:** update the Approval section
    of `.skills/pr-assistant/SKILL.md` so that `quest_completion.auto_pr: true`
    constitutes standing approval for quest-completion draft-PR creation —
@@ -568,9 +586,9 @@ allowlist and stated up front at quest startup.
 
 **Acceptance criteria:**
 
-- [ ] No configuration or environment path skips the celebration render; non-interactive runs use compact style (validator test proves legacy `archive_silent` migrates with a warning).
+- [ ] No configuration or environment path skips the celebration render; non-interactive runs use `minimal` style; `animation_style` values and behavior are untouched (validator test proves legacy `on_complete: archive_silent` migrates with a warning).
 - [ ] Celebration includes the value report when `metrics.jsonl` exists, and degrades gracefully (omits the block) when it doesn't.
-- [ ] A quest completing on a branch with `auto_pr` unset or `true` ends with a draft PR opened via pr-assistant; `auto_pr: false` and no-VCS quests skip with an explicit note.
+- [ ] A quest completing on a branch with `auto_pr` unset or `true` routes through the gated commit flow and ends with a draft PR opened via pr-assistant; declining the commit gate, an empty branch, `auto_pr: false`, and no-VCS quests all skip with an explicit note (no empty/stale PRs).
 - [ ] The startup summary states completion behavior and where to change it.
 - [ ] pr-assistant's SKILL documents the `auto_pr` standing-approval carve-out; manual invocations still require explicit approval (test or doc assertion).
 - [ ] Schema + validator tests updated; `quest_validate-quest-config.sh` passes on both new and legacy allowlists.
@@ -579,12 +597,12 @@ allowlist and stated up front at quest startup.
 
 > Implement the Quest completion experience per WP8 of
 > `docs/implementation/quest-diamond-efficiency-roadmap.md`: celebration
-> becomes unconditional with a celebration_style knob replacing on_complete
-> (legacy values migrate with a warning), the celebration gains a value-report
-> block sourced from the quest metrics rollup, and quest completion opens a
-> draft PR via pr-assistant by default, gated by a new
-> quest_completion.auto_pr allowlist key (default true) that the startup
-> summary surfaces. Update allowlist schema, validator, and tests.
+> becomes unconditional (on_complete retired with warning-based migration,
+> existing animation_style untouched), the celebration gains a value-report
+> block sourced from the quest metrics rollup, and quest completion runs the
+> gated commit flow then opens a draft PR via pr-assistant by default, gated
+> by a new quest_completion.auto_pr allowlist key (default true) that the
+> startup summary surfaces. Update allowlist schema, validator, and tests.
 
 ---
 
