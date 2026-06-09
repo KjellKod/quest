@@ -1,0 +1,21 @@
+scripts/quest_runtime/review_intelligence.py
+  s_91dd9c033d2f48::t_04083c13fef835 635-641,660-669,695
+tests/unit/test_review_intelligence.py
+  s_91dd9c033d2f48::t_04083c13fef835 617-639
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "00ace74d4122e6368992462c6fad31c5541caf33",
+  "prompts": {},
+  "sessions": {
+    "s_91dd9c033d2f48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e466b-7390-7273-87e6-7cbc46fc57f3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+ideas/README.md
+  s_b8004bb8c3afbe::t_ba1bc36af3e045 51
+ideas/2026-05-31-quest-model-capability-improvements.md
+  s_b8004bb8c3afbe::t_f7eaab03b58b99 228,230,232-233,264,266,268-270,297,302-303,309,311-316
+  s_b8004bb8c3afbe::t_219739fd3baf3f 2-3,5-6,13-15,17,20,22,24-25,27,39-41,43,45,47,49-67,69-74,76,78,80-88,90,92-101,103-105,111,113,115-141,189,193,195,197-227,229,231,234-246,248-263,265,267,271-274,277,279-281,283,285-286,288-290,292,294-295,299-301,304-307,318
+  s_b8004bb8c3afbe::t_aaa6fa20b5f343 29-37
+  s_b8004bb8c3afbe::t_87422a655c6fe9 102,108-109,142-170,172,174,176-179,181,183-186,188,190-192,194,196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3c968edcbf2cdbe4193aa19140fc782e20ecefe2",
+  "prompts": {},
+  "sessions": {
+    "s_b8004bb8c3afbe": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7ff8-dbc8-7b90-976c-2c8b43e9ba67",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

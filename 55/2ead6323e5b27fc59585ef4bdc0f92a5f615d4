@@ -1,0 +1,11 @@
+.skills/quest/delegation/workflow.md
+  ai_agent 1024,1116
+.ai/allowlist.json
+  ai_agent 125-137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "552ead6323e5b27fc59585ef4bdc0f92a5f615d4",
+  "prompts": {}
+}

@@ -1,0 +1,22 @@
+ideas/README.md
+  s_91715ca111d94a::t_620042228b51c0 47
+ideas/2026-05-26-native-runtime-dispatch.md
+  s_91715ca111d94a::t_620042228b51c0 1-95,99-104,108-123,131-136,173-216,219-223,226-251,258-276,279-289,294-316,321-324
+  s_91715ca111d94a::t_c262e6fc9b3f3d 96-98,105-107,124-130,137-172,217-218,224-225,252-257,277-278,290-293,317-320
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "45da29160c8ab1c2c1a81433a7ad3de03caa6875",
+  "prompts": {},
+  "sessions": {
+    "s_91715ca111d94a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6658-1634-7d81-811e-5afb07a45e69",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+ideas/2026-04-15-claude-insights-priorities.md
+  s_e0ad3d90d6be31::t_c315d31c672377 42
+  s_e0ad3d90d6be31::t_945e906e2de089 32,35-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "26d1597141637bf2b6eedbc8bbc61dff686105ea",
+  "prompts": {},
+  "sessions": {
+    "s_e0ad3d90d6be31": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6259e105-be92-4dbb-9362-b6f073b1b56c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+tests/test_security_ci_guard.py
+  s_3f1bd2c7048429::t_e0d15a9b4adabb 999-1067
+.github/scripts/security_ci_guard.py
+  s_3f1bd2c7048429::t_aa876793adbe75 491-494,496-504,508
+  s_3f1bd2c7048429::t_12a6d6d99e4dcb 434-461
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "582dd10e7cc41687215114b681a227e75f447973",
+  "prompts": {},
+  "sessions": {
+    "s_3f1bd2c7048429": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "75b59376-3735-49b6-9e0c-69f59ffcbe93",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+.skills/sharpen/SKILL.md
+  s_928cb093184dcf::t_0f5cb86004507e 65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "1d8f6651f6144315e7761c19c3cd8e660dfbc8e3",
+  "prompts": {},
+  "sessions": {
+    "s_928cb093184dcf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5215-e4d4-78c0-9064-5262ece7d0bb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

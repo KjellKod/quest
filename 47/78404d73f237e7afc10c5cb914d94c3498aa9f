@@ -1,0 +1,23 @@
+scripts/quest_runtime/orchestration.py
+  s_afff939c42b320::t_59ec698469842b 115-119,123-124,127
+.skills/quest/SKILL.md
+  s_afff939c42b320::t_59ec698469842b 26,212,236,239
+tests/test-quest-orchestration.sh
+  s_afff939c42b320::t_59ec698469842b 208-209,227-228
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "4778404d73f237e7afc10c5cb914d94c3498aa9f",
+  "prompts": {},
+  "sessions": {
+    "s_afff939c42b320": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e47a3-9066-7a62-b6f2-61ceb72a7d48",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

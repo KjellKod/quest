@@ -1,0 +1,35 @@
+.skills/ux-review/SKILL.md
+  s_c1afa454c78dcc::t_af892a5a9478b2 132-139
+.ai/templates/quest_brief.md
+  s_c1afa454c78dcc::t_af892a5a9478b2 33,36
+.skills/quest/agents/plan-reviewer.md
+  s_c1afa454c78dcc::t_af892a5a9478b2 30
+.skills/quest/SKILL.md
+  s_c1afa454c78dcc::t_af892a5a9478b2 35,150-155
+.skills/ux-context/SKILL.md
+  s_c1afa454c78dcc::t_af892a5a9478b2 31
+tests/unit/test_ux_skill_install_surface.py
+  s_c1afa454c78dcc::t_af892a5a9478b2 105-127
+.claude/agents/plan-reviewer.md
+  s_c1afa454c78dcc::t_af892a5a9478b2 22
+.opencode/agents/plan-reviewer.md
+  s_c1afa454c78dcc::t_af892a5a9478b2 11
+tests/unit/test_quest_brief_template_router_section.py
+  s_c1afa454c78dcc::t_af892a5a9478b2 34-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "8939db4ab75550a434fafc04eabffa5794aeade2",
+  "prompts": {},
+  "sessions": {
+    "s_c1afa454c78dcc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "019e466b-7390-7273-87e6-7cbc46fc57f3",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,61 @@
+scripts/quest_review_intelligence.py
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 14,256-264,447-455
+.skills/SKILLS.md
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 79,81
+scripts/quest_runtime/pr_shepherd.py
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 1-221
+tests/unit/test_codex_skill_wrappers.py
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 47-59
+.skills/pr-shepherd/SKILL.md
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 3,19-44,81-85,87-88,98-100,103-107,111,114,119-120,180
+tests/unit/test_pr_review_cycle.py
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 15,19,188-564
+ideas/archive/2026-05-14-pr-shepherd-operational-intake.md
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 1-407
+scripts/pr_shepherd_collect_intake.py
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 1-403
+scripts/pr_shepherd_annotate_scope.py
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 1-110
+.claude/skills/pr-shepherd/SKILL.md
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 3
+docs/quest-journal/celebrations/pr-shepherd-operational-intake_2026-05-15.md
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 1-99
+scripts/README.md
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 21-25,71-80
+docs/quest-journal/pr-shepherd-operational-intake_2026-05-15.md
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 1-129
+scripts/pr_shepherd_fetch_failed_logs.py
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 1-138
+ideas/2026-05-19-sharpen-context-grounding.md
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 1-147
+scripts/pr_shepherd_post_reply.py
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 1-205
+tests/unit/test_pr_shepherd.py
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 1-1092
+scripts/quest_runtime/pr_review_cycle.py
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 17-21,23,119-273,291,297-306,881-884
+.agents/skills/pr-shepherd/SKILL.md
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 3
+scripts/pr_shepherd_checkout.py
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 1-189
+.quest-manifest
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 90-94,102
+ideas/README.md
+  s_4ca30a058fcc61::t_f1f3a3cf7d9f41 46,91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "7f82dc8cdfc5841b2d868526e2860ead51dce986",
+  "prompts": {},
+  "sessions": {
+    "s_4ca30a058fcc61": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "019e47a3-9066-7a62-b6f2-61ceb72a7d48",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

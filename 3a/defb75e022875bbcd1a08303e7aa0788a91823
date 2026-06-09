@@ -1,0 +1,24 @@
+scripts/quest_installer.sh
+  s_d40c1fe7ad90e6::t_8bb7bf7bd41364 1122-1144
+tests/test-quest-runtime.sh
+  s_d40c1fe7ad90e6::t_70a69df65be98d 1065-1140
+  s_d40c1fe7ad90e6::t_31dc6e6bd8d718 2104-2105
+.quest-manifest
+  s_d40c1fe7ad90e6::t_3e03204fbdade3 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "3adefb75e022875bbcd1a08303e7aa0788a91823",
+  "prompts": {},
+  "sessions": {
+    "s_d40c1fe7ad90e6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4f28a25f-823a-4c16-bc52-c88c933395c3",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

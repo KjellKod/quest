@@ -1,0 +1,23 @@
+.skills/ux-context/resources/ux-guidebook.md
+  s_c1afa454c78dcc::t_b4b175c10890dc 177
+.skills/ux-context/SKILL.md
+  s_c1afa454c78dcc::t_b4b175c10890dc 67-71,74,80
+tests/unit/test_ux_skill_install_surface.py
+  s_c1afa454c78dcc::t_b4b175c10890dc 128-144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "d7a99d39698d7d2f7b16654545e6c5b4987af2b2",
+  "prompts": {},
+  "sessions": {
+    "s_c1afa454c78dcc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "019e466b-7390-7273-87e6-7cbc46fc57f3",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

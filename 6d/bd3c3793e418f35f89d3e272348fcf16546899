@@ -1,0 +1,67 @@
+docs/quest-journal/interactive-plan-presentation_2026-02-04.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 127-134
+docs/quest-journal/claude-insights-ideas_2026-04-15.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 113-120
+docs/quest-journal/celebrate-v2_2026-03-05.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 112-119
+docs/quest-journal/ci-review-severity_2026-04-07.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 102-109
+docs/quest-journal/opencode-model-suitability_2026-02-28.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 103-110
+docs/quest-journal/phase4-role-wiring_2026-02-18.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 136-143
+docs/quest-journal/prompt-surface-consolidation_2026-04-13.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 107-114
+docs/quest-journal/handoff-contract-fix_2026-02-09.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 191-198
+docs/quest-journal/deep-ci-file-review_2026-04-21.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 70-88
+docs/quest-journal/skill-strategy_2026-02-09.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 69-76
+docs/quest-journal/codex-led-claude-bridge-runtime-hardening_2026-03-09.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 211-218
+docs/quest-journal/quest-dashboard-briefs_2026-04-16.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 110-117
+docs/quest-journal/multi-cleanup_2026-04-11.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 157-164
+docs/quest-journal/quest-completion-animations_2026-03-04.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 132-139
+docs/quest-journal/quest-housekeeping-blitz_2026-03-21.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 80-87
+docs/quest-journal/caveman-review_2026-04-12.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 106-113
+docs/quest-journal/validate-and-launch_2026-02-04.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 128-135
+docs/quest-journal/ci-quest-validation_2026-02-04.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 140-147
+docs/quest-journal/weekly-update-check_2026-02-05.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 136-143
+docs/quest-journal/feedback-intent-routing_2026-04-13.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 94-101
+docs/quest-journal/installer-script_2026-02-04.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 179-186
+docs/quest-journal/review-intelligence-canonical_2026-04-16.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 85-128,194-200
+docs/quest-journal/thin-orchestrator_2026-02-09.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 164-171
+docs/quest-journal/pr-inline-commenting-playbook_2026-03-05.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 135-142
+docs/quest-journal/review-intel-phase-2_2026-04-17.md
+  s_b4d3f30546fb4c::t_2d17f70edc0f52 75-83,116-190
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6dbd3c3793e418f35f89d3e272348fcf16546899",
+  "prompts": {},
+  "sessions": {
+    "s_b4d3f30546fb4c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7f39-6686-7b61-80c9-75313126649f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

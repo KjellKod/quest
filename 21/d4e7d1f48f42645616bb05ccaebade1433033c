@@ -1,0 +1,37 @@
+.claude/agents/review-arbiter.md
+  s_12e86289f48771::t_eae76e5b71f7d5 1-23
+.quest-manifest
+  s_12e86289f48771::t_4680ec48850d74 16
+  s_12e86289f48771::t_f49f7c7e030f3c 30
+  s_12e86289f48771::t_e8bfe01b54f4ff 50
+.skills/quest/agents/review-arbiter.md
+  s_12e86289f48771::t_d4e68c388cba83 1-8,10-63,65-111,113-115
+  s_12e86289f48771::t_2cad74abbb17e2 64
+.skills/quest/delegation/workflow.md
+  s_12e86289f48771::t_fc01d2d8f05a19 199
+  s_12e86289f48771::t_796fc7e50dcb3e 229-240
+  s_12e86289f48771::t_83d9a5bb61fbe8 964-974
+  s_12e86289f48771::t_280755947f015f 983-1030
+  s_12e86289f48771::t_f378860d5c90f6 1184
+  s_12e86289f48771::t_0aa4a6ef47402d 1205
+  s_12e86289f48771::t_0adb75ad4496ec 1371
+  s_12e86289f48771::t_434d84dfa6a7ac 1039
+.opencode/agents/review-arbiter.md
+  s_12e86289f48771::t_69322b7a599ce4 1-14,16-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "21d4e7d1f48f42645616bb05ccaebade1433033c",
+  "prompts": {},
+  "sessions": {
+    "s_12e86289f48771": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d57fa54d-645b-45d5-bb3e-afe1c783f2ef",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

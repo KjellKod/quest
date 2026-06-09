@@ -1,0 +1,24 @@
+ideas/2026-04-15-claude-insights-priorities.md
+  s_e0ad3d90d6be31::t_26ec1f2d8760c8 84-85
+  s_e0ad3d90d6be31::t_e42d3ff60ae6c1 58
+ideas/README.md
+  s_e0ad3d90d6be31::t_62f98dc188457c 92-93
+ideas/2026-04-29-research-fanout-skill.md
+  s_e0ad3d90d6be31::t_9b0e647edb3fe9 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d98383fde0d95878b5cdd409bb2cf9446b529eb9",
+  "prompts": {},
+  "sessions": {
+    "s_e0ad3d90d6be31": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6259e105-be92-4dbb-9362-b6f073b1b56c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

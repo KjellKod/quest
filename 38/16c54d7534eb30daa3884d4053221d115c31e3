@@ -1,0 +1,25 @@
+.skills/ux-review/SKILL.md
+  s_91dd9c033d2f48::t_32058dd0e22e19 135-136
+tests/unit/test_ux_skill_install_surface.py
+  s_91dd9c033d2f48::t_32058dd0e22e19 128-144
+.skills/ux-context/resources/ux-guidebook.md
+  s_91dd9c033d2f48::t_32058dd0e22e19 177
+.skills/ux-context/SKILL.md
+  s_91dd9c033d2f48::t_32058dd0e22e19 67-71,74,80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "3816c54d7534eb30daa3884d4053221d115c31e3",
+  "prompts": {},
+  "sessions": {
+    "s_91dd9c033d2f48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e466b-7390-7273-87e6-7cbc46fc57f3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+.skills/quest/delegation/workflow.md
+  s_3fc2b5fd20866d::t_3d56285c955f2e 36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "40c9eb436af31fcd971fc9600794c094e8c6bf5e",
+  "prompts": {},
+  "sessions": {
+    "s_3fc2b5fd20866d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e93a6-9aed-7550-b02a-4d9355ed7acf",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

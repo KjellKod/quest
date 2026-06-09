@@ -1,0 +1,24 @@
+.ai/allowlist.json
+  s_e29b09b1f03dfe::t_8296440aa1667d 6
+.ai/schemas/allowlist.schema.json
+  s_e29b09b1f03dfe::t_8eb263e2fd4108 25
+.skills/quest/delegation/workflow.md
+  s_e29b09b1f03dfe::t_1a6be077818396 1069-1071,1073-1077
+  s_e29b09b1f03dfe::t_0aa0f6f70c52d3 1068,1072
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a1034cdb998a4d4351e82552ac8507f64b331ac3",
+  "prompts": {},
+  "sessions": {
+    "s_e29b09b1f03dfe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1311880d-bec0-4296-9c43-884bbbf6e342",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": null
+    }
+  }
+}

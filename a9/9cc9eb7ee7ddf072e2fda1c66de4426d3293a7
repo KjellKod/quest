@@ -1,0 +1,35 @@
+docs/quest-journal/README.md
+  s_2b7daf5e1ff7ce::t_49f68b81e704c8 9
+docs/quest-journal/sharpen-grounding_2026-05-22.md
+  s_2b7daf5e1ff7ce::t_49f68b81e704c8 1-162
+tests/unit/test_sharpen_install_surface.py
+  s_709e8e7abea734::t_66ae5fa884058a 53-139
+.skills/sharpen/SKILL.md
+  s_709e8e7abea734::t_ddaef7f82ed5f0 19-26,31,34-35,39-42,59,64-74
+docs/quest-journal/celebrations/sharpen-grounding_2026-05-22.md
+  s_2b7daf5e1ff7ce::t_49f68b81e704c8 1-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "a99cc9eb7ee7ddf072e2fda1c66de4426d3293a7",
+  "prompts": {},
+  "sessions": {
+    "s_2b7daf5e1ff7ce": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4cf1-7dd8-7a12-8f6c-bce1dd5c4709",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_709e8e7abea734": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4cf6-fe29-7823-9ba8-dd2a2143cf62",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

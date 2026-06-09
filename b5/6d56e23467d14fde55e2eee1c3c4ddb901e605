@@ -1,0 +1,21 @@
+ideas/2026-05-19-sharpen-context-grounding.md
+  s_031b331a319a52::t_1f14781c2705a5 1-147
+ideas/README.md
+  s_031b331a319a52::t_1f14781c2705a5 46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "b56d56e23467d14fde55e2eee1c3c4ddb901e605",
+  "prompts": {},
+  "sessions": {
+    "s_031b331a319a52": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e40bf-2c7d-7c01-9cf1-3971dd314938",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

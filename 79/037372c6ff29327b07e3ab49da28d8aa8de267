@@ -1,0 +1,21 @@
+scripts/quest_runtime/orchestration.py
+  s_afff939c42b320::t_72bd79682302bb 238-239
+tests/test-quest-orchestration.sh
+  s_afff939c42b320::t_c60058431bbabd 408-421
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "79037372c6ff29327b07e3ab49da28d8aa8de267",
+  "prompts": {},
+  "sessions": {
+    "s_afff939c42b320": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e47a3-9066-7a62-b6f2-61ceb72a7d48",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,73 @@
+docs/quest-journal/branch-or-worktree-start_2026-03-31.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-118
+docs/quest-journal/celebrations/configurable-quest-id-format_2026-04-29.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-100
+docs/quest-journal/celebrations/execution-discipline-guardrails_2026-04-11.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-90
+docs/quest-journal/execution-discipline-guardrails_2026-04-11.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-100
+docs/quest-journal/celebrations/deep-ci-chunk-fallback_2026-04-21.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-74
+docs/quest-journal/celebrations/review-intel-canonical_2026-04-13.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-105
+docs/quest-journal/codex-skill-wrappers_2026-04-17.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-112
+docs/quest-journal/celebrations/codex-skill-wrappers_2026-04-17.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-91
+docs/quest-journal/celebrations/memory-docs-consolidation_2026-04-13.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-85
+docs/quest-journal/celebrations/pdf-formatting_2026-04-06.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-98
+docs/quest-journal/pdf-formatting_2026-04-06.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-145
+docs/quest-journal/deep-ci-chunk-fallback_2026-04-21.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-158
+docs/quest-journal/celebrations/allowlist-pattern-hygiene_2026-04-20.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-92
+docs/quest-journal/README.md
+  s_bee941d5d1ab65::t_81fb33a62d63ac 9,16,20,22-24,29-30,34,38-40
+docs/quest-journal/configurable-quest-id-format_2026-04-29.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-196
+docs/quest-journal/pre-pr-sync_2026-05-31.md
+  s_bee941d5d1ab65::t_b444e13ea0d381 1-35
+docs/quest-journal/review-intel-canonical_2026-04-13.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-136
+docs/quest-journal/allowlist-pattern-hygiene_2026-04-20.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-138
+docs/quest-journal/runner-cwd-path-hygiene_2026-04-20.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-122
+docs/quest-journal/celebrations/runner-cwd-path-hygiene_2026-04-20.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-105
+docs/quest-journal/celebrations/branch-or-worktree-start_2026-03-31.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-87
+docs/quest-journal/memory-docs-consolidation_2026-04-13.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-118
+docs/quest-journal/direct-cli-guidance_2026-03-22.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-102
+docs/quest-journal/celebrations/direct-cli-guidance_2026-03-22.md
+  s_6a27fa7e4edebc::t_6a6aee7ab2b7a1 1-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "eb85c1e045b430aeb7a2ea181133d1070ca4da68",
+  "prompts": {},
+  "sessions": {
+    "s_6a27fa7e4edebc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "019e7f4b-0cde-78f2-ac58-dd22111337b4",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_bee941d5d1ab65": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7f4b-0cde-78f2-ac58-dd22111337b4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

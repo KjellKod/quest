@@ -1,0 +1,20 @@
+.skills/pr-assistant/SKILL.md
+  s_12e86289f48771::t_5d9c1afe016a15 39-44
+  s_12e86289f48771::t_d37adc24dbcf14 70-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "89282b45c4f6e416b6bb33ad62c1c77e49a7c3e6",
+  "prompts": {},
+  "sessions": {
+    "s_12e86289f48771": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d57fa54d-645b-45d5-bb3e-afe1c783f2ef",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

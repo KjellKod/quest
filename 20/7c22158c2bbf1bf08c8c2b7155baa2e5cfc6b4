@@ -1,0 +1,28 @@
+scripts/quest_startup_branch.py
+  s_9df1688f66a05a::t_eeae06ca51b90b 123-225,230-231,244,256,355,366,373,384,430,441,478,490
+  s_9df1688f66a05a::t_e191ceda46927b 226-229
+.skills/quest/SKILL.md
+  s_9df1688f66a05a::t_e9bc0ea53e63e0 184-189,195
+  s_9df1688f66a05a::t_311c7041071e22 273,283
+.gitignore
+  s_9df1688f66a05a::t_d37b3e3e65df1f 2
+  s_9df1688f66a05a::t_ea5629c8a84304 4
+tests/unit/test_quest_startup_symlink.py
+  s_9df1688f66a05a::t_5bf488139491f4 1-268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "207c22158c2bbf1bf08c8c2b7155baa2e5cfc6b4",
+  "prompts": {},
+  "sessions": {
+    "s_9df1688f66a05a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7f53-5e84-7ef0-87a5-bc7563adc188",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

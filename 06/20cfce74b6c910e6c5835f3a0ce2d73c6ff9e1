@@ -1,0 +1,87 @@
+tests/unit/test_codex_skill_wrappers.py
+  s_6d1f8992499079::t_a6eb8e51a876c2 47-59
+scripts/quest_runtime/pr_shepherd.py
+  s_6d1f8992499079::t_992bac9e96498e 159
+  s_6d1f8992499079::t_939857959c0034 1-158,160-216
+ideas/README.md
+  s_6d1f8992499079::t_f922a22d9b2925 90
+scripts/pr_shepherd_collect_intake.py
+  s_6d1f8992499079::t_3f773165abc6d4 1-9,11-12,19,23-34,186,215,235-245,260,271-278,285-290,296-304
+  s_6d1f8992499079::t_bfd26e97007640 38-40
+  s_6d1f8992499079::t_e998a4058df081 10,217-234,269-270,279-284,291-295
+  s_6d1f8992499079::t_275e633e569ae3 196-198,200,210
+  s_6d1f8992499079::t_0928ff4c09c7db 13-18,20-22,35-37,41-185,187-195,199,201-209,211-214,216,246-259,261-268
+.claude/skills/pr-shepherd/SKILL.md
+  s_6d1f8992499079::t_54f99543e1ab0d 3
+scripts/pr_shepherd_annotate_scope.py
+  s_6d1f8992499079::t_3f773165abc6d4 1-20,22-24,34-36,42-111
+  s_6d1f8992499079::t_155bd48fbeb101 21,25-33,37-41
+scripts/pr_shepherd_fetch_failed_logs.py
+  s_6d1f8992499079::t_3f773165abc6d4 1-9,11-24,106-110,114-120,130-138
+  s_6d1f8992499079::t_75e1be0a321874 10
+  s_6d1f8992499079::t_b4646064b9d779 25-105,111-113,121-129
+scripts/pr_shepherd_checkout.py
+  s_6d1f8992499079::t_afc75d5eca7ebb 133,141-142
+  s_6d1f8992499079::t_3f773165abc6d4 1-132,134-140,143-148
+tests/unit/test_pr_review_cycle.py
+  s_6d1f8992499079::t_a6eb8e51a876c2 15,188-241,271-287,327-342
+  s_6d1f8992499079::t_0889faca6f0d9e 242-270
+  s_6d1f8992499079::t_c27285dde179e9 288-326
+  s_6d1f8992499079::t_a478b2411baa90 19
+scripts/README.md
+  s_6d1f8992499079::t_995b7b9f453c74 21-25,71-73,75,77-78,80
+  s_6d1f8992499079::t_6bc85f78d28cf5 79
+  s_6d1f8992499079::t_d955648b018be4 74,76
+scripts/quest_review_intelligence.py
+  s_6d1f8992499079::t_b79b10e23c9671 14,256-263,446-454
+tests/unit/test_pr_shepherd.py
+  s_6d1f8992499079::t_a7ded63f115712 11,147-163,476-554
+  s_6d1f8992499079::t_e33baa167a20db 223-242,561,563-564,570,575-586,595,597-598,610-613,615-621
+  s_6d1f8992499079::t_effe58646cc423 283-313,393-427
+  s_6d1f8992499079::t_153f6b775e22e0 452-475,555-556
+  s_6d1f8992499079::t_2f30e764307ccd 1-9,13-15,17-85,101-146,164-182,186-220,222,245,258-266,269,274-282,314-319
+  s_6d1f8992499079::t_3043547c874f77 10,12,16,86-100,183-185,221,243-244,246-257,267-268,270-273,320-392,428-451,557-560,562,565-569,571-574,587-594,596,599-609,614
+docs/quest-journal/pr-shepherd-operational-intake_2026-05-15.md
+  s_6d1f8992499079::t_1152f5920cbf7a 1-129
+scripts/quest_runtime/pr_review_cycle.py
+  s_6d1f8992499079::t_8d0d5d49b3849c 217-226,251-255
+  s_6d1f8992499079::t_01a39f7e37fb64 17-21,23,119-208,212-214,244,250,256-258,833-836
+  s_6d1f8992499079::t_843d2401a3d320 209-211
+.skills/SKILLS.md
+  s_6d1f8992499079::t_54f99543e1ab0d 79
+  s_6d1f8992499079::t_995b7b9f453c74 81
+scripts/pr_shepherd_post_reply.py
+  s_6d1f8992499079::t_3f773165abc6d4 1-22,25-26,31-36,47-77,90-107,120-134,149-157
+  s_6d1f8992499079::t_0b6772443a4116 37-46,78-89,135-136
+  s_6d1f8992499079::t_9bacb2efe508fd 23-24,27-30,108-119,137-148
+.skills/pr-shepherd/SKILL.md
+  s_6d1f8992499079::t_995b7b9f453c74 3,19-44,81-85,88,98-99,103-107,111,114,119-120,180
+  s_6d1f8992499079::t_d955648b018be4 100
+  s_6d1f8992499079::t_6bc85f78d28cf5 87
+.quest-manifest
+  s_6d1f8992499079::t_984f6c4968f53d 90-94,101
+docs/quest-journal/celebrations/pr-shepherd-operational-intake_2026-05-15.md
+  s_6d1f8992499079::t_1152f5920cbf7a 1-99
+.agents/skills/pr-shepherd/SKILL.md
+  s_6d1f8992499079::t_54f99543e1ab0d 3
+docs/quest-journal/README.md
+  s_6d1f8992499079::t_1152f5920cbf7a 9
+ideas/archive/2026-05-14-pr-shepherd-operational-intake.md
+  s_6d1f8992499079::t_f922a22d9b2925 1-407
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "0620cfce74b6c910e6c5835f3a0ce2d73c6ff9e1",
+  "prompts": {},
+  "sessions": {
+    "s_6d1f8992499079": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2804-6072-7e13-a9c7-029bd172dbe8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

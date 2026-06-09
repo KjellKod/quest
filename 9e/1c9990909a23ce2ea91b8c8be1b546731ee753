@@ -1,0 +1,21 @@
+tests/unit/test_quest_startup_symlink.py
+  s_9df1688f66a05a::t_78dff2ee41b13a 122-141
+scripts/quest_startup_branch.py
+  s_9df1688f66a05a::t_2b53c23700f684 177-183,187-197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9e1c9990909a23ce2ea91b8c8be1b546731ee753",
+  "prompts": {},
+  "sessions": {
+    "s_9df1688f66a05a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7f53-5e84-7ef0-87a5-bc7563adc188",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
