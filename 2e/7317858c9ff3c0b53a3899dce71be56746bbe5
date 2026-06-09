@@ -1,0 +1,25 @@
+.skills/quest/agents/code-reviewer.md
+  s_882d9f35de4fef::t_398fd2b640e1fe 115
+  s_882d9f35de4fef::t_6cc879b9952a16 21-25
+.skills/quest/agents/plan-reviewer.md
+  s_882d9f35de4fef::t_04598b92a10d3e 19-23
+  s_882d9f35de4fef::t_317f4135a9ea21 90
+tests/unit/test_quest_dispatch_guardrails.py
+  s_882d9f35de4fef::t_66c6ded2388494 259-284
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "2e7317858c9ff3c0b53a3899dce71be56746bbe5",
+  "prompts": {},
+  "sessions": {
+    "s_882d9f35de4fef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3c03860-753a-4dbf-a0a2-fd9a3a552f83",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
