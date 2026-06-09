@@ -294,7 +294,10 @@ available, and purely mechanical.
 3. Keep all step numbering and anchor names stable so cross-references in other
    docs and tests keep working. Update `.quest-manifest` and any path
    references (grep for `delegation/workflow.md` across the repo, including
-   tests and installer manifests).
+   tests and installer manifests). The new `workflow/` directory is one level
+   deeper than the manifest validator's current scan patterns — extend
+   `scripts/quest_validate-manifest.sh` coverage to that depth so future phase
+   files can't be silently omitted from the installer.
 4. Leave a 10-line `workflow.md` tombstone pointing at the new layout (external
    docs/ideas reference it).
 
@@ -304,7 +307,7 @@ available, and purely mechanical.
 - [ ] Sum of (core + largest phase file) ≤ 50% of the old workflow.md line count.
 - [ ] `grep -rn "delegation/workflow.md"` shows only the tombstone and history docs.
 - [ ] A full workflow-mode quest and a solo quest complete end-to-end on a toy change.
-- [ ] `.quest-manifest` and checksums updated; `quest_validate-manifest.sh` passes.
+- [ ] `.quest-manifest` and checksums updated; `quest_validate-manifest.sh` passes **and its scan patterns cover the new `workflow/` depth** (test: an unlisted file added under `workflow/` fails validation).
 
 **Quest prompt:**
 
@@ -592,19 +595,24 @@ strategy exists for.
 
 **Steps:**
 
-1. Rebase `diamond` on `main`. Re-run the three benchmark briefs on `diamond`
-   with the same models as the WP0 baseline.
-2. Produce `docs/implementation/history/diamond-comparison-report.md`: side-by-side
+1. Rebase `diamond` on `main`, then **refresh the baseline** so the
+   comparison isn't stale (the WP0 baseline predates any weekly rebases):
+   cherry-pick the WP0 telemetry commits onto current `main` in a throwaway
+   branch (`main` + instrumentation only, no optimizations) and re-run the
+   three briefs there. Record both commit SHAs.
+2. Re-run the three benchmark briefs on `diamond` with the same models as the
+   refreshed baseline.
+3. Produce `docs/implementation/history/diamond-comparison-report.md`: side-by-side
    rollups (tokens by role, iterations, findings precision, arbiter overhead,
    wall-clock), plus a qualitative note on review quality (did delta re-review
    miss anything the baseline caught?).
-3. Decide data-driven defaults: `review_arbiter_mode` (WP4) and any per-role
+4. Decide data-driven defaults: `review_arbiter_mode` (WP4) and any per-role
    model suggestions (WP7) — as follow-up proposals, not silent changes.
-4. Merge `diamond` → `main` via the normal PR gate.
+5. Merge `diamond` → `main` via the normal PR gate.
 
 **Acceptance criteria:**
 
-- [ ] Report shows per-brief before/after for every WP0 metric.
+- [ ] Report shows per-brief before/after for every WP0 metric; baseline and diamond rollups derive from the same `main` commit, with both SHAs recorded in the report.
 - [ ] Target: ≥30% reduction in orchestrator+review token totals on the medium brief, no regression in findings quality (no missed `critical|high` that baseline caught).
 - [ ] If the target is missed, the report says which WP underdelivered and why — that's a valid outcome; the data is the deliverable.
 
