@@ -256,6 +256,32 @@ def test_role_docs_require_local_subagents_for_codex_led_codex_roles() -> None:
         assert "Codex MCP is only for Claude-led" in content or "Do not use Codex MCP" in content
 
 
+def test_needs_human_policy_is_runtime_based_not_slot_based() -> None:
+    """Slots are runtime-configurable, so the non-interactive contract must key
+    on the selected runtime — slot-label wording lets a Codex-assigned slot A
+    return `needs_human` in violation of the Codex non-interactive policy."""
+    reviewer_docs = (
+        ".skills/quest/agents/plan-reviewer.md",
+        ".skills/quest/agents/code-reviewer.md",
+    )
+    for relative_path in reviewer_docs:
+        content = _read(relative_path)
+        assert "For Reviewer B, `STATUS: needs_human` is non-compliant" not in content
+        assert "For Reviewer A, `STATUS: needs_human` remains valid" not in content
+        assert "### Non-Interactive Rule (Runtime-Based)" in content
+        assert "not the slot label" in content
+        assert "only valid when your slot's selected runtime is Claude" in content
+
+    arbiter_docs = {
+        ".skills/quest/agents/arbiter.md": "models.arbiter",
+        ".skills/quest/agents/review-arbiter.md": "models.review-arbiter",
+    }
+    for relative_path, model_key in arbiter_docs.items():
+        content = _read(relative_path)
+        assert "only valid when this role's selected runtime" in content
+        assert model_key in content
+
+
 def test_configurable_reviewer_and_arbiter_tool_lines_use_runtime_matrix() -> None:
     expected = {
         ".skills/quest/agents/plan-reviewer.md": (

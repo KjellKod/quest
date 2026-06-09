@@ -105,6 +105,7 @@ SUMMARY: Fix iteration <N>: <coverage one-liner>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
+`STATUS: needs_human` is only valid when this role's selected runtime (`models.review-arbiter` in `.quest/<id>/orchestration.json`) is Claude (it may enter the human Q&A loop natively or through the bridge). On the Codex runtime, `needs_human` is non-compliant with Quest runtime policy — make explicit assumptions or return `blocked`.
 
 If `NEXT: fixer`, real actionable findings survived adjudication.
 If `NEXT: null`, nothing actionable survived — the review effectively passed.

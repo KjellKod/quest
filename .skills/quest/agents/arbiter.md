@@ -128,6 +128,7 @@ SUMMARY: Iteration <N>: <approve|iterate> — <reason>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
+`STATUS: needs_human` is only valid when this role's selected runtime (`models.arbiter` in `.quest/<id>/orchestration.json`) is Claude (it may enter the human Q&A loop natively or through the bridge). On the Codex runtime, `needs_human` is non-compliant with Quest runtime policy — make explicit assumptions or return `blocked`.
 
 If `NEXT: planner`, the plan needs refinement. The Planner receives only the Arbiter's synthesized feedback (not the raw reviews).
 If `NEXT: builder`, the plan is approved and implementation begins.

@@ -18,7 +18,11 @@ There are **two** Code Review Agent invocations on each review pass. They run **
 - **Artifact path:** `.quest/<id>/phase_03_review/review_code-reviewer-b.md`
 - **Canonical findings path:** `.quest/<id>/phase_03_review/review_findings_code-reviewer-b.json`
 - **Perspective:** Independent second pass on the same implementation diff (different model family for diversity).
-- **Non-interactive rule:** Do not ask questions and do not return `needs_human`. Use explicit assumptions; if unsafe, return `blocked`.
+
+### Non-Interactive Rule (Runtime-Based)
+Whether a slot may ask questions depends on its **selected runtime** (`models.code-reviewer-a` / `models.code-reviewer-b` in `.quest/<id>/orchestration.json`), not the slot label:
+- **Codex runtime:** non-interactive. Do not ask questions and do not return `needs_human`. Use explicit assumptions; if unsafe, return `blocked`.
+- **Claude runtime:** `needs_human` is allowed — Claude runtime may enter the human Q&A loop whether it runs natively or through the bridge.
 
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
@@ -108,8 +112,7 @@ SUMMARY: <one line>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
-For Reviewer B, `STATUS: needs_human` is non-compliant with Quest runtime policy.
-For Reviewer A, `STATUS: needs_human` remains valid because Claude runtime may still enter the human Q&A loop whether it ran natively or through the bridge.
+`STATUS: needs_human` is only valid when your slot's selected runtime is Claude (it may enter the human Q&A loop natively or through the bridge). On the Codex runtime, `needs_human` is non-compliant with Quest runtime policy regardless of slot label — make explicit assumptions or return `blocked`.
 
 If `NEXT: null`, the review passed with no blocking issues.
 If `NEXT: fixer`, there are issues to fix.

@@ -16,7 +16,11 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 - **Tool:** Runtime follows `models.plan-reviewer-b` from `.quest/<id>/orchestration.json`; entrypoint follows `.skills/quest/delegation/workflow.md`. If this slot is assigned to Codex in a Codex-led Quest, use local Codex subagents and inherit the active Codex model by default. If this slot is assigned to Claude in a Codex-led Quest, use `scripts/quest_claude_runner.py`. Codex MCP is only for Claude-led dispatch to Codex.
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
 - **Perspective:** Independent second pass on the same plan (different model family for diversity).
-- **Non-interactive rule:** Do not ask questions and do not return `needs_human`. Use explicit assumptions; if unsafe, return `blocked`.
+
+### Non-Interactive Rule (Runtime-Based)
+Whether a slot may ask questions depends on its **selected runtime** (`models.plan-reviewer-a` / `models.plan-reviewer-b` in `.quest/<id>/orchestration.json`), not the slot label:
+- **Codex runtime:** non-interactive. Do not ask questions and do not return `needs_human`. Use explicit assumptions; if unsafe, return `blocked`.
+- **Claude runtime:** `needs_human` is allowed — Claude runtime may enter the human Q&A loop whether it runs natively or through the bridge.
 
 ## Context Required (both instances)
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
@@ -83,8 +87,7 @@ SUMMARY: <one line>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
-For Reviewer B, `STATUS: needs_human` is non-compliant with Quest runtime policy.
-For Reviewer A, `STATUS: needs_human` remains valid because Claude runtime may still enter the human Q&A loop whether it ran natively or through the bridge.
+`STATUS: needs_human` is only valid when your slot's selected runtime is Claude (it may enter the human Q&A loop natively or through the bridge). On the Codex runtime, `needs_human` is non-compliant with Quest runtime policy regardless of slot label — make explicit assumptions or return `blocked`.
 
 ## Allowed Actions
 - Read any file in the repo
