@@ -37,13 +37,15 @@ For dual reviews (Steps 3 and 8). Plan review fans into `arbiter`; code review f
 
 Sequential fan-out is acceptable. True parallelism is not required.
 
-## Codex Dispatch (via MCP)
+## Codex Dispatch
 
-Resolve each role's model from `.quest/<id>/orchestration.json` before dispatch. Claude-family model names (`claude` and `claude-*`) use the Claude `task` path when native task execution is available; Codex-backed model names use the `codex_codex` MCP tool. Do not use a fixed role list for runtime selection.
+Resolve each role's model from `.quest/<id>/orchestration.json` before dispatch; do not use a fixed role list for runtime selection. Dispatch every Quest role through the local OpenCode `task` subagents wired in `opencode.json` — Codex-backed slots (for example `opencode/gpt-5.4`) are local subagents that inherit their configured model, so a Codex-backed role does not need Codex MCP. Codex MCP is only for the Claude-led path described below.
 
-To continue a Codex conversation, use `codex_codex-reply` with the `threadId` from the previous response.
+`codex_codex` MCP is the Claude-led cross-runtime path only: use it when this orchestrating session runs a Claude-family model and must reach Codex outside the local subagent set. If the orchestrating session itself runs a Codex/GPT-backed model, dispatching a Codex role through `codex_codex` or `codex mcp-server` is an orchestration violation — use the local `task` subagent instead (see `.skills/quest/delegation/workflow.md`, Runtime And Entrypoint Selection).
 
-Note: The MCP server is the official Codex CLI MCP server (`codex mcp-server`), configured as `codex` in opencode.json. It exposes two tools: `codex` (start session) and `codex-reply` (continue session). In OpenCode these become `codex_codex` and `codex_codex-reply`.
+To continue a Claude-led Codex MCP conversation, use `codex_codex-reply` with the `threadId` from the previous response.
+
+Note: The MCP server is the official Codex CLI MCP server (`codex mcp-server`), configured as `codex` in opencode.json for the Claude-led path. It exposes two tools: `codex` (start session) and `codex-reply` (continue session). In OpenCode these become `codex_codex` and `codex_codex-reply`.
 
 ## Iteration Loop Guardrails
 

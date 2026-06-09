@@ -19,6 +19,29 @@ CODEX_FACING_PATHS = (
     ".skills/SKILLS.md",
     ".agents/skills/quest/SKILL.md",
     ".codex/AGENTS.md",
+    ".opencode/agents/quest.md",
+)
+
+# Markers that a paragraph positively routes Codex roles/models somewhere.
+# Used by the unscoped-routing check: such a paragraph that also names an MCP
+# term must be explicitly scoped to Claude-led sessions or phrased as a
+# prohibition — otherwise it silently re-opens the Codex-led MCP path even
+# without any "Codex-led" wording (e.g. "Codex-backed model names use the
+# codex_codex MCP tool").
+CODEX_ROLE_ROUTING_MARKERS = (
+    "codex-backed",
+    "codex backed",
+    "codex role",
+    "codex roles",
+    "codex runtime",
+    "role to codex",
+    "roles to codex",
+    "assigned to codex",
+)
+
+CLAUDE_LED_SCOPE_MARKERS = (
+    "claude-led",
+    "claude led",
 )
 
 
@@ -31,6 +54,14 @@ def _role_docs() -> tuple[Path, ...]:
     return tuple(
         path.relative_to(root)
         for path in sorted((root / ".skills" / "quest" / "agents").glob("*.md"))
+    )
+
+
+def _opencode_agent_docs() -> tuple[Path, ...]:
+    root = _repo_root()
+    return tuple(
+        path.relative_to(root)
+        for path in sorted((root / ".opencode" / "agents").glob("*.md"))
     )
 
 
@@ -118,6 +149,30 @@ def _assert_text_allows_no_positive_codex_led_mcp_dispatch(text: str) -> None:
         if not _looks_like_codex_led_codex_context(paragraph):
             continue
         assert _allows_or_prohibits_mcp(paragraph), paragraph
+
+
+def _routes_codex_roles(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered for marker in CODEX_ROLE_ROUTING_MARKERS)
+
+
+def _is_claude_led_scoped_or_prohibited(text: str) -> bool:
+    lowered = text.lower()
+    if any(marker in lowered for marker in CLAUDE_LED_SCOPE_MARKERS):
+        return True
+    return _allows_or_prohibits_mcp(text)
+
+
+def _assert_codex_role_mcp_routing_is_scoped(text: str, *, source: str) -> None:
+    for paragraph in _paragraphs(text):
+        if not _has_forbidden_term(paragraph):
+            continue
+        if not _routes_codex_roles(paragraph):
+            continue
+        assert _is_claude_led_scoped_or_prohibited(paragraph), (
+            f"{source} routes Codex roles to an MCP entrypoint without "
+            f"scoping it to Claude-led sessions:\n{paragraph}"
+        )
 
 
 def _tool_line(content: str, heading: str | None = None) -> str:
@@ -259,8 +314,50 @@ def test_negative_prohibitions_and_claude_led_mcp_docs_are_allowed() -> None:
 
 
 def test_codex_facing_docs_do_not_allow_positive_codex_led_mcp_dispatch() -> None:
-    for relative_path in (*CODEX_FACING_PATHS, *_role_docs()):
+    for relative_path in (*CODEX_FACING_PATHS, *_role_docs(), *_opencode_agent_docs()):
         _assert_no_positive_codex_led_mcp_dispatch(relative_path)
+
+
+def test_codex_role_mcp_routing_requires_claude_led_scope() -> None:
+    for relative_path in (*CODEX_FACING_PATHS, *_role_docs(), *_opencode_agent_docs()):
+        _assert_codex_role_mcp_routing_is_scoped(
+            _read(relative_path), source=str(relative_path)
+        )
+
+
+def test_unscoped_codex_role_mcp_routing_examples_are_rejected() -> None:
+    rejected_examples = (
+        "Codex-backed model names use the `codex_codex` MCP tool.",
+        "Codex roles dispatch through mcp__codex-cli__codex.",
+        "If a role is assigned to Codex, call codex mcp-server.",
+    )
+
+    for text in rejected_examples:
+        try:
+            _assert_codex_role_mcp_routing_is_scoped(text, source="example")
+        except AssertionError:
+            continue
+        raise AssertionError(f"unscoped Codex role MCP routing was allowed: {text}")
+
+
+def test_scoped_or_prohibited_codex_role_mcp_routing_examples_are_allowed() -> None:
+    allowed_examples = (
+        "In Claude-led sessions, Codex-backed model names use the codex_codex MCP tool.",
+        "Do not use codex_codex for Codex-led Codex roles.",
+        "Codex MCP is only for Claude-led dispatch of Codex roles.",
+    )
+
+    for text in allowed_examples:
+        _assert_codex_role_mcp_routing_is_scoped(text, source="example")
+
+
+def test_opencode_quest_doc_scopes_codex_mcp_to_claude_led_sessions() -> None:
+    content = _read(".opencode/agents/quest.md")
+
+    assert "local OpenCode `task` subagents" in content
+    assert "Claude-led cross-runtime path only" in content
+    assert "orchestration violation" in content
+    assert "Codex-backed model names use the `codex_codex` MCP tool" not in content
 
 
 def test_codex_facing_docs_do_not_dispatch_codex_roles_with_cli_model_aliases() -> None:
