@@ -197,7 +197,7 @@ of those claims are checkable. Also generates the data WP4 and WP7 need.
 - [ ] Journal entries for new quests contain the rollup table.
 - [ ] `tests/benchmark/baseline/` holds three rollups generated from `main`.
 - [ ] Unit tests cover the rollup math (tokens summed by role, precision ratio).
-- [ ] `.quest-manifest` lists the new runtime/benchmark files (`scripts/quest_runtime/*.py` is installer-managed); `quest_validate-manifest.sh` passes.
+- [ ] `.quest-manifest` lists the new installer-managed runtime files (e.g. `scripts/quest_runtime/metrics.py`); `tests/benchmark/**` and the benchmark guide stay repo-only (the validator rejects `tests/` manifest entries); `quest_validate-manifest.sh` passes.
 
 **Quest prompt:**
 
@@ -527,7 +527,7 @@ models later.
 
 - [ ] `"plan-reviewer-a": "claude-opus-4-8"` dispatches a Task/bridge call with that model (assert via metrics line / bridge args in tests).
 - [ ] Bare `"claude"` behaves exactly as today; no defaults changed.
-- [ ] No hardcoded model strings remain in `scripts/` (`grep -rn '"opus"' scripts/` is clean except parser fallbacks reading config).
+- [ ] No hardcoded dispatch defaults remain in executable paths: `quest_claude_runner.py`, `quest_claude_probe.py`, plus an explicit decision for `quest_preflight.sh --model opus`. Display/classification uses of model names (e.g. `scripts/quest_celebrate/quest_data.py`, README examples) are valid and out of scope.
 - [ ] `allowlist.schema.json` validates the new values; config validator tests updated.
 
 **Quest prompt:**
@@ -560,7 +560,11 @@ allowlist and stated up front at quest startup.
    existing `quest_completion.animation_style`
    (`minimal | standard | epic | silly`) keeps controlling presentation,
    unchanged; non-interactive/CI runs always render the markdown celebration
-   at `minimal`. Keep the existing fire-and-forget rule: a celebration render
+   at `minimal`. The other existing skip paths get explicit migration
+   semantics: `quest_completion.enabled: false` and `QUEST_ANIMATIONS=0`
+   continue to disable animation *effects* but no longer skip celebration —
+   the minimal markdown celebration + value report still renders, with a
+   one-line note. Keep the existing fire-and-forget rule: a celebration render
    failure never blocks journal + archive.
 2. Add a **quest value report** block to the celebration (celebrate skill +
    `scripts/quest_celebrate/`): WP0 rollup highlights (total tokens by role,
@@ -596,7 +600,7 @@ allowlist and stated up front at quest startup.
 
 **Acceptance criteria:**
 
-- [ ] No configuration or environment path skips the celebration render; non-interactive runs use `minimal` style; `animation_style` values and behavior are untouched (validator test proves legacy `on_complete: archive_silent` migrates with a warning).
+- [ ] No configuration or environment path skips the celebration render — including `quest_completion.enabled: false` and `QUEST_ANIMATIONS=0`, which now disable effects only (both paths tested); non-interactive runs use `minimal` style; `animation_style` values and behavior are untouched (validator test proves legacy `on_complete: archive_silent` migrates with a warning).
 - [ ] Celebration includes the value report when `metrics.jsonl` exists, and degrades gracefully (omits the block) when it doesn't.
 - [ ] A quest completing on a branch with `auto_pr` unset or `true` routes through the gated commit flow and ends with a draft PR opened via pr-assistant; declining the commit gate, an empty branch, `auto_pr: false`, and no-VCS quests all skip with an explicit note (no empty/stale PRs).
 - [ ] The startup summary states completion behavior and where to change it.
