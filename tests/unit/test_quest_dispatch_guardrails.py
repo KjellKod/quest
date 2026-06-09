@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -349,6 +350,25 @@ def test_scoped_or_prohibited_codex_role_mcp_routing_examples_are_allowed() -> N
 
     for text in allowed_examples:
         _assert_codex_role_mcp_routing_is_scoped(text, source="example")
+
+
+def test_opencode_agent_descriptions_do_not_advertise_mcp_dispatch() -> None:
+    """Agent descriptions in opencode.json are an orchestrator-visible routing
+    surface. "Codex via MCP"-style wording there steers Codex roles back toward
+    MCP even when the agent is wired as a local subagent, and the adjacency-based
+    forbidden terms (e.g. "codex mcp") do not catch it — so descriptions must
+    not mention MCP at all. The `mcp` server registration block is exempt: it
+    exists for the Claude-led cross-runtime path, not role routing."""
+    config = json.loads(_read(".opencode/opencode.json"))
+
+    agents = config.get("agent", {})
+    assert agents, ".opencode/opencode.json defines no agents"
+    for agent_name, agent in agents.items():
+        description = str(agent.get("description", ""))
+        assert "mcp" not in description.lower(), (
+            f".opencode/opencode.json agent '{agent_name}' description "
+            f"advertises an MCP transport: {description}"
+        )
 
 
 def test_opencode_quest_doc_scopes_codex_mcp_to_claude_led_sessions() -> None:

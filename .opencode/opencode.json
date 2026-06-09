@@ -48,7 +48,7 @@
       }
     },
     "plan-reviewer-a": {
-      "description": "Reviews implementation plans (Reviewer A - Codex via MCP)",
+      "description": "Reviews implementation plans (Reviewer A - local subagent)",
       "mode": "subagent",
       "model": "opencode/kimi-k2.5",
       "prompt": "{file:agents/plan-reviewer.md}",
@@ -87,7 +87,7 @@
       }
     },
     "builder": {
-      "description": "Implements approved plans (can invoke Codex via MCP)",
+      "description": "Implements approved plans (local subagent)",
       "mode": "subagent",
       "model": "opencode/kimi-k2.5",
       "prompt": "{file:agents/builder.md}",
