@@ -54,7 +54,7 @@ main ──► diamond (integration branch, created from main)
             ├── PR: wp1-contract-unification
             ├── PR: wp2-workflow-split
             ├── ...
-            └── PR: wp8-comparison-report
+            └── PR: wp9-comparison-report
 ```
 
 Rules:
@@ -63,7 +63,7 @@ Rules:
 - Each work package (WP) is its own branch + draft PR **into `diamond`**, using
   the normal Quest gates (dual review, arbiter, fix loop). Small, reviewable PRs.
 - Rebase `diamond` on `main` weekly so the final comparison is honest.
-- WP8 runs the benchmark on both branches and produces the comparison report.
+- WP9 runs the benchmark on both branches and produces the comparison report.
   Only then does `diamond` merge to `main`.
 
 ## Measuring efficiency
@@ -98,7 +98,7 @@ journal entry next to the existing celebration data):
 
 **Benchmark suite:** three canned quest briefs checked into
 `tests/benchmark/briefs/` (one small bugfix, one medium feature, one
-docs/config change). WP0 runs them on `main` to record the baseline; WP8
+docs/config change). WP0 runs them on `main` to record the baseline; WP9
 re-runs them on `diamond`. Identical briefs, identical models, compare the
 rollups. That is the `diamond` vs `main` comparison.
 
@@ -145,19 +145,20 @@ WP7's plumbing make that an experiment, not folklore.
 Dependency / parallelism map:
 
 ```
-WP0 (telemetry + baseline) ──┬──────────────────────────► WP8 (comparison)
+WP0 (telemetry + baseline) ──┬──────────────────────────► WP9 (comparison)
 WP1 (contracts)        ──────┤  parallel with WP0           ▲
 WP2 (workflow split)   ──────┤  after WP1                   │
 WP3 (fix-loop delta)   ──────┤  after WP2                   │
 WP4 (reviewer signal)  ──────┤  after WP2; needs WP0 data   │
 WP5 (planning lessons) ──────┤  parallel anytime ───────────┤
 WP6 (CI prompt cleanup)──────┤  parallel anytime ───────────┤
-WP7 (model plumbing)   ──────┴  parallel anytime ───────────┘
+WP7 (model plumbing)   ──────┤  parallel anytime ───────────┤
+WP8 (completion UX)    ──────┴  after WP2; needs WP0 data ──┘
 ```
 
-Sequence the workflow-file work (WP1 → WP2 → WP3/WP4) because they edit the
-same files. WP5, WP6, WP7 touch disjoint files and can run in parallel with
-anything after WP0.
+Sequence the workflow-file work (WP1 → WP2 → WP3/WP4/WP8) because they edit
+the same files. WP5, WP6, WP7 touch disjoint files and can run in parallel
+with anything after WP0.
 
 ---
 
@@ -378,7 +379,7 @@ overkill for clean reviews — WP0's data decides.
    (default `always`, current behavior). `on_conflict` invokes the arbiter only
    when reviewers disagree on severity for a deduped finding, findings exceed a
    count threshold, or any finding is `needs_human_decision`; otherwise the
-   deterministic `merge-findings` union applies. Decide the default in WP8
+   deterministic `merge-findings` union applies. Decide the default in WP9
    from arbiter-overhead metrics.
 
 **Acceptance criteria:**
@@ -386,7 +387,7 @@ overkill for clean reviews — WP0's data decides.
 - [ ] Anti-patterns doc lists ≥6 named false-positive families with one example each; both reviewer paths reference it.
 - [ ] Backlog policy unit tests prove low-confidence/medium-or-below findings never land in `fix_now`.
 - [ ] `review_arbiter_mode: on_conflict` skips the arbiter on a clean dual review (test with two empty/agreeing findings files) and invokes it on a severity conflict.
-- [ ] Default behavior unchanged (`always`) until WP8 decides.
+- [ ] Default behavior unchanged (`always`) until WP9 decides.
 
 **Quest prompt:**
 
@@ -425,7 +426,7 @@ same pattern to plan quality. Runs in parallel with anything.
 - [ ] Completing a quest whose plan took ≥2 iterations appends deduped lessons; a first-pass quest appends nothing.
 - [ ] File is capped at 30 lines (oldest evicted) — unit-tested.
 - [ ] Planner prompt includes the reference only when the file exists and is non-empty.
-- [ ] First-pass plan approval rate is tracked in the WP0 rollup so WP8 can evaluate the effect.
+- [ ] First-pass plan approval rate is tracked in the WP0 rollup so WP9 can evaluate the effect.
 
 **Quest prompt:**
 
@@ -511,7 +512,67 @@ models later.
 
 ---
 
-### WP8 — Benchmark comparison and merge decision
+### WP8 — Completion experience: mandatory celebration, value feedback, default draft PR
+
+**Why:** completion is where Quest pays the user back, and today the payoff is
+optional. Celebration can be configured away (`on_complete: ask |
+archive_silent`), the metrics WP0 collects stay buried in the journal, and a
+draft PR is only opened when the user remembers to ask for pr-assistant. Make
+the payoff automatic: always celebrate, show the user what they got and what
+it cost, and open the draft PR by default — with the opt-out living in the
+allowlist and stated up front at quest startup.
+
+**Steps:**
+
+1. Make celebration unconditional in `workflow/complete.md` (post-WP2 file):
+   remove the `ask` and `archive_silent` branches. `quest_completion.on_complete`
+   is replaced by a style knob (`celebration_style: "epic" | "compact"`,
+   default `epic`); non-interactive/CI runs always render the compact markdown
+   celebration. Keep the existing fire-and-forget rule: a celebration render
+   failure never blocks journal + archive.
+2. Add a **quest value report** block to the celebration (celebrate skill +
+   `scripts/quest_celebrate/`): WP0 rollup highlights (total tokens by role,
+   plan/fix iterations, findings precision), inherited/deferred findings
+   counts, and planning lessons applied. This is user-facing VALUE feedback,
+   not raw logs — the celebration reads the rollup `quest_complete.py` already
+   embeds in the journal; it never recomputes.
+3. **Default draft PR:** after celebration and archive, the orchestrator
+   invokes `.skills/pr-assistant/SKILL.md` to open a draft PR for the quest
+   branch when `quest_completion.auto_pr` is `true` (new allowlist key,
+   default `true`). When `vcs_available` is false or `branch_mode` is `none`,
+   skip with a one-line note. `auto_pr: false` skips with an explicit
+   "auto-PR disabled in allowlist" note.
+4. **Surface the opt-out at startup:** the intake step (where models/runtimes
+   are confirmed and `orchestration.json` is written) snapshots `auto_pr` and
+   `celebration_style` and states them in the startup summary, e.g. "On
+   completion: celebration + draft PR (auto_pr=true — opt out in
+   `.ai/allowlist.json`)." No mid-quest surprises.
+5. Update `allowlist.schema.json` and the config validator: legacy
+   `on_complete: ask | archive_silent` values migrate to the style default
+   with a deprecation warning — never a crash.
+
+**Acceptance criteria:**
+
+- [ ] No configuration or environment path skips the celebration render; non-interactive runs use compact style (validator test proves legacy `archive_silent` migrates with a warning).
+- [ ] Celebration includes the value report when `metrics.jsonl` exists, and degrades gracefully (omits the block) when it doesn't.
+- [ ] A quest completing on a branch with `auto_pr` unset or `true` ends with a draft PR opened via pr-assistant; `auto_pr: false` and no-VCS quests skip with an explicit note.
+- [ ] The startup summary states completion behavior and where to change it.
+- [ ] Schema + validator tests updated; `quest_validate-quest-config.sh` passes on both new and legacy allowlists.
+
+**Quest prompt:**
+
+> Implement the Quest completion experience per WP8 of
+> `docs/implementation/quest-diamond-efficiency-roadmap.md`: celebration
+> becomes unconditional with a celebration_style knob replacing on_complete
+> (legacy values migrate with a warning), the celebration gains a value-report
+> block sourced from the quest metrics rollup, and quest completion opens a
+> draft PR via pr-assistant by default, gated by a new
+> quest_completion.auto_pr allowlist key (default true) that the startup
+> summary surfaces. Update allowlist schema, validator, and tests.
+
+---
+
+### WP9 — Benchmark comparison and merge decision
 
 **Why:** this is the payoff — the diamond vs main comparison the branch
 strategy exists for.
@@ -538,7 +599,7 @@ strategy exists for.
 
 ## Out of scope (deliberately)
 
-Per the measurement-first idea doc, these stay deferred until the WP0/WP8 data
+Per the measurement-first idea doc, these stay deferred until the WP0/WP9 data
 says otherwise:
 
 - Transport-owned structured artifacts (`--json-schema` / `--output-schema`
