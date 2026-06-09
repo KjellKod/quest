@@ -1,0 +1,24 @@
+.opencode/agents/quest.md
+  s_882d9f35de4fef::t_aa40387d0c992e 40,42,44,46-48
+tests/unit/test_quest_dispatch_guardrails.py
+  s_882d9f35de4fef::t_d80bcb0a7c7528 60-67
+  s_882d9f35de4fef::t_59bad1015569b0 154-177
+  s_882d9f35de4fef::t_4ef4f9e0055fa1 22-44
+  s_882d9f35de4fef::t_035f0cd71d991f 317,321-360
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "eb1cde6f467141a292ea444919c1c96009ad4afe",
+  "prompts": {},
+  "sessions": {
+    "s_882d9f35de4fef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3c03860-753a-4dbf-a0a2-fd9a3a552f83",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
