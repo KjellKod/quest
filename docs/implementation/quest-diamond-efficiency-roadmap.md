@@ -227,7 +227,13 @@ SKILL produces findings the backlog automation can't classify.
    (already what `review_intelligence.py` validates). In
    `.skills/code-reviewer/SKILL.md` and `.skills/plan-reviewer/SKILL.md`, map
    the human labels once: Blocker→critical, Must fix→high, Should fix→medium,
-   Nit→low/info — then use the machine enum everywhere a finding is written.
+   Nit→low/info — then use the machine enum everywhere a finding is written
+   **as a Quest artifact** (findings JSON, backlogs, handoffs).
+   **Deliberate carve-out:** human-facing PR-comment output
+   (`.skills/ci-code-reviewer/SKILL.md` and the CI review pipeline)
+   intentionally keeps Blocker/Must fix/Should fix as display labels — they
+   are the display form of the same mapping, not a second taxonomy, and are
+   out of scope for the enum swap.
 2. Make `.ai/schemas/handoff.schema.json` the referenced source of truth:
    replace the ~18 inline handoff.json restatements across
    `.skills/quest/agents/*.md`, `.claude/agents/*.md`, `.opencode/agents/*.md`
@@ -245,7 +251,7 @@ SKILL produces findings the backlog automation can't classify.
 
 **Acceptance criteria:**
 
-- [ ] Exactly one severity enum exists across all role/skill docs; human labels appear only as a mapping table in the two reviewer SKILLs.
+- [ ] All canonical Quest findings artifacts (findings JSON, backlogs, quest agent contracts) use the `critical|high|medium|low|info` enum exclusively; human display labels appear only as the mapping table in the reviewer SKILLs and in human-facing PR-comment output (which keeps its display labels per the carve-out above).
 - [ ] `grep -rn '"status".*complete.*needs_human' .skills .claude .opencode` finds the handoff schema spelled out in ≤2 places (schema file + one example).
 - [ ] Platform stubs are ≤15 lines and contain no contract definitions.
 - [ ] Guard test passes and demonstrably fails when a stub re-adds a severity list.
@@ -542,6 +548,12 @@ allowlist and stated up front at quest startup.
    default `true`). When `vcs_available` is false or `branch_mode` is `none`,
    skip with a one-line note. `auto_pr: false` skips with an explicit
    "auto-PR disabled in allowlist" note.
+   **Deliberate contract change to pr-assistant:** update the Approval section
+   of `.skills/pr-assistant/SKILL.md` so that `quest_completion.auto_pr: true`
+   constitutes standing approval for quest-completion draft-PR creation —
+   pr-assistant still renders the generated title/body in chat, but does not
+   block waiting for confirmation. Manual/interactive invocations of
+   pr-assistant keep the explicit-approval contract unchanged.
 4. **Surface the opt-out at startup:** the intake step (where models/runtimes
    are confirmed and `orchestration.json` is written) snapshots `auto_pr` and
    `celebration_style` and states them in the startup summary, e.g. "On
@@ -557,6 +569,7 @@ allowlist and stated up front at quest startup.
 - [ ] Celebration includes the value report when `metrics.jsonl` exists, and degrades gracefully (omits the block) when it doesn't.
 - [ ] A quest completing on a branch with `auto_pr` unset or `true` ends with a draft PR opened via pr-assistant; `auto_pr: false` and no-VCS quests skip with an explicit note.
 - [ ] The startup summary states completion behavior and where to change it.
+- [ ] pr-assistant's SKILL documents the `auto_pr` standing-approval carve-out; manual invocations still require explicit approval (test or doc assertion).
 - [ ] Schema + validator tests updated; `quest_validate-quest-config.sh` passes on both new and legacy allowlists.
 
 **Quest prompt:**
