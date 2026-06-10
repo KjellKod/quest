@@ -166,9 +166,12 @@ def is_model_available_for_orchestrator(
     normalized_orchestrator = orchestrator.strip().lower()
     if normalized_orchestrator not in {"claude", "codex"}:
         raise ValueError(f"Unknown orchestrator: {orchestrator!r}")
+    # Classify through the same canonical mapping dispatch uses, so
+    # provider-qualified IDs (opencode/claude-*) gate consistently.
+    model_runtime = runtime_for_model(model)
     if normalized_orchestrator == "claude":
-        return True if is_claude_model(model) else codex_available
-    return claude_available if is_claude_model(model) else True
+        return True if model_runtime == "claude" else codex_available
+    return claude_available if model_runtime == "claude" else True
 
 
 def active_roles_for_mode(quest_mode: str) -> tuple[str, ...]:

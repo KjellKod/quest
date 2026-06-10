@@ -16,7 +16,10 @@ from quest_runtime.claude_runner import (
     run_claude_role,
     select_role_runtime,
 )
-from quest_runtime.orchestration import runtime_for_model
+from quest_runtime.orchestration import (
+    is_model_available_for_orchestrator,
+    runtime_for_model,
+)
 
 
 def _write_executable(path: Path, body: str) -> None:
@@ -136,6 +139,48 @@ def test_runtime_for_model_maps_model_ids_to_runtime_families():
         except ValueError:
             continue
         raise AssertionError(f"Expected ValueError for model ID {invalid!r}")
+
+
+def test_model_availability_classifies_provider_qualified_ids_like_dispatch():
+    # Codex-led session: a provider-qualified Claude ID needs the Claude bridge.
+    assert (
+        is_model_available_for_orchestrator(
+            "opencode/claude-opus-4-6",
+            orchestrator="codex",
+            codex_available=True,
+            claude_available=True,
+        )
+        is True
+    )
+    assert (
+        is_model_available_for_orchestrator(
+            "opencode/claude-opus-4-6",
+            orchestrator="codex",
+            codex_available=True,
+            claude_available=False,
+        )
+        is False
+    )
+    # Claude-led session: provider-qualified Claude ID is native; a Codex-backed
+    # ID still requires Codex availability.
+    assert (
+        is_model_available_for_orchestrator(
+            "opencode/claude-opus-4-6",
+            orchestrator="claude",
+            codex_available=False,
+            claude_available=True,
+        )
+        is True
+    )
+    assert (
+        is_model_available_for_orchestrator(
+            "opencode/gpt-5.4",
+            orchestrator="claude",
+            codex_available=False,
+            claude_available=True,
+        )
+        is False
+    )
 
 
 def test_select_role_runtime_accepts_persisted_model_ids():
