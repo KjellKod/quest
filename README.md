@@ -111,10 +111,10 @@ For advanced patterns (phased execution, plan comparison, model mixing), see the
 |------|--------------|-------------|
 | **Planner** | Claude | Explores the codebase and writes the implementation plan |
 | **Reviewer A** | Claude | Reviews plans and code from one perspective |
-| **Reviewer B** | GPT-5.4 | Reviews independently, different model, different blind spots |
+| **Reviewer B** | GPT-5.x | Reviews independently, different model, different blind spots |
 | **Arbiter** | Claude | Synthesizes reviews, filters nitpicks, decides approve or iterate |
-| **Builder** | GPT-5.4 | Implements the approved plan, runs tests, produces PR description |
-| **Fixer** | GPT-5.4 | Surgical fixes from review feedback without rebuilding |
+| **Builder** | GPT-5.x | Implements the approved plan, runs tests, produces PR description |
+| **Fixer** | GPT-5.x | Surgical fixes from review feedback without rebuilding |
 
 These defaults work with Claude (Sonnet or Opus) or GPT-5.x (5.2 or later) as the orchestrator, and across runtimes: Claude Code, Codex CLI, or Cursor IDE.
 
