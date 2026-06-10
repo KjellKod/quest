@@ -15,5 +15,5 @@ proposals live in `ideas/` until they are implementation-ready.
 
 | Plan | Status | Summary |
 |------|--------|---------|
-| [claude-bg-run-script.md](claude-bg-run-script.md) | draft — for review | Step 1: a quest-agnostic standalone `claude --bg` runner (dispatch → confirm → wait-on-files → collect → teardown) we can validate and iterate on outside quest, before any quest wiring. |
+| [claude-bg-run-script.md](claude-bg-run-script.md) | PoC landed — for review | Step 1: a quest-agnostic standalone `claude --bg` runner (`scripts/claude_bg_run.py` + `tests/unit/test_claude_bg_run.py`, 12 tests green + real-CLI smoke). Dispatch → confirm → wait-on-files → collect → teardown, with a headless-PTY noise firewall. |
 | [claude-bg-transport-migration.md](claude-bg-transport-migration.md) | draft — for review | Step 2 (later): migrate Codex-led Claude role execution from the `claude --print` bridge (API-metered after June 15, 2026) to the background-agent transport behind a config switch; bridge demoted to fallback/CI path, not deleted. |

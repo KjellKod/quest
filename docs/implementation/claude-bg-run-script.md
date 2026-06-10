@@ -211,6 +211,28 @@ Manual / machine-validation checklist (real logged-in machine — closes F10):
   (quest supplies its own role prompt), maps the exit codes into
   `classify_failure_kind`, and adds the preflight transport probe.
 
+## PoC status (2026-06-10)
+
+Proof of concept landed and validated:
+
+- `scripts/claude_bg_run.py` — stdlib-only runner implementing the lifecycle
+  below, plus `pty_capture()` (the headless-PTY noise firewall) and a
+  `--self-test` that demonstrates strip-to-signal with no `claude` needed.
+- `tests/unit/test_claude_bg_run.py` — 12 tests, **all passing** (`uv run pytest`),
+  driving a fake-`claude` shim through every branch: ok+teardown-order,
+  needs_human bubble-back, blocked+distilled-logs, dispatch_failed (never
+  registers), bypass-refusal→precondition, timeout→stop, incomplete, the
+  shortID/idle-suffix regex, and the real-PTY firewall.
+- **Real-CLI smoke** (live `claude --bg`, this environment): dispatch +
+  `agents --json` confirmation (captured the real `sessionId`) + state polling +
+  teardown (no orphans) all worked. `claude logs` was distilled to clean,
+  escape-free text — the noise firewall verified against real output.
+- **Not yet provable in-sandbox:** the happy "ok via artifact file" path with a
+  real session — writes need the one-time bypass acceptance, and this env's own
+  `Stop` hook (`stop-hook-reply-gate.py`) forces sessions to `blocked`. Both are
+  environment constraints, not runner behavior; the fake-shim tests cover the
+  path deterministically. Closing it is machine-validation item 1.
+
 ## Decisions made (changeable at review)
 
 1. Name `scripts/claude_bg_run.py`; single **blocking** `run` behavior (no
