@@ -5,8 +5,6 @@ description: Multi-agent quest orchestration. Plans, reviews, builds, and fixes 
 
 ## Codex Runtime Policy
 
-When this Quest is Codex-led and a role is assigned to the Codex runtime, dispatch it through local Codex subagents (`multi_agent_v1.spawn_agent` or the repo-supported equivalent) and inherit the active Codex model by default. Do not set a Codex model name unless the user explicitly requested one or the repo has a tested reason.
-
-Do not use `mcp__codex*`, `codex_codex`, `codex mcp-server`, or Codex CLI model aliases for Codex-led Codex roles. For Codex-led Claude roles, use `scripts/quest_claude_runner.py` when the bridge is available.
+Codex-led Codex roles use local Codex subagents and never use Codex MCP. The canonical dispatch matrix (runtime + entrypoint per orchestrator) is `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection); this wrapper intentionally does not restate it.
 
 Read and follow the instructions in `.skills/quest/SKILL.md`.

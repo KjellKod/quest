@@ -8,12 +8,12 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 ## Instances
 
 ### Plan Reviewer A
-- **Tool:** Runtime follows `models.plan-reviewer-a` from `.quest/<id>/orchestration.json`; entrypoint follows `.skills/quest/delegation/workflow.md`. If this slot is assigned to Codex in a Codex-led Quest, use local Codex subagents and inherit the active Codex model by default. If this slot is assigned to Claude in a Codex-led Quest, use `scripts/quest_claude_runner.py`. Codex MCP is only for Claude-led dispatch to Codex.
+- **Tool:** Runtime is derived from `models.plan-reviewer-a` in `.quest/<id>/orchestration.json`; the entrypoint follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection).
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
 - **Perspective:** Independent first pass on the plan.
 
 ### Plan Reviewer B
-- **Tool:** Runtime follows `models.plan-reviewer-b` from `.quest/<id>/orchestration.json`; entrypoint follows `.skills/quest/delegation/workflow.md`. If this slot is assigned to Codex in a Codex-led Quest, use local Codex subagents and inherit the active Codex model by default. If this slot is assigned to Claude in a Codex-led Quest, use `scripts/quest_claude_runner.py`. Codex MCP is only for Claude-led dispatch to Codex.
+- **Tool:** Runtime is derived from `models.plan-reviewer-b` in `.quest/<id>/orchestration.json`; the entrypoint follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection).
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
 - **Perspective:** Independent second pass on the same plan (different model family for diversity).
 

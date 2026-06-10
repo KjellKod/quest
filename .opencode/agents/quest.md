@@ -39,13 +39,9 @@ Sequential fan-out is acceptable. True parallelism is not required.
 
 ## Codex Dispatch
 
-Resolve each role's model from `.quest/<id>/orchestration.json` before dispatch; do not use a fixed role list for runtime selection. Dispatch every Quest role through the local OpenCode `task` subagents wired in `opencode.json` — Codex-backed slots (for example `opencode/gpt-5.4`) are local subagents that inherit their configured model, so a Codex-backed role does not need Codex MCP. Codex MCP is only for the Claude-led path described below.
+Resolve each role's model from `.quest/<id>/orchestration.json` before dispatch; do not use a fixed role list for runtime selection. Entrypoint selection follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection) — that matrix is the single source of truth and this file intentionally does not restate it. In this OpenCode setup, every Quest role is wired as a local `task` subagent in `opencode.json` (including Codex-backed slots such as `opencode/gpt-5.4`), so role dispatch does not use Codex MCP.
 
-`codex_codex` MCP is the Claude-led cross-runtime path only: use it when this orchestrating session runs a Claude-family model and must reach Codex outside the local subagent set. If the orchestrating session itself runs a Codex/GPT-backed model, dispatching a Codex role through `codex_codex` or `codex mcp-server` is an orchestration violation — use the local `task` subagent instead (see `.skills/quest/delegation/workflow.md`, Runtime And Entrypoint Selection).
-
-To continue a Claude-led Codex MCP conversation, use `codex_codex-reply` with the `threadId` from the previous response.
-
-Note: The MCP server is the official Codex CLI MCP server (`codex mcp-server`), configured as `codex` in opencode.json for the Claude-led path. It exposes two tools: `codex` (start session) and `codex-reply` (continue session). In OpenCode these become `codex_codex` and `codex_codex-reply`.
+OpenCode platform notes for the matrix's Claude-led Codex MCP path: the MCP server is the official Codex CLI MCP server (`codex mcp-server`), configured as `codex` in opencode.json; its tools surface as `codex_codex` (start session) and `codex_codex-reply` (continue, passing the `threadId` from the previous response). If the orchestrating session itself runs a Codex/GPT-backed model, using those tools for a Codex role is an orchestration violation — use the local `task` subagent instead.
 
 ## Iteration Loop Guardrails
 

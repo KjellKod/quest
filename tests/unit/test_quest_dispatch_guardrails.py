@@ -225,37 +225,38 @@ def test_skills_index_scopes_gpt_to_claude_led_dispatch() -> None:
     assert "Codex MCP is only for Claude-led dispatch to Codex" in index
 
 
-def test_codex_wrapper_and_entrypoint_require_local_subagents() -> None:
+def test_codex_wrapper_and_entrypoint_point_at_canonical_matrix() -> None:
+    """Wrappers (.agents, .codex) stay thin: a one-line rule plus a pointer to
+    the canonical dispatch matrix. They must not restate the matrix — the
+    canonical content lives in .skills/quest/delegation/workflow.md only."""
     for relative_path in (
         ".agents/skills/quest/SKILL.md",
         ".codex/AGENTS.md",
     ):
         content = _read(relative_path)
         assert "local Codex subagents" in content
-        assert "inherit the active Codex model" in content
-        assert "scripts/quest_claude_runner.py" in content
-        assert "Codex CLI model aliases" in content
+        assert "never use Codex MCP" in content
+        assert ".skills/quest/delegation/workflow.md" in content
+        assert "single source of truth" in content or "intentionally does not restate" in content
+        # Restated matrix details belong only in the canonical doc.
+        assert "multi_agent_v1.spawn_agent" not in content
+        assert "inherit the active Codex model" not in content
 
     wrapper = _read(".agents/skills/quest/SKILL.md")
     assert "Read and follow the instructions in `.skills/quest/SKILL.md`." in wrapper
 
 
-def test_role_docs_require_local_subagents_for_codex_led_codex_roles() -> None:
-    required_role_docs = (
-        ".skills/quest/agents/planner.md",
-        ".skills/quest/agents/builder.md",
-        ".skills/quest/agents/fixer.md",
-        ".skills/quest/agents/plan-reviewer.md",
-        ".skills/quest/agents/code-reviewer.md",
-        ".skills/quest/agents/review-arbiter.md",
-    )
-
-    for relative_path in required_role_docs:
+def test_role_docs_point_at_canonical_dispatch_matrix() -> None:
+    """Role docs reference the canonical matrix instead of restating it — one
+    source of truth in .skills/quest/delegation/workflow.md."""
+    for relative_path in _role_docs():
+        if relative_path.name == "README.md":
+            continue
         content = _read(relative_path)
-        assert "local Codex subagents" in content
-        assert "inherit" in content
-        assert "active Codex model" in content
-        assert "Codex MCP is only for Claude-led" in content or "Do not use Codex MCP" in content
+        assert ".skills/quest/delegation/workflow.md" in content, relative_path
+        assert "canonical dispatch matrix" in content, relative_path
+        # The matrix prose must not be duplicated into role docs.
+        assert "multi_agent_v1.spawn_agent" not in content, relative_path
 
 
 def test_needs_human_policy_is_runtime_based_not_slot_based() -> None:
@@ -303,17 +304,13 @@ def test_configurable_reviewer_and_arbiter_tool_lines_use_runtime_matrix() -> No
             assert model_key in tool_line
             assert ".quest/<id>/orchestration.json" in tool_line
             assert ".skills/quest/delegation/workflow.md" in tool_line
-            assert "local Codex subagents" in tool_line
-            assert "inherit the active Codex model" in tool_line
-            assert "Codex MCP is only for Claude-led" in tool_line
+            assert "canonical dispatch matrix" in tool_line
 
     arbiter_tool_line = _tool_line(_read(".skills/quest/agents/arbiter.md"))
     assert "models.arbiter" in arbiter_tool_line
     assert ".quest/<id>/orchestration.json" in arbiter_tool_line
     assert ".skills/quest/delegation/workflow.md" in arbiter_tool_line
-    assert "local Codex subagents" in arbiter_tool_line
-    assert "inherit the active Codex model" in arbiter_tool_line
-    assert "Codex MCP is only for Claude-led" in arbiter_tool_line
+    assert "canonical dispatch matrix" in arbiter_tool_line
 
 
 def test_positive_codex_mcp_dispatch_examples_are_rejected() -> None:
@@ -402,8 +399,8 @@ def test_opencode_agent_descriptions_do_not_advertise_mcp_dispatch() -> None:
 def test_opencode_quest_doc_scopes_codex_mcp_to_claude_led_sessions() -> None:
     content = _read(".opencode/agents/quest.md")
 
-    assert "local OpenCode `task` subagents" in content
-    assert "Claude-led cross-runtime path only" in content
+    assert "canonical dispatch matrix in `.skills/quest/delegation/workflow.md`" in content
+    assert "local `task` subagent" in content
     assert "orchestration violation" in content
     assert "Codex-backed model names use the `codex_codex` MCP tool" not in content
 

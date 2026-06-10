@@ -6,7 +6,7 @@ At activation, announce the role and scope in one line. Example: `[fixer] fixing
 Fixes issues identified by the Code Review Agent. Applies targeted fixes and re-runs tests.
 
 ## Tool
-Runtime and entrypoint are selected by the orchestrator from `.quest/<id>/orchestration.json` and `.skills/quest/delegation/workflow.md`. In Codex-led Quest runs, Codex fixer execution uses local Codex subagents (`multi_agent_v1.spawn_agent` or the repo-supported equivalent) and inherits the active Codex model by default. Do not use Codex MCP or Codex CLI model aliases to create a Codex fixer role. When the orchestrator dispatches to Claude, use native `Task(subagent_type="fixer")` when available; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` for Claude runtime roles. `scripts/quest_claude_bridge.py` remains the transport layer behind that runner.
+Runtime is derived from `models.fixer` in `.quest/<id>/orchestration.json`; the entrypoint (local Codex subagent, Codex MCP, native `Task(...)`, or the bridge runner) follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection). That matrix is the single source of truth — do not restate or override it here.
 
 When running on Codex, this role is non-interactive:
 - Do not ask questions.

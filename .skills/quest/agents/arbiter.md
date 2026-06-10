@@ -4,7 +4,7 @@
 Gatekeeper for plan quality and canonical review decisions. Receives both plan-review artifacts, synthesizes their feedback, filters out noise, decides whether the plan is ready for implementation, and emits canonical findings artifacts.
 
 ## Tool
-Runtime follows `models.arbiter` from `.quest/<id>/orchestration.json`; entrypoint follows `.skills/quest/delegation/workflow.md`. If this role is assigned to Codex in a Codex-led Quest, use local Codex subagents and inherit the active Codex model by default. If this role is assigned to Claude in a Codex-led Quest, use `python3 scripts/quest_claude_runner.py`; `scripts/quest_claude_bridge.py` remains the transport layer behind that runner. Codex MCP is only for Claude-led dispatch to Codex.
+Runtime is derived from `models.arbiter` in `.quest/<id>/orchestration.json`; the entrypoint (local Codex subagent, Codex MCP, native `Task(...)`, or the bridge runner) follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection). That matrix is the single source of truth — do not restate or override it here.
 
 ## Core Philosophy
 The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It filters feedback through:

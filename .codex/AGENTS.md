@@ -43,7 +43,7 @@ When the user invokes `$quest`, treat it as orchestration and follow the canonic
 - `AGENTS.md` (Quest Execution Discipline + PR Review Gate + engineering rubric)
 - `.skills/quest/delegation/workflow.md` (phase gates and merge flow)
 
-Codex-led dispatch rule: when a Quest role is assigned to Codex, use local Codex subagents (`multi_agent_v1.spawn_agent` or the repo-supported equivalent) and inherit the active Codex model by default. Do not use `mcp__codex*`, `codex_codex`, `codex mcp-server`, or Codex CLI model aliases for Codex-led Codex roles. When a Codex-led Quest role is assigned to Claude, use `scripts/quest_claude_runner.py` when the bridge is available; Claude-led Codex MCP documentation is not this entrypoint's Codex-led role-dispatch path.
+Codex-led dispatch rule: Codex-led Codex roles use local Codex subagents and never use Codex MCP. Resolve every role's entrypoint from the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection); that matrix is the single source of truth and this file intentionally does not restate it.
 
 Critical rules (always apply, even if referenced files fail to load):
 - Before Build Phase, write only to `.quest/` artifacts (and `docs/implementation/` when needed). Do not edit project/source files.

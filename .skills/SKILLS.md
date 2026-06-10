@@ -94,7 +94,7 @@ This directory contains specialized skills for AI agents working in this reposit
 
 **Use when:** The user invokes `/gpt`, asks to "use codex" or "ask codex", wants a second opinion from a different model, or a Claude-led Quest workflow routes a role to Codex.
 
-**Not for:** Codex-led Quest role dispatch. If you are already Codex and a Quest role is assigned to Codex, use local Codex subagents and inherit the active Codex model; Codex MCP is only for Claude-led dispatch to Codex.
+**Not for:** Codex-led Quest role dispatch — Codex-led Codex roles use local Codex subagents, and Codex MCP is only for Claude-led dispatch to Codex. See `.skills/gpt/SKILL.md` and the dispatch matrix in `.skills/quest/delegation/workflow.md`.
 
 **Location:** `.skills/gpt/SKILL.md`
 
