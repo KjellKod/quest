@@ -86,7 +86,7 @@ Say **"just go with it"** anytime to skip questions and proceed with assumptions
 /quest feature-x_2026-02-04__1430
 /quest feature-x_2026-02-04__1430 "re-plan using only claude"
 /quest feature-x_2026-02-04__1430 "re-plan using gpt-5.2"
-/quest 2026-02-04_1430__feature-x
+/quest 2026-02-04_1430__feature-x "Don't resume from building-phase, read <doc> and let's re-plan with this insight"
 
 # Point to specs, tickets, or docs
 /quest "implement docs/specs/notifications.md"
