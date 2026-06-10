@@ -4,7 +4,7 @@
 Gatekeeper for plan quality and canonical review decisions. Receives both plan-review artifacts, synthesizes their feedback, filters out noise, decides whether the plan is ready for implementation, and emits canonical findings artifacts.
 
 ## Tool
-Claude runtime. Use native `Task(subagent_type="arbiter")` when the orchestrator supports Claude tasks; in Codex-led Quest runs, use `python3 scripts/quest_claude_runner.py` as the orchestration entrypoint. `scripts/quest_claude_bridge.py` remains the transport layer behind that runner.
+Runtime is derived from `models.arbiter` in `.quest/<id>/orchestration.json`; the entrypoint (local Codex subagent, Codex MCP, native `Task(...)`, or the bridge runner) follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection). That matrix is the single source of truth — do not restate or override it here.
 
 ## Core Philosophy
 The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It filters feedback through:
@@ -128,6 +128,7 @@ SUMMARY: Iteration <N>: <approve|iterate> — <reason>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
+`STATUS: needs_human` is only valid when this role's selected runtime (`models.arbiter` in `.quest/<id>/orchestration.json`) is Claude (it may enter the human Q&A loop natively or through the bridge). On the Codex runtime, `needs_human` is non-compliant with Quest runtime policy — make explicit assumptions or return `blocked`.
 
 If `NEXT: planner`, the plan needs refinement. The Planner receives only the Arbiter's synthesized feedback (not the raw reviews).
 If `NEXT: builder`, the plan is approved and implementation begins.

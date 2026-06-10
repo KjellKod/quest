@@ -11,9 +11,14 @@ import quest_claude_probe
 import quest_claude_runner
 import quest_runtime.claude_runner as claude_runner_module
 from quest_runtime.claude_runner import (
+    CODEX_LED_CODEX_VIOLATION_GUIDANCE,
     run_bridge_probe,
     run_claude_role,
     select_role_runtime,
+)
+from quest_runtime.orchestration import (
+    is_model_available_for_orchestrator,
+    runtime_for_model,
 )
 
 
@@ -36,6 +41,49 @@ def test_select_role_runtime_keeps_native_claude_for_claude_led_hosts():
     assert "native Claude task execution" in selection.reason
 
 
+def test_select_role_runtime_uses_subagent_for_codex_led_codex_roles():
+    selection = select_role_runtime(
+        orchestrator="codex",
+        target_runtime="codex",
+        native_claude_available=False,
+        claude_bridge_available=False,
+    )
+
+    assert selection.runtime == "codex"
+    assert selection.entrypoint == "subagent"
+    assert selection.requires_probe is False
+    assert "local Codex subagents" in selection.reason
+    assert "inherits the active Codex model" in selection.reason
+    assert "runtime=codex entrypoint=subagent" in selection.reason
+    assert "Codex MCP is only valid for Claude-led sessions" in selection.reason
+    # A correct selection must not log violation language, or the log line
+    # itself becomes the misdiagnosis trap this contract exists to prevent.
+    assert "Orchestration violation" not in selection.reason
+    assert "gpt-5" not in selection.reason
+
+
+def test_codex_led_codex_violation_guidance_names_the_correction():
+    assert CODEX_LED_CODEX_VIOLATION_GUIDANCE.startswith("Orchestration violation")
+    assert "local Codex subagents" in CODEX_LED_CODEX_VIOLATION_GUIDANCE
+    assert "inherit the active Codex model" in CODEX_LED_CODEX_VIOLATION_GUIDANCE
+    assert "Claude-led sessions" in CODEX_LED_CODEX_VIOLATION_GUIDANCE
+
+
+def test_select_role_runtime_uses_codex_mcp_for_claude_led_codex_roles():
+    selection = select_role_runtime(
+        orchestrator="claude",
+        target_runtime="codex",
+        native_claude_available=True,
+        claude_bridge_available=False,
+    )
+
+    assert selection.runtime == "codex"
+    assert selection.entrypoint == "codex_mcp"
+    assert selection.requires_probe is False
+    assert "Claude-led session" in selection.reason
+    assert "runtime=codex entrypoint=codex_mcp" in selection.reason
+
+
 def test_select_role_runtime_uses_bridge_runner_for_codex_led_claude_roles():
     selection = select_role_runtime(
         orchestrator="codex",
@@ -48,6 +96,7 @@ def test_select_role_runtime_uses_bridge_runner_for_codex_led_claude_roles():
     assert selection.entrypoint == "scripts/quest_claude_runner.py"
     assert selection.requires_probe is True
     assert "additive bridge-backed Quest runner" in selection.reason
+    assert "runtime=claude entrypoint=scripts/quest_claude_runner.py" in selection.reason
 
 
 def test_select_role_runtime_blocks_codex_led_claude_role_without_bridge():
@@ -62,6 +111,105 @@ def test_select_role_runtime_blocks_codex_led_claude_role_without_bridge():
     assert selection.entrypoint == ""
     assert selection.requires_probe is True
     assert "requires the Quest Claude bridge runner" in selection.reason
+    assert "runtime=claude entrypoint=blocked" in selection.reason
+
+
+def test_select_role_runtime_rejects_unknown_orchestrator():
+    try:
+        select_role_runtime(orchestrator="unknown", target_runtime="codex")
+    except ValueError as exc:
+        assert "Unsupported orchestrator" in str(exc)
+    else:
+        raise AssertionError("Expected unsupported orchestrator to raise ValueError")
+
+
+def test_runtime_for_model_maps_model_ids_to_runtime_families():
+    assert runtime_for_model("claude") == "claude"
+    assert runtime_for_model("claude-opus-4-6") == "claude"
+    assert runtime_for_model("Claude-Opus-4-6") == "claude"
+    assert runtime_for_model("opencode/claude-opus-4-6") == "claude"
+    assert runtime_for_model("opencode/claude") == "claude"
+    assert runtime_for_model("codex") == "codex"
+    assert runtime_for_model("gpt-5.5") == "codex"
+    assert runtime_for_model("opencode/gpt-5.4") == "codex"
+
+    for invalid in ("   ", "opencode/"):
+        try:
+            runtime_for_model(invalid)
+        except ValueError:
+            continue
+        raise AssertionError(f"Expected ValueError for model ID {invalid!r}")
+
+
+def test_model_availability_classifies_provider_qualified_ids_like_dispatch():
+    # Codex-led session: a provider-qualified Claude ID needs the Claude bridge.
+    assert (
+        is_model_available_for_orchestrator(
+            "opencode/claude-opus-4-6",
+            orchestrator="codex",
+            codex_available=True,
+            claude_available=True,
+        )
+        is True
+    )
+    assert (
+        is_model_available_for_orchestrator(
+            "opencode/claude-opus-4-6",
+            orchestrator="codex",
+            codex_available=True,
+            claude_available=False,
+        )
+        is False
+    )
+    # Claude-led session: provider-qualified Claude ID is native; a Codex-backed
+    # ID still requires Codex availability.
+    assert (
+        is_model_available_for_orchestrator(
+            "opencode/claude-opus-4-6",
+            orchestrator="claude",
+            codex_available=False,
+            claude_available=True,
+        )
+        is True
+    )
+    assert (
+        is_model_available_for_orchestrator(
+            "opencode/gpt-5.4",
+            orchestrator="claude",
+            codex_available=False,
+            claude_available=True,
+        )
+        is False
+    )
+
+
+def test_select_role_runtime_accepts_persisted_model_ids():
+    codex_selection = select_role_runtime(
+        orchestrator="codex",
+        target_runtime="gpt-5.5",
+        native_claude_available=False,
+        claude_bridge_available=False,
+    )
+    assert codex_selection.runtime == "codex"
+    assert codex_selection.entrypoint == "subagent"
+
+    claude_selection = select_role_runtime(
+        orchestrator="codex",
+        target_runtime="claude-opus-4-6",
+        native_claude_available=False,
+        claude_bridge_available=True,
+    )
+    assert claude_selection.runtime == "claude"
+    assert claude_selection.entrypoint == "scripts/quest_claude_runner.py"
+
+    provider_qualified_selection = select_role_runtime(
+        orchestrator="codex",
+        target_runtime="opencode/claude-opus-4-6",
+        native_claude_available=False,
+        claude_bridge_available=True,
+    )
+    assert provider_qualified_selection.runtime == "claude"
+    assert provider_qualified_selection.entrypoint == "scripts/quest_claude_runner.py"
 
 
 def test_run_claude_role_reports_timeout_result_kind(tmp_path):

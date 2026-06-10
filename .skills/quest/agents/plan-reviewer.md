@@ -8,15 +8,19 @@ There are **two** Plan Review Agent invocations on every plan iteration. They ru
 ## Instances
 
 ### Plan Reviewer A
-- **Tool:** Claude runtime dispatched by orchestrator (native `Task(...)` when available, `scripts/quest_claude_runner.py` in Codex-led runs)
+- **Tool:** Runtime is derived from `models.plan-reviewer-a` in `.quest/<id>/orchestration.json`; the entrypoint follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection).
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_plan-reviewer-a.md`
 - **Perspective:** Independent first pass on the plan.
 
 ### Plan Reviewer B
-- **Tool:** Dispatched by orchestrator (model per config)
+- **Tool:** Runtime is derived from `models.plan-reviewer-b` in `.quest/<id>/orchestration.json`; the entrypoint follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection).
 - **Artifact path:** `.quest/<id>/phase_01_plan/review_plan-reviewer-b.md`
 - **Perspective:** Independent second pass on the same plan (different model family for diversity).
-- **Non-interactive rule:** Do not ask questions and do not return `needs_human`. Use explicit assumptions; if unsafe, return `blocked`.
+
+### Non-Interactive Rule (Runtime-Based)
+Whether a slot may ask questions depends on its **selected runtime** (`models.plan-reviewer-a` / `models.plan-reviewer-b` in `.quest/<id>/orchestration.json`), not the slot label:
+- **Codex runtime:** non-interactive. Do not ask questions and do not return `needs_human`. Use explicit assumptions; if unsafe, return `blocked`.
+- **Claude runtime:** `needs_human` is allowed — Claude runtime may enter the human Q&A loop whether it runs natively or through the bridge.
 
 ## Context Required (both instances)
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
@@ -83,8 +87,7 @@ SUMMARY: <one line>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
-For Reviewer B, `STATUS: needs_human` is non-compliant with Quest runtime policy.
-For Reviewer A, `STATUS: needs_human` remains valid because Claude runtime may still enter the human Q&A loop whether it ran natively or through the bridge.
+`STATUS: needs_human` is only valid when your slot's selected runtime is Claude (it may enter the human Q&A loop natively or through the bridge). On the Codex runtime, `needs_human` is non-compliant with Quest runtime policy regardless of slot label — make explicit assumptions or return `blocked`.
 
 ## Allowed Actions
 - Read any file in the repo

@@ -124,6 +124,24 @@ def is_claude_model(model: str) -> bool:
     return model == "claude" or model.startswith("claude-")
 
 
+def runtime_for_model(model: str) -> str:
+    """Map a persisted `models.<role>` model ID to its runtime family.
+
+    `models.*` stores model IDs (for example `claude`, `claude-opus-4-6`,
+    `gpt-5.5`), not runtime names. The Quest contract is binary: Claude-family
+    IDs run on the Claude runtime; every other ID runs on Codex tooling.
+    Provider-qualified IDs (for example `opencode/claude-opus-4-6`) are
+    classified on the segment after the final `/`.
+    """
+    normalized = model.strip().lower()
+    if not normalized:
+        raise ValueError("model must be a non-empty string")
+    unqualified = normalized.rsplit("/", 1)[-1]
+    if not unqualified:
+        raise ValueError(f"model ID has no name after provider prefix: {model!r}")
+    return "claude" if is_claude_model(unqualified) else "codex"
+
+
 def is_model_available(model: str, *, codex_available: bool) -> bool:
     """Return True if the requested model can run with the current preflight.
 
@@ -148,9 +166,12 @@ def is_model_available_for_orchestrator(
     normalized_orchestrator = orchestrator.strip().lower()
     if normalized_orchestrator not in {"claude", "codex"}:
         raise ValueError(f"Unknown orchestrator: {orchestrator!r}")
+    # Classify through the same canonical mapping dispatch uses, so
+    # provider-qualified IDs (opencode/claude-*) gate consistently.
+    model_runtime = runtime_for_model(model)
     if normalized_orchestrator == "claude":
-        return True if is_claude_model(model) else codex_available
-    return claude_available if is_claude_model(model) else True
+        return True if model_runtime == "claude" else codex_available
+    return claude_available if model_runtime == "claude" else True
 
 
 def active_roles_for_mode(quest_mode: str) -> tuple[str, ...]:

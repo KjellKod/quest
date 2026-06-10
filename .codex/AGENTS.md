@@ -43,6 +43,8 @@ When the user invokes `$quest`, treat it as orchestration and follow the canonic
 - `AGENTS.md` (Quest Execution Discipline + PR Review Gate + engineering rubric)
 - `.skills/quest/delegation/workflow.md` (phase gates and merge flow)
 
+Codex-led dispatch rule: Codex-led Codex roles use local Codex subagents and never use Codex MCP. Resolve every role's entrypoint from the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection); that matrix is the single source of truth and this file intentionally does not restate it.
+
 Critical rules (always apply, even if referenced files fail to load):
 - Before Build Phase, write only to `.quest/` artifacts (and `docs/implementation/` when needed). Do not edit project/source files.
 - Plan + dual review + arbiter + presentation/human approval must happen before implementation.

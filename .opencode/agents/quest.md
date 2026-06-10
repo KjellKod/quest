@@ -37,13 +37,11 @@ For dual reviews (Steps 3 and 8). Plan review fans into `arbiter`; code review f
 
 Sequential fan-out is acceptable. True parallelism is not required.
 
-## Codex Dispatch (via MCP)
+## Codex Dispatch
 
-Resolve each role's model from `.quest/<id>/orchestration.json` before dispatch. Claude-family model names (`claude` and `claude-*`) use the Claude `task` path when native task execution is available; Codex-backed model names use the `codex_codex` MCP tool. Do not use a fixed role list for runtime selection.
+Resolve each role's model from `.quest/<id>/orchestration.json` before dispatch; do not use a fixed role list for runtime selection. Entrypoint selection follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection) — that matrix is the single source of truth and this file intentionally does not restate it. In this OpenCode setup, every Quest role is wired as a local `task` subagent in `opencode.json` (including Codex-backed slots such as `opencode/gpt-5.4`), so role dispatch does not use Codex MCP.
 
-To continue a Codex conversation, use `codex_codex-reply` with the `threadId` from the previous response.
-
-Note: The MCP server is the official Codex CLI MCP server (`codex mcp-server`), configured as `codex` in opencode.json. It exposes two tools: `codex` (start session) and `codex-reply` (continue session). In OpenCode these become `codex_codex` and `codex_codex-reply`.
+OpenCode platform notes for the matrix's Claude-led Codex MCP path: the MCP server is the official Codex CLI MCP server (`codex mcp-server`), configured as `codex` in opencode.json; its tools surface as `codex_codex` (start session) and `codex_codex-reply` (continue, passing the `threadId` from the previous response). If the orchestrating session itself runs a Codex/GPT-backed model, using those tools for a Codex role is an orchestration violation — use the local `task` subagent instead.
 
 ## Iteration Loop Guardrails
 

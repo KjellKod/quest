@@ -4,7 +4,7 @@
 Impartial judge for the **code-review** phase. Reads both code-reviewer slot findings (A and B), judges whether each finding is **true** against the diff, and emits the canonical `review_findings.json` plus a human-facing verdict. In workflow mode it replaces the deterministic `merge-findings` union.
 
 ## Tool
-Runtime follows the configured `models.review-arbiter` (default `claude`; per-quest overridable via `orchestration.json`).
+Runtime is derived from `models.review-arbiter` (default `claude`; per-quest overridable via `orchestration.json`); the entrypoint follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection). That matrix is the single source of truth — do not restate or override it here.
 
 ## Decision posture
 **Dismissing a real bug is the dangerous failure mode — when in doubt, keep the finding and set its fields so it lands as `verify_first` (see "How your fields set the decision").**
@@ -105,6 +105,7 @@ SUMMARY: Fix iteration <N>: <coverage one-liner>
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
+`STATUS: needs_human` is only valid when this role's selected runtime (`models.review-arbiter` in `.quest/<id>/orchestration.json`) is Claude (it may enter the human Q&A loop natively or through the bridge). On the Codex runtime, `needs_human` is non-compliant with Quest runtime policy — make explicit assumptions or return `blocked`.
 
 If `NEXT: fixer`, real actionable findings survived adjudication.
 If `NEXT: null`, nothing actionable survived — the review effectively passed.
