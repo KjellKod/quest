@@ -218,11 +218,17 @@ Proof of concept landed and validated:
 - `scripts/claude_bg_run.py` — stdlib-only runner implementing the lifecycle
   below, plus `pty_capture()` (the headless-PTY noise firewall) and a
   `--self-test` that demonstrates strip-to-signal with no `claude` needed.
-- `tests/unit/test_claude_bg_run.py` — 12 tests, **all passing** (`uv run pytest`),
+- `tests/unit/test_claude_bg_run.py` — 16 tests, **all passing** (`uv run pytest`),
   driving a fake-`claude` shim through every branch: ok+teardown-order,
-  needs_human bubble-back, blocked+distilled-logs, dispatch_failed (never
-  registers), bypass-refusal→precondition, timeout→stop, incomplete, the
-  shortID/idle-suffix regex, and the real-PTY firewall.
+  needs_human bubble-back, **needs_human keeps the session alive (no teardown)**,
+  **resume continues the same session**, **resume falls back to a fresh
+  dispatch**, resume-without-answer→precondition, blocked+distilled-logs,
+  dispatch_failed (never registers), bypass-refusal→precondition, timeout→stop,
+  incomplete, the shortID/idle-suffix regex, and the real-PTY firewall.
+- Resume relay: `needs_human` leaves the session alive and surfaces `session_id`;
+  the orchestrator answers with `--resume <session_id> --answer "<reply>"`
+  (fallback to a fresh `--bg` carrying the answer if resume fails). Ctrl-C tears
+  the live session down (exit 130) instead of orphaning it.
 - **Real-CLI smoke** (live `claude --bg`, this environment): dispatch +
   `agents --json` confirmation (captured the real `sessionId`) + state polling +
   teardown (no orphans) all worked. `claude logs` was distilled to clean,
@@ -232,6 +238,58 @@ Proof of concept landed and validated:
   `Stop` hook (`stop-hook-reply-gate.py`) forces sessions to `blocked`. Both are
   environment constraints, not runner behavior; the fake-shim tests cover the
   path deterministically. Closing it is machine-validation item 1.
+
+## Examples to try
+
+One-time, per machine (a human, once): `claude login`, then accept bypass mode
+once interactively with `claude --dangerously-skip-permissions` (the runner
+defaults to `--permission-mode bypassPermissions`).
+
+```bash
+# 0. No claude needed — prove the PTY noise firewall (ANSI in → clean text out).
+python3 scripts/claude_bg_run.py --self-test
+
+# 1. Happy path: dispatch, wait for the declared file, return ok, tear down.
+python3 scripts/claude_bg_run.py --json \
+  --wait-for /tmp/bgrun/out.json \
+  --prompt 'Write {"ok":true,"note":"hello from a bg agent"} to /tmp/bgrun/out.json'
+#   → status ok; /tmp/bgrun/out.json present; session removed.
+#   Then check `/usage` shows this against your SUBSCRIPTION, not API credit.
+
+# 2. needs_human bubble-back, then resume the SAME session with the answer.
+#    Give the agent a real fork so it asks instead of assuming:
+python3 scripts/claude_bg_run.py --json \
+  --handoff-file /tmp/bgrun/handoff.json \
+  --wait-for /tmp/bgrun/plan.md \
+  --prompt 'Draft a 3-line rollout plan in /tmp/bgrun/plan.md. If you must choose
+            between a canary rollout and a big-bang rollout and it is not
+            specified, do NOT guess: write {"status":"needs_human","questions":
+            ["canary or big-bang?"]} to /tmp/bgrun/handoff.json and stop.'
+#   → status needs_human, questions:[...], session LEFT ALIVE, prints session_id.
+
+# ...the orchestrator asks the human, gets "canary", then continues that session:
+python3 scripts/claude_bg_run.py --json \
+  --resume <session_id-from-step-2> \
+  --answer 'Use a canary rollout.' \
+  --wait-for /tmp/bgrun/plan.md \
+  --prompt 'Draft a 3-line rollout plan in /tmp/bgrun/plan.md.'   # fallback task
+#   → resumes the same conversation; on resume failure, re-dispatches fresh with
+#     the answer (because --prompt is provided). status ok; plan.md written.
+
+# 3. Quest-style call (what Step 2 will issue): wait on the role's own artifacts.
+python3 scripts/claude_bg_run.py --json --no-protocol \
+  --name quest-<id>-plan-reviewer-a \
+  --handoff-file .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json \
+  --wait-for  .quest/<id>/phase_01_plan/review_plan-reviewer-a.md \
+  --wait-for  .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json \
+  --add-dir "$(pwd)" \
+  --prompt-file .quest/<id>/phase_01_plan/reviewer_a_prompt.txt
+
+# 4. No-write smoke that does NOT need the bypass accept (plan mode, no files):
+python3 scripts/claude_bg_run.py --json --permission-mode plan \
+  --prompt 'Reply with exactly: OK'
+#   → completion == reaching `done`; useful to confirm dispatch/confirm/teardown.
+```
 
 ## Decisions made (changeable at review)
 

@@ -10,6 +10,15 @@ task's declared output FILES to appear (results never come from screen output),
 surface a `needs_human` bubble-back if the agent asks for a decision, then tear
 the session down — and return a small structured envelope.
 
+Bubble-back loop (orchestrator stops and asks the human):
+  1. Agent writes its question to the handoff file as {"status":"needs_human",...}
+     and ends its turn. The runner returns status=needs_human (+session_id) and
+     LEAVES THE SESSION ALIVE (no teardown), so it can be resumed.
+  2. The orchestrator asks the human, then calls this runner again in resume mode
+     (--resume <session_id> --answer "<reply>") to continue the SAME conversation.
+     If resume fails and an original --prompt is available, it falls back to a
+     fresh dispatch carrying the answer.
+
 It is also the "noise firewall": the orchestrator only ever sees the tiny
 envelope below, never the raw ANSI TUI buffer. `pty_capture()` demonstrates the
 same strip-to-signal behavior for the interactive (`attach`) responder path.
@@ -51,6 +60,7 @@ EXIT_BLOCKED = 4  # leaked interactive prompt (state=blocked)
 EXIT_TIMEOUT = 5
 EXIT_SESSION_FAILED = 6  # vanished / done-without-artifacts (incomplete)
 EXIT_NEEDS_HUMAN = 10  # actionable, not a failure: agent asked for a decision
+EXIT_INTERRUPTED = 130  # Ctrl-C: session torn down before exit
 
 _SHORTID_RE = re.compile(r"backgrounded\s*·\s*([0-9a-fA-F]+)")
 _BYPASS_REFUSAL_RE = re.compile(
@@ -146,6 +156,8 @@ class Envelope:
     short_id: str | None = None
     session_id: str | None = None
     name: str | None = None
+    resumed: bool = False
+    fell_back: bool = False
     wait_for: list[str] = field(default_factory=list)
     artifacts_found: list[str] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
@@ -165,6 +177,7 @@ class Envelope:
             "session_failed": EXIT_SESSION_FAILED,
             "incomplete": EXIT_SESSION_FAILED,
             "needs_human": EXIT_NEEDS_HUMAN,
+            "interrupted": EXIT_INTERRUPTED,
         }.get(self.status, EXIT_SESSION_FAILED)
 
 
@@ -191,11 +204,17 @@ class BgRunner:
         except (json.JSONDecodeError, ValueError):
             return []
 
-    def find_session(self, short_id: str | None, name: str) -> dict[str, Any] | None:
+    def find_session(
+        self, short_id: str | None, name: str, session_id: str | None = None
+    ) -> dict[str, Any] | None:
         for row in self.agents_json():
             if row.get("kind") == "interactive":
                 continue
-            if (short_id and row.get("id") == short_id) or row.get("name") == name:
+            if (
+                (short_id and row.get("id") == short_id)
+                or row.get("name") == name
+                or (session_id and row.get("sessionId") == session_id)
+            ):
                 return row
         return None
 
@@ -215,25 +234,46 @@ class BgRunner:
             except subprocess.SubprocessError:
                 pass
 
-    # -- prompt + dispatch ----------------------------------------------------
-    def build_prompt(self) -> str:
-        if self.a.prompt is not None:
-            prompt = self.a.prompt
-        elif self.a.prompt_file == "-" or (self.a.prompt_file is None and not sys.stdin.isatty()):
-            prompt = sys.stdin.read()
-        elif self.a.prompt_file:
-            prompt = Path(self.a.prompt_file).read_text(encoding="utf-8")
+    # -- message construction -------------------------------------------------
+    def _read_source(self, value: str | None, file_value: str | None, what: str) -> str:
+        if value is not None:
+            text = value
+        elif file_value == "-" or (file_value is None and not sys.stdin.isatty()):
+            text = sys.stdin.read()
+        elif file_value:
+            text = Path(file_value).read_text(encoding="utf-8")
         else:
-            raise ValueError("No prompt provided (use --prompt/--prompt-file or stdin).")
-        prompt = prompt.strip()
-        if not prompt:
-            raise ValueError("Prompt is empty.")
-        if self.a.wait_for and not self.a.no_protocol:
-            prompt += COMPLETION_PROTOCOL.format(files="\n".join(f"  {p}" for p in self.a.wait_for))
-        return prompt
+            raise ValueError(f"No {what} provided.")
+        text = text.strip()
+        if not text:
+            raise ValueError(f"{what} is empty.")
+        return text
 
-    def dispatch_argv(self, prompt: str) -> list[str]:
+    def _with_protocol(self, text: str) -> str:
+        if self.a.wait_for and not self.a.no_protocol:
+            files = "\n".join(f"  {p}" for p in self.a.wait_for)
+            return text + COMPLETION_PROTOCOL.format(files=files)
+        return text
+
+    def build_prompt(self) -> str:
+        return self._with_protocol(
+            self._read_source(self.a.prompt, self.a.prompt_file, "prompt (use --prompt/--prompt-file or stdin)")
+        )
+
+    def build_answer(self) -> str:
+        return self._with_protocol(
+            self._read_source(self.a.answer, self.a.answer_file, "answer (resume mode needs --answer/--answer-file)")
+        )
+
+    def _fallback_prompt(self, answer: str) -> str:
+        task = self._read_source(self.a.prompt, self.a.prompt_file, "prompt")
+        return f"{task}\n\nThe human answered your earlier question:\n{answer}\n"
+
+    # -- dispatch -------------------------------------------------------------
+    def dispatch_argv(self, message: str, resume_sid: str | None) -> list[str]:
         argv = [*self.claude, "--bg", "--name", self.a.name]
+        if resume_sid:
+            argv += ["--resume", resume_sid]
         if self.a.model:
             argv += ["--model", self.a.model]
         if self.a.effort:
@@ -243,8 +283,47 @@ class BgRunner:
             argv += ["--settings", json.dumps({"worktree": {"bgIsolation": "none"}})]
         for d in self.a.add_dir or []:
             argv += ["--add-dir", d]
-        argv.append(prompt)
+        argv.append(message)
         return argv
+
+    def dispatch_and_confirm(
+        self, message: str, resume_sid: str | None
+    ) -> tuple[str | None, str, str | None, dict[str, Any] | None]:
+        """Returns (terminal_status_or_None, message, short_id, session_row)."""
+        argv = self.dispatch_argv(message, resume_sid)
+        try:
+            cp = subprocess.run(argv, text=True, capture_output=True, timeout=60.0, check=False)
+        except FileNotFoundError:
+            return "precondition_failed", "claude CLI not found in PATH", None, None
+        except subprocess.SubprocessError as exc:
+            return "dispatch_failed", f"dispatch error: {exc}", None, None
+
+        out = cp.stdout + cp.stderr
+        if _BYPASS_REFUSAL_RE.search(out):
+            return (
+                "precondition_failed",
+                "bypassPermissions not accepted — run `claude --dangerously-skip-permissions` once interactively, then retry.",
+                None,
+                None,
+            )
+        m = _SHORTID_RE.search(out)
+        short_id = m.group(1) if m else None
+
+        deadline = time.monotonic() + self.a.confirm_timeout
+        row: dict[str, Any] | None = None
+        while time.monotonic() < deadline:
+            row = self.find_session(short_id, self.a.name, resume_sid)
+            if row:
+                break
+            time.sleep(self.a.poll_interval)
+        if not row:
+            return (
+                "dispatch_failed",
+                "session never registered with the supervisor (printed: %r)" % out.strip()[:200],
+                short_id,
+                None,
+            )
+        return None, "", short_id or row.get("id"), row
 
     # -- file/handoff helpers -------------------------------------------------
     @staticmethod
@@ -265,52 +344,55 @@ class BgRunner:
     # -- the lifecycle --------------------------------------------------------
     def run(self) -> Envelope:
         t0 = time.monotonic()
+        env = Envelope(status="", name=self.a.name, wait_for=list(self.a.wait_for))
+        resume_mode = bool(self.a.resume)
+
         try:
-            prompt = self.build_prompt()
+            message = self.build_answer() if resume_mode else self.build_prompt()
         except (ValueError, OSError) as exc:
-            return Envelope(status="precondition_failed", message=str(exc))
-
-        argv = self.dispatch_argv(prompt)
-        try:
-            cp = subprocess.run(argv, text=True, capture_output=True, timeout=60.0, check=False)
-        except FileNotFoundError:
-            return Envelope(status="precondition_failed", message="claude CLI not found in PATH")
-        except subprocess.SubprocessError as exc:
-            return Envelope(status="dispatch_failed", message=f"dispatch error: {exc}")
-
-        out = cp.stdout + cp.stderr
-        if _BYPASS_REFUSAL_RE.search(out):
-            return Envelope(
-                status="precondition_failed",
-                name=self.a.name,
-                message="bypassPermissions not accepted — run `claude --dangerously-skip-permissions` once interactively, then retry.",
-            )
-        m = _SHORTID_RE.search(out)
-        short_id = m.group(1) if m else None
-
-        env = Envelope(status="", short_id=short_id, name=self.a.name, wait_for=list(self.a.wait_for))
-
-        # CONFIRM (cold-start + false-positive guard)
-        confirm_deadline = time.monotonic() + self.a.confirm_timeout
-        row: dict[str, Any] | None = None
-        while time.monotonic() < confirm_deadline:
-            row = self.find_session(short_id, self.a.name)
-            if row:
-                break
-            time.sleep(self.a.poll_interval)
-        if not row:
-            env.status = "dispatch_failed"
-            env.message = "session never registered with the supervisor (printed: %r)" % out.strip()[:200]
-            env.duration_s = round(time.monotonic() - t0, 1)
+            env.status, env.message = "precondition_failed", str(exc)
             return env
-        env.short_id = short_id or row.get("id")
-        env.session_id = row.get("sessionId")
+
+        # DISPATCH (+ resume / fallback)
+        if resume_mode:
+            env.resumed = True
+            status, msg, short_id, row = self.dispatch_and_confirm(message, self.a.resume)
+            have_task = self.a.prompt is not None or bool(self.a.prompt_file)
+            if status and self.a.fallback and have_task:
+                try:
+                    fb = self._fallback_prompt(message)
+                except (ValueError, OSError) as exc:
+                    env.status, env.message = "precondition_failed", str(exc)
+                    return env
+                env.resumed, env.fell_back = False, True
+                status2, msg2, short_id, row = self.dispatch_and_confirm(fb, None)
+                if status2:
+                    env.status = status2
+                    env.message = f"resume failed ({msg}); re-dispatch also failed ({msg2})"
+                    env.short_id = short_id
+                    env.duration_s = round(time.monotonic() - t0, 1)
+                    return env
+                env.message = f"resume failed ({msg}); re-dispatched fresh with the answer"
+            elif status:
+                env.status, env.message, env.short_id = status, msg, short_id
+                env.duration_s = round(time.monotonic() - t0, 1)
+                return env
+        else:
+            status, msg, short_id, row = self.dispatch_and_confirm(message, None)
+            if status:
+                env.status, env.message, env.short_id = status, msg, short_id
+                env.duration_s = round(time.monotonic() - t0, 1)
+                return env
+
+        env.short_id = short_id
+        env.session_id = (row or {}).get("sessionId")
 
         # WAIT
         deadline = time.monotonic() + self.a.timeout
         next_status = 0.0
         grace_left = 2
-        while True:
+        try:
+          while True:
             now = time.monotonic()
             if now > deadline:
                 if env.short_id:
@@ -337,7 +419,7 @@ class BgRunner:
 
             if now >= next_status:
                 next_status = now + self.a.status_interval
-                row = self.find_session(env.short_id, self.a.name)
+                row = self.find_session(env.short_id, self.a.name, env.session_id)
                 state = (row or {}).get("state") or (row or {}).get("status")
                 env.final_state = state
                 if row is None:
@@ -358,6 +440,9 @@ class BgRunner:
                         env.message = "session finished but declared output files are missing/empty"
                         break
             time.sleep(self.a.poll_interval)
+        except KeyboardInterrupt:
+            env.status = "interrupted"
+            env.message = "interrupted by user; tearing the session down"
 
         # COLLECT
         env.artifacts_found = [p for p in self.a.wait_for if self._nonempty(p)]
@@ -365,20 +450,27 @@ class BgRunner:
         if env.status != "ok" and env.short_id:
             env.logs_tail = self.logs_tail(env.short_id)
 
-        # TEARDOWN (only after collect; never rm before artifacts confirmed)
-        if env.short_id:
+        # TEARDOWN — but PRESERVE a needs_human session so it can be resumed.
+        if env.short_id and env.status != "needs_human":
             self.teardown(env.short_id)
         env.duration_s = round(time.monotonic() - t0, 1)
         if not env.message and env.status == "ok":
             env.message = "completed; declared artifacts present"
+        if env.status == "needs_human" and not env.message:
+            env.message = "agent needs a human decision; session left alive — answer via --resume <session_id> --answer"
         return env
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Run one Claude background-agent task to a file-based result.")
     src = p.add_mutually_exclusive_group()
-    src.add_argument("--prompt")
+    src.add_argument("--prompt", help="task prompt (also the fallback task in resume mode)")
     src.add_argument("--prompt-file", help="path or '-' for stdin")
+    p.add_argument("--resume", help="resume an existing session: continue this session_id")
+    p.add_argument("--answer", help="resume mode: the human's reply to send back")
+    p.add_argument("--answer-file", help="resume mode: read the reply from a file ('-' for stdin)")
+    p.add_argument("--no-fallback", dest="fallback", action="store_false", help="resume mode: do not fall back to a fresh re-dispatch if resume fails")
+    p.set_defaults(fallback=True)
     p.add_argument("--wait-for", action="append", default=[], help="output file(s) that must exist & be non-empty (repeatable)")
     p.add_argument("--handoff-file", help="optional JSON the agent writes; status needs_human bubbles back")
     p.add_argument("--model", default="")
