@@ -243,16 +243,23 @@ SKILL produces findings the backlog automation can't classify.
    example, in the README.
 3. Shrink `.claude/agents/*.md` and `.opencode/agents/*.md` to thin pointers at
    the canonical `.skills/quest/agents/<role>.md` (≤15 lines each: role name,
-   pointer, platform-specific invocation notes only). Resolve the known drift:
+   pointer, platform-specific invocation notes only).
+   **The repo principle:** `.skills/` is the single canonical home for all
+   skill and role instructions; platform directories (`.claude/`, `.opencode/`,
+   `.codex/`) contain only "read the canonical file" pointers. The template
+   already exists — `.claude/skills/*/SKILL.md` wrappers are ~7 lines each
+   ("Read and follow the instructions in `.skills/<name>/SKILL.md`"); make the
+   agent stubs match that pattern. Never restate contract content (severity,
+   handoff fields, output formats) in a platform file. Resolve the known drift:
    planner question-handling (`needs_human` vs forbidden) follows the canonical
    rule; reviewer output formats follow the canonical findings schema.
    **Exception:** `.opencode/agents/quest.md` is the OpenCode orchestrator
    stub with no per-role canonical file — leave it pointing at
    `.skills/quest/SKILL.md` and the workflow docs; it is out of scope for the
    stub contraction.
-4. Add a guard test (`tests/unit/`) that fails if a platform stub redefines
-   severity values or handoff fields (simple grep-style assertions), so drift
-   can't silently return.
+4. Add a guard test (`tests/unit/`) that fails if a platform file under
+   `.claude/`, `.opencode/`, or `.codex/` redefines severity values or handoff
+   fields (simple grep-style assertions), so drift can't silently return.
 
 **Acceptance criteria:**
 
