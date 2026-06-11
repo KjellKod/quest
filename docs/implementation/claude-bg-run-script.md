@@ -3,9 +3,9 @@ title: claude-bg-run — Standalone Background-Agent Runner (Step 1)
 purpose: Specify a quest-agnostic CLI that runs a single Claude background-agent task to completion and returns a structured result, communicating purely through files. It is the proving ground for the background-agent transport before any quest wiring.
 audience: Implementing agent and reviewers.
 scope: One standalone script (dispatch → confirm → wait-on-files → collect → teardown). No quest coupling.
-status: draft — for review before implementation
+status: implemented — PoC validated end-to-end on a real machine (see PoC status)
 owner: maintainers
-last_updated: 2026-06-09
+last_updated: 2026-06-11
 related:
   - docs/implementation/claude-bg-transport-migration.md
   - scripts/quest_claude_bridge.py
@@ -39,7 +39,7 @@ and out of scope here.
 - No log scraping for results (see finding F1 — impossible reliably).
 - Not a replacement for the bridge yet; it is a peer we validate alongside it.
 
-## Validated behavior (live, this environment, Claude Code 2.1.159→2.1.170)
+## Validated behavior (live, Claude Code 2.1.159→2.1.173)
 
 These findings are empirical (run against the real CLI) and drive every design
 choice below. Where a behavior could not be fully validated here, it is marked
@@ -47,7 +47,7 @@ and pushed to the machine-validation checklist.
 
 | # | Finding | Consequence for the script |
 |---|---|---|
-| F1 | `claude logs <id>` returns the **raw TUI screen buffer** (ANSI/cursor escapes); the model's text answer is not cleanly extractable. | Results MUST travel via files. `logs` is used only as an opaque diagnostic blob on failure. |
+| F1 | ~~`claude logs <id>` returns the raw TUI screen buffer~~ **Corrected (2.1.173): there IS no `claude logs` subcommand** — unknown verbs parse as a *prompt* and no-op. The session transcript at `~/.claude/projects/<project>/<sessionId>.jsonl` is the log. | Results MUST travel via files. Diagnostics (`logs_tail`) come from the transcript JSONL (last assistant-text lines, distilled), located by globbing `<transcripts-root>/*/<sessionId>.jsonl`. |
 | F2 | `claude agents --json` reports per-session `state` and `status`. Observed transitions: `working`/`busy` → `done`/`idle`; a session that needs a permission decision ends `blocked`/`idle`. | Completion + failure are detectable structurally: success via files (primary) + `state==done`; **`state==blocked` → fail fast** (don't wait for timeout). |
 | F3 | The supervisor starts **on-demand** ("origin: transient — started on-demand by `claude --bg`"). There is a cold-start window; once, a dispatch printed success while `daemon status` was `not running` and the session never registered. | A **confirmation step** is mandatory: after dispatch, poll `agents --json` until the session appears (bounded). No appearance → `dispatch_failed`. The success line alone is not proof. |
 | F4 | A `--bg` dispatch blocked by the bypass disclaimer printed an error **and still exited 0**. | Do not trust the process exit code. Success = parsing `backgrounded · <shortID>` from stdout **and** F3 confirmation. |
@@ -55,8 +55,10 @@ and pushed to the machine-validation checklist.
 | F6 | A `--permission-mode acceptEdits` session asked to create new files ended `blocked` without writing. | For unattended file-writing, `acceptEdits` is insufficient; bypass (F5) is required. The script defaults to bypass and treats `blocked` as a permission failure with a clear message. |
 | F7 | Dispatch stdout format: `backgrounded · <shortID>[ · <name>]`, plus a 4-line management hint. An idle no-prompt dispatch appended `(idle — send a prompt to start)`. | shortID regex: `backgrounded\s*·\s*([0-9a-f]+)`; name is optional; tolerate the idle suffix. |
 | F8 | `agents --json` background entries carry `id`, `name`, `status`, `state`, `sessionId`, `pid`, `cwd`; interactive sessions lack `id/name/status/state`. | Match dispatched sessions by `name` (preferred) or `id`; ignore `kind==interactive` rows. |
-| F9 | `claude stop <id>` then `claude rm <id>` cleanly remove a session (verified: list returns to interactive-only). Background sessions auto-isolate edits into `.claude/worktrees/` unless disabled. | Teardown = stop → rm, only **after** results are collected. Pass `--settings '{"worktree":{"bgIsolation":"none"}}'` so writes land in the real workspace, not a worktree `rm` would delete. |
-| F10 | **Not validated here:** an end-to-end write by a *bypass-accepted* session reaching `state==done` with the expected files present. Blocked by F5 (no interactive acceptance available in this sandbox). | Must be confirmed on a real logged-in machine — see Machine-validation checklist. The script is designed for it; the proof is operational. |
+| F9 | ~~`claude stop <id>` then `claude rm <id>` cleanly remove a session~~ **Corrected (2.1.173): `stop`/`rm` are not subcommands either** — they parse as a prompt and silently do nothing (this is why earlier teardowns left orphans). The `agents --json` row carries the session's `pid`; the scriptable stop is signalling that pid. The daemon may **respawn a parked session once** from its spare pool (same row id, fresh pid), and a killed row may linger pid-less ("settled") in the listing. Background sessions auto-isolate edits into `.claude/worktrees/` unless disabled. | Teardown = signal the row's *current* pid (SIGTERM, escalate to SIGKILL) **repeatedly until the row drops its pid or disappears**, only **after** results are collected. Pass `--settings '{"worktree":{"bgIsolation":"none"}}'` so writes land in the real workspace. |
+| F11 | A **parked** session (idle, awaiting input — e.g. left alive after `needs_human`) reads `state==blocked` in `agents --json`, identical to a genuinely stuck session. | Resume-mode polling must never match the parked parent's row: session matching uses **strict precedence** (short id → name → sessionId), not first-row-wins OR-matching, or the parent's `blocked` shadows the new agent and misreports the run. |
+| F12 | `claude --bg --resume <sid>` **forks**: the new agent continues the conversation under a **new sessionId** (daemon roster: `launch.mode=resume, fork=true`), while the parked parent stays alive and would be orphaned. | The envelope reports the NEW `session_id` (chain further resumes off it) plus `resumed_from`; after the new agent is confirmed, the runner retires the parked parent. |
+| F10 | ~~Not validated here~~ **CLOSED (2026-06-11, real logged-in machine):** end-to-end writes by bypass-accepted sessions reached the expected files, including the full needs_human → resume-by-name → answered → artifact loop. | The happy path is proven operational. Remaining manual check: `/usage` billing attribution (machine-validation item 2). |
 
 ## The file-based completion contract
 
@@ -91,6 +93,12 @@ Mirrors `quest_claude_bridge.py` where sensible (drop-in transport sibling):
 ```
 scripts/claude_bg_run.py
   (--prompt TEXT | --prompt-file PATH | -)        # task; '-' or stdin supported
+                                                  # in resume mode: the fallback task
+  --resume REF               (session id, agent SHORT ID, or agent NAME — names are
+                              resolved live via `agents --json`, so a session renamed
+                              in the agent view stays resumable)
+  --answer TEXT | --answer-file PATH | -          (resume mode: the human's reply)
+  --no-fallback              (resume mode: don't re-dispatch fresh if resume fails)
   --wait-for PATH            (repeatable, >=1 unless --no-wait)
   --model NAME               (optional; defaults to CLI/account default)
   --permission-mode MODE     (default: bypassPermissions)
@@ -105,30 +113,36 @@ scripts/claude_bg_run.py
   --keep                     (skip teardown; for debugging)
   --json                     (emit the result envelope to stdout)
   --no-protocol              (don't append the completion-protocol block)
+  --transcripts-root PATH    (default ~/.claude/projects; logs_tail source — F1)
 ```
 
 ### Output envelope (`--json`)
 
 ```json
 {
-  "status": "ok | timeout | dispatch_failed | blocked | session_failed | incomplete | precondition_failed",
+  "status": "ok | needs_human | timeout | dispatch_failed | blocked | session_failed | incomplete | precondition_failed | interrupted",
   "short_id": "d868c9d3",
-  "session_id": "d868c9d3-…",
+  "session_id": "d868c9d3-…",   // resume mode: the NEW (forked) session id — F12
   "name": "bgrun-1a2b3c4d",
+  "resumed": false,
+  "resumed_from": null,          // resume mode: the session id that was continued
+  "fell_back": false,            // resume failed, re-dispatched fresh with the answer
   "wait_for": ["…"],
   "artifacts_found": ["…"],
   "missing": ["…"],
+  "questions": ["…"],            // needs_human: the agent's question(s)
   "final_state": "done | blocked | absent | working",
   "duration_s": 41.2,
-  "logs_tail": "…",          // present only on non-ok status, raw/opaque
+  "logs_tail": "…",          // non-ok status only; distilled from the transcript (F1)
   "message": "human-readable summary / remediation"
 }
 ```
 
 Exit codes: `0` ok; `2` precondition_failed (CLI/auth/bypass-acceptance — F4/F5);
-`3` dispatch_failed (F3); `4` blocked (F6); `5` timeout; `6` session_failed/incomplete.
-(Distinct codes so a shell harness — and later quest's `classify_failure_kind`
-— can route without parsing stdout.)
+`3` dispatch_failed (F3); `4` blocked (F6); `5` timeout; `6` session_failed/incomplete;
+`10` needs_human (actionable, not a failure); `130` interrupted (Ctrl-C, session
+torn down). (Distinct codes so a shell harness — and later quest's
+`classify_failure_kind` — can route without parsing stdout.)
 
 ## Lifecycle (the state machine)
 
@@ -146,8 +160,10 @@ Exit codes: `0` ok; `2` precondition_failed (CLI/auth/bypass-acceptance — F4/F
    - parse shortID (F7); if absent → dispatch_failed(3)
 2. CONFIRM (F3)
    - poll `agents --json` every poll-interval up to confirm-timeout for a row whose
-     name==<name> (or id==shortID); capture id + sessionId
+     id==shortID (or name==<name>) — strict precedence, never by sessionId, which
+     would falsely match the parked parent in resume mode (F11); capture id + sessionId
    - never appears → dispatch_failed(3) with daemon-status snapshot in message
+   - resume mode, once confirmed: retire the parked parent agent (F12; respects --keep)
 3. WAIT  (loop until deadline)
    - every poll-interval: check all --wait-for paths exist & non-empty
        → all satisfied: capture, go COLLECT (ok)
@@ -156,11 +172,11 @@ Exit codes: `0` ok; `2` precondition_failed (CLI/auth/bypass-acceptance — F4/F
        blocked  → COLLECT then blocked(4) + logs_tail + permission remediation (F6)
        done but wait-for unsatisfied → short grace (e.g. 2 poll-intervals), then incomplete(6)
        absent (unexpected) → session_failed(6)
-   - deadline reached → `claude stop <id>` → timeout(5)
+   - deadline reached → timeout(5); the final teardown stops the session
 4. COLLECT
-   - record artifacts_found / missing; on any non-ok, capture `claude logs <id>` tail (opaque)
-5. TEARDOWN  (unless --keep)
-   - only AFTER collect: `claude stop <id>` (if alive) → `claude rm <id>`  (F9 order)
+   - record artifacts_found / missing; on any non-ok, distill the transcript tail (F1)
+5. TEARDOWN  (unless --keep; skipped entirely for needs_human — session stays resumable)
+   - only AFTER collect: signal the row's current pid until the row settles (F9)
 6. RETURN envelope + exit code
 ```
 
@@ -211,33 +227,38 @@ Manual / machine-validation checklist (real logged-in machine — closes F10):
   (quest supplies its own role prompt), maps the exit codes into
   `classify_failure_kind`, and adds the preflight transport probe.
 
-## PoC status (2026-06-10)
+## PoC status (2026-06-11)
 
 Proof of concept landed and validated:
 
 - `scripts/claude_bg_run.py` — stdlib-only runner implementing the lifecycle
   below, plus `pty_capture()` (the headless-PTY noise firewall) and a
   `--self-test` that demonstrates strip-to-signal with no `claude` needed.
-- `tests/unit/test_claude_bg_run.py` — 16 tests, **all passing** (`uv run pytest`),
-  driving a fake-`claude` shim through every branch: ok+teardown-order,
-  needs_human bubble-back, **needs_human keeps the session alive (no teardown)**,
-  **resume continues the same session**, **resume falls back to a fresh
-  dispatch**, resume-without-answer→precondition, blocked+distilled-logs,
-  dispatch_failed (never registers), bypass-refusal→precondition, timeout→stop,
-  incomplete, the shortID/idle-suffix regex, and the real-PTY firewall.
+- `tests/unit/test_claude_bg_run.py` — 20 tests, **all passing** (`uv run pytest`),
+  driving a fake-`claude` shim (multi-row `agents --json` with pids, parked
+  parent, no fake stop/rm/logs verbs) through every branch: ok+pid-signal
+  teardown, --keep, needs_human bubble-back, **needs_human keeps the session
+  alive (no teardown)**, **resume not shadowed by the parked parent (F11
+  regression)**, **resume by renamed agent name / by short id**, resume-unknown
+  →precondition, **resume falls back to a fresh dispatch**, resume-without-answer
+  →precondition, blocked+transcript-logs, dispatch_failed (never registers),
+  bypass-refusal→precondition, timeout→teardown, incomplete, the
+  shortID/idle-suffix regex, and the real-PTY firewall.
 - Resume relay: `needs_human` leaves the session alive and surfaces `session_id`;
-  the orchestrator answers with `--resume <session_id> --answer "<reply>"`
-  (fallback to a fresh `--bg` carrying the answer if resume fails). Ctrl-C tears
-  the live session down (exit 130) instead of orphaning it.
-- **Real-CLI smoke** (live `claude --bg`, this environment): dispatch +
-  `agents --json` confirmation (captured the real `sessionId`) + state polling +
-  teardown (no orphans) all worked. `claude logs` was distilled to clean,
-  escape-free text — the noise firewall verified against real output.
-- **Not yet provable in-sandbox:** the happy "ok via artifact file" path with a
-  real session — writes need the one-time bypass acceptance, and this env's own
-  `Stop` hook (`stop-hook-reply-gate.py`) forces sessions to `blocked`. Both are
-  environment constraints, not runner behavior; the fake-shim tests cover the
-  path deterministically. Closing it is machine-validation item 1.
+  the orchestrator answers with `--resume <session_id|short_id|name> --answer
+  "<reply>"` (fallback to a fresh `--bg` carrying the answer if resume fails).
+  Ctrl-C tears the live session down (exit 130) instead of orphaning it.
+- **Real-CLI end-to-end (2026-06-11, real logged-in machine, 2.1.173):** the full
+  loop validated live — dispatch → `needs_human` (question bubbled, session
+  parked) → **resume by agent NAME** → answer delivered into the same
+  conversation (fork, F12) → declared artifact written → status ok → parked
+  parent retired → new agent torn down. This run also *corrected* three earlier
+  findings: no `logs`/`stop`/`rm` subcommands exist (F1/F9 — old teardown was a
+  silent no-op that left orphans), a parked session reads `state==blocked`
+  (F11 — it used to shadow the resume and misreport `blocked`), and resume forks
+  to a new sessionId (F12).
+- Machine-validation item 2 (`/usage` attributes runs to subscription, not API
+  credit) remains a manual check.
 
 ## Examples to try
 
@@ -267,14 +288,19 @@ python3 scripts/claude_bg_run.py --json \
             ["canary or big-bang?"]} to /tmp/bgrun/handoff.json and stop.'
 #   → status needs_human, questions:[...], session LEFT ALIVE, prints session_id.
 
-# ...the orchestrator asks the human, gets "canary", then continues that session:
+# ...the orchestrator asks the human, gets "canary", then continues that session.
+# --resume takes the session_id, the agent's short id, or its NAME — so a session
+# renamed in the agent view (`claude agents`) stays resumable:
 python3 scripts/claude_bg_run.py --json \
-  --resume <session_id-from-step-2> \
+  --resume <session_id-or-short_id-or-name-from-step-2> \
   --answer 'Use a canary rollout.' \
   --wait-for /tmp/bgrun/plan.md \
   --prompt 'Draft a 3-line rollout plan in /tmp/bgrun/plan.md.'   # fallback task
-#   → resumes the same conversation; on resume failure, re-dispatches fresh with
-#     the answer (because --prompt is provided). status ok; plan.md written.
+#   → resumes the same conversation as a FORK (new session_id in the envelope,
+#     `resumed_from` = the continued session; chain further resumes off the new id);
+#     the parked parent agent is retired once the fork is confirmed. On resume
+#     failure, re-dispatches fresh with the answer (because --prompt is provided).
+#     status ok; plan.md written.
 
 # 3. Quest-style call (what Step 2 will issue): wait on the role's own artifacts.
 python3 scripts/claude_bg_run.py --json --no-protocol \
@@ -294,8 +320,9 @@ python3 scripts/claude_bg_run.py --json --permission-mode plan \
 ## Decisions made (changeable at review)
 
 1. Name `scripts/claude_bg_run.py`; single **blocking** `run` behavior (no
-   subcommands) — smallest surface that proves the transport. Passthrough helpers
-   (status/logs/stop) are just the native `claude` commands; no need to wrap.
+   subcommands) — smallest surface that proves the transport. Status passthrough
+   is the native `claude agents --json`; there are no native logs/stop verbs to
+   pass through (F1/F9), so the runner owns transcript-tail and pid-signalling.
 2. Default `--permission-mode bypassPermissions` (F6 shows lesser modes block).
 3. Runner **injects** the completion-protocol unless `--no-protocol`, so the tool
    is useful with a naive prompt yet yields full control to quest later.
@@ -303,10 +330,9 @@ python3 scripts/claude_bg_run.py --json --permission-mode plan \
 
 ## One open item for you
 
-F10: the end-to-end write under a *bypass-accepted* session could not be proven
-in this sandbox (no interactive acceptance available). The design assumes it
-works (it is the documented, billed-as-subscription path); item 1 of the
-machine-validation checklist is the gate. If you can run that one command on your
-machine after `claude --dangerously-skip-permissions`, we'll have the green light
-before writing code — or we write the code and that command becomes its first
-real-run test. Your call which order.
+~~F10: the end-to-end write under a bypass-accepted session could not be proven
+in this sandbox.~~ **Closed 2026-06-11** — the full loop (dispatch →
+`needs_human` → resume by name → artifact written → parent retired) ran green on
+a real logged-in machine; see PoC status. The one remaining manual check is
+`/usage` billing attribution (machine-validation item 2): confirm a run lands on
+your **subscription**, not API credit.

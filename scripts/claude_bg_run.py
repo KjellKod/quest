@@ -15,21 +15,37 @@ Bubble-back loop (orchestrator stops and asks the human):
      and ends its turn. The runner returns status=needs_human (+session_id) and
      LEAVES THE SESSION ALIVE (no teardown), so it can be resumed.
   2. The orchestrator asks the human, then calls this runner again in resume mode
-     (--resume <session_id> --answer "<reply>") to continue the SAME conversation.
-     If resume fails and an original --prompt is available, it falls back to a
-     fresh dispatch carrying the answer.
+     (--resume <ref> --answer "<reply>") to continue the SAME conversation.
+     <ref> may be the session_id, the agent's short id, or its NAME — names are
+     resolved live via `claude agents --json`, so a session renamed in the agent
+     view stays resumable. If resume fails and an original --prompt is available,
+     it falls back to a fresh dispatch carrying the answer.
+  3. Resuming spawns a NEW background agent (new short id, NEW session id) that
+     continues the conversation; the parked parent agent stays alive and would be
+     orphaned, so after the new agent is confirmed the runner retires the parent.
+     The envelope reports the NEW session_id (chain further resumes off that) and
+     `resumed_from` (the session id that was continued).
 
 It is also the "noise firewall": the orchestrator only ever sees the tiny
 envelope below, never the raw ANSI TUI buffer. `pty_capture()` demonstrates the
 same strip-to-signal behavior for the interactive (`attach`) responder path.
 
-Transport facts this encodes (validated against Claude Code 2.1.170):
+Transport facts this encodes (validated against Claude Code 2.1.170+):
   * `claude --bg` prints `backgrounded · <id>[ · <name>]` and may exit 0 even on
     the bypass-acceptance refusal, so success requires parsing the id AND
     confirming via `claude agents --json` — not the exit code.
   * `claude agents --json` reports per-session `state` (working/done/blocked) and
-    `status` (busy/idle); completion and blocking are read from there.
-  * `claude logs` is a raw TUI buffer; we strip it to a few signal lines only.
+    `status` (busy/idle); completion and blocking are read from there. A parked
+    (idle, awaiting-input) session ALSO reads `state==blocked`, so resume-mode
+    polling must never match the parked parent's row (id/name take precedence
+    over sessionId).
+  * There are NO `claude logs|stop|rm` subcommands — those argv parse as a
+    PROMPT and silently do nothing. Teardown = signal the `pid` carried in the
+    session's `agents --json` row, repeating against the row's CURRENT pid until
+    it settles (the daemon respawns a parked session once from its spare pool).
+    Logs come from the transcript at ~/.claude/projects/<project>/<sessionId>.jsonl.
+  * `claude --bg --resume <sid>` FORKS: the new agent continues the conversation
+    under a NEW sessionId (daemon roster: launch.mode=resume, fork=true).
 
 Run the built-in firewall demo (no `claude` needed):
     python3 scripts/claude_bg_run.py --self-test
@@ -44,6 +60,7 @@ import pty
 import re
 import select
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -63,6 +80,7 @@ EXIT_NEEDS_HUMAN = 10  # actionable, not a failure: agent asked for a decision
 EXIT_INTERRUPTED = 130  # Ctrl-C: session torn down before exit
 
 _SHORTID_RE = re.compile(r"backgrounded\s*·\s*([0-9a-fA-F]+)")
+_SESSION_ID_RE = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}|[0-9a-fA-F]{32}")
 _BYPASS_REFUSAL_RE = re.compile(
     r"bypass[- ]?permissions.*requires accepting|dangerously-skip-permissions",
     re.IGNORECASE,
@@ -157,6 +175,7 @@ class Envelope:
     session_id: str | None = None
     name: str | None = None
     resumed: bool = False
+    resumed_from: str | None = None
     fell_back: bool = False
     wait_for: list[str] = field(default_factory=list)
     artifacts_found: list[str] = field(default_factory=list)
@@ -205,34 +224,98 @@ class BgRunner:
             return []
 
     def find_session(
-        self, short_id: str | None, name: str, session_id: str | None = None
+        self,
+        short_id: str | None = None,
+        name: str | None = None,
+        session_id: str | None = None,
     ) -> dict[str, Any] | None:
-        for row in self.agents_json():
-            if row.get("kind") == "interactive":
+        """Match a background row by short id, then name, then sessionId.
+
+        STRICT PRECEDENCE, not OR-in-row-order: when resuming, the parked parent
+        session matches `sessionId` and appears earlier in the list than the new
+        agent — an unordered match returns the parent (whose state is `blocked`
+        merely because it is idle awaiting input) and misreports the run.
+        """
+        rows = [r for r in self.agents_json() if r.get("kind") != "interactive"]
+        for key, want in (("id", short_id), ("name", name), ("sessionId", session_id)):
+            if not want:
                 continue
-            if (
-                (short_id and row.get("id") == short_id)
-                or row.get("name") == name
-                or (session_id and row.get("sessionId") == session_id)
-            ):
-                return row
+            for row in rows:
+                if row.get(key) == want:
+                    return row
         return None
 
-    def logs_tail(self, short_id: str) -> str:
-        try:
-            cp = self._claude("logs", short_id, timeout=15.0)
-        except subprocess.SubprocessError:
-            return ""
-        return distill(cp.stdout + cp.stderr)
+    def resolve_resume_target(self, ref: str) -> tuple[str | None, str | None]:
+        """Resolve --resume <ref> to (session_id, parent_short_id).
 
-    def teardown(self, short_id: str) -> None:
+        <ref> may be a session id, an agent short id, or an agent NAME (incl. one
+        renamed in the agent view) — resolved live against `claude agents --json`.
+        A session-id-shaped ref with no live row is passed through as-is (the
+        transcript may still be resumable); anything else unresolved is an error.
+        """
+        row = self.find_session(short_id=ref, name=ref, session_id=ref)
+        if row and row.get("sessionId"):
+            return row["sessionId"], row.get("id")
+        if _SESSION_ID_RE.fullmatch(ref):
+            return ref, None
+        return None, None
+
+    def logs_tail(self, session_id: str | None) -> str:
+        """Tail of the session transcript (~/.claude/projects/*/<sid>.jsonl).
+
+        There is no `claude logs` subcommand; the transcript JSONL is the log.
+        Returns the last few assistant-text lines, distilled.
+        """
+        if not session_id:
+            return ""
+        root = Path(self.a.transcripts_root).expanduser()
+        matches = list(root.glob(f"*/{session_id}.jsonl")) or list(root.glob(f"{session_id}.jsonl"))
+        if not matches:
+            return ""
+        texts: list[str] = []
+        try:
+            for line in matches[0].read_text(encoding="utf-8").splitlines():
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("type") != "assistant":
+                    continue
+                for block in obj.get("message", {}).get("content", []) or []:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        texts.append(block.get("text", ""))
+        except OSError:
+            return ""
+        return distill("\n".join(texts[-4:]))
+
+    def stop_session(self, short_id: str | None) -> None:
+        """Stop a background agent by signalling its supervisor-reported pid.
+
+        `claude stop|rm` do not exist as subcommands (they parse as a prompt and
+        no-op). The daemon may RESPAWN a parked session once from its spare pool
+        after a kill (the row keeps its id but shows a fresh pid), so keep
+        signalling the row's *current* pid until the row settles — drops its pid
+        ("settled (killed)" in the daemon log) or leaves the listing. Settled
+        rows may linger pid-less in `agents --json`; that is retired enough.
+        """
+        if not short_id:
+            return
+        for attempt in range(6):
+            row = self.find_session(short_id=short_id)
+            pid = (row or {}).get("pid")
+            if not isinstance(pid, int):
+                return  # gone, or settled with no live process
+            sig = signal.SIGTERM if attempt < 2 else signal.SIGKILL
+            try:
+                os.kill(pid, sig)
+            except (ProcessLookupError, PermissionError):
+                pass
+            time.sleep(self.a.poll_interval)
+
+    def teardown(self, short_id: str | None) -> None:
         if self.a.keep:
             return
-        for verb in ("stop", "rm"):
-            try:
-                self._claude(verb, short_id, timeout=20.0)
-            except subprocess.SubprocessError:
-                pass
+        self.stop_session(short_id)
 
     # -- message construction -------------------------------------------------
     def _read_source(self, value: str | None, file_value: str | None, what: str) -> str:
@@ -312,7 +395,10 @@ class BgRunner:
         deadline = time.monotonic() + self.a.confirm_timeout
         row: dict[str, Any] | None = None
         while time.monotonic() < deadline:
-            row = self.find_session(short_id, self.a.name, resume_sid)
+            # Confirm by short id / name ONLY: in resume mode the parked parent's
+            # row matches `sessionId == resume_sid` and would falsely confirm a
+            # dispatch that never registered.
+            row = self.find_session(short_id, self.a.name)
             if row:
                 break
             time.sleep(self.a.poll_interval)
@@ -354,9 +440,19 @@ class BgRunner:
             return env
 
         # DISPATCH (+ resume / fallback)
+        parent_short_id: str | None = None
         if resume_mode:
+            resume_sid, parent_short_id = self.resolve_resume_target(self.a.resume)
+            if not resume_sid:
+                env.status = "precondition_failed"
+                env.message = (
+                    f"--resume target {self.a.resume!r} matches no live agent "
+                    "(by session id, short id, or name) and is not session-id-shaped"
+                )
+                return env
             env.resumed = True
-            status, msg, short_id, row = self.dispatch_and_confirm(message, self.a.resume)
+            env.resumed_from = resume_sid
+            status, msg, short_id, row = self.dispatch_and_confirm(message, resume_sid)
             have_task = self.a.prompt is not None or bool(self.a.prompt_file)
             if status and self.a.fallback and have_task:
                 try:
@@ -387,6 +483,11 @@ class BgRunner:
         env.short_id = short_id
         env.session_id = (row or {}).get("sessionId")
 
+        # The conversation has moved on (resumed into a new agent, or re-dispatched
+        # fresh); retire the parked parent so it is not orphaned. Respects --keep.
+        if parent_short_id and parent_short_id != short_id:
+            self.teardown(parent_short_id)
+
         # WAIT
         deadline = time.monotonic() + self.a.timeout
         next_status = 0.0
@@ -395,13 +496,8 @@ class BgRunner:
           while True:
             now = time.monotonic()
             if now > deadline:
-                if env.short_id:
-                    try:
-                        self._claude("stop", env.short_id, timeout=15.0)
-                    except subprocess.SubprocessError:
-                        pass
                 env.status, env.final_state = "timeout", env.final_state or "working"
-                break
+                break  # final teardown below stops the session
 
             hf = self.read_handoff()
             if hf and hf.get("status") == "needs_human":
@@ -419,7 +515,7 @@ class BgRunner:
 
             if now >= next_status:
                 next_status = now + self.a.status_interval
-                row = self.find_session(env.short_id, self.a.name, env.session_id)
+                row = self.find_session(env.short_id, self.a.name)
                 state = (row or {}).get("state") or (row or {}).get("status")
                 env.final_state = state
                 if row is None:
@@ -428,7 +524,10 @@ class BgRunner:
                     break
                 if state == "blocked":
                     env.status = "blocked"
-                    env.message = "session is blocked on an interactive prompt (a permission hook likely did not cover it)"
+                    detail = row.get("waitingFor")
+                    env.message = "session is blocked on an interactive prompt " + (
+                        f"({detail})" if detail else "(a permission hook likely did not cover it)"
+                    )
                     break
                 if state in ("done", "idle"):
                     if not self.a.wait_for and not self.a.handoff_file:
@@ -447,8 +546,8 @@ class BgRunner:
         # COLLECT
         env.artifacts_found = [p for p in self.a.wait_for if self._nonempty(p)]
         env.missing = [p for p in self.a.wait_for if not self._nonempty(p)]
-        if env.status != "ok" and env.short_id:
-            env.logs_tail = self.logs_tail(env.short_id)
+        if env.status != "ok":
+            env.logs_tail = self.logs_tail(env.session_id)
 
         # TEARDOWN — but PRESERVE a needs_human session so it can be resumed.
         if env.short_id and env.status != "needs_human":
@@ -457,7 +556,7 @@ class BgRunner:
         if not env.message and env.status == "ok":
             env.message = "completed; declared artifacts present"
         if env.status == "needs_human" and not env.message:
-            env.message = "agent needs a human decision; session left alive — answer via --resume <session_id> --answer"
+            env.message = "agent needs a human decision; session left alive — answer via --resume <session_id|short_id|name> --answer"
         return env
 
 
@@ -466,7 +565,7 @@ def build_parser() -> argparse.ArgumentParser:
     src = p.add_mutually_exclusive_group()
     src.add_argument("--prompt", help="task prompt (also the fallback task in resume mode)")
     src.add_argument("--prompt-file", help="path or '-' for stdin")
-    p.add_argument("--resume", help="resume an existing session: continue this session_id")
+    p.add_argument("--resume", help="resume an existing session: session id, agent short id, or agent name (rename-safe)")
     p.add_argument("--answer", help="resume mode: the human's reply to send back")
     p.add_argument("--answer-file", help="resume mode: read the reply from a file ('-' for stdin)")
     p.add_argument("--no-fallback", dest="fallback", action="store_false", help="resume mode: do not fall back to a fresh re-dispatch if resume fails")
@@ -487,6 +586,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-protocol", action="store_true", help="do not append the completion-protocol block")
     p.add_argument("--json", action="store_true", help="emit the result envelope as JSON")
     p.add_argument("--claude-bin", default=os.environ.get("CLAUDE_BIN", "claude"))
+    p.add_argument(
+        "--transcripts-root",
+        default="~/.claude/projects",
+        help="where session transcript JSONLs live (logs_tail source)",
+    )
     p.add_argument("--self-test", action="store_true", help="run the PTY noise-firewall demo and exit")
     return p
 
