@@ -40,21 +40,33 @@ def _today() -> date:
 
 def _build_celebration_json(data: QuestData) -> dict:
     """Build the celebration_data JSON block from QuestData."""
+    metrics = [
+        {"icon": "📊", "label": f"Plan iterations: {data.plan_iterations}"},
+        {"icon": "🔧", "label": f"Fix iterations: {data.fix_iterations}"},
+        {"icon": "📝", "label": f"Review findings: {data.review_count}"},
+    ]
+    if data.claude_transport_counts:
+        # Only when Codex called Claude — silent empty state otherwise.
+        breakdown = ", ".join(
+            f"{transport} ×{count}"
+            for transport, count in sorted(data.claude_transport_counts.items())
+        )
+        metrics.append({"icon": "🚌", "label": f"Claude transport: {breakdown}"})
     return {
         "quest_mode": data.quest_mode or "unknown",
         "agents": [
-            {"name": a.name, "model": a.model, "role": a.role_title}
+            (
+                {"name": a.name, "model": a.model, "role": a.role_title}
+                | ({"transport": a.transport} if a.transport else {})
+            )
             for a in data.agents
         ],
+        "claude_transport_counts": data.claude_transport_counts,
         "achievements": [
             {"icon": a.icon, "title": a.title, "desc": a.description}
             for a in data.achievements
         ],
-        "metrics": [
-            {"icon": "📊", "label": f"Plan iterations: {data.plan_iterations}"},
-            {"icon": "🔧", "label": f"Fix iterations: {data.fix_iterations}"},
-            {"icon": "📝", "label": f"Review findings: {data.review_count}"},
-        ],
+        "metrics": metrics,
         "quality": {
             "tier": data.quality_tier,
             "grade": data.quality_tier[0] if data.quality_tier else "?",

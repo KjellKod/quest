@@ -10,7 +10,7 @@ related:
   - docs/implementation/claude-bg-transport-migration.md
   - scripts/quest_claude_bridge.py
   - scripts/quest_runtime/claude_runner.py
-  - ideas/2026-05-31-codex-driven-interactive-claude-relay.md
+  - ideas/archive/2026-05-31-codex-driven-interactive-claude-relay.md
 ---
 
 # claude-bg-run — Standalone Background-Agent Runner (Step 1)

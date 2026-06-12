@@ -19,6 +19,7 @@
     "code_review": true,
     "fix_loop": true
   },
+  "claude_role_transport": "auto",
   "models": {
     "planner": "gpt-5.5",
     "plan-reviewer-a": "claude",

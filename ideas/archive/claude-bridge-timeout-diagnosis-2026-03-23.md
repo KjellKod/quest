@@ -1,6 +1,7 @@
 # Claude Bridge Timeout Diagnosis
 
 Date: 2026-03-23
+Status: `reference` (archived 2026-06-11 — incident encoded as the migration spec's dispatch false-positive finding and the preflight live-probe + host-context design)
 Repo: `/Users/kjell/ws/extra/MCP_WORK`
 Affected quest: `diff-sync-layer_2026-03-23__0529`
 

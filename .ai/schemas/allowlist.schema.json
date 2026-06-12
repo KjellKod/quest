@@ -38,6 +38,12 @@
       },
       "additionalProperties": { "type": "string" }
     },
+    "claude_role_transport": {
+      "type": "string",
+      "enum": ["auto", "background-agent", "bridge"],
+      "default": "auto",
+      "description": "Transport for Codex-led Claude roles: auto = background-agent when preflight proves it, loud bridge fallback otherwise; background-agent = forced (preflight failure blocks); bridge = forced legacy/API path."
+    },
     "quest_startup": {
       "type": "object",
       "properties": {

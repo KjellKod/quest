@@ -454,3 +454,51 @@ def test_main_reports_invalid_date(
     assert quest_complete.main() == 1
     captured = capsys.readouterr()
     assert "invalid date" in captured.err
+
+
+def test_build_celebration_json_includes_transport_when_present():
+    from quest_celebrate.quest_data import AgentInfo
+    from quest_complete import _build_celebration_json
+
+    data = QuestData()
+    data.agents = [
+        AgentInfo(
+            name="plan-reviewer-a",
+            model="claude-opus-4-6",
+            role_title="The A Plan Critic",
+            summary="",
+            phase="Planning",
+            transport="background-agent",
+        ),
+        AgentInfo(
+            name="builder",
+            model="gpt-5.5",
+            role_title="The Implementer",
+            summary="",
+            phase="Implementation",
+        ),
+    ]
+    data.claude_transport_counts = {"background-agent": 2, "bridge": 1}
+
+    payload = _build_celebration_json(data)
+
+    reviewer = next(a for a in payload["agents"] if a["name"] == "plan-reviewer-a")
+    builder = next(a for a in payload["agents"] if a["name"] == "builder")
+    assert reviewer["transport"] == "background-agent"
+    assert "transport" not in builder
+    assert payload["claude_transport_counts"] == {"background-agent": 2, "bridge": 1}
+    transport_metrics = [
+        m for m in payload["metrics"] if "Claude transport" in m["label"]
+    ]
+    assert transport_metrics == [
+        {"icon": "🚌", "label": "Claude transport: background-agent ×2, bridge ×1"}
+    ]
+
+
+def test_build_celebration_json_silent_when_no_transport_data():
+    from quest_complete import _build_celebration_json
+
+    payload = _build_celebration_json(QuestData())
+
+    assert payload["claude_transport_counts"] == {}
+    assert not any("Claude transport" in m["label"] for m in payload["metrics"])

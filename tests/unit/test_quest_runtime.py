@@ -562,7 +562,10 @@ def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys
         model="opus",
         timeout=90.0,
         permission_mode="bypassPermissions",
+        transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
+        bg_runner_script="scripts/claude_bg_run.py",
+        bg_cache_file=".quest/cache/claude_bg_codex.json",
         cwd=str(tmp_path),
         add_dir=[],
     )
@@ -610,7 +613,9 @@ def test_cli_quest_claude_probe_relative_non_dot_cwd_resolves_bridge_script(
         model="opus",
         timeout=60.0,
         permission_mode="bypassPermissions",
+        transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
+        bg_runner_script="scripts/claude_bg_run.py",
         cwd="repo",
     )
     captured: dict[str, object] = {}
@@ -657,7 +662,10 @@ def test_cli_quest_claude_runner_relative_non_dot_cwd_resolves_bridge_script(
         model="opus",
         timeout=90.0,
         permission_mode="bypassPermissions",
+        transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
+        bg_runner_script="scripts/claude_bg_run.py",
+        bg_cache_file=".quest/cache/claude_bg_codex.json",
         cwd="repo",
         add_dir=[],
     )
@@ -709,7 +717,10 @@ def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
         model="opus",
         timeout=90.0,
         permission_mode="bypassPermissions",
+        transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
+        bg_runner_script="scripts/claude_bg_run.py",
+        bg_cache_file=".quest/cache/claude_bg_codex.json",
         cwd=str(tmp_path),
         add_dir=[],
     )
@@ -723,3 +734,300 @@ def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
     assert '"result_kind": "invocation_error"' in payload
     assert '"handoff_state": "missing"' in payload
     assert "not valid for phase" in payload
+
+
+# ---- background-agent transport ---------------------------------------------
+
+
+def test_build_bg_cmd_pins_argv_without_handoff_file(tmp_path):
+    cmd = claude_runner_module.build_bg_cmd(
+        cwd=tmp_path,
+        bg_runner_script=tmp_path / "claude_bg_run.py",
+        prompt_file=tmp_path / "prompt.txt",
+        name="quest-q1-planner-i2",
+        model="claude-opus-4-6",
+        timeout=900.0,
+        permission_mode="bypassPermissions",
+        wait_for=[tmp_path / "handoff.json", tmp_path / "artifact.md"],
+        add_dirs=[tmp_path],
+    )
+    joined = " ".join(cmd)
+    assert "--json" in cmd
+    assert "--no-protocol" in cmd
+    assert cmd[cmd.index("--name") + 1] == "quest-q1-planner-i2"
+    # handoff travels via --wait-for ONLY: --handoff-file would leave a
+    # needs_human session alive, which Quest has no resume loop to collect.
+    assert "--handoff-file" not in cmd
+    assert joined.count("--wait-for") == 2
+    assert cmd[cmd.index("--wait-for") + 1] == str(tmp_path / "handoff.json")
+
+
+def test_bg_session_name_scheme():
+    assert (
+        claude_runner_module.bg_session_name("my-quest_2026", "code-reviewer-a", 3)
+        == "quest-my-quest_2026-code-reviewer-a-i3"
+    )
+
+
+def _write_bg_cache(path: Path, *, available: bool = True, expired: bool = False) -> None:
+    import json as _json
+    import time as _time
+
+    now = int(_time.time())
+    cached_at = now - 7200 if expired else now
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        _json.dumps(
+            {
+                "cached_at_epoch": cached_at,
+                "ttl_seconds": 3600,
+                "payload": {"available": available},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_resolve_claude_transport_matrix(tmp_path):
+    resolve = claude_runner_module.resolve_claude_transport
+    cache = tmp_path / "bg_cache.json"
+
+    # Forced values pass through, no downgrade flag.
+    assert resolve("background-agent", bg_cache_file=cache) == ("background-agent", False)
+    assert resolve("bridge", bg_cache_file=cache) == ("bridge", False)
+
+    # auto + no cache → bridge, downgraded.
+    assert resolve("auto", bg_cache_file=cache) == ("bridge", True)
+
+    # auto + valid cache → background-agent.
+    _write_bg_cache(cache, available=True)
+    assert resolve("auto", bg_cache_file=cache) == ("background-agent", False)
+
+    # auto + expired cache → bridge, downgraded.
+    _write_bg_cache(cache, available=True, expired=True)
+    assert resolve("auto", bg_cache_file=cache) == ("bridge", True)
+
+    # auto + cache that proves UNavailability → bridge, downgraded.
+    _write_bg_cache(cache, available=False)
+    assert resolve("auto", bg_cache_file=cache) == ("bridge", True)
+
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError):
+        resolve("warp-drive", bg_cache_file=cache)
+
+
+def test_run_claude_role_bg_transport_success_logs_transport(tmp_path):
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--wait-for") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "complete", "summary": "ok"}, fh)
+print(json.dumps({"status": "ok"}))
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    handoff_file = tmp_path / "handoff.json"
+    prompt_file.write_text("bg success test\n", encoding="utf-8")
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        poll_interval=0.01,
+        exit_grace_seconds=0.2,
+        transport="background-agent",
+        bg_runner_script=bg_runner,
+    )
+
+    assert result.exit_code == 0
+    assert result.result_kind == "handoff_json"
+    log_text = (tmp_path / "logs" / "context_health.log").read_text(encoding="utf-8")
+    assert "runtime=claude" in log_text
+    assert "transport=background-agent" in log_text
+
+
+def test_run_claude_role_bg_exit_codes_map_to_result_kinds(tmp_path):
+    cases = [
+        (2, "invocation_error"),
+        (3, "invocation_error"),
+        (4, "invocation_error"),
+        (6, "handoff_missing"),
+    ]
+    for exit_code, expected_kind in cases:
+        bg_runner = tmp_path / f"fake_bg_runner_{exit_code}.py"
+        _write_executable(
+            bg_runner,
+            f"""#!/usr/bin/env python3
+import json
+print(json.dumps({{"status": "blocked", "message": "synthetic failure {exit_code}"}}))
+raise SystemExit({exit_code})
+""",
+        )
+        prompt_file = tmp_path / "prompt.txt"
+        handoff_file = tmp_path / f"handoff_{exit_code}.json"
+        prompt_file.write_text("bg failure test\n", encoding="utf-8")
+
+        result = run_claude_role(
+            cwd=tmp_path,
+            quest_dir=tmp_path,
+            phase="plan",
+            agent="planner",
+            iteration=1,
+            prompt_file=prompt_file,
+            handoff_file=handoff_file,
+            bridge_script=tmp_path / "unused_bridge.py",
+            model="claude-opus-4-6",
+            timeout=5.0,
+            permission_mode="bypassPermissions",
+            poll_interval=0.01,
+            exit_grace_seconds=0.2,
+            transport="background-agent",
+            bg_runner_script=bg_runner,
+        )
+
+        assert result.result_kind == expected_kind, (exit_code, result)
+        # Envelope diagnostics surfaced for debuggability.
+        assert f"synthetic failure {exit_code}" in result.stderr
+
+
+def test_append_context_health_log_transport_field_is_optional(tmp_path):
+    claude_runner_module.append_context_health_log(
+        tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        handoff_state="found",
+        source="handoff_json",
+    )
+    claude_runner_module.append_context_health_log(
+        tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=2,
+        handoff_state="found",
+        source="handoff_json",
+        transport="bridge",
+    )
+    lines = (tmp_path / "logs" / "context_health.log").read_text(encoding="utf-8").splitlines()
+    assert "transport=" not in lines[0]
+    assert lines[1].endswith(" | transport=bridge")
+
+
+def test_quest_claude_runner_cli_resolves_and_echoes_transport(
+    monkeypatch, tmp_path, capsys
+):
+    import json as _json
+
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("transport echo test\n", encoding="utf-8")
+    captured_kwargs = {}
+
+    def fake_expected_artifacts_for_role(*, quest_dir, phase, agent):
+        return []
+
+    def fake_run_claude_role(**kwargs):
+        captured_kwargs.update(kwargs)
+        return claude_runner_module.RunResult(
+            exit_code=0,
+            handoff_state="found",
+            result_kind="handoff_json",
+            source="handoff_json",
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        quest_claude_runner,
+        "expected_artifacts_for_role",
+        fake_expected_artifacts_for_role,
+    )
+    monkeypatch.setattr(quest_claude_runner, "run_claude_role", fake_run_claude_role)
+
+    bg_cache = tmp_path / "bg_cache.json"
+    _write_bg_cache(bg_cache, available=True)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "quest_claude_runner.py",
+            "--quest-dir", str(tmp_path),
+            "--phase", "plan",
+            "--agent", "planner",
+            "--iter", "1",
+            "--prompt-file", str(prompt_file),
+            "--handoff-file", str(tmp_path / "handoff.json"),
+            "--cwd", str(tmp_path),
+            "--transport", "auto",
+            "--bg-cache-file", str(bg_cache),
+        ],
+    )
+    rc = quest_claude_runner.main()
+    payload = _json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+
+    assert rc == 0
+    assert payload["transport"] == "background-agent"
+    assert payload["transport_downgraded"] is False
+    assert captured_kwargs["transport"] == "background-agent"
+
+
+def test_quest_claude_runner_cli_auto_downgrades_without_cache(
+    monkeypatch, tmp_path, capsys
+):
+    import json as _json
+
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("downgrade test\n", encoding="utf-8")
+
+    def fake_expected_artifacts_for_role(*, quest_dir, phase, agent):
+        return []
+
+    def fake_run_claude_role(**kwargs):
+        return claude_runner_module.RunResult(
+            exit_code=0,
+            handoff_state="found",
+            result_kind="handoff_json",
+            source="handoff_json",
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        quest_claude_runner,
+        "expected_artifacts_for_role",
+        fake_expected_artifacts_for_role,
+    )
+    monkeypatch.setattr(quest_claude_runner, "run_claude_role", fake_run_claude_role)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "quest_claude_runner.py",
+            "--quest-dir", str(tmp_path),
+            "--phase", "plan",
+            "--agent", "planner",
+            "--iter", "1",
+            "--prompt-file", str(prompt_file),
+            "--handoff-file", str(tmp_path / "handoff.json"),
+            "--cwd", str(tmp_path),
+            "--bg-cache-file", str(tmp_path / "missing_cache.json"),
+        ],
+    )
+    rc = quest_claude_runner.main()
+    captured = capsys.readouterr()
+    payload = _json.loads(captured.out.strip().splitlines()[-1])
+
+    assert rc == 0
+    assert payload["transport"] == "bridge"
+    assert payload["transport_downgraded"] is True
+    assert "downgraded to bridge" in captured.err

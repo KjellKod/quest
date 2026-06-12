@@ -3,14 +3,16 @@ title: Claude Background-Agent Transport — Migration Spec
 purpose: Define exactly what must change to move Codex-led Claude role execution from the `claude --print` bridge to the official background-agent surface (`claude --bg` + per-user supervisor), and why the bridge is demoted to fallback rather than deleted.
 audience: Quest maintainers and the implementing quest.
 scope: Transport layer only — the runner entrypoint, handoff contract, and role prompts are unchanged.
-status: draft — for review before implementation
+status: active — being implemented per claude-bg-transport-step2-wiring.md (see Revisions)
 owner: maintainers
-last_updated: 2026-06-09
+last_updated: 2026-06-11
 related:
-  - ideas/2026-05-31-codex-driven-interactive-claude-relay.md
-  - ideas/2026-05-26-native-runtime-dispatch.md
-  - ideas/2026-05-31-quest-model-capability-improvements.md
-  - ideas/claude-cli-login-context.md
+  - docs/implementation/claude-bg-transport-step2-wiring.md
+  - docs/implementation/claude-bg-run-script.md
+  - ideas/archive/2026-05-31-codex-driven-interactive-claude-relay.md
+  - ideas/archive/2026-05-26-native-runtime-dispatch.md
+  - ideas/archive/2026-05-31-quest-model-capability-improvements.md
+  - ideas/archive/claude-cli-login-context.md
   - scripts/quest_claude_bridge.py
   - scripts/quest_claude_runner.py
   - scripts/quest_runtime/claude_runner.py
@@ -19,6 +21,28 @@ related:
 ---
 
 # Claude Background-Agent Transport — Migration Spec
+
+## Revisions (2026-06-11)
+
+Step 1 landed (#136) and changed three things this spec assumed; the execution
+plan in `docs/implementation/claude-bg-transport-step2-wiring.md` supersedes the
+corresponding details below:
+
+1. **T1–T5 live in `scripts/claude_bg_run.py`, not in `quest_runtime/claude_runner.py`.**
+   The standalone runner already encapsulates dispatch confirmation, file-based
+   completion, teardown, and the resume relay — the quest runtime invokes it as
+   a subprocess exactly like the bridge (one selector, two argv builders), so no
+   `dispatch_bg()` is added to `claude_runner.py`.
+2. **`claude logs|stop|rm` do not exist as subcommands** on the current CLI
+   (2.1.173) — they parse as a *prompt* and silently no-op. Teardown signals the
+   `pid` carried in the session's `agents --json` row until the row settles;
+   logs come from the transcript JSONL. Fact 3 below and every stop/rm mention
+   are corrected accordingly (see Step-1 doc, findings F1/F9).
+3. **Rollout collapsed to auto-from-day-one** (user decision, 2026-06-11): the
+   dark-launch phase's purpose was served by Step 1's live end-to-end
+   validation, so the repo ships `claude_role_transport: "auto"` directly.
+   Phases 0–2 below are historical; Phase 3 (post-soak review of the bridge's
+   CI/API role) still stands.
 
 ## Goal
 
@@ -109,7 +133,7 @@ claude --bg \
 - `--name` is deterministic and unique (`quest-<id>-<agent>-i<iter>`); it is the
   recovery key for everything below.
 - `--effort` may be added later per the deferred per-role effort proposal
-  (`ideas/2026-05-31-quest-model-capability-improvements.md`); not in scope here.
+  (`ideas/archive/2026-05-31-quest-model-capability-improvements.md`); not in scope here.
 
 ### T2. Dispatch confirmation (closes the false-positive gap — fact 5)
 
@@ -216,7 +240,7 @@ produced fact 5) degrade loudly to the bridge.
 `probe_claude_transport`):
 
 1. `command -v claude`; `claude auth status` must report `loggedIn: true` in the
-   same execution context (see `ideas/claude-cli-login-context.md`; honor
+   same execution context (see `ideas/archive/claude-cli-login-context.md`; honor
    `CLAUDE_CONFIG_DIR`/HOME — the supervisor is per-config-dir).
 2. Feature check: `claude agents --json` exits 0 and returns JSON (older
    versions list subagents instead — that output is not JSON → bridge).
@@ -269,7 +293,7 @@ workflow.md:
 `runtime=claude` semantics are unchanged (bg-invoked Claude is still
 `runtime=claude`). New events logged: dispatch-confirmation failures, bg→bridge
 downgrades, `needs input` captures, orphan sweeps. This feeds the
-measurement-first doctrine (`ideas/2026-05-31-quest-model-capability-improvements.md`):
+measurement-first doctrine (`ideas/archive/2026-05-31-quest-model-capability-improvements.md`):
 the same log answers "how often does bg fail and fall back."
 
 ## Tests
@@ -328,11 +352,11 @@ evidence-backed reasons:
    not yet in `--help`, and the binary auto-updated mid-session (fact 6).
    Betting the *only* Claude transport on it violates the repo's own
    change-discipline rules (AGENTS.md) and the prove-then-delete doctrine
-   (`ideas/2026-05-31-quest-model-capability-improvements.md`).
+   (`ideas/archive/2026-05-31-quest-model-capability-improvements.md`).
 3. **The three-tier ladder needs a Tier C.** Today, Codex-slot failures fall
    back to Claude and vice versa; bg-transport failures need a same-family
    fallback (bridge) before cross-family fallback, per
-   `ideas/2026-05-26-native-runtime-dispatch.md` (no silent family switches).
+   `ideas/archive/2026-05-26-native-runtime-dispatch.md` (no silent family switches).
 4. **Deletion buys nothing.** The bridge is ~225 lines, dependency-free, and
    tested. Removing it saves no maintenance and removes the only path that works
    everywhere. KISS cuts both ways.
@@ -343,7 +367,7 @@ exclusively by CI/API contexts for a sustained period.
 ## Out of scope
 
 - Per-role `effort` config and prompt-cache reordering (deferred; see
-  `ideas/2026-05-31-quest-model-capability-improvements.md`).
+  `ideas/archive/2026-05-31-quest-model-capability-improvements.md`).
 - Structured-output (`--json-schema`) transport-owned artifacts (separate
   measurement-gated track, same doc).
 - Claude-led dispatch (`Task(...)`) — unchanged by design.

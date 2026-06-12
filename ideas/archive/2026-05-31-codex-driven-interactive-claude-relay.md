@@ -1,7 +1,7 @@
 # Codex-Driven Background-Agent Claude Relay
 
 Date: 2026-05-31 (revised 2026-05-31 after verifying official surfaces)
-Status: `proposed`
+Status: `done` — implemented as the Step-1 standalone runner (`scripts/claude_bg_run.py`, PR #136) and the Step-2 Quest wiring (`docs/implementation/claude-bg-transport-step2-wiring.md`); background-agent transport is the Codex-led default (`claude_role_transport: auto`).
 Related: `claude-cli-login-context.md`, `codex_calls_claude.sh`,
 `2026-05-26-native-runtime-dispatch.md`, `2026-04-13-codex-companion-runtime.md`,
 `scripts/quest_claude_bridge.py`, `scripts/quest_claude_runner.py`,

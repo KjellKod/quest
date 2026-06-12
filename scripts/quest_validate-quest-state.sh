@@ -200,6 +200,15 @@ validate_orchestration_json() {
     *) fail "orchestration.json source must be 'default' or 'overridden' (got '$source')"; return ;;
   esac
 
+  # claude_role_transport is optional (backfilled on resume for older quests)
+  # but must be a known value when present.
+  local transport
+  transport=$(jq -r '.claude_role_transport // empty' "$orch_file" 2>/dev/null)
+  case "$transport" in
+    ""|auto|background-agent|bridge) ;;
+    *) fail "orchestration.json claude_role_transport must be auto|background-agent|bridge (got '$transport')"; return ;;
+  esac
+
   # Required roles depend on quest_mode.
   # Keep this list in sync with workflow.md dispatch sites
   # (planner, plan-reviewer-a, plan-reviewer-b, arbiter, builder,

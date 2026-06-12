@@ -333,3 +333,20 @@ def test_incomplete_when_done_without_artifact(shim, tmp_path, monkeypatch):
 
 def test_self_test_passes_in_this_env():
     assert bg._self_test() == bg.EXIT_OK
+
+
+def test_sweep_stops_only_matching_prefix_sessions(shim, tmp_path, monkeypatch, kills, capsys):
+    rows = [
+        {**PARENT, "pid": 111, "id": "aaa11111", "name": "quest-q7-planner-i1"},
+        {**PARENT, "pid": 112, "id": "bbb22222", "name": "quest-q7-builder-i2"},
+        {**PARENT, "pid": 113, "id": "ccc33333", "name": "quest-OTHER-fixer-i1"},
+        {**PARENT, "pid": 114, "id": "ddd44444", "name": "bgrun-unrelated"},
+    ]
+    (tmp_path / "state.json").write_text(json.dumps(rows))
+    rc = bg.main(["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q7-"])
+    out = capsys.readouterr().out
+    assert rc == bg.EXIT_OK
+    killed_pids = {pid for pid, _ in kills}
+    assert killed_pids == {111, 112}
+    assert "swept aaa11111" in out and "swept bbb22222" in out
+    assert "2 session(s)" in out

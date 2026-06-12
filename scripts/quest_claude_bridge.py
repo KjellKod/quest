@@ -3,6 +3,14 @@
 
 This script shells out to Claude CLI and returns either plain text or
 structured JSON for non-interactive orchestration flows.
+
+Role in the transport pair: FALLBACK / forced API path. The default Quest
+transport for Codex-led Claude roles is the background-agent runner
+(scripts/claude_bg_run.py, `claude --bg`, subscription billing); this bridge
+remains the path for daemonless contexts (CI, containers), `ANTHROPIC_API_KEY`
+billing, and loud downgrades when the bg preflight probe fails. `claude
+--print` bills to the metered API pool after June 15, 2026. Selection lives in
+`.ai/allowlist.json` `claude_role_transport` + scripts/quest_preflight.sh.
 """
 
 from __future__ import annotations

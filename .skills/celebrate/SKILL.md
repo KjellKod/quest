@@ -45,6 +45,7 @@ If no argument is provided:
 - `phase_03_review/handoff_code-reviewer-b.json` — reviewer verdict
 - `phase_03_review/handoff_fixer.json` — fixer summary, what was fixed, test counts
 - `.quest/backlog/deferred_findings.jsonl` — repo-level deferred findings backlog; filter entries where `deferred_by_quest` matches the current quest ID
+- `logs/context_health.log` — `transport=background-agent|bridge` fields on Codex-led Claude role lines (the only lines that carry them); source for the Claude-transport cast tags and metric
 
 **From a journal entry** (`docs/quest-journal/*.md`):
 1. Look for a `celebration_data` JSON block between `<!-- celebration-data-start -->` and `<!-- celebration-data-end -->` markers
@@ -77,13 +78,19 @@ You have all the data from the artifacts. Now **create your own celebration**. B
 
 **Required sections** (present them however you like):
 - Quest name and ID
-- Starring cast with role-specialized labels and model tags (inline):
-  - `plan-reviewer-a [Model] ........ The A Plan Critic`
-  - `plan-reviewer-b [Model] ........ The B Plan Critic`
-  - `code-reviewer-a [Model] ........ The A Code Critic`
-  - `code-reviewer-b [Model] ........ The B Code Critic`
+- Starring cast with role-specialized labels and model tags (inline). When an
+  agent has a Claude transport (Codex-led Claude roles only — from
+  `context_health.log` `transport=` or the journal's `celebration_data`), tag
+  it inline; agents without transport data get NO tag (never print "N/A"):
+  - `plan-reviewer-a [Model] via background-agent ... The A Plan Critic`
+  - `plan-reviewer-b [Model] ..................... The B Plan Critic`
+  - `code-reviewer-a [Model] via bridge ........... The A Code Critic`
+  - `code-reviewer-b [Model] ..................... The B Code Critic`
 - Achievements — specific to what happened in this quest
-- Impact metrics — domain-specific, not generic file counts
+- Impact metrics — domain-specific, not generic file counts. When the quest has
+  Claude-transport data (Codex called Claude), include one transport metric,
+  e.g. `🚌 Claude transport: background-agent ×4, bridge ×1`; when it has none,
+  show nothing for transport (silent empty state, no "N/A" line)
 - Handoff & reliability snapshot (handoffs parsed, reviewer/fixer handoffs, findings tracked, stability signal)
 - Quality tier — named, from the full honest scale (see below)
 - A quote from the actual quest (arbiter verdict, reviewer summary, fixer handoff)

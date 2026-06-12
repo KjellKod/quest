@@ -604,6 +604,56 @@ PY
   rm -rf "$tmpdir"
 }
 
+test_resume_backfills_transport_keys_on_pre_transport_orchestration_json() {
+  # orchestration.json written before claude_role_transport existed should
+  # self-heal on resume: transport keys added at defaults, everything else
+  # (models, source, overrides, timestamp) preserved.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/logs"
+  write_allowlist_snapshot "$tmpdir/logs/allowlist_snapshot.json"
+  cat > "$tmpdir/orchestration.json" <<'EOF'
+{
+  "version": 1,
+  "models": {
+    "planner": "claude",
+    "plan-reviewer-a": "claude",
+    "plan-reviewer-b": "claude",
+    "arbiter": "claude",
+    "builder": "claude",
+    "code-reviewer-a": "claude",
+    "code-reviewer-b": "claude",
+    "review-arbiter": "claude",
+    "fixer": "claude"
+  },
+  "source": "overridden",
+  "overridden_roles": ["planner", "builder"],
+  "preflight_validated_at": "2026-05-18T05:42:13Z"
+}
+EOF
+
+  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import json
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import migrate_from_snapshot
+quest_dir = Path(sys.argv[1])
+written = migrate_from_snapshot(quest_dir)
+assert written is True, "expected transport-key backfill write"
+orch = json.loads((quest_dir / "orchestration.json").read_text())
+assert orch["claude_role_transport"] == "auto", orch
+assert orch["claude_transport_resolved"] is None, orch
+assert orch["claude_transport_downgraded"] is False, orch
+assert orch["models"]["planner"] == "claude", orch["models"]
+assert orch["source"] == "overridden", orch
+assert orch["overridden_roles"] == ["planner", "builder"], orch
+assert orch["preflight_validated_at"] == "2026-05-18T05:42:13Z", orch
+PY
+
+  rm -rf "$tmpdir"
+}
+
 test_resume_does_not_modify_existing_complete_orchestration_json() {
   # Existing complete orchestration.json must be preserved byte-for-byte.
   local tmpdir orig_bytes new_bytes
@@ -624,6 +674,9 @@ test_resume_does_not_modify_existing_complete_orchestration_json() {
     "review-arbiter": "claude",
     "fixer": "claude"
   },
+  "claude_role_transport": "auto",
+  "claude_transport_resolved": null,
+  "claude_transport_downgraded": false,
   "source": "overridden",
   "overridden_roles": ["planner", "builder"],
   "preflight_validated_at": "2026-05-18T05:42:13Z"
@@ -720,6 +773,7 @@ run_test test_chooser_normalizes_role_case
 run_test test_resume_migrates_missing_orchestration_json
 run_test test_resume_reports_missing_or_invalid_snapshot
 run_test test_resume_backfills_existing_legacy_orchestration_json
+run_test test_resume_backfills_transport_keys_on_pre_transport_orchestration_json
 run_test test_resume_does_not_modify_existing_complete_orchestration_json
 run_test test_workflow_dispatch_reads_orchestration_json_not_allowlist
 run_test test_workflow_no_allowlist_models_string

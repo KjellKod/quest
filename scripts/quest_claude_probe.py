@@ -1,38 +1,65 @@
 #!/usr/bin/env python3
-"""Probe the Claude bridge by requiring a real artifact and handoff write."""
+"""Probe a Quest Claude transport by requiring a real artifact and handoff write.
+
+--transport bridge (default): scripts/quest_claude_bridge.py (claude --print).
+--transport background-agent: scripts/claude_bg_run.py (claude --bg).
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
 
-from quest_runtime.claude_runner import resolve_path, run_bridge_probe
+from quest_runtime.claude_runner import (
+    DEFAULT_BG_RUNNER_SCRIPT,
+    resolve_path,
+    run_bg_probe,
+    run_bridge_probe,
+)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Probe Quest Claude bridge via artifact write"
+        description="Probe a Quest Claude transport via artifact write"
     )
     parser.add_argument("--quest-dir", required=True)
     parser.add_argument("--model", default="opus")
     parser.add_argument("--timeout", type=float, default=60.0)
     parser.add_argument("--permission-mode", default="bypassPermissions")
+    parser.add_argument(
+        "--transport",
+        default="bridge",
+        choices=["bridge", "background-agent"],
+        help="which transport to probe (default: bridge, backward compatible)",
+    )
     parser.add_argument("--bridge-script", default="scripts/quest_claude_bridge.py")
+    parser.add_argument("--bg-runner-script", default=DEFAULT_BG_RUNNER_SCRIPT)
     parser.add_argument("--cwd", default=".")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    result = run_bridge_probe(
-        cwd=args.cwd,
-        quest_dir=args.quest_dir,
-        bridge_script=resolve_path(args.cwd, args.bridge_script),
-        model=args.model,
-        timeout=args.timeout,
-        permission_mode=args.permission_mode,
-    )
+    if args.transport == "background-agent":
+        result = run_bg_probe(
+            cwd=args.cwd,
+            quest_dir=args.quest_dir,
+            bg_runner_script=resolve_path(args.cwd, args.bg_runner_script),
+            model=args.model,
+            timeout=args.timeout,
+            permission_mode=args.permission_mode,
+        )
+    else:
+        result = run_bridge_probe(
+            cwd=args.cwd,
+            quest_dir=args.quest_dir,
+            bridge_script=resolve_path(args.cwd, args.bridge_script),
+            model=args.model,
+            timeout=args.timeout,
+            permission_mode=args.permission_mode,
+        )
     payload = {
+        "transport": args.transport,
         "exit_code": result.exit_code,
         "handoff_state": result.handoff_state,
         "result_kind": result.result_kind,

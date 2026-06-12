@@ -229,15 +229,28 @@ If you don't have Codex or prefer Claude for all roles, set in `allowlist.json`:
 
 The plan and code reviewers will also fall back to Claude if Codex is unavailable.
 
-## Codex-Led Claude Bridge
+## Codex-Led Claude Transports
 
-When Codex orchestrates a quest, it probes and sets up the Claude bridge before the first Claude-designated role. For browser-login auth, Quest treats Claude availability as host-context state, not sandbox-local state.
+When Codex orchestrates a quest, Claude-designated roles run through `scripts/quest_claude_runner.py`, which owns one of two transports underneath. Selection is config + probe driven (`.ai/allowlist.json` → `claude_role_transport`, default `auto`):
 
-**Prerequisites:** Claude CLI installed and authenticated (`claude auth status` should show a valid session).
+| Transport | Mechanism | Billing | When |
+|---|---|---|---|
+| **background-agent** (preferred) | `scripts/claude_bg_run.py` → `claude --bg` daemon-hosted session | **subscription pool** | default on dev machines once the one-time setup below is done |
+| **bridge** (fallback / forced) | `scripts/quest_claude_bridge.py` → `claude --print` | **API-metered after June 15, 2026** | daemonless contexts (CI, containers), `ANTHROPIC_API_KEY` billing, or loud downgrade when the bg probe fails |
 
-If the preflight says the Claude bridge is unavailable, first run `claude auth login` in a normal shell and re-check `claude auth status`. If browser login already succeeded but preflight still reports Claude as unavailable, rerun `./scripts/quest_preflight.sh --orchestrator codex` outside any restricted sandbox before concluding the bridge is broken; some sandboxed runners cannot see the host Claude CLI auth state.
+### One-time machine setup for the background-agent transport
 
-A successful Codex-led Claude bridge probe is retained at `.quest/cache/claude_bridge_codex.json` by default for 12 hours. That avoids repeating the browser-login remediation on every quest start, but it does **not** make sandbox-local Claude auth trustworthy. Claude-designated roles still need to run in the same host-visible context that produced the successful probe. Override the retention window with `QUEST_PREFLIGHT_CACHE_TTL_SECONDS=<seconds>` or the cache path with `QUEST_PREFLIGHT_CACHE_FILE=<path>`.
+1. `claude login` — subscription sign-in (browser).
+2. Accept bypass mode once interactively: run `claude --dangerously-skip-permissions`, accept the disclaimer, exit. Background sessions refuse `bypassPermissions` until this has been done once per machine.
+3. Claude CLI ≥ 2.1.143 (`claude --version`); sanity check: `claude agents --json` must print a JSON array.
+
+With `auto` (the default), preflight probes the background-agent transport first and **downgrades loudly** to the bridge if it fails — the downgrade is recorded in `.quest/<id>/orchestration.json` (`claude_transport_downgraded: true`) and surfaced in the preflight `warning`. Forcing `"background-agent"` makes an unavailable transport block with remediation instead of bridging; forcing `"bridge"` is the deliberate API-billing path.
+
+**Prerequisites (both transports):** Claude CLI installed and authenticated (`claude auth status` should show a valid session).
+
+If the preflight says the Claude transport is unavailable, first run `claude auth login` in a normal shell and re-check `claude auth status`. If browser login already succeeded but preflight still reports Claude as unavailable, rerun `./scripts/quest_preflight.sh --orchestrator codex` outside any restricted sandbox before concluding the transport is broken; some sandboxed runners cannot see the host Claude CLI auth state.
+
+Successful Codex-led probes are retained for 12 hours: background-agent at `.quest/cache/claude_bg_codex.json`, bridge at `.quest/cache/claude_bridge_codex.json`. That avoids repeating the browser-login remediation on every quest start, but it does **not** make sandbox-local Claude auth trustworthy. Claude-designated roles still need to run in the same host-visible context that produced the successful probe. Override the retention window with `QUEST_PREFLIGHT_CACHE_TTL_SECONDS=<seconds>` or the cache paths with `QUEST_PREFLIGHT_CACHE_FILE=<path>` (bridge) / `QUEST_PREFLIGHT_BG_CACHE_FILE=<path>` (background-agent).
 
 ### What the bridge does
 
@@ -256,15 +269,17 @@ For the full architecture rationale, see [Why the Bridge, Not MCP](quest_present
 
 ### What Quest handles automatically
 
-- Probes `scripts/quest_claude_bridge.py` once per session and retains a recent successful host probe
-- Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py` in the same host-visible context used for the probe/cache refresh
+- Probes the configured transport once per session and retains recent successful host probes (bg first under `auto`, loud bridge downgrade otherwise)
+- Sweeps orphaned `quest-<id>-*` background sessions at quest start/resume (`python3 scripts/claude_bg_run.py --sweep quest-<id>-`)
+- Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py --transport <resolved>` in the same host-visible context used for the probe/cache refresh
+- Records the transport per role in `context_health.log` (`transport=background-agent|bridge`) and reports it in the quest end summary and celebration
 - Claude-led quests are unaffected, they keep native `Task(...)` execution
 
 If the probe fails, Claude-designated roles will block until the CLI/auth setup is fixed.
 
 ### Optional: manual verification
 
-If you want to test the bridge before your first Codex-led quest, you can run the probe yourself:
+If you want to test a transport before your first Codex-led quest, you can run the probe yourself (add `--transport background-agent` to probe the bg transport; default is the bridge):
 
 ```bash
 command -v claude

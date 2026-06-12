@@ -317,6 +317,26 @@ class BgRunner:
             return
         self.stop_session(short_id)
 
+    def sweep(self, prefix: str) -> int:
+        """Stop every background session whose name starts with `prefix`.
+
+        Orphan recovery for orchestrators that crashed between dispatch and
+        teardown (e.g. quest start/resume runs `--sweep quest-<id>-`).
+        """
+        rows = [
+            row
+            for row in self.agents_json()
+            if row.get("kind") != "interactive"
+            and isinstance(row.get("name"), str)
+            and row["name"].startswith(prefix)
+            and isinstance(row.get("pid"), int)
+        ]
+        for row in rows:
+            self.stop_session(row.get("id"))
+            print(f"swept {row.get('id')} ({row.get('name')})")
+        print(f"sweep complete: {len(rows)} session(s) matching {prefix!r} stopped")
+        return EXIT_OK
+
     # -- message construction -------------------------------------------------
     def _read_source(self, value: str | None, file_value: str | None, what: str) -> str:
         if value is not None:
@@ -592,6 +612,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="where session transcript JSONLs live (logs_tail source)",
     )
     p.add_argument("--self-test", action="store_true", help="run the PTY noise-firewall demo and exit")
+    p.add_argument("--sweep", help="stop all background sessions whose NAME starts with this prefix, then exit (orphan recovery)")
     return p
 
 
@@ -610,6 +631,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.self_test:
         return _self_test()
+    if args.sweep:
+        return BgRunner(args).sweep(args.sweep)
     env = BgRunner(args).run()
     if args.json:
         print(json.dumps(asdict(env), indent=2))
