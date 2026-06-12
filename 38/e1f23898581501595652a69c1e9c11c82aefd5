@@ -1,0 +1,49 @@
+docs/implementation/claude-bg-transport-step2-wiring.md
+  s_89358506e05e06::t_08b8571568eece 155
+tests/unit/test_quest_complete.py
+  s_89358506e05e06::t_9e8fa67ae2717a 505-590
+scripts/quest_runtime/claude_runner.py
+  s_89358506e05e06::t_e37012f3b72ab0 462,467-471,478,483
+  s_89358506e05e06::t_d2a2c6d40b6c50 14
+  s_89358506e05e06::t_a408e50068c099 360-388
+  s_89358506e05e06::t_4260c010d5b6d0 657
+  s_89358506e05e06::t_3cea61a56feeff 788
+  s_89358506e05e06::t_0d015d00318998 808
+.skills/quest/delegation/workflow.md
+  s_89358506e05e06::t_6f4950a793811b 1368-1369
+  s_89358506e05e06::t_1f2fa429d97034 241,244
+  s_89358506e05e06::t_dfeb05b77c9a71 237
+  s_89358506e05e06::t_4fc2dd1de349e7 272-280,282
+tests/unit/test_quest_runtime.py
+  s_89358506e05e06::t_08fcbf2265e640 1129
+  s_89358506e05e06::t_d3eca4b99d59d2 1034-1128
+scripts/quest_complete.py
+  s_89358506e05e06::t_5b3d6e6a059ef9 335-372
+  s_89358506e05e06::t_931272c004ccab 492,497-506,513
+scripts/quest_validate-handoff-contracts.sh
+  s_89358506e05e06::t_18f0d1f6bf4161 79,87,97
+ideas/quest-needs-human-resume-relay.md
+  s_89358506e05e06::t_01beef1b03a7fa 36-55,67-75
+  s_89358506e05e06::t_c373f27a586267 80-81
+  s_89358506e05e06::t_37fc8ff58533f3 56,66
+  s_89358506e05e06::t_34dcdc7aab6ad4 57-65
+  s_89358506e05e06::t_bee64db8828aa0 31-34
+  s_89358506e05e06::t_dda8d2e33f3d00 79
+  s_89358506e05e06::t_54f70b8a776f1a 82-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "38e1f23898581501595652a69c1e9c11c82aefd5",
+  "prompts": {},
+  "sessions": {
+    "s_89358506e05e06": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b64e9e6-ac02-47ac-af4f-37102e6477e1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
