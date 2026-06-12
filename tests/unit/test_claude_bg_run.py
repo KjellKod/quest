@@ -350,3 +350,84 @@ def test_sweep_stops_only_matching_prefix_sessions(shim, tmp_path, monkeypatch, 
     assert killed_pids == {111, 112}
     assert "swept aaa11111" in out and "swept bbb22222" in out
     assert "2 session(s)" in out
+
+
+# ---- stale-state guard (PR #137 review feedback) ---------------------------
+def test_fresh_dispatch_clears_stale_wait_for_no_false_success(
+    shim, tmp_path, monkeypatch, kills
+):
+    """A pre-existing non-empty --wait-for file must not satisfy this run."""
+    wait = tmp_path / "out.json"
+    wait.write_text("STALE FROM A PRIOR RUN", encoding="utf-8")
+    # Session reaches done without writing anything ("incomplete" scenario).
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "incomplete")
+
+    env = bg.BgRunner(_args(shim, wait_for=str(wait))).run()
+
+    assert env.status == "incomplete"  # was: instant false "ok" off stale file
+    assert wait.read_text(encoding="utf-8") == ""  # cleared at dispatch
+
+
+def test_fresh_dispatch_clears_stale_complete_handoff(
+    shim, tmp_path, monkeypatch, kills
+):
+    """A leftover complete handoff must not complete this run."""
+    hand = tmp_path / "handoff.json"
+    hand.write_text(json.dumps({"status": "complete"}), encoding="utf-8")
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "incomplete")
+
+    env = bg.BgRunner(_args(shim, handoff_file=str(hand))).run()
+
+    assert env.status == "incomplete"  # was: instant false "ok" off stale handoff
+
+
+def test_fresh_dispatch_clears_stale_needs_human_handoff(
+    shim, tmp_path, monkeypatch, kills
+):
+    """A leftover needs_human handoff must not bubble back for a fresh run."""
+    wait = tmp_path / "out.json"
+    hand = tmp_path / "handoff.json"
+    hand.write_text(
+        json.dumps({"status": "needs_human", "questions": ["stale?"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
+    monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
+
+    env = bg.BgRunner(
+        _args(shim, wait_for=str(wait), handoff_file=str(hand))
+    ).run()
+
+    assert env.status == "ok"  # was: instant needs_human replay of the stale file
+    assert env.questions == []
+
+
+def test_resume_clears_parked_handoff_but_keeps_wait_for(
+    shim, tmp_path, monkeypatch, kills
+):
+    """Resume must clear the parked needs_human handoff (it would re-trigger
+    instantly) while preserving --wait-for files the parked session wrote."""
+    _seed_parent(tmp_path)
+    wait = tmp_path / "out.json"
+    wait.write_text("PARKED-WORK", encoding="utf-8")
+    hand = tmp_path / "handoff.json"
+    hand.write_text(
+        json.dumps({"status": "needs_human", "questions": ["A or B?"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_ok")
+
+    env = bg.BgRunner(
+        _args(
+            shim,
+            resume="bgrun-parked",
+            answer="B",
+            wait_for=str(wait),
+            handoff_file=str(hand),
+        )
+    ).run()
+
+    assert env.status == "ok"
+    assert env.resumed is True
+    assert env.questions == []  # stale questions did not replay
+    assert wait.read_text(encoding="utf-8") == "PARKED-WORK"  # preserved

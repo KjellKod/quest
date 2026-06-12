@@ -37,7 +37,7 @@ Quest dispatch separates **runtime** from **entrypoint**:
 
 | Orchestrator | Selected role runtime | Entrypoint | Rule |
 |--------------|-----------------------|------------|------|
-| Codex-led | Codex | local Codex subagent (`multi_agent_v1.spawn_agent` or repo-supported equivalent) | Inherit the active Codex model by default. Do not set a Codex model name unless the user explicitly requested one or the repo has a tested reason. Do not use Codex MCP. |
+| Codex-led | Codex | local Codex subagent (the `spawn_agent` tool family — versioned namespace such as `multi_agent_v2` varies by Codex CLI release — or repo-supported equivalent) | Inherit the active Codex model by default. Do not set a Codex model name unless the user explicitly requested one or the repo has a tested reason. Do not use Codex MCP. |
 | Codex-led | Claude | `python3 scripts/quest_claude_runner.py` when `claude_transport_available` is true | The runner owns the transport underneath: background-agent (`scripts/claude_bg_run.py`, `claude --bg`, subscription billing) when preflight proved it, else the bridge (`scripts/quest_claude_bridge.py`, `claude --print`) with a loud downgrade record. Pass `--transport <claude_transport_resolved from orchestration.json>`. Block with transport guidance if unavailable and no explicit Codex fallback exists. |
 | Claude-led | Codex | Codex MCP (`mcp__codex-cli__codex`, `codex_codex`, or the platform's registered Codex MCP tool) | MCP is the cross-runtime path only from Claude-led sessions. |
 | Claude-led | Claude | native `Task(...)` | Use the orchestrator's native Claude task path. |
@@ -263,7 +263,7 @@ Never infer runtime from the agent label/name (for example `plan-reviewer-a`); l
 
 Runtime attribution rule (authoritative):
 - Log `runtime=claude` only when the invocation actually used Claude `Task(...)` or `python3 scripts/quest_claude_runner.py`.
-- Log `runtime=codex` when invocation used local Codex subagents (`multi_agent_v1.spawn_agent`/`worker`/`explorer`) or Claude-led Codex MCP.
+- Log `runtime=codex` when invocation used local Codex subagents (the `spawn_agent`/`worker`/`explorer` tool family; versioned namespace varies by Codex CLI release) or Claude-led Codex MCP.
 - Include `entrypoint=subagent|codex_mcp|Task(...)|scripts/quest_claude_runner.py` when practical so future failures show the invocation path separately from the runtime family.
 - If a role expected to be Claude is executed with Codex fallback, keep the same role label but log `runtime=codex`.
 

@@ -100,7 +100,7 @@ User specified: gray ramp `slate`, density `compact`, accent `#0f172a` text. Inf
 
 ## Step 4: Cite when you decide
 
-Any UX-affecting decision in your plan, code, or commit should cite the principle: `(ux-guidebook §4.2 #3)`. Canonical format is `ux-guidebook§<section_number>` — no spaces, no sub-bullet numbers, no `#` suffix. This makes the design rationale auditable and greppable downstream.
+Any UX-affecting decision in your plan, code, or commit should cite the principle: `(ux-guidebook §4.2 #3)`. Canonical format is `ux-guidebook §<section>[ #<bullet>]` — the section number always, the `#<bullet>` suffix when a specific sub-bullet applies (matching the guidebook's own numbering and `.skills/ux-review/SKILL.md`). This makes the design rationale auditable and greppable downstream (`grep -rn "ux-guidebook"`).
 
 ## Key Principles (excerpt — see guidebook for full set)
 

@@ -217,6 +217,14 @@ def validate_or_remap_models_for_orchestrator(
     for role in active_roles_for_mode(quest_mode):
         model = result.get(role)
         if not isinstance(model, str) or not model:
+            # An unset/empty model on an ACTIVE role is unavailable by
+            # definition — remap or reject now instead of persisting config
+            # that can only fail later at dispatch time.
+            if remap_unavailable:
+                result[role] = fallback_model
+                remapped_roles.append(role)
+            else:
+                unavailable_roles.append(role)
             continue
         if is_model_available_for_orchestrator(
             model,

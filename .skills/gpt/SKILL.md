@@ -16,7 +16,7 @@ Delegate tasks to OpenAI Codex via the `mcp__codex-cli__codex` MCP tool from Cla
 
 ## Not for Codex-Led Quest Role Dispatch
 
-If you are already Codex and a Quest role is assigned to Codex, do not call Codex MCP to create another Codex role. Codex-led Quest dispatch must use local Codex subagents (`multi_agent_v1.spawn_agent` or the repo-supported equivalent) and inherit the active Codex model unless the user explicitly requested a model override.
+If you are already Codex and a Quest role is assigned to Codex, do not call Codex MCP to create another Codex role. Codex-led Quest dispatch must use local Codex subagents (the `spawn_agent` tool family — versioned namespace varies by Codex CLI release — or the repo-supported equivalent) and inherit the active Codex model unless the user explicitly requested a model override.
 
 Codex MCP is only the cross-runtime path when the orchestrator is Claude-led and needs to dispatch a Codex runtime role. A Codex-led attempt to use `mcp__codex*`, `codex_codex`, `codex mcp-server`, or Codex CLI model aliases for a Codex role is an orchestration violation, not a model-selection problem.
 

@@ -447,6 +447,31 @@ class BgRunner:
         except (OSError, json.JSONDecodeError):
             return None
 
+    @staticmethod
+    def _clear_file(path: str) -> None:
+        """Truncate a pre-existing file so stale content cannot satisfy this run."""
+        try:
+            target = Path(path)
+            if target.is_file():
+                target.write_text("", encoding="utf-8")
+        except OSError:
+            pass  # an unwritable path surfaces later as incomplete, never as false success
+
+    def _clear_stale_outputs(self, *, include_wait_for: bool) -> None:
+        """Stale-state guard: pre-existing outputs must not satisfy THIS run.
+
+        Fresh dispatch clears the handoff and every --wait-for target. Resume
+        clears only the handoff (a parked needs_human would re-trigger the
+        WAIT loop instantly) and keeps --wait-for files the parked session
+        already wrote — the resumed agent will not rewrite work it believes
+        is done.
+        """
+        if self.a.handoff_file:
+            self._clear_file(self.a.handoff_file)
+        if include_wait_for:
+            for path in self.a.wait_for:
+                self._clear_file(path)
+
     # -- the lifecycle --------------------------------------------------------
     def run(self) -> Envelope:
         t0 = time.monotonic()
@@ -472,6 +497,7 @@ class BgRunner:
                 return env
             env.resumed = True
             env.resumed_from = resume_sid
+            self._clear_stale_outputs(include_wait_for=False)
             status, msg, short_id, row = self.dispatch_and_confirm(message, resume_sid)
             have_task = self.a.prompt is not None or bool(self.a.prompt_file)
             if status and self.a.fallback and have_task:
@@ -481,6 +507,7 @@ class BgRunner:
                     env.status, env.message = "precondition_failed", str(exc)
                     return env
                 env.resumed, env.fell_back = False, True
+                self._clear_stale_outputs(include_wait_for=True)
                 status2, msg2, short_id, row = self.dispatch_and_confirm(fb, None)
                 if status2:
                     env.status = status2
@@ -494,6 +521,7 @@ class BgRunner:
                 env.duration_s = round(time.monotonic() - t0, 1)
                 return env
         else:
+            self._clear_stale_outputs(include_wait_for=True)
             status, msg, short_id, row = self.dispatch_and_confirm(message, None)
             if status:
                 env.status, env.message, env.short_id = status, msg, short_id

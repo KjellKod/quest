@@ -1127,3 +1127,36 @@ print(json.dumps({"status": "ok"}))
     assert "status=needs_human" in log_text
     assert "transport=background-agent" in log_text
 
+
+def test_validate_or_remap_treats_unset_active_model_as_unavailable():
+    from quest_runtime.orchestration import validate_or_remap_models_for_orchestrator
+
+    models = {"planner": None, "builder": "", "arbiter": "claude"}
+
+    # Reject mode: unset/empty active-role models fail fast.
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError) as exc:
+        validate_or_remap_models_for_orchestrator(
+            models,
+            orchestrator="claude",
+            quest_mode="workflow",
+            codex_available=True,
+            claude_available=True,
+            remap_unavailable=False,
+        )
+    assert "planner" in str(exc.value)
+    assert "builder" in str(exc.value)
+
+    # Remap mode: unset/empty active-role models remap to the native fallback.
+    remapped_models, remapped_roles = validate_or_remap_models_for_orchestrator(
+        models,
+        orchestrator="claude",
+        quest_mode="workflow",
+        codex_available=True,
+        claude_available=True,
+        remap_unavailable=True,
+    )
+    assert "planner" in remapped_roles and "builder" in remapped_roles
+    assert remapped_models["planner"] == "claude"
+    assert remapped_models["builder"] == "claude"
