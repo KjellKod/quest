@@ -1,0 +1,23 @@
+docs/implementation/quest-diamond-efficiency-roadmap.md
+  s_62cb3cae2438d2::t_5664896cbb55dc 310
+  s_62cb3cae2438d2::t_5d7c83a494678b 609,611
+  s_62cb3cae2438d2::t_ff03dee04a8872 297-300
+  s_62cb3cae2438d2::t_7122d05213d28a 615
+  s_62cb3cae2438d2::t_59aa8fe847b6a5 598-605
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "a874f5f7e0bdf0f1cd82e4aadba77f3bbe3d974e",
+  "prompts": {},
+  "sessions": {
+    "s_62cb3cae2438d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3f3eb7fb-141d-485c-a0ae-1f642592d621",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

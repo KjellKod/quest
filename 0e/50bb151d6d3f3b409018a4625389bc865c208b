@@ -1,0 +1,146 @@
+tests/unit/test_quest_celebrate.py
+  s_220898b981b3a2::t_02e9b377294830 2092-2155
+scripts/quest_validate-handoff-contracts.sh
+  s_220898b981b3a2::t_aa92cae40e891a 72,74-78,86-87,89,91-95
+.quest-manifest
+  s_220898b981b3a2::t_3913cd80f9e009 93
+scripts/claude_bg_run.py
+  s_220898b981b3a2::t_29dd26231b4610 320-339
+  s_220898b981b3a2::t_61f17c5ec4f692 634-635
+  s_220898b981b3a2::t_d810ffa883dd24 615
+scripts/quest_claude_probe.py
+  s_220898b981b3a2::t_27f55c669b8376 2-6,13-18,23,29-34,36,43-60,62
+ideas/archive/2026-05-31-codex-driven-interactive-claude-relay.md
+  s_220898b981b3a2::t_fcf0ab7a4036ca 1-174
+scripts/quest_complete.py
+  s_220898b981b3a2::t_293b95286474c7 43-54,58-61,64,69
+scripts/quest_validate-quest-state.sh
+  s_220898b981b3a2::t_93d20b97003ed9 203-211
+tests/test-quest-orchestration.sh
+  s_220898b981b3a2::t_7e83f29b501a2d 776
+  s_220898b981b3a2::t_aebe3a4b509ae8 607-656
+  s_220898b981b3a2::t_cff44d7e0cdf16 677-679
+docs/implementation/claude-bg-transport-step2-wiring.md
+  s_220898b981b3a2::t_bb7346dc163ec1 1-63,65-161
+  s_220898b981b3a2::t_bcf9e8ea9e1037 64
+scripts/quest_celebrate/quest_data.py
+  s_220898b981b3a2::t_d68acaab73265c 29-31
+  s_220898b981b3a2::t_9c8c6770c61cb4 455-480
+  s_220898b981b3a2::t_6bb651ba0fc31f 15
+  s_220898b981b3a2::t_71c0aea180a6c1 79-83
+  s_220898b981b3a2::t_fcdc8699d5c8e1 1017,1021-1027
+  s_220898b981b3a2::t_1bb934d3f5639e 1159-1165
+tests/unit/test_quest_complete.py
+  s_220898b981b3a2::t_3d16c2cfe2fc96 457-504
+ideas/archive/claude-bridge-timeout-diagnosis-2026-03-23.md
+  s_220898b981b3a2::t_fcf0ab7a4036ca 1-131
+tests/test-quest-runtime.sh
+  s_220898b981b3a2::t_d176d85391406e 1925
+  s_220898b981b3a2::t_080e53e9b2057e 310
+docs/implementation/claude-bg-transport-migration.md
+  s_220898b981b3a2::t_151e064eba9b61 6,8,10-15,25-45
+  s_220898b981b3a2::t_08ae1ea362da7a 136,243,296,355,359,370
+scripts/quest_claude_bridge.py
+  s_220898b981b3a2::t_03fe1ef6fb83fd 6-13
+docs/guides/quest_setup.md
+  s_220898b981b3a2::t_503fdf097ac52e 232,234,236-239,241,243-249
+  s_220898b981b3a2::t_45b56bef801d7b 251-253
+  s_220898b981b3a2::t_e59731d7b60084 272-275,282
+docs/implementation/README.md
+  s_220898b981b3a2::t_d5746a6df8de24 18-20
+scripts/quest_runtime/claude_runner.py
+  s_220898b981b3a2::t_a8f4c4b326b808 432,434-439,442,445-446
+  s_220898b981b3a2::t_281d0077521858 471-472,474-477
+  s_220898b981b3a2::t_411b61e552924c 67-69
+  s_220898b981b3a2::t_4a63e8a980af7a 651-662,672-673
+  s_220898b981b3a2::t_58fba73c5f3125 1-9
+  s_220898b981b3a2::t_805fd038e41a7d 526-527
+  s_220898b981b3a2::t_a047a6f19ae9f6 234-347
+  s_220898b981b3a2::t_36388be7c59ad4 59-66,70-77
+  s_220898b981b3a2::t_df702cfc4390bc 557-582
+  s_220898b981b3a2::t_c8aa355c58bdd1 620,750,769
+  s_220898b981b3a2::t_e28f2b86838a69 775-777,802-820
+  s_220898b981b3a2::t_f000946108288d 727-728
+  s_220898b981b3a2::t_7f5cb2a6621fa1 858-928
+.skills/celebrate/SKILL.md
+  s_220898b981b3a2::t_29c1296238bacb 48
+  s_220898b981b3a2::t_0c04cc9ba916dc 90-93
+  s_220898b981b3a2::t_79be27340d03d3 81-88
+ideas/quest-needs-human-resume-relay.md
+  s_220898b981b3a2::t_2cb8f6498d2940 1-41
+.skills/quest/delegation/workflow.md
+  s_220898b981b3a2::t_db1c437b4d72fa 149,164,178,190,192,218,362,380,503,555,768,789,795,980,1099,1124,1130,1355,1485-1487
+  s_220898b981b3a2::t_7eca553699a1a2 65-69
+  s_220898b981b3a2::t_9fd6a0fad03d23 75,77,79-80,82-91,93-96
+  s_220898b981b3a2::t_3d31f709a128d4 270-271,273-275,277,279
+  s_220898b981b3a2::t_b2a2e7830079d8 1238-1242
+  s_220898b981b3a2::t_b8b941a36753cc 241,244
+  s_220898b981b3a2::t_90379ba245ae82 237
+  s_220898b981b3a2::t_9684288cd1d37c 41
+.ai/quest.md
+  s_220898b981b3a2::t_084ad01e8f4fd1 78-85,87-89
+scripts/quest_preflight.sh
+  s_220898b981b3a2::t_b86438dc056388 572-611,621
+  s_220898b981b3a2::t_cdc3cf099a4968 503-504,506-509,511-514
+  s_220898b981b3a2::t_5740827ca81758 26-28
+  s_220898b981b3a2::t_9f0b16ba9f5d8c 257-263,266-432
+  s_220898b981b3a2::t_c37416986e74de 435-438,452-454
+  s_220898b981b3a2::t_37be9e241dc016 536-537
+tests/unit/test_quest_runtime.py
+  s_220898b981b3a2::t_cc7b88b8d3c941 737-866,868-1033
+  s_220898b981b3a2::t_b9704c5758551e 565,567-568,616,618,665,667-668,720,722-723,867
+.ai/allowlist.json
+  s_220898b981b3a2::t_4ca25677472a93 22
+scripts/quest_claude_runner.py
+  s_220898b981b3a2::t_c4cd243c08a480 2-11,18,23-29,65,78-83,85-90,98-108,115,130-131,144,164-165,172-173,186
+ideas/README.md
+  s_220898b981b3a2::t_d4a15f339f2158 65,90-94
+.ai/schemas/allowlist.schema.json
+  s_220898b981b3a2::t_5d168eeeced1a9 41-46
+.skills/quest/SKILL.md
+  s_220898b981b3a2::t_7548cf38c3cdb4 28
+  s_220898b981b3a2::t_caf9e4525a66bb 254
+  s_220898b981b3a2::t_9e2d5a9e640939 228-230
+  s_220898b981b3a2::t_fb9afd68bdfd80 260
+tests/test-validate-handoff-contracts.sh
+  s_220898b981b3a2::t_60a09202dcaf7c 31,35,39
+ideas/archive/2026-05-31-quest-model-capability-improvements.md
+  s_220898b981b3a2::t_fcf0ab7a4036ca 1-318
+ideas/archive/2026-05-26-native-runtime-dispatch.md
+  s_220898b981b3a2::t_fcf0ab7a4036ca 1-450
+ideas/archive/claude-cli-login-context.md
+  s_220898b981b3a2::t_fcf0ab7a4036ca 1-90
+scripts/quest_runtime/__init__.py
+  s_220898b981b3a2::t_b751dea844a2e2 50-51
+  s_220898b981b3a2::t_f87df074f30f53 5-6
+scripts/quest_runtime/orchestration.py
+  s_220898b981b3a2::t_3124573735b43d 61-66
+  s_220898b981b3a2::t_c30af6caf51e1a 381-383
+  s_220898b981b3a2::t_90347cf1b75884 341-343,350-354,358-360
+  s_220898b981b3a2::t_3b73ea362174e4 402-404
+  s_220898b981b3a2::t_a687eec5cd0a2a 432-444
+tests/test-quest-preflight.sh
+  s_220898b981b3a2::t_1737c8410975d6 40-99
+  s_220898b981b3a2::t_bac59dda693f58 180,185,212,217,227,259,264,273
+  s_220898b981b3a2::t_07ccdd094392c5 295-387,391-393
+tests/unit/test_claude_bg_run.py
+  s_220898b981b3a2::t_b78b429742f09e 336-352
+docs/implementation/claude-bg-run-script.md
+  s_220898b981b3a2::t_08ae1ea362da7a 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "0e50bb151d6d3f3b409018a4625389bc865c208b",
+  "prompts": {},
+  "sessions": {
+    "s_220898b981b3a2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "872c13b8-fdb5-42d1-8ef9-7ca48f2848d3",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
