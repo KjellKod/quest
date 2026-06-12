@@ -62,6 +62,8 @@ That's it. Quest evaluates complexity, asks clarifying questions if needed, and 
 
 **Recommended:** Add both [Codex CLI](https://developers.openai.com/codex/cli/) and [Claude CLI](https://code.claude.com/docs/en/quickstart) for dual-model reviews. See the [Setup Guide](docs/guides/quest_setup.md) for full instructions, which include using either Codex or Claude as the orchestrator.
 
+> **⚠️ Don't skip the one-time machine setup.** When Codex orchestrates, Claude roles run through the background-agent transport (`claude --bg`), which bills to your **Claude subscription**. Without the [one-time setup](docs/guides/quest_setup.md#one-time-machine-setup-for-the-background-agent-transport) — `claude login`, accept bypass mode once, CLI ≥ 2.1.143 — Quest downgrades (loudly) to the `claude --print` bridge, which bills to the **metered API pool after June 15, 2026**.
+
 ## Writing a Good Brief
 
 Quest enforces **spec → plan → build**. You can start rough, Quest asks clarifying questions to fill gaps.
@@ -164,7 +166,7 @@ Read the [full philosophy](docs/guides/philosophy.md).
 
 ## Documentation
 
-- **[Setup Guide](docs/guides/quest_setup.md)**, prerequisites, Codex MCP, allowlist customization
+- **[Setup Guide](docs/guides/quest_setup.md)**, prerequisites, Codex MCP, allowlist customization, one-time background-agent transport setup (subscription vs API billing)
 - **[Quest Presentation](docs/guides/quest_presentation.md)**, how it works with diagrams
 - **[Input Routing Guide](docs/guides/quest_input_routing.md)**, complexity/risk evaluation and solo vs full workflow
 - **[Philosophy](docs/guides/philosophy.md)**, the full manifesto
