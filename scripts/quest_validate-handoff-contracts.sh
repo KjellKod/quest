@@ -76,6 +76,7 @@ TRANSPORT_CONFIG_COUNT=$(grep -c "claude_role_transport" .skills/quest/delegatio
 TRANSPORT_AVAILABLE_COUNT=$(grep -c "claude_transport_available" .skills/quest/delegation/workflow.md || true)
 TRANSPORT_RESOLVED_COUNT=$(grep -c "claude_transport_resolved" .skills/quest/delegation/workflow.md || true)
 TRANSPORT_LOG_FIELD_COUNT=$(grep -c "transport=background-agent|bridge" .skills/quest/delegation/workflow.md || true)
+STATUS_LOG_FIELD_COUNT=$(grep -c "status=complete|needs_human|blocked" .skills/quest/delegation/workflow.md || true)
 BRIDGE_PROBE_HELPER_COUNT=$(grep -c "scripts/quest_claude_probe.py" .skills/quest/delegation/workflow.md || true)
 RUNTIME_SELECTION_COUNT=$(grep -c "selected model/runtime" .skills/quest/delegation/workflow.md || true)
 BRIDGE_RUNNER_COUNT=$(grep -c "scripts/quest_claude_runner.py" .skills/quest/delegation/workflow.md || true)
@@ -83,7 +84,7 @@ BYPASS_PERMS_COUNT=$(grep -c "bypassPermissions" .skills/quest/delegation/workfl
 STATE_HELPER_COUNT=$(grep -c "scripts/quest_state.py" .skills/quest/delegation/workflow.md || true)
 NATIVE_TASK_COUNT=$(grep -c 'native `Task(...)\` is available\|native `Task(...)` when available' .skills/quest/delegation/workflow.md || true)
 CODEX_HOST_COUNT=$(grep -c "orchestrator is Codex" .skills/quest/delegation/workflow.md || true)
-if [ "$BRIDGE_SCRIPT_COUNT" -gt 0 ] && [ "$BG_RUNNER_SCRIPT_COUNT" -gt 0 ] && [ "$TRANSPORT_CONFIG_COUNT" -gt 0 ] && [ "$TRANSPORT_AVAILABLE_COUNT" -gt 0 ] && [ "$TRANSPORT_RESOLVED_COUNT" -gt 0 ] && [ "$TRANSPORT_LOG_FIELD_COUNT" -gt 0 ] && [ "$BRIDGE_PROBE_HELPER_COUNT" -gt 0 ] && [ "$RUNTIME_SELECTION_COUNT" -gt 0 ] && [ "$BRIDGE_RUNNER_COUNT" -gt 0 ] && [ "$BYPASS_PERMS_COUNT" -gt 0 ] && [ "$STATE_HELPER_COUNT" -gt 0 ] && [ "$NATIVE_TASK_COUNT" -gt 0 ] && [ "$CODEX_HOST_COUNT" -gt 0 ]; then
+if [ "$BRIDGE_SCRIPT_COUNT" -gt 0 ] && [ "$BG_RUNNER_SCRIPT_COUNT" -gt 0 ] && [ "$TRANSPORT_CONFIG_COUNT" -gt 0 ] && [ "$TRANSPORT_AVAILABLE_COUNT" -gt 0 ] && [ "$TRANSPORT_RESOLVED_COUNT" -gt 0 ] && [ "$TRANSPORT_LOG_FIELD_COUNT" -gt 0 ] && [ "$STATUS_LOG_FIELD_COUNT" -gt 0 ] && [ "$BRIDGE_PROBE_HELPER_COUNT" -gt 0 ] && [ "$RUNTIME_SELECTION_COUNT" -gt 0 ] && [ "$BRIDGE_RUNNER_COUNT" -gt 0 ] && [ "$BYPASS_PERMS_COUNT" -gt 0 ] && [ "$STATE_HELPER_COUNT" -gt 0 ] && [ "$NATIVE_TASK_COUNT" -gt 0 ] && [ "$CODEX_HOST_COUNT" -gt 0 ]; then
   echo "   ✅ Workflow documents transport probing (bg preferred, bridge fallback) and runtime-based dispatch"
 else
   echo "   ❌ Workflow is missing transport probing or runtime-selection guidance"
@@ -93,6 +94,7 @@ else
   echo "      claude_transport_available refs: $TRANSPORT_AVAILABLE_COUNT"
   echo "      claude_transport_resolved refs: $TRANSPORT_RESOLVED_COUNT"
   echo "      transport= log-field refs: $TRANSPORT_LOG_FIELD_COUNT"
+  echo "      status= log-field refs: $STATUS_LOG_FIELD_COUNT"
   echo "      scripts/quest_claude_probe.py refs: $BRIDGE_PROBE_HELPER_COUNT"
   echo "      selected model/runtime refs: $RUNTIME_SELECTION_COUNT"
   echo "      scripts/quest_claude_runner.py refs: $BRIDGE_RUNNER_COUNT"

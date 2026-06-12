@@ -11,6 +11,7 @@ subprocesses speaking the same file contract (poll handoff.json + artifacts):
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import time
@@ -356,6 +357,35 @@ def classify_handoff_file(path: str | Path) -> str:
     return "found"
 
 
+# Status values the handoff contract allows; anything else is treated as
+# unknown and the status= log field is omitted rather than guessed. Lines
+# without status= are excluded from status statistics by contract (legacy
+# lines predate the field).
+HANDOFF_STATUSES = frozenset({"complete", "needs_human", "blocked"})
+
+
+def read_handoff_status(path: str | Path) -> str | None:
+    """Return the handoff's status when it is a known contract value."""
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    status = payload.get("status")
+    if isinstance(status, str) and status in HANDOFF_STATUSES:
+        return status
+    return None
+
+
+def extract_text_status(text_handoff: str) -> str | None:
+    """Pull STATUS: <value> out of a ---HANDOFF--- text block."""
+    match = re.search(r"^STATUS:\s*(\S+)", text_handoff, flags=re.MULTILINE)
+    if match and match.group(1) in HANDOFF_STATUSES:
+        return match.group(1)
+    return None
+
+
 def extract_text_handoff(text: str) -> str | None:
     marker = "---HANDOFF---"
     if marker not in text:
@@ -429,9 +459,15 @@ def append_context_health_log(
     iteration: int,
     handoff_state: str,
     source: str,
+    status: str | None = None,
     transport: str | None = None,
 ) -> None:
     """Append one context-health line.
+
+    `status` (complete|needs_human|blocked) is the handoff's own status when
+    known — omitted (never guessed) when the handoff is missing, unparsable,
+    or carries an unknown value. Consumers count only lines that carry the
+    field, so legacy lines stay out of status statistics.
 
     `transport` (background-agent|bridge) is set for Codex-led Claude roles —
     this module is their only writer, so the field's presence is what the quest
@@ -439,11 +475,12 @@ def append_context_health_log(
     """
     log_dir = Path(quest_dir) / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
+    status_field = f" | status={status}" if status else ""
     transport_field = f" | transport={transport}" if transport else ""
     log_line = (
         f"{utc_now_iso()} | phase={phase} | agent={agent} | runtime=claude | "
         f"iter={iteration} | handoff_json={handoff_state} | source={source}"
-        f"{transport_field}\n"
+        f"{status_field}{transport_field}\n"
     )
     with (log_dir / "context_health.log").open("a", encoding="utf-8") as handle:
         handle.write(log_line)
@@ -617,6 +654,7 @@ def run_claude_role(
                 iteration=iteration,
                 handoff_state=handoff_state,
                 source="handoff_json",
+                status=read_handoff_status(resolved_handoff_file),
                 transport=transport,
             )
             return RunResult(
@@ -747,6 +785,7 @@ def run_claude_role(
             iteration=iteration,
             handoff_state=handoff_state,
             source="text_fallback",
+            status=extract_text_status(text_handoff),
             transport=transport,
         )
         return RunResult(
@@ -766,6 +805,7 @@ def run_claude_role(
             iteration=iteration,
             handoff_state=result.handoff_state,
             source="handoff_json",
+            status=read_handoff_status(resolved_handoff_file),
             transport=transport,
         )
 

@@ -1031,3 +1031,99 @@ def test_quest_claude_runner_cli_auto_downgrades_without_cache(
     assert payload["transport"] == "bridge"
     assert payload["transport_downgraded"] is True
     assert "downgraded to bridge" in captured.err
+
+
+def test_append_context_health_log_status_field_is_optional(tmp_path):
+    claude_runner_module.append_context_health_log(
+        tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        handoff_state="missing",
+        source="text_fallback",
+    )
+    claude_runner_module.append_context_health_log(
+        tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=2,
+        handoff_state="found",
+        source="handoff_json",
+        status="needs_human",
+        transport="bridge",
+    )
+    lines = (
+        (tmp_path / "logs" / "context_health.log")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    assert "status=" not in lines[0]
+    assert lines[1].endswith(" | status=needs_human | transport=bridge")
+
+
+def test_read_handoff_status_known_values_only(tmp_path):
+    handoff = tmp_path / "handoff.json"
+
+    handoff.write_text('{"status": "needs_human"}', encoding="utf-8")
+    assert claude_runner_module.read_handoff_status(handoff) == "needs_human"
+
+    handoff.write_text('{"status": "complete"}', encoding="utf-8")
+    assert claude_runner_module.read_handoff_status(handoff) == "complete"
+
+    # Unknown value, wrong shape, unparsable, missing → None (field omitted).
+    handoff.write_text('{"status": "on-fire"}', encoding="utf-8")
+    assert claude_runner_module.read_handoff_status(handoff) is None
+    handoff.write_text("[1, 2]", encoding="utf-8")
+    assert claude_runner_module.read_handoff_status(handoff) is None
+    handoff.write_text("not json", encoding="utf-8")
+    assert claude_runner_module.read_handoff_status(handoff) is None
+    assert claude_runner_module.read_handoff_status(tmp_path / "absent.json") is None
+
+
+def test_extract_text_status_known_values_only():
+    text = "---HANDOFF---\nSTATUS: needs_human\nSUMMARY: question pending"
+    assert claude_runner_module.extract_text_status(text) == "needs_human"
+    assert claude_runner_module.extract_text_status("STATUS: weird") is None
+    assert claude_runner_module.extract_text_status("no marker at all") is None
+
+
+def test_run_claude_role_bg_needs_human_logs_status(tmp_path):
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--wait-for") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "needs_human", "summary": "which auth flow?"}, fh)
+print(json.dumps({"status": "ok"}))
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    handoff_file = tmp_path / "handoff.json"
+    prompt_file.write_text("bg needs_human test\n", encoding="utf-8")
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        poll_interval=0.01,
+        exit_grace_seconds=0.2,
+        transport="background-agent",
+        bg_runner_script=bg_runner,
+    )
+
+    assert result.exit_code == 0
+    log_text = (tmp_path / "logs" / "context_health.log").read_text(encoding="utf-8")
+    assert "status=needs_human" in log_text
+    assert "transport=background-agent" in log_text
+

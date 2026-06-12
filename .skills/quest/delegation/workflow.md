@@ -234,12 +234,14 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
   - Only after the fallback chain may text `---HANDOFF---` parsing be used as a last-resort compatibility path.
   - Only enter human Q&A if the Claude runtime fallback returns `STATUS: needs_human`.
 
-**MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions. Create the `.quest/<id>/logs/` directory first if it does not exist. `scripts/quest_claude_runner.py` already does this (including the `transport=` field) for runner-invoked Claude roles.
+**MANDATORY — Context health logging:** Every single time you read a handoff.json file (or fall back to text parsing), you MUST append one line to `.quest/<id>/logs/context_health.log` BEFORE making any routing decision. This is not optional. Do this for every agent, every phase, no exceptions. Create the `.quest/<id>/logs/` directory first if it does not exist. `scripts/quest_claude_runner.py` already does this (including the `status=` and `transport=` fields) for runner-invoked Claude roles.
 
 **Format:**
 ```
-<timestamp> | phase=<phase> | agent=<agent_name> | runtime=claude|codex | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback[ | transport=background-agent|bridge]
+<timestamp> | phase=<phase> | agent=<agent_name> | runtime=claude|codex | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback[ | status=complete|needs_human|blocked][ | transport=background-agent|bridge]
 ```
+
+**Status field (whenever the handoff status is known — any runtime):** record the handoff's own `status` verbatim as `status=complete|needs_human|blocked`. Include it on orchestrator-written lines (native `Task(...)`, Codex roles) whenever you read a parsable handoff or a text-fallback `STATUS:` line; `python3 scripts/quest_claude_runner.py` appends it automatically. **Omit the field — never guess — when the handoff is missing, unparsable, or carries an unknown value.** Counting contract: consumers (the quest-end needs_human rollup in `scripts/quest_complete.py`, and the measurement gate in `ideas/quest-needs-human-resume-relay.md`) count only lines that explicitly carry `status=`; lines without it are excluded from both numerator and denominator, so legacy logs that predate the field never skew the statistics.
 
 **Transport field (Codex-led Claude roles only — mandatory there, absent everywhere else):** `python3 scripts/quest_claude_runner.py` appends `transport=background-agent|bridge` automatically on the lines it writes. Native `Task(...)` and Codex-runtime invocations never carry a `transport=` field — its presence is exactly what the Step 7 transport snapshot and the celebration key on.
 
@@ -267,16 +269,17 @@ Runtime attribution rule (authoritative):
 
 **Example log for a quest with 2 plan iterations:**
 ```
-2026-02-15T00:12:00Z | phase=plan | agent=planner | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | transport=background-agent
-2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | transport=background-agent
-2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-b | runtime=codex | iter=1 | handoff_json=missing | source=text_fallback
-2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | transport=background-agent
-2026-02-15T00:25:00Z | phase=plan | agent=planner | runtime=claude | iter=2 | handoff_json=found | source=handoff_json | transport=background-agent
-2026-02-15T00:28:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=2 | handoff_json=found | source=handoff_json | transport=bridge
-2026-02-15T00:28:00Z | phase=plan_review | agent=plan-reviewer-b | runtime=codex | iter=2 | handoff_json=found | source=handoff_json
-2026-02-15T00:31:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=2 | handoff_json=found | source=handoff_json | transport=background-agent
+2026-02-15T00:12:00Z | phase=plan | agent=planner | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=needs_human | transport=background-agent
+2026-02-15T00:13:30Z | phase=plan | agent=planner | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
+2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
+2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-b | runtime=codex | iter=1 | handoff_json=missing | source=text_fallback | status=complete
+2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
+2026-02-15T00:25:00Z | phase=plan | agent=planner | runtime=claude | iter=2 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
+2026-02-15T00:28:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=2 | handoff_json=found | source=handoff_json | status=complete | transport=bridge
+2026-02-15T00:28:00Z | phase=plan_review | agent=plan-reviewer-b | runtime=codex | iter=2 | handoff_json=unparsable | source=text_fallback
+2026-02-15T00:31:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=2 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
 ```
-(The example shows a Codex-led quest: Claude roles carry `transport=`; Codex roles never do. In a Claude-led quest, no line carries a `transport=` field.)
+(The example shows a Codex-led quest: Claude roles carry `transport=`; Codex roles never do — in a Claude-led quest, no line carries a `transport=` field. The first planner line shows a `needs_human` round-trip: the question went to the human and the re-invoked planner completed. The last reviewer-b line shows the omit-never-guess rule: unparsable handoff, no recoverable `STATUS:` line → no `status=` field.)
 
 This log is how we measure whether the handoff.json pattern is working. It is displayed to the user at quest completion (Step 7). If you skip logging, the compliance report will be incomplete.
 
@@ -1361,6 +1364,8 @@ If a Claude role returns `STATUS: needs_human`:
 3. Collect answers
 4. Re-invoke the same agent with answers appended to context, referencing the same artifact paths
 5. Repeat until agent returns `complete` or `blocked`
+
+Every pass through this loop produces its own `context_health.log` line carrying `status=needs_human` (the runner writes it automatically; write it yourself for native `Task(...)` roles). This is the measurement feed for `ideas/quest-needs-human-resume-relay.md` — skipping it makes the resume-relay decision unanswerable.
 
 ---
 

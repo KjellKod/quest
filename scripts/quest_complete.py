@@ -332,6 +332,44 @@ def _update_readme_index(journal_dir: Path, slug: str, completion_date: date, ou
     readme.write_text(content)
 
 
+def _handoff_status_stats(archive_root: Path) -> dict:
+    """Aggregate status= fields across archived quests' context_health logs.
+
+    Counting contract: only lines that explicitly carry status= participate —
+    legacy lines (which predate the field) are excluded from both numerator
+    and denominator, never inferred as complete or needs_human.
+    """
+    status_counts: dict[str, int] = {}
+    instrumented_quests = 0
+    archived_quests = 0
+    if archive_root.is_dir():
+        for quest in sorted(archive_root.iterdir()):
+            if not quest.is_dir():
+                continue
+            archived_quests += 1
+            try:
+                lines = (quest / "logs" / "context_health.log").read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            except OSError:
+                continue
+            quest_has_status = False
+            for line in lines:
+                match = re.search(r"\bstatus=(\S+)", line)
+                if not match:
+                    continue
+                quest_has_status = True
+                status_counts[match.group(1)] = status_counts.get(match.group(1), 0) + 1
+            if quest_has_status:
+                instrumented_quests += 1
+    return {
+        "archived_quests": archived_quests,
+        "status_instrumented_quests": instrumented_quests,
+        "status_counts": status_counts,
+        "needs_human": status_counts.get("needs_human", 0),
+    }
+
+
 def _archive_quest(quest_dir: Path) -> Path:
     """Move quest directory to archive. Returns archive path."""
     archive_root = quest_dir.parent / "archive"
@@ -451,9 +489,20 @@ def main() -> int:
             print(f"README index updated")
         journal_path = str(journal_file)
 
+    archive_root = quest_dir.parent / "archive"
     if not args.skip_archive:
         archive_path = _archive_quest(quest_dir)
         print(f"Quest archived: {archive_path}")
+
+    # Historical needs_human rollup (runs after archival so this quest counts).
+    # Feeds the measurement gate in ideas/quest-needs-human-resume-relay.md.
+    status_stats = _handoff_status_stats(archive_root)
+    print(
+        f"needs_human across archive: {status_stats['needs_human']} occurrence(s) "
+        f"in {status_stats['status_instrumented_quests']} status-instrumented "
+        f"quest(s) of {status_stats['archived_quests']} archived "
+        "(lines without status= are not counted)"
+    )
 
     print(json.dumps({
         "slug": slug,
@@ -461,6 +510,7 @@ def main() -> int:
         "celebration": celebration_path,
         "archived": not args.skip_archive,
         "quality_tier": data.quality_tier,
+        "needs_human_stats": status_stats,
     }))
 
     return 0

@@ -152,6 +152,7 @@ Prereqs once per machine: `claude login`; accept bypass once (`claude --dangerou
 ## Out of scope (YAGNI — value over good-to-have)
 
 - **needs_human resume relay inside quest phases** (keep-alive + `--resume` orchestration): real value, but requires orchestrator-side conversation state Quest doesn't have; the capability exists standalone in `claude_bg_run.py`. Capture as a fresh idea file `ideas/quest-needs-human-resume-relay.md` (status `proposed`, 10 lines) instead of building it.
+  - **Revision (2026-06-12, user decision):** the relay stays out of scope, but its *measurement gate* ships in this PR — the deferral said "build only if measured `needs_human` frequency justifies it," yet nothing recorded that frequency. Added: `status=complete|needs_human|blocked` on context_health.log lines (omitted, never guessed, when unknown — legacy lines are excluded from both numerator and denominator), and a quest-end historical rollup in `scripts/quest_complete.py` scanning `.quest/archive/*/logs/`. See the idea file's Q&A and sketch step 0.
 - **Per-role `--effort`** (deferred by the spec; unrelated to transport).
 - **Deleting the bridge** (post-soak decision per the spec; revisit with `transport=` log data).
 - Any change to Claude-led (`Task(...)`) or Codex-role dispatch.
