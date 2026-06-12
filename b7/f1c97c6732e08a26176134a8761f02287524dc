@@ -1,0 +1,41 @@
+.skills/gpt/SKILL.md
+  s_89358506e05e06::t_bf671de7ab9fe4 19
+.skills/pr-assistant/SKILL.md
+  s_89358506e05e06::t_d6c333acc2b004 300
+scripts/quest_startup_branch.py
+  s_89358506e05e06::t_7c5ffee9c783a5 188-190
+scripts/claude_bg_run.py
+  s_89358506e05e06::t_97a1e32197e76c 500,510
+  s_89358506e05e06::t_db96ee280d8be5 450-474
+  s_89358506e05e06::t_fadaf21d76da28 524
+.skills/ux-review/SKILL.md
+  s_89358506e05e06::t_e926e45929ad4d 148
+tests/unit/test_quest_startup_symlink.py
+  s_89358506e05e06::t_08fcbf2265e640 348-364
+.skills/ux-context/SKILL.md
+  s_89358506e05e06::t_dd1db7a551ef85 103
+tests/unit/test_claude_bg_run.py
+  s_89358506e05e06::t_fdc99179cc6c54 353-433
+tests/unit/test_pr_shepherd.py
+  s_89358506e05e06::t_08fcbf2265e640 1093-1106
+scripts/pr_shepherd_fetch_failed_logs.py
+  s_89358506e05e06::t_8c8b311d1cf3ed 19,23-25
+scripts/quest_runtime/orchestration.py
+  s_89358506e05e06::t_0a93805f856d01 220-227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "b7f1c97c6732e08a26176134a8761f02287524dc",
+  "prompts": {},
+  "sessions": {
+    "s_89358506e05e06": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b64e9e6-ac02-47ac-af4f-37102e6477e1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
