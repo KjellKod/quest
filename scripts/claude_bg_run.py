@@ -472,6 +472,32 @@ class BgRunner:
             for path in self.a.wait_for:
                 self._clear_file(path)
 
+    def _snapshot_outputs(self, *, include_wait_for: bool) -> dict[str, str]:
+        """Capture non-empty parked outputs (handoff + optionally --wait-for) so
+        the stale-guard clear can be reversed if a re-dispatch is not confirmed.
+        """
+        paths: list[str] = []
+        if self.a.handoff_file:
+            paths.append(self.a.handoff_file)
+        if include_wait_for:
+            paths.extend(self.a.wait_for)
+        snapshot: dict[str, str] = {}
+        for path in paths:
+            if not self._nonempty(path):
+                continue
+            try:
+                snapshot[path] = Path(path).read_text(encoding="utf-8")
+            except OSError:
+                pass
+        return snapshot
+
+    def _restore_outputs(self, snapshot: dict[str, str]) -> None:
+        for path, content in snapshot.items():
+            try:
+                Path(path).write_text(content, encoding="utf-8")
+            except OSError:
+                pass
+
     # -- the lifecycle --------------------------------------------------------
     def run(self) -> Envelope:
         t0 = time.monotonic()
@@ -508,30 +534,19 @@ class BgRunner:
                 env.resumed, env.fell_back = False, True
                 # Committing to a fresh run: clear the parked handoff + wait_for
                 # as the stale guard (the answer is carried into the new prompt).
-                # Snapshot the parked handoff FIRST so a failed fresh dispatch can
-                # restore the needs_human question — clearing it before the
-                # re-dispatch is confirmed must be reversible (PR #137 review).
-                parked_handoff = None
-                if self.a.handoff_file and self._nonempty(self.a.handoff_file):
-                    try:
-                        parked_handoff = Path(self.a.handoff_file).read_text(
-                            encoding="utf-8"
-                        )
-                    except OSError:
-                        parked_handoff = None
+                # Snapshot them FIRST so a failed fresh dispatch can restore the
+                # parked session's question AND any artifacts it already wrote —
+                # clearing before the re-dispatch is confirmed must be reversible
+                # (PR #137 review).
+                parked_outputs = self._snapshot_outputs(include_wait_for=True)
                 self._clear_stale_outputs(include_wait_for=True)
                 status2, msg2, short_id, row = self.dispatch_and_confirm(fb, None)
                 if status2:
-                    # Fresh re-dispatch failed too: restore the parked question so
-                    # it survives for a later retry, and leave the parked session
-                    # alive (the teardown below is not reached).
-                    if parked_handoff is not None and self.a.handoff_file:
-                        try:
-                            Path(self.a.handoff_file).write_text(
-                                parked_handoff, encoding="utf-8"
-                            )
-                        except OSError:
-                            pass
+                    # Fresh re-dispatch failed too: restore the parked outputs so
+                    # the question (and any artifacts) survive for a later retry,
+                    # and leave the parked session alive (teardown below is not
+                    # reached).
+                    self._restore_outputs(parked_outputs)
                     env.status = status2
                     env.message = f"resume failed ({msg}); re-dispatch also failed ({msg2})"
                     env.short_id = short_id

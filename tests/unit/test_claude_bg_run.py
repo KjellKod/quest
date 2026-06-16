@@ -308,22 +308,26 @@ def test_failed_resume_dispatch_preserves_parked_handoff(shim, tmp_path, monkeyp
 
 def test_failed_fallback_dispatch_preserves_parked_handoff(shim, tmp_path, monkeypatch, kills):
     # Regression (PR #137 review): when resume fails AND the fresh fallback
-    # re-dispatch also fails, the parked needs_human handoff is restored (it was
-    # cleared as the stale guard before the unconfirmed re-dispatch), and the
-    # parked parent is not torn down — so the question survives for a retry.
+    # re-dispatch also fails, the parked needs_human handoff AND any artifacts
+    # the parked session already wrote are restored (both cleared as the stale
+    # guard before the unconfirmed re-dispatch), and the parked parent is not
+    # torn down — so the question + work survive for a retry.
     _seed_parent(tmp_path)
     hand = tmp_path / "handoff.json"
     hand.write_text(json.dumps({"status": "needs_human", "questions": ["A or B?"]}))
+    out = tmp_path / "out.json"
+    out.write_text("PARTIAL")  # artifact the parked session wrote before asking
     monkeypatch.setenv("FAKE_BG_SCENARIO", "never_confirm")  # resume AND fresh both fail
     env = bg.BgRunner(
         _args(shim, resume=PARENT_SID, answer="use A", handoff_file=str(hand),
-              wait_for=str(tmp_path / "out.json"))
+              wait_for=str(out))
     ).run()
     assert env.status == "dispatch_failed"
     assert env.fell_back is True
     assert "re-dispatch also failed" in env.message
-    # The parked question survived the failed fallback dispatch.
+    # The parked question AND the parked artifact survived the failed fallback.
     assert json.loads(hand.read_text())["questions"] == ["A or B?"]
+    assert out.read_text() == "PARTIAL"
     # And the parked parent was not retired.
     assert (111, bg.signal.SIGTERM) not in kills
 
