@@ -1,10 +1,32 @@
 # Quest needs_human → Resume Relay
 
-Date: 2026-06-11
-Status: `proposed`
-Related: `scripts/claude_bg_run.py`,
-`docs/implementation/claude-bg-transport-step2-wiring.md` (declared this out of
-scope), `docs/implementation/history` (Step-1/Step-2 docs once archived)
+Date: 2026-06-11 (updated 2026-06-16)
+Status: `proposed` — stopgap shipped in PR #137; full interactive relay deferred
+Related: `scripts/claude_bg_run.py`, `scripts/quest_runtime/claude_runner.py`
+(`build_bg_cmd`), `docs/implementation/claude-bg-transport-step2-wiring.md`
+(declared this out of scope), `docs/implementation/history` (Step-1/Step-2 docs
+once archived)
+
+## Stopgap shipped (PR #137, 2026-06-16)
+
+The Step-2 lifecycle fix (the outer runner now waits for `claude_bg_run.py`
+instead of poll-and-killing it) exposed a latent hang: with the handoff path in
+`--wait-for` only, a `needs_human` handoff was invisible to the bg runner, so it
+waited for the (never-written) primary artifacts until its full `--timeout`
+(~30 min) before failing. The role blocked instead of surfacing the question.
+
+Stopgap (not the full relay): `build_bg_cmd` now passes **`--handoff-file`** (so
+`needs_human` is recognized the instant the handoff is written) **plus
+`--teardown-on-needs-human`** (a new bg-runner flag that tears the session down
+on `needs_human` instead of leaving it alive for `--resume`). Net effect —
+`needs_human` behaves exactly like the bridge: surfaced promptly, session torn
+down, orchestrator reads the handoff status. No session leak, no 30-min hang,
+and **still no resume loop** — a fresh dispatch rebuilds from artifacts as
+before. This is the deliberate "fresh re-dispatch is not a degraded mode"
+stance from Q1 below, now also true on the bg transport.
+
+The full interactive relay (keep the session alive, forward the human's answer
+to the *same* session) remains the upgrade described in the sketch.
 
 ## Idea
 
@@ -76,21 +98,57 @@ Step 1 (`claude_bg_run.py --resume/--answer`).
 
 ## Sketch (when measured demand exists)
 
-0. **Measurement prerequisite (shipped with the Step-2 wiring PR, 2026-06-12):** add
-   `status=complete|needs_human|blocked` to the context_health.log line
-   (the runner already parses the handoff to classify, so it knows; workflow
-   prose logs the same field for native `Task(...)` roles). That alone makes
-   the frequency answerable from `.quest/archive/*/logs/` (quest folders are
-   archived whole, logs included). Optional surfacing, in order of value:
-   (a) quest-end historical rollup — a few lines in `quest_complete.py`
-   scanning the archive ("across N archived quests: M needs_human");
-   (b) a `needs_human` count in the journal `celebration_data` only if the
-   stat should reach the committed/published record (dashboard reads the
-   journal, not the local archive).
-1. Runner gains `--handoff-file` passthrough + a `parked_session` field in its
-   JSON envelope (session_id surfaced to the orchestrator).
-2. Workflow prose: on `needs_human` from a runner-invoked Claude role, ask the
-   human (existing Q&A path), then re-invoke the runner with
-   `--resume <session_id> --answer "<reply>"`; on resume failure the runner
-   already falls back to a fresh dispatch carrying the answer.
-3. Teardown rule: parked sessions are swept at quest archive/abandon time.
+Status legend: ✅ shipped · 🟡 partially shipped · ⬜ not started.
+
+0. ✅ **Measurement prerequisite (shipped with the Step-2 wiring PR, 2026-06-12):**
+   `status=complete|needs_human|blocked` is in the context_health.log line, and
+   `quest_complete.py` prints a quest-end rollup across `.quest/archive/*/logs/`.
+   The frequency question is now answerable per-machine. **This is the gate:**
+   read the rollup before building the full relay below.
+1. 🟡 **Runner support.** `claude_bg_run.py` already supports the relay
+   (`--handoff-file` recognizes `needs_human`; `--resume <id> --answer` continues
+   the same conversation with fresh-dispatch fallback). PR #137 wired
+   `--handoff-file` into `build_bg_cmd` but pairs it with
+   `--teardown-on-needs-human` (stopgap: surface + teardown, no keep-alive).
+   **Still ⬜:** surface the live `session_id` in the runner's JSON envelope up
+   through `run_claude_role` → the orchestrator (today the bg envelope carries
+   it on stdout, but `RunResult` does not propagate it).
+
+### What the *true interactive behavior* needs (the follow-up PR)
+
+2. ⬜ **Flip the stopgap for roles that should park.** Stop passing
+   `--teardown-on-needs-human` (or gate it on a config/role flag) so the bg
+   session is *kept alive* on `needs_human`. The success path is unchanged;
+   only `needs_human` changes from teardown to park. Add a question cap so a
+   role cannot park-resume-park indefinitely.
+3. ⬜ **Propagate `session_id` + `questions`.** Add fields to `RunResult` (and
+   the bg classification in `claude_runner.py`) so a `needs_human` result hands
+   the orchestrator the parked `session_id` and the question list, not just a
+   `handoff_missing`-ish result_kind.
+4. ⬜ **Workflow resume loop.** On `needs_human` from a bg Claude role:
+   surface the questions to the human (existing orchestrator Q&A path), capture
+   the answer, then re-dispatch `claude_bg_run.py --resume <session_id>
+   --answer "<reply>"` and continue — looping until the role returns without a
+   question. On resume failure the runner already falls back to a fresh
+   dispatch carrying the answer (graceful degradation to today's behavior).
+5. ⬜ **Persist + chain the session id.** Store the live `session_id` in
+   `.quest/<id>/state.json` so a quest paused for a human (minutes/hours, or
+   resumed in a new orchestrator session) can still forward the answer. Resume
+   works even if the supervisor idle-reaped the process — the transcript
+   persists on disk — but the id must be remembered. **Chain it:** each
+   `--resume` forks a *new* session id (returned as `resumed_from` + new
+   `session_id`), so state must update every round.
+6. ⬜ **Lifecycle / sweep guard.** A parked session is legitimately alive
+   between question and answer, so the orphan sweep
+   (`--sweep quest-<id>-`) must run only at quest start/abandon, never while a
+   session is parked awaiting a human. Define who tears down a parked session
+   when the human abandons the quest (quest archive/abandon time).
+7. ⬜ **Ask-policy relaxation.** Quest roles are currently told "don't ask,
+   make assumptions." The relay means *allowing* a bg Claude role to ask when
+   genuinely blocked (write the `needs_human` handoff) — a deliberate, scoped
+   relaxation for the bg-Claude path only; Codex roles stay non-interactive.
+
+Conveyance is the easy part: Codex is the orchestrator and the human is present
+in the Codex session, so "convey + get reply" is just the orchestrator printing
+the questions and waiting — no new transport. The historically-hard bit (no
+`claude reply` CLI) is already solved by resume-by-session-id.

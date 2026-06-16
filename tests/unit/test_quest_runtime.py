@@ -739,7 +739,7 @@ def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
 # ---- background-agent transport ---------------------------------------------
 
 
-def test_build_bg_cmd_pins_argv_without_handoff_file(tmp_path):
+def test_build_bg_cmd_pins_argv_with_handoff_file_and_needs_human_teardown(tmp_path):
     cmd = claude_runner_module.build_bg_cmd(
         cwd=tmp_path,
         bg_runner_script=tmp_path / "claude_bg_run.py",
@@ -748,6 +748,7 @@ def test_build_bg_cmd_pins_argv_without_handoff_file(tmp_path):
         model="claude-opus-4-6",
         timeout=900.0,
         permission_mode="bypassPermissions",
+        handoff_file=tmp_path / "handoff.json",
         wait_for=[tmp_path / "handoff.json", tmp_path / "artifact.md"],
         add_dirs=[tmp_path],
     )
@@ -755,9 +756,12 @@ def test_build_bg_cmd_pins_argv_without_handoff_file(tmp_path):
     assert "--json" in cmd
     assert "--no-protocol" in cmd
     assert cmd[cmd.index("--name") + 1] == "quest-q1-planner-i2"
-    # handoff travels via --wait-for ONLY: --handoff-file would leave a
-    # needs_human session alive, which Quest has no resume loop to collect.
-    assert "--handoff-file" not in cmd
+    # --handoff-file makes needs_human terminal promptly; --teardown-on-needs-human
+    # tears the session down (Quest has no resume loop yet) so it behaves like the
+    # bridge instead of blocking until --timeout. The handoff also stays in
+    # --wait-for for the success (status=complete) path.
+    assert cmd[cmd.index("--handoff-file") + 1] == str(tmp_path / "handoff.json")
+    assert "--teardown-on-needs-human" in cmd
     assert joined.count("--wait-for") == 2
     assert cmd[cmd.index("--wait-for") + 1] == str(tmp_path / "handoff.json")
 

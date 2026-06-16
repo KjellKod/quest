@@ -254,16 +254,20 @@ def build_bg_cmd(
     model: str,
     timeout: float,
     permission_mode: str,
+    handoff_file: str | Path,
     wait_for: Iterable[str | Path],
     add_dirs: Iterable[str | Path] | None = None,
 ) -> list[str]:
     """argv for the background-agent transport (scripts/claude_bg_run.py).
 
-    Deliberately NO --handoff-file: a needs_human handoff must behave exactly
-    like the bridge path (handoff file present → session torn down → the
-    orchestrator reads the status). Passing --handoff-file would leave the
-    session alive on needs_human, which Quest has no resume loop to collect.
-    The handoff path travels in wait_for instead.
+    Passes --handoff-file so a needs_human handoff is recognized promptly, plus
+    --teardown-on-needs-human so the session is torn down on needs_human instead
+    of left alive: Quest has no resume loop to collect a parked session yet (the
+    full interactive relay is specified in
+    ideas/quest-needs-human-resume-relay.md). Net effect — needs_human
+    behaves exactly like the bridge (handoff present → session torn down → the
+    orchestrator reads the status) rather than blocking until --timeout. The
+    handoff also stays in wait_for for the success (status=complete) path.
     """
     cmd = [
         sys.executable,
@@ -280,6 +284,9 @@ def build_bg_cmd(
         str(timeout),
         "--permission-mode",
         permission_mode,
+        "--handoff-file",
+        str(handoff_file),
+        "--teardown-on-needs-human",
     ]
     for path in wait_for:
         cmd.extend(["--wait-for", str(path)])
@@ -615,6 +622,7 @@ def run_claude_role(
             permission_mode=_effective_permission_mode(
                 permission_mode, permission_escalation
             ),
+            handoff_file=resolved_handoff_file,
             wait_for=[resolved_handoff_file, *resolved_artifact_paths],
             add_dirs=default_add_dirs,
         )

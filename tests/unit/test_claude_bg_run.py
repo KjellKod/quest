@@ -208,6 +208,28 @@ def test_needs_human_keeps_session_alive_for_resume(shim, tmp_path, monkeypatch,
     assert env.status == "needs_human"
     # Session must NOT be torn down: no signals sent, so it can be resumed.
     assert kills == []
+
+
+def test_needs_human_teardown_flag_tears_session_down(shim, tmp_path, monkeypatch, kills):
+    # PR #137 stopgap: callers with no resume loop (Quest) pass
+    # --teardown-on-needs-human so needs_human is surfaced AND the session is
+    # torn down (like the bridge), instead of left alive to leak.
+    hand = tmp_path / "handoff.json"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "needs_human")
+    monkeypatch.setenv("FAKE_BG_HANDOFF", str(hand))
+    env = bg.BgRunner(
+        _args(
+            shim,
+            wait_for=str(tmp_path / "out.json"),
+            handoff_file=str(hand),
+            teardown_on_needs_human=True,
+        )
+    ).run()
+    assert env.status == "needs_human"
+    assert env.exit_code() == bg.EXIT_NEEDS_HUMAN
+    # Session IS torn down: a SIGTERM was sent to the supervisor-reported pid.
+    assert any(sig == bg.signal.SIGTERM for _, sig in kills)
+    assert "session torn down" in env.message
     assert env.session_id  # surfaced so the orchestrator can --resume it
 
 

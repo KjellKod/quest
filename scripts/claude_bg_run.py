@@ -606,14 +606,24 @@ class BgRunner:
         if env.status != "ok":
             env.logs_tail = self.logs_tail(env.session_id)
 
-        # TEARDOWN — but PRESERVE a needs_human session so it can be resumed.
-        if env.short_id and env.status != "needs_human":
+        # TEARDOWN — by default PRESERVE a needs_human session so it can be
+        # resumed (standalone use). Callers with no resume loop pass
+        # --teardown-on-needs-human to tear it down like the bridge instead of
+        # orphaning a session nobody will collect.
+        preserve_for_resume = (
+            env.status == "needs_human" and not self.a.teardown_on_needs_human
+        )
+        if env.short_id and not preserve_for_resume:
             self.teardown(env.short_id)
         env.duration_s = round(time.monotonic() - t0, 1)
         if not env.message and env.status == "ok":
             env.message = "completed; declared artifacts present"
         if env.status == "needs_human" and not env.message:
-            env.message = "agent needs a human decision; session left alive — answer via --resume <session_id|short_id|name> --answer"
+            env.message = (
+                "agent needs a human decision; session torn down (caller has no resume loop)"
+                if self.a.teardown_on_needs_human
+                else "agent needs a human decision; session left alive — answer via --resume <session_id|short_id|name> --answer"
+            )
         return env
 
 
@@ -629,6 +639,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fallback=True)
     p.add_argument("--wait-for", action="append", default=[], help="output file(s) that must exist & be non-empty (repeatable)")
     p.add_argument("--handoff-file", help="optional JSON the agent writes; status needs_human bubbles back")
+    p.add_argument(
+        "--teardown-on-needs-human",
+        action="store_true",
+        help=(
+            "tear the session down on needs_human instead of leaving it alive "
+            "for --resume. For callers with no resume loop (e.g. Quest): "
+            "needs_human then behaves like the bridge — surfaced promptly, "
+            "session torn down — rather than parked until a human answers."
+        ),
+    )
     p.add_argument("--model", default="")
     p.add_argument("--effort", default="", choices=["", "low", "medium", "high", "xhigh", "max"])
     p.add_argument("--permission-mode", default="bypassPermissions")
