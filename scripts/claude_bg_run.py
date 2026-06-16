@@ -508,9 +508,30 @@ class BgRunner:
                 env.resumed, env.fell_back = False, True
                 # Committing to a fresh run: clear the parked handoff + wait_for
                 # as the stale guard (the answer is carried into the new prompt).
+                # Snapshot the parked handoff FIRST so a failed fresh dispatch can
+                # restore the needs_human question — clearing it before the
+                # re-dispatch is confirmed must be reversible (PR #137 review).
+                parked_handoff = None
+                if self.a.handoff_file and self._nonempty(self.a.handoff_file):
+                    try:
+                        parked_handoff = Path(self.a.handoff_file).read_text(
+                            encoding="utf-8"
+                        )
+                    except OSError:
+                        parked_handoff = None
                 self._clear_stale_outputs(include_wait_for=True)
                 status2, msg2, short_id, row = self.dispatch_and_confirm(fb, None)
                 if status2:
+                    # Fresh re-dispatch failed too: restore the parked question so
+                    # it survives for a later retry, and leave the parked session
+                    # alive (the teardown below is not reached).
+                    if parked_handoff is not None and self.a.handoff_file:
+                        try:
+                            Path(self.a.handoff_file).write_text(
+                                parked_handoff, encoding="utf-8"
+                            )
+                        except OSError:
+                            pass
                     env.status = status2
                     env.message = f"resume failed ({msg}); re-dispatch also failed ({msg2})"
                     env.short_id = short_id
