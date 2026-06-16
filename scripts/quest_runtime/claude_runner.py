@@ -1001,22 +1001,31 @@ def run_bg_probe(
     )
 
     handoff_state = classify_handoff_file(handoff_file)
-    source = "handoff_json" if handoff_state == "found" else None
-    exit_code = 0 if handoff_state == "found" else cp.returncode or 1
+    artifact_present = not any_artifact_missing_or_empty([artifact_file])
+    # Success requires the FULL contract: the bg child reported ok (exit 0), the
+    # handoff parsed, AND the declared artifact was actually written. A handoff
+    # alone must not cache/select background-agent on a machine that never proved
+    # the artifact write — claude_bg_run.py exits non-zero (e.g. incomplete) then.
+    probe_ok = cp.returncode == 0 and handoff_state == "found" and artifact_present
+    source = "handoff_json" if probe_ok else None
+    exit_code = 0 if probe_ok else cp.returncode or 1
     stderr = cp.stderr
     if exit_code != 0:
         detail = _bg_failure_detail(cp.stdout)
         if detail:
             stderr = f"{stderr}\n{detail}".strip()
+    if probe_ok:
+        result_kind = "handoff_json"
+    elif handoff_state == "found" and not artifact_present:
+        result_kind = "handoff_missing"
+    else:
+        result_kind = _BG_EXIT_RESULT_KINDS.get(exit_code) or classify_result_kind(
+            exit_code, stderr, handoff_state
+        )
     return RunResult(
         exit_code=exit_code,
         handoff_state=handoff_state,
-        result_kind=(
-            "handoff_json"
-            if handoff_state == "found"
-            else _BG_EXIT_RESULT_KINDS.get(exit_code)
-            or classify_result_kind(exit_code, stderr, handoff_state)
-        ),
+        result_kind=result_kind,
         source=source,
         stdout=cp.stdout,
         stderr=stderr,

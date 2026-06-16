@@ -803,6 +803,40 @@ print(json.dumps({"status": "ok"}))
     assert result.handoff_state == "found"
 
 
+def test_run_bg_probe_requires_artifact_not_just_handoff(tmp_path):
+    # Regression (PR #137 review): a handoff alone must NOT mark bg available.
+    # If claude_bg_run.py exits incomplete (artifact never written), the probe
+    # must report failure so bg is not cached/selected on a machine that never
+    # proved the artifact-write contract.
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--handoff-file") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "complete", "summary": "probe ok"}, fh)
+# Deliberately do NOT write the artifact, and report incomplete.
+print(json.dumps({"status": "incomplete"}))
+sys.exit(6)
+""",
+    )
+
+    result = claude_runner_module.run_bg_probe(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        bg_runner_script=bg_runner,
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+    )
+
+    assert result.exit_code != 0
+    assert result.result_kind != "handoff_json"
+    assert result.source is None
+
+
 def test_bg_session_name_scheme():
     assert (
         claude_runner_module.bg_session_name("my-quest_2026", "code-reviewer-a", 3)
