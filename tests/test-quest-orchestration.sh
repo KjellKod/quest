@@ -654,6 +654,52 @@ PY
   rm -rf "$tmpdir"
 }
 
+test_resume_rejects_present_but_invalid_claude_role_transport() {
+  # A present-but-invalid transport must fail closed, not be silently coerced
+  # to "auto" (a mistyped forced transport would otherwise resume differently).
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/logs"
+  write_allowlist_snapshot "$tmpdir/logs/allowlist_snapshot.json"
+  cat > "$tmpdir/orchestration.json" <<'EOF'
+{
+  "version": 1,
+  "models": {
+    "planner": "claude",
+    "plan-reviewer-a": "claude",
+    "plan-reviewer-b": "claude",
+    "arbiter": "claude",
+    "builder": "claude",
+    "code-reviewer-a": "claude",
+    "code-reviewer-b": "claude",
+    "review-arbiter": "claude",
+    "fixer": "claude"
+  },
+  "claude_role_transport": "bridg",
+  "claude_transport_resolved": null,
+  "claude_transport_downgraded": false,
+  "source": "overridden",
+  "overridden_roles": [],
+  "preflight_validated_at": "2026-05-18T05:42:13Z"
+}
+EOF
+
+  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import migrate_from_snapshot
+try:
+    migrate_from_snapshot(Path(sys.argv[1]))
+except ValueError as exc:
+    assert "claude_role_transport" in str(exc), exc
+    sys.exit(0)
+raise SystemExit("expected ValueError for present-but-invalid transport")
+PY
+
+  rm -rf "$tmpdir"
+}
+
 test_resume_does_not_modify_existing_complete_orchestration_json() {
   # Existing complete orchestration.json must be preserved byte-for-byte.
   local tmpdir orig_bytes new_bytes
@@ -774,6 +820,7 @@ run_test test_resume_migrates_missing_orchestration_json
 run_test test_resume_reports_missing_or_invalid_snapshot
 run_test test_resume_backfills_existing_legacy_orchestration_json
 run_test test_resume_backfills_transport_keys_on_pre_transport_orchestration_json
+run_test test_resume_rejects_present_but_invalid_claude_role_transport
 run_test test_resume_does_not_modify_existing_complete_orchestration_json
 run_test test_workflow_dispatch_reads_orchestration_json_not_allowlist
 run_test test_workflow_no_allowlist_models_string

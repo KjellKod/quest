@@ -440,9 +440,20 @@ def migrate_from_snapshot(
         # Transport keys were introduced after early quests; backfill in place
         # (same legacy-compat contract as newly-introduced roles).
         transport_backfilled = False
-        if existing.get("claude_role_transport") not in CLAUDE_ROLE_TRANSPORTS:
+        if "claude_role_transport" not in existing:
+            # Absent: legacy file predating the transport key — backfill the default.
             existing["claude_role_transport"] = DEFAULT_CLAUDE_ROLE_TRANSPORT
             transport_backfilled = True
+        elif existing["claude_role_transport"] not in CLAUDE_ROLE_TRANSPORTS:
+            # Present but invalid: a mistyped/forced transport must fail closed,
+            # never be silently coerced to "auto" (that would resume under a
+            # different transport than the per-quest config demanded).
+            raise ValueError(
+                "orchestration.json has an invalid claude_role_transport "
+                f"{existing['claude_role_transport']!r}; expected one of "
+                f"{CLAUDE_ROLE_TRANSPORTS}. Fix or remove the key — resume will "
+                "not coerce a forced transport."
+            )
         if "claude_transport_resolved" not in existing:
             existing["claude_transport_resolved"] = None
             transport_backfilled = True
