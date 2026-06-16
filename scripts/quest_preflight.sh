@@ -291,9 +291,12 @@ configured_claude_transport() {
 # (config error). Fails closed with a diagnostic instead of probing/downgrading.
 emit_invalid_transport_payload() {
   local configured="$1"
-  local warning_lines=""
-  warning_lines="    \"Invalid claude_role_transport '${configured}' in .ai/allowlist.json -- expected auto, background-agent, or bridge.\",\n"
-  warning_lines="${warning_lines}    \"Fix or remove the key; preflight will not coerce an invalid transport to a default (it could resume under a different billing path).\""
+  # Build the warning sentences (with the raw value embedded) as plain strings,
+  # then JSON-encode each via json_quote_or_null so a value containing a quote,
+  # backslash, or newline cannot break the payload the fail-closed path emits.
+  local warn1 warn2
+  warn1="Invalid claude_role_transport '${configured}' in .ai/allowlist.json -- expected auto, background-agent, or bridge."
+  warn2="Fix or remove the key; preflight will not coerce an invalid transport to a default (it could resume under a different billing path)."
   cat <<EOJSON
 {
   "orchestrator": "codex",
@@ -310,7 +313,10 @@ emit_invalid_transport_payload() {
     "probe_result_kind": "invalid_transport_config",
     "probe_message": $(json_quote_or_null "claude_role_transport='${configured}' is not one of auto|background-agent|bridge")
   },
-  "warning": $(printf '[\n%b\n  ]' "$warning_lines")
+  "warning": [
+    $(json_quote_or_null "$warn1"),
+    $(json_quote_or_null "$warn2")
+  ]
 }
 EOJSON
 }

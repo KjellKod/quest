@@ -417,6 +417,36 @@ test_quest_preflight_rejects_invalid_transport_config() {
     printf '%s' "$warning_text" | grep -q "Invalid claude_role_transport 'bridg'"
 }
 
+test_quest_preflight_invalid_transport_emits_valid_json_for_special_chars() {
+  # The fail-closed payload must stay valid JSON even when the bad transport
+  # value contains a quote/backslash — the value is JSON-encoded, not embedded
+  # raw into the warning array.
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_logged_in_claude "$tmpdir/bin/claude"
+  write_success_bridge "$tmpdir/fake_bridge.py"
+  # allowlist value: bad"q\z  (embedded double-quote and backslash)
+  printf '{"claude_role_transport": "bad\\"q\\\\z"}\n' > "$tmpdir/allowlist.json"
+
+  local output rc available kind
+  output=$(PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BRIDGE_SCRIPT="$tmpdir/fake_bridge.py" \
+    QUEST_PREFLIGHT_BG_CACHE_FILE="$tmpdir/claude_bg_cache.json" \
+    QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+  rc=$?
+  available=$(printf '%s' "$output" | jq -r '.available')
+  kind=$(printf '%s' "$output" | jq -r '.diagnostic.probe_result_kind')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    printf '%s' "$output" | jq -e . >/dev/null 2>&1 &&
+    [ "$available" = "false" ] &&
+    [ "$kind" = "invalid_transport_config" ]
+}
+
 test_quest_preflight_resolves_helpers_by_absolute_path_from_foreign_cwd() {
   # Quest installed outside the target repo: invoke preflight by ABSOLUTE path
   # from a cwd with no scripts/ dir and WITHOUT helper-path overrides. The
@@ -492,6 +522,7 @@ run_test test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds
 run_test test_quest_preflight_auto_downgrades_loudly_to_bridge
 run_test test_quest_preflight_forced_background_agent_blocks_without_bridge_fallback
 run_test test_quest_preflight_rejects_invalid_transport_config
+run_test test_quest_preflight_invalid_transport_emits_valid_json_for_special_chars
 
 echo ""
 echo "Tests run: $TESTS_RUN"
