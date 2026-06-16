@@ -315,8 +315,10 @@ def test_failed_fallback_dispatch_preserves_parked_handoff(shim, tmp_path, monke
     _seed_parent(tmp_path)
     hand = tmp_path / "handoff.json"
     hand.write_text(json.dumps({"status": "needs_human", "questions": ["A or B?"]}))
-    out = tmp_path / "out.json"
-    out.write_text("PARTIAL")  # artifact the parked session wrote before asking
+    out = tmp_path / "out.bin"
+    # A non-UTF-8 (binary) artifact: snapshot/restore must be byte-safe, never
+    # decode it (read_text would raise UnicodeDecodeError before the restore).
+    out.write_bytes(b"\xff\xfePARTIAL")
     monkeypatch.setenv("FAKE_BG_SCENARIO", "never_confirm")  # resume AND fresh both fail
     env = bg.BgRunner(
         _args(shim, resume=PARENT_SID, answer="use A", handoff_file=str(hand),
@@ -325,9 +327,9 @@ def test_failed_fallback_dispatch_preserves_parked_handoff(shim, tmp_path, monke
     assert env.status == "dispatch_failed"
     assert env.fell_back is True
     assert "re-dispatch also failed" in env.message
-    # The parked question AND the parked artifact survived the failed fallback.
+    # The parked question AND the parked (binary) artifact survived the fallback.
     assert json.loads(hand.read_text())["questions"] == ["A or B?"]
-    assert out.read_text() == "PARTIAL"
+    assert out.read_bytes() == b"\xff\xfePARTIAL"
     # And the parked parent was not retired.
     assert (111, bg.signal.SIGTERM) not in kills
 

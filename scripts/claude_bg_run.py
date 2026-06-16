@@ -472,29 +472,32 @@ class BgRunner:
             for path in self.a.wait_for:
                 self._clear_file(path)
 
-    def _snapshot_outputs(self, *, include_wait_for: bool) -> dict[str, str]:
+    def _snapshot_outputs(self, *, include_wait_for: bool) -> dict[str, bytes]:
         """Capture non-empty parked outputs (handoff + optionally --wait-for) so
         the stale-guard clear can be reversed if a re-dispatch is not confirmed.
+
+        Bytes, not text: --wait-for artifacts may be binary or non-UTF-8, so
+        read_text() could raise (before the restore runs) or corrupt content.
         """
         paths: list[str] = []
         if self.a.handoff_file:
             paths.append(self.a.handoff_file)
         if include_wait_for:
             paths.extend(self.a.wait_for)
-        snapshot: dict[str, str] = {}
+        snapshot: dict[str, bytes] = {}
         for path in paths:
             if not self._nonempty(path):
                 continue
             try:
-                snapshot[path] = Path(path).read_text(encoding="utf-8")
+                snapshot[path] = Path(path).read_bytes()
             except OSError:
                 pass
         return snapshot
 
-    def _restore_outputs(self, snapshot: dict[str, str]) -> None:
+    def _restore_outputs(self, snapshot: dict[str, bytes]) -> None:
         for path, content in snapshot.items():
             try:
-                Path(path).write_text(content, encoding="utf-8")
+                Path(path).write_bytes(content)
             except OSError:
                 pass
 
