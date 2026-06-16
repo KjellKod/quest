@@ -23,6 +23,7 @@ from quest_runtime.artifacts import expected_artifacts_for_role
 from quest_runtime.claude_runner import (
     DEFAULT_BG_CACHE_FILE,
     DEFAULT_BG_RUNNER_SCRIPT,
+    DEFAULT_BRIDGE_SCRIPT,
     resolve_claude_transport,
     resolve_path,
     run_claude_role,
@@ -81,7 +82,7 @@ def parse_args() -> argparse.Namespace:
         choices=["auto", "background-agent", "bridge"],
         help="Claude transport (default auto: resolve from the preflight bg cache)",
     )
-    parser.add_argument("--bridge-script", default="scripts/quest_claude_bridge.py")
+    parser.add_argument("--bridge-script", default=DEFAULT_BRIDGE_SCRIPT)
     parser.add_argument("--bg-runner-script", default=DEFAULT_BG_RUNNER_SCRIPT)
     parser.add_argument(
         "--bg-cache-file",

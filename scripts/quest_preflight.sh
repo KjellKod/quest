@@ -21,9 +21,22 @@ CACHE_TTL_SECONDS="${QUEST_PREFLIGHT_CACHE_TTL_SECONDS:-43200}"
 case "$CACHE_TTL_SECONDS" in
   ''|*[!0-9]*) CACHE_TTL_SECONDS=43200 ;;  # fallback on non-integer input
 esac
-CLAUDE_BRIDGE_SCRIPT="${QUEST_CLAUDE_BRIDGE_SCRIPT:-scripts/quest_claude_bridge.py}"
+
+# Resolve THIS script's real directory so helper scripts are found regardless of
+# the caller's cwd. Quest may be installed outside the target repo and invoked by
+# absolute path; helper paths must not resolve under the project's (often absent)
+# scripts/ dir. Symlink-safe: macOS lacks `readlink -f`, so prefer python3
+# (already a hard dependency) and fall back to `pwd -P`.
+if ! SCRIPT_DIR="$(python3 -c 'import os,sys; print(os.path.dirname(os.path.realpath(sys.argv[1])))' "${BASH_SOURCE[0]}" 2>/dev/null)"; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+fi
+
+# Helper scripts: default next to this script (env overrides win). Absolute.
+CLAUDE_BRIDGE_SCRIPT="${QUEST_CLAUDE_BRIDGE_SCRIPT:-$SCRIPT_DIR/quest_claude_bridge.py}"
+CLAUDE_BG_RUNNER_SCRIPT="${QUEST_CLAUDE_BG_RUNNER_SCRIPT:-$SCRIPT_DIR/claude_bg_run.py}"
+CLAUDE_PROBE_SCRIPT="${QUEST_CLAUDE_PROBE_SCRIPT:-$SCRIPT_DIR/quest_claude_probe.py}"
+# Project state stays cwd-relative on purpose (it lives in the target repo).
 CLAUDE_BRIDGE_CACHE_FILE="${QUEST_PREFLIGHT_CACHE_FILE:-.quest/cache/claude_bridge_codex.json}"
-CLAUDE_BG_RUNNER_SCRIPT="${QUEST_CLAUDE_BG_RUNNER_SCRIPT:-scripts/claude_bg_run.py}"
 CLAUDE_BG_CACHE_FILE="${QUEST_PREFLIGHT_BG_CACHE_FILE:-.quest/cache/claude_bg_codex.json}"
 ALLOWLIST_FILE="${QUEST_ALLOWLIST_FILE:-.ai/allowlist.json}"
 
@@ -334,7 +347,13 @@ raise SystemExit(0 if isinstance(data, list) else 1)
     local probe_stdout=""
     local probe_stderr=""
     probe_dir=$(mktemp -d 2>/dev/null || mktemp -d -t quest_preflight)
-    probe_json=$(python3 scripts/quest_claude_probe.py --quest-dir "$probe_dir" --model opus --transport background-agent --bg-runner-script "$CLAUDE_BG_RUNNER_SCRIPT" 2>/dev/null || true)
+    if [ ! -f "$CLAUDE_PROBE_SCRIPT" ]; then
+      probe_result_kind="preflight_invocation_error"
+      probe_message="quest_claude_probe.py not found at $CLAUDE_PROBE_SCRIPT"
+      probe_json=""
+    else
+      probe_json=$(python3 "$CLAUDE_PROBE_SCRIPT" --quest-dir "$probe_dir" --model opus --transport background-agent --bg-runner-script "$CLAUDE_BG_RUNNER_SCRIPT" 2>/dev/null || true)
+    fi
     if [ -n "$probe_json" ]; then
       probe_exit_code=$(printf '%s' "$probe_json" | json_get "exit_code" 2>/dev/null || true)
       probe_result_kind=$(printf '%s' "$probe_json" | json_get "result_kind" 2>/dev/null || true)
@@ -466,7 +485,13 @@ probe_claude_bridge() {
     local probe_stdout=""
     local probe_stderr=""
     probe_dir=$(mktemp -d 2>/dev/null || mktemp -d -t quest_preflight)
-    probe_json=$(python3 scripts/quest_claude_probe.py --quest-dir "$probe_dir" --model opus --bridge-script "$CLAUDE_BRIDGE_SCRIPT" 2>/dev/null || true)
+    if [ ! -f "$CLAUDE_PROBE_SCRIPT" ]; then
+      probe_result_kind="preflight_invocation_error"
+      probe_message="quest_claude_probe.py not found at $CLAUDE_PROBE_SCRIPT"
+      probe_json=""
+    else
+      probe_json=$(python3 "$CLAUDE_PROBE_SCRIPT" --quest-dir "$probe_dir" --model opus --bridge-script "$CLAUDE_BRIDGE_SCRIPT" 2>/dev/null || true)
+    fi
     if [ -n "$probe_json" ]; then
       probe_exit_code=$(printf '%s' "$probe_json" | json_get "exit_code" 2>/dev/null || true)
       probe_result_kind=$(printf '%s' "$probe_json" | json_get "result_kind" 2>/dev/null || true)

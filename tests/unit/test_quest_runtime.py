@@ -1160,3 +1160,46 @@ def test_validate_or_remap_treats_unset_active_model_as_unavailable():
     assert "planner" in remapped_roles and "builder" in remapped_roles
     assert remapped_models["planner"] == "claude"
     assert remapped_models["builder"] == "claude"
+
+
+def test_default_helper_script_paths_are_absolute_and_resolve_off_package():
+    # Regression: helper-script defaults must be absolute (resolved next to the
+    # scripts/ package), so a Claude role dispatched from a target repo without
+    # its own scripts/ dir still finds the bridge / bg-runner. Project state
+    # stays cwd-relative. See ideas/2026-06-15-bug-report-... bg-transport-step2.
+    import os
+
+    from quest_runtime.claude_runner import (
+        DEFAULT_BG_CACHE_FILE,
+        DEFAULT_BG_RUNNER_SCRIPT,
+        DEFAULT_BRIDGE_SCRIPT,
+    )
+
+    for path in (DEFAULT_BRIDGE_SCRIPT, DEFAULT_BG_RUNNER_SCRIPT):
+        assert os.path.isabs(path), f"{path} should be absolute"
+        assert os.path.exists(path), f"{path} should exist next to the package"
+    assert DEFAULT_BRIDGE_SCRIPT.endswith("scripts/quest_claude_bridge.py")
+    assert DEFAULT_BG_RUNNER_SCRIPT.endswith("scripts/claude_bg_run.py")
+    # Project cache path is intentionally cwd-relative.
+    assert not os.path.isabs(DEFAULT_BG_CACHE_FILE)
+
+
+def test_cli_probe_default_bridge_script_is_absolute():
+    # The probe's argparse default must be the absolute sibling path, not the
+    # legacy cwd-relative "scripts/quest_claude_bridge.py".
+    import os
+
+    import sys
+
+    import quest_claude_probe
+
+    # parse_args reads sys.argv; feed it only the required flag and inspect the
+    # default it fills in for --bridge-script.
+    saved = sys.argv
+    try:
+        sys.argv = ["quest_claude_probe.py", "--quest-dir", "/tmp/x"]
+        ns = quest_claude_probe.parse_args()
+    finally:
+        sys.argv = saved
+    assert os.path.isabs(ns.bridge_script)
+    assert ns.bridge_script.endswith("scripts/quest_claude_bridge.py")

@@ -385,6 +385,74 @@ test_quest_preflight_forced_background_agent_blocks_without_bridge_fallback() {
     printf '%s' "$warning_text" | grep -q "Background-agent transport not available"
 }
 
+test_quest_preflight_resolves_helpers_by_absolute_path_from_foreign_cwd() {
+  # Quest installed outside the target repo: invoke preflight by ABSOLUTE path
+  # from a cwd with no scripts/ dir and WITHOUT helper-path overrides. The
+  # script must resolve its helpers next to itself (SCRIPT_DIR), so
+  # bridge_script_exists is true regardless of cwd. (Pre-fix: false.)
+  local tmpdir bridge_exists
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_logged_in_claude "$tmpdir/bin/claude"
+  write_allowlist "$tmpdir/allowlist.json" "bridge"
+
+  bridge_exists=$(cd "$tmpdir" && PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_PREFLIGHT_CACHE_FILE="$tmpdir/bridge_cache.json" \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>/dev/null \
+    | jq -r '.checks.bridge_script_exists')
+  rm -rf "$tmpdir"
+
+  [ "$bridge_exists" = "true" ]
+}
+
+test_quest_preflight_resolves_helpers_through_symlinked_entrypoint() {
+  # A symlinked entrypoint must still resolve helpers to the REAL install dir
+  # (BASH_SOURCE points at the symlink; SCRIPT_DIR must follow it).
+  local tmpdir bridge_exists
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_logged_in_claude "$tmpdir/bin/claude"
+  write_allowlist "$tmpdir/allowlist.json" "bridge"
+  ln -s "$PREFLIGHT_SCRIPT" "$tmpdir/bin/preflight_link.sh"
+
+  bridge_exists=$(cd "$tmpdir" && PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_PREFLIGHT_CACHE_FILE="$tmpdir/bridge_cache.json" \
+    "$tmpdir/bin/preflight_link.sh" --orchestrator codex 2>/dev/null \
+    | jq -r '.checks.bridge_script_exists')
+  rm -rf "$tmpdir"
+
+  [ "$bridge_exists" = "true" ]
+}
+
+test_quest_preflight_reports_missing_probe_helper_diagnostic() {
+  # A missing probe helper yields an explicit diagnostic, not a blank message.
+  local tmpdir kind msg
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_logged_in_claude "$tmpdir/bin/claude"
+  write_success_bridge "$tmpdir/fake_bridge.py"
+  write_allowlist "$tmpdir/allowlist.json" "bridge"
+
+  local output
+  output=$(PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BRIDGE_SCRIPT="$tmpdir/fake_bridge.py" \
+    QUEST_CLAUDE_PROBE_SCRIPT="$tmpdir/does_not_exist_probe.py" \
+    QUEST_PREFLIGHT_CACHE_FILE="$tmpdir/bridge_cache.json" \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>/dev/null)
+  kind=$(printf '%s' "$output" | jq -r '.diagnostic.probe_result_kind')
+  msg=$(printf '%s' "$output" | jq -r '.diagnostic.probe_message')
+  rm -rf "$tmpdir"
+
+  [ "$kind" = "preflight_invocation_error" ] &&
+    printf '%s' "$msg" | grep -q "does_not_exist_probe.py"
+}
+
+run_test test_quest_preflight_resolves_helpers_by_absolute_path_from_foreign_cwd
+run_test test_quest_preflight_resolves_helpers_through_symlinked_entrypoint
+run_test test_quest_preflight_reports_missing_probe_helper_diagnostic
 run_test test_quest_preflight_caches_successful_codex_bridge_probe
 run_test test_quest_preflight_uses_cached_success_when_live_probe_fails
 run_test test_quest_preflight_does_not_use_cached_success_for_non_auth_probe_failure

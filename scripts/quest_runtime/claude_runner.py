@@ -57,7 +57,14 @@ CODEX_LED_CODEX_VIOLATION_GUIDANCE = (
 )
 
 
-DEFAULT_BG_RUNNER_SCRIPT = "scripts/claude_bg_run.py"
+# Helper scripts live next to this package (…/scripts/). Resolve them off
+# __file__ so they are found regardless of the caller's cwd — Quest may be
+# installed outside the target repo and invoked by absolute path (see
+# ideas/2026-06-15-bug-report-for-branch-claude/bg-transport-step2.md).
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent  # …/scripts
+DEFAULT_BRIDGE_SCRIPT = str(_SCRIPTS_DIR / "quest_claude_bridge.py")
+DEFAULT_BG_RUNNER_SCRIPT = str(_SCRIPTS_DIR / "claude_bg_run.py")
+# Project state stays cwd-relative on purpose (it lives in the target repo).
 DEFAULT_BG_CACHE_FILE = ".quest/cache/claude_bg_codex.json"
 
 # scripts/claude_bg_run.py exit codes → quest result kinds, used only when the

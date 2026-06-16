@@ -12,6 +12,7 @@ import json
 
 from quest_runtime.claude_runner import (
     DEFAULT_BG_RUNNER_SCRIPT,
+    DEFAULT_BRIDGE_SCRIPT,
     resolve_path,
     run_bg_probe,
     run_bridge_probe,
@@ -32,7 +33,7 @@ def parse_args() -> argparse.Namespace:
         choices=["bridge", "background-agent"],
         help="which transport to probe (default: bridge, backward compatible)",
     )
-    parser.add_argument("--bridge-script", default="scripts/quest_claude_bridge.py")
+    parser.add_argument("--bridge-script", default=DEFAULT_BRIDGE_SCRIPT)
     parser.add_argument("--bg-runner-script", default=DEFAULT_BG_RUNNER_SCRIPT)
     parser.add_argument("--cwd", default=".")
     return parser.parse_args()
