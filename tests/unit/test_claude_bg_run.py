@@ -264,6 +264,26 @@ def test_resume_unknown_target_is_precondition_failed(shim, tmp_path, monkeypatc
     assert "no live agent" in env.message
 
 
+def test_failed_resume_dispatch_preserves_parked_handoff(shim, tmp_path, monkeypatch, kills):
+    # Regression (PR #137 review): the parked needs_human handoff must NOT be
+    # cleared until a continuation is confirmed. With --no-fallback and a resume
+    # dispatch that never registers, the parked session lives on, so its
+    # question must still be on disk for a later retry.
+    _seed_parent(tmp_path)
+    hand = tmp_path / "handoff.json"
+    hand.write_text(json.dumps({"status": "needs_human", "questions": ["A or B?"]}))
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_fallback")  # resume never confirms
+    env = bg.BgRunner(
+        _args(shim, resume=PARENT_SID, answer="use A", handoff_file=str(hand),
+              no_fallback=True, wait_for=str(tmp_path / "out.json"))
+    ).run()
+    assert env.status == "dispatch_failed"
+    # The parked question survived the failed resume dispatch.
+    assert json.loads(hand.read_text())["questions"] == ["A or B?"]
+    # And the parked parent was not retired (no signal to its pid).
+    assert (111, bg.signal.SIGTERM) not in kills
+
+
 def test_resume_falls_back_to_fresh_dispatch(shim, tmp_path, monkeypatch):
     # Session-id-shaped target with no live row: try the resume, fall back fresh.
     wait = tmp_path / "out.json"

@@ -497,7 +497,6 @@ class BgRunner:
                 return env
             env.resumed = True
             env.resumed_from = resume_sid
-            self._clear_stale_outputs(include_wait_for=False)
             status, msg, short_id, row = self.dispatch_and_confirm(message, resume_sid)
             have_task = self.a.prompt is not None or bool(self.a.prompt_file)
             if status and self.a.fallback and have_task:
@@ -507,6 +506,8 @@ class BgRunner:
                     env.status, env.message = "precondition_failed", str(exc)
                     return env
                 env.resumed, env.fell_back = False, True
+                # Committing to a fresh run: clear the parked handoff + wait_for
+                # as the stale guard (the answer is carried into the new prompt).
                 self._clear_stale_outputs(include_wait_for=True)
                 status2, msg2, short_id, row = self.dispatch_and_confirm(fb, None)
                 if status2:
@@ -530,6 +531,14 @@ class BgRunner:
 
         env.short_id = short_id
         env.session_id = (row or {}).get("sessionId")
+
+        # Clear the parked handoff only now that the resume continuation is
+        # confirmed — a failed resume dispatch (returned above) must leave the
+        # parked session's needs_human question on disk. --wait-for files the
+        # parked agent already wrote are kept (the resumed agent won't redo
+        # them). The fallback path cleared its own stale outputs above.
+        if resume_mode and not env.fell_back:
+            self._clear_stale_outputs(include_wait_for=False)
 
         # The conversation has moved on (resumed into a new agent, or re-dispatched
         # fresh); retire the parked parent so it is not orphaned. Respects --keep.

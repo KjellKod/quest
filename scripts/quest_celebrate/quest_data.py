@@ -464,7 +464,9 @@ def _read_claude_transports(quest_dir: Path) -> Tuple[Dict[str, str], Dict[str, 
     log_path = quest_dir / "logs" / "context_health.log"
     try:
         lines = log_path.read_text(encoding="utf-8").splitlines()
-    except IOError:
+    except (OSError, UnicodeDecodeError):
+        # Optional celebration metadata: a missing/unreadable log OR malformed
+        # (non-UTF-8) bytes both degrade gracefully to "no transport data".
         return per_agent, counts
     for line in lines:
         agent_match = re.search(r"\bagent=(\S+)", line)
