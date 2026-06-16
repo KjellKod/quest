@@ -859,6 +859,56 @@ print(json.dumps({"status": "ok"}))
     assert "transport=background-agent" in log_text
 
 
+def test_run_claude_role_bg_waits_for_slow_teardown_without_killing(tmp_path):
+    # Regression (PR #137): bg mode must let claude_bg_run.py finish its own
+    # teardown instead of killing it after exit_grace_seconds — killing the child
+    # does NOT stop the detached supervisor session, so racing it would orphan
+    # the session. The fake child writes the handoff, sleeps PAST exit_grace,
+    # then writes an ".exited" marker as its last act; if the outer killed it
+    # early (the pre-fix behavior), that marker would be missing.
+    bg_runner = tmp_path / "slow_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys, time
+args = sys.argv[1:]
+handoff = args[args.index("--wait-for") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "complete", "summary": "ok"}, fh)
+time.sleep(1.0)  # well past exit_grace_seconds; stands in for session teardown
+with open(handoff + ".exited", "w") as fh:
+    fh.write("done")
+print(json.dumps({"status": "ok"}))
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    handoff_file = tmp_path / "handoff.json"
+    prompt_file.write_text("slow bg teardown\n", encoding="utf-8")
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        poll_interval=0.01,
+        exit_grace_seconds=0.2,  # pre-fix: child killed 0.2s after handoff appears
+        transport="background-agent",
+        bg_runner_script=bg_runner,
+    )
+
+    assert result.exit_code == 0
+    assert result.result_kind == "handoff_json"
+    # The child ran to completion (not SIGTERM'd mid-teardown).
+    assert (tmp_path / "handoff.json.exited").exists()
+
+
 def test_run_claude_role_bg_exit_codes_map_to_result_kinds(tmp_path):
     cases = [
         (2, "invocation_error"),

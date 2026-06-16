@@ -67,6 +67,12 @@ DEFAULT_BG_RUNNER_SCRIPT = str(_SCRIPTS_DIR / "claude_bg_run.py")
 # Project state stays cwd-relative on purpose (it lives in the target repo).
 DEFAULT_BG_CACHE_FILE = ".quest/cache/claude_bg_codex.json"
 
+# Background-agent teardown can take several signal attempts after the child's
+# own --timeout fires. Wait this much BEYOND `timeout` for claude_bg_run.py to
+# finish (including teardown) before terminating it — killing the child does not
+# stop the detached supervisor session, so racing it would orphan the session.
+_BG_TEARDOWN_MARGIN_SECONDS = 30.0
+
 # scripts/claude_bg_run.py exit codes → quest result kinds, used only when the
 # handoff contract was NOT satisfied (a found handoff always wins).
 # 2 precondition / 3 dispatch_failed / 4 blocked: daemon, auth, or bypass
@@ -638,53 +644,74 @@ def run_claude_role(
     stderr = ""
     timed_out = False
 
-    while time.monotonic() < deadline:
-        handoff_state = classify_handoff_file(resolved_handoff_file)
-        artifacts_complete = (
-            not resolved_artifact_paths
-            or not any_artifact_missing_or_empty(resolved_artifact_paths)
-        )
-        if handoff_state == "found" and artifacts_complete:
+    if transport == "background-agent":
+        # The child (claude_bg_run.py) owns confirm -> wait -> teardown and exits
+        # with a meaningful code (ok / needs_human / timeout / bg error). Killing
+        # the child does NOT stop the detached supervisor session, so we must not
+        # race it the way we poll-and-kill the bridge. Wait for it to finish (its
+        # own --timeout plus a teardown margin), then classify from the handoff +
+        # exit code below. Only a pathological overrun terminates it as a last
+        # resort.
+        try:
+            stdout, stderr = process.communicate(
+                timeout=timeout + _BG_TEARDOWN_MARGIN_SECONDS
+            )
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            process.terminate()
             try:
                 stdout, stderr = process.communicate(timeout=exit_grace_seconds)
             except subprocess.TimeoutExpired:
-                process.terminate()
+                process.kill()
+                stdout, stderr = process.communicate()
+    else:
+        while time.monotonic() < deadline:
+            handoff_state = classify_handoff_file(resolved_handoff_file)
+            artifacts_complete = (
+                not resolved_artifact_paths
+                or not any_artifact_missing_or_empty(resolved_artifact_paths)
+            )
+            if handoff_state == "found" and artifacts_complete:
                 try:
                     stdout, stderr = process.communicate(timeout=exit_grace_seconds)
                 except subprocess.TimeoutExpired:
-                    process.kill()
-                    stdout, stderr = process.communicate()
-            append_context_health_log(
-                resolved_quest_dir,
-                phase=phase,
-                agent=agent,
-                iteration=iteration,
-                handoff_state=handoff_state,
-                source="handoff_json",
-                status=read_handoff_status(resolved_handoff_file),
-                transport=transport,
-            )
-            return RunResult(
-                exit_code=0,
-                handoff_state=handoff_state,
-                result_kind="handoff_json",
-                source="handoff_json",
-                stdout=stdout,
-                stderr=stderr,
-            )
-        if process.poll() is not None:
-            stdout, stderr = process.communicate()
-            break
-        time.sleep(poll_interval)
+                    process.terminate()
+                    try:
+                        stdout, stderr = process.communicate(timeout=exit_grace_seconds)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        stdout, stderr = process.communicate()
+                append_context_health_log(
+                    resolved_quest_dir,
+                    phase=phase,
+                    agent=agent,
+                    iteration=iteration,
+                    handoff_state=handoff_state,
+                    source="handoff_json",
+                    status=read_handoff_status(resolved_handoff_file),
+                    transport=transport,
+                )
+                return RunResult(
+                    exit_code=0,
+                    handoff_state=handoff_state,
+                    result_kind="handoff_json",
+                    source="handoff_json",
+                    stdout=stdout,
+                    stderr=stderr,
+                )
+            if process.poll() is not None:
+                stdout, stderr = process.communicate()
+                break
+            time.sleep(poll_interval)
 
-    if process.poll() is None:
-        timed_out = True
-        process.terminate()
-        try:
-            stdout, stderr = process.communicate(timeout=exit_grace_seconds)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            stdout, stderr = process.communicate()
+        if process.poll() is None:
+            timed_out = True
+            process.terminate()
+            try:
+                stdout, stderr = process.communicate(timeout=exit_grace_seconds)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
 
     handoff_state = classify_handoff_file(resolved_handoff_file)
     text_handoff = extract_text_handoff(stdout)
