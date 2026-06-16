@@ -984,6 +984,7 @@ def run_bg_probe(
         model=model,
         timeout=timeout,
         permission_mode=permission_mode,
+        handoff_file=handoff_file,
         wait_for=[handoff_file, artifact_file],
         add_dirs=[
             resolve_path(cwd, "."),

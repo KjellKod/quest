@@ -766,6 +766,43 @@ def test_build_bg_cmd_pins_argv_with_handoff_file_and_needs_human_teardown(tmp_p
     assert cmd[cmd.index("--wait-for") + 1] == str(tmp_path / "handoff.json")
 
 
+def test_run_bg_probe_dispatches_through_build_bg_cmd(tmp_path):
+    # Regression (PR #137 review): build_bg_cmd gained a required handoff_file
+    # arg; run_bg_probe must pass it, or the real bg preflight raises TypeError
+    # (auto silently downgrades, forced background-agent fails) even on a
+    # correctly configured machine.
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--handoff-file") + 1]
+waits = [args[i + 1] for i, a in enumerate(args) if a == "--wait-for"]
+with open(handoff, "w") as fh:
+    json.dump({"status": "complete", "summary": "probe ok"}, fh)
+for w in waits:
+    if w != handoff:
+        with open(w, "w") as fh:
+            fh.write("ok")
+print(json.dumps({"status": "ok"}))
+""",
+    )
+
+    result = claude_runner_module.run_bg_probe(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        bg_runner_script=bg_runner,
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+    )
+
+    assert result.exit_code == 0
+    assert result.result_kind == "handoff_json"
+    assert result.handoff_state == "found"
+
+
 def test_bg_session_name_scheme():
     assert (
         claude_runner_module.bg_session_name("my-quest_2026", "code-reviewer-a", 3)
