@@ -351,7 +351,10 @@ def _handoff_status_stats(archive_root: Path) -> dict:
                 lines = (quest / "logs" / "context_health.log").read_text(
                     encoding="utf-8"
                 ).splitlines()
-            except OSError:
+            except (OSError, UnicodeDecodeError):
+                # A malformed (non-UTF-8) archived log must not crash this
+                # optional rollup; skip it, matching the graceful-degradation
+                # contract used for celebration metadata.
                 continue
             quest_has_status = False
             for line in lines:

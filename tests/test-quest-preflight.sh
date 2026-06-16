@@ -385,6 +385,38 @@ test_quest_preflight_forced_background_agent_blocks_without_bridge_fallback() {
     printf '%s' "$warning_text" | grep -q "Background-agent transport not available"
 }
 
+test_quest_preflight_rejects_invalid_transport_config() {
+  # A present-but-invalid claude_role_transport must fail closed with a config
+  # diagnostic — never be coerced to "auto" (a typo could pick a different
+  # billing path or silently downgrade to the bridge).
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_logged_in_claude "$tmpdir/bin/claude"
+  write_success_bridge "$tmpdir/fake_bridge.py"
+  write_allowlist "$tmpdir/allowlist.json" "bridg"
+
+  local output rc available transport kind warning_text
+  output=$(PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BRIDGE_SCRIPT="$tmpdir/fake_bridge.py" \
+    QUEST_PREFLIGHT_BG_CACHE_FILE="$tmpdir/claude_bg_cache.json" \
+    QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+  rc=$?
+  available=$(printf '%s' "$output" | jq -r '.available')
+  transport=$(printf '%s' "$output" | jq -r '.transport')
+  kind=$(printf '%s' "$output" | jq -r '.diagnostic.probe_result_kind')
+  warning_text=$(printf '%s' "$output" | jq -r '.warning | join(" ")')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$available" = "false" ] &&
+    [ "$transport" = "bridg" ] &&
+    [ "$kind" = "invalid_transport_config" ] &&
+    printf '%s' "$warning_text" | grep -q "Invalid claude_role_transport 'bridg'"
+}
+
 test_quest_preflight_resolves_helpers_by_absolute_path_from_foreign_cwd() {
   # Quest installed outside the target repo: invoke preflight by ABSOLUTE path
   # from a cwd with no scripts/ dir and WITHOUT helper-path overrides. The
@@ -459,6 +491,7 @@ run_test test_quest_preflight_does_not_use_cached_success_for_non_auth_probe_fai
 run_test test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds
 run_test test_quest_preflight_auto_downgrades_loudly_to_bridge
 run_test test_quest_preflight_forced_background_agent_blocks_without_bridge_fallback
+run_test test_quest_preflight_rejects_invalid_transport_config
 
 echo ""
 echo "Tests run: $TESTS_RUN"

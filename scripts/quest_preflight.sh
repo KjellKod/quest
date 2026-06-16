@@ -277,14 +277,42 @@ EOJSON
 ###############################################################################
 
 configured_claude_transport() {
+  # Echo the raw configured value (empty when the key is absent). Validation —
+  # including failing closed on a present-but-invalid value — happens in
+  # probe_claude_transport so a typo can never be silently coerced to a default.
   local value=""
   if [ -f "$ALLOWLIST_FILE" ]; then
     value=$(json_get "claude_role_transport" < "$ALLOWLIST_FILE" 2>/dev/null || true)
   fi
-  case "$value" in
-    auto|background-agent|bridge) echo "$value" ;;
-    *) echo "auto" ;;
-  esac
+  printf '%s' "$value"
+}
+
+# Emit an available:false payload for a present-but-invalid claude_role_transport
+# (config error). Fails closed with a diagnostic instead of probing/downgrading.
+emit_invalid_transport_payload() {
+  local configured="$1"
+  local warning_lines=""
+  warning_lines="    \"Invalid claude_role_transport '${configured}' in .ai/allowlist.json -- expected auto, background-agent, or bridge.\",\n"
+  warning_lines="${warning_lines}    \"Fix or remove the key; preflight will not coerce an invalid transport to a default (it could resume under a different billing path).\""
+  cat <<EOJSON
+{
+  "orchestrator": "codex",
+  "second_model": "claude",
+  "transport": $(json_quote_or_null "$configured"),
+  "transport_downgraded": false,
+  "source": "config",
+  "runtime_requirement": null,
+  "available": false,
+  "checks": {
+    "config_valid": false
+  },
+  "diagnostic": {
+    "probe_result_kind": "invalid_transport_config",
+    "probe_message": $(json_quote_or_null "claude_role_transport='${configured}' is not one of auto|background-agent|bridge")
+  },
+  "warning": $(printf '[\n%b\n  ]' "$warning_lines")
+}
+EOJSON
 }
 
 # Sets CLAUDE_CLI_INSTALLED / CLAUDE_AUTH_LOGGED_IN globals (shared by probes).
@@ -599,6 +627,9 @@ probe_claude_transport() {
   configured=$(configured_claude_transport)
 
   case "$configured" in
+    ""|auto)
+      : # absent/empty or explicit auto → the auto path below
+      ;;
     bridge)
       probe_claude_bridge "false" ""
       return 0
@@ -607,6 +638,12 @@ probe_claude_transport() {
       # Forced: no silent bridge fallback — an unavailable bg transport blocks
       # with remediation in the payload warning.
       probe_claude_bg
+      return 0
+      ;;
+    *)
+      # Present but invalid: fail closed with a config diagnostic. Never coerce a
+      # typo to auto — that could silently pick a different billing path.
+      emit_invalid_transport_payload "$configured"
       return 0
       ;;
   esac
