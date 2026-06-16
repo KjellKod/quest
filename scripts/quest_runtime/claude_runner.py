@@ -722,10 +722,22 @@ def run_claude_role(
                 stdout, stderr = process.communicate()
 
     handoff_state = classify_handoff_file(resolved_handoff_file)
+    handoff_status = read_handoff_status(resolved_handoff_file)
     text_handoff = extract_text_handoff(stdout)
     artifacts_complete = (
         not resolved_artifact_paths
         or not any_artifact_missing_or_empty(resolved_artifact_paths)
+    )
+    # A found handoff whose status is a terminal state the role legitimately
+    # reaches WITHOUT writing primary artifacts (needs_human asks for a decision;
+    # blocked gives up) is a real handoff result, not a missing-artifact failure.
+    # Treat it as one so the orchestrator enters the human path instead of
+    # retrying/falling back, and so the status= health-log line is recorded.
+    handoff_terminal_without_artifacts = (
+        handoff_state == "found" and handoff_status in {"needs_human", "blocked"}
+    )
+    handoff_result = handoff_state == "found" and (
+        artifacts_complete or handoff_terminal_without_artifacts
     )
 
     if transport == "background-agent" and (process.returncode or 0) != 0:
@@ -742,7 +754,7 @@ def run_claude_role(
     )
     result_kind = (
         "handoff_json"
-        if handoff_state == "found" and artifacts_complete
+        if handoff_result
         else (
             "timeout"
             if timed_out
@@ -756,12 +768,8 @@ def run_claude_role(
             )
         )
     )
-    source = "handoff_json" if handoff_state == "found" and artifacts_complete else None
-    exit_code = (
-        0
-        if handoff_state == "found" and artifacts_complete
-        else process.returncode or 1
-    )
+    source = "handoff_json" if handoff_result else None
+    exit_code = 0 if handoff_result else process.returncode or 1
     result = RunResult(
         exit_code=exit_code,
         handoff_state=handoff_state,
@@ -771,7 +779,11 @@ def run_claude_role(
         stderr=stderr,
     )
 
-    if not permission_escalation and resolved_artifact_paths:
+    if (
+        not permission_escalation
+        and resolved_artifact_paths
+        and result.source != "handoff_json"
+    ):
         failure_kind = classify_failure_kind(
             result,
             resolved_artifact_paths,
@@ -847,7 +859,7 @@ def run_claude_role(
             iteration=iteration,
             handoff_state=result.handoff_state,
             source="handoff_json",
-            status=read_handoff_status(resolved_handoff_file),
+            status=handoff_status,
             transport=transport,
         )
 

@@ -1182,6 +1182,59 @@ print(json.dumps({"status": "ok"}))
     assert "transport=background-agent" in log_text
 
 
+def test_run_claude_role_bg_needs_human_with_artifacts_is_handoff_result(tmp_path):
+    # PR #137 review: a needs_human handoff written WITHOUT the primary artifacts
+    # must classify as a handoff result (not a handoff_missing failure), so the
+    # orchestrator enters the human path instead of retrying/falling back, and
+    # the status=needs_human health-log line is still recorded. Pre-fix this was
+    # handoff_missing with no status= line.
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--handoff-file") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "needs_human", "questions": ["which auth flow?"]}, fh)
+print(json.dumps({"status": "needs_human"}))
+sys.exit(10)
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    handoff_file = tmp_path / "handoff.json"
+    artifact = tmp_path / "review_findings.json"  # role asks instead of writing this
+    prompt_file.write_text("bg needs_human with artifacts\n", encoding="utf-8")
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="review",
+        agent="code-reviewer-a",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        artifact_paths=[artifact],
+        poll_interval=0.01,
+        exit_grace_seconds=0.2,
+        transport="background-agent",
+        bg_runner_script=bg_runner,
+    )
+
+    assert result.result_kind == "handoff_json"
+    assert result.source == "handoff_json"
+    assert result.exit_code == 0
+    # The artifact is pre-created (truncated) but left EMPTY — the role asked a
+    # question instead of producing it, yet this is still a handoff result.
+    assert artifact.read_text(encoding="utf-8") == ""
+    log_text = (tmp_path / "logs" / "context_health.log").read_text(encoding="utf-8")
+    assert "status=needs_human" in log_text
+
+
 def test_validate_or_remap_treats_unset_active_model_as_unavailable():
     from quest_runtime.orchestration import validate_or_remap_models_for_orchestrator
 
