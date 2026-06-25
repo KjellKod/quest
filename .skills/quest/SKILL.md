@@ -58,13 +58,14 @@ The script is at the **repository root** (`scripts/quest_preflight.sh`), NOT ins
 
      Options:
        1. Fix it now and rerun preflight (recommended)
-       2. Use the Claude bridge for this run (API-metered)
+       2. Use the Claude bridge for this run (API-metered) — Codex-led sessions only
        3. Continue with a single-model quest for this run
        4. Cancel
      ```
+   - **Option 2 applies only to Codex-led sessions.** There, `available: false` means the Claude background-agent transport could not be proven, and the bridge is the alternate (API-metered) Claude transport. In a Claude-led session, `available: false` instead means Codex MCP is unavailable — the bridge is irrelevant, so omit option 2, renumber the remaining choices, and route the user to Codex MCP remediation (fix), single-model, or cancel.
    - If the user selects "fix it now", do not create the quest folder yet. Let them complete the remediation, then rerun Step 2b.
    - If this is a Codex-led session with `claude_role_transport` unset or `auto`, the common remediation is: `claude --dangerously-skip-permissions`; accept the prompt; exit Claude; return here and rerun preflight.
-   - If the user selects "Use the Claude bridge", make the bridge opt-in explicit for this run before creating the quest folder: rerun preflight with `QUEST_CLAUDE_ROLE_TRANSPORT=bridge ./scripts/quest_preflight.sh --orchestrator codex`, show the API-metering warning, and carry that bridge preflight result into orchestration writing (`claude_role_transport: "bridge"`, `claude_transport_resolved: "bridge"`). If that bridge probe fails too, return to these options.
+   - If the user selects "Use the Claude bridge" (Codex-led sessions only), make the bridge opt-in explicit for this run before creating the quest folder: rerun preflight with `QUEST_CLAUDE_ROLE_TRANSPORT=bridge ./scripts/quest_preflight.sh --orchestrator codex`, show the API-metering warning, and carry that bridge preflight result into orchestration writing (`claude_role_transport: "bridge"`, `claude_transport_resolved: "bridge"`). If that bridge probe fails too, return to these options.
    - For Codex-led sessions, prefer `claude auth login` as the default interactive fix when Claude CLI auth is missing. If the warning indicates a restricted sandbox may be hiding auth state, rerun the preflight with whatever permissions are needed to read the real Claude CLI auth state.
    - For Claude-led sessions, use the warning lines to guide Codex MCP install/auth remediation before rerunning Step 2b.
    - Append "(Claude-only)" or "(Codex-only)" to solo/full quest option labels.
