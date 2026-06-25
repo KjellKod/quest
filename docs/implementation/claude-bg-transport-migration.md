@@ -33,11 +33,12 @@ corresponding details below:
    completion, teardown, and the resume relay — the quest runtime invokes it as
    a subprocess exactly like the bridge (one selector, two argv builders), so no
    `dispatch_bg()` is added to `claude_runner.py`.
-2. **`claude logs|stop|rm` do not exist as subcommands** on the current CLI
-   (2.1.173) — they parse as a *prompt* and silently no-op. Teardown signals the
-   `pid` carried in the session's `agents --json` row until the row settles;
-   logs come from the transcript JSONL. Fact 3 below and every stop/rm mention
-   are corrected accordingly (see Step-1 doc, findings F1/F9).
+2. **Claude bg management commands have changed across 2.1.x.** On the tested
+   2.1.173 CLI, `claude logs|stop|rm` parsed as a *prompt* and silently no-oped.
+   On 2.1.191, `claude logs <id>` and `claude stop <id>` are real subcommands.
+   The runner still uses the portable fallback: teardown signals the `pid` carried
+   in the session's `agents --json` row until the row settles, and logs come from
+   the transcript JSONL. Adopting `logs`/`stop` directly is follow-up cleanup.
 3. **Rollout collapsed to auto-from-day-one** (user decision, 2026-06-11): the
    dark-launch phase's purpose was served by Step 1's live end-to-end
    validation, so the repo ships `claude_role_transport: "auto"` directly.
@@ -67,14 +68,18 @@ sessions (native `Task(...)`) are untouched.
 Checked live in this repo's environment (Claude Code 2.1.159, auto-updated to
 2.1.170 mid-session) and against `code.claude.com/docs/en/agent-view.md`:
 
-1. `claude --bg "<prompt>"` dispatches a detached background session and prints:
-   `backgrounded · <shortID> [· <name>]` plus the management commands. Confirmed
-   live (an idle no-prompt dispatch printed `backgrounded · e590de4c (idle — send
-   a prompt to start)`).
+1. `claude --bg` dispatches a detached background session and prints:
+   `backgrounded · <shortID> [· <name>]` plus management hints. In 2.1.191,
+   positional prompt delivery (`claude --bg "<prompt>"`) registers a session but
+   can park at `idle — send a prompt to start`; the runner sends the prompt on
+   stdin instead.
 2. `claude agents --json` prints live sessions as a JSON array
    (`pid, cwd, kind, startedAt, sessionId[, name, status]`) and needs no TTY.
-3. `claude attach|logs|stop|respawn|rm <id>` and `claude daemon status` exist.
-   State lives in `~/.claude/jobs/<id>/state.json` + `~/.claude/daemon/roster.json`.
+3. Management command availability varies across 2.1.x. `claude attach <id>` and
+   `claude daemon status` are established surfaces; 2.1.191 also exposes
+   `claude logs <id>` and `claude stop <id>`. The runner does not currently
+   depend on `logs`, `stop`, or `rm`; state lives in `~/.claude/jobs/<id>/state.json`
+   + `~/.claude/daemon/roster.json`.
 4. Billing: subscription pool, verbatim quote above; the supervisor
    "authenticate[s] with the same credentials as your interactive sessions."
 5. **Dispatch can false-positive.** In this sandboxed container the `--bg`

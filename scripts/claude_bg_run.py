@@ -30,7 +30,7 @@ It is also the "noise firewall": the orchestrator only ever sees the tiny
 envelope below, never the raw ANSI TUI buffer. `pty_capture()` demonstrates the
 same strip-to-signal behavior for the interactive (`attach`) responder path.
 
-Transport facts this encodes (validated against Claude Code 2.1.170+):
+Transport facts this encodes (observed across Claude Code 2.1.x):
   * `claude --bg` prints `backgrounded · <id>[ · <name>]` and may exit 0 even on
     the bypass-acceptance refusal, so success requires parsing the id AND
     confirming via `claude agents --json` — not the exit code.
@@ -39,11 +39,11 @@ Transport facts this encodes (validated against Claude Code 2.1.170+):
     (idle, awaiting-input) session ALSO reads `state==blocked`, so resume-mode
     polling must never match the parked parent's row (id/name take precedence
     over sessionId).
-  * There are NO `claude logs|stop|rm` subcommands — those argv parse as a
-    PROMPT and silently do nothing. Teardown = signal the `pid` carried in the
-    session's `agents --json` row, repeating against the row's CURRENT pid until
-    it settles (the daemon respawns a parked session once from its spare pool).
-    Logs come from the transcript at ~/.claude/projects/<project>/<sessionId>.jsonl.
+  * Early 2.1.x builds did not expose scriptable `logs|stop|rm`; this runner
+    still uses the portable fallback: transcript JSONL for log tails and
+    signalling the `pid` carried in the `agents --json` row. Claude Code 2.1.191
+    exposes real `claude logs <id>` and `claude stop <id>` commands; adopting
+    those subcommands is tracked as follow-up cleanup.
   * `claude --bg --resume <sid>` FORKS: the new agent continues the conversation
     under a NEW sessionId (daemon roster: launch.mode=resume, fork=true).
 
@@ -263,8 +263,9 @@ class BgRunner:
     def logs_tail(self, session_id: str | None) -> str:
         """Tail of the session transcript (~/.claude/projects/*/<sid>.jsonl).
 
-        There is no `claude logs` subcommand; the transcript JSONL is the log.
-        Returns the last few assistant-text lines, distilled.
+        Claude Code 2.1.191 has `claude logs <id>`, but this runner still uses
+        transcript JSONL as the portable fallback. Returns the last few
+        assistant-text lines, distilled.
         """
         if not session_id:
             return ""
@@ -291,12 +292,13 @@ class BgRunner:
     def stop_session(self, short_id: str | None) -> None:
         """Stop a background agent by signalling its supervisor-reported pid.
 
-        `claude stop|rm` do not exist as subcommands (they parse as a prompt and
-        no-op). The daemon may RESPAWN a parked session once from its spare pool
-        after a kill (the row keeps its id but shows a fresh pid), so keep
-        signalling the row's *current* pid until the row settles — drops its pid
-        ("settled (killed)" in the daemon log) or leaves the listing. Settled
-        rows may linger pid-less in `agents --json`; that is retired enough.
+        Claude Code 2.1.191 has `claude stop <id>`, but this runner still uses
+        the older pid-signalling fallback. The daemon may RESPAWN a parked
+        session once from its spare pool after a kill (the row keeps its id but
+        shows a fresh pid), so keep signalling the row's *current* pid until the
+        row settles — drops its pid ("settled (killed)" in the daemon log) or
+        leaves the listing. Settled rows may linger pid-less in `agents --json`;
+        that is retired enough.
         """
         if not short_id:
             return
@@ -626,6 +628,8 @@ class BgRunner:
                     break
                 if state == "blocked":
                     env.status = "blocked"
+                    # Opportunistic only: Claude Code 2.1.191's initial-prompt
+                    # parked signal was observed in dispatch stdout, not here.
                     detail = row.get("waitingFor") or row.get("needs") or row.get("detail")
                     detail_text = str(detail) if detail else ""
                     if "send a prompt to start" in detail_text.lower():

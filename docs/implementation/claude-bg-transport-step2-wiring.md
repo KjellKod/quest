@@ -26,7 +26,7 @@ Current status: the policy, diagnostics, and Claude Code 2.1.191 prompt delivery
 
 **Design invariant** (from the migration spec): the swap happens entirely underneath `scripts/quest_claude_runner.py`. Role prompts, handoff contract, artifact prep, Tier A/B/C ladder, `context_health.log` keep their contracts. Only the mechanism that gets a prompt to a Claude process changes.
 
-**Supersedes one spec detail:** `docs/implementation/claude-bg-transport-migration.md` (written pre-Step-1) proposed reimplementing dispatch/confirm/teardown (`dispatch_bg()`, T1–T5) *inside* `quest_runtime/claude_runner.py`. Step 1 already encapsulates all of that in `claude_bg_run.py` with the same file contract and distinct exit codes. **DRY/KISS: invoke `claude_bg_run.py` as a subprocess exactly the way the bridge is invoked** — one selector, two argv builders, same poll/classify/health-log machinery. The spec also predates the discovery that `claude logs/stop/rm` are not real subcommands (corrected in Step 1).
+**Supersedes one spec detail:** `docs/implementation/claude-bg-transport-migration.md` (written pre-Step-1) proposed reimplementing dispatch/confirm/teardown (`dispatch_bg()`, T1–T5) *inside* `quest_runtime/claude_runner.py`. Step 1 already encapsulates all of that in `claude_bg_run.py` with the same file contract and distinct exit codes. **DRY/KISS: invoke `claude_bg_run.py` as a subprocess exactly the way the bridge is invoked** — one selector, two argv builders, same poll/classify/health-log machinery. The spec also predates the 2.1.x management-command churn: the runner uses transcript/pid fallbacks while 2.1.191 exposes `claude logs <id>` and `claude stop <id>`.
 
 ## Key design decisions (read before coding)
 
@@ -92,7 +92,7 @@ Only shown when Codex called Claude (i.e., `transport=` entries exist in `contex
 4. `docs/guides/quest_setup.md`: one-time machine setup — `claude login`; one-time interactive `claude --dangerously-skip-permissions` acceptance; CLI ≥ 2.1.143; how to check (`claude agents --json` returns JSON).
 5. `scripts/quest_validate-handoff-contracts.sh`: update grep-count contract checks for the renamed workflow section + new transport prose.
 6. `.quest-manifest`: add every new/moved file (validated by `scripts/quest_validate-manifest.sh` — the commit skill runs it).
-7. `docs/implementation/claude-bg-transport-migration.md`: revise in place — status `active`, add a short "Revisions (2026-06-11)" section: claude_bg_run.py subsumes T1–T5; no `logs/stop/rm` subcommands (pid teardown); rollout collapsed to auto-from-day-one (user decision; Phase-0 evidence = Step 1's live validation); link this plan.
+7. `docs/implementation/claude-bg-transport-migration.md`: revise in place — status `active`, add a short "Revisions (2026-06-11)" section: claude_bg_run.py subsumes T1–T5; management commands changed across 2.1.x, so the runner keeps transcript/pid fallbacks while direct `logs`/`stop` adoption remains follow-up cleanup; rollout collapsed to auto-from-day-one (user decision; Phase-0 evidence = Step 1's live validation); link this plan.
 8. This plan is committed as `docs/implementation/claude-bg-transport-step2-wiring.md` (frontmatter: status `active`) and indexed in `docs/implementation/README.md`.
 
 ### Step F — ideas archival (user decision: aggressive sweep)

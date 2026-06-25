@@ -72,7 +72,8 @@ if args[:1] == ["--bg"]:
 if args[:2] == ["agents", "--json"]:
     print(json.dumps(rows()))
     sys.exit(0)
-# Anything else (e.g. the nonexistent logs/stop/rm) parses as a PROMPT: no-op.
+# Older Claude Code builds treated unknown management verbs as a prompt. This
+# shim keeps that historical behavior for tests that exercise pid fallback paths.
 log("unknown " + " ".join(args[:2]))
 sys.exit(0)
 '''
