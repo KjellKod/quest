@@ -4,7 +4,7 @@ Codex-led Claude roles run through one of two transports, both invoked as
 subprocesses speaking the same file contract (poll handoff.json + artifacts):
   * background-agent (default via "auto"): scripts/claude_bg_run.py —
     `claude --bg` sessions billed to the subscription pool.
-  * bridge (fallback / forced API path): scripts/quest_claude_bridge.py —
+  * bridge (explicit API path): scripts/quest_claude_bridge.py —
     `claude --print`, works without the background-agent daemon.
 """
 
@@ -64,8 +64,6 @@ CODEX_LED_CODEX_VIOLATION_GUIDANCE = (
 _SCRIPTS_DIR = Path(__file__).resolve().parent.parent  # …/scripts
 DEFAULT_BRIDGE_SCRIPT = str(_SCRIPTS_DIR / "quest_claude_bridge.py")
 DEFAULT_BG_RUNNER_SCRIPT = str(_SCRIPTS_DIR / "claude_bg_run.py")
-# Project state stays cwd-relative on purpose (it lives in the target repo).
-DEFAULT_BG_CACHE_FILE = ".quest/cache/claude_bg_codex.json"
 
 # Background-agent teardown can take several signal attempts after the child's
 # own --timeout fires. Wait this much BEYOND `timeout` for claude_bg_run.py to
@@ -317,50 +315,38 @@ def _bg_failure_detail(stdout: str) -> str:
     return "; ".join(parts)
 
 
-def load_bg_transport_available(cache_path: str | Path) -> bool:
-    """True when the preflight bg cache proves the background-agent transport.
-
-    Honors the cache wrapper's own TTL (cached_at_epoch + ttl_seconds) because
-    the standalone runner has no quest-start timestamp to enforce instead.
-    """
-    try:
-        with Path(cache_path).open("r", encoding="utf-8") as handle:
-            wrapper = json.load(handle)
-    except (OSError, json.JSONDecodeError):
-        return False
-    if not isinstance(wrapper, dict):
-        return False
-    payload = wrapper.get("payload")
-    if not isinstance(payload, dict) or payload.get("available") is not True:
-        return False
-    cached_at_epoch = wrapper.get("cached_at_epoch")
-    ttl_seconds = wrapper.get("ttl_seconds")
-    if isinstance(cached_at_epoch, int) and isinstance(ttl_seconds, int):
-        if time.time() > cached_at_epoch + ttl_seconds:
-            return False
-    return True
+def classify_bg_probe_failure(stderr: str) -> str | None:
+    """Return a specific bg preflight failure kind when stderr is recognizable."""
+    normalized = stderr.lower()
+    if "dangerously-skip-permissions" in normalized or (
+        "bypasspermissions" in normalized and "accepted" in normalized
+    ):
+        return "bypass_not_accepted"
+    if (
+        "send a prompt to start" in normalized
+        or "did not consume the initial prompt" in normalized
+    ):
+        return "bg_initial_prompt_not_consumed"
+    if "sessionstart" in normalized and (
+        "permission denied" in normalized or "hook" in normalized
+    ):
+        return "hook_startup_failed"
+    return None
 
 
-def resolve_claude_transport(
-    transport: str,
-    *,
-    bg_cache_file: str | Path = DEFAULT_BG_CACHE_FILE,
-) -> tuple[str, bool]:
-    """Resolve a configured transport to (resolved, downgraded).
+def resolve_claude_transport(transport: str) -> str:
+    """Resolve a configured transport to the concrete runner transport.
 
-    "auto" → background-agent when the preflight bg cache proves it, else a
-    DOWNGRADE to bridge (downgraded=True so callers can report it loudly).
-    Forced values pass through unchanged (forced background-agent that cannot
-    dispatch fails at run time — never silently bridges).
+    "auto" → background-agent. Quest startup preflight is responsible for
+    proving it first; if this helper is reached without a cache, it still must
+    not silently choose the API-metered bridge. Explicit bridge passes through.
     """
     if transport == "background-agent":
-        return "background-agent", False
+        return "background-agent"
     if transport == "bridge":
-        return "bridge", False
+        return "bridge"
     if transport == "auto":
-        if load_bg_transport_available(bg_cache_file):
-            return "background-agent", False
-        return "bridge", True
+        return "background-agent"
     raise ValueError(
         f"transport must be auto|background-agent|bridge (got {transport!r})"
     )
@@ -1014,14 +1000,15 @@ def run_bg_probe(
         detail = _bg_failure_detail(cp.stdout)
         if detail:
             stderr = f"{stderr}\n{detail}".strip()
+    specific_failure = classify_bg_probe_failure(stderr)
     if probe_ok:
         result_kind = "handoff_json"
     elif handoff_state == "found" and not artifact_present:
         result_kind = "handoff_missing"
     else:
-        result_kind = _BG_EXIT_RESULT_KINDS.get(exit_code) or classify_result_kind(
-            exit_code, stderr, handoff_state
-        )
+        result_kind = specific_failure or _BG_EXIT_RESULT_KINDS.get(
+            exit_code
+        ) or classify_result_kind(exit_code, stderr, handoff_state)
     return RunResult(
         exit_code=exit_code,
         handoff_state=handoff_state,

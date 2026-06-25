@@ -236,7 +236,7 @@ When Codex orchestrates a quest, Claude-designated roles run through `scripts/qu
 | Transport | Mechanism | Billing | When |
 |---|---|---|---|
 | **background-agent** (preferred) | `scripts/claude_bg_run.py` → `claude --bg` daemon-hosted session | **subscription pool** | default on dev machines once the one-time setup below is done |
-| **bridge** (fallback / forced) | `scripts/quest_claude_bridge.py` → `claude --print` | **API-metered after June 15, 2026** | daemonless contexts (CI, containers), `ANTHROPIC_API_KEY` billing, or loud downgrade when the bg probe fails |
+| **bridge** (explicit) | `scripts/quest_claude_bridge.py` → `claude --print` | **API-metered after June 15, 2026** | daemonless contexts (CI, containers), `ANTHROPIC_API_KEY` billing, or an explicit user/config opt-in |
 
 ### One-time machine setup for the background-agent transport
 
@@ -244,7 +244,17 @@ When Codex orchestrates a quest, Claude-designated roles run through `scripts/qu
 2. Accept bypass mode once interactively: run `claude --dangerously-skip-permissions`, accept the disclaimer, exit. Background sessions refuse `bypassPermissions` until this has been done once per machine.
 3. Claude CLI ≥ 2.1.143 (`claude --version`); sanity check: `claude agents --json` must print a JSON array.
 
-With `auto` (the default), preflight probes the background-agent transport first and **downgrades loudly** to the bridge if it fails — the downgrade is recorded in `.quest/<id>/orchestration.json` (`claude_transport_downgraded: true`) and surfaced in the preflight `warning`. Forcing `"background-agent"` makes an unavailable transport block with remediation instead of bridging; forcing `"bridge"` is the deliberate API-billing path.
+With `auto` (the default), preflight probes the background-agent transport first. If it fails, Quest stops and asks you to fix bg, explicitly use the API-metered bridge for this run, continue single-model, or cancel. Forcing `"background-agent"` also blocks with remediation when unavailable; forcing `"bridge"` is the deliberate API-billing path.
+
+If the warning says `bypassPermissions` is not accepted, run:
+
+```bash
+claude --dangerously-skip-permissions
+```
+
+Accept the prompt, exit Claude, return to Quest, and rerun preflight.
+
+Quest sends the initial background prompt on stdin, not as a trailing argv argument. This is required for Claude Code 2.1.191, where positional prompt delivery registers a session but parks it at `idle — send a prompt to start`. If Quest still reports `bg_initial_prompt_not_consumed`, treat that as a bg prompt-delivery regression and use `"bridge"` only if you explicitly accept API-metered bridge billing.
 
 **Prerequisites (both transports):** Claude CLI installed and authenticated (`claude auth status` should show a valid session).
 
@@ -269,7 +279,7 @@ For the full architecture rationale, see [Why the Bridge, Not MCP](quest_present
 
 ### What Quest handles automatically
 
-- Probes the configured transport once per session and retains recent successful host probes (bg first under `auto`, loud bridge downgrade otherwise)
+- Probes the configured transport once per session and retains recent successful host probes (bg under `auto`; bridge only when explicitly configured/selected)
 - Sweeps orphaned `quest-<id>-*` background sessions at quest start/resume (`python3 scripts/claude_bg_run.py --sweep quest-<id>-`)
 - Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py --transport <resolved>` in the same host-visible context used for the probe/cache refresh
 - Records the transport per role in `context_health.log` (`transport=background-agent|bridge`) and reports it in the quest end summary and celebration
@@ -279,18 +289,20 @@ If the probe fails, Claude-designated roles will block until the CLI/auth setup 
 
 ### Optional: manual verification
 
-If you want to test a transport before your first Codex-led quest, you can run the probe yourself (add `--transport background-agent` to probe the bg transport; default is the bridge):
+If you want to test a transport before your first Codex-led quest, you can run the probe yourself:
 
 ```bash
 command -v claude
 claude auth status
-ls -la scripts/quest_claude_bridge.py
+claude agents --json
+ls -la scripts/claude_bg_run.py
 python3 scripts/quest_claude_probe.py \
   --quest-dir .quest/<id> \
-  --model opus
+  --model opus \
+  --transport background-agent
 ```
 
-This is the same probe Quest runs automatically. It asks Claude to write a real artifact and a handoff JSON, proving the bridge works end-to-end. Useful for debugging if Claude-designated roles aren't connecting.
+This is the same bg probe Quest runs automatically under `auto`. It asks Claude to write a real artifact and a handoff JSON, proving the background-agent transport end-to-end. To test the explicit bridge path instead, use `--transport bridge --bridge-script scripts/quest_claude_bridge.py`.
 
 ## Verification
 

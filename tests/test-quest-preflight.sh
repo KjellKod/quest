@@ -97,6 +97,22 @@ EOF
   chmod +x "$path"
 }
 
+write_prompt_not_consumed_bg_runner() {
+  local path="$1"
+  cat > "$path" <<'EOF'
+#!/usr/bin/env python3
+import json
+import sys
+
+print(json.dumps({
+    "status": "blocked",
+    "message": "background session registered but did not consume the initial prompt (Claude CLI reported: send a prompt to start)",
+}))
+sys.exit(4)
+EOF
+  chmod +x "$path"
+}
+
 write_logged_out_claude() {
   local path="$1"
   cat > "$path" <<'EOF'
@@ -324,9 +340,9 @@ test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds() {
     [ "$cached_available" = "true" ]
 }
 
-test_quest_preflight_auto_downgrades_loudly_to_bridge() {
-  # CLI without `agents --json` support → bg unavailable → bridge fallback
-  # carries transport_downgraded=true and a loud downgrade warning.
+test_quest_preflight_auto_blocks_instead_of_downgrading_to_bridge() {
+  # CLI without `agents --json` support → bg unavailable. In auto mode this is
+  # a user decision point, not implicit consent to the API-metered bridge.
   local tmpdir
   tmpdir=$(mktemp -d)
   mkdir -p "$tmpdir/bin"
@@ -334,7 +350,7 @@ test_quest_preflight_auto_downgrades_loudly_to_bridge() {
   write_success_bridge "$tmpdir/fake_bridge.py"
   write_allowlist "$tmpdir/allowlist.json" "auto"
 
-  local output rc transport downgraded available first_warning
+  local output rc transport downgraded available warning_text
   output=$(PATH="$tmpdir/bin:$PATH" \
     QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
     QUEST_CLAUDE_BRIDGE_SCRIPT="$tmpdir/fake_bridge.py" \
@@ -346,14 +362,39 @@ test_quest_preflight_auto_downgrades_loudly_to_bridge() {
   transport=$(printf '%s' "$output" | jq -r '.transport')
   downgraded=$(printf '%s' "$output" | jq -r '.transport_downgraded')
   available=$(printf '%s' "$output" | jq -r '.available')
-  first_warning=$(printf '%s' "$output" | jq -r '.warning[0]')
+  warning_text=$(printf '%s' "$output" | jq -r '.warning | join(" ")')
   rm -rf "$tmpdir"
 
   [ "$rc" -eq 0 ] &&
-    [ "$transport" = "bridge" ] &&
-    [ "$downgraded" = "true" ] &&
-    [ "$available" = "true" ] &&
-    printf '%s' "$first_warning" | grep -q "downgraded to the bridge"
+    [ "$transport" = "background-agent" ] &&
+    [ "$downgraded" = "false" ] &&
+    [ "$available" = "false" ] &&
+    printf '%s' "$warning_text" | grep -q "make it explicit"
+}
+
+test_quest_preflight_reports_bg_prompt_not_consumed() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_bg_capable_claude "$tmpdir/bin/claude"
+  write_prompt_not_consumed_bg_runner "$tmpdir/fake_bg_runner.py"
+  write_allowlist "$tmpdir/allowlist.json" "auto"
+
+  local output rc kind warning_text
+  output=$(PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BG_RUNNER_SCRIPT="$tmpdir/fake_bg_runner.py" \
+    QUEST_PREFLIGHT_BG_CACHE_FILE="$tmpdir/claude_bg_cache.json" \
+    QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+  rc=$?
+  kind=$(printf '%s' "$output" | jq -r '.diagnostic.probe_result_kind')
+  warning_text=$(printf '%s' "$output" | jq -r '.warning | join(" ")')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$kind" = "bg_initial_prompt_not_consumed" ] &&
+    printf '%s' "$warning_text" | grep -q "did not consume the initial prompt"
 }
 
 test_quest_preflight_forced_background_agent_blocks_without_bridge_fallback() {
@@ -519,7 +560,8 @@ run_test test_quest_preflight_caches_successful_codex_bridge_probe
 run_test test_quest_preflight_uses_cached_success_when_live_probe_fails
 run_test test_quest_preflight_does_not_use_cached_success_for_non_auth_probe_failure
 run_test test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds
-run_test test_quest_preflight_auto_downgrades_loudly_to_bridge
+run_test test_quest_preflight_auto_blocks_instead_of_downgrading_to_bridge
+run_test test_quest_preflight_reports_bg_prompt_not_consumed
 run_test test_quest_preflight_forced_background_agent_blocks_without_bridge_fallback
 run_test test_quest_preflight_rejects_invalid_transport_config
 run_test test_quest_preflight_invalid_transport_emits_valid_json_for_special_chars

@@ -80,9 +80,9 @@ Codex-led Quest note:
   | Transport | Script | Mechanism | When |
   |---|---|---|---|
   | background-agent (default via `auto`) | `scripts/claude_bg_run.py` | `claude --bg` daemon-hosted session, subscription billing | preflight bg probe succeeded |
-  | bridge (fallback / forced) | `scripts/quest_claude_bridge.py` | `claude --print`, API-metered after June 15, 2026 | bg unavailable (loud downgrade), CI/daemonless/`ANTHROPIC_API_KEY` contexts, or forced via config |
+  | bridge (explicit) | `scripts/quest_claude_bridge.py` | `claude --print`, API-metered after June 15, 2026 | explicit user/config opt-in, CI/daemonless/`ANTHROPIC_API_KEY` contexts |
 
-- `.ai/allowlist.json` `claude_role_transport` (`auto` | `background-agent` | `bridge`) is copied into `.quest/<id>/orchestration.json`; preflight records `claude_transport_resolved` and `claude_transport_downgraded` there. A bg→bridge downgrade is always surfaced loudly; a forced `background-agent` that cannot dispatch blocks instead of silently bridging.
+- `.ai/allowlist.json` `claude_role_transport` (`auto` | `background-agent` | `bridge`) is copied into `.quest/<id>/orchestration.json`; preflight records `claude_transport_resolved` there and keeps `claude_transport_downgraded: false` as a compatibility field. New `auto` runs stop for a user decision when bg fails; bridge is used only when explicitly selected/configured.
 - Native Claude-led Quest behavior is unchanged: Claude-designated roles still use native `Task(...)` execution when the orchestrator supports it.
 - The preferred helpers for Codex-led Claude slots are `scripts/quest_claude_probe.py --transport <t>` for transport preflight and `scripts/quest_claude_runner.py --transport <t>` for real role execution; the runner uses `bypassPermissions`, adds explicit repo/quest access via `--add-dir`, polls `handoff.json`, and updates `context_health.log` with the `transport=` field (the quest end summary and celebration report it).
 - The workflow probes transport availability once per session, sweeps orphaned `quest-<id>-*` background sessions at start/resume (`scripts/claude_bg_run.py --sweep`), routes Claude-designated slots by selected model/runtime, and logs runner-invoked Claude roles as `runtime=claude`.

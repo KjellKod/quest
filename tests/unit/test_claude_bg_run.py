@@ -5,11 +5,11 @@ lifecycle against a fake `claude` shim (no real model calls, no bypass-acceptanc
 needed), the needs_human bubble-back and resume continuation, plus the ANSI/PTY
 noise-firewall primitive.
 
-The shim mirrors the REAL CLI surface: `--bg` (incl. `--resume`) and
-`agents --json` only — there are no `logs`/`stop`/`rm` subcommands. State is a
-LIST of session rows (each with a pid), so resume scenarios can model the parked
-parent session sitting next to the newly dispatched agent. Teardown is a signal
-to the row's pid; tests intercept `os.kill` and drop the row to simulate exit.
+The shim models the runner surface used by these tests: `--bg` (incl.
+`--resume`) and `agents --json`. State is a LIST of session rows (each with a
+pid), so resume scenarios can model the parked parent session sitting next to
+the newly dispatched agent. The current runner tears down via process signals;
+tests intercept `os.kill` and drop the row to simulate exit.
 """
 
 from __future__ import annotations
@@ -38,6 +38,9 @@ def rows():
 
 args = sys.argv[1:]
 if args[:1] == ["--bg"]:
+    stdin_text = sys.stdin.read()
+    (D / "last_bg_stdin.txt").write_text(stdin_text)
+    (D / "last_bg_argv.json").write_text(json.dumps(args))
     is_resume = "--resume" in args
     sid_arg = args[args.index("--resume") + 1] if is_resume else ""
     name = args[args.index("--name") + 1] if "--name" in args else "?"
@@ -54,9 +57,10 @@ if args[:1] == ["--bg"]:
     sid = "abc12345"
     if eff != "never_confirm":
         st = {"blocked": "blocked", "incomplete": "done"}.get(eff, "working")
+        row = {"pid": 222, "id": sid, "name": name, "sessionId": sid + "-uuid",
+               "kind": "background", "state": st, "status": "idle"}
         rs = rows()
-        rs.append({"pid": 222, "id": sid, "name": name, "sessionId": sid + "-uuid",
-                   "kind": "background", "state": st, "status": "idle"})
+        rs.append(row)
         state.write_text(json.dumps(rs))
     if eff == "ok" and WAIT:
         pathlib.Path(WAIT).write_text("RESULT")
@@ -143,6 +147,14 @@ def _calls(tmp_path: Path) -> list[str]:
     return f.read_text().splitlines() if f.exists() else []
 
 
+def _last_bg_stdin(tmp_path: Path) -> str:
+    return (tmp_path / "last_bg_stdin.txt").read_text()
+
+
+def _last_bg_argv(tmp_path: Path) -> list[str]:
+    return json.loads((tmp_path / "last_bg_argv.json").read_text())
+
+
 # ---- pure helpers ----------------------------------------------------------
 def test_strip_ansi_removes_escapes():
     raw = "\x1b[2J\x1b[31mHELLO\x1b[0m world\r\n"
@@ -176,8 +188,21 @@ def test_ok_completes_on_artifact_and_tears_down(shim, tmp_path, monkeypatch, ki
     assert env.status == "ok"
     assert env.exit_code() == bg.EXIT_OK
     assert str(wait) in env.artifacts_found and not env.missing
-    # Teardown = SIGTERM to the supervisor-reported pid (there is no stop/rm).
+    # Current teardown = SIGTERM to the supervisor-reported pid.
     assert (222, bg.signal.SIGTERM) in kills
+
+
+def test_dispatch_sends_prompt_on_stdin_not_argv(shim, tmp_path, monkeypatch):
+    wait = tmp_path / "out.json"
+    prompt = "write ok from stdin"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
+    monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
+
+    env = bg.BgRunner(_args(shim, prompt=prompt, wait_for=str(wait))).run()
+
+    assert env.status == "ok"
+    assert _last_bg_stdin(tmp_path).startswith(prompt)
+    assert all(prompt not in arg for arg in _last_bg_argv(tmp_path))
 
 
 def test_keep_skips_teardown(shim, tmp_path, monkeypatch, kills):

@@ -85,7 +85,7 @@ STATE_HELPER_COUNT=$(grep -c "scripts/quest_state.py" .skills/quest/delegation/w
 NATIVE_TASK_COUNT=$(grep -c 'native `Task(...)\` is available\|native `Task(...)` when available' .skills/quest/delegation/workflow.md || true)
 CODEX_HOST_COUNT=$(grep -c "orchestrator is Codex" .skills/quest/delegation/workflow.md || true)
 if [ "$BRIDGE_SCRIPT_COUNT" -gt 0 ] && [ "$BG_RUNNER_SCRIPT_COUNT" -gt 0 ] && [ "$TRANSPORT_CONFIG_COUNT" -gt 0 ] && [ "$TRANSPORT_AVAILABLE_COUNT" -gt 0 ] && [ "$TRANSPORT_RESOLVED_COUNT" -gt 0 ] && [ "$TRANSPORT_LOG_FIELD_COUNT" -gt 0 ] && [ "$STATUS_LOG_FIELD_COUNT" -gt 0 ] && [ "$BRIDGE_PROBE_HELPER_COUNT" -gt 0 ] && [ "$RUNTIME_SELECTION_COUNT" -gt 0 ] && [ "$BRIDGE_RUNNER_COUNT" -gt 0 ] && [ "$BYPASS_PERMS_COUNT" -gt 0 ] && [ "$STATE_HELPER_COUNT" -gt 0 ] && [ "$NATIVE_TASK_COUNT" -gt 0 ] && [ "$CODEX_HOST_COUNT" -gt 0 ]; then
-  echo "   ✅ Workflow documents transport probing (bg preferred, bridge fallback) and runtime-based dispatch"
+  echo "   ✅ Workflow documents transport probing (bg preferred, explicit bridge) and runtime-based dispatch"
 else
   echo "   ❌ Workflow is missing transport probing or runtime-selection guidance"
   echo "      scripts/quest_claude_bridge.py refs: $BRIDGE_SCRIPT_COUNT"

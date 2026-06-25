@@ -373,7 +373,7 @@ class BgRunner:
         return f"{task}\n\nThe human answered your earlier question:\n{answer}\n"
 
     # -- dispatch -------------------------------------------------------------
-    def dispatch_argv(self, message: str, resume_sid: str | None) -> list[str]:
+    def dispatch_argv(self, resume_sid: str | None) -> list[str]:
         argv = [*self.claude, "--bg", "--name", self.a.name]
         if resume_sid:
             argv += ["--resume", resume_sid]
@@ -386,16 +386,22 @@ class BgRunner:
             argv += ["--settings", json.dumps({"worktree": {"bgIsolation": "none"}})]
         for d in self.a.add_dir or []:
             argv += ["--add-dir", d]
-        argv.append(message)
         return argv
 
     def dispatch_and_confirm(
         self, message: str, resume_sid: str | None
     ) -> tuple[str | None, str, str | None, dict[str, Any] | None]:
         """Returns (terminal_status_or_None, message, short_id, session_row)."""
-        argv = self.dispatch_argv(message, resume_sid)
+        argv = self.dispatch_argv(resume_sid)
         try:
-            cp = subprocess.run(argv, text=True, capture_output=True, timeout=60.0, check=False)
+            cp = subprocess.run(
+                argv,
+                input=message,
+                text=True,
+                capture_output=True,
+                timeout=60.0,
+                check=False,
+            )
         except FileNotFoundError:
             return "precondition_failed", "claude CLI not found in PATH", None, None
         except subprocess.SubprocessError as exc:
@@ -620,10 +626,18 @@ class BgRunner:
                     break
                 if state == "blocked":
                     env.status = "blocked"
-                    detail = row.get("waitingFor")
-                    env.message = "session is blocked on an interactive prompt " + (
-                        f"({detail})" if detail else "(a permission hook likely did not cover it)"
-                    )
+                    detail = row.get("waitingFor") or row.get("needs") or row.get("detail")
+                    detail_text = str(detail) if detail else ""
+                    if "send a prompt to start" in detail_text.lower():
+                        env.message = (
+                            "background session registered but did not consume "
+                            "the initial prompt (Claude CLI reported: "
+                            f"{detail_text})"
+                        )
+                    else:
+                        env.message = "session is blocked on an interactive prompt " + (
+                            f"({detail_text})" if detail_text else "(a permission hook likely did not cover it)"
+                        )
                     break
                 if state in ("done", "idle"):
                     if not self.a.wait_for and not self.a.handoff_file:

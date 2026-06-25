@@ -42,7 +42,7 @@
       "type": "string",
       "enum": ["auto", "background-agent", "bridge"],
       "default": "auto",
-      "description": "Transport for Codex-led Claude roles: auto = background-agent when preflight proves it, loud bridge fallback otherwise; background-agent = forced (preflight failure blocks); bridge = forced legacy/API path."
+      "description": "Transport for Codex-led Claude roles: auto = background-agent when preflight proves it, otherwise block for user decision; background-agent = forced (preflight failure blocks); bridge = explicit legacy/API path."
     },
     "quest_startup": {
       "type": "object",

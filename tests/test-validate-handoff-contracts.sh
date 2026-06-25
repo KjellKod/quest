@@ -32,7 +32,7 @@ test_validate_handoff_contracts_checks_transport_runtime_dispatch() {
   local output
   output=$(bash "$SCRIPT" 2>&1)
   local rc=$?
-  [ "$rc" -eq 0 ] && echo "$output" | grep -q "Workflow documents transport probing (bg preferred, bridge fallback) and runtime-based dispatch"
+  [ "$rc" -eq 0 ] && echo "$output" | grep -q "Workflow documents transport probing (bg preferred, explicit bridge) and runtime-based dispatch"
 }
 
 run_test test_validate_handoff_contracts_passes

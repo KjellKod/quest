@@ -59,8 +59,8 @@ ORCHESTRATION_VERSION = 1
 CODEX_NATIVE_FALLBACK_MODEL = "gpt-5.5"
 
 # Transport for Codex-led Claude roles (.ai/allowlist.json claude_role_transport).
-# "auto" resolves to background-agent when the preflight bg probe succeeds,
-# with a loud downgrade to the bridge otherwise.
+# "auto" resolves to background-agent when the preflight bg probe succeeds.
+# If it fails, Quest asks the user; bridge is an explicit API-metered opt-in.
 CLAUDE_ROLE_TRANSPORTS: tuple[str, ...] = ("auto", "background-agent", "bridge")
 DEFAULT_CLAUDE_ROLE_TRANSPORT = "auto"
 
@@ -348,7 +348,6 @@ def write_orchestration_json(
     preflight_validated_at: str | None = None,
     claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
     claude_transport_resolved: str | None = None,
-    claude_transport_downgraded: bool = False,
 ) -> None:
     """Write the orchestration.json artifact with canonical key order."""
     if source not in {"default", "overridden"}:
@@ -365,7 +364,9 @@ def write_orchestration_json(
         "models": {role: models.get(role) for role in CANONICAL_ROLES},
         "claude_role_transport": claude_role_transport,
         "claude_transport_resolved": claude_transport_resolved,
-        "claude_transport_downgraded": claude_transport_downgraded,
+        # Compatibility field for consumers created during the downgrade era.
+        # New auto runs block for user choice instead of downgrading.
+        "claude_transport_downgraded": False,
         "source": source,
         "overridden_roles": list(overridden_roles),
         "preflight_validated_at": preflight_validated_at or _now_iso(),
@@ -388,7 +389,6 @@ def write_default_from_allowlist(
     remap_unavailable: bool = False,
     claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
     claude_transport_resolved: str | None = None,
-    claude_transport_downgraded: bool = False,
 ) -> None:
     """Default-path writer: copy allowlist models into orchestration.json."""
     defaults = build_default_models(allowlist_models)
@@ -409,7 +409,6 @@ def write_default_from_allowlist(
         preflight_validated_at=preflight_validated_at,
         claude_role_transport=claude_role_transport,
         claude_transport_resolved=claude_transport_resolved,
-        claude_transport_downgraded=claude_transport_downgraded,
     )
 
 

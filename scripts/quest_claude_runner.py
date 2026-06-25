@@ -2,10 +2,10 @@
 """Run a Claude-designated Quest role with handoff polling.
 
 Transport (Codex-led Claude roles):
-  --transport auto (default)   background-agent when the preflight bg cache
-                               proves it; loud downgrade to bridge otherwise.
+  --transport auto (default)   background-agent; startup preflight must prove
+                               it or stop for a user decision.
   --transport background-agent forced `claude --bg` via scripts/claude_bg_run.py.
-  --transport bridge           forced `claude --print` via the bridge script.
+  --transport bridge           explicit `claude --print` via the bridge script.
 The resolved transport is echoed in the output JSON envelope and recorded on
 each context_health.log line.
 """
@@ -21,7 +21,6 @@ from pathlib import Path
 
 from quest_runtime.artifacts import expected_artifacts_for_role
 from quest_runtime.claude_runner import (
-    DEFAULT_BG_CACHE_FILE,
     DEFAULT_BG_RUNNER_SCRIPT,
     DEFAULT_BRIDGE_SCRIPT,
     resolve_claude_transport,
@@ -80,15 +79,10 @@ def parse_args() -> argparse.Namespace:
         "--transport",
         default="auto",
         choices=["auto", "background-agent", "bridge"],
-        help="Claude transport (default auto: resolve from the preflight bg cache)",
+        help="Claude transport (default auto: background-agent; bridge is explicit)",
     )
     parser.add_argument("--bridge-script", default=DEFAULT_BRIDGE_SCRIPT)
     parser.add_argument("--bg-runner-script", default=DEFAULT_BG_RUNNER_SCRIPT)
-    parser.add_argument(
-        "--bg-cache-file",
-        default=DEFAULT_BG_CACHE_FILE,
-        help="preflight bg cache consulted by --transport auto",
-    )
     parser.add_argument("--cwd", default=".")
     parser.add_argument("--add-dir", action="append", default=[])
     return parser.parse_args()
@@ -96,17 +90,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    transport, downgraded = resolve_claude_transport(
-        args.transport,
-        bg_cache_file=resolve_path(args.cwd, args.bg_cache_file),
-    )
-    if downgraded:
-        print(
-            "quest_claude_runner: background-agent transport unproven by "
-            "preflight cache — downgraded to bridge (claude --print). "
-            "Run scripts/quest_preflight.sh --orchestrator codex to refresh.",
-            file=sys.stderr,
-        )
+    transport = resolve_claude_transport(args.transport)
+    # Kept in the JSON envelope for compatibility with existing consumers.
+    # New auto runs never downgrade; bridge is explicit.
+    transport_downgraded = False
     _append_telemetry(
         {
             "event": "attempt_start",
@@ -129,7 +116,7 @@ def main() -> int:
             "result_kind": "invocation_error",
             "source": None,
             "transport": transport,
-            "transport_downgraded": downgraded,
+            "transport_downgraded": transport_downgraded,
             "stderr": str(exc),
             "stdout": "",
         }
@@ -171,7 +158,7 @@ def main() -> int:
         "result_kind": result.result_kind,
         "source": result.source,
         "transport": transport,
-        "transport_downgraded": downgraded,
+        "transport_downgraded": transport_downgraded,
         "stderr": result.stderr.strip(),
         "stdout": result.stdout.strip(),
     }

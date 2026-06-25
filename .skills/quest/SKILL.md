@@ -58,10 +58,13 @@ The script is at the **repository root** (`scripts/quest_preflight.sh`), NOT ins
 
      Options:
        1. Fix it now and rerun preflight (recommended)
-       2. Continue with a single-model quest for this run
-       3. Cancel
+       2. Use the Claude bridge for this run (API-metered)
+       3. Continue with a single-model quest for this run
+       4. Cancel
      ```
    - If the user selects "fix it now", do not create the quest folder yet. Let them complete the remediation, then rerun Step 2b.
+   - If this is a Codex-led session with `claude_role_transport` unset or `auto`, the common remediation is: `claude --dangerously-skip-permissions`; accept the prompt; exit Claude; return here and rerun preflight.
+   - If the user selects "Use the Claude bridge", make the bridge opt-in explicit for this run before creating the quest folder: rerun preflight with `QUEST_CLAUDE_ROLE_TRANSPORT=bridge ./scripts/quest_preflight.sh --orchestrator codex`, show the API-metering warning, and carry that bridge preflight result into orchestration writing (`claude_role_transport: "bridge"`, `claude_transport_resolved: "bridge"`). If that bridge probe fails too, return to these options.
    - For Codex-led sessions, prefer `claude auth login` as the default interactive fix when Claude CLI auth is missing. If the warning indicates a restricted sandbox may be hiding auth state, rerun the preflight with whatever permissions are needed to read the real Claude CLI auth state.
    - For Claude-led sessions, use the warning lines to guide Codex MCP install/auth remediation before rerunning Step 2b.
    - Append "(Claude-only)" or "(Codex-only)" to solo/full quest option labels.
@@ -227,7 +230,7 @@ Before creating the quest folder, present the routing classification to the user
    - `models`: `.ai/allowlist.json` `.models` expanded to all 9 canonical keys; omitted keys use the documented defaults (`planner=claude`, `plan-reviewer-a=claude`, `plan-reviewer-b=gpt-5.5`, `arbiter=claude`, `builder=gpt-5.5`, `code-reviewer-a=claude`, `code-reviewer-b=gpt-5.5`, `review-arbiter=claude`, `fixer=gpt-5.5`)
    - `claude_role_transport`: from `.ai/allowlist.json` (default `"auto"`)
    - `claude_transport_resolved`: the `transport` field from the Step 2b preflight result (Codex-led sessions; `null` otherwise)
-   - `claude_transport_downgraded`: the `transport_downgraded` field from the Step 2b preflight result (Codex-led sessions; `false` otherwise)
+   - `claude_transport_downgraded`: compatibility field; write `false` for new runs (Codex-led preflight also emits `false`)
    - `source: "default"`
    - `overridden_roles: []`
    - `preflight_validated_at: <ISO8601 now>`
@@ -257,7 +260,7 @@ Before creating the quest folder, present the routing classification to the user
    Once all overrides pass validation, build the merged `models` block (defaults from `.ai/allowlist.json`, with omitted role keys filled from the documented defaults above, overlaid with the validated overrides — `overridden_roles` excludes ignored-because-unused entries) and write `.quest/<id>/orchestration.json` with:
    - `version: 1`
    - `models`: merged block (all 9 keys present; unused-in-mode roles still carry the default value)
-   - `claude_role_transport` / `claude_transport_resolved` / `claude_transport_downgraded`: same sourcing as the N path above
+   - `claude_role_transport` / `claude_transport_resolved`: same sourcing as the N path above; `claude_transport_downgraded: false` for compatibility
    - `source: "overridden"`
    - `overridden_roles`: list of role names that were actually overridden
    - `preflight_validated_at: <ISO8601 now>`

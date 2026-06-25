@@ -565,7 +565,6 @@ def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys
         transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
         bg_runner_script="scripts/claude_bg_run.py",
-        bg_cache_file=".quest/cache/claude_bg_codex.json",
         cwd=str(tmp_path),
         add_dir=[],
     )
@@ -665,7 +664,6 @@ def test_cli_quest_claude_runner_relative_non_dot_cwd_resolves_bridge_script(
         transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
         bg_runner_script="scripts/claude_bg_run.py",
-        bg_cache_file=".quest/cache/claude_bg_codex.json",
         cwd="repo",
         add_dir=[],
     )
@@ -720,7 +718,6 @@ def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
         transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
         bg_runner_script="scripts/claude_bg_run.py",
-        bg_cache_file=".quest/cache/claude_bg_codex.json",
         cwd=str(tmp_path),
         add_dir=[],
     )
@@ -769,7 +766,7 @@ def test_build_bg_cmd_pins_argv_with_handoff_file_and_needs_human_teardown(tmp_p
 def test_run_bg_probe_dispatches_through_build_bg_cmd(tmp_path):
     # Regression (PR #137 review): build_bg_cmd gained a required handoff_file
     # arg; run_bg_probe must pass it, or the real bg preflight raises TypeError
-    # (auto silently downgrades, forced background-agent fails) even on a
+    # (auto blocks for user decision, forced background-agent fails) even on a
     # correctly configured machine.
     bg_runner = tmp_path / "fake_bg_runner.py"
     _write_executable(
@@ -837,6 +834,23 @@ sys.exit(6)
     assert result.source is None
 
 
+def test_bg_probe_failure_classifier_distinguishes_setup_failures():
+    classify = claude_runner_module.classify_bg_probe_failure
+
+    assert (
+        classify("bypassPermissions not accepted; run claude --dangerously-skip-permissions")
+        == "bypass_not_accepted"
+    )
+    assert (
+        classify("bg status=blocked; bg message=background session registered but did not consume the initial prompt (Claude CLI reported: send a prompt to start)")
+        == "bg_initial_prompt_not_consumed"
+    )
+    assert (
+        classify("SessionStart:startup hook error: Permission denied")
+        == "hook_startup_failed"
+    )
+
+
 def test_bg_session_name_scheme():
     assert (
         claude_runner_module.bg_session_name("my-quest_2026", "code-reviewer-a", 3)
@@ -844,52 +858,21 @@ def test_bg_session_name_scheme():
     )
 
 
-def _write_bg_cache(path: Path, *, available: bool = True, expired: bool = False) -> None:
-    import json as _json
-    import time as _time
-
-    now = int(_time.time())
-    cached_at = now - 7200 if expired else now
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        _json.dumps(
-            {
-                "cached_at_epoch": cached_at,
-                "ttl_seconds": 3600,
-                "payload": {"available": available},
-            }
-        ),
-        encoding="utf-8",
-    )
-
-
-def test_resolve_claude_transport_matrix(tmp_path):
+def test_resolve_claude_transport_matrix():
     resolve = claude_runner_module.resolve_claude_transport
-    cache = tmp_path / "bg_cache.json"
 
-    # Forced values pass through, no downgrade flag.
-    assert resolve("background-agent", bg_cache_file=cache) == ("background-agent", False)
-    assert resolve("bridge", bg_cache_file=cache) == ("bridge", False)
+    assert resolve("background-agent") == "background-agent"
+    assert resolve("bridge") == "bridge"
 
-    # auto + no cache → bridge, downgraded.
-    assert resolve("auto", bg_cache_file=cache) == ("bridge", True)
-
-    # auto + valid cache → background-agent.
-    _write_bg_cache(cache, available=True)
-    assert resolve("auto", bg_cache_file=cache) == ("background-agent", False)
-
-    # auto + expired cache → bridge, downgraded.
-    _write_bg_cache(cache, available=True, expired=True)
-    assert resolve("auto", bg_cache_file=cache) == ("bridge", True)
-
-    # auto + cache that proves UNavailability → bridge, downgraded.
-    _write_bg_cache(cache, available=False)
-    assert resolve("auto", bg_cache_file=cache) == ("bridge", True)
+    # auto never silently chooses the API-metered bridge. Startup preflight
+    # should already have proved bg; if it did not, runtime still attempts bg
+    # and surfaces the bg failure instead of changing billing paths.
+    assert resolve("auto") == "background-agent"
 
     import pytest as _pytest
 
     with _pytest.raises(ValueError):
-        resolve("warp-drive", bg_cache_file=cache)
+        resolve("warp-drive")
 
 
 def test_run_claude_role_bg_transport_success_logs_transport(tmp_path):
@@ -1081,8 +1064,6 @@ def test_quest_claude_runner_cli_resolves_and_echoes_transport(
     )
     monkeypatch.setattr(quest_claude_runner, "run_claude_role", fake_run_claude_role)
 
-    bg_cache = tmp_path / "bg_cache.json"
-    _write_bg_cache(bg_cache, available=True)
     monkeypatch.setattr(
         "sys.argv",
         [
@@ -1095,7 +1076,6 @@ def test_quest_claude_runner_cli_resolves_and_echoes_transport(
             "--handoff-file", str(tmp_path / "handoff.json"),
             "--cwd", str(tmp_path),
             "--transport", "auto",
-            "--bg-cache-file", str(bg_cache),
         ],
     )
     rc = quest_claude_runner.main()
@@ -1107,18 +1087,20 @@ def test_quest_claude_runner_cli_resolves_and_echoes_transport(
     assert captured_kwargs["transport"] == "background-agent"
 
 
-def test_quest_claude_runner_cli_auto_downgrades_without_cache(
+def test_quest_claude_runner_cli_auto_uses_bg_without_cache(
     monkeypatch, tmp_path, capsys
 ):
     import json as _json
 
     prompt_file = tmp_path / "prompt.txt"
-    prompt_file.write_text("downgrade test\n", encoding="utf-8")
+    prompt_file.write_text("auto bg test\n", encoding="utf-8")
+    captured_kwargs = {}
 
     def fake_expected_artifacts_for_role(*, quest_dir, phase, agent):
         return []
 
     def fake_run_claude_role(**kwargs):
+        captured_kwargs.update(kwargs)
         return claude_runner_module.RunResult(
             exit_code=0,
             handoff_state="found",
@@ -1145,7 +1127,6 @@ def test_quest_claude_runner_cli_auto_downgrades_without_cache(
             "--prompt-file", str(prompt_file),
             "--handoff-file", str(tmp_path / "handoff.json"),
             "--cwd", str(tmp_path),
-            "--bg-cache-file", str(tmp_path / "missing_cache.json"),
         ],
     )
     rc = quest_claude_runner.main()
@@ -1153,9 +1134,10 @@ def test_quest_claude_runner_cli_auto_downgrades_without_cache(
     payload = _json.loads(captured.out.strip().splitlines()[-1])
 
     assert rc == 0
-    assert payload["transport"] == "bridge"
-    assert payload["transport_downgraded"] is True
-    assert "downgraded to bridge" in captured.err
+    assert payload["transport"] == "background-agent"
+    assert payload["transport_downgraded"] is False
+    assert captured_kwargs["transport"] == "background-agent"
+    assert "downgraded to bridge" not in captured.err
 
 
 def test_append_context_health_log_status_field_is_optional(tmp_path):
@@ -1343,12 +1325,11 @@ def test_validate_or_remap_treats_unset_active_model_as_unavailable():
 def test_default_helper_script_paths_are_absolute_and_resolve_off_package():
     # Regression: helper-script defaults must be absolute (resolved next to the
     # scripts/ package), so a Claude role dispatched from a target repo without
-    # its own scripts/ dir still finds the bridge / bg-runner. Project state
-    # stays cwd-relative. See ideas/2026-06-15-bug-report-... bg-transport-step2.
+    # its own scripts/ dir still finds the bridge / bg-runner. See
+    # ideas/2026-06-15-bug-report-... bg-transport-step2.
     import os
 
     from quest_runtime.claude_runner import (
-        DEFAULT_BG_CACHE_FILE,
         DEFAULT_BG_RUNNER_SCRIPT,
         DEFAULT_BRIDGE_SCRIPT,
     )
@@ -1358,8 +1339,6 @@ def test_default_helper_script_paths_are_absolute_and_resolve_off_package():
         assert os.path.exists(path), f"{path} should exist next to the package"
     assert DEFAULT_BRIDGE_SCRIPT.endswith("scripts/quest_claude_bridge.py")
     assert DEFAULT_BG_RUNNER_SCRIPT.endswith("scripts/claude_bg_run.py")
-    # Project cache path is intentionally cwd-relative.
-    assert not os.path.isabs(DEFAULT_BG_CACHE_FILE)
 
 
 def test_cli_probe_default_bridge_script_is_absolute():

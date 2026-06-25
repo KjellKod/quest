@@ -271,9 +271,9 @@ EOJSON
 #
 # Policy (consumed from .ai/allowlist.json claude_role_transport, default auto;
 # config drives scripts — agent prose never picks the transport):
-#   auto             → probe background-agent first; loud downgrade to bridge
+#   auto             → probe background-agent; if it fails, block and prompt
 #   background-agent → forced: bg probe only, no silent bridge fallback
-#   bridge           → forced: legacy/API path, bg probe skipped
+#   bridge           → explicit legacy/API path, bg probe skipped
 ###############################################################################
 
 configured_claude_transport() {
@@ -281,7 +281,9 @@ configured_claude_transport() {
   # including failing closed on a present-but-invalid value — happens in
   # probe_claude_transport so a typo can never be silently coerced to a default.
   local value=""
-  if [ -f "$ALLOWLIST_FILE" ]; then
+  if [ -n "${QUEST_CLAUDE_ROLE_TRANSPORT:-}" ]; then
+    value="$QUEST_CLAUDE_ROLE_TRANSPORT"
+  elif [ -f "$ALLOWLIST_FILE" ]; then
     value=$(json_get "claude_role_transport" < "$ALLOWLIST_FILE" 2>/dev/null || true)
   fi
   printf '%s' "$value"
@@ -434,11 +436,22 @@ raise SystemExit(0 if isinstance(data, list) else 1)
     if [ "$agents_json_ok" = "false" ] && [ "$claude_cli_installed" = "true" ]; then
       warning_lines="${warning_lines}    \"  claude agents --json did not return JSON — update the Claude CLI (>= 2.1.143).\",\n"
     fi
-    if [ "$probe_result_kind" = "invocation_error" ]; then
-      warning_lines="${warning_lines}    \"  One-time setup may be missing: run claude --dangerously-skip-permissions once interactively and accept.\",\n"
+    if [ "$probe_result_kind" = "bypass_not_accepted" ]; then
+      warning_lines="${warning_lines}    \"  Background running of Claude failed because bypassPermissions has not been accepted for background sessions.\",\n"
+      warning_lines="${warning_lines}    \"  Run: claude --dangerously-skip-permissions\",\n"
+      warning_lines="${warning_lines}    \"  Accept the prompt, exit Claude, then return here and rerun Quest; Quest will retry the bg probe.\",\n"
+    elif [ "$probe_result_kind" = "bg_initial_prompt_not_consumed" ]; then
+      warning_lines="${warning_lines}    \"  Claude background session registered but did not consume the initial prompt (Claude CLI reported: send a prompt to start).\",\n"
+      warning_lines="${warning_lines}    \"  Quest sends bg prompts on stdin for Claude Code 2.1.191 compatibility; this indicates a remaining bg prompt-delivery regression.\",\n"
+      warning_lines="${warning_lines}    \"  Use claude_role_transport=bridge only if you explicitly accept API-metered bridge billing for this run.\",\n"
+    elif [ "$probe_result_kind" = "hook_startup_failed" ]; then
+      warning_lines="${warning_lines}    \"  Claude startup hook failed. Check .claude/hooks permissions, especially executable bits, then rerun Quest.\",\n"
+    elif [ "$probe_result_kind" = "invocation_error" ]; then
+      warning_lines="${warning_lines}    \"  Background dispatch failed. If bypass mode has never been accepted, run claude --dangerously-skip-permissions once interactively and accept.\",\n"
     elif [ -n "$probe_result_kind" ]; then
       warning_lines="${warning_lines}    \"  Probe result: ${probe_result_kind}\",\n"
     fi
+    warning_lines="${warning_lines}    \"  To use the API-metered bridge instead, make it explicit: set claude_role_transport to bridge for this run.\",\n"
     warning_lines="${warning_lines}    \"  See docs/guides/quest_setup.md for the one-time machine setup.\""
   fi
 
@@ -485,10 +498,7 @@ EOJSON
 }
 
 probe_claude_bridge() {
-  # $1 (optional): "true" when this is an auto-mode downgrade from a failed
-  # background-agent probe; $2 (optional): short human-readable reason.
-  local transport_downgraded="${1:-false}"
-  local downgrade_reason="${2:-}"
+  # Explicit bridge probe. Auto-mode bg failures no longer call this path.
   local claude_cli_installed="false"
   local claude_auth_logged_in="false"
   local bridge_script_exists="false"
@@ -559,17 +569,9 @@ probe_claude_bridge() {
     fi
   fi
 
-  # Build warning lines. A downgrade is reported loudly even when the bridge
-  # itself is healthy — silent bg→bridge fallback is never acceptable.
+  # Build warning lines for the explicit bridge path.
   local warning_lines=""
-  if [ "$transport_downgraded" = "true" ]; then
-    warning_lines="    \"Background-agent transport unavailable${downgrade_reason:+ (${downgrade_reason})} -- downgraded to the bridge (claude --print, API-metered after June 15, 2026).\",\n"
-    warning_lines="${warning_lines}    \"See docs/guides/quest_setup.md to enable the background-agent transport.\""
-  fi
   if [ "$available" = "false" ]; then
-    if [ -n "$warning_lines" ]; then
-      warning_lines="${warning_lines},\n"
-    fi
     warning_lines="${warning_lines}    \"Claude bridge not available -- quest will run Codex-only (all roles).\",\n"
     warning_lines="${warning_lines}    \"Ensure Claude CLI is installed and authenticated in a normal shell:\",\n"
     if [ "$claude_cli_installed" = "false" ]; then
@@ -593,7 +595,7 @@ probe_claude_bridge() {
   "orchestrator": "codex",
   "second_model": "claude",
   "transport": "bridge",
-  "transport_downgraded": ${transport_downgraded},
+  "transport_downgraded": false,
   "source": $(json_quote_or_null "$source"),
   "runtime_requirement": $(json_quote_or_null "$runtime_requirement"),
   "available": ${available},
@@ -637,7 +639,7 @@ probe_claude_transport() {
       : # absent/empty or explicit auto → the auto path below
       ;;
     bridge)
-      probe_claude_bridge "false" ""
+      probe_claude_bridge
       return 0
       ;;
     background-agent)
@@ -654,27 +656,15 @@ probe_claude_transport() {
       ;;
   esac
 
-  # auto: background-agent first, loud downgrade to bridge on failure.
+  # auto: background-agent first. A failed bg probe is a user-visible decision
+  # point, not implicit consent to the API-metered bridge.
   local bg_payload
   bg_payload=$(probe_claude_bg)
   if [ "$(printf '%s' "$bg_payload" | json_get "available" 2>/dev/null || echo "false")" = "true" ]; then
     printf '%s\n' "$bg_payload"
     return 0
   fi
-
-  local reason=""
-  if [ "$(printf '%s' "$bg_payload" | json_get "checks.claude_cli_installed" 2>/dev/null)" = "false" ]; then
-    reason="claude CLI missing"
-  elif [ "$(printf '%s' "$bg_payload" | json_get "checks.claude_auth_logged_in" 2>/dev/null)" = "false" ]; then
-    reason="claude CLI not logged in"
-  elif [ "$(printf '%s' "$bg_payload" | json_get "checks.agents_json_ok" 2>/dev/null)" = "false" ]; then
-    reason="claude agents --json unsupported"
-  else
-    local kind
-    kind=$(printf '%s' "$bg_payload" | json_get "diagnostic.probe_result_kind" 2>/dev/null || true)
-    reason="bg probe failed${kind:+: ${kind}}"
-  fi
-  probe_claude_bridge "true" "$reason"
+  printf '%s\n' "$bg_payload"
 }
 
 ###############################################################################

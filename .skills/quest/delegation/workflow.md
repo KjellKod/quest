@@ -38,7 +38,7 @@ Quest dispatch separates **runtime** from **entrypoint**:
 | Orchestrator | Selected role runtime | Entrypoint | Rule |
 |--------------|-----------------------|------------|------|
 | Codex-led | Codex | local Codex subagent (the `spawn_agent` tool family — versioned namespace such as `multi_agent_v2` varies by Codex CLI release — or repo-supported equivalent) | Inherit the active Codex model by default. Do not set a Codex model name unless the user explicitly requested one or the repo has a tested reason. Do not use Codex MCP. |
-| Codex-led | Claude | `python3 scripts/quest_claude_runner.py` when `claude_transport_available` is true | The runner owns the transport underneath: background-agent (`scripts/claude_bg_run.py`, `claude --bg`, subscription billing) when preflight proved it, else the bridge (`scripts/quest_claude_bridge.py`, `claude --print`) with a loud downgrade record. Pass `--transport <claude_transport_resolved from orchestration.json>`. Block with transport guidance if unavailable and no explicit Codex fallback exists. |
+| Codex-led | Claude | `python3 scripts/quest_claude_runner.py` when `claude_transport_available` is true | The runner owns the transport underneath: background-agent (`scripts/claude_bg_run.py`, `claude --bg`, subscription billing) when preflight proved it, or the bridge (`scripts/quest_claude_bridge.py`, `claude --print`) only when bridge was explicitly configured/selected. Pass `--transport <claude_transport_resolved from orchestration.json>`. Block with transport guidance if unavailable and no explicit Codex fallback exists. |
 | Claude-led | Codex | Codex MCP (`mcp__codex-cli__codex`, `codex_codex`, or the platform's registered Codex MCP tool) | MCP is the cross-runtime path only from Claude-led sessions. |
 | Claude-led | Claude | native `Task(...)` | Use the orchestrator's native Claude task path. |
 
@@ -62,10 +62,10 @@ If the preflight result was already cached by SKILL.md Step 2b, use the cached v
 **Codex-led sessions:**
 1. `codex_available` is always true (Codex is the active runtime — no MCP needed).
 2. Run `scripts/quest_preflight.sh --orchestrator codex` and parse the JSON output.
-3. Cache the `available` field as `claude_transport_available` (boolean) and the `transport` field (`background-agent` or `bridge`) for the rest of the session. (`claude_transport_available` is the same session boolean the runtime helper still names `claude_bridge_available`.) Record `transport` as `claude_transport_resolved` and `transport_downgraded` as `claude_transport_downgraded` in `.quest/<id>/orchestration.json`.
+3. Cache the `available` field as `claude_transport_available` (boolean) and the `transport` field (`background-agent` or `bridge`) for the rest of the session. (`claude_transport_available` is the same session boolean the runtime helper still names `claude_bridge_available`.) Record `transport` as `claude_transport_resolved` in `.quest/<id>/orchestration.json`; keep `claude_transport_downgraded: false` as a compatibility field for existing consumers.
 4. If the JSON includes `runtime_requirement: "host_context"`, Claude transport probing and Claude-designated role execution must run in the same host-visible context that can see Claude CLI auth. A sandbox-local probe result is not authoritative by itself.
-5. If `claude_transport_available` is false: Claude-designated roles block unless that step defines an explicit Codex fallback (see Claude Transport Probe section below).
-6. If `transport_downgraded` is true, surface the preflight `warning` lines to the user once — a bg→bridge downgrade is loud, never silent.
+5. If `claude_transport_available` is false: pause and surface the preflight `warning` lines. In Codex-led `auto`, do not silently switch to bridge; ask the user to fix bg and retry, explicitly choose the API-metered bridge for this run, continue single-model, or cancel.
+6. If an older in-flight artifact has `transport_downgraded: true`, surface the preflight `warning` lines to the user once. New `auto` runs block instead of downgrading.
 7. Codex runtime roles use local Codex subagents. Do not probe, call, configure, or retry Codex MCP for Codex-led Codex roles.
 
 **This rule is global.** Individual steps name the target runtime and artifact contract; the orchestrator chooses the entrypoint from the matrix above. Role labels, model names, and runtime names are not tool names.
@@ -77,18 +77,19 @@ If the preflight result was already cached by SKILL.md Step 2b, use the cached v
 Quest may need to run Claude-designated roles in environments where native Claude `Task(...)` execution is unavailable. In Codex-led sessions, two Claude transports exist, both speaking the same artifact/handoff file contract:
 
 - **background-agent (preferred):** `scripts/claude_bg_run.py` dispatches a `claude --bg` session (subscription billing, daemon-hosted). Requires a one-time-per-machine setup: `claude login` plus accepting bypass mode once interactively — see `docs/guides/quest_setup.md`.
-- **bridge (fallback / forced API path):** `scripts/quest_claude_bridge.py` runs `claude --print` (API-metered after June 15, 2026; works without the daemon — CI, containers, `ANTHROPIC_API_KEY` contexts).
+- **bridge (explicit API path):** `scripts/quest_claude_bridge.py` runs `claude --print` (API-metered after June 15, 2026; works without the daemon — CI, containers, `ANTHROPIC_API_KEY` contexts).
 
-The transport is chosen by config + probe, never by orchestration prose: `.ai/allowlist.json` `claude_role_transport` (`auto` default | `background-agent` forced | `bridge` forced) drives `scripts/quest_preflight.sh`, and the resolved value lands in `.quest/<id>/orchestration.json` (`claude_transport_resolved`, `claude_transport_downgraded`).
+The transport is chosen by config + probe, never by orchestration prose: `.ai/allowlist.json` `claude_role_transport` (`auto` default | `background-agent` forced | `bridge` explicit) drives `scripts/quest_preflight.sh`, and the resolved value lands in `.quest/<id>/orchestration.json` (`claude_transport_resolved`; `claude_transport_downgraded` is retained as a false compatibility field).
 
 Before the first Claude-designated role invocation in a Codex-orchestrated session, the orchestrator MUST probe transport availability:
 
 1. **Orphan sweep:** run `python3 scripts/claude_bg_run.py --sweep quest-<id>-` (quest start and resume) to stop background sessions a crashed earlier run may have leaked.
-2. Run `scripts/quest_preflight.sh --orchestrator codex` in a host-visible context and parse the JSON. It probes the configured transport (for `auto`: background-agent first via `python3 scripts/quest_claude_probe.py --transport background-agent`, then a LOUD downgrade to the bridge probe). Probes are the source of truth: each writes a tiny artifact plus `probe_handoff.json` under `.quest/<id>/logs/bg_probe/` or `.quest/<id>/logs/bridge_probe/`.
+2. Run `scripts/quest_preflight.sh --orchestrator codex` in a host-visible context and parse the JSON. It probes the configured transport (for `auto`: background-agent via `python3 scripts/quest_claude_probe.py --transport background-agent`; bridge is probed only when explicitly selected/configured). Probes are the source of truth: each writes a tiny artifact plus `probe_handoff.json` under `.quest/<id>/logs/bg_probe/` or `.quest/<id>/logs/bridge_probe/`.
 3. Successful host probes are retained in `.quest/cache/claude_bg_codex.json` (background-agent) and `.quest/cache/claude_bridge_codex.json` (bridge). A fresh sandboxed session may reuse a cache while the TTL is valid, but Claude roles still need the same host-visible execution path.
 4. Cache `available` as `claude_transport_available` and `transport` as the session transport; record both transport fields in `orchestration.json` (step 3 of the Codex-led preflight rules above).
 5. If `claude_transport_available` is false:
-   - Log: `"Claude transport unavailable in this Codex-led session — Claude-designated slots requiring Claude runtime will block unless that step defines an explicit Codex path."`
+   - Log: `"Claude background-agent transport unavailable in this Codex-led session — waiting for user decision before using bridge or changing role runtimes."`
+   - Tell the user: `Background running of Claude failed. Run claude --dangerously-skip-permissions once, accept the prompt, exit Claude, then return here and I will retry the background-agent probe. To use the API-metered bridge instead, explicitly choose bridge for this run.`
    - Do not keep retrying the probe for later Claude roles.
 6. If `claude_transport_available` is true:
    - Claude-designated roles may be invoked through the transport with the same artifact paths and handoff contract used by native Claude execution.
@@ -1241,7 +1242,7 @@ After plan approval, present the plan interactively before proceeding to build.
    - **Claude transport snapshot (only when `transport=` entries exist — i.e. Codex called Claude in this quest; omit the whole block otherwise, including for Claude-led quests):** count `transport=` values across the log and read the downgrade flag from `.quest/<id>/orchestration.json`:
      ```
      Claude transport (Codex-led roles):
-       background-agent: <N>    bridge: <N>    downgraded from background-agent: <yes/no per claude_transport_downgraded>
+      background-agent: <N>    bridge: <N>    legacy downgrade flag: <yes/no per claude_transport_downgraded>
      ```
    - If overall compliance is 100%:
      "All agents wrote handoff.json. Orchestrator routed via structured handoff files throughout."
