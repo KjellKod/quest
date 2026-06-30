@@ -2,7 +2,7 @@
 
 Date: 2026-03-24
 Observed from: `/Users/kjell/ws/ai-tools`
-Status: `reference`
+Status: `reference` (archived 2026-06-11 — operative guidance now lives in docs/guides/quest_setup.md and the quest_preflight.sh host-context checks)
 
 ## Summary
 

@@ -13,10 +13,10 @@ Build and utility scripts for the Quest repository.
 | `quest_checks/` | Python package that provides the installed `quest-checks` CLI for running Quest validators. |
 | `quest_claude_bridge.py` | Thin transport bridge from the current host into Claude CLI for Codex-led Claude-designated Quest roles. |
 | `quest_preflight.sh` | Checks second-model readiness before quest routing. Codex-led Claude probes now retain a recent successful host probe under `.quest/cache/` so later quest starts can reuse it. |
-| `quest_claude_probe.py` | Probes the Claude bridge by requiring a real artifact write and `handoff.json` under the quest logs directory. |
+| `quest_claude_probe.py` | Probes a Claude transport by requiring a real artifact write and `handoff.json` under the quest logs directory. |
 | `quest_state.py` | Updates `.quest/<id>/state.json` consistently and refreshes `updated_at`. |
 | `quest_startup_branch.py` | Creates the startup branch or worktree for a new quest from `.ai/allowlist.json` and returns machine-readable branch context JSON. |
-| `quest_claude_runner.py` | Runs Claude-designated Quest roles through the additive Codex-host Claude adapter, using `scripts/quest_claude_bridge.py` as transport plus `bypassPermissions`, explicit `--add-dir` access, handoff polling, and `context_health.log` updates. Native Claude-led Quest behavior stays on `Task(...)`. |
+| `quest_claude_runner.py` | Runs Claude-designated Quest roles through the additive Codex-host Claude adapter, using background-agent or explicit bridge transport plus `bypassPermissions`, explicit `--add-dir` access, handoff polling, and `context_health.log` updates. Native Claude-led Quest behavior stays on `Task(...)`. |
 | `quest_review_intelligence.py` | CLI wrapper around review-intelligence helpers (`validate-findings`, `merge-findings`, `build-backlog`, `append-deferred`, `scan-backlog`, `normalize-pr-intake`, `select-batch-validation`, `build-fix-batches`, `classify-pr-stop`). |
 | `pr_shepherd_checkout.py` | Inspection-first PR target helper; reports current/target branch state and only runs `gh pr checkout` with `--apply`. |
 | `pr_shepherd_collect_intake.py` | Collects compact records-shaped PR shepherd intake for normalization. |

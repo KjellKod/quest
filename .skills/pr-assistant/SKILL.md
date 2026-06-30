@@ -297,4 +297,4 @@ Always show the intended PR title and full body to the user and wait for explici
 
 ## Output
 
-Output only the final PR title and body. Do not use emojis.
+Output only the final PR title and body. Do not use emojis beyond the template's fixed `## ⭐ Why this matters` header.

@@ -1090,3 +1090,17 @@ def test_post_reply_refuses_missing_target_without_summary_mode(monkeypatch: pyt
 
     with pytest.raises(ValueError, match="--pr and --thread-id"):
         pr_shepherd_post_reply.main()
+
+
+def test_bounded_tail_zero_returns_no_tail_lines() -> None:
+    text = "\n".join(f"line-{i}" for i in range(10))
+    result = pr_shepherd_fetch_failed_logs._bounded(text, head=3, tail=0)
+    assert result[:3] == ["line-0", "line-1", "line-2"]
+    assert result[3] == "... truncated 7 lines ..."
+    assert len(result) == 4  # was: lines[-0:] appended the ENTIRE log
+
+
+def test_bounded_negative_values_clamp_to_zero() -> None:
+    text = "\n".join(f"line-{i}" for i in range(5))
+    result = pr_shepherd_fetch_failed_logs._bounded(text, head=-1, tail=-1)
+    assert result == ["... truncated 5 lines ..."]

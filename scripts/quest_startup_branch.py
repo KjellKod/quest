@@ -185,6 +185,9 @@ def apply_quest_symlink(worktree_quest: Path, shared_quest: Path) -> str:
     """Ensure a worktree .quest symlink with migration and no data loss."""
     if worktree_quest.is_symlink():
         if _symlink_points_to(worktree_quest, shared_quest):
+            # The target may have been deleted since the symlink was made —
+            # recreate it so "present" never means "present but dangling".
+            shared_quest.mkdir(parents=True, exist_ok=True)
             return "present"
         shared_quest.mkdir(parents=True, exist_ok=True)
         conflict_dir = _conflict_dir_for(worktree_quest, shared_quest)

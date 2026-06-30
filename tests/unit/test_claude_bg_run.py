@@ -5,11 +5,11 @@ lifecycle against a fake `claude` shim (no real model calls, no bypass-acceptanc
 needed), the needs_human bubble-back and resume continuation, plus the ANSI/PTY
 noise-firewall primitive.
 
-The shim mirrors the REAL CLI surface: `--bg` (incl. `--resume`) and
-`agents --json` only — there are no `logs`/`stop`/`rm` subcommands. State is a
-LIST of session rows (each with a pid), so resume scenarios can model the parked
-parent session sitting next to the newly dispatched agent. Teardown is a signal
-to the row's pid; tests intercept `os.kill` and drop the row to simulate exit.
+The shim models the runner surface used by these tests: `--bg` (incl.
+`--resume`) and `agents --json`. State is a LIST of session rows (each with a
+pid), so resume scenarios can model the parked parent session sitting next to
+the newly dispatched agent. The current runner tears down via process signals;
+tests intercept `os.kill` and drop the row to simulate exit.
 """
 
 from __future__ import annotations
@@ -38,6 +38,9 @@ def rows():
 
 args = sys.argv[1:]
 if args[:1] == ["--bg"]:
+    stdin_text = sys.stdin.read()
+    (D / "last_bg_stdin.txt").write_text(stdin_text)
+    (D / "last_bg_argv.json").write_text(json.dumps(args))
     is_resume = "--resume" in args
     sid_arg = args[args.index("--resume") + 1] if is_resume else ""
     name = args[args.index("--name") + 1] if "--name" in args else "?"
@@ -54,9 +57,10 @@ if args[:1] == ["--bg"]:
     sid = "abc12345"
     if eff != "never_confirm":
         st = {"blocked": "blocked", "incomplete": "done"}.get(eff, "working")
+        row = {"pid": 222, "id": sid, "name": name, "sessionId": sid + "-uuid",
+               "kind": "background", "state": st, "status": "idle"}
         rs = rows()
-        rs.append({"pid": 222, "id": sid, "name": name, "sessionId": sid + "-uuid",
-                   "kind": "background", "state": st, "status": "idle"})
+        rs.append(row)
         state.write_text(json.dumps(rs))
     if eff == "ok" and WAIT:
         pathlib.Path(WAIT).write_text("RESULT")
@@ -68,7 +72,8 @@ if args[:1] == ["--bg"]:
 if args[:2] == ["agents", "--json"]:
     print(json.dumps(rows()))
     sys.exit(0)
-# Anything else (e.g. the nonexistent logs/stop/rm) parses as a PROMPT: no-op.
+# Older Claude Code builds treated unknown management verbs as a prompt. This
+# shim keeps that historical behavior for tests that exercise pid fallback paths.
 log("unknown " + " ".join(args[:2]))
 sys.exit(0)
 '''
@@ -143,6 +148,14 @@ def _calls(tmp_path: Path) -> list[str]:
     return f.read_text().splitlines() if f.exists() else []
 
 
+def _last_bg_stdin(tmp_path: Path) -> str:
+    return (tmp_path / "last_bg_stdin.txt").read_text()
+
+
+def _last_bg_argv(tmp_path: Path) -> list[str]:
+    return json.loads((tmp_path / "last_bg_argv.json").read_text())
+
+
 # ---- pure helpers ----------------------------------------------------------
 def test_strip_ansi_removes_escapes():
     raw = "\x1b[2J\x1b[31mHELLO\x1b[0m world\r\n"
@@ -176,8 +189,21 @@ def test_ok_completes_on_artifact_and_tears_down(shim, tmp_path, monkeypatch, ki
     assert env.status == "ok"
     assert env.exit_code() == bg.EXIT_OK
     assert str(wait) in env.artifacts_found and not env.missing
-    # Teardown = SIGTERM to the supervisor-reported pid (there is no stop/rm).
+    # Current teardown = SIGTERM to the supervisor-reported pid.
     assert (222, bg.signal.SIGTERM) in kills
+
+
+def test_dispatch_sends_prompt_on_stdin_not_argv(shim, tmp_path, monkeypatch):
+    wait = tmp_path / "out.json"
+    prompt = "write ok from stdin"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
+    monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
+
+    env = bg.BgRunner(_args(shim, prompt=prompt, wait_for=str(wait))).run()
+
+    assert env.status == "ok"
+    assert _last_bg_stdin(tmp_path).startswith(prompt)
+    assert all(prompt not in arg for arg in _last_bg_argv(tmp_path))
 
 
 def test_keep_skips_teardown(shim, tmp_path, monkeypatch, kills):
@@ -208,6 +234,28 @@ def test_needs_human_keeps_session_alive_for_resume(shim, tmp_path, monkeypatch,
     assert env.status == "needs_human"
     # Session must NOT be torn down: no signals sent, so it can be resumed.
     assert kills == []
+
+
+def test_needs_human_teardown_flag_tears_session_down(shim, tmp_path, monkeypatch, kills):
+    # PR #137 stopgap: callers with no resume loop (Quest) pass
+    # --teardown-on-needs-human so needs_human is surfaced AND the session is
+    # torn down (like the bridge), instead of left alive to leak.
+    hand = tmp_path / "handoff.json"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "needs_human")
+    monkeypatch.setenv("FAKE_BG_HANDOFF", str(hand))
+    env = bg.BgRunner(
+        _args(
+            shim,
+            wait_for=str(tmp_path / "out.json"),
+            handoff_file=str(hand),
+            teardown_on_needs_human=True,
+        )
+    ).run()
+    assert env.status == "needs_human"
+    assert env.exit_code() == bg.EXIT_NEEDS_HUMAN
+    # Session IS torn down: a SIGTERM was sent to the supervisor-reported pid.
+    assert any(sig == bg.signal.SIGTERM for _, sig in kills)
+    assert "session torn down" in env.message
     assert env.session_id  # surfaced so the orchestrator can --resume it
 
 
@@ -262,6 +310,54 @@ def test_resume_unknown_target_is_precondition_failed(shim, tmp_path, monkeypatc
     assert env.status == "precondition_failed"
     assert env.exit_code() == bg.EXIT_PRECONDITION
     assert "no live agent" in env.message
+
+
+def test_failed_resume_dispatch_preserves_parked_handoff(shim, tmp_path, monkeypatch, kills):
+    # Regression (PR #137 review): the parked needs_human handoff must NOT be
+    # cleared until a continuation is confirmed. With --no-fallback and a resume
+    # dispatch that never registers, the parked session lives on, so its
+    # question must still be on disk for a later retry.
+    _seed_parent(tmp_path)
+    hand = tmp_path / "handoff.json"
+    hand.write_text(json.dumps({"status": "needs_human", "questions": ["A or B?"]}))
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_fallback")  # resume never confirms
+    env = bg.BgRunner(
+        _args(shim, resume=PARENT_SID, answer="use A", handoff_file=str(hand),
+              no_fallback=True, wait_for=str(tmp_path / "out.json"))
+    ).run()
+    assert env.status == "dispatch_failed"
+    # The parked question survived the failed resume dispatch.
+    assert json.loads(hand.read_text())["questions"] == ["A or B?"]
+    # And the parked parent was not retired (no signal to its pid).
+    assert (111, bg.signal.SIGTERM) not in kills
+
+
+def test_failed_fallback_dispatch_preserves_parked_handoff(shim, tmp_path, monkeypatch, kills):
+    # Regression (PR #137 review): when resume fails AND the fresh fallback
+    # re-dispatch also fails, the parked needs_human handoff AND any artifacts
+    # the parked session already wrote are restored (both cleared as the stale
+    # guard before the unconfirmed re-dispatch), and the parked parent is not
+    # torn down — so the question + work survive for a retry.
+    _seed_parent(tmp_path)
+    hand = tmp_path / "handoff.json"
+    hand.write_text(json.dumps({"status": "needs_human", "questions": ["A or B?"]}))
+    out = tmp_path / "out.bin"
+    # A non-UTF-8 (binary) artifact: snapshot/restore must be byte-safe, never
+    # decode it (read_text would raise UnicodeDecodeError before the restore).
+    out.write_bytes(b"\xff\xfePARTIAL")
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "never_confirm")  # resume AND fresh both fail
+    env = bg.BgRunner(
+        _args(shim, resume=PARENT_SID, answer="use A", handoff_file=str(hand),
+              wait_for=str(out))
+    ).run()
+    assert env.status == "dispatch_failed"
+    assert env.fell_back is True
+    assert "re-dispatch also failed" in env.message
+    # The parked question AND the parked (binary) artifact survived the fallback.
+    assert json.loads(hand.read_text())["questions"] == ["A or B?"]
+    assert out.read_bytes() == b"\xff\xfePARTIAL"
+    # And the parked parent was not retired.
+    assert (111, bg.signal.SIGTERM) not in kills
 
 
 def test_resume_falls_back_to_fresh_dispatch(shim, tmp_path, monkeypatch):
@@ -333,3 +429,101 @@ def test_incomplete_when_done_without_artifact(shim, tmp_path, monkeypatch):
 
 def test_self_test_passes_in_this_env():
     assert bg._self_test() == bg.EXIT_OK
+
+
+def test_sweep_stops_only_matching_prefix_sessions(shim, tmp_path, monkeypatch, kills, capsys):
+    rows = [
+        {**PARENT, "pid": 111, "id": "aaa11111", "name": "quest-q7-planner-i1"},
+        {**PARENT, "pid": 112, "id": "bbb22222", "name": "quest-q7-builder-i2"},
+        {**PARENT, "pid": 113, "id": "ccc33333", "name": "quest-OTHER-fixer-i1"},
+        {**PARENT, "pid": 114, "id": "ddd44444", "name": "bgrun-unrelated"},
+    ]
+    (tmp_path / "state.json").write_text(json.dumps(rows))
+    rc = bg.main(["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q7-"])
+    out = capsys.readouterr().out
+    assert rc == bg.EXIT_OK
+    killed_pids = {pid for pid, _ in kills}
+    assert killed_pids == {111, 112}
+    assert "swept aaa11111" in out and "swept bbb22222" in out
+    assert "2 session(s)" in out
+
+
+# ---- stale-state guard (PR #137 review feedback) ---------------------------
+def test_fresh_dispatch_clears_stale_wait_for_no_false_success(
+    shim, tmp_path, monkeypatch, kills
+):
+    """A pre-existing non-empty --wait-for file must not satisfy this run."""
+    wait = tmp_path / "out.json"
+    wait.write_text("STALE FROM A PRIOR RUN", encoding="utf-8")
+    # Session reaches done without writing anything ("incomplete" scenario).
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "incomplete")
+
+    env = bg.BgRunner(_args(shim, wait_for=str(wait))).run()
+
+    assert env.status == "incomplete"  # was: instant false "ok" off stale file
+    assert wait.read_text(encoding="utf-8") == ""  # cleared at dispatch
+
+
+def test_fresh_dispatch_clears_stale_complete_handoff(
+    shim, tmp_path, monkeypatch, kills
+):
+    """A leftover complete handoff must not complete this run."""
+    hand = tmp_path / "handoff.json"
+    hand.write_text(json.dumps({"status": "complete"}), encoding="utf-8")
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "incomplete")
+
+    env = bg.BgRunner(_args(shim, handoff_file=str(hand))).run()
+
+    assert env.status == "incomplete"  # was: instant false "ok" off stale handoff
+
+
+def test_fresh_dispatch_clears_stale_needs_human_handoff(
+    shim, tmp_path, monkeypatch, kills
+):
+    """A leftover needs_human handoff must not bubble back for a fresh run."""
+    wait = tmp_path / "out.json"
+    hand = tmp_path / "handoff.json"
+    hand.write_text(
+        json.dumps({"status": "needs_human", "questions": ["stale?"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
+    monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
+
+    env = bg.BgRunner(
+        _args(shim, wait_for=str(wait), handoff_file=str(hand))
+    ).run()
+
+    assert env.status == "ok"  # was: instant needs_human replay of the stale file
+    assert env.questions == []
+
+
+def test_resume_clears_parked_handoff_but_keeps_wait_for(
+    shim, tmp_path, monkeypatch, kills
+):
+    """Resume must clear the parked needs_human handoff (it would re-trigger
+    instantly) while preserving --wait-for files the parked session wrote."""
+    _seed_parent(tmp_path)
+    wait = tmp_path / "out.json"
+    wait.write_text("PARKED-WORK", encoding="utf-8")
+    hand = tmp_path / "handoff.json"
+    hand.write_text(
+        json.dumps({"status": "needs_human", "questions": ["A or B?"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_ok")
+
+    env = bg.BgRunner(
+        _args(
+            shim,
+            resume="bgrun-parked",
+            answer="B",
+            wait_for=str(wait),
+            handoff_file=str(hand),
+        )
+    ).run()
+
+    assert env.status == "ok"
+    assert env.resumed is True
+    assert env.questions == []  # stale questions did not replay
+    assert wait.read_text(encoding="utf-8") == "PARKED-WORK"  # preserved

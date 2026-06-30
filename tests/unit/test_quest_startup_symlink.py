@@ -345,3 +345,20 @@ def test_startup_main_repo_none_and_branch_report_na(tmp_path: Path) -> None:
     assert none_payload["quest_symlink"] == "n/a"
     assert branch_payload["quest_symlink"] == "n/a"
     assert not (repo / ".quest").is_symlink()
+
+
+def test_apply_quest_symlink_present_recreates_deleted_target(tmp_path: Path) -> None:
+    """A matching-but-dangling symlink must get its target recreated, not be
+    preserved broken (PR #137 review feedback)."""
+    shared_quest = tmp_path / "shared_quest"
+    worktree_quest = tmp_path / "worktree" / ".quest"
+    worktree_quest.parent.mkdir(parents=True)
+    shared_quest.mkdir()
+    worktree_quest.symlink_to(shared_quest)
+    shared_quest.rmdir()  # target vanishes; symlink now dangles
+
+    assert apply_quest_symlink(worktree_quest, shared_quest) == "present"
+
+    assert shared_quest.is_dir()
+    assert worktree_quest.is_symlink()
+    assert worktree_quest.resolve() == shared_quest.resolve()

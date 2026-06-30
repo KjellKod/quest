@@ -1,8 +1,17 @@
-"""Quest Claude runtime helpers for host-aware dispatch and bridge execution."""
+"""Quest Claude runtime helpers for host-aware dispatch and transport execution.
+
+Codex-led Claude roles run through one of two transports, both invoked as
+subprocesses speaking the same file contract (poll handoff.json + artifacts):
+  * background-agent (default via "auto"): scripts/claude_bg_run.py —
+    `claude --bg` sessions billed to the subscription pool.
+  * bridge (explicit API path): scripts/quest_claude_bridge.py —
+    `claude --print`, works without the background-agent daemon.
+"""
 
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import time
@@ -46,6 +55,36 @@ CODEX_LED_CODEX_VIOLATION_GUIDANCE = (
     "subagents that inherit the active Codex model. Codex MCP is only valid "
     "for Claude-led sessions dispatching Codex roles."
 )
+
+
+# Helper scripts live next to this package (…/scripts/). Resolve them off
+# __file__ so they are found regardless of the caller's cwd — Quest may be
+# installed outside the target repo and invoked by absolute path (see
+# ideas/2026-06-15-bug-report-for-branch-claude/bg-transport-step2.md).
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent  # …/scripts
+DEFAULT_BRIDGE_SCRIPT = str(_SCRIPTS_DIR / "quest_claude_bridge.py")
+DEFAULT_BG_RUNNER_SCRIPT = str(_SCRIPTS_DIR / "claude_bg_run.py")
+
+# Background-agent teardown can take several signal attempts after the child's
+# own --timeout fires. Wait this much BEYOND `timeout` for claude_bg_run.py to
+# finish (including teardown) before terminating it — killing the child does not
+# stop the detached supervisor session, so racing it would orphan the session.
+_BG_TEARDOWN_MARGIN_SECONDS = 30.0
+
+# scripts/claude_bg_run.py exit codes → quest result kinds, used only when the
+# handoff contract was NOT satisfied (a found handoff always wins).
+# 2 precondition / 3 dispatch_failed / 4 blocked: daemon, auth, or bypass
+# problems — Tier B (permission escalation) cannot fix those, so they classify
+# as invocation_error and the ladder blocks fast with remediation.
+# 6 (session finished without artifacts) and 130 (interrupted) deliberately
+# fall through to the standard handoff-state classification (handoff_missing)
+# so the existing missing-handoff retry ladder applies unchanged.
+_BG_EXIT_RESULT_KINDS: dict[int, str] = {
+    2: "invocation_error",
+    3: "invocation_error",
+    4: "invocation_error",
+    5: "timeout",
+}
 
 
 def _effective_permission_mode(
@@ -204,6 +243,115 @@ def build_bridge_cmd(
     return cmd
 
 
+def build_bg_cmd(
+    *,
+    cwd: str | Path,
+    bg_runner_script: str | Path,
+    prompt_file: str | Path,
+    name: str,
+    model: str,
+    timeout: float,
+    permission_mode: str,
+    handoff_file: str | Path,
+    wait_for: Iterable[str | Path],
+    add_dirs: Iterable[str | Path] | None = None,
+) -> list[str]:
+    """argv for the background-agent transport (scripts/claude_bg_run.py).
+
+    Passes --handoff-file so a needs_human handoff is recognized promptly, plus
+    --teardown-on-needs-human so the session is torn down on needs_human instead
+    of left alive: Quest has no resume loop to collect a parked session yet (the
+    full interactive relay is specified in
+    ideas/quest-needs-human-resume-relay.md). Net effect — needs_human
+    behaves exactly like the bridge (handoff present → session torn down → the
+    orchestrator reads the status) rather than blocking until --timeout. The
+    handoff also stays in wait_for for the success (status=complete) path.
+    """
+    cmd = [
+        sys.executable,
+        str(bg_runner_script),
+        "--json",
+        "--no-protocol",
+        "--prompt-file",
+        str(prompt_file),
+        "--name",
+        name,
+        "--model",
+        model,
+        "--timeout",
+        str(timeout),
+        "--permission-mode",
+        permission_mode,
+        "--handoff-file",
+        str(handoff_file),
+        "--teardown-on-needs-human",
+    ]
+    for path in wait_for:
+        cmd.extend(["--wait-for", str(path)])
+    if add_dirs:
+        for directory in unique_dirs(add_dirs):
+            cmd.extend(["--add-dir", directory])
+    return cmd
+
+
+def bg_session_name(quest_id: str, agent: str, iteration: int) -> str:
+    """Deterministic background-session name; also the orphan-sweep key."""
+    return f"quest-{quest_id}-{agent}-i{iteration}"
+
+
+def _bg_failure_detail(stdout: str) -> str:
+    """Distill the bg runner's JSON envelope into a one-line diagnostic."""
+    try:
+        envelope = json.loads(stdout)
+    except (json.JSONDecodeError, ValueError):
+        return ""
+    if not isinstance(envelope, dict):
+        return ""
+    parts = [
+        f"bg {key}={envelope[key]}"
+        for key in ("status", "message", "logs_tail")
+        if envelope.get(key)
+    ]
+    return "; ".join(parts)
+
+
+def classify_bg_probe_failure(stderr: str) -> str | None:
+    """Return a specific bg preflight failure kind when stderr is recognizable."""
+    normalized = stderr.lower()
+    if "dangerously-skip-permissions" in normalized or (
+        "bypasspermissions" in normalized and "accepted" in normalized
+    ):
+        return "bypass_not_accepted"
+    if (
+        "send a prompt to start" in normalized
+        or "did not consume the initial prompt" in normalized
+    ):
+        return "bg_initial_prompt_not_consumed"
+    if "sessionstart" in normalized and (
+        "permission denied" in normalized or "hook" in normalized
+    ):
+        return "hook_startup_failed"
+    return None
+
+
+def resolve_claude_transport(transport: str) -> str:
+    """Resolve a configured transport to the concrete runner transport.
+
+    "auto" → background-agent. Quest startup preflight is responsible for
+    proving it first; if this helper is reached without a cache, it still must
+    not silently choose the API-metered bridge. Explicit bridge passes through.
+    """
+    if transport == "background-agent":
+        return "background-agent"
+    if transport == "bridge":
+        return "bridge"
+    if transport == "auto":
+        return "background-agent"
+    raise ValueError(
+        f"transport must be auto|background-agent|bridge (got {transport!r})"
+    )
+
+
 def classify_handoff_file(path: str | Path) -> str:
     handoff_path = Path(path)
     if not handoff_path.exists():
@@ -213,6 +361,35 @@ def classify_handoff_file(path: str | Path) -> str:
     except (OSError, json.JSONDecodeError):
         return "unparsable"
     return "found"
+
+
+# Status values the handoff contract allows; anything else is treated as
+# unknown and the status= log field is omitted rather than guessed. Lines
+# without status= are excluded from status statistics by contract (legacy
+# lines predate the field).
+HANDOFF_STATUSES = frozenset({"complete", "needs_human", "blocked"})
+
+
+def read_handoff_status(path: str | Path) -> str | None:
+    """Return the handoff's status when it is a known contract value."""
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    status = payload.get("status")
+    if isinstance(status, str) and status in HANDOFF_STATUSES:
+        return status
+    return None
+
+
+def extract_text_status(text_handoff: str) -> str | None:
+    """Pull STATUS: <value> out of a ---HANDOFF--- text block."""
+    match = re.search(r"^STATUS:\s*(\S+)", text_handoff, flags=re.MULTILINE)
+    if match and match.group(1) in HANDOFF_STATUSES:
+        return match.group(1)
+    return None
 
 
 def extract_text_handoff(text: str) -> str | None:
@@ -288,12 +465,28 @@ def append_context_health_log(
     iteration: int,
     handoff_state: str,
     source: str,
+    status: str | None = None,
+    transport: str | None = None,
 ) -> None:
+    """Append one context-health line.
+
+    `status` (complete|needs_human|blocked) is the handoff's own status when
+    known — omitted (never guessed) when the handoff is missing, unparsable,
+    or carries an unknown value. Consumers count only lines that carry the
+    field, so legacy lines stay out of status statistics.
+
+    `transport` (background-agent|bridge) is set for Codex-led Claude roles —
+    this module is their only writer, so the field's presence is what the quest
+    end summary and celebration key on. Other runtimes never set it.
+    """
     log_dir = Path(quest_dir) / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
+    status_field = f" | status={status}" if status else ""
+    transport_field = f" | transport={transport}" if transport else ""
     log_line = (
         f"{utc_now_iso()} | phase={phase} | agent={agent} | runtime=claude | "
-        f"iter={iteration} | handoff_json={handoff_state} | source={source}\n"
+        f"iter={iteration} | handoff_json={handoff_state} | source={source}"
+        f"{status_field}{transport_field}\n"
     )
     with (log_dir / "context_health.log").open("a", encoding="utf-8") as handle:
         handle.write(log_line)
@@ -318,7 +511,13 @@ def run_claude_role(
     add_dirs: Iterable[str | Path] | None = None,
     poll_interval: float = 0.5,
     exit_grace_seconds: float = 2.0,
+    transport: str = "bridge",
+    bg_runner_script: str | Path = DEFAULT_BG_RUNNER_SCRIPT,
 ) -> RunResult:
+    if transport not in {"bridge", "background-agent"}:
+        raise ValueError(
+            f"transport must be 'bridge' or 'background-agent' (got {transport!r})"
+        )
     workspace_root = Path(cwd).resolve()
     resolved_quest_dir = resolve_path(cwd, quest_dir)
     resolved_prompt_file = resolve_path(cwd, prompt_file)
@@ -367,6 +566,8 @@ def run_claude_role(
                     add_dirs=retry_add_dirs,
                     poll_interval=poll_interval,
                     exit_grace_seconds=exit_grace_seconds,
+                    transport=transport,
+                    bg_runner_script=bg_runner_script,
                 )
                 combined_stderr = retry_note
                 if retry_result.stderr:
@@ -396,17 +597,33 @@ def run_claude_role(
     default_add_dirs.extend(path.parent for path in local_artifact_paths)
     if add_dirs:
         default_add_dirs.extend(add_dirs)
-    cmd = build_bridge_cmd(
-        cwd=cwd,
-        bridge_script=bridge_script,
-        prompt_file=resolved_prompt_file,
-        model=model,
-        timeout=timeout,
-        permission_mode=_effective_permission_mode(
-            permission_mode, permission_escalation
-        ),
-        add_dirs=default_add_dirs,
-    )
+    if transport == "background-agent":
+        cmd = build_bg_cmd(
+            cwd=cwd,
+            bg_runner_script=bg_runner_script,
+            prompt_file=resolved_prompt_file,
+            name=bg_session_name(resolved_quest_dir.name, agent, iteration),
+            model=model,
+            timeout=timeout,
+            permission_mode=_effective_permission_mode(
+                permission_mode, permission_escalation
+            ),
+            handoff_file=resolved_handoff_file,
+            wait_for=[resolved_handoff_file, *resolved_artifact_paths],
+            add_dirs=default_add_dirs,
+        )
+    else:
+        cmd = build_bridge_cmd(
+            cwd=cwd,
+            bridge_script=bridge_script,
+            prompt_file=resolved_prompt_file,
+            model=model,
+            timeout=timeout,
+            permission_mode=_effective_permission_mode(
+                permission_mode, permission_escalation
+            ),
+            add_dirs=default_add_dirs,
+        )
     process = subprocess.Popen(
         cmd,
         cwd=str(cwd),
@@ -421,80 +638,124 @@ def run_claude_role(
     stderr = ""
     timed_out = False
 
-    while time.monotonic() < deadline:
-        handoff_state = classify_handoff_file(resolved_handoff_file)
-        artifacts_complete = (
-            not resolved_artifact_paths
-            or not any_artifact_missing_or_empty(resolved_artifact_paths)
-        )
-        if handoff_state == "found" and artifacts_complete:
+    if transport == "background-agent":
+        # The child (claude_bg_run.py) owns confirm -> wait -> teardown and exits
+        # with a meaningful code (ok / needs_human / timeout / bg error). Killing
+        # the child does NOT stop the detached supervisor session, so we must not
+        # race it the way we poll-and-kill the bridge. Wait for it to finish (its
+        # own --timeout plus a teardown margin), then classify from the handoff +
+        # exit code below. Only a pathological overrun terminates it as a last
+        # resort.
+        try:
+            stdout, stderr = process.communicate(
+                timeout=timeout + _BG_TEARDOWN_MARGIN_SECONDS
+            )
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            process.terminate()
             try:
                 stdout, stderr = process.communicate(timeout=exit_grace_seconds)
             except subprocess.TimeoutExpired:
-                process.terminate()
+                process.kill()
+                stdout, stderr = process.communicate()
+    else:
+        while time.monotonic() < deadline:
+            handoff_state = classify_handoff_file(resolved_handoff_file)
+            artifacts_complete = (
+                not resolved_artifact_paths
+                or not any_artifact_missing_or_empty(resolved_artifact_paths)
+            )
+            if handoff_state == "found" and artifacts_complete:
                 try:
                     stdout, stderr = process.communicate(timeout=exit_grace_seconds)
                 except subprocess.TimeoutExpired:
-                    process.kill()
-                    stdout, stderr = process.communicate()
-            append_context_health_log(
-                resolved_quest_dir,
-                phase=phase,
-                agent=agent,
-                iteration=iteration,
-                handoff_state=handoff_state,
-                source="handoff_json",
-            )
-            return RunResult(
-                exit_code=0,
-                handoff_state=handoff_state,
-                result_kind="handoff_json",
-                source="handoff_json",
-                stdout=stdout,
-                stderr=stderr,
-            )
-        if process.poll() is not None:
-            stdout, stderr = process.communicate()
-            break
-        time.sleep(poll_interval)
+                    process.terminate()
+                    try:
+                        stdout, stderr = process.communicate(timeout=exit_grace_seconds)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        stdout, stderr = process.communicate()
+                append_context_health_log(
+                    resolved_quest_dir,
+                    phase=phase,
+                    agent=agent,
+                    iteration=iteration,
+                    handoff_state=handoff_state,
+                    source="handoff_json",
+                    status=read_handoff_status(resolved_handoff_file),
+                    transport=transport,
+                )
+                return RunResult(
+                    exit_code=0,
+                    handoff_state=handoff_state,
+                    result_kind="handoff_json",
+                    source="handoff_json",
+                    stdout=stdout,
+                    stderr=stderr,
+                )
+            if process.poll() is not None:
+                stdout, stderr = process.communicate()
+                break
+            time.sleep(poll_interval)
 
-    if process.poll() is None:
-        timed_out = True
-        process.terminate()
-        try:
-            stdout, stderr = process.communicate(timeout=exit_grace_seconds)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            stdout, stderr = process.communicate()
+        if process.poll() is None:
+            timed_out = True
+            process.terminate()
+            try:
+                stdout, stderr = process.communicate(timeout=exit_grace_seconds)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
 
     handoff_state = classify_handoff_file(resolved_handoff_file)
+    handoff_status = read_handoff_status(resolved_handoff_file)
     text_handoff = extract_text_handoff(stdout)
     artifacts_complete = (
         not resolved_artifact_paths
         or not any_artifact_missing_or_empty(resolved_artifact_paths)
     )
+    # A found handoff whose status is a terminal state the role legitimately
+    # reaches WITHOUT writing primary artifacts (needs_human asks for a decision;
+    # blocked gives up) is a real handoff result, not a missing-artifact failure.
+    # Treat it as one so the orchestrator enters the human path instead of
+    # retrying/falling back, and so the status= health-log line is recorded.
+    handoff_terminal_without_artifacts = (
+        handoff_state == "found" and handoff_status in {"needs_human", "blocked"}
+    )
+    handoff_result = handoff_state == "found" and (
+        artifacts_complete or handoff_terminal_without_artifacts
+    )
 
+    if transport == "background-agent" and (process.returncode or 0) != 0:
+        # Surface the bg runner's envelope diagnostics (status/message/logs_tail)
+        # so a failed dispatch is debuggable from RunResult.stderr alone.
+        detail = _bg_failure_detail(stdout)
+        if detail:
+            stderr = f"{stderr}\n{detail}".strip()
+
+    bg_exit_kind = (
+        _BG_EXIT_RESULT_KINDS.get(process.returncode or 0)
+        if transport == "background-agent"
+        else None
+    )
     result_kind = (
         "handoff_json"
-        if handoff_state == "found" and artifacts_complete
+        if handoff_result
         else (
             "timeout"
             if timed_out
             else (
                 "handoff_missing"
                 if handoff_state == "found" and not artifacts_complete
-                else classify_result_kind(
+                else bg_exit_kind
+                or classify_result_kind(
                     process.returncode or 1, stderr, handoff_state
                 )
             )
         )
     )
-    source = "handoff_json" if handoff_state == "found" and artifacts_complete else None
-    exit_code = (
-        0
-        if handoff_state == "found" and artifacts_complete
-        else process.returncode or 1
-    )
+    source = "handoff_json" if handoff_result else None
+    exit_code = 0 if handoff_result else process.returncode or 1
     result = RunResult(
         exit_code=exit_code,
         handoff_state=handoff_state,
@@ -504,7 +765,11 @@ def run_claude_role(
         stderr=stderr,
     )
 
-    if not permission_escalation and resolved_artifact_paths:
+    if (
+        not permission_escalation
+        and resolved_artifact_paths
+        and result.source != "handoff_json"
+    ):
         failure_kind = classify_failure_kind(
             result,
             resolved_artifact_paths,
@@ -537,6 +802,8 @@ def run_claude_role(
                 add_dirs=retry_add_dirs,
                 poll_interval=poll_interval,
                 exit_grace_seconds=exit_grace_seconds,
+                transport=transport,
+                bg_runner_script=bg_runner_script,
             )
             combined_stderr = retry_note
             if retry_result.stderr:
@@ -558,6 +825,8 @@ def run_claude_role(
             iteration=iteration,
             handoff_state=handoff_state,
             source="text_fallback",
+            status=extract_text_status(text_handoff),
+            transport=transport,
         )
         return RunResult(
             exit_code=0,
@@ -576,29 +845,16 @@ def run_claude_role(
             iteration=iteration,
             handoff_state=result.handoff_state,
             source="handoff_json",
+            status=handoff_status,
+            transport=transport,
         )
 
     return result
 
 
-def run_bridge_probe(
-    *,
-    cwd: str | Path,
-    quest_dir: str | Path,
-    bridge_script: str | Path,
-    model: str,
-    timeout: float,
-    permission_mode: str,
-) -> RunResult:
-    resolved_quest_dir = resolve_path(cwd, quest_dir)
-    probe_dir = resolved_quest_dir / "logs" / "bridge_probe"
-    probe_dir.mkdir(parents=True, exist_ok=True)
-
-    prompt_file = probe_dir / "probe_prompt.txt"
-    artifact_file = probe_dir / "probe_artifact.txt"
-    handoff_file = probe_dir / "probe_handoff.json"
-    prepare_artifact_files([artifact_file, handoff_file])
-
+def _write_probe_prompt(
+    prompt_file: Path, artifact_file: Path, handoff_file: Path
+) -> None:
     prompt_file.write_text(
         "\n".join(
             [
@@ -622,6 +878,26 @@ def run_bridge_probe(
         + "\n",
         encoding="utf-8",
     )
+
+
+def run_bridge_probe(
+    *,
+    cwd: str | Path,
+    quest_dir: str | Path,
+    bridge_script: str | Path,
+    model: str,
+    timeout: float,
+    permission_mode: str,
+) -> RunResult:
+    resolved_quest_dir = resolve_path(cwd, quest_dir)
+    probe_dir = resolved_quest_dir / "logs" / "bridge_probe"
+    probe_dir.mkdir(parents=True, exist_ok=True)
+
+    prompt_file = probe_dir / "probe_prompt.txt"
+    artifact_file = probe_dir / "probe_artifact.txt"
+    handoff_file = probe_dir / "probe_handoff.json"
+    prepare_artifact_files([artifact_file, handoff_file])
+    _write_probe_prompt(prompt_file, artifact_file, handoff_file)
 
     cmd = build_bridge_cmd(
         cwd=cwd,
@@ -658,4 +934,86 @@ def run_bridge_probe(
         source=source,
         stdout=cp.stdout,
         stderr=cp.stderr,
+    )
+
+
+def run_bg_probe(
+    *,
+    cwd: str | Path,
+    quest_dir: str | Path,
+    bg_runner_script: str | Path = DEFAULT_BG_RUNNER_SCRIPT,
+    model: str,
+    timeout: float,
+    permission_mode: str,
+) -> RunResult:
+    """Live background-agent probe: dispatch a trivial bg task end-to-end.
+
+    Same artifact/handoff contract as run_bridge_probe, but through
+    scripts/claude_bg_run.py — exercising dispatch confirmation, supervisor
+    liveness, bypass acceptance, and a real file write in one shot.
+    """
+    resolved_quest_dir = resolve_path(cwd, quest_dir)
+    probe_dir = resolved_quest_dir / "logs" / "bg_probe"
+    probe_dir.mkdir(parents=True, exist_ok=True)
+
+    prompt_file = probe_dir / "probe_prompt.txt"
+    artifact_file = probe_dir / "probe_artifact.txt"
+    handoff_file = probe_dir / "probe_handoff.json"
+    prepare_artifact_files([artifact_file, handoff_file])
+    _write_probe_prompt(prompt_file, artifact_file, handoff_file)
+
+    cmd = build_bg_cmd(
+        cwd=cwd,
+        bg_runner_script=bg_runner_script,
+        prompt_file=prompt_file,
+        name=f"quest-bg-probe-{resolved_quest_dir.name}",
+        model=model,
+        timeout=timeout,
+        permission_mode=permission_mode,
+        handoff_file=handoff_file,
+        wait_for=[handoff_file, artifact_file],
+        add_dirs=[
+            resolve_path(cwd, "."),
+            resolved_quest_dir,
+            probe_dir,
+        ],
+    )
+    cp = subprocess.run(
+        cmd,
+        cwd=str(cwd),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    handoff_state = classify_handoff_file(handoff_file)
+    artifact_present = not any_artifact_missing_or_empty([artifact_file])
+    # Success requires the FULL contract: the bg child reported ok (exit 0), the
+    # handoff parsed, AND the declared artifact was actually written. A handoff
+    # alone must not cache/select background-agent on a machine that never proved
+    # the artifact write — claude_bg_run.py exits non-zero (e.g. incomplete) then.
+    probe_ok = cp.returncode == 0 and handoff_state == "found" and artifact_present
+    source = "handoff_json" if probe_ok else None
+    exit_code = 0 if probe_ok else cp.returncode or 1
+    stderr = cp.stderr
+    if exit_code != 0:
+        detail = _bg_failure_detail(cp.stdout)
+        if detail:
+            stderr = f"{stderr}\n{detail}".strip()
+    specific_failure = classify_bg_probe_failure(stderr)
+    if probe_ok:
+        result_kind = "handoff_json"
+    elif handoff_state == "found" and not artifact_present:
+        result_kind = "handoff_missing"
+    else:
+        result_kind = specific_failure or _BG_EXIT_RESULT_KINDS.get(
+            exit_code
+        ) or classify_result_kind(exit_code, stderr, handoff_state)
+    return RunResult(
+        exit_code=exit_code,
+        handoff_state=handoff_state,
+        result_kind=result_kind,
+        source=source,
+        stdout=cp.stdout,
+        stderr=stderr,
     )

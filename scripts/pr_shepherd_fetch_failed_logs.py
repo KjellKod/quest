@@ -16,10 +16,13 @@ def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 def _bounded(text: str, *, head: int, tail: int) -> list[str]:
+    head, tail = max(0, head), max(0, tail)
     lines = text.splitlines()
     if len(lines) <= head + tail:
         return lines
-    return lines[:head] + [f"... truncated {len(lines) - head - tail} lines ..."] + lines[-tail:]
+    # tail=0 must yield no tail lines; lines[-0:] would be the whole list.
+    tail_lines = lines[-tail:] if tail else []
+    return lines[:head] + [f"... truncated {len(lines) - head - tail} lines ..."] + tail_lines
 
 
 def _source_label(*, check_name: str, job_name: str, run_id: str) -> str:

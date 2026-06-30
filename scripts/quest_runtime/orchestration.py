@@ -58,6 +58,12 @@ SOLO_UNUSED_ROLES: frozenset[str] = frozenset(
 ORCHESTRATION_VERSION = 1
 CODEX_NATIVE_FALLBACK_MODEL = "gpt-5.5"
 
+# Transport for Codex-led Claude roles (.ai/allowlist.json claude_role_transport).
+# "auto" resolves to background-agent when the preflight bg probe succeeds.
+# If it fails, Quest asks the user; bridge is an explicit API-metered opt-in.
+CLAUDE_ROLE_TRANSPORTS: tuple[str, ...] = ("auto", "background-agent", "bridge")
+DEFAULT_CLAUDE_ROLE_TRANSPORT = "auto"
+
 
 class OverrideParseError(ValueError):
     """Raised when an override-line submission is malformed."""
@@ -211,6 +217,14 @@ def validate_or_remap_models_for_orchestrator(
     for role in active_roles_for_mode(quest_mode):
         model = result.get(role)
         if not isinstance(model, str) or not model:
+            # An unset/empty model on an ACTIVE role is unavailable by
+            # definition — remap or reject now instead of persisting config
+            # that can only fail later at dispatch time.
+            if remap_unavailable:
+                result[role] = fallback_model
+                remapped_roles.append(role)
+            else:
+                unavailable_roles.append(role)
             continue
         if is_model_available_for_orchestrator(
             model,
@@ -332,15 +346,27 @@ def write_orchestration_json(
     source: str,
     overridden_roles: list[str],
     preflight_validated_at: str | None = None,
+    claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
+    claude_transport_resolved: str | None = None,
 ) -> None:
     """Write the orchestration.json artifact with canonical key order."""
     if source not in {"default", "overridden"}:
         raise ValueError(
             f"source must be 'default' or 'overridden' (got {source!r})"
         )
+    if claude_role_transport not in CLAUDE_ROLE_TRANSPORTS:
+        raise ValueError(
+            f"claude_role_transport must be one of {CLAUDE_ROLE_TRANSPORTS} "
+            f"(got {claude_role_transport!r})"
+        )
     payload = {
         "version": ORCHESTRATION_VERSION,
         "models": {role: models.get(role) for role in CANONICAL_ROLES},
+        "claude_role_transport": claude_role_transport,
+        "claude_transport_resolved": claude_transport_resolved,
+        # Compatibility field for consumers created during the downgrade era.
+        # New auto runs block for user choice instead of downgrading.
+        "claude_transport_downgraded": False,
         "source": source,
         "overridden_roles": list(overridden_roles),
         "preflight_validated_at": preflight_validated_at or _now_iso(),
@@ -361,6 +387,8 @@ def write_default_from_allowlist(
     claude_available: bool = True,
     quest_mode: str = "workflow",
     remap_unavailable: bool = False,
+    claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
+    claude_transport_resolved: str | None = None,
 ) -> None:
     """Default-path writer: copy allowlist models into orchestration.json."""
     defaults = build_default_models(allowlist_models)
@@ -379,6 +407,8 @@ def write_default_from_allowlist(
         source="default",
         overridden_roles=[],
         preflight_validated_at=preflight_validated_at,
+        claude_role_transport=claude_role_transport,
+        claude_transport_resolved=claude_transport_resolved,
     )
 
 
@@ -406,7 +436,30 @@ def migrate_from_snapshot(
         if not isinstance(existing_models, dict):
             return False
         merged_models, backfilled = _backfill_legacy_compatible_roles(existing_models)
-        if not backfilled:
+        # Transport keys were introduced after early quests; backfill in place
+        # (same legacy-compat contract as newly-introduced roles).
+        transport_backfilled = False
+        if "claude_role_transport" not in existing:
+            # Absent: legacy file predating the transport key — backfill the default.
+            existing["claude_role_transport"] = DEFAULT_CLAUDE_ROLE_TRANSPORT
+            transport_backfilled = True
+        elif existing["claude_role_transport"] not in CLAUDE_ROLE_TRANSPORTS:
+            # Present but invalid: a mistyped/forced transport must fail closed,
+            # never be silently coerced to "auto" (that would resume under a
+            # different transport than the per-quest config demanded).
+            raise ValueError(
+                "orchestration.json has an invalid claude_role_transport "
+                f"{existing['claude_role_transport']!r}; expected one of "
+                f"{CLAUDE_ROLE_TRANSPORTS}. Fix or remove the key — resume will "
+                "not coerce a forced transport."
+            )
+        if "claude_transport_resolved" not in existing:
+            existing["claude_transport_resolved"] = None
+            transport_backfilled = True
+        if "claude_transport_downgraded" not in existing:
+            existing["claude_transport_downgraded"] = False
+            transport_backfilled = True
+        if not backfilled and not transport_backfilled:
             return False
         existing["models"] = {
             role: merged_models.get(role) for role in CANONICAL_ROLES

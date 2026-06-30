@@ -12,7 +12,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from quest_runtime.quest_ids import parse_quest_id
 
@@ -26,6 +26,9 @@ class AgentInfo:
     role_title: str  # e.g. "The Plan Reviewer"
     summary: str  # from handoff summary field
     phase: str  # e.g. "Planning"
+    # Set only for Codex-led Claude roles (from context_health.log transport=):
+    # "background-agent" or "bridge". None for every other invocation path.
+    transport: Optional[str] = None
 
 
 @dataclass
@@ -72,6 +75,11 @@ class QuestData:
 
     # From handoff*.json files
     agents: List[AgentInfo] = field(default_factory=list)
+
+    # From context_health.log transport= fields (Codex-led Claude roles only).
+    # e.g. {"background-agent": 4, "bridge": 1}; empty when Codex never called
+    # Claude — every transport display keys on that empty state.
+    claude_transport_counts: Dict[str, int] = field(default_factory=dict)
 
     # From review*.md files
     review_findings: List[str] = field(default_factory=list)
@@ -442,6 +450,34 @@ def _collect_handoff_data(quest_dir: Path) -> Tuple[List[AgentInfo], List[str]]:
             add_legacy_agent("fixer", model, phase)
 
     return agents, files_changed
+
+
+def _read_claude_transports(quest_dir: Path) -> Tuple[Dict[str, str], Dict[str, int]]:
+    """Parse transport= fields from logs/context_health.log.
+
+    Returns (last transport per agent, line counts per transport). Lines
+    without a transport field (native Task, Codex roles) are ignored — only
+    Codex-led Claude roles carry it.
+    """
+    per_agent: Dict[str, str] = {}
+    counts: Dict[str, int] = {}
+    log_path = quest_dir / "logs" / "context_health.log"
+    try:
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        # Optional celebration metadata: a missing/unreadable log OR malformed
+        # (non-UTF-8) bytes both degrade gracefully to "no transport data".
+        return per_agent, counts
+    for line in lines:
+        agent_match = re.search(r"\bagent=(\S+)", line)
+        transport_match = re.search(r"\btransport=(\S+)", line)
+        if not transport_match:
+            continue
+        transport = transport_match.group(1)
+        counts[transport] = counts.get(transport, 0) + 1
+        if agent_match:
+            per_agent[agent_match.group(1)] = transport
+    return per_agent, counts
 
 
 def _collect_review_findings(quest_dir: Path) -> Tuple[List[str], int]:
@@ -980,8 +1016,17 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
                     role_title=agent_dict.get("role", ""),
                     summary="",
                     phase="",
+                    transport=agent_dict.get("transport"),
                 )
             )
+
+        transport_counts = celebration.get("claude_transport_counts")
+        if isinstance(transport_counts, dict):
+            data.claude_transport_counts = {
+                str(key): value
+                for key, value in transport_counts.items()
+                if isinstance(value, int)
+            }
 
         for ach_dict in _extract_dict_items(celebration.get("achievements")):
             data.achievements.append(
@@ -1112,6 +1157,13 @@ def load_quest_data(quest_dir: Path) -> QuestData:
 
     # 4. handoff*.json
     data.agents, data.files_changed = _collect_handoff_data(quest_dir)
+
+    # 4b. Claude transport attribution (Codex-led Claude roles only).
+    transport_per_agent, data.claude_transport_counts = _read_claude_transports(
+        quest_dir
+    )
+    for agent in data.agents:
+        agent.transport = transport_per_agent.get(agent.name)
 
     # 5. review*.md
     data.review_findings, data.review_count = _collect_review_findings(quest_dir)

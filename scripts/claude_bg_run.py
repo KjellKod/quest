@@ -30,7 +30,7 @@ It is also the "noise firewall": the orchestrator only ever sees the tiny
 envelope below, never the raw ANSI TUI buffer. `pty_capture()` demonstrates the
 same strip-to-signal behavior for the interactive (`attach`) responder path.
 
-Transport facts this encodes (validated against Claude Code 2.1.170+):
+Transport facts this encodes (observed across Claude Code 2.1.x):
   * `claude --bg` prints `backgrounded · <id>[ · <name>]` and may exit 0 even on
     the bypass-acceptance refusal, so success requires parsing the id AND
     confirming via `claude agents --json` — not the exit code.
@@ -39,11 +39,11 @@ Transport facts this encodes (validated against Claude Code 2.1.170+):
     (idle, awaiting-input) session ALSO reads `state==blocked`, so resume-mode
     polling must never match the parked parent's row (id/name take precedence
     over sessionId).
-  * There are NO `claude logs|stop|rm` subcommands — those argv parse as a
-    PROMPT and silently do nothing. Teardown = signal the `pid` carried in the
-    session's `agents --json` row, repeating against the row's CURRENT pid until
-    it settles (the daemon respawns a parked session once from its spare pool).
-    Logs come from the transcript at ~/.claude/projects/<project>/<sessionId>.jsonl.
+  * Early 2.1.x builds did not expose scriptable `logs|stop|rm`; this runner
+    still uses the portable fallback: transcript JSONL for log tails and
+    signalling the `pid` carried in the `agents --json` row. Claude Code 2.1.191
+    exposes real `claude logs <id>` and `claude stop <id>` commands; adopting
+    those subcommands is tracked as follow-up cleanup.
   * `claude --bg --resume <sid>` FORKS: the new agent continues the conversation
     under a NEW sessionId (daemon roster: launch.mode=resume, fork=true).
 
@@ -263,8 +263,9 @@ class BgRunner:
     def logs_tail(self, session_id: str | None) -> str:
         """Tail of the session transcript (~/.claude/projects/*/<sid>.jsonl).
 
-        There is no `claude logs` subcommand; the transcript JSONL is the log.
-        Returns the last few assistant-text lines, distilled.
+        Claude Code 2.1.191 has `claude logs <id>`, but this runner still uses
+        transcript JSONL as the portable fallback. Returns the last few
+        assistant-text lines, distilled.
         """
         if not session_id:
             return ""
@@ -291,12 +292,13 @@ class BgRunner:
     def stop_session(self, short_id: str | None) -> None:
         """Stop a background agent by signalling its supervisor-reported pid.
 
-        `claude stop|rm` do not exist as subcommands (they parse as a prompt and
-        no-op). The daemon may RESPAWN a parked session once from its spare pool
-        after a kill (the row keeps its id but shows a fresh pid), so keep
-        signalling the row's *current* pid until the row settles — drops its pid
-        ("settled (killed)" in the daemon log) or leaves the listing. Settled
-        rows may linger pid-less in `agents --json`; that is retired enough.
+        Claude Code 2.1.191 has `claude stop <id>`, but this runner still uses
+        the older pid-signalling fallback. The daemon may RESPAWN a parked
+        session once from its spare pool after a kill (the row keeps its id but
+        shows a fresh pid), so keep signalling the row's *current* pid until the
+        row settles — drops its pid ("settled (killed)" in the daemon log) or
+        leaves the listing. Settled rows may linger pid-less in `agents --json`;
+        that is retired enough.
         """
         if not short_id:
             return
@@ -316,6 +318,26 @@ class BgRunner:
         if self.a.keep:
             return
         self.stop_session(short_id)
+
+    def sweep(self, prefix: str) -> int:
+        """Stop every background session whose name starts with `prefix`.
+
+        Orphan recovery for orchestrators that crashed between dispatch and
+        teardown (e.g. quest start/resume runs `--sweep quest-<id>-`).
+        """
+        rows = [
+            row
+            for row in self.agents_json()
+            if row.get("kind") != "interactive"
+            and isinstance(row.get("name"), str)
+            and row["name"].startswith(prefix)
+            and isinstance(row.get("pid"), int)
+        ]
+        for row in rows:
+            self.stop_session(row.get("id"))
+            print(f"swept {row.get('id')} ({row.get('name')})")
+        print(f"sweep complete: {len(rows)} session(s) matching {prefix!r} stopped")
+        return EXIT_OK
 
     # -- message construction -------------------------------------------------
     def _read_source(self, value: str | None, file_value: str | None, what: str) -> str:
@@ -353,7 +375,7 @@ class BgRunner:
         return f"{task}\n\nThe human answered your earlier question:\n{answer}\n"
 
     # -- dispatch -------------------------------------------------------------
-    def dispatch_argv(self, message: str, resume_sid: str | None) -> list[str]:
+    def dispatch_argv(self, resume_sid: str | None) -> list[str]:
         argv = [*self.claude, "--bg", "--name", self.a.name]
         if resume_sid:
             argv += ["--resume", resume_sid]
@@ -366,16 +388,22 @@ class BgRunner:
             argv += ["--settings", json.dumps({"worktree": {"bgIsolation": "none"}})]
         for d in self.a.add_dir or []:
             argv += ["--add-dir", d]
-        argv.append(message)
         return argv
 
     def dispatch_and_confirm(
         self, message: str, resume_sid: str | None
     ) -> tuple[str | None, str, str | None, dict[str, Any] | None]:
         """Returns (terminal_status_or_None, message, short_id, session_row)."""
-        argv = self.dispatch_argv(message, resume_sid)
+        argv = self.dispatch_argv(resume_sid)
         try:
-            cp = subprocess.run(argv, text=True, capture_output=True, timeout=60.0, check=False)
+            cp = subprocess.run(
+                argv,
+                input=message,
+                text=True,
+                capture_output=True,
+                timeout=60.0,
+                check=False,
+            )
         except FileNotFoundError:
             return "precondition_failed", "claude CLI not found in PATH", None, None
         except subprocess.SubprocessError as exc:
@@ -427,6 +455,60 @@ class BgRunner:
         except (OSError, json.JSONDecodeError):
             return None
 
+    @staticmethod
+    def _clear_file(path: str) -> None:
+        """Truncate a pre-existing file so stale content cannot satisfy this run."""
+        try:
+            target = Path(path)
+            if target.is_file():
+                target.write_text("", encoding="utf-8")
+        except OSError:
+            pass  # an unwritable path surfaces later as incomplete, never as false success
+
+    def _clear_stale_outputs(self, *, include_wait_for: bool) -> None:
+        """Stale-state guard: pre-existing outputs must not satisfy THIS run.
+
+        Fresh dispatch clears the handoff and every --wait-for target. Resume
+        clears only the handoff (a parked needs_human would re-trigger the
+        WAIT loop instantly) and keeps --wait-for files the parked session
+        already wrote — the resumed agent will not rewrite work it believes
+        is done.
+        """
+        if self.a.handoff_file:
+            self._clear_file(self.a.handoff_file)
+        if include_wait_for:
+            for path in self.a.wait_for:
+                self._clear_file(path)
+
+    def _snapshot_outputs(self, *, include_wait_for: bool) -> dict[str, bytes]:
+        """Capture non-empty parked outputs (handoff + optionally --wait-for) so
+        the stale-guard clear can be reversed if a re-dispatch is not confirmed.
+
+        Bytes, not text: --wait-for artifacts may be binary or non-UTF-8, so
+        read_text() could raise (before the restore runs) or corrupt content.
+        """
+        paths: list[str] = []
+        if self.a.handoff_file:
+            paths.append(self.a.handoff_file)
+        if include_wait_for:
+            paths.extend(self.a.wait_for)
+        snapshot: dict[str, bytes] = {}
+        for path in paths:
+            if not self._nonempty(path):
+                continue
+            try:
+                snapshot[path] = Path(path).read_bytes()
+            except OSError:
+                pass
+        return snapshot
+
+    def _restore_outputs(self, snapshot: dict[str, bytes]) -> None:
+        for path, content in snapshot.items():
+            try:
+                Path(path).write_bytes(content)
+            except OSError:
+                pass
+
     # -- the lifecycle --------------------------------------------------------
     def run(self) -> Envelope:
         t0 = time.monotonic()
@@ -461,8 +543,21 @@ class BgRunner:
                     env.status, env.message = "precondition_failed", str(exc)
                     return env
                 env.resumed, env.fell_back = False, True
+                # Committing to a fresh run: clear the parked handoff + wait_for
+                # as the stale guard (the answer is carried into the new prompt).
+                # Snapshot them FIRST so a failed fresh dispatch can restore the
+                # parked session's question AND any artifacts it already wrote —
+                # clearing before the re-dispatch is confirmed must be reversible
+                # (PR #137 review).
+                parked_outputs = self._snapshot_outputs(include_wait_for=True)
+                self._clear_stale_outputs(include_wait_for=True)
                 status2, msg2, short_id, row = self.dispatch_and_confirm(fb, None)
                 if status2:
+                    # Fresh re-dispatch failed too: restore the parked outputs so
+                    # the question (and any artifacts) survive for a later retry,
+                    # and leave the parked session alive (teardown below is not
+                    # reached).
+                    self._restore_outputs(parked_outputs)
                     env.status = status2
                     env.message = f"resume failed ({msg}); re-dispatch also failed ({msg2})"
                     env.short_id = short_id
@@ -474,6 +569,7 @@ class BgRunner:
                 env.duration_s = round(time.monotonic() - t0, 1)
                 return env
         else:
+            self._clear_stale_outputs(include_wait_for=True)
             status, msg, short_id, row = self.dispatch_and_confirm(message, None)
             if status:
                 env.status, env.message, env.short_id = status, msg, short_id
@@ -482,6 +578,14 @@ class BgRunner:
 
         env.short_id = short_id
         env.session_id = (row or {}).get("sessionId")
+
+        # Clear the parked handoff only now that the resume continuation is
+        # confirmed — a failed resume dispatch (returned above) must leave the
+        # parked session's needs_human question on disk. --wait-for files the
+        # parked agent already wrote are kept (the resumed agent won't redo
+        # them). The fallback path cleared its own stale outputs above.
+        if resume_mode and not env.fell_back:
+            self._clear_stale_outputs(include_wait_for=False)
 
         # The conversation has moved on (resumed into a new agent, or re-dispatched
         # fresh); retire the parked parent so it is not orphaned. Respects --keep.
@@ -524,10 +628,20 @@ class BgRunner:
                     break
                 if state == "blocked":
                     env.status = "blocked"
-                    detail = row.get("waitingFor")
-                    env.message = "session is blocked on an interactive prompt " + (
-                        f"({detail})" if detail else "(a permission hook likely did not cover it)"
-                    )
+                    # Opportunistic only: Claude Code 2.1.191's initial-prompt
+                    # parked signal was observed in dispatch stdout, not here.
+                    detail = row.get("waitingFor") or row.get("needs") or row.get("detail")
+                    detail_text = str(detail) if detail else ""
+                    if "send a prompt to start" in detail_text.lower():
+                        env.message = (
+                            "background session registered but did not consume "
+                            "the initial prompt (Claude CLI reported: "
+                            f"{detail_text})"
+                        )
+                    else:
+                        env.message = "session is blocked on an interactive prompt " + (
+                            f"({detail_text})" if detail_text else "(a permission hook likely did not cover it)"
+                        )
                     break
                 if state in ("done", "idle"):
                     if not self.a.wait_for and not self.a.handoff_file:
@@ -549,14 +663,24 @@ class BgRunner:
         if env.status != "ok":
             env.logs_tail = self.logs_tail(env.session_id)
 
-        # TEARDOWN — but PRESERVE a needs_human session so it can be resumed.
-        if env.short_id and env.status != "needs_human":
+        # TEARDOWN — by default PRESERVE a needs_human session so it can be
+        # resumed (standalone use). Callers with no resume loop pass
+        # --teardown-on-needs-human to tear it down like the bridge instead of
+        # orphaning a session nobody will collect.
+        preserve_for_resume = (
+            env.status == "needs_human" and not self.a.teardown_on_needs_human
+        )
+        if env.short_id and not preserve_for_resume:
             self.teardown(env.short_id)
         env.duration_s = round(time.monotonic() - t0, 1)
         if not env.message and env.status == "ok":
             env.message = "completed; declared artifacts present"
         if env.status == "needs_human" and not env.message:
-            env.message = "agent needs a human decision; session left alive — answer via --resume <session_id|short_id|name> --answer"
+            env.message = (
+                "agent needs a human decision; session torn down (caller has no resume loop)"
+                if self.a.teardown_on_needs_human
+                else "agent needs a human decision; session left alive — answer via --resume <session_id|short_id|name> --answer"
+            )
         return env
 
 
@@ -572,6 +696,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fallback=True)
     p.add_argument("--wait-for", action="append", default=[], help="output file(s) that must exist & be non-empty (repeatable)")
     p.add_argument("--handoff-file", help="optional JSON the agent writes; status needs_human bubbles back")
+    p.add_argument(
+        "--teardown-on-needs-human",
+        action="store_true",
+        help=(
+            "tear the session down on needs_human instead of leaving it alive "
+            "for --resume. For callers with no resume loop (e.g. Quest): "
+            "needs_human then behaves like the bridge — surfaced promptly, "
+            "session torn down — rather than parked until a human answers."
+        ),
+    )
     p.add_argument("--model", default="")
     p.add_argument("--effort", default="", choices=["", "low", "medium", "high", "xhigh", "max"])
     p.add_argument("--permission-mode", default="bypassPermissions")
@@ -592,6 +726,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="where session transcript JSONLs live (logs_tail source)",
     )
     p.add_argument("--self-test", action="store_true", help="run the PTY noise-firewall demo and exit")
+    p.add_argument("--sweep", help="stop all background sessions whose NAME starts with this prefix, then exit (orphan recovery)")
     return p
 
 
@@ -610,6 +745,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.self_test:
         return _self_test()
+    if args.sweep:
+        return BgRunner(args).sweep(args.sweep)
     env = BgRunner(args).run()
     if args.json:
         print(json.dumps(asdict(env), indent=2))

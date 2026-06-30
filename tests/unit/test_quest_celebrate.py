@@ -2089,3 +2089,67 @@ class TestJournalCelebrationData:
         data = load_quest_data_from_journal(tmp_path / "nope.md")
         assert data.quest_id == ""
         assert data.quality_tier == ""
+
+
+# ---- Claude transport attribution (Codex-led Claude roles) -------------------
+
+
+def _make_transport_quest_dir(tmp_path, log_lines):
+    quest_dir = tmp_path / "transport-quest_2026-06-11__1200"
+    plan_dir = quest_dir / "phase_01_plan"
+    plan_dir.mkdir(parents=True)
+    (quest_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "quest_id": "transport-quest_2026-06-11__1200",
+                "slug": "transport-quest",
+                "phase": "complete",
+                "status": "complete",
+            }
+        )
+    )
+    (plan_dir / "handoff_plan-reviewer-a.json").write_text(
+        json.dumps(
+            {
+                "agent": "plan-reviewer-a",
+                "model": "claude-opus-4-6",
+                "summary": "ok",
+                "artifacts": [],
+            }
+        )
+    )
+    if log_lines is not None:
+        logs_dir = quest_dir / "logs"
+        logs_dir.mkdir()
+        (logs_dir / "context_health.log").write_text("\n".join(log_lines) + "\n")
+    return quest_dir
+
+
+def test_load_quest_data_reads_claude_transports(tmp_path):
+    quest_dir = _make_transport_quest_dir(
+        tmp_path,
+        [
+            "2026-06-11T01:00:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | transport=background-agent",
+            "2026-06-11T01:05:00Z | phase=plan_review | agent=plan-reviewer-b | runtime=codex | iter=1 | handoff_json=found | source=handoff_json",
+            "2026-06-11T01:10:00Z | phase=plan | agent=arbiter | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | transport=bridge",
+        ],
+    )
+    data = load_quest_data(quest_dir)
+
+    assert data.claude_transport_counts == {"background-agent": 1, "bridge": 1}
+    reviewer = next(a for a in data.agents if a.name == "plan-reviewer-a")
+    assert reviewer.transport == "background-agent"
+
+
+def test_load_quest_data_transport_empty_state_when_codex_never_called_claude(tmp_path):
+    quest_dir = _make_transport_quest_dir(
+        tmp_path,
+        [
+            # Claude-led native run: runtime=claude but NO transport field.
+            "2026-06-11T01:00:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=1 | handoff_json=found | source=handoff_json",
+        ],
+    )
+    data = load_quest_data(quest_dir)
+
+    assert data.claude_transport_counts == {}
+    assert all(a.transport is None for a in data.agents)

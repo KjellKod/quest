@@ -16,7 +16,7 @@ Delegate tasks to OpenAI Codex via the `mcp__codex-cli__codex` MCP tool from Cla
 
 ## Not for Codex-Led Quest Role Dispatch
 
-If you are already Codex and a Quest role is assigned to Codex, do not call Codex MCP to create another Codex role. Codex-led Quest dispatch must use local Codex subagents (`multi_agent_v1.spawn_agent` or the repo-supported equivalent) and inherit the active Codex model unless the user explicitly requested a model override.
+If you are already Codex and a Quest role is assigned to Codex, do not call Codex MCP to create another Codex role. Codex-led Quest dispatch must use local Codex subagents (the `spawn_agent` tool family — versioned namespace varies by Codex CLI release — or the repo-supported equivalent) and inherit the active Codex model unless the user explicitly requested a model override.
 
 Codex MCP is only the cross-runtime path when the orchestrator is Claude-led and needs to dispatch a Codex runtime role. A Codex-led attempt to use `mcp__codex*`, `codex_codex`, `codex mcp-server`, or Codex CLI model aliases for a Codex role is an orchestration violation, not a model-selection problem.
 
@@ -36,7 +36,7 @@ Before invoking Codex from a Claude-led session, **always tell the user what you
 
 ```
 I'll delegate this to Codex with:
-- **Model:** gpt-5.4
+- **Model:** gpt-5.5
 - **Reasoning:** high
 - **Sandbox:** workspace-write
 
@@ -58,26 +58,28 @@ For this Claude-led skill, use the MCP tool. **Never shell out to `codex exec`.*
 ```
 mcp__codex-cli__codex({
   prompt: "<task description>",
-  model: "gpt-5.4",
-  reasoningEffort: "high",
+  model: "gpt-5.5",
   sandbox: "workspace-write",
-  fullAuto: true
+  fullAuto: true,
+  config: { model_reasoning_effort: "high" }   // low | medium | high | xhigh
 })
 ```
 
+> Reasoning effort is **not** a top-level `reasoningEffort` param — the MCP schema doesn't accept one. It must be passed inside `config` as `model_reasoning_effort`. Passing `reasoningEffort` at top level is silently ignored.
+
 ## Available Models
 
-Use `gpt-5.4` unless the user requests otherwise. The MCP tool schema may lag behind — `gpt-5.4` works even if not listed in the schema's enum.
+Use `gpt-5.5` unless the user requests otherwise. The MCP tool schema may lag behind — `gpt-5.5` works even if not listed in the schema's enum.
 
 Known working models:
-`gpt-5.4`, `gpt-5.3-codex`
+`gpt-5.5`, `gpt-5.4`, `gpt-5.3-codex`
 
 ## Parameters
 
 | Parameter | Default | When to change |
 |-----------|---------|----------------|
-| `model` | `gpt-5.4` | Only if user requests a specific model |
-| `reasoningEffort` | `high` | `low`/`medium` for simple tasks, `xhigh` for complex architecture |
+| `model` | `gpt-5.5` | Only if user requests a specific model |
+| `config.model_reasoning_effort` | `high` | `low`/`medium` for simple tasks, `xhigh` for complex architecture. Pass inside `config`, not as a top-level `reasoningEffort` |
 | `sandbox` | `workspace-write` | `read-only` for pure Q&A with no file output. `danger-full-access` **only with explicit user permission** — needed for network access, system commands, or out-of-workspace writes |
 | `fullAuto` | `true` | Leave true unless user wants approval prompts |
 | `sessionId` | (none) | Set to continue a previous Codex conversation within the same task |

@@ -562,7 +562,9 @@ def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys
         model="opus",
         timeout=90.0,
         permission_mode="bypassPermissions",
+        transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
+        bg_runner_script="scripts/claude_bg_run.py",
         cwd=str(tmp_path),
         add_dir=[],
     )
@@ -610,7 +612,9 @@ def test_cli_quest_claude_probe_relative_non_dot_cwd_resolves_bridge_script(
         model="opus",
         timeout=60.0,
         permission_mode="bypassPermissions",
+        transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
+        bg_runner_script="scripts/claude_bg_run.py",
         cwd="repo",
     )
     captured: dict[str, object] = {}
@@ -657,7 +661,9 @@ def test_cli_quest_claude_runner_relative_non_dot_cwd_resolves_bridge_script(
         model="opus",
         timeout=90.0,
         permission_mode="bypassPermissions",
+        transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
+        bg_runner_script="scripts/claude_bg_run.py",
         cwd="repo",
         add_dir=[],
     )
@@ -709,7 +715,9 @@ def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
         model="opus",
         timeout=90.0,
         permission_mode="bypassPermissions",
+        transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
+        bg_runner_script="scripts/claude_bg_run.py",
         cwd=str(tmp_path),
         add_dir=[],
     )
@@ -723,3 +731,632 @@ def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
     assert '"result_kind": "invocation_error"' in payload
     assert '"handoff_state": "missing"' in payload
     assert "not valid for phase" in payload
+
+
+# ---- background-agent transport ---------------------------------------------
+
+
+def test_build_bg_cmd_pins_argv_with_handoff_file_and_needs_human_teardown(tmp_path):
+    cmd = claude_runner_module.build_bg_cmd(
+        cwd=tmp_path,
+        bg_runner_script=tmp_path / "claude_bg_run.py",
+        prompt_file=tmp_path / "prompt.txt",
+        name="quest-q1-planner-i2",
+        model="claude-opus-4-6",
+        timeout=900.0,
+        permission_mode="bypassPermissions",
+        handoff_file=tmp_path / "handoff.json",
+        wait_for=[tmp_path / "handoff.json", tmp_path / "artifact.md"],
+        add_dirs=[tmp_path],
+    )
+    joined = " ".join(cmd)
+    assert "--json" in cmd
+    assert "--no-protocol" in cmd
+    assert cmd[cmd.index("--name") + 1] == "quest-q1-planner-i2"
+    # --handoff-file makes needs_human terminal promptly; --teardown-on-needs-human
+    # tears the session down (Quest has no resume loop yet) so it behaves like the
+    # bridge instead of blocking until --timeout. The handoff also stays in
+    # --wait-for for the success (status=complete) path.
+    assert cmd[cmd.index("--handoff-file") + 1] == str(tmp_path / "handoff.json")
+    assert "--teardown-on-needs-human" in cmd
+    assert joined.count("--wait-for") == 2
+    assert cmd[cmd.index("--wait-for") + 1] == str(tmp_path / "handoff.json")
+
+
+def test_run_bg_probe_dispatches_through_build_bg_cmd(tmp_path):
+    # Regression (PR #137 review): build_bg_cmd gained a required handoff_file
+    # arg; run_bg_probe must pass it, or the real bg preflight raises TypeError
+    # (auto blocks for user decision, forced background-agent fails) even on a
+    # correctly configured machine.
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--handoff-file") + 1]
+waits = [args[i + 1] for i, a in enumerate(args) if a == "--wait-for"]
+with open(handoff, "w") as fh:
+    json.dump({"status": "complete", "summary": "probe ok"}, fh)
+for w in waits:
+    if w != handoff:
+        with open(w, "w") as fh:
+            fh.write("ok")
+print(json.dumps({"status": "ok"}))
+""",
+    )
+
+    result = claude_runner_module.run_bg_probe(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        bg_runner_script=bg_runner,
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+    )
+
+    assert result.exit_code == 0
+    assert result.result_kind == "handoff_json"
+    assert result.handoff_state == "found"
+
+
+def test_run_bg_probe_requires_artifact_not_just_handoff(tmp_path):
+    # Regression (PR #137 review): a handoff alone must NOT mark bg available.
+    # If claude_bg_run.py exits incomplete (artifact never written), the probe
+    # must report failure so bg is not cached/selected on a machine that never
+    # proved the artifact-write contract.
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--handoff-file") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "complete", "summary": "probe ok"}, fh)
+# Deliberately do NOT write the artifact, and report incomplete.
+print(json.dumps({"status": "incomplete"}))
+sys.exit(6)
+""",
+    )
+
+    result = claude_runner_module.run_bg_probe(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        bg_runner_script=bg_runner,
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+    )
+
+    assert result.exit_code != 0
+    assert result.result_kind != "handoff_json"
+    assert result.source is None
+
+
+def test_bg_probe_failure_classifier_distinguishes_setup_failures():
+    classify = claude_runner_module.classify_bg_probe_failure
+
+    assert (
+        classify("bypassPermissions not accepted; run claude --dangerously-skip-permissions")
+        == "bypass_not_accepted"
+    )
+    assert (
+        classify("bg status=blocked; bg message=background session registered but did not consume the initial prompt (Claude CLI reported: send a prompt to start)")
+        == "bg_initial_prompt_not_consumed"
+    )
+    assert (
+        classify("SessionStart:startup hook error: Permission denied")
+        == "hook_startup_failed"
+    )
+
+
+def test_bg_session_name_scheme():
+    assert (
+        claude_runner_module.bg_session_name("my-quest_2026", "code-reviewer-a", 3)
+        == "quest-my-quest_2026-code-reviewer-a-i3"
+    )
+
+
+def test_resolve_claude_transport_matrix():
+    resolve = claude_runner_module.resolve_claude_transport
+
+    assert resolve("background-agent") == "background-agent"
+    assert resolve("bridge") == "bridge"
+
+    # auto never silently chooses the API-metered bridge. Startup preflight
+    # should already have proved bg; if it did not, runtime still attempts bg
+    # and surfaces the bg failure instead of changing billing paths.
+    assert resolve("auto") == "background-agent"
+
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError):
+        resolve("warp-drive")
+
+
+def test_run_claude_role_bg_transport_success_logs_transport(tmp_path):
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--wait-for") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "complete", "summary": "ok"}, fh)
+print(json.dumps({"status": "ok"}))
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    handoff_file = tmp_path / "handoff.json"
+    prompt_file.write_text("bg success test\n", encoding="utf-8")
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        poll_interval=0.01,
+        exit_grace_seconds=0.2,
+        transport="background-agent",
+        bg_runner_script=bg_runner,
+    )
+
+    assert result.exit_code == 0
+    assert result.result_kind == "handoff_json"
+    log_text = (tmp_path / "logs" / "context_health.log").read_text(encoding="utf-8")
+    assert "runtime=claude" in log_text
+    assert "transport=background-agent" in log_text
+
+
+def test_run_claude_role_bg_waits_for_slow_teardown_without_killing(tmp_path):
+    # Regression (PR #137): bg mode must let claude_bg_run.py finish its own
+    # teardown instead of killing it after exit_grace_seconds — killing the child
+    # does NOT stop the detached supervisor session, so racing it would orphan
+    # the session. The fake child writes the handoff, sleeps PAST exit_grace,
+    # then writes an ".exited" marker as its last act; if the outer killed it
+    # early (the pre-fix behavior), that marker would be missing.
+    bg_runner = tmp_path / "slow_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys, time
+args = sys.argv[1:]
+handoff = args[args.index("--wait-for") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "complete", "summary": "ok"}, fh)
+time.sleep(1.0)  # well past exit_grace_seconds; stands in for session teardown
+with open(handoff + ".exited", "w") as fh:
+    fh.write("done")
+print(json.dumps({"status": "ok"}))
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    handoff_file = tmp_path / "handoff.json"
+    prompt_file.write_text("slow bg teardown\n", encoding="utf-8")
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        poll_interval=0.01,
+        exit_grace_seconds=0.2,  # pre-fix: child killed 0.2s after handoff appears
+        transport="background-agent",
+        bg_runner_script=bg_runner,
+    )
+
+    assert result.exit_code == 0
+    assert result.result_kind == "handoff_json"
+    # The child ran to completion (not SIGTERM'd mid-teardown).
+    assert (tmp_path / "handoff.json.exited").exists()
+
+
+def test_run_claude_role_bg_exit_codes_map_to_result_kinds(tmp_path):
+    cases = [
+        (2, "invocation_error"),
+        (3, "invocation_error"),
+        (4, "invocation_error"),
+        (6, "handoff_missing"),
+    ]
+    for exit_code, expected_kind in cases:
+        bg_runner = tmp_path / f"fake_bg_runner_{exit_code}.py"
+        _write_executable(
+            bg_runner,
+            f"""#!/usr/bin/env python3
+import json
+print(json.dumps({{"status": "blocked", "message": "synthetic failure {exit_code}"}}))
+raise SystemExit({exit_code})
+""",
+        )
+        prompt_file = tmp_path / "prompt.txt"
+        handoff_file = tmp_path / f"handoff_{exit_code}.json"
+        prompt_file.write_text("bg failure test\n", encoding="utf-8")
+
+        result = run_claude_role(
+            cwd=tmp_path,
+            quest_dir=tmp_path,
+            phase="plan",
+            agent="planner",
+            iteration=1,
+            prompt_file=prompt_file,
+            handoff_file=handoff_file,
+            bridge_script=tmp_path / "unused_bridge.py",
+            model="claude-opus-4-6",
+            timeout=5.0,
+            permission_mode="bypassPermissions",
+            poll_interval=0.01,
+            exit_grace_seconds=0.2,
+            transport="background-agent",
+            bg_runner_script=bg_runner,
+        )
+
+        assert result.result_kind == expected_kind, (exit_code, result)
+        # Envelope diagnostics surfaced for debuggability.
+        assert f"synthetic failure {exit_code}" in result.stderr
+
+
+def test_append_context_health_log_transport_field_is_optional(tmp_path):
+    claude_runner_module.append_context_health_log(
+        tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        handoff_state="found",
+        source="handoff_json",
+    )
+    claude_runner_module.append_context_health_log(
+        tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=2,
+        handoff_state="found",
+        source="handoff_json",
+        transport="bridge",
+    )
+    lines = (tmp_path / "logs" / "context_health.log").read_text(encoding="utf-8").splitlines()
+    assert "transport=" not in lines[0]
+    assert lines[1].endswith(" | transport=bridge")
+
+
+def test_quest_claude_runner_cli_resolves_and_echoes_transport(
+    monkeypatch, tmp_path, capsys
+):
+    import json as _json
+
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("transport echo test\n", encoding="utf-8")
+    captured_kwargs = {}
+
+    def fake_expected_artifacts_for_role(*, quest_dir, phase, agent):
+        return []
+
+    def fake_run_claude_role(**kwargs):
+        captured_kwargs.update(kwargs)
+        return claude_runner_module.RunResult(
+            exit_code=0,
+            handoff_state="found",
+            result_kind="handoff_json",
+            source="handoff_json",
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        quest_claude_runner,
+        "expected_artifacts_for_role",
+        fake_expected_artifacts_for_role,
+    )
+    monkeypatch.setattr(quest_claude_runner, "run_claude_role", fake_run_claude_role)
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "quest_claude_runner.py",
+            "--quest-dir", str(tmp_path),
+            "--phase", "plan",
+            "--agent", "planner",
+            "--iter", "1",
+            "--prompt-file", str(prompt_file),
+            "--handoff-file", str(tmp_path / "handoff.json"),
+            "--cwd", str(tmp_path),
+            "--transport", "auto",
+        ],
+    )
+    rc = quest_claude_runner.main()
+    payload = _json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+
+    assert rc == 0
+    assert payload["transport"] == "background-agent"
+    assert payload["transport_downgraded"] is False
+    assert captured_kwargs["transport"] == "background-agent"
+
+
+def test_quest_claude_runner_cli_auto_uses_bg_without_cache(
+    monkeypatch, tmp_path, capsys
+):
+    import json as _json
+
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("auto bg test\n", encoding="utf-8")
+    captured_kwargs = {}
+
+    def fake_expected_artifacts_for_role(*, quest_dir, phase, agent):
+        return []
+
+    def fake_run_claude_role(**kwargs):
+        captured_kwargs.update(kwargs)
+        return claude_runner_module.RunResult(
+            exit_code=0,
+            handoff_state="found",
+            result_kind="handoff_json",
+            source="handoff_json",
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        quest_claude_runner,
+        "expected_artifacts_for_role",
+        fake_expected_artifacts_for_role,
+    )
+    monkeypatch.setattr(quest_claude_runner, "run_claude_role", fake_run_claude_role)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "quest_claude_runner.py",
+            "--quest-dir", str(tmp_path),
+            "--phase", "plan",
+            "--agent", "planner",
+            "--iter", "1",
+            "--prompt-file", str(prompt_file),
+            "--handoff-file", str(tmp_path / "handoff.json"),
+            "--cwd", str(tmp_path),
+        ],
+    )
+    rc = quest_claude_runner.main()
+    captured = capsys.readouterr()
+    payload = _json.loads(captured.out.strip().splitlines()[-1])
+
+    assert rc == 0
+    assert payload["transport"] == "background-agent"
+    assert payload["transport_downgraded"] is False
+    assert captured_kwargs["transport"] == "background-agent"
+    assert "downgraded to bridge" not in captured.err
+
+
+def test_append_context_health_log_status_field_is_optional(tmp_path):
+    claude_runner_module.append_context_health_log(
+        tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        handoff_state="missing",
+        source="text_fallback",
+    )
+    claude_runner_module.append_context_health_log(
+        tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=2,
+        handoff_state="found",
+        source="handoff_json",
+        status="needs_human",
+        transport="bridge",
+    )
+    lines = (
+        (tmp_path / "logs" / "context_health.log")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    assert "status=" not in lines[0]
+    assert lines[1].endswith(" | status=needs_human | transport=bridge")
+
+
+def test_read_handoff_status_known_values_only(tmp_path):
+    handoff = tmp_path / "handoff.json"
+
+    handoff.write_text('{"status": "needs_human"}', encoding="utf-8")
+    assert claude_runner_module.read_handoff_status(handoff) == "needs_human"
+
+    handoff.write_text('{"status": "complete"}', encoding="utf-8")
+    assert claude_runner_module.read_handoff_status(handoff) == "complete"
+
+    # Unknown value, wrong shape, unparsable, missing → None (field omitted).
+    handoff.write_text('{"status": "on-fire"}', encoding="utf-8")
+    assert claude_runner_module.read_handoff_status(handoff) is None
+    handoff.write_text("[1, 2]", encoding="utf-8")
+    assert claude_runner_module.read_handoff_status(handoff) is None
+    handoff.write_text("not json", encoding="utf-8")
+    assert claude_runner_module.read_handoff_status(handoff) is None
+    assert claude_runner_module.read_handoff_status(tmp_path / "absent.json") is None
+
+
+def test_extract_text_status_known_values_only():
+    text = "---HANDOFF---\nSTATUS: needs_human\nSUMMARY: question pending"
+    assert claude_runner_module.extract_text_status(text) == "needs_human"
+    assert claude_runner_module.extract_text_status("STATUS: weird") is None
+    assert claude_runner_module.extract_text_status("no marker at all") is None
+
+
+def test_run_claude_role_bg_needs_human_logs_status(tmp_path):
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--wait-for") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "needs_human", "summary": "which auth flow?"}, fh)
+print(json.dumps({"status": "ok"}))
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    handoff_file = tmp_path / "handoff.json"
+    prompt_file.write_text("bg needs_human test\n", encoding="utf-8")
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        poll_interval=0.01,
+        exit_grace_seconds=0.2,
+        transport="background-agent",
+        bg_runner_script=bg_runner,
+    )
+
+    assert result.exit_code == 0
+    log_text = (tmp_path / "logs" / "context_health.log").read_text(encoding="utf-8")
+    assert "status=needs_human" in log_text
+    assert "transport=background-agent" in log_text
+
+
+def test_run_claude_role_bg_needs_human_with_artifacts_is_handoff_result(tmp_path):
+    # PR #137 review: a needs_human handoff written WITHOUT the primary artifacts
+    # must classify as a handoff result (not a handoff_missing failure), so the
+    # orchestrator enters the human path instead of retrying/falling back, and
+    # the status=needs_human health-log line is still recorded. Pre-fix this was
+    # handoff_missing with no status= line.
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--handoff-file") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "needs_human", "questions": ["which auth flow?"]}, fh)
+print(json.dumps({"status": "needs_human"}))
+sys.exit(10)
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    handoff_file = tmp_path / "handoff.json"
+    artifact = tmp_path / "review_findings.json"  # role asks instead of writing this
+    prompt_file.write_text("bg needs_human with artifacts\n", encoding="utf-8")
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="review",
+        agent="code-reviewer-a",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        artifact_paths=[artifact],
+        poll_interval=0.01,
+        exit_grace_seconds=0.2,
+        transport="background-agent",
+        bg_runner_script=bg_runner,
+    )
+
+    assert result.result_kind == "handoff_json"
+    assert result.source == "handoff_json"
+    assert result.exit_code == 0
+    # The artifact is pre-created (truncated) but left EMPTY — the role asked a
+    # question instead of producing it, yet this is still a handoff result.
+    assert artifact.read_text(encoding="utf-8") == ""
+    log_text = (tmp_path / "logs" / "context_health.log").read_text(encoding="utf-8")
+    assert "status=needs_human" in log_text
+
+
+def test_validate_or_remap_treats_unset_active_model_as_unavailable():
+    from quest_runtime.orchestration import validate_or_remap_models_for_orchestrator
+
+    models = {"planner": None, "builder": "", "arbiter": "claude"}
+
+    # Reject mode: unset/empty active-role models fail fast.
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError) as exc:
+        validate_or_remap_models_for_orchestrator(
+            models,
+            orchestrator="claude",
+            quest_mode="workflow",
+            codex_available=True,
+            claude_available=True,
+            remap_unavailable=False,
+        )
+    assert "planner" in str(exc.value)
+    assert "builder" in str(exc.value)
+
+    # Remap mode: unset/empty active-role models remap to the native fallback.
+    remapped_models, remapped_roles = validate_or_remap_models_for_orchestrator(
+        models,
+        orchestrator="claude",
+        quest_mode="workflow",
+        codex_available=True,
+        claude_available=True,
+        remap_unavailable=True,
+    )
+    assert "planner" in remapped_roles and "builder" in remapped_roles
+    assert remapped_models["planner"] == "claude"
+    assert remapped_models["builder"] == "claude"
+
+
+def test_default_helper_script_paths_are_absolute_and_resolve_off_package():
+    # Regression: helper-script defaults must be absolute (resolved next to the
+    # scripts/ package), so a Claude role dispatched from a target repo without
+    # its own scripts/ dir still finds the bridge / bg-runner. See
+    # ideas/2026-06-15-bug-report-... bg-transport-step2.
+    import os
+
+    from quest_runtime.claude_runner import (
+        DEFAULT_BG_RUNNER_SCRIPT,
+        DEFAULT_BRIDGE_SCRIPT,
+    )
+
+    for path in (DEFAULT_BRIDGE_SCRIPT, DEFAULT_BG_RUNNER_SCRIPT):
+        assert os.path.isabs(path), f"{path} should be absolute"
+        assert os.path.exists(path), f"{path} should exist next to the package"
+    assert DEFAULT_BRIDGE_SCRIPT.endswith("scripts/quest_claude_bridge.py")
+    assert DEFAULT_BG_RUNNER_SCRIPT.endswith("scripts/claude_bg_run.py")
+
+
+def test_cli_probe_default_bridge_script_is_absolute():
+    # The probe's argparse default must be the absolute sibling path, not the
+    # legacy cwd-relative "scripts/quest_claude_bridge.py".
+    import os
+
+    import sys
+
+    import quest_claude_probe
+
+    # parse_args reads sys.argv; feed it only the required flag and inspect the
+    # default it fills in for --bridge-script.
+    saved = sys.argv
+    try:
+        sys.argv = ["quest_claude_probe.py", "--quest-dir", "/tmp/x"]
+        ns = quest_claude_probe.parse_args()
+    finally:
+        sys.argv = saved
+    assert os.path.isabs(ns.bridge_script)
+    assert ns.bridge_script.endswith("scripts/quest_claude_bridge.py")

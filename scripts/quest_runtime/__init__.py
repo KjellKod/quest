@@ -2,6 +2,8 @@
 
 from .orchestration import (
     CANONICAL_ROLES,
+    CLAUDE_ROLE_TRANSPORTS,
+    DEFAULT_CLAUDE_ROLE_TRANSPORT,
     ORCHESTRATION_VERSION,
     SOLO_UNUSED_ROLES,
     Override,
@@ -45,6 +47,8 @@ from .quest_ids import (
 
 __all__ = [
     "CANONICAL_ROLES",
+    "CLAUDE_ROLE_TRANSPORTS",
+    "DEFAULT_CLAUDE_ROLE_TRANSPORT",
     "DATE_FIRST",
     "DEFAULT_QUEST_ID_FORMAT",
     "ORCHESTRATION_VERSION",

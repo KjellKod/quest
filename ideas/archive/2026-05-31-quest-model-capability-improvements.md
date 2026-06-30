@@ -3,7 +3,7 @@ title: Quest Model-Capability Improvements
 purpose: Fact-checked proposal for using newer Claude and Codex capabilities only where they create measurable Quest value.
 audience: Quest maintainers and implementing agents.
 scope: Orchestration changes around structured artifacts, reasoning effort, and prompt caching.
-status: proposed
+status: superseded — the transport-related portion landed with the claude --bg migration; the measurement items (fallback counting, structured-output proof, cache telemetry) can be re-proposed individually if wanted; archived 2026-06-11
 owner: maintainers
 last_updated: 2026-05-31
 related:

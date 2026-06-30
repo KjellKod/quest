@@ -145,7 +145,7 @@ Example markdown finding:
 ```
 
 **Code-review phase (code-reviewer-a / code-reviewer-b):**
-Write canonical findings JSON to the reviewer's slot path under `.quest/<id>/phase_03_review/`. Use the canonical schema from `.skills/code-reviewer/SKILL.md`. All list fields must be `list[str]`, never scalar:
+Write canonical findings JSON to the reviewer's slot path under `.quest/<id>/phase_03_review/`. Use the canonical schema from `.skills/quest/agents/code-reviewer.md` (the "Canonical findings schema" section). All list fields must be `list[str]`, never scalar:
 
 ```json
 {

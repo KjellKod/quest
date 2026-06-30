@@ -90,6 +90,7 @@ scripts/quest_validate-quest-config.sh
 scripts/quest_validate-quest-state.sh
 scripts/quest_validate-manifest.sh
 scripts/quest_validate-handoff-contracts.sh
+scripts/claude_bg_run.py
 scripts/quest_claude_bridge.py
 scripts/quest_claude_probe.py
 scripts/quest_claude_runner.py

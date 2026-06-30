@@ -10,7 +10,7 @@ related:
   - docs/implementation/claude-bg-transport-migration.md
   - scripts/quest_claude_bridge.py
   - scripts/quest_runtime/claude_runner.py
-  - ideas/2026-05-31-codex-driven-interactive-claude-relay.md
+  - ideas/archive/2026-05-31-codex-driven-interactive-claude-relay.md
 ---
 
 # claude-bg-run — Standalone Background-Agent Runner (Step 1)
@@ -47,7 +47,7 @@ and pushed to the machine-validation checklist.
 
 | # | Finding | Consequence for the script |
 |---|---|---|
-| F1 | ~~`claude logs <id>` returns the raw TUI screen buffer~~ **Corrected (2.1.173): there IS no `claude logs` subcommand** — unknown verbs parse as a *prompt* and no-op. The session transcript at `~/.claude/projects/<project>/<sessionId>.jsonl` is the log. | Results MUST travel via files. Diagnostics (`logs_tail`) come from the transcript JSONL (last assistant-text lines, distilled), located by globbing `<transcripts-root>/*/<sessionId>.jsonl`. |
+| F1 | ~~`claude logs <id>` returns the raw TUI screen buffer~~ **Corrected again (2.1.x): command availability changed.** On 2.1.173 there was no scriptable `claude logs` subcommand; unknown verbs parsed as a *prompt* and no-oped. On 2.1.191, `claude logs <id>` exists. The runner still treats the transcript at `~/.claude/projects/<project>/<sessionId>.jsonl` as the portable log source. | Results MUST travel via files. Diagnostics (`logs_tail`) come from the transcript JSONL (last assistant-text lines, distilled), located by globbing `<transcripts-root>/*/<sessionId>.jsonl`. Direct `claude logs <id>` adoption is follow-up cleanup. |
 | F2 | `claude agents --json` reports per-session `state` and `status`. Observed transitions: `working`/`busy` → `done`/`idle`; a session that needs a permission decision ends `blocked`/`idle`. | Completion + failure are detectable structurally: success via files (primary) + `state==done`; **`state==blocked` → fail fast** (don't wait for timeout). |
 | F3 | The supervisor starts **on-demand** ("origin: transient — started on-demand by `claude --bg`"). There is a cold-start window; once, a dispatch printed success while `daemon status` was `not running` and the session never registered. | A **confirmation step** is mandatory: after dispatch, poll `agents --json` until the session appears (bounded). No appearance → `dispatch_failed`. The success line alone is not proof. |
 | F4 | A `--bg` dispatch blocked by the bypass disclaimer printed an error **and still exited 0**. | Do not trust the process exit code. Success = parsing `backgrounded · <shortID>` from stdout **and** F3 confirmation. |
@@ -55,7 +55,7 @@ and pushed to the machine-validation checklist.
 | F6 | A `--permission-mode acceptEdits` session asked to create new files ended `blocked` without writing. | For unattended file-writing, `acceptEdits` is insufficient; bypass (F5) is required. The script defaults to bypass and treats `blocked` as a permission failure with a clear message. |
 | F7 | Dispatch stdout format: `backgrounded · <shortID>[ · <name>]`, plus a 4-line management hint. An idle no-prompt dispatch appended `(idle — send a prompt to start)`. | shortID regex: `backgrounded\s*·\s*([0-9a-f]+)`; name is optional; tolerate the idle suffix. |
 | F8 | `agents --json` background entries carry `id`, `name`, `status`, `state`, `sessionId`, `pid`, `cwd`; interactive sessions lack `id/name/status/state`. | Match dispatched sessions by `name` (preferred) or `id`; ignore `kind==interactive` rows. |
-| F9 | ~~`claude stop <id>` then `claude rm <id>` cleanly remove a session~~ **Corrected (2.1.173): `stop`/`rm` are not subcommands either** — they parse as a prompt and silently do nothing (this is why earlier teardowns left orphans). The `agents --json` row carries the session's `pid`; the scriptable stop is signalling that pid. The daemon may **respawn a parked session once** from its spare pool (same row id, fresh pid), and a killed row may linger pid-less ("settled") in the listing. Background sessions auto-isolate edits into `.claude/worktrees/` unless disabled. | Teardown = signal the row's *current* pid (SIGTERM, escalate to SIGKILL) **repeatedly until the row drops its pid or disappears**, only **after** results are collected. Pass `--settings '{"worktree":{"bgIsolation":"none"}}'` so writes land in the real workspace. |
+| F9 | ~~`claude stop <id>` then `claude rm <id>` cleanly remove a session~~ **Corrected again (2.1.x): command availability changed.** On 2.1.173, `stop`/`rm` parsed as a prompt and silently did nothing (this is why earlier teardowns left orphans). On 2.1.191, `claude stop <id>` exists; `rm` remains unvalidated here. The runner still uses the portable fallback: the `agents --json` row carries the session's `pid`, so teardown signals that pid. The daemon may **respawn a parked session once** from its spare pool (same row id, fresh pid), and a killed row may linger pid-less ("settled") in the listing. Background sessions auto-isolate edits into `.claude/worktrees/` unless disabled. | Teardown = signal the row's *current* pid (SIGTERM, escalate to SIGKILL) **repeatedly until the row drops its pid or disappears**, only **after** results are collected. Pass `--settings '{"worktree":{"bgIsolation":"none"}}'` so writes land in the real workspace. Direct `claude stop <id>` adoption is follow-up cleanup. |
 | F11 | A **parked** session (idle, awaiting input — e.g. left alive after `needs_human`) reads `state==blocked` in `agents --json`, identical to a genuinely stuck session. | Resume-mode polling must never match the parked parent's row: session matching uses **strict precedence** (short id → name → sessionId), not first-row-wins OR-matching, or the parent's `blocked` shadows the new agent and misreports the run. |
 | F12 | `claude --bg --resume <sid>` **forks**: the new agent continues the conversation under a **new sessionId** (daemon roster: `launch.mode=resume, fork=true`), while the parked parent stays alive and would be orphaned. | The envelope reports the NEW `session_id` (chain further resumes off it) plus `resumed_from`; after the new agent is confirmed, the runner retires the parked parent. |
 | F10 | ~~Not validated here~~ **CLOSED (2026-06-11, real logged-in machine):** end-to-end writes by bypass-accepted sessions reached the expected files, including the full needs_human → resume-by-name → answered → artifact loop. | The happy path is proven operational. Remaining manual check: `/usage` billing attribution (machine-validation item 2). |
@@ -253,10 +253,12 @@ Proof of concept landed and validated:
   parked) → **resume by agent NAME** → answer delivered into the same
   conversation (fork, F12) → declared artifact written → status ok → parked
   parent retired → new agent torn down. This run also *corrected* three earlier
-  findings: no `logs`/`stop`/`rm` subcommands exist (F1/F9 — old teardown was a
-  silent no-op that left orphans), a parked session reads `state==blocked`
-  (F11 — it used to shadow the resume and misreport `blocked`), and resume forks
-  to a new sessionId (F12).
+  findings for 2.1.173: `logs`/`stop`/`rm` were not scriptable subcommands
+  (F1/F9 — old teardown was a silent no-op that left orphans), a parked session
+  reads `state==blocked` (F11 — it used to shadow the resume and misreport
+  `blocked`), and resume forks to a new sessionId (F12). Later 2.1.191 testing
+  found `logs` and `stop` exist; the runner still uses transcript/pid fallbacks
+  until direct subcommand adoption is implemented.
 - Machine-validation item 2 (`/usage` attributes runs to subscription, not API
   credit) remains a manual check.
 

@@ -46,9 +46,7 @@ Current roadmap:
 | `2026-04-24-quest-hooks-vs-instructions-boundary.md` | proposed | Define the boundary between instruction files, hooks, and scripts for Quest, with Claude-first enforcement and Codex-aware adapter guidance. |
 | `2026-04-29-research-fanout-skill.md` | proposed | Add a reusable research fan-out skill for human-triggered and planner-requested parallel investigation with reconciled findings. |
 | `2026-05-19-sharpen-context-grounding.md` | proposed | Require sharpening questions to be grounded in targeted repo evidence before asking the user. |
-| `2026-05-26-native-runtime-dispatch.md` | proposed | Prefer native same-family sub-agent dispatch before cross-family bridge/MCP adapters. |
 | `2026-05-30-pre-pr-freshness-and-force-push-guard.md` | proposed | `pr-assistant` syncs the branch with the remote default branch as part of PR creation so we never open a PR stale against main; clean sync proceeds automatically, only conflicts stop for the human. |
-| `2026-05-31-quest-model-capability-improvements.md` | proposed | Measurement-first roadmap for model capability claims: count fallback use, prove real-schema structured output, then decide whether structured artifacts or cache-aware prompts are worth building. |
 | `dual-model-planning.md` | proposed | Explore parallel plan generation with arbiter synthesis instead of a single planner output. |
 | `2026-04-13-codex-companion-runtime.md` | proposed | Phased prove-it roadmap for a shared Codex runtime serving both the human `/gpt` command surface and Quest orchestration, with strict go/no-go criteria after the minimum slice. |
 | `2026-04-13-feedback-intent-routing.md` | proposed | Canonical feedback-routing proposal: classify live quest feedback by intent and route to clarify, replan, second-opinion, or escalation paths deliberately. |
@@ -63,10 +61,8 @@ Current roadmap:
 ### Codex and Operations Notes
 | File | Status | Purpose |
 |---|---|---|
-| `claude-bridge-timeout-diagnosis-2026-03-23.md` | reference | Incident record showing sandbox-local Claude bridge probes can fail even when host execution is healthy. |
-| `claude-cli-login-context.md` | reference | Operational note: external `claude` CLI login must be validated in the same execution context; an open app session is not enough. |
 | `codex_calls_claude.sh` | reference | Older experimental bash bridge prototype retained as a reference alongside the supported Python bridge. |
-| `2026-05-31-codex-driven-interactive-claude-relay.md` | proposed | Hard-switch transport that runs Codex-led Claude roles through official background agents (`claude --bg` / `claude agents --json` / per-user supervisor, subscription pool) instead of `claude --print` (API-metered after June 15, 2026). |
+| `quest-needs-human-resume-relay.md` | proposed | Wire claude_bg_run.py's needs_human → --resume relay into quest phases so a parked background session can be answered instead of re-dispatched. |
 
 ### Execution Discipline and Observability
 | File | Status | Purpose |
@@ -91,6 +87,11 @@ Current roadmap:
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| done | ~~2026-05-31-codex-driven-interactive-claude-relay~~ | Implemented: Step 1 standalone `claude --bg` runner (PR #136) + Step 2 Quest wiring with `claude_role_transport: auto` default. Archived at [`ideas/archive/2026-05-31-codex-driven-interactive-claude-relay.md`](archive/2026-05-31-codex-driven-interactive-claude-relay.md). |
+| done | ~~2026-05-26-native-runtime-dispatch~~ | Encoded in the canonical dispatch matrix (`.skills/quest/delegation/workflow.md`) and `select_role_runtime()`. Archived at [`ideas/archive/2026-05-26-native-runtime-dispatch.md`](archive/2026-05-26-native-runtime-dispatch.md). |
+| superseded | ~~2026-05-31-quest-model-capability-improvements~~ | Transport portion landed with the `claude --bg` migration; measurement items re-proposable individually. Archived at [`ideas/archive/2026-05-31-quest-model-capability-improvements.md`](archive/2026-05-31-quest-model-capability-improvements.md). |
+| archived | ~~claude-cli-login-context~~ | Reference note; operative guidance moved to `docs/guides/quest_setup.md` + preflight host-context checks. Archived at [`ideas/archive/claude-cli-login-context.md`](archive/claude-cli-login-context.md). |
+| archived | ~~claude-bridge-timeout-diagnosis-2026-03-23~~ | Incident encoded as the migration spec's dispatch false-positive finding and the preflight live-probe design. Archived at [`ideas/archive/claude-bridge-timeout-diagnosis-2026-03-23.md`](archive/claude-bridge-timeout-diagnosis-2026-03-23.md). |
 | done | ~~2026-05-30-pre-pr-freshness-and-force-push-guard.md~~ | Implemented shared pre-PR default-branch sync helper and skill wiring. See [journal](../docs/quest-journal/pre-pr-sync_2026-05-31.md). |
 | won't-do | ~~2026-04-15-pretooluse-branch-dir-verification-hook~~ | `PreToolUse` stdout is debug-log-only (invisible), reads orchestrator cwd not the edit target, and never fires under Codex/MCP. Statusline covers the intent on the Claude side. Built + closed in PR #116. Archived at [`ideas/archive/2026-04-15-pretooluse-branch-dir-verification-hook.md`](archive/2026-04-15-pretooluse-branch-dir-verification-hook.md). |
 | won't-do | ~~2026-04-15-claude-rule-confirm-pwd-branch-before-edits~~ | Soft "run `pwd`/`git branch` before edits" prose — no enforcement, instruction sprawl, visibility already covered by statusline. Retired with the hook (PR #116). Archived at [`ideas/archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md`](archive/2026-04-15-claude-rule-confirm-pwd-branch-before-edits.md). |

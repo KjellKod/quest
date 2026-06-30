@@ -454,3 +454,137 @@ def test_main_reports_invalid_date(
     assert quest_complete.main() == 1
     captured = capsys.readouterr()
     assert "invalid date" in captured.err
+
+
+def test_build_celebration_json_includes_transport_when_present():
+    from quest_celebrate.quest_data import AgentInfo
+    from quest_complete import _build_celebration_json
+
+    data = QuestData()
+    data.agents = [
+        AgentInfo(
+            name="plan-reviewer-a",
+            model="claude-opus-4-6",
+            role_title="The A Plan Critic",
+            summary="",
+            phase="Planning",
+            transport="background-agent",
+        ),
+        AgentInfo(
+            name="builder",
+            model="gpt-5.5",
+            role_title="The Implementer",
+            summary="",
+            phase="Implementation",
+        ),
+    ]
+    data.claude_transport_counts = {"background-agent": 2, "bridge": 1}
+
+    payload = _build_celebration_json(data)
+
+    reviewer = next(a for a in payload["agents"] if a["name"] == "plan-reviewer-a")
+    builder = next(a for a in payload["agents"] if a["name"] == "builder")
+    assert reviewer["transport"] == "background-agent"
+    assert "transport" not in builder
+    assert payload["claude_transport_counts"] == {"background-agent": 2, "bridge": 1}
+    transport_metrics = [
+        m for m in payload["metrics"] if "Claude transport" in m["label"]
+    ]
+    assert transport_metrics == [
+        {"icon": "🚌", "label": "Claude transport: background-agent ×2, bridge ×1"}
+    ]
+
+
+def test_build_celebration_json_silent_when_no_transport_data():
+    from quest_complete import _build_celebration_json
+
+    payload = _build_celebration_json(QuestData())
+
+    assert payload["claude_transport_counts"] == {}
+    assert not any("Claude transport" in m["label"] for m in payload["metrics"])
+
+
+def test_handoff_status_stats_counts_only_explicit_status_lines(tmp_path):
+    archive = tmp_path / "archive"
+    # Legacy quest: log predates the status field — excluded from the stats.
+    legacy = archive / "legacy-quest_2026-03-01__0900" / "logs"
+    legacy.mkdir(parents=True)
+    (legacy / "context_health.log").write_text(
+        "2026-03-01T09:00:00Z | phase=plan | agent=planner | runtime=claude | "
+        "iter=1 | handoff_json=found | source=handoff_json\n",
+        encoding="utf-8",
+    )
+    # Instrumented quest: one needs_human round-trip, then complete.
+    fresh = archive / "fresh-quest_2026-06-12__1000" / "logs"
+    fresh.mkdir(parents=True)
+    (fresh / "context_health.log").write_text(
+        "2026-06-12T10:00:00Z | phase=plan | agent=planner | runtime=claude | "
+        "iter=1 | handoff_json=found | source=handoff_json | "
+        "status=needs_human | transport=background-agent\n"
+        "2026-06-12T10:05:00Z | phase=plan | agent=planner | runtime=claude | "
+        "iter=1 | handoff_json=found | source=handoff_json | "
+        "status=complete | transport=background-agent\n",
+        encoding="utf-8",
+    )
+    # Archived quest with no context_health.log at all.
+    (archive / "no-log-quest_2026-05-01__1200").mkdir(parents=True)
+
+    stats = quest_complete._handoff_status_stats(archive)
+
+    assert stats == {
+        "archived_quests": 3,
+        "status_instrumented_quests": 1,
+        "status_counts": {"needs_human": 1, "complete": 1},
+        "needs_human": 1,
+    }
+
+
+def test_handoff_status_stats_empty_when_archive_missing(tmp_path):
+    stats = quest_complete._handoff_status_stats(tmp_path / "archive")
+    assert stats["archived_quests"] == 0
+    assert stats["status_instrumented_quests"] == 0
+    assert stats["needs_human"] == 0
+
+
+def test_complete_reports_needs_human_rollup(tmp_path, monkeypatch, capsys):
+    repo_root = tmp_path
+    journal_dir = repo_root / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    (journal_dir / "README.md").write_text(
+        "| Date | Quest | Outcome |\n|------|-------|---------|\n",
+        encoding="utf-8",
+    )
+    quest_dir = repo_root / ".quest" / "rollup-check_2026-06-12__1100"
+    quest_dir.mkdir(parents=True)
+    (quest_dir / "state.json").write_text(
+        json.dumps({"quest_id": "rollup-check_2026-06-12__1100", "status": "complete"}),
+        encoding="utf-8",
+    )
+    archive_logs = repo_root / ".quest" / "archive" / "old-quest_2026-06-01__0900" / "logs"
+    archive_logs.mkdir(parents=True)
+    (archive_logs / "context_health.log").write_text(
+        "2026-06-01T09:00:00Z | phase=plan | agent=planner | runtime=claude | "
+        "iter=1 | handoff_json=found | source=handoff_json | status=needs_human\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "quest_complete.py",
+            "--quest-dir",
+            str(quest_dir),
+            "--skip-archive",
+            "--date",
+            "2026-06-12",
+        ],
+    )
+
+    assert quest_complete.main() == 0
+    captured = capsys.readouterr()
+    assert "needs_human across archive: 1 occurrence(s)" in captured.out
+    payload = json.loads(captured.out.strip().splitlines()[-1])
+    assert payload["needs_human_stats"]["needs_human"] == 1
+    assert payload["needs_human_stats"]["status_instrumented_quests"] == 1
+    assert payload["needs_human_stats"]["archived_quests"] == 1

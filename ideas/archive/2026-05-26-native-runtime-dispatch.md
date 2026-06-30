@@ -5,7 +5,7 @@ audience:
   - quest-maintainers
   - quest-users
   - runtime-adapter-authors
-status: proposed
+status: done — encoded in the canonical dispatch matrix (.skills/quest/delegation/workflow.md) and select_role_runtime() (scripts/quest_runtime/claude_runner.py); archived 2026-06-11
 date: 2026-05-26
 related:
   - .skills/quest/SKILL.md
