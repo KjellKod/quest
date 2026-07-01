@@ -465,11 +465,19 @@ class BgRunner:
         # a stable --name (quest: quest-<id>-<role>-i<n>), so a stale row from a
         # crashed prior run — or a settled pid-less remnant of a torn-down one —
         # would otherwise confirm a dispatch that never registered.
+        # A failed snapshot must return the structured envelope, not raise —
+        # and must not silently proceed with an empty snapshot, which would
+        # quietly reintroduce the stale-row false-confirm this guards against.
         pre_existing: set[str] = set()
-        for r in self.agents_json():
-            for key in ("id", "sessionId"):
-                if r.get(key):
-                    pre_existing.add(r[key])
+        try:
+            for r in self.agents_json():
+                for key in ("id", "sessionId"):
+                    if r.get(key):
+                        pre_existing.add(r[key])
+        except FileNotFoundError:
+            return "precondition_failed", "claude CLI not found in PATH", None, None
+        except (OSError, subprocess.SubprocessError) as exc:
+            return "dispatch_failed", f"roster snapshot before dispatch failed: {exc}", None, None
         argv = self.dispatch_argv(resume_sid)
         try:
             cp = subprocess.run(

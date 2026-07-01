@@ -23,6 +23,11 @@ import pytest
 
 import claude_bg_run as bg
 
+# Captured at import, BEFORE the autouse `kills` fixture patches bg.os.kill:
+# `bg.os` and this module's `os` are the same module object, so by test time
+# `os.kill` already IS the fake — restoring from it would be a no-op.
+_REAL_OS_KILL = os.kill
+
 FAKE_CLAUDE = r'''#!/usr/bin/env python3
 import os, sys, json, pathlib
 D = pathlib.Path(os.environ["FAKE_BG_DIR"])
@@ -184,7 +189,7 @@ def test_pty_capture_strips_noise_to_signal():
 def test_pty_capture_total_timeout_kills_child_and_returns_failure(monkeypatch):
     # A child that streams forever: total_timeout must kill+reap it and surface
     # a non-zero exit instead of success-with-partial-text (and a leaked child).
-    monkeypatch.setattr(bg.os, "kill", os.kill)  # undo the autouse kill shim
+    monkeypatch.setattr(bg.os, "kill", _REAL_OS_KILL)  # undo the autouse kill shim
     code, text = bg.pty_capture(
         ["sh", "-c", "while :; do printf x; sleep 0.05; done"],
         total_timeout=0.5, idle_timeout=5.0,
@@ -198,7 +203,7 @@ def test_pty_capture_idle_quiescence_is_success_and_reaps_child(monkeypatch):
     # TUI screen (the attach responder use-case): exit 0, and the child is
     # terminated+reaped rather than left running past the runner's lifetime.
     # If reaping regressed, the blocking waitpid would hold this test ~30s.
-    monkeypatch.setattr(bg.os, "kill", os.kill)  # undo the autouse kill shim
+    monkeypatch.setattr(bg.os, "kill", _REAL_OS_KILL)  # undo the autouse kill shim
     code, text = bg.pty_capture(
         ["sh", "-c", "printf 'SCREEN'; sleep 30"],
         total_timeout=15.0, idle_timeout=0.4,
@@ -438,6 +443,18 @@ def test_dispatch_failed_when_never_registers(shim, tmp_path, monkeypatch):
     env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "x"))).run()
     assert env.status == "dispatch_failed"
     assert env.exit_code() == bg.EXIT_DISPATCH_FAILED
+
+
+def test_missing_claude_cli_is_precondition_failed(tmp_path):
+    # The pre-dispatch roster snapshot is the first `claude` invocation now; a
+    # missing CLI must still surface as the structured envelope, not a raised
+    # FileNotFoundError (cubic review on PR #141).
+    env = bg.BgRunner(
+        _args(Path("/nonexistent/claude-cli"), wait_for=str(tmp_path / "x"))
+    ).run()
+    assert env.status == "precondition_failed"
+    assert env.exit_code() == bg.EXIT_PRECONDITION
+    assert "not found" in env.message
 
 
 def test_bypass_refusal_is_precondition_failed(shim, tmp_path, monkeypatch):
