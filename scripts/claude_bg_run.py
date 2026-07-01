@@ -139,33 +139,75 @@ def pty_capture(
     chunks: list[bytes] = []
     deadline = time.monotonic() + total_timeout
     last = time.monotonic()
+    exited = False  # EOF/EIO: the child ended its own stream
+    timed_out = False
     while True:
         if time.monotonic() > deadline:
+            timed_out = True
             break
         r, _, _ = select.select([fd], [], [], 0.2)
         if r:
             try:
                 data = os.read(fd, 65536)
             except OSError:
+                exited = True
                 break
             if not data:
+                exited = True
                 break
             chunks.append(data)
             last = time.monotonic()
         elif time.monotonic() - last > idle_timeout:
             break
-    status = 0
     try:
-        _, status = os.waitpid(pid, os.WNOHANG)
-    except ChildProcessError:
+        os.close(fd)
+    except OSError:
         pass
-    finally:
-        try:
-            os.close(fd)
-        except OSError:
-            pass
+    # Never leave the loop with a live child: a persistent TUI (the attach
+    # use-case) never exits on its own and would outlive the runner.
+    status = _reap_pty_child(pid, kill=not exited)
     raw = b"".join(chunks).decode("utf-8", errors="replace")
-    return (os.WEXITSTATUS(status) if status else 0), strip_ansi(raw)
+    if timed_out:
+        code = 124  # the stream never went quiet: surface as failure, not truncation
+    elif not exited:
+        code = 0  # idle-quiescence capture of a live TUI: success by design
+    elif os.WIFEXITED(status):
+        code = os.WEXITSTATUS(status)
+    elif os.WIFSIGNALED(status):
+        code = 128 + os.WTERMSIG(status)
+    else:
+        code = 0
+    return code, strip_ansi(raw)
+
+
+def _reap_pty_child(pid: int, *, kill: bool) -> int:
+    """Terminate (when asked) and reap the PTY child; return its wait status.
+
+    Reaping unconditionally — not WNOHANG-and-hope — also closes the race where
+    a child that had just exited read back as status 0.
+    """
+    if kill:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            pass
+    grace = time.monotonic() + 2.0
+    while time.monotonic() < grace:
+        try:
+            wpid, status = os.waitpid(pid, os.WNOHANG)
+        except ChildProcessError:
+            return 0
+        if wpid == pid:
+            return status
+        time.sleep(0.05)
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    try:
+        return os.waitpid(pid, 0)[1]
+    except ChildProcessError:
+        return 0
 
 
 @dataclass
@@ -243,6 +285,30 @@ class BgRunner:
             for row in rows:
                 if row.get(key) == want:
                     return row
+        return None
+
+    def _confirm_row(
+        self, short_id: str | None, pre_existing: set[str]
+    ) -> dict[str, Any] | None:
+        """Find the row registered by THIS dispatch.
+
+        The printed short id is authoritative. The name fallback (short-id regex
+        missed, or the printed id never surfaced in the roster) only accepts a
+        row absent from the pre-dispatch snapshot — a stale same-name row must
+        not confirm a dispatch that never registered, poisoning session_id,
+        polling, and teardown with the wrong session.
+        """
+        rows = [r for r in self.agents_json() if r.get("kind") != "interactive"]
+        if short_id:
+            for row in rows:
+                if row.get("id") == short_id:
+                    return row
+        for row in rows:
+            if row.get("name") != self.a.name:
+                continue
+            if row.get("id") in pre_existing or row.get("sessionId") in pre_existing:
+                continue
+            return row
         return None
 
     def resolve_resume_target(self, ref: str) -> tuple[str | None, str | None]:
@@ -394,6 +460,16 @@ class BgRunner:
         self, message: str, resume_sid: str | None
     ) -> tuple[str | None, str, str | None, dict[str, Any] | None]:
         """Returns (terminal_status_or_None, message, short_id, session_row)."""
+        # Roster snapshot BEFORE dispatch: the confirm loop's name fallback may
+        # only accept a row that appeared after this dispatch. Callers can pass
+        # a stable --name (quest: quest-<id>-<role>-i<n>), so a stale row from a
+        # crashed prior run — or a settled pid-less remnant of a torn-down one —
+        # would otherwise confirm a dispatch that never registered.
+        pre_existing: set[str] = set()
+        for r in self.agents_json():
+            for key in ("id", "sessionId"):
+                if r.get(key):
+                    pre_existing.add(r[key])
         argv = self.dispatch_argv(resume_sid)
         try:
             cp = subprocess.run(
@@ -423,10 +499,11 @@ class BgRunner:
         deadline = time.monotonic() + self.a.confirm_timeout
         row: dict[str, Any] | None = None
         while time.monotonic() < deadline:
-            # Confirm by short id / name ONLY: in resume mode the parked parent's
-            # row matches `sessionId == resume_sid` and would falsely confirm a
-            # dispatch that never registered.
-            row = self.find_session(short_id, self.a.name)
+            # Confirm by short id, else by name restricted to NEW rows. Never by
+            # sessionId: in resume mode the parked parent's row matches
+            # `sessionId == resume_sid` and would falsely confirm a dispatch
+            # that never registered.
+            row = self._confirm_row(short_id, pre_existing)
             if row:
                 break
             time.sleep(self.a.poll_interval)

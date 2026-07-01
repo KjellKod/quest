@@ -15,6 +15,7 @@ tests intercept `os.kill` and drop the row to simulate exit.
 from __future__ import annotations
 
 import json
+import os
 import stat
 from pathlib import Path
 
@@ -178,6 +179,42 @@ def test_pty_capture_strips_noise_to_signal():
     )
     assert "HELLO clean" in text
     assert "\x1b" not in text
+
+
+def test_pty_capture_total_timeout_kills_child_and_returns_failure(monkeypatch):
+    # A child that streams forever: total_timeout must kill+reap it and surface
+    # a non-zero exit instead of success-with-partial-text (and a leaked child).
+    monkeypatch.setattr(bg.os, "kill", os.kill)  # undo the autouse kill shim
+    code, text = bg.pty_capture(
+        ["sh", "-c", "while :; do printf x; sleep 0.05; done"],
+        total_timeout=0.5, idle_timeout=5.0,
+    )
+    assert code == 124
+    assert "x" in text  # partial capture still returned for diagnostics
+
+
+def test_pty_capture_idle_quiescence_is_success_and_reaps_child(monkeypatch):
+    # Idle-quiescence is the DESIGNED completion signal for capturing a live
+    # TUI screen (the attach responder use-case): exit 0, and the child is
+    # terminated+reaped rather than left running past the runner's lifetime.
+    # If reaping regressed, the blocking waitpid would hold this test ~30s.
+    monkeypatch.setattr(bg.os, "kill", os.kill)  # undo the autouse kill shim
+    code, text = bg.pty_capture(
+        ["sh", "-c", "printf 'SCREEN'; sleep 30"],
+        total_timeout=15.0, idle_timeout=0.4,
+    )
+    assert code == 0
+    assert "SCREEN" in text
+
+
+def test_pty_capture_reports_child_exit_code():
+    # A child that exits non-zero on its own must not read back as success
+    # (the old WNOHANG race could miss the just-exited status entirely).
+    code, _ = bg.pty_capture(
+        ["sh", "-c", "printf 'boom'; exit 3"],
+        total_timeout=5.0, idle_timeout=1.0,
+    )
+    assert code == 3
 
 
 # ---- lifecycle scenarios ---------------------------------------------------
@@ -527,3 +564,34 @@ def test_resume_clears_parked_handoff_but_keeps_wait_for(
     assert env.resumed is True
     assert env.questions == []  # stale questions did not replay
     assert wait.read_text(encoding="utf-8") == "PARKED-WORK"  # preserved
+
+
+# ---- confirm must not adopt a stale same-name row ---------------------------
+def test_stale_same_name_row_does_not_confirm_failed_dispatch(shim, tmp_path, monkeypatch):
+    """Quest passes deterministic names (quest-<id>-<role>-i<n>), so a settled
+    row left by a crashed prior run shares the new dispatch's name. A dispatch
+    that never registers must report dispatch_failed — not adopt the stale row
+    and misreport its state (here done → 'incomplete') for the wrong session."""
+    _seed_parent(tmp_path, name="quest-q7-planner-i1", state="done", status="idle")
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "never_confirm")
+    env = bg.BgRunner(
+        _args(shim, name="quest-q7-planner-i1", wait_for=str(tmp_path / "x"))
+    ).run()
+    assert env.status == "dispatch_failed"
+    assert env.exit_code() == bg.EXIT_DISPATCH_FAILED
+    assert env.session_id != PARENT_SID  # never adopted the stale row
+
+
+def test_confirm_name_fallback_prefers_new_row_over_stale(shim, monkeypatch):
+    """With no parsed short id, the name fallback must skip rows that existed
+    before the dispatch and accept the newly registered one — even when the
+    stale row lists first."""
+    runner = bg.BgRunner(_args(shim, name="quest-q7-planner-i1"))
+    stale = {"id": "old00001", "sessionId": "old-sid", "name": "quest-q7-planner-i1", "kind": "background"}
+    fresh = {"id": "new00002", "sessionId": "new-sid", "name": "quest-q7-planner-i1", "kind": "background"}
+    monkeypatch.setattr(runner, "agents_json", lambda: [stale, fresh])
+    row = runner._confirm_row(None, {"old00001", "old-sid"})
+    assert row is not None and row["id"] == "new00002"
+    # And when only the stale row exists, nothing confirms.
+    monkeypatch.setattr(runner, "agents_json", lambda: [stale])
+    assert runner._confirm_row(None, {"old00001", "old-sid"}) is None
