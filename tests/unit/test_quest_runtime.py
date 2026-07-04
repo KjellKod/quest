@@ -1252,8 +1252,10 @@ raise SystemExit({exit_code})
 
         assert result.result_kind == expected_kind
         assert result.status == status
-
-    assert result.rejected_model == "claude-bad-1"
+        if status == "model_rejected":
+            assert result.rejected_model == "claude-bad-1"
+        else:
+            assert result.rejected_model is None
 
 
 def test_append_context_health_log_transport_field_is_optional(tmp_path):

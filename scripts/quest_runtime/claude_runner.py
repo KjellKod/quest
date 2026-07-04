@@ -110,7 +110,7 @@ def normalize_claude_cli_model(model: str) -> str | None:
         raise ValueError("Claude model must be a non-empty value or the `claude` sentinel")
     if normalized == "claude":
         return None
-    return model
+    return normalized
 
 
 def _effective_permission_mode(

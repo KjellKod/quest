@@ -154,7 +154,7 @@ This journal embeds the celebration payload used by `/celebrate`.
     },
     {
       "icon": "📝",
-      "label": "Review findings: 6"
+      "label": "Review rounds: 6"
     }
   ],
   "quality": {

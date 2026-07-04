@@ -94,7 +94,15 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="tear down bg needs_human sessions instead of parking them for resume",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.answer_file and not args.resume:
+        parser.error("--answer-file requires --resume (the parked session to continue)")
+    if (args.resume or args.answer_file) and args.transport == "bridge":
+        parser.error(
+            "--resume/--answer-file require the background-agent transport; "
+            "the bridge cannot continue a parked session"
+        )
+    return args
 
 
 def main() -> int:

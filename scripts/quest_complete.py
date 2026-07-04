@@ -44,7 +44,7 @@ def _build_celebration_json(data: QuestData) -> dict:
     metrics = [
         {"icon": "📊", "label": f"Plan iterations: {data.plan_iterations}"},
         {"icon": "🔧", "label": f"Fix iterations: {data.fix_iterations}"},
-        {"icon": "📝", "label": f"Review findings: {data.review_count}"},
+        {"icon": "📝", "label": f"Review rounds: {data.review_count}"},
     ]
     if data.claude_transport_counts:
         # Only when Codex called Claude — silent empty state otherwise.

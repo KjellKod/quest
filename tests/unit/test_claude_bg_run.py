@@ -627,8 +627,29 @@ def test_runner_exit_paths_leave_no_new_blocked_session_except_intentional_park(
         monkeypatch.delenv("FAKE_BG_HANDOFF", raising=False)
         monkeypatch.delenv("FAKE_BG_WAITFOR", raising=False)
 
+    # Generic blocked requires a transcript with unrecognizable content: a
+    # blocked row with NO transcript is the startup-dialog signature and must
+    # classify as startup_dialog, not generic blocked.
+    generic_transcripts = tmp_path / "generic-transcripts"
+    generic_dir = generic_transcripts / "generic"
+    generic_dir.mkdir(parents=True, exist_ok=True)
+    (generic_dir / "abc12345-uuid.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {"type": "text", "text": "Mid-task note with no known block markers."}
+                    ]
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
     cases = [
-        ("blocked", {}, "blocked", False),
+        ("blocked", {"transcripts_root": str(generic_transcripts)}, "blocked", False),
         ("startup_dialog", {"transcripts_root": str(tmp_path / "missing-transcripts")}, "startup_dialog", False),
         ("timeout", {"timeout": "0.1", "wait_for": str(tmp_path / "never")}, "timeout", False),
     ]

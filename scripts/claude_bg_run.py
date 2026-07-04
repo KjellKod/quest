@@ -97,7 +97,7 @@ _RESET_AT_RE = re.compile(
 _MODEL_REJECTED_RE = re.compile(
     r"(?:(?:there(?:'s| is)\s+an\s+)?(?:issue|problem)\s+with\s+the\s+selected\s+model"
     r"|(?:invalid|unknown|unsupported)\s+selected\s+model)"
-    r"\s*(?:\(|:)?\s*([A-Za-z0-9._:/-]+)?",
+    r"(?:\s*(?:\(|:)\s*([A-Za-z0-9._:/-]+))?",
     re.IGNORECASE,
 )
 _STARTUP_DIALOG_RE = re.compile(
@@ -910,8 +910,14 @@ class BgRunner:
                             f"Claude CLI rejected the selected model{suffix}; "
                             "choose a supported Claude model or the `claude` sentinel."
                         )
-                    elif "send a prompt to start" in detail_text.lower() or (
-                        not log_text and _STARTUP_DIALOG_RE.search(evidence)
+                    elif (
+                        "send a prompt to start" in detail_text.lower()
+                        # No transcript = the session never consumed its prompt:
+                        # a startup dialog (trust/bypass) by definition — the
+                        # rate-limit/model evidence above lives in the transcript,
+                        # so with none present those causes are already ruled out.
+                        or not log_text
+                        or _STARTUP_DIALOG_RE.search(evidence)
                     ):
                         env.status = "startup_dialog"
                         env.message = (
