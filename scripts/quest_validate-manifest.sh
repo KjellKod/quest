@@ -101,6 +101,7 @@ EXPECTED_PATTERNS=(
   ".claude/agents/*.md"
   ".claude/hooks/*.sh"
   ".claude/skills/*/*.md"
+  "docs/guides/quest_setup.md"
   "scripts/quest_allowlist_matcher.py"
   "scripts/quest_claude_bridge.py"
   "scripts/quest_claude_probe.py"

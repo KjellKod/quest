@@ -7,11 +7,12 @@ Build and utility scripts for the Quest repository.
 | Script / Package | Purpose |
 |------------------|---------|
 | `quest_dashboard/` | Python package that generates a static HTML Quest Dashboard from journal entries and active quest state. See `quest_dashboard/README.md` for details. |
-| `quest_runtime/` | Python package with Quest orchestration helpers (state updates, Claude bridge runner, handoff polling). |
+| `quest_runtime/` | Python package with Quest orchestration helpers (state updates, Claude transport runner, handoff polling). |
 | `quest_runtime/review_intelligence.py` | Canonical review-finding schema validation, dedupe/merge helpers, decision backlog policy, deferred JSONL append, and planner backlog scan matching. |
 | `quest_runtime/pr_review_cycle.py` | PR-cycle helpers for canonical intake normalization, actionable batch construction, validation-step selection, loop-stop classification, and cap retagging. |
 | `quest_checks/` | Python package that provides the installed `quest-checks` CLI for running Quest validators. |
-| `quest_claude_bridge.py` | Thin transport bridge from the current host into Claude CLI for Codex-led Claude-designated Quest roles. |
+| `claude_bg_run.py` | Standalone background-agent transport runner for `claude --bg`; returns a structured envelope and keeps Quest-specific policy out of the transport. |
+| `quest_claude_bridge.py` | Explicit API-metered bridge transport from the current host into Claude CLI for Codex-led Claude-designated Quest roles. |
 | `quest_preflight.sh` | Checks second-model readiness before quest routing. Codex-led Claude probes now retain a recent successful host probe under `.quest/cache/` so later quest starts can reuse it. |
 | `quest_claude_probe.py` | Probes a Claude transport by requiring a real artifact write and `handoff.json` under the quest logs directory. |
 | `quest_state.py` | Updates `.quest/<id>/state.json` consistently and refreshes `updated_at`. |
@@ -41,11 +42,11 @@ python3 scripts/quest_state.py --quest-dir .quest/<id> --phase plan_reviewed --s
 # Prepare startup branch/worktree context for a new quest
 python3 scripts/quest_startup_branch.py --slug feature-x --mode branch
 
-# Run a Claude-designated role via the local bridge with file polling
-python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase plan_review --agent plan-reviewer-a --iter 1 --prompt-file .quest/<id>/phase_01_plan/reviewer_a_prompt.txt --handoff-file .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json
+# Run a Claude-designated role via the configured Claude transport with file polling
+python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase plan_review --agent plan-reviewer-a --iter 1 --prompt-file .quest/<id>/phase_01_plan/reviewer_a_prompt.txt --handoff-file .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json --model claude --transport background-agent
 
-# Probe the Claude bridge with a real artifact + handoff write
-python3 scripts/quest_claude_probe.py --quest-dir .quest/<id> --model opus
+# Probe the Claude background-agent transport with a real artifact + handoff write
+python3 scripts/quest_claude_probe.py --quest-dir .quest/<id> --model claude --transport background-agent
 
 # Validate canonical findings JSON
 python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_03_review/review_findings.json

@@ -15,7 +15,7 @@ import re
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable
 
@@ -44,6 +44,17 @@ class RunResult:
     source: str | None
     stdout: str
     stderr: str
+    status: str | None = None
+    session_id: str | None = None
+    short_id: str | None = None
+    questions: list[str] | None = None
+    resumed_from: str | None = None
+    teardown_failed: bool = False
+    teardown_survivor_id: str | None = None
+    teardown_survivor_name: str | None = None
+    teardown_survivor_session_id: str | None = None
+    reset_at: str | None = None
+    rejected_model: str | None = None
 
 
 # Canonical message for reporting an actual violation (a Codex-led session
@@ -85,6 +96,21 @@ _BG_EXIT_RESULT_KINDS: dict[int, str] = {
     4: "invocation_error",
     5: "timeout",
 }
+
+_BG_STATUS_RESULT_KINDS: dict[str, str] = {
+    "rate_limited": "rate_limited",
+    "startup_dialog": "startup_dialog",
+    "model_rejected": "model_rejected",
+}
+
+
+def normalize_claude_cli_model(model: str) -> str | None:
+    normalized = model.strip()
+    if not normalized:
+        raise ValueError("Claude model must be a non-empty value or the `claude` sentinel")
+    if normalized == "claude":
+        return None
+    return model
 
 
 def _effective_permission_mode(
@@ -223,6 +249,7 @@ def build_bridge_cmd(
     permission_mode: str,
     add_dirs: Iterable[str | Path] | None = None,
 ) -> list[str]:
+    cli_model = normalize_claude_cli_model(model)
     cmd = [
         sys.executable,
         str(bridge_script),
@@ -230,13 +257,13 @@ def build_bridge_cmd(
         str(prompt_file),
         "--output-format",
         "text",
-        "--model",
-        model,
         "--timeout",
         str(timeout),
         "--permission-mode",
         permission_mode,
     ]
+    if cli_model is not None:
+        cmd.extend(["--model", cli_model])
     if add_dirs:
         for directory in unique_dirs(add_dirs):
             cmd.extend(["--add-dir", directory])
@@ -255,37 +282,43 @@ def build_bg_cmd(
     handoff_file: str | Path,
     wait_for: Iterable[str | Path],
     add_dirs: Iterable[str | Path] | None = None,
+    teardown_on_needs_human: bool = False,
+    resume: str | None = None,
+    answer_file: str | Path | None = None,
 ) -> list[str]:
     """argv for the background-agent transport (scripts/claude_bg_run.py).
 
-    Passes --handoff-file so a needs_human handoff is recognized promptly, plus
-    --teardown-on-needs-human so the session is torn down on needs_human instead
-    of left alive: Quest has no resume loop to collect a parked session yet (the
-    full interactive relay is specified in
-    ideas/quest-needs-human-resume-relay.md). Net effect — needs_human
-    behaves exactly like the bridge (handoff present → session torn down → the
-    orchestrator reads the status) rather than blocking until --timeout. The
-    handoff also stays in wait_for for the success (status=complete) path.
+    Passes --handoff-file so a needs_human handoff is recognized promptly. By
+    default Quest leaves background-agent needs_human sessions parked so the
+    orchestrator can resume the same session with --resume/--answer-file.
+    Direct callers with no relay can opt into --teardown-on-needs-human.
     """
+    cli_model = normalize_claude_cli_model(model)
     cmd = [
         sys.executable,
         str(bg_runner_script),
         "--json",
         "--no-protocol",
-        "--prompt-file",
-        str(prompt_file),
         "--name",
         name,
-        "--model",
-        model,
         "--timeout",
         str(timeout),
         "--permission-mode",
         permission_mode,
         "--handoff-file",
         str(handoff_file),
-        "--teardown-on-needs-human",
     ]
+    if resume:
+        cmd.extend(["--resume", resume])
+        if answer_file is not None:
+            cmd.extend(["--answer-file", str(answer_file)])
+        cmd.extend(["--prompt-file", str(prompt_file)])
+    else:
+        cmd.extend(["--prompt-file", str(prompt_file)])
+    if cli_model is not None:
+        cmd.extend(["--model", cli_model])
+    if teardown_on_needs_human:
+        cmd.append("--teardown-on-needs-human")
     for path in wait_for:
         cmd.extend(["--wait-for", str(path)])
     if add_dirs:
@@ -315,9 +348,41 @@ def _bg_failure_detail(stdout: str) -> str:
     return "; ".join(parts)
 
 
+def _bg_envelope(stdout: str) -> dict | None:
+    try:
+        envelope = json.loads(stdout)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    return envelope if isinstance(envelope, dict) else None
+
+
+def _run_result_fields_from_bg(stdout: str) -> dict:
+    envelope = _bg_envelope(stdout) or {}
+    questions = envelope.get("questions")
+    return {
+        "status": envelope.get("status") if isinstance(envelope.get("status"), str) else None,
+        "session_id": envelope.get("session_id") if isinstance(envelope.get("session_id"), str) else None,
+        "short_id": envelope.get("short_id") if isinstance(envelope.get("short_id"), str) else None,
+        "questions": [str(q) for q in questions] if isinstance(questions, list) else None,
+        "resumed_from": envelope.get("resumed_from") if isinstance(envelope.get("resumed_from"), str) else None,
+        "teardown_failed": bool(envelope.get("teardown_failed")),
+        "teardown_survivor_id": envelope.get("teardown_survivor_id") if isinstance(envelope.get("teardown_survivor_id"), str) else None,
+        "teardown_survivor_name": envelope.get("teardown_survivor_name") if isinstance(envelope.get("teardown_survivor_name"), str) else None,
+        "teardown_survivor_session_id": envelope.get("teardown_survivor_session_id") if isinstance(envelope.get("teardown_survivor_session_id"), str) else None,
+        "reset_at": envelope.get("reset_at") if isinstance(envelope.get("reset_at"), str) else None,
+        "rejected_model": envelope.get("rejected_model") if isinstance(envelope.get("rejected_model"), str) else None,
+    }
+
+
 def classify_bg_probe_failure(stderr: str) -> str | None:
     """Return a specific bg preflight failure kind when stderr is recognizable."""
     normalized = stderr.lower()
+    if "rate_limited" in normalized or "session limit" in normalized or "rate limit" in normalized:
+        return "rate_limited"
+    if "startup_dialog" in normalized or "trust this folder" in normalized or "do you trust" in normalized:
+        return "startup_dialog"
+    if "model_rejected" in normalized or "rejected the selected model" in normalized or "issue with the selected model" in normalized:
+        return "model_rejected"
     if "dangerously-skip-permissions" in normalized or (
         "bypasspermissions" in normalized and "accepted" in normalized
     ):
@@ -513,6 +578,9 @@ def run_claude_role(
     exit_grace_seconds: float = 2.0,
     transport: str = "bridge",
     bg_runner_script: str | Path = DEFAULT_BG_RUNNER_SCRIPT,
+    teardown_on_needs_human: bool = False,
+    resume: str | None = None,
+    answer_file: str | Path | None = None,
 ) -> RunResult:
     if transport not in {"bridge", "background-agent"}:
         raise ValueError(
@@ -568,18 +636,14 @@ def run_claude_role(
                     exit_grace_seconds=exit_grace_seconds,
                     transport=transport,
                     bg_runner_script=bg_runner_script,
+                    teardown_on_needs_human=teardown_on_needs_human,
+                    resume=resume,
+                    answer_file=answer_file,
                 )
                 combined_stderr = retry_note
                 if retry_result.stderr:
                     combined_stderr = f"{retry_note}\n{retry_result.stderr}"
-                return RunResult(
-                    exit_code=retry_result.exit_code,
-                    handoff_state=retry_result.handoff_state,
-                    result_kind=retry_result.result_kind,
-                    source=retry_result.source,
-                    stdout=retry_result.stdout,
-                    stderr=combined_stderr,
-                )
+                return replace(retry_result, stderr=combined_stderr)
             return RunResult(
                 exit_code=1,
                 handoff_state="missing",
@@ -611,6 +675,9 @@ def run_claude_role(
             handoff_file=resolved_handoff_file,
             wait_for=[resolved_handoff_file, *resolved_artifact_paths],
             add_dirs=default_add_dirs,
+            teardown_on_needs_human=teardown_on_needs_human,
+            resume=resume,
+            answer_file=resolve_path(cwd, answer_file) if answer_file else None,
         )
     else:
         cmd = build_bridge_cmd(
@@ -733,6 +800,12 @@ def run_claude_role(
         if detail:
             stderr = f"{stderr}\n{detail}".strip()
 
+    bg_fields = (
+        _run_result_fields_from_bg(stdout)
+        if transport == "background-agent"
+        else {}
+    )
+    bg_status_kind = _BG_STATUS_RESULT_KINDS.get(str(bg_fields.get("status") or ""))
     bg_exit_kind = (
         _BG_EXIT_RESULT_KINDS.get(process.returncode or 0)
         if transport == "background-agent"
@@ -747,7 +820,8 @@ def run_claude_role(
             else (
                 "handoff_missing"
                 if handoff_state == "found" and not artifacts_complete
-                else bg_exit_kind
+                else bg_status_kind
+                or bg_exit_kind
                 or classify_result_kind(
                     process.returncode or 1, stderr, handoff_state
                 )
@@ -763,6 +837,7 @@ def run_claude_role(
         source=source,
         stdout=stdout,
         stderr=stderr,
+        **bg_fields,
     )
 
     if (
@@ -804,18 +879,14 @@ def run_claude_role(
                 exit_grace_seconds=exit_grace_seconds,
                 transport=transport,
                 bg_runner_script=bg_runner_script,
+                teardown_on_needs_human=teardown_on_needs_human,
+                resume=resume,
+                answer_file=answer_file,
             )
             combined_stderr = retry_note
             if retry_result.stderr:
                 combined_stderr = f"{retry_note}\n{retry_result.stderr}"
-            return RunResult(
-                exit_code=retry_result.exit_code,
-                handoff_state=retry_result.handoff_state,
-                result_kind=retry_result.result_kind,
-                source=retry_result.source,
-                stdout=retry_result.stdout,
-                stderr=combined_stderr,
-            )
+            return replace(retry_result, stderr=combined_stderr)
 
     if allow_text_fallback and text_handoff is not None:
         append_context_health_log(
@@ -977,6 +1048,7 @@ def run_bg_probe(
             resolved_quest_dir,
             probe_dir,
         ],
+        teardown_on_needs_human=True,
     )
     cp = subprocess.run(
         cmd,

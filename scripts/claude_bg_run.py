@@ -39,11 +39,11 @@ Transport facts this encodes (observed across Claude Code 2.1.x):
     (idle, awaiting-input) session ALSO reads `state==blocked`, so resume-mode
     polling must never match the parked parent's row (id/name take precedence
     over sessionId).
-  * Early 2.1.x builds did not expose scriptable `logs|stop|rm`; this runner
-    still uses the portable fallback: transcript JSONL for log tails and
-    signalling the `pid` carried in the `agents --json` row. Claude Code 2.1.191
-    exposes real `claude logs <id>` and `claude stop <id>` commands; adopting
-    those subcommands is tracked as follow-up cleanup.
+  * Claude CLI 2.1.x background-session management subcommands are not treated
+    as a stable scripting contract here. This runner uses the portable fallback:
+    transcript JSONL for log tails and signalling the `pid` carried in the
+    `agents --json` row. Capability probing stays isolated so future stable
+    `logs`/`stop` commands can be adopted without changing Quest contracts.
   * `claude --bg --resume <sid>` FORKS: the new agent continues the conversation
     under a NEW sessionId (daemon roster: launch.mode=resume, fork=true).
 
@@ -83,6 +83,26 @@ _SHORTID_RE = re.compile(r"backgrounded\s*·\s*([0-9a-fA-F]+)")
 _SESSION_ID_RE = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}|[0-9a-fA-F]{32}")
 _BYPASS_REFUSAL_RE = re.compile(
     r"bypass[- ]?permissions.*requires accepting|dangerously-skip-permissions",
+    re.IGNORECASE,
+)
+_RATE_LIMIT_RE = re.compile(
+    r"(?:you(?:'ve| have)? hit your session limit|session limit|rate limit)",
+    re.IGNORECASE,
+)
+_RESET_AT_RE = re.compile(
+    r"\b(?:resets?|reset(?:s)?(?: at| on)?|try again(?: at| after)?)\s+"
+    r"([^\n.;]+(?:\([^)]+\))?)",
+    re.IGNORECASE,
+)
+_MODEL_REJECTED_RE = re.compile(
+    r"(?:(?:there(?:'s| is)\s+an\s+)?(?:issue|problem)\s+with\s+the\s+selected\s+model"
+    r"|(?:invalid|unknown|unsupported)\s+selected\s+model)"
+    r"\s*(?:\(|:)?\s*([A-Za-z0-9._:/-]+)?",
+    re.IGNORECASE,
+)
+_STARTUP_DIALOG_RE = re.compile(
+    r"(?:send a prompt to start|trust this folder|do you trust|accept.*(?:trust|bypass)|"
+    r"bypasspermissions.*accept|dangerously-skip-permissions)",
     re.IGNORECASE,
 )
 # CSI / OSC / single-char escapes — covers the TUI redraw soup from `claude logs`.
@@ -227,6 +247,12 @@ class Envelope:
     duration_s: float = 0.0
     logs_tail: str = ""
     message: str = ""
+    reset_at: str | None = None
+    rejected_model: str | None = None
+    teardown_failed: bool = False
+    teardown_survivor_id: str | None = None
+    teardown_survivor_name: str | None = None
+    teardown_survivor_session_id: str | None = None
 
     def exit_code(self) -> int:
         return {
@@ -234,12 +260,45 @@ class Envelope:
             "precondition_failed": EXIT_PRECONDITION,
             "dispatch_failed": EXIT_DISPATCH_FAILED,
             "blocked": EXIT_BLOCKED,
+            "rate_limited": EXIT_BLOCKED,
+            "startup_dialog": EXIT_BLOCKED,
+            "model_rejected": EXIT_PRECONDITION,
             "timeout": EXIT_TIMEOUT,
             "session_failed": EXIT_SESSION_FAILED,
             "incomplete": EXIT_SESSION_FAILED,
             "needs_human": EXIT_NEEDS_HUMAN,
             "interrupted": EXIT_INTERRUPTED,
         }.get(self.status, EXIT_SESSION_FAILED)
+
+
+@dataclass
+class StopResult:
+    settled: bool
+    survivor_id: str | None = None
+    survivor_name: str | None = None
+    survivor_session_id: str | None = None
+
+
+@dataclass
+class DispatchResult:
+    terminal_status: str | None
+    message: str
+    short_id: str | None
+    row: dict[str, Any] | None
+    reset_at: str | None = None
+    rejected_model: str | None = None
+
+
+def _parse_reset_at(text: str) -> str | None:
+    match = _RESET_AT_RE.search(text)
+    return match.group(1).strip() if match else None
+
+
+def _parse_rejected_model(text: str) -> str | None:
+    match = _MODEL_REJECTED_RE.search(text)
+    if match and match.group(1):
+        return match.group(1).strip(").,;: ")
+    return None
 
 
 class BgRunner:
@@ -329,8 +388,8 @@ class BgRunner:
     def logs_tail(self, session_id: str | None) -> str:
         """Tail of the session transcript (~/.claude/projects/*/<sid>.jsonl).
 
-        Claude Code 2.1.191 has `claude logs <id>`, but this runner still uses
-        transcript JSONL as the portable fallback. Returns the last few
+        This runner uses transcript JSONL as the portable fallback instead of
+        assuming a stable `claude logs <id>` subcommand. Returns the last few
         assistant-text lines, distilled.
         """
         if not session_id:
@@ -355,11 +414,11 @@ class BgRunner:
             return ""
         return distill("\n".join(texts[-4:]))
 
-    def stop_session(self, short_id: str | None) -> None:
+    def stop_session(self, short_id: str | None) -> StopResult:
         """Stop a background agent by signalling its supervisor-reported pid.
 
-        Claude Code 2.1.191 has `claude stop <id>`, but this runner still uses
-        the older pid-signalling fallback. The daemon may RESPAWN a parked
+        This runner uses the pid-signalling fallback instead of assuming a
+        stable `claude stop <id>` subcommand. The daemon may RESPAWN a parked
         session once from its spare pool after a kill (the row keeps its id but
         shows a fresh pid), so keep signalling the row's *current* pid until the
         row settles — drops its pid ("settled (killed)" in the daemon log) or
@@ -367,23 +426,51 @@ class BgRunner:
         that is retired enough.
         """
         if not short_id:
-            return
+            return StopResult(settled=True)
+        row: dict[str, Any] | None = None
         for attempt in range(6):
             row = self.find_session(short_id=short_id)
             pid = (row or {}).get("pid")
             if not isinstance(pid, int):
-                return  # gone, or settled with no live process
+                return StopResult(settled=True)
             sig = signal.SIGTERM if attempt < 2 else signal.SIGKILL
             try:
                 os.kill(pid, sig)
             except (ProcessLookupError, PermissionError):
                 pass
             time.sleep(self.a.poll_interval)
+        row = self.find_session(short_id=short_id)
+        if not isinstance((row or {}).get("pid"), int):
+            return StopResult(settled=True)
+        return StopResult(
+            settled=False,
+            survivor_id=(row or {}).get("id"),
+            survivor_name=(row or {}).get("name"),
+            survivor_session_id=(row or {}).get("sessionId"),
+        )
 
-    def teardown(self, short_id: str | None) -> None:
+    def teardown(self, short_id: str | None) -> StopResult:
         if self.a.keep:
-            return
-        self.stop_session(short_id)
+            return StopResult(settled=True)
+        return self.stop_session(short_id)
+
+    def _retire_same_name_before_fresh_dispatch(
+        self, *, exempt_short_id: str | None = None
+    ) -> StopResult:
+        rows = [
+            row
+            for row in self.agents_json()
+            if row.get("kind") != "interactive"
+            and row.get("name") == self.a.name
+            and isinstance(row.get("pid"), int)
+            and row.get("id") != exempt_short_id
+        ]
+        result = StopResult(settled=True)
+        for row in rows:
+            result = self.stop_session(row.get("id"))
+            if not result.settled:
+                return result
+        return result
 
     def sweep(self, prefix: str) -> int:
         """Stop every background session whose name starts with `prefix`.
@@ -391,18 +478,36 @@ class BgRunner:
         Orphan recovery for orchestrators that crashed between dispatch and
         teardown (e.g. quest start/resume runs `--sweep quest-<id>-`).
         """
-        rows = [
-            row
-            for row in self.agents_json()
-            if row.get("kind") != "interactive"
-            and isinstance(row.get("name"), str)
-            and row["name"].startswith(prefix)
-            and isinstance(row.get("pid"), int)
-        ]
+        try:
+            rows = [
+                row
+                for row in self.agents_json()
+                if row.get("kind") != "interactive"
+                and isinstance(row.get("name"), str)
+                and row["name"].startswith(prefix)
+                and isinstance(row.get("pid"), int)
+            ]
+        except FileNotFoundError:
+            print("sweep skipped: claude CLI not found in PATH")
+            return EXIT_OK
+        except (OSError, subprocess.SubprocessError) as exc:
+            print(f"sweep skipped: claude agents roster unavailable: {exc}")
+            return EXIT_OK
+        failed = 0
         for row in rows:
-            self.stop_session(row.get("id"))
-            print(f"swept {row.get('id')} ({row.get('name')})")
-        print(f"sweep complete: {len(rows)} session(s) matching {prefix!r} stopped")
+            result = self.stop_session(row.get("id"))
+            status = "swept" if result.settled else "teardown_failed"
+            if not result.settled:
+                failed += 1
+            print(f"{status} {row.get('id')} ({row.get('name')})")
+        stopped = len(rows) - failed
+        if failed:
+            print(
+                f"sweep incomplete: {stopped} session(s) matching {prefix!r} stopped; "
+                f"{failed} survivor(s) still live"
+            )
+            return EXIT_BLOCKED
+        print(f"sweep complete: {stopped} session(s) matching {prefix!r} stopped")
         return EXIT_OK
 
     # -- message construction -------------------------------------------------
@@ -445,7 +550,7 @@ class BgRunner:
         argv = [*self.claude, "--bg", "--name", self.a.name]
         if resume_sid:
             argv += ["--resume", resume_sid]
-        if self.a.model:
+        if self.a.model and self.a.model != "claude":
             argv += ["--model", self.a.model]
         if self.a.effort:
             argv += ["--effort", self.a.effort]
@@ -457,9 +562,13 @@ class BgRunner:
         return argv
 
     def dispatch_and_confirm(
-        self, message: str, resume_sid: str | None
-    ) -> tuple[str | None, str, str | None, dict[str, Any] | None]:
-        """Returns (terminal_status_or_None, message, short_id, session_row)."""
+        self,
+        message: str,
+        resume_sid: str | None,
+        *,
+        exempt_same_name_short_id: str | None = None,
+    ) -> DispatchResult:
+        """Return the dispatch terminal status, confirmed row, and metadata."""
         # Roster snapshot BEFORE dispatch: the confirm loop's name fallback may
         # only accept a row that appeared after this dispatch. Callers can pass
         # a stable --name (quest: quest-<id>-<role>-i<n>), so a stale row from a
@@ -470,14 +579,30 @@ class BgRunner:
         # quietly reintroduce the stale-row false-confirm this guards against.
         pre_existing: set[str] = set()
         try:
+            if resume_sid is None:
+                same_name_stop = self._retire_same_name_before_fresh_dispatch(
+                    exempt_short_id=exempt_same_name_short_id
+                )
+                if not same_name_stop.settled:
+                    return DispatchResult(
+                        terminal_status="dispatch_failed",
+                        message=(
+                            "live same-name background session could not be retired "
+                            f"before dispatch: id={same_name_stop.survivor_id} "
+                            f"name={same_name_stop.survivor_name} "
+                            f"session_id={same_name_stop.survivor_session_id}"
+                        ),
+                        short_id=same_name_stop.survivor_id,
+                        row=None,
+                    )
             for r in self.agents_json():
                 for key in ("id", "sessionId"):
                     if r.get(key):
                         pre_existing.add(r[key])
         except FileNotFoundError:
-            return "precondition_failed", "claude CLI not found in PATH", None, None
+            return DispatchResult("precondition_failed", "claude CLI not found in PATH", None, None)
         except (OSError, subprocess.SubprocessError) as exc:
-            return "dispatch_failed", f"roster snapshot before dispatch failed: {exc}", None, None
+            return DispatchResult("dispatch_failed", f"roster snapshot before dispatch failed: {exc}", None, None)
         argv = self.dispatch_argv(resume_sid)
         try:
             cp = subprocess.run(
@@ -489,17 +614,40 @@ class BgRunner:
                 check=False,
             )
         except FileNotFoundError:
-            return "precondition_failed", "claude CLI not found in PATH", None, None
+            return DispatchResult("precondition_failed", "claude CLI not found in PATH", None, None)
         except subprocess.SubprocessError as exc:
-            return "dispatch_failed", f"dispatch error: {exc}", None, None
+            return DispatchResult("dispatch_failed", f"dispatch error: {exc}", None, None)
 
         out = cp.stdout + cp.stderr
         if _BYPASS_REFUSAL_RE.search(out):
-            return (
-                "precondition_failed",
-                "bypassPermissions not accepted — run `claude --dangerously-skip-permissions` once interactively, then retry.",
-                None,
-                None,
+            return DispatchResult(
+                terminal_status="precondition_failed",
+                message="bypassPermissions not accepted — run `claude --dangerously-skip-permissions` once interactively, then retry.",
+                short_id=None,
+                row=None,
+            )
+        if _RATE_LIMIT_RE.search(out):
+            reset_at = _parse_reset_at(out)
+            reset = f" after reset ({reset_at})" if reset_at else " after the session limit resets"
+            return DispatchResult(
+                terminal_status="rate_limited",
+                message=(
+                    "Claude background session hit the account session limit; "
+                    f"retry{reset} or ask the human whether to choose a different model."
+                ),
+                short_id=None,
+                row=None,
+                reset_at=reset_at,
+            )
+        if _MODEL_REJECTED_RE.search(out):
+            rejected = _parse_rejected_model(out)
+            suffix = f" ({rejected})" if rejected else ""
+            return DispatchResult(
+                terminal_status="model_rejected",
+                message=f"Claude CLI rejected the selected model{suffix}; choose a supported Claude model or the `claude` sentinel.",
+                short_id=None,
+                row=None,
+                rejected_model=rejected,
             )
         m = _SHORTID_RE.search(out)
         short_id = m.group(1) if m else None
@@ -516,13 +664,30 @@ class BgRunner:
                 break
             time.sleep(self.a.poll_interval)
         if not row:
-            return (
-                "dispatch_failed",
-                "session never registered with the supervisor (printed: %r)" % out.strip()[:200],
-                short_id,
-                None,
+            return DispatchResult(
+                terminal_status="dispatch_failed",
+                message="session never registered with the supervisor (printed: %r)" % out.strip()[:200],
+                short_id=short_id,
+                row=None,
             )
-        return None, "", short_id or row.get("id"), row
+        return DispatchResult(None, "", short_id or row.get("id"), row)
+
+    @staticmethod
+    def _copy_stop_result(env: Envelope, result: StopResult) -> None:
+        if result.settled:
+            return
+        env.teardown_failed = True
+        env.teardown_survivor_id = result.survivor_id
+        env.teardown_survivor_name = result.survivor_name
+        env.teardown_survivor_session_id = result.survivor_session_id
+
+    @staticmethod
+    def _copy_dispatch_result(env: Envelope, result: DispatchResult) -> None:
+        env.status = result.terminal_status or ""
+        env.message = result.message
+        env.short_id = result.short_id
+        env.reset_at = result.reset_at
+        env.rejected_model = result.rejected_model
 
     # -- file/handoff helpers -------------------------------------------------
     @staticmethod
@@ -619,9 +784,9 @@ class BgRunner:
                 return env
             env.resumed = True
             env.resumed_from = resume_sid
-            status, msg, short_id, row = self.dispatch_and_confirm(message, resume_sid)
+            dispatch = self.dispatch_and_confirm(message, resume_sid)
             have_task = self.a.prompt is not None or bool(self.a.prompt_file)
-            if status and self.a.fallback and have_task:
+            if dispatch.terminal_status and self.a.fallback and have_task:
                 try:
                     fb = self._fallback_prompt(message)
                 except (ValueError, OSError) as exc:
@@ -636,30 +801,40 @@ class BgRunner:
                 # (PR #137 review).
                 parked_outputs = self._snapshot_outputs(include_wait_for=True)
                 self._clear_stale_outputs(include_wait_for=True)
-                status2, msg2, short_id, row = self.dispatch_and_confirm(fb, None)
-                if status2:
+                dispatch2 = self.dispatch_and_confirm(
+                    fb,
+                    None,
+                    exempt_same_name_short_id=parent_short_id,
+                )
+                if dispatch2.terminal_status:
                     # Fresh re-dispatch failed too: restore the parked outputs so
                     # the question (and any artifacts) survive for a later retry,
                     # and leave the parked session alive (teardown below is not
                     # reached).
                     self._restore_outputs(parked_outputs)
-                    env.status = status2
-                    env.message = f"resume failed ({msg}); re-dispatch also failed ({msg2})"
-                    env.short_id = short_id
+                    self._copy_dispatch_result(env, dispatch2)
+                    env.message = (
+                        f"resume failed ({dispatch.message}); "
+                        f"re-dispatch also failed ({dispatch2.message})"
+                    )
                     env.duration_s = round(time.monotonic() - t0, 1)
                     return env
-                env.message = f"resume failed ({msg}); re-dispatched fresh with the answer"
-            elif status:
-                env.status, env.message, env.short_id = status, msg, short_id
+                short_id, row = dispatch2.short_id, dispatch2.row
+                env.message = f"resume failed ({dispatch.message}); re-dispatched fresh with the answer"
+            elif dispatch.terminal_status:
+                self._copy_dispatch_result(env, dispatch)
                 env.duration_s = round(time.monotonic() - t0, 1)
                 return env
+            else:
+                short_id, row = dispatch.short_id, dispatch.row
         else:
             self._clear_stale_outputs(include_wait_for=True)
-            status, msg, short_id, row = self.dispatch_and_confirm(message, None)
-            if status:
-                env.status, env.message, env.short_id = status, msg, short_id
+            dispatch = self.dispatch_and_confirm(message, None)
+            if dispatch.terminal_status:
+                self._copy_dispatch_result(env, dispatch)
                 env.duration_s = round(time.monotonic() - t0, 1)
                 return env
+            short_id, row = dispatch.short_id, dispatch.row
 
         env.short_id = short_id
         env.session_id = (row or {}).get("sessionId")
@@ -675,7 +850,7 @@ class BgRunner:
         # The conversation has moved on (resumed into a new agent, or re-dispatched
         # fresh); retire the parked parent so it is not orphaned. Respects --keep.
         if parent_short_id and parent_short_id != short_id:
-            self.teardown(parent_short_id)
+            self._copy_stop_result(env, self.teardown(parent_short_id))
 
         # WAIT
         deadline = time.monotonic() + self.a.timeout
@@ -712,20 +887,43 @@ class BgRunner:
                     env.message = "session disappeared from `claude agents` before completing"
                     break
                 if state == "blocked":
-                    env.status = "blocked"
+                    detail_text = ""
                     # Opportunistic only: Claude Code 2.1.191's initial-prompt
                     # parked signal was observed in dispatch stdout, not here.
                     detail = row.get("waitingFor") or row.get("needs") or row.get("detail")
                     detail_text = str(detail) if detail else ""
-                    if "send a prompt to start" in detail_text.lower():
+                    log_text = self.logs_tail(env.session_id)
+                    evidence = "\n".join(part for part in (detail_text, log_text) if part)
+                    if _RATE_LIMIT_RE.search(evidence):
+                        env.status = "rate_limited"
+                        env.reset_at = _parse_reset_at(evidence)
+                        reset = f" after reset ({env.reset_at})" if env.reset_at else " after the session limit resets"
+                        env.message = (
+                            "Claude background session hit the account session limit; "
+                            f"retry{reset} or ask the human whether to choose a different model."
+                        )
+                    elif _MODEL_REJECTED_RE.search(evidence):
+                        env.status = "model_rejected"
+                        env.rejected_model = _parse_rejected_model(evidence) or self.a.model or None
+                        suffix = f" ({env.rejected_model})" if env.rejected_model else ""
+                        env.message = (
+                            f"Claude CLI rejected the selected model{suffix}; "
+                            "choose a supported Claude model or the `claude` sentinel."
+                        )
+                    elif "send a prompt to start" in detail_text.lower() or (
+                        not log_text and _STARTUP_DIALOG_RE.search(evidence)
+                    ):
+                        env.status = "startup_dialog"
                         env.message = (
                             "background session registered but did not consume "
                             "the initial prompt (Claude CLI reported: "
-                            f"{detail_text})"
+                            f"{detail_text}); open Claude interactively in the "
+                            "target cwd and accept trust/bypass prompts, then retry."
                         )
                     else:
+                        env.status = "blocked"
                         env.message = "session is blocked on an interactive prompt " + (
-                            f"({detail_text})" if detail_text else "(a permission hook likely did not cover it)"
+                            f"({detail_text})" if detail_text else "(cause unknown; open Claude interactively in the target cwd to inspect)"
                         )
                     break
                 if state in ("done", "idle"):
@@ -747,6 +945,10 @@ class BgRunner:
         env.missing = [p for p in self.a.wait_for if not self._nonempty(p)]
         if env.status != "ok":
             env.logs_tail = self.logs_tail(env.session_id)
+            if env.status == "model_rejected" and env.rejected_model is None:
+                env.rejected_model = _parse_rejected_model(env.logs_tail) or self.a.model or None
+            if env.status == "rate_limited" and env.reset_at is None:
+                env.reset_at = _parse_reset_at(env.logs_tail)
 
         # TEARDOWN — by default PRESERVE a needs_human session so it can be
         # resumed (standalone use). Callers with no resume loop pass
@@ -756,7 +958,7 @@ class BgRunner:
             env.status == "needs_human" and not self.a.teardown_on_needs_human
         )
         if env.short_id and not preserve_for_resume:
-            self.teardown(env.short_id)
+            self._copy_stop_result(env, self.teardown(env.short_id))
         env.duration_s = round(time.monotonic() - t0, 1)
         if not env.message and env.status == "ok":
             env.message = "completed; declared artifacts present"
@@ -786,12 +988,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "tear the session down on needs_human instead of leaving it alive "
-            "for --resume. For callers with no resume loop (e.g. Quest): "
+            "for --resume. For direct callers with no relay: "
             "needs_human then behaves like the bridge — surfaced promptly, "
             "session torn down — rather than parked until a human answers."
         ),
     )
-    p.add_argument("--model", default="")
+    p.add_argument("--model", default="", help="Claude model; exact `claude` uses the CLI/account default")
     p.add_argument("--effort", default="", choices=["", "low", "medium", "high", "xhigh", "max"])
     p.add_argument("--permission-mode", default="bypassPermissions")
     p.add_argument("--add-dir", action="append", default=[])

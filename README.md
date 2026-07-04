@@ -103,6 +103,10 @@ Quest IDs default to `feature-x_2026-02-04__1430`; set `quest_id_format` to `dat
 
 Abort anytime, resume later. State persists in `.quest/<id>/state.json`.
 
+### Cross-vendor resume
+
+Quest is artifact-driven, not chat-history driven. `state.json`, `handoff.json`, plans, reviews, and logs are the durable contract, so a run can recover after an outage, token/session exhaustion, crash, or context loss. If Claude is unavailable, start Codex and run `$quest <quest-id>`; if Codex is unavailable, start Claude Code and run `/quest <quest-id>`. Quest resumes from `.quest/<id>/state.json` and the existing phase artifacts instead of depending on the original transcript.
+
 For advanced patterns (phased execution, plan comparison, model mixing), see the [Quest Presentation](docs/guides/quest_presentation.md). 
 
 > _Kjell: My personal approach for things like [doc2md](https://kjellkod.github.io/doc2md/) or the multiple MCP and CLI tools I've built, is to collect references, ideas and start with an **analysis quest** with the stated goal of creating a roadmap that delivers the `functionality` or the whole feature or app. Then use each phase in the roamap as a new quest._

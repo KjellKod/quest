@@ -39,6 +39,18 @@ CLAUDE_PROBE_SCRIPT="${QUEST_CLAUDE_PROBE_SCRIPT:-$SCRIPT_DIR/quest_claude_probe
 CLAUDE_BRIDGE_CACHE_FILE="${QUEST_PREFLIGHT_CACHE_FILE:-.quest/cache/claude_bridge_codex.json}"
 CLAUDE_BG_CACHE_FILE="${QUEST_PREFLIGHT_BG_CACHE_FILE:-.quest/cache/claude_bg_codex.json}"
 ALLOWLIST_FILE="${QUEST_ALLOWLIST_FILE:-.ai/allowlist.json}"
+CLAUDE_PROBE_MODEL="${QUEST_CLAUDE_PROBE_MODEL:-claude}"
+CURRENT_BG_PROBE_NAME=""
+
+cleanup_bg_probes() {
+  [ -f "$CLAUDE_BG_RUNNER_SCRIPT" ] || return 0
+  if [ -n "$CURRENT_BG_PROBE_NAME" ]; then
+    python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" >/dev/null 2>&1 || true
+  fi
+  python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "quest-bg-probe-" >/dev/null 2>&1 || true
+}
+
+trap cleanup_bg_probes EXIT INT TERM
 
 ###############################################################################
 # Argument Parsing
@@ -388,7 +400,9 @@ raise SystemExit(0 if isinstance(data, list) else 1)
       probe_message="quest_claude_probe.py not found at $CLAUDE_PROBE_SCRIPT"
       probe_json=""
     else
-      probe_json=$(python3 "$CLAUDE_PROBE_SCRIPT" --quest-dir "$probe_dir" --model opus --transport background-agent --bg-runner-script "$CLAUDE_BG_RUNNER_SCRIPT" 2>/dev/null || true)
+      CURRENT_BG_PROBE_NAME="quest-bg-probe-$(basename "$probe_dir")"
+      cleanup_bg_probes
+      probe_json=$(python3 "$CLAUDE_PROBE_SCRIPT" --quest-dir "$probe_dir" --model "$CLAUDE_PROBE_MODEL" --transport background-agent --bg-runner-script "$CLAUDE_BG_RUNNER_SCRIPT" 2>/dev/null || true)
     fi
     if [ -n "$probe_json" ]; then
       probe_exit_code=$(printf '%s' "$probe_json" | json_get "exit_code" 2>/dev/null || true)
@@ -440,6 +454,13 @@ raise SystemExit(0 if isinstance(data, list) else 1)
       warning_lines="${warning_lines}    \"  Background running of Claude failed because bypassPermissions has not been accepted for background sessions.\",\n"
       warning_lines="${warning_lines}    \"  Run: claude --dangerously-skip-permissions\",\n"
       warning_lines="${warning_lines}    \"  Accept the prompt, exit Claude, then return here and rerun Quest; Quest will retry the bg probe.\",\n"
+    elif [ "$probe_result_kind" = "startup_dialog" ]; then
+      warning_lines="${warning_lines}    \"  Claude background session blocked on a startup trust/bypass dialog before consuming the prompt.\",\n"
+      warning_lines="${warning_lines}    \"  Open Claude interactively in the target cwd, accept trust/bypass prompts, exit Claude, then rerun Quest.\",\n"
+    elif [ "$probe_result_kind" = "rate_limited" ]; then
+      warning_lines="${warning_lines}    \"  Claude reported a session/rate limit. Retry after the reset time shown by Claude, or ask whether to choose another configured Claude model.\",\n"
+    elif [ "$probe_result_kind" = "model_rejected" ]; then
+      warning_lines="${warning_lines}    \"  Claude rejected the configured probe model. Use the exact claude sentinel for account default model, or choose a concrete supported Claude model.\",\n"
     elif [ "$probe_result_kind" = "bg_initial_prompt_not_consumed" ]; then
       warning_lines="${warning_lines}    \"  Claude background session registered but did not consume the initial prompt (Claude CLI reported: send a prompt to start).\",\n"
       warning_lines="${warning_lines}    \"  Quest sends bg prompts on stdin for Claude Code 2.1.191 compatibility; this indicates a remaining bg prompt-delivery regression.\",\n"
@@ -534,7 +555,7 @@ probe_claude_bridge() {
       probe_message="quest_claude_probe.py not found at $CLAUDE_PROBE_SCRIPT"
       probe_json=""
     else
-      probe_json=$(python3 "$CLAUDE_PROBE_SCRIPT" --quest-dir "$probe_dir" --model opus --bridge-script "$CLAUDE_BRIDGE_SCRIPT" 2>/dev/null || true)
+      probe_json=$(python3 "$CLAUDE_PROBE_SCRIPT" --quest-dir "$probe_dir" --model "$CLAUDE_PROBE_MODEL" --bridge-script "$CLAUDE_BRIDGE_SCRIPT" 2>/dev/null || true)
     fi
     if [ -n "$probe_json" ]; then
       probe_exit_code=$(printf '%s' "$probe_json" | json_get "exit_code" 2>/dev/null || true)

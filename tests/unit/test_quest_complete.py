@@ -366,6 +366,123 @@ def test_complete_omits_celebration_link_when_existing_file_is_different_quest(
     assert "- Celebration:" not in journal.read_text(encoding="utf-8")
 
 
+def test_quest_complete_sweeps_parked_bg_sessions_before_archive(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    repo_root = tmp_path
+    journal_dir = repo_root / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    (journal_dir / "README.md").write_text(
+        "| Date | Quest | Outcome |\n|------|-------|---------|\n",
+        encoding="utf-8",
+    )
+    quest_dir = repo_root / ".quest" / "bg-transport_2026-07-04__1043"
+    quest_dir.mkdir(parents=True)
+    (quest_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "quest_id": "bg-transport_2026-07-04__1043",
+                "slug": "bg-transport",
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: BG Transport\n\n## User Input\n\nDone.",
+        encoding="utf-8",
+    )
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append([str(part) for part in cmd])
+        return quest_complete.subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout="sweep complete",
+            stderr="",
+        )
+
+    monkeypatch.setattr(quest_complete.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "quest_complete.py",
+            "--quest-dir",
+            str(quest_dir),
+            "--skip-journal",
+            "--date",
+            "2026-07-04",
+        ],
+    )
+
+    assert quest_complete.main() == 0
+    assert calls
+    assert calls[0][-2:] == ["--sweep", "quest-bg-transport_2026-07-04__1043-"]
+    assert (repo_root / ".quest" / "archive" / quest_dir.name).exists()
+    assert "Quest archived" in capsys.readouterr().out
+
+
+def test_quest_complete_reports_incomplete_bg_sweep_but_archives(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    repo_root = tmp_path
+    journal_dir = repo_root / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    (journal_dir / "README.md").write_text(
+        "| Date | Quest | Outcome |\n|------|-------|---------|\n",
+        encoding="utf-8",
+    )
+    quest_dir = repo_root / ".quest" / "bg-transport_2026-07-04__1043"
+    quest_dir.mkdir(parents=True)
+    (quest_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "quest_id": "bg-transport_2026-07-04__1043",
+                "slug": "bg-transport",
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: BG Transport\n\n## User Input\n\nDone.",
+        encoding="utf-8",
+    )
+
+    def fake_run(cmd, **kwargs):
+        return quest_complete.subprocess.CompletedProcess(
+            args=cmd,
+            returncode=4,
+            stdout="teardown_failed aaa11111\nsweep incomplete",
+            stderr="",
+        )
+
+    monkeypatch.setattr(quest_complete.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "quest_complete.py",
+            "--quest-dir",
+            str(quest_dir),
+            "--skip-journal",
+            "--date",
+            "2026-07-04",
+        ],
+    )
+
+    assert quest_complete.main() == 0
+    captured = capsys.readouterr()
+    assert "Claude bg sweep before archive incomplete with exit 4" in captured.err
+    assert (repo_root / ".quest" / "archive" / quest_dir.name).exists()
+
+
 def test_complete_does_not_write_celebration_when_journal_already_exists(
     tmp_path,
     monkeypatch,

@@ -72,10 +72,20 @@ write_success_bg_runner() {
   cat > "$path" <<'EOF'
 #!/usr/bin/env python3
 import json
+import os
 import pathlib
 import sys
 
 args = sys.argv[1:]
+if "--sweep" in args:
+    sweep_log = os.environ.get("FAKE_BG_SWEEP_LOG")
+    if sweep_log:
+        pathlib.Path(sweep_log).open("a").write(args[args.index("--sweep") + 1] + "\n")
+    print("sweep complete")
+    sys.exit(0)
+argv_log = os.environ.get("FAKE_BG_ARGV_LOG")
+if argv_log:
+    pathlib.Path(argv_log).write_text(json.dumps(args), encoding="utf-8")
 prompt_file = pathlib.Path(args[args.index("--prompt-file") + 1])
 artifact_path = prompt_file.parent / "probe_artifact.txt"
 handoff_path = prompt_file.parent / "probe_handoff.json"
@@ -316,13 +326,15 @@ test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds() {
   write_success_bg_runner "$tmpdir/fake_bg_runner.py"
   write_allowlist "$tmpdir/allowlist.json" "auto"
 
-  local bg_cache_file output rc transport downgraded available agents_json_ok cached_available
+  local bg_cache_file argv_log output rc transport downgraded available agents_json_ok cached_available args_log
   bg_cache_file="$tmpdir/claude_bg_cache.json"
+  argv_log="$tmpdir/bg_argv.json"
   output=$(PATH="$tmpdir/bin:$PATH" \
     QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
     QUEST_CLAUDE_BG_RUNNER_SCRIPT="$tmpdir/fake_bg_runner.py" \
     QUEST_PREFLIGHT_BG_CACHE_FILE="$bg_cache_file" \
     QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    FAKE_BG_ARGV_LOG="$argv_log" \
     "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
   rc=$?
   transport=$(printf '%s' "$output" | jq -r '.transport')
@@ -330,6 +342,7 @@ test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds() {
   available=$(printf '%s' "$output" | jq -r '.available')
   agents_json_ok=$(printf '%s' "$output" | jq -r '.checks.agents_json_ok')
   cached_available=$(jq -r '.payload.available' "$bg_cache_file")
+  args_log=$(cat "$argv_log")
   rm -rf "$tmpdir"
 
   [ "$rc" -eq 0 ] &&
@@ -337,7 +350,8 @@ test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds() {
     [ "$downgraded" = "false" ] &&
     [ "$available" = "true" ] &&
     [ "$agents_json_ok" = "true" ] &&
-    [ "$cached_available" = "true" ]
+    [ "$cached_available" = "true" ] &&
+    ! printf '%s' "$args_log" | grep -q -- '--model'
 }
 
 test_quest_preflight_auto_blocks_instead_of_downgrading_to_bridge() {
@@ -395,6 +409,30 @@ test_quest_preflight_reports_bg_prompt_not_consumed() {
   [ "$rc" -eq 0 ] &&
     [ "$kind" = "bg_initial_prompt_not_consumed" ] &&
     printf '%s' "$warning_text" | grep -q "did not consume the initial prompt"
+}
+
+test_quest_preflight_sweeps_bg_probe_sessions_on_exit() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_bg_capable_claude "$tmpdir/bin/claude"
+  write_success_bg_runner "$tmpdir/fake_bg_runner.py"
+  write_allowlist "$tmpdir/allowlist.json" "auto"
+
+  local sweep_log count broad
+  sweep_log="$tmpdir/sweeps.log"
+  PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BG_RUNNER_SCRIPT="$tmpdir/fake_bg_runner.py" \
+    QUEST_PREFLIGHT_BG_CACHE_FILE="$tmpdir/claude_bg_cache.json" \
+    FAKE_BG_SWEEP_LOG="$sweep_log" \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex >/dev/null 2>&1
+  count=$(wc -l < "$sweep_log" | tr -d ' ')
+  broad=$(grep -c '^quest-bg-probe-$' "$sweep_log" || true)
+  rm -rf "$tmpdir"
+
+  [ "$count" -ge 2 ] &&
+    [ "$broad" -ge 1 ]
 }
 
 test_quest_preflight_forced_background_agent_blocks_without_bridge_fallback() {
@@ -562,6 +600,7 @@ run_test test_quest_preflight_does_not_use_cached_success_for_non_auth_probe_fai
 run_test test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds
 run_test test_quest_preflight_auto_blocks_instead_of_downgrading_to_bridge
 run_test test_quest_preflight_reports_bg_prompt_not_consumed
+run_test test_quest_preflight_sweeps_bg_probe_sessions_on_exit
 run_test test_quest_preflight_forced_background_agent_blocks_without_bridge_fallback
 run_test test_quest_preflight_rejects_invalid_transport_config
 run_test test_quest_preflight_invalid_transport_emits_valid_json_for_special_chars

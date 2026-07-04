@@ -24,7 +24,11 @@ def parse_args() -> argparse.Namespace:
         description="Probe a Quest Claude transport via artifact write"
     )
     parser.add_argument("--quest-dir", required=True)
-    parser.add_argument("--model", default="opus")
+    parser.add_argument(
+        "--model",
+        required=True,
+        help="Claude model value to probe; exact `claude` omits the CLI --model flag.",
+    )
     parser.add_argument("--timeout", type=float, default=60.0)
     parser.add_argument("--permission-mode", default="bypassPermissions")
     parser.add_argument(

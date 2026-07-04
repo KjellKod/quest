@@ -18,6 +18,7 @@ import argparse
 import json
 import re
 import shutil
+import subprocess
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -384,6 +385,39 @@ def _archive_quest(quest_dir: Path) -> Path:
     return dest
 
 
+def _sweep_parked_bg_sessions(quest_dir: Path) -> subprocess.CompletedProcess | None:
+    """Best-effort cleanup for parked Claude background sessions before archive."""
+    runner = Path(__file__).resolve().parent / "claude_bg_run.py"
+    if not runner.exists():
+        print(f"Claude bg sweep skipped: runner not found at {runner}", file=sys.stderr)
+        return None
+    prefix = f"quest-{quest_dir.name}-"
+    try:
+        result = subprocess.run(
+            [sys.executable, str(runner), "--sweep", prefix],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as exc:
+        print(f"Claude bg sweep failed before archive: {exc}", file=sys.stderr)
+        return None
+    if result.returncode == 0:
+        if result.stdout.strip().startswith("sweep skipped:"):
+            print(f"Claude bg sweep before archive skipped: {prefix}")
+        else:
+            print(f"Claude bg sweep before archive complete: {prefix}")
+        if result.stdout.strip():
+            print(result.stdout.strip())
+    else:
+        print(
+            f"Claude bg sweep before archive incomplete with exit {result.returncode}: "
+            f"{(result.stderr or result.stdout).strip()}",
+            file=sys.stderr,
+        )
+    return result
+
+
 def _slug_from_quest_dir(quest_dir: Path) -> str:
     parsed = parse_quest_id(quest_dir.name)
     if parsed is not None:
@@ -494,6 +528,7 @@ def main() -> int:
 
     archive_root = quest_dir.parent / "archive"
     if not args.skip_archive:
+        _sweep_parked_bg_sessions(quest_dir)
         archive_path = _archive_quest(quest_dir)
         print(f"Quest archived: {archive_path}")
 

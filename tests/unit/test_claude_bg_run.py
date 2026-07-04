@@ -55,6 +55,12 @@ if args[:1] == ["--bg"]:
         print("--bg with bypassPermissions requires accepting the disclaimer first. "
               "Run `claude --dangerously-skip-permissions` once interactively.")
         sys.exit(0)
+    if S == "dispatch_rate_limited":
+        print("You've hit your session limit. resets 2pm (America/Chicago)")
+        sys.exit(0)
+    if S == "dispatch_model_rejected":
+        print("There's an issue with the selected model (claude-bad-1).")
+        sys.exit(0)
     eff = S
     if S == "resume_ok":
         eff = "ok"
@@ -62,9 +68,11 @@ if args[:1] == ["--bg"]:
         eff = "never_confirm" if is_resume else "ok"
     sid = "abc12345"
     if eff != "never_confirm":
-        st = {"blocked": "blocked", "incomplete": "done"}.get(eff, "working")
+        st = {"blocked": "blocked", "startup_dialog": "blocked", "model_rejected": "blocked", "rate_limited": "blocked", "incomplete": "done"}.get(eff, "working")
         row = {"pid": 222, "id": sid, "name": name, "sessionId": sid + "-uuid",
                "kind": "background", "state": st, "status": "idle"}
+        if eff == "startup_dialog":
+            row["detail"] = "idle — send a prompt to start"
         rs = rows()
         rs.append(row)
         state.write_text(json.dumps(rs))
@@ -279,7 +287,7 @@ def test_needs_human_keeps_session_alive_for_resume(shim, tmp_path, monkeypatch,
 
 
 def test_needs_human_teardown_flag_tears_session_down(shim, tmp_path, monkeypatch, kills):
-    # PR #137 stopgap: callers with no resume loop (Quest) pass
+    # Direct callers with no relay pass
     # --teardown-on-needs-human so needs_human is surfaced AND the session is
     # torn down (like the bridge), instead of left alive to leak.
     hand = tmp_path / "handoff.json"
@@ -299,6 +307,13 @@ def test_needs_human_teardown_flag_tears_session_down(shim, tmp_path, monkeypatc
     assert any(sig == bg.signal.SIGTERM for _, sig in kills)
     assert "session torn down" in env.message
     assert env.session_id  # surfaced so the orchestrator can --resume it
+
+
+def test_teardown_on_needs_human_help_is_relay_agnostic():
+    help_text = " ".join(bg.build_parser().format_help().split())
+    stale_quest_no_relay_phrase = "callers with no resume loop" + " (e.g. Quest)"
+    assert "For direct callers with no relay" in help_text
+    assert stale_quest_no_relay_phrase not in help_text
 
 
 def test_resume_continues_same_session_not_shadowed_by_parked_parent(shim, tmp_path, monkeypatch, kills):
@@ -402,6 +417,32 @@ def test_failed_fallback_dispatch_preserves_parked_handoff(shim, tmp_path, monke
     assert (111, bg.signal.SIGTERM) not in kills
 
 
+def test_failed_fallback_dispatch_preserves_colliding_parked_parent(
+    shim, tmp_path, monkeypatch, kills
+):
+    name = "quest-q7-planner-i1"
+    _seed_parent(tmp_path, name=name)
+    hand = tmp_path / "handoff.json"
+    hand.write_text(json.dumps({"status": "needs_human", "questions": ["A or B?"]}))
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "never_confirm")
+
+    env = bg.BgRunner(
+        _args(
+            shim,
+            name=name,
+            resume=PARENT_SID,
+            answer="use A",
+            handoff_file=str(hand),
+            wait_for=str(tmp_path / "out.json"),
+        )
+    ).run()
+
+    assert env.status == "dispatch_failed"
+    assert env.fell_back is True
+    assert json.loads(hand.read_text())["questions"] == ["A or B?"]
+    assert (111, bg.signal.SIGTERM) not in kills
+
+
 def test_resume_falls_back_to_fresh_dispatch(shim, tmp_path, monkeypatch):
     # Session-id-shaped target with no live row: try the resume, fall back fresh.
     wait = tmp_path / "out.json"
@@ -436,6 +477,102 @@ def test_blocked_is_detected_with_transcript_logs(shim, tmp_path, monkeypatch):
     assert env.exit_code() == bg.EXIT_BLOCKED
     assert "choose A or B" in env.logs_tail
     assert "\x1b" not in env.logs_tail
+    assert "permission hook likely did not cover it" not in env.message
+
+
+def test_rate_limit_block_reports_reset_time(shim, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "rate_limited")
+    tdir = tmp_path / "transcripts" / "proj"
+    tdir.mkdir(parents=True)
+    (tdir / "abc12345-uuid.jsonl").write_text(json.dumps({
+        "type": "assistant",
+        "message": {"content": [{"type": "text", "text": "You've hit your session limit. resets 2pm (America/Chicago)"}]},
+    }) + "\n")
+
+    env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "transcripts"))).run()
+
+    assert env.status == "rate_limited"
+    assert env.reset_at == "2pm (America/Chicago)"
+    assert "retry after reset" in env.message
+    assert "permission hook" not in env.message
+
+
+def test_startup_dialog_without_transcript_is_not_permission_guess(shim, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "startup_dialog")
+
+    env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "missing-transcripts"))).run()
+
+    assert env.status == "startup_dialog"
+    assert "did not consume" in env.message
+    assert "open Claude interactively in the target cwd" in env.message
+    assert "accept trust/bypass prompts" in env.message
+    assert "permission hook likely did not cover it" not in env.message
+
+
+def test_model_rejected_from_logs_tail_is_model_rejected(shim, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "model_rejected")
+    tdir = tmp_path / "transcripts" / "proj"
+    tdir.mkdir(parents=True)
+    (tdir / "abc12345-uuid.jsonl").write_text(json.dumps({
+        "type": "assistant",
+        "message": {"content": [{"type": "text", "text": "There's an issue with the selected model (claude-bad-1)."}]},
+    }) + "\n")
+
+    env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "transcripts"))).run()
+
+    assert env.status == "model_rejected"
+    assert env.rejected_model == "claude-bad-1"
+    assert "rejected the selected model" in env.message
+
+
+def test_dispatch_output_rate_limit_reports_reset_time(shim, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "dispatch_rate_limited")
+
+    env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "x"))).run()
+
+    assert env.status == "rate_limited"
+    assert env.reset_at == "2pm (America/Chicago)"
+    assert env.exit_code() == bg.EXIT_BLOCKED
+    assert "retry after reset" in env.message
+
+
+def test_dispatch_output_model_rejected_sets_structured_model(shim, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "dispatch_model_rejected")
+
+    env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "x"))).run()
+
+    assert env.status == "model_rejected"
+    assert env.rejected_model == "claude-bad-1"
+    assert env.exit_code() == bg.EXIT_PRECONDITION
+
+
+def test_generic_data_model_prose_does_not_classify_as_model_rejected(
+    shim, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "blocked")
+    tdir = tmp_path / "transcripts" / "proj"
+    tdir.mkdir(parents=True)
+    (tdir / "abc12345-uuid.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "There is an issue with the data model: foo",
+                        }
+                    ]
+                },
+            }
+        )
+        + "\n"
+    )
+
+    env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "transcripts"))).run()
+
+    assert env.status == "blocked"
+    assert env.rejected_model is None
 
 
 def test_dispatch_failed_when_never_registers(shim, tmp_path, monkeypatch):
@@ -473,6 +610,182 @@ def test_timeout_stops_session(shim, tmp_path, monkeypatch, kills):
     assert (222, bg.signal.SIGTERM) in kills
 
 
+def test_runner_exit_paths_leave_no_new_blocked_session_except_intentional_park(
+    shim, tmp_path, monkeypatch
+):
+    state = tmp_path / "state.json"
+
+    def live_pid_rows() -> list[dict]:
+        try:
+            rows = json.loads(state.read_text())
+        except (OSError, json.JSONDecodeError):
+            return []
+        return [row for row in rows if isinstance(row.get("pid"), int)]
+
+    def reset_case() -> None:
+        state.write_text("[]", encoding="utf-8")
+        monkeypatch.delenv("FAKE_BG_HANDOFF", raising=False)
+        monkeypatch.delenv("FAKE_BG_WAITFOR", raising=False)
+
+    cases = [
+        ("blocked", {}, "blocked", False),
+        ("startup_dialog", {"transcripts_root": str(tmp_path / "missing-transcripts")}, "startup_dialog", False),
+        ("timeout", {"timeout": "0.1", "wait_for": str(tmp_path / "never")}, "timeout", False),
+    ]
+
+    for scenario, args_overrides, expected_status, expect_live in cases:
+        reset_case()
+        monkeypatch.setenv("FAKE_BG_SCENARIO", scenario)
+        env = bg.BgRunner(_args(shim, **args_overrides)).run()
+        assert env.status == expected_status
+        assert bool(live_pid_rows()) is expect_live
+
+    reset_case()
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "rate_limited")
+    tdir = tmp_path / "transcripts" / "rate"
+    tdir.mkdir(parents=True, exist_ok=True)
+    (tdir / "abc12345-uuid.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "You've hit your session limit. resets 2pm (America/Chicago)",
+                        }
+                    ]
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "transcripts"))).run()
+    assert env.status == "rate_limited"
+    assert live_pid_rows() == []
+
+    reset_case()
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "model_rejected")
+    model_transcripts = tmp_path / "model-transcripts"
+    tdir = model_transcripts / "model"
+    tdir.mkdir(parents=True, exist_ok=True)
+    (tdir / "abc12345-uuid.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "There's an issue with the selected model (claude-bad-1).",
+                        }
+                    ]
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    env = bg.BgRunner(_args(shim, transcripts_root=str(model_transcripts))).run()
+    assert env.status == "model_rejected"
+    assert live_pid_rows() == []
+
+    reset_case()
+    handoff = tmp_path / "handoff.json"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "needs_human")
+    monkeypatch.setenv("FAKE_BG_HANDOFF", str(handoff))
+    env = bg.BgRunner(_args(shim, handoff_file=str(handoff))).run()
+    assert env.status == "needs_human"
+    assert len(live_pid_rows()) == 1
+
+    reset_case()
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "timeout")
+    runner = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "interrupt"), timeout="2"))
+
+    def raise_interrupt():
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(runner, "read_handoff", raise_interrupt)
+    env = runner.run()
+    assert env.status == "interrupted"
+    assert live_pid_rows() == []
+
+
+def test_teardown_failure_reported_in_envelope(shim, tmp_path, monkeypatch, kills):
+    recorded: list[tuple[int, int]] = []
+
+    def fake_kill_without_settle(pid: int, sig: int) -> None:
+        recorded.append((pid, sig))
+
+    monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "timeout")
+
+    env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "never"), timeout="0.1")).run()
+
+    assert env.status == "timeout"
+    assert env.teardown_failed is True
+    assert env.teardown_survivor_id == "abc12345"
+    assert env.teardown_survivor_name
+    assert env.teardown_survivor_session_id == "abc12345-uuid"
+    assert len(recorded) >= 6
+
+
+def test_stop_session_resignals_respawned_pid_until_settled(shim, tmp_path, monkeypatch):
+    rows = [{**PARENT, "pid": 111, "id": "respawn1", "name": "quest-q7-builder-i1"}]
+    (tmp_path / "state.json").write_text(json.dumps(rows))
+    recorded: list[tuple[int, int]] = []
+    state = tmp_path / "state.json"
+
+    def fake_kill_respawn(pid: int, sig: int) -> None:
+        recorded.append((pid, sig))
+        current = json.loads(state.read_text())
+        if pid == 111:
+            current[0]["pid"] = 222
+        else:
+            current[0].pop("pid", None)
+        state.write_text(json.dumps(current))
+
+    monkeypatch.setattr(bg.os, "kill", fake_kill_respawn)
+
+    result = bg.BgRunner(_args(shim)).stop_session("respawn1")
+
+    assert result.settled is True
+    assert recorded[:2] == [(111, bg.signal.SIGTERM), (222, bg.signal.SIGTERM)]
+
+
+def test_fresh_dispatch_retires_live_same_name_before_launch(shim, tmp_path, monkeypatch, kills):
+    name = "quest-q7-builder-i1"
+    (tmp_path / "state.json").write_text(json.dumps([
+        {**PARENT, "pid": 111, "id": "old11111", "name": name}
+    ]))
+    wait = tmp_path / "out.json"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
+    monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
+
+    env = bg.BgRunner(_args(shim, name=name, wait_for=str(wait))).run()
+
+    assert env.status == "ok"
+    assert (111, bg.signal.SIGTERM) in kills
+
+
+def test_fresh_dispatch_fails_when_same_name_cannot_be_retired(shim, tmp_path, monkeypatch):
+    name = "quest-q7-builder-i1"
+    (tmp_path / "state.json").write_text(json.dumps([
+        {**PARENT, "pid": 111, "id": "old11111", "name": name}
+    ]))
+
+    def fake_kill_without_settle(pid: int, sig: int) -> None:
+        return None
+
+    monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
+
+    env = bg.BgRunner(_args(shim, name=name, wait_for=str(tmp_path / "out.json"))).run()
+
+    assert env.status == "dispatch_failed"
+    assert "same-name" in env.message
+
+
 def test_incomplete_when_done_without_artifact(shim, tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_BG_SCENARIO", "incomplete")  # state done, artifact never written
     env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "missing"))).run()
@@ -500,6 +813,33 @@ def test_sweep_stops_only_matching_prefix_sessions(shim, tmp_path, monkeypatch, 
     assert killed_pids == {111, 112}
     assert "swept aaa11111" in out and "swept bbb22222" in out
     assert "2 session(s)" in out
+
+
+def test_sweep_reports_incomplete_when_teardown_survives(
+    shim, tmp_path, monkeypatch, capsys
+):
+    rows = [{**PARENT, "pid": 111, "id": "aaa11111", "name": "quest-q7-planner-i1"}]
+    (tmp_path / "state.json").write_text(json.dumps(rows))
+
+    def fake_kill_without_settle(pid: int, sig: int) -> None:
+        return None
+
+    monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
+
+    rc = bg.main(["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q7-"])
+    out = capsys.readouterr().out
+
+    assert rc == bg.EXIT_BLOCKED
+    assert "teardown_failed aaa11111" in out
+    assert "sweep incomplete" in out
+
+
+def test_sweep_skips_without_traceback_when_claude_cli_missing(tmp_path, capsys):
+    rc = bg.main(["--claude-bin", str(tmp_path / "missing-claude"), "--sweep", "quest-q7-"])
+    out = capsys.readouterr().out
+
+    assert rc == bg.EXIT_OK
+    assert "sweep skipped: claude CLI not found" in out
 
 
 # ---- stale-state guard (PR #137 review feedback) ---------------------------

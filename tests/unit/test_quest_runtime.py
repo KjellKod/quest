@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import stat
 import subprocess
+import json
 from argparse import Namespace
 from pathlib import Path
 
@@ -551,6 +552,92 @@ def test_run_claude_role_does_not_short_circuit_to_text_fallback_before_retry(
     assert "Tier B retry:" in result.stderr
 
 
+def test_tier_b_retry_preserves_bg_needs_human_metadata(tmp_path, monkeypatch):
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("prompt", encoding="utf-8")
+    handoff_file = tmp_path / "handoff.json"
+    artifact = tmp_path / "artifact.md"
+
+    class FakeProcess:
+        def __init__(self, *, returncode: int, stdout: str, stderr: str, on_communicate=None):
+            self.returncode = returncode
+            self._stdout = stdout
+            self._stderr = stderr
+            self._on_communicate = on_communicate
+
+        def communicate(self, timeout: float | None = None):
+            if self._on_communicate is not None:
+                self._on_communicate()
+            return self._stdout, self._stderr
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self):
+            return None
+
+        def kill(self):
+            return None
+
+    popen_calls = {"count": 0}
+
+    def write_needs_human_handoff():
+        handoff_file.write_text(
+            '{"status":"needs_human","questions":["which path?"]}',
+            encoding="utf-8",
+        )
+
+    def fake_popen(*args, **kwargs):
+        popen_calls["count"] += 1
+        if popen_calls["count"] == 1:
+            return FakeProcess(
+                returncode=1,
+                stdout='{"status":"blocked","message":"first attempt"}',
+                stderr="Permission denied writing artifact",
+            )
+        return FakeProcess(
+            returncode=10,
+            stdout=json.dumps(
+                {
+                    "status": "needs_human",
+                    "short_id": "abc12345",
+                    "session_id": "11111111-1111-1111-1111-111111111111",
+                    "questions": ["which path?"],
+                }
+            ),
+            stderr="",
+            on_communicate=write_needs_human_handoff,
+        )
+
+    monkeypatch.setattr(claude_runner_module.subprocess, "Popen", fake_popen)
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "bridge.py",
+        model="claude",
+        timeout=1.0,
+        permission_mode="bypassPermissions",
+        artifact_paths=[artifact],
+        poll_interval=0.01,
+        exit_grace_seconds=0.01,
+        transport="background-agent",
+    )
+
+    assert popen_calls["count"] == 2
+    assert result.result_kind == "handoff_json"
+    assert result.status == "needs_human"
+    assert result.session_id == "11111111-1111-1111-1111-111111111111"
+    assert result.short_id == "abc12345"
+    assert result.questions == ["which path?"]
+    assert "Tier B retry:" in result.stderr
+
+
 def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys):
     args = Namespace(
         quest_dir=str(tmp_path / ".quest" / "qid"),
@@ -736,7 +823,7 @@ def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
 # ---- background-agent transport ---------------------------------------------
 
 
-def test_build_bg_cmd_pins_argv_with_handoff_file_and_needs_human_teardown(tmp_path):
+def test_build_bg_cmd_pins_argv_with_handoff_file_and_parks_needs_human(tmp_path):
     cmd = claude_runner_module.build_bg_cmd(
         cwd=tmp_path,
         bg_runner_script=tmp_path / "claude_bg_run.py",
@@ -753,14 +840,79 @@ def test_build_bg_cmd_pins_argv_with_handoff_file_and_needs_human_teardown(tmp_p
     assert "--json" in cmd
     assert "--no-protocol" in cmd
     assert cmd[cmd.index("--name") + 1] == "quest-q1-planner-i2"
-    # --handoff-file makes needs_human terminal promptly; --teardown-on-needs-human
-    # tears the session down (Quest has no resume loop yet) so it behaves like the
-    # bridge instead of blocking until --timeout. The handoff also stays in
-    # --wait-for for the success (status=complete) path.
+    # --handoff-file makes needs_human terminal promptly. The runner now leaves
+    # the bg session parked by default so Quest can resume it with the answer.
     assert cmd[cmd.index("--handoff-file") + 1] == str(tmp_path / "handoff.json")
-    assert "--teardown-on-needs-human" in cmd
+    assert "--teardown-on-needs-human" not in cmd
     assert joined.count("--wait-for") == 2
     assert cmd[cmd.index("--wait-for") + 1] == str(tmp_path / "handoff.json")
+
+
+def test_build_bg_cmd_can_opt_into_needs_human_teardown(tmp_path):
+    cmd = claude_runner_module.build_bg_cmd(
+        cwd=tmp_path,
+        bg_runner_script=tmp_path / "claude_bg_run.py",
+        prompt_file=tmp_path / "prompt.txt",
+        name="quest-q1-planner-i2",
+        model="claude-opus-4-6",
+        timeout=900.0,
+        permission_mode="bypassPermissions",
+        handoff_file=tmp_path / "handoff.json",
+        wait_for=[tmp_path / "handoff.json"],
+        teardown_on_needs_human=True,
+    )
+    assert "--teardown-on-needs-human" in cmd
+
+
+def test_build_bg_cmd_omits_model_for_claude_sentinel(tmp_path):
+    cmd = claude_runner_module.build_bg_cmd(
+        cwd=tmp_path,
+        bg_runner_script=tmp_path / "claude_bg_run.py",
+        prompt_file=tmp_path / "prompt.txt",
+        name="quest-q1-planner-i2",
+        model="claude",
+        timeout=900.0,
+        permission_mode="bypassPermissions",
+        handoff_file=tmp_path / "handoff.json",
+        wait_for=[tmp_path / "handoff.json"],
+    )
+    assert "--model" not in cmd
+
+
+def test_build_bridge_cmd_omits_model_for_claude_sentinel(tmp_path):
+    cmd = claude_runner_module.build_bridge_cmd(
+        cwd=tmp_path,
+        bridge_script=tmp_path / "quest_claude_bridge.py",
+        prompt_file=tmp_path / "prompt.txt",
+        model="claude",
+        timeout=900.0,
+        permission_mode="bypassPermissions",
+    )
+    assert "--model" not in cmd
+
+
+def test_concrete_claude_model_passthrough(tmp_path):
+    bg_cmd = claude_runner_module.build_bg_cmd(
+        cwd=tmp_path,
+        bg_runner_script=tmp_path / "claude_bg_run.py",
+        prompt_file=tmp_path / "prompt.txt",
+        name="quest-q1-planner-i2",
+        model="claude-opus-4-6",
+        timeout=900.0,
+        permission_mode="bypassPermissions",
+        handoff_file=tmp_path / "handoff.json",
+        wait_for=[tmp_path / "handoff.json"],
+    )
+    bridge_cmd = claude_runner_module.build_bridge_cmd(
+        cwd=tmp_path,
+        bridge_script=tmp_path / "quest_claude_bridge.py",
+        prompt_file=tmp_path / "prompt.txt",
+        model="sonnet",
+        timeout=900.0,
+        permission_mode="bypassPermissions",
+    )
+    assert bg_cmd[bg_cmd.index("--model") + 1] == "claude-opus-4-6"
+    assert bridge_cmd[bridge_cmd.index("--model") + 1] == "sonnet"
 
 
 def test_run_bg_probe_dispatches_through_build_bg_cmd(tmp_path):
@@ -768,21 +920,23 @@ def test_run_bg_probe_dispatches_through_build_bg_cmd(tmp_path):
     # arg; run_bg_probe must pass it, or the real bg preflight raises TypeError
     # (auto blocks for user decision, forced background-agent fails) even on a
     # correctly configured machine.
+    argv_file = tmp_path / "argv.json"
     bg_runner = tmp_path / "fake_bg_runner.py"
     _write_executable(
         bg_runner,
-        """#!/usr/bin/env python3
+        f"""#!/usr/bin/env python3
 import json, sys
 args = sys.argv[1:]
+open({str(argv_file)!r}, "w").write(json.dumps(args))
 handoff = args[args.index("--handoff-file") + 1]
 waits = [args[i + 1] for i, a in enumerate(args) if a == "--wait-for"]
 with open(handoff, "w") as fh:
-    json.dump({"status": "complete", "summary": "probe ok"}, fh)
+    json.dump({{"status": "complete", "summary": "probe ok"}}, fh)
 for w in waits:
     if w != handoff:
         with open(w, "w") as fh:
             fh.write("ok")
-print(json.dumps({"status": "ok"}))
+print(json.dumps({{"status": "ok"}}))
 """,
     )
 
@@ -798,6 +952,8 @@ print(json.dumps({"status": "ok"}))
     assert result.exit_code == 0
     assert result.result_kind == "handoff_json"
     assert result.handoff_state == "found"
+    argv = json.loads(argv_file.read_text(encoding="utf-8"))
+    assert "--teardown-on-needs-human" in argv
 
 
 def test_run_bg_probe_requires_artifact_not_just_handoff(tmp_path):
@@ -834,9 +990,53 @@ sys.exit(6)
     assert result.source is None
 
 
+def test_run_bg_probe_preserves_rate_limited_result_kind(tmp_path):
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+print(json.dumps({
+    "status": "rate_limited",
+    "message": "Claude background session hit the account session limit",
+    "reset_at": "2pm (America/Chicago)"
+}))
+sys.exit(4)
+""",
+    )
+
+    result = claude_runner_module.run_bg_probe(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        bg_runner_script=bg_runner,
+        model="claude-opus-4-6",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+    )
+
+    assert result.exit_code == 4
+    assert result.result_kind == "rate_limited"
+
+
 def test_bg_probe_failure_classifier_distinguishes_setup_failures():
     classify = claude_runner_module.classify_bg_probe_failure
 
+    assert (
+        classify("bg status=rate_limited; bg message=You've hit your session limit; resets 2pm (America/Chicago)")
+        == "rate_limited"
+    )
+    assert (
+        classify(
+            "bg status=startup_dialog; bg message=background session registered "
+            "but did not consume the initial prompt (Claude CLI reported: "
+            "idle - send a prompt to start)"
+        )
+        == "startup_dialog"
+    )
+    assert (
+        classify("bg status=model_rejected; bg message=Claude CLI rejected the selected model (opus)")
+        == "model_rejected"
+    )
     assert (
         classify("bypassPermissions not accepted; run claude --dangerously-skip-permissions")
         == "bypass_not_accepted"
@@ -1011,6 +1211,51 @@ raise SystemExit({exit_code})
         assert f"synthetic failure {exit_code}" in result.stderr
 
 
+def test_run_claude_role_bg_status_takes_precedence_over_exit_code(tmp_path):
+    cases = [
+        (4, "rate_limited", "rate_limited", '"reset_at": "2pm (America/Chicago)"'),
+        (4, "startup_dialog", "startup_dialog", ""),
+        (2, "model_rejected", "model_rejected", '"rejected_model": "claude-bad-1"'),
+    ]
+    for exit_code, status, expected_kind, extra_json in cases:
+        bg_runner = tmp_path / f"fake_bg_runner_{status}.py"
+        extra = f", {extra_json}" if extra_json else ""
+        _write_executable(
+            bg_runner,
+            f"""#!/usr/bin/env python3
+import json
+print(json.dumps({{"status": "{status}", "message": "synthetic {status}"{extra}}}))
+raise SystemExit({exit_code})
+""",
+        )
+        prompt_file = tmp_path / f"prompt_{status}.txt"
+        handoff_file = tmp_path / f"handoff_{status}.json"
+        prompt_file.write_text("bg failure test\n", encoding="utf-8")
+
+        result = run_claude_role(
+            cwd=tmp_path,
+            quest_dir=tmp_path,
+            phase="plan",
+            agent="planner",
+            iteration=1,
+            prompt_file=prompt_file,
+            handoff_file=handoff_file,
+            bridge_script=tmp_path / "unused_bridge.py",
+            model="claude-opus-4-6",
+            timeout=5.0,
+            permission_mode="bypassPermissions",
+            poll_interval=0.01,
+            exit_grace_seconds=0.2,
+            transport="background-agent",
+            bg_runner_script=bg_runner,
+        )
+
+        assert result.result_kind == expected_kind
+        assert result.status == status
+
+    assert result.rejected_model == "claude-bad-1"
+
+
 def test_append_context_health_log_transport_field_is_optional(tmp_path):
     claude_runner_module.append_context_health_log(
         tmp_path,
@@ -1074,6 +1319,7 @@ def test_quest_claude_runner_cli_resolves_and_echoes_transport(
             "--iter", "1",
             "--prompt-file", str(prompt_file),
             "--handoff-file", str(tmp_path / "handoff.json"),
+            "--model", "claude",
             "--cwd", str(tmp_path),
             "--transport", "auto",
         ],
@@ -1126,6 +1372,7 @@ def test_quest_claude_runner_cli_auto_uses_bg_without_cache(
             "--iter", "1",
             "--prompt-file", str(prompt_file),
             "--handoff-file", str(tmp_path / "handoff.json"),
+            "--model", "claude",
             "--cwd", str(tmp_path),
         ],
     )
@@ -1288,6 +1535,102 @@ sys.exit(10)
     assert "status=needs_human" in log_text
 
 
+def test_bg_needs_human_result_includes_session_and_questions_without_teardown(tmp_path):
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--handoff-file") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "needs_human", "questions": ["which path?"]}, fh)
+print(json.dumps({
+    "status": "needs_human",
+    "short_id": "abc12345",
+    "session_id": "11111111-1111-1111-1111-111111111111",
+    "questions": ["which path?"]
+}))
+sys.exit(10)
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    handoff_file = tmp_path / "handoff.json"
+    prompt_file.write_text("bg needs human relay\n", encoding="utf-8")
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        transport="background-agent",
+        bg_runner_script=bg_runner,
+    )
+
+    assert result.result_kind == "handoff_json"
+    assert result.status == "needs_human"
+    assert result.session_id == "11111111-1111-1111-1111-111111111111"
+    assert result.short_id == "abc12345"
+    assert result.questions == ["which path?"]
+
+
+def test_runner_resume_uses_same_session_answer_file_and_updates_chained_session(tmp_path):
+    argv_file = tmp_path / "argv.json"
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        f"""#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+open({str(argv_file)!r}, "w").write(json.dumps(args))
+handoff = args[args.index("--handoff-file") + 1]
+with open(handoff, "w") as fh:
+    json.dump({{"status": "complete", "summary": "ok"}}, fh)
+print(json.dumps({{
+    "status": "ok",
+    "session_id": "22222222-2222-2222-2222-222222222222",
+    "resumed_from": "11111111-1111-1111-1111-111111111111"
+}}))
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    answer_file = tmp_path / "answer.txt"
+    handoff_file = tmp_path / "handoff.json"
+    prompt_file.write_text("fallback task\n", encoding="utf-8")
+    answer_file.write_text("use path A\n", encoding="utf-8")
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        transport="background-agent",
+        bg_runner_script=bg_runner,
+        resume="11111111-1111-1111-1111-111111111111",
+        answer_file=answer_file,
+    )
+
+    argv = json.loads(argv_file.read_text(encoding="utf-8"))
+    assert argv[argv.index("--resume") + 1] == "11111111-1111-1111-1111-111111111111"
+    assert argv[argv.index("--answer-file") + 1] == str(answer_file)
+    assert result.session_id == "22222222-2222-2222-2222-222222222222"
+    assert result.resumed_from == "11111111-1111-1111-1111-111111111111"
+
+
 def test_validate_or_remap_treats_unset_active_model_as_unavailable():
     from quest_runtime.orchestration import validate_or_remap_models_for_orchestrator
 
@@ -1341,7 +1684,7 @@ def test_default_helper_script_paths_are_absolute_and_resolve_off_package():
     assert DEFAULT_BG_RUNNER_SCRIPT.endswith("scripts/claude_bg_run.py")
 
 
-def test_cli_probe_default_bridge_script_is_absolute():
+def test_cli_probe_requires_explicit_model_and_default_bridge_script_is_absolute():
     # The probe's argparse default must be the absolute sibling path, not the
     # legacy cwd-relative "scripts/quest_claude_bridge.py".
     import os
@@ -1355,6 +1698,13 @@ def test_cli_probe_default_bridge_script_is_absolute():
     saved = sys.argv
     try:
         sys.argv = ["quest_claude_probe.py", "--quest-dir", "/tmp/x"]
+        try:
+            quest_claude_probe.parse_args()
+        except SystemExit as exc:
+            assert exc.code == 2
+        else:
+            raise AssertionError("Expected --model to be required")
+        sys.argv = ["quest_claude_probe.py", "--quest-dir", "/tmp/x", "--model", "claude"]
         ns = quest_claude_probe.parse_args()
     finally:
         sys.argv = saved

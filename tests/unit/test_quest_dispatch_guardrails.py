@@ -205,6 +205,26 @@ def test_dispatch_matrix_documents_runtime_entrypoint_split() -> None:
     assert "entrypoint violation, not a model-selection or model/account failure" in workflow
 
 
+def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
+    workflow = _read(".skills/quest/delegation/workflow.md")
+
+    assert "--model <models.<role> from .quest/<id>/orchestration.json>" in workflow
+    assert "must not be sent to the CLI as `--model claude`" in workflow
+    assert "python3 scripts/claude_bg_run.py --sweep quest-bg-probe-" in workflow
+    assert "python3 scripts/quest_claude_probe.py --model claude --transport background-agent" in workflow
+    assert "--resume <session_id> --answer-file <answer_file>" in workflow
+    assert "Persist the parked session id in `.quest/<id>/state.json`" in workflow
+    assert '"parked_bg_session"' in workflow
+    assert "Cap repeated questions for one role at 3 loops" in workflow
+    assert "For abandon/manual cleanup, run `python3 scripts/claude_bg_run.py --sweep quest-<id>-`" in workflow
+    assert "**`rate_limited`:** Do NOT blind retry" in workflow
+    assert "Surface `reset_at` when present" in workflow
+    assert "**`startup_dialog`:** Do NOT retry" in workflow
+    assert "accept trust/bypass prompts" in workflow
+    assert "**`model_rejected`:** Do NOT retry" in workflow
+    assert "name `rejected_model` when present" in workflow
+
+
 def test_gpt_skill_excludes_codex_led_quest_dispatch() -> None:
     skill = _read(".skills/gpt/SKILL.md")
 

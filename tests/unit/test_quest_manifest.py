@@ -63,6 +63,7 @@ def test_manifest_does_not_install_repo_tests() -> None:
 def test_manifest_validator_patterns_cover_installed_quest_surface() -> None:
     patterns = _validator_patterns()
     expected_paths = {
+        "docs/guides/quest_setup.md",
         "scripts/quest_backfill_journal.py",
         "scripts/quest_complete.py",
         "scripts/quest_preflight.sh",
@@ -79,6 +80,10 @@ def test_manifest_validator_patterns_cover_installed_quest_surface() -> None:
     )
 
     assert uncovered == []
+
+
+def test_manifest_includes_installed_quest_setup_guide() -> None:
+    assert "docs/guides/quest_setup.md" in set(_manifest_entries())
 
 
 def test_manifest_validator_does_not_scan_repo_tests() -> None:

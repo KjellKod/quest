@@ -144,7 +144,7 @@ Each agent invocation starts fresh:
 
 ### Why the Bridge, Not MCP
 
-When Codex orchestrates a quest, Claude-designated roles run through `scripts/quest_claude_bridge.py` instead of an MCP server. This is deliberate.
+When Codex orchestrates a quest, Claude-designated roles run through `scripts/quest_claude_runner.py` instead of an MCP server. The runner selects either the preferred background-agent transport (`scripts/claude_bg_run.py`, `claude --bg`, subscription billing) or the explicit bridge transport (`scripts/quest_claude_bridge.py`, `claude --print`, API-metered) from config and preflight.
 
 MCP is a persistent connection with static configuration. Every call goes through the same server with the same permissions. That's fine for Codex reviews where every call needs the same access. But Quest roles have different trust levels, and the bridge gives **per-invocation control**:
 
@@ -158,7 +158,7 @@ The bridge also enforces the **Context Retention Rule at the transport level**. 
 
 Every invocation is logged to `context_health.log` with timestamp, phase, agent, runtime, iteration, and handoff state, giving you a complete audit trail of cross-model communication.
 
-**The bridge script itself (`quest_claude_bridge.py`) is Quest-agnostic.** It has zero Quest imports or references. It's a generic, reusable utility for calling Claude CLI with structured options. Anyone can borrow it for their own cross-model orchestration. The Quest-specific behavior (handoff polling, context health logging, text fallback extraction) lives in `quest_claude_runner.py`.
+**The transport scripts themselves (`claude_bg_run.py` and `quest_claude_bridge.py`) are Quest-agnostic.** They keep transport mechanics separate from Quest phase policy. The Quest-specific behavior (handoff polling, context health logging, text fallback extraction, and parked-session relay) lives in `quest_claude_runner.py` and the workflow docs.
 
 **Standalone usage example:**
 

@@ -307,6 +307,7 @@ EOF
     --iter 1 \
     --prompt-file "$tmpdir/prompt.txt" \
     --handoff-file "$tmpdir/handoff.json" \
+    --model claude \
     --transport bridge \
     --bridge-script "$tmpdir/fake_bridge.py" \
     --cwd "$REPO_ROOT" 2>&1)
@@ -1922,6 +1923,7 @@ PY
       --iter 1 \
       --prompt-file "$prompt_file" \
       --handoff-file "$handoff_file" \
+      --model claude \
       --transport bridge \
       --bridge-script "$tmpdir/fake_arbiter_bridge.py" \
       --cwd "$REPO_ROOT" 2>&1)
