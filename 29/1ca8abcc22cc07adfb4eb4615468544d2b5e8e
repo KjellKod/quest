@@ -1,0 +1,32 @@
+scripts/quest_claude_runner.py
+  s_75f54b38224c0e::t_e78ed23d059b85 97-105
+tests/unit/test_claude_bg_run.py
+  s_75f54b38224c0e::t_4e8c9a41f0d06d 630-650,652
+scripts/quest_complete.py
+  s_75f54b38224c0e::t_292a4a69fbea63 47
+tests/unit/test_quest_runtime.py
+  s_75f54b38224c0e::t_229dca46a7967e 1255-1258
+scripts/quest_runtime/claude_runner.py
+  s_75f54b38224c0e::t_ab849ff99d5e2a 113
+scripts/claude_bg_run.py
+  s_75f54b38224c0e::t_823795704212d1 100
+  s_75f54b38224c0e::t_71df60bc7b623d 913-920
+docs/quest-journal/bg-transport-hardening_2026-07-04.md
+  s_75f54b38224c0e::t_f8fd8b366902bc 157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "291ca8abcc22cc07adfb4eb4615468544d2b5e8e",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
