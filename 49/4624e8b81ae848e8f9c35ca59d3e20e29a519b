@@ -1,0 +1,29 @@
+ideas/2026-07-03-claude-model-alias-dispatch-bug.md
+  s_466622d4078b90::t_347a41a4f238af 1-182
+ideas/2026-07-04-bg-transport-hardening-quest-brief.md
+  s_75f54b38224c0e::t_a2f4efac4899d9 1-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "494624e8b81ae848e8f9c35ca59d3e20e29a519b",
+  "prompts": {},
+  "sessions": {
+    "s_466622d4078b90": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2987-d0b3-7091-baea-258463fe94d5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
