@@ -78,6 +78,17 @@ def test_parked_bg_session_rejects_missing_session_id(tmp_path):
     assert "parked_bg_session" not in state
 
 
+def test_parked_bg_session_rejects_empty_string(tmp_path):
+    quest_dir = _make_quest_dir(tmp_path)
+
+    cp = _run("--quest-dir", str(quest_dir), "--parked-bg-session", "")
+
+    assert cp.returncode == 1
+    assert "valid JSON" in cp.stderr
+    state = json.loads((quest_dir / "state.json").read_text(encoding="utf-8"))
+    assert "parked_bg_session" not in state
+
+
 def test_parked_bg_session_rejects_invalid_json(tmp_path):
     quest_dir = _make_quest_dir(tmp_path)
 

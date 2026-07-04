@@ -161,7 +161,7 @@ def main() -> int:
             return 1
 
     parked_bg_session = None
-    if args.parked_bg_session:
+    if args.parked_bg_session is not None:
         try:
             parked_bg_session = json.loads(args.parked_bg_session)
         except json.JSONDecodeError as exc:

@@ -44,10 +44,13 @@ CURRENT_BG_PROBE_NAME=""
 
 cleanup_bg_probes() {
   [ -f "$CLAUDE_BG_RUNNER_SCRIPT" ] || return 0
+  # Sweep ONLY this preflight's own probe: a broad quest-bg-probe- sweep here
+  # would kill a concurrent preflight's active probe and falsely fail its
+  # transport check. The broad stale-probe sweep is owned by quest
+  # start/resume (workflow.md), not by every preflight exit.
   if [ -n "$CURRENT_BG_PROBE_NAME" ]; then
     python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" >/dev/null 2>&1 || true
   fi
-  python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "quest-bg-probe-" >/dev/null 2>&1 || true
 }
 
 trap cleanup_bg_probes EXIT INT TERM

@@ -815,13 +815,18 @@ def test_fresh_dispatch_refuses_to_retire_working_same_name(shim, tmp_path, monk
     (tmp_path / "state.json").write_text(json.dumps([
         {**PARENT, "pid": 111, "id": "busy1111", "name": name, "state": "working"}
     ]))
+    # The concurrent session may be mid-write on these very paths: a refused
+    # dispatch must restore them, not leave them cleared.
+    wait = tmp_path / "out.json"
+    wait.write_text('{"written": "by-concurrent-run"}', encoding="utf-8")
 
-    env = bg.BgRunner(_args(shim, name=name, wait_for=str(tmp_path / "out.json"))).run()
+    env = bg.BgRunner(_args(shim, name=name, wait_for=str(wait))).run()
 
     assert env.status == "dispatch_failed"
     assert "actively working" in env.message
     assert "busy1111" in env.message
     assert kills == []
+    assert wait.read_text(encoding="utf-8") == '{"written": "by-concurrent-run"}'
 
 
 def test_incomplete_when_done_without_artifact(shim, tmp_path, monkeypatch):

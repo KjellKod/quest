@@ -419,7 +419,7 @@ test_quest_preflight_sweeps_bg_probe_sessions_on_exit() {
   write_success_bg_runner "$tmpdir/fake_bg_runner.py"
   write_allowlist "$tmpdir/allowlist.json" "auto"
 
-  local sweep_log count broad
+  local sweep_log count broad own
   sweep_log="$tmpdir/sweeps.log"
   PATH="$tmpdir/bin:$PATH" \
     QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
@@ -428,11 +428,16 @@ test_quest_preflight_sweeps_bg_probe_sessions_on_exit() {
     FAKE_BG_SWEEP_LOG="$sweep_log" \
     "$PREFLIGHT_SCRIPT" --orchestrator codex >/dev/null 2>&1
   count=$(wc -l < "$sweep_log" | tr -d ' ')
+  # EXIT cleanup must sweep ONLY this preflight's own probe name — a broad
+  # bare quest-bg-probe- sweep would kill a concurrent preflight's active
+  # probe (the broad stale sweep belongs to quest start/resume instead).
   broad=$(grep -c '^quest-bg-probe-$' "$sweep_log" || true)
+  own=$(grep -c '^quest-bg-probe-.' "$sweep_log" || true)
   rm -rf "$tmpdir"
 
-  [ "$count" -ge 2 ] &&
-    [ "$broad" -ge 1 ]
+  [ "$count" -ge 1 ] &&
+    [ "$own" -ge 1 ] &&
+    [ "$broad" -eq 0 ]
 }
 
 test_quest_preflight_forced_background_agent_blocks_without_bridge_fallback() {

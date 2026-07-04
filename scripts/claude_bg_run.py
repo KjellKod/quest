@@ -853,9 +853,15 @@ class BgRunner:
             else:
                 short_id, row = dispatch.short_id, dispatch.row
         else:
+            # Snapshot before the stale-guard clear so a dispatch that never
+            # confirms — including a refused same-name working session (a
+            # concurrent orchestrator may be mid-write on these very paths) —
+            # can restore whatever was there instead of destroying it.
+            fresh_outputs = self._snapshot_outputs(include_wait_for=True)
             self._clear_stale_outputs(include_wait_for=True)
             dispatch = self.dispatch_and_confirm(message, None)
             if dispatch.terminal_status:
+                self._restore_outputs(fresh_outputs)
                 self._copy_dispatch_result(env, dispatch)
                 env.duration_s = round(time.monotonic() - t0, 1)
                 return env
