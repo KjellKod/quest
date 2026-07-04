@@ -473,7 +473,11 @@ class BgRunner:
             # Never auto-retire an actively working same-name row: it may be a
             # concurrent orchestrator's in-flight session, and killing it loses
             # work. Only parked/blocked/idle/done rows are safe to retire.
-            if row.get("state") == "working":
+            # Liveness reads `state` with `status` as fallback — the same
+            # precedence the WAIT loop uses — so a row carrying only
+            # `status=busy` is protected too.
+            activity = row.get("state") or row.get("status")
+            if activity in ("working", "busy"):
                 return StopResult(
                     settled=False,
                     survivor_id=row.get("id"),
