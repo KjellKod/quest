@@ -215,6 +215,10 @@ def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
     assert "--resume <session_id> --answer-file <answer_file>" in workflow
     assert "Persist the parked session id in `.quest/<id>/state.json`" in workflow
     assert '"parked_bg_session"' in workflow
+    # The state helper must be the documented persistence path (never a
+    # hand-edit of state.json), and clearing must be documented too.
+    assert "scripts/quest_state.py --quest-dir .quest/<id> --parked-bg-session" in workflow
+    assert "--clear-parked-bg-session" in workflow
     assert "Cap repeated questions for one role at 3 loops" in workflow
     assert "For abandon/manual cleanup, run `python3 scripts/claude_bg_run.py --sweep quest-<id>-`" in workflow
     assert "**`rate_limited`:** Do NOT blind retry" in workflow

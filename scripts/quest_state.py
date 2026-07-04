@@ -30,7 +30,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from quest_runtime.state import load_state, update_state
+from quest_runtime.state import load_state, update_state, write_state
 
 
 def find_validator() -> Path:
@@ -94,6 +94,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--quest-mode")
     parser.add_argument("--plan-iteration", type=int)
     parser.add_argument("--fix-iteration", type=int)
+    parked_group = parser.add_mutually_exclusive_group()
+    parked_group.add_argument(
+        "--parked-bg-session",
+        metavar="JSON",
+        help=(
+            "Persist parked background-session metadata as state.json "
+            'parked_bg_session. Must be a JSON object with a "session_id" '
+            'field, e.g. \'{"agent": "planner", "phase": "plan", '
+            '"iteration": 1, "session_id": "<uuid>", "short_id": "<id>"}\'.'
+        ),
+    )
+    parked_group.add_argument(
+        "--clear-parked-bg-session",
+        action="store_true",
+        help=(
+            "Remove parked_bg_session from state.json (after the relay "
+            "resumed the session or it was swept)."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -141,6 +160,22 @@ def main() -> int:
             print(output, file=sys.stderr)
             return 1
 
+    parked_bg_session = None
+    if args.parked_bg_session:
+        try:
+            parked_bg_session = json.loads(args.parked_bg_session)
+        except json.JSONDecodeError as exc:
+            print(f"--parked-bg-session must be valid JSON: {exc}", file=sys.stderr)
+            return 1
+        if not isinstance(parked_bg_session, dict) or not parked_bg_session.get(
+            "session_id"
+        ):
+            print(
+                '--parked-bg-session must be a JSON object with a "session_id" field.',
+                file=sys.stderr,
+            )
+            return 1
+
     state = update_state(
         quest_dir,
         phase=target_phase,
@@ -150,7 +185,11 @@ def main() -> int:
         quest_mode=args.quest_mode,
         plan_iteration=args.plan_iteration,
         fix_iteration=args.fix_iteration,
+        parked_bg_session=parked_bg_session,
     )
+    if args.clear_parked_bg_session and "parked_bg_session" in state:
+        state.pop("parked_bg_session", None)
+        write_state(quest_dir, state)
     print(json.dumps(state, indent=2))
     return 0
 

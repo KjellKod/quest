@@ -807,6 +807,23 @@ def test_fresh_dispatch_fails_when_same_name_cannot_be_retired(shim, tmp_path, m
     assert "same-name" in env.message
 
 
+def test_fresh_dispatch_refuses_to_retire_working_same_name(shim, tmp_path, monkeypatch, kills):
+    # An actively WORKING same-name row (e.g. a concurrent orchestrator's
+    # in-flight session) must never be auto-retired — dispatch fails with a
+    # working-specific diagnostic and no signal is sent.
+    name = "quest-q7-builder-i1"
+    (tmp_path / "state.json").write_text(json.dumps([
+        {**PARENT, "pid": 111, "id": "busy1111", "name": name, "state": "working"}
+    ]))
+
+    env = bg.BgRunner(_args(shim, name=name, wait_for=str(tmp_path / "out.json"))).run()
+
+    assert env.status == "dispatch_failed"
+    assert "actively working" in env.message
+    assert "busy1111" in env.message
+    assert kills == []
+
+
 def test_incomplete_when_done_without_artifact(shim, tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_BG_SCENARIO", "incomplete")  # state done, artifact never written
     env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "missing"))).run()

@@ -1371,10 +1371,11 @@ If a Claude role returns `STATUS: needs_human`:
 4. For native Claude `Task(...)`, re-invoke the same agent with answers appended to context, referencing the same artifact paths.
 5. For runner-invoked Claude on `transport=background-agent`, use the same-session relay:
    - Read the runner JSON `session_id` and `questions` fields.
-   - Persist the parked session id in `.quest/<id>/state.json` before waiting for the human answer.
+   - Persist the parked session id in `.quest/<id>/state.json` before waiting for the human answer, via the state helper (never hand-edit state.json): `python3 scripts/quest_state.py --quest-dir .quest/<id> --parked-bg-session '{"agent": "<role>", "phase": "<phase>", "iteration": <n>, "session_id": "<session_id>", "short_id": "<short_id>"}'`
    - Write the human answer to an answer file under `.quest/<id>/logs/`.
    - Resume with `python3 scripts/quest_claude_runner.py --model <models.<role> from .quest/<id>/orchestration.json> --transport background-agent --resume <session_id> --answer-file <answer_file>` using the same artifact paths.
-   - If the resumed runner JSON reports a new `session_id`, update the parked session id because `claude --bg --resume` forks to a new background session.
+   - If the resumed runner JSON reports a new `session_id`, update the parked session id (rerun the `--parked-bg-session` command with the new id) because `claude --bg --resume` forks to a new background session.
+   - When the role finally returns `complete` or `blocked`, clear the parked marker: `python3 scripts/quest_state.py --quest-dir .quest/<id> --clear-parked-bg-session`
    - Cap repeated questions for one role at 3 loops; after that, route to blocked with the parked session id and the last question in the summary.
 6. Repeat until agent returns `complete` or `blocked`; do not sweep a deliberately parked session while waiting for the human answer.
 

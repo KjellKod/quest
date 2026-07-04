@@ -277,6 +277,9 @@ class StopResult:
     survivor_id: str | None = None
     survivor_name: str | None = None
     survivor_session_id: str | None = None
+    # "working" when retirement was REFUSED because the row is actively
+    # working (likely a concurrent orchestrator) — distinct from a failed kill.
+    reason: str | None = None
 
 
 @dataclass
@@ -467,6 +470,17 @@ class BgRunner:
         ]
         result = StopResult(settled=True)
         for row in rows:
+            # Never auto-retire an actively working same-name row: it may be a
+            # concurrent orchestrator's in-flight session, and killing it loses
+            # work. Only parked/blocked/idle/done rows are safe to retire.
+            if row.get("state") == "working":
+                return StopResult(
+                    settled=False,
+                    survivor_id=row.get("id"),
+                    survivor_name=row.get("name"),
+                    survivor_session_id=row.get("sessionId"),
+                    reason="working",
+                )
             result = self.stop_session(row.get("id"))
             if not result.settled:
                 return result
@@ -584,14 +598,25 @@ class BgRunner:
                     exempt_short_id=exempt_same_name_short_id
                 )
                 if not same_name_stop.settled:
-                    return DispatchResult(
-                        terminal_status="dispatch_failed",
-                        message=(
+                    if same_name_stop.reason == "working":
+                        detail = (
+                            "live same-name background session is actively working; "
+                            "refusing to retire it (likely a concurrent orchestrator "
+                            f"run): id={same_name_stop.survivor_id} "
+                            f"name={same_name_stop.survivor_name} "
+                            f"session_id={same_name_stop.survivor_session_id}. "
+                            "Wait for it to finish or stop it manually, then retry."
+                        )
+                    else:
+                        detail = (
                             "live same-name background session could not be retired "
                             f"before dispatch: id={same_name_stop.survivor_id} "
                             f"name={same_name_stop.survivor_name} "
                             f"session_id={same_name_stop.survivor_session_id}"
-                        ),
+                        )
+                    return DispatchResult(
+                        terminal_status="dispatch_failed",
+                        message=detail,
                         short_id=same_name_stop.survivor_id,
                         row=None,
                     )
