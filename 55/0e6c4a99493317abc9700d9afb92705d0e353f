@@ -1,0 +1,153 @@
+tests/unit/test_quest_dispatch_guardrails.py
+  s_93110cb378be64::t_cddd08d98b2920 208-216,218-219,226-227
+  s_5ace5cc98cceb3::t_b0d375b539c041 217,220-225
+scripts/claude_bg_run.py
+  s_93110cb378be64::t_65160dd8ea2133 391-392,417,420-421,429-430,435,442-450,452,454-455,464,468-473,498-499,502,582,586,590-594,597
+  s_5ace5cc98cceb3::t_8371b608017f30 100,280-289
+  s_93110cb378be64::t_61a4be2ac812be 553,996
+  s_93110cb378be64::t_4156e87cfd49ba 42-46,88-93,95-97,101-107,250-255,263-265,274-279,290-301
+  s_5ace5cc98cceb3::t_76ed35e69b5d7a 565-571,583-585,587-589,595-596,603,605,617,619,623-641,645-650,667-671,673,683-690
+  s_29a3983f3e7e7f::t_f1fe0b6d67e5b6 991
+  s_93110cb378be64::t_40b25164b0c9b2 94
+  s_5ace5cc98cceb3::t_76edcae31dc8e0 98-99
+  s_5ace5cc98cceb3::t_e838273845a144 457-459,466,481-496,500-501,503-510
+  s_93110cb378be64::t_fbf6142158a902 642-644,674-682,890,895-916,924,926,948-951,961
+  s_5ace5cc98cceb3::t_5efcb7a70fa452 787,789,804-809,815-819,822-825,828-829,832-834,837
+  s_93110cb378be64::t_c64b96ab74d1c2 853
+  s_5ace5cc98cceb3::t_6c6ef1e38b97ce 920-921
+  s_93110cb378be64::t_967539e949f9f8 302-303
+  s_29a3983f3e7e7f::t_e827e7b8596ba3 474-480
+tests/unit/test_claude_bg_run.py
+  s_93110cb378be64::t_53377ce7869f63 480-506,509-527,715-786
+  s_5ace5cc98cceb3::t_230a21d11e592f 507-508
+  s_5ace5cc98cceb3::t_64ad380e22ff41 420-445
+  s_5ace5cc98cceb3::t_a470e1c5f174fa 528-575
+  s_29a3983f3e7e7f::t_bcd98e075f5ea9 314,316
+  s_93110cb378be64::t_75fc9920145e5e 71,74-75
+  s_29a3983f3e7e7f::t_3cec6ad74fc22f 313
+  s_5ace5cc98cceb3::t_887504c7d0d36a 613-669,672-689,691-714
+  s_5ace5cc98cceb3::t_80ff862bf02201 670-671,690
+  s_29a3983f3e7e7f::t_f1fe0b6d67e5b6 290,312,315
+  s_5ace5cc98cceb3::t_84c1aed52af283 58-63
+  s_5ace5cc98cceb3::t_cb07ff5c311ef6 818-844
+  s_29a3983f3e7e7f::t_d2d3936fa9c834 317-318
+  s_93110cb378be64::t_5efa4d1c366946 787-788
+scripts/quest_complete.py
+  s_93110cb378be64::t_fb6e5dc2f5eed1 21,388-405,410-413,415-420,531
+  s_5ace5cc98cceb3::t_8cff366a0b54c7 406-409,414
+scripts/quest_validate-manifest.sh
+  s_93110cb378be64::t_51bf0d5b84b1af 104
+docs/implementation/claude-bg-transport-migration.md
+  s_93110cb378be64::t_4b72ed84d4cf29 38-42,80-82,117,172,178-179,188-189,200-202,204-206
+scripts/README.md
+  s_93110cb378be64::t_abb8dc7526d342 10,14-15,45-46,48-49
+.skills/quest/delegation/workflow.md
+  s_93110cb378be64::t_6a960c5743ce1f 41,86-87,96,1264,1274,1371-1379
+  s_5ace5cc98cceb3::t_929912d6dd895d 194-196,1403-1410
+docs/guides/quest_presentation.md
+  s_93110cb378be64::t_abb8dc7526d342 147,161
+scripts/quest_claude_runner.py
+  s_93110cb378be64::t_9f06532bb4202f 163-165
+  s_93110cb378be64::t_9551eee6f80ccb 72-76,90-96,177-192
+scripts/quest_claude_probe.py
+  s_93110cb378be64::t_119e41d77059b1 27-31
+.quest-manifest
+  s_93110cb378be64::t_51bf0d5b84b1af 55
+tests/test-quest-preflight.sh
+  s_93110cb378be64::t_24c57bf4fd3917 75,80-88,329,331,337,345,353-354,414-437,603
+docs/quest-journal/bg-transport-hardening_2026-07-04.md
+  s_75f54b38224c0e::t_3321ca942ad2db 1-177
+tests/unit/test_documentation_contracts.py
+  s_5ace5cc98cceb3::t_2806db11ff1680 16-27,37,83-87
+  s_93110cb378be64::t_5c0a961193d1ae 1-15,28-36,38-82
+README.md
+  s_93110cb378be64::t_abb8dc7526d342 106-109
+docs/implementation/claude-bg-run-script.md
+  s_93110cb378be64::t_abb8dc7526d342 50,58
+scripts/quest_preflight.sh
+  s_93110cb378be64::t_e06bd8d41796c5 42-53,403-405,457-463,558
+docs/quest-journal/README.md
+  s_75f54b38224c0e::t_3321ca942ad2db 9
+docs/quest-journal/celebrations/bg-transport-hardening_2026-07-04.md
+  s_75f54b38224c0e::t_3321ca942ad2db 1-100
+tests/unit/test_quest_manifest.py
+  s_93110cb378be64::t_35e41c14866e98 66,85-86
+  s_93110cb378be64::t_5d1aa5e1566a9c 87-88
+scripts/quest_runtime/claude_runner.py
+  s_93110cb378be64::t_5b0230f4f90f47 581-583
+  s_5ace5cc98cceb3::t_289896bac6d72e 382-383
+  s_93110cb378be64::t_5f58fa7e8ec8d6 639-641,678-680
+  s_93110cb378be64::t_8ffb95b90a616b 47-57,100-114,252,265-266,285-287,291-294,296,311-321
+  s_93110cb378be64::t_2ea1c7101c22cc 882-884
+  s_5ace5cc98cceb3::t_35418afa3cde71 646
+  s_5ace5cc98cceb3::t_ed7c56b0092114 889
+  s_5ace5cc98cceb3::t_a2bc44535a93bd 1051
+  s_93110cb378be64::t_33727cab9e1495 351-376,380-381,384-385
+  s_93110cb378be64::t_273ff6c8ce3890 803-808,823-824,840
+  s_5ace5cc98cceb3::t_63fddf9aeae17e 18
+tests/unit/test_quest_complete.py
+  s_93110cb378be64::t_51f56a637dd7bd 369-428
+  s_5ace5cc98cceb3::t_00856008742a33 429-485
+docs/implementation/claude-bg-transport-step2-wiring.md
+  s_93110cb378be64::t_4b72ed84d4cf29 29
+  s_93110cb378be64::t_9633495ae6c5d3 33,60,65,148
+  s_93110cb378be64::t_001675c81f0190 115,155
+tests/unit/test_quest_runtime.py
+  s_5ace5cc98cceb3::t_c679e66233bc31 555-640
+  s_93110cb378be64::t_553e92c940c64d 826,843-844,846,851-915
+  s_5ace5cc98cceb3::t_08d5eb73032ec0 1214-1258
+  s_93110cb378be64::t_397f35d2d28bb2 1322,1375,1687,1701-1707
+  s_5ace5cc98cceb3::t_43be8224ec8200 993-1020
+  s_93110cb378be64::t_b308a3b2121abb 7
+  s_5ace5cc98cceb3::t_0a3a472a97e2d7 923,927,930,955-956
+  s_93110cb378be64::t_7c7cfbcc498ba0 1538-1633
+  s_5ace5cc98cceb3::t_ea9b29743fdcf8 934,939
+  s_93110cb378be64::t_dd962ec3c2e648 1024-1028,1034-1039
+  s_5ace5cc98cceb3::t_626ce0d13fffd5 1029-1033
+  s_93110cb378be64::t_2a8ab541664b4a 916-917
+tests/test-quest-runtime.sh
+  s_93110cb378be64::t_faa698214f1978 310,1926
+docs/guides/quest_setup.md
+  s_93110cb378be64::t_abb8dc7526d342 259-260,285-287,304,310-312
+  s_93110cb378be64::t_d2a54b8c6aa650 313
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "550e6c4a99493317abc9700d9afb92705d0e353f",
+  "prompts": {},
+  "sessions": {
+    "s_29a3983f3e7e7f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2e6d-3570-7b60-b39b-ad20b6d6d5ed",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_5ace5cc98cceb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2e56-2500-76f1-9399-acfd4ad3f41b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_93110cb378be64": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2e2f-2bd1-75f2-a687-46baacfc2240",
+        "model": "gpt-5.5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
