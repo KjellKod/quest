@@ -855,12 +855,14 @@ def run_claude_role(
         else {}
     )
     bg_status_kind = _BG_STATUS_RESULT_KINDS.get(str(bg_fields.get("status") or ""))
-    # A terminal transport status (rate_limited/startup_dialog/model_rejected)
-    # is the truth about THIS run and must outrank a found handoff: a failed
-    # resume deliberately RESTORES the parked needs_human handoff, and letting
-    # that stale handoff win would report success, re-ask the human their
-    # already-answered question, and bury reset_at/rejected_model.
-    if bg_status_kind:
+    # A found handoff only wins when the bg child actually succeeded (exit 0)
+    # or intentionally parked (exit 10, needs_human). Any other terminal bg
+    # failure — rate_limited/model_rejected/startup_dialog, but equally
+    # dispatch_failed/precondition_failed/timeout — must outrank the handoff:
+    # a failed resume deliberately RESTORES the parked needs_human handoff,
+    # and letting that stale handoff win would report success, re-ask the
+    # human their already-answered question, and bury the real failure.
+    if transport == "background-agent" and (process.returncode or 0) not in (0, 10):
         handoff_result = False
     bg_exit_kind = (
         _BG_EXIT_RESULT_KINDS.get(process.returncode or 0)

@@ -1208,6 +1208,50 @@ raise SystemExit({exit_code})
         assert f"synthetic failure {exit_code}" in result.stderr
 
 
+def test_restored_stale_handoff_cannot_mask_bg_failure(tmp_path):
+    # A failed resume restores the parked needs_human handoff; ANY terminal bg
+    # failure (not just the three structured statuses) must outrank it —
+    # otherwise the runner reports success and re-asks an answered question.
+    for exit_code, status, expected_kind in (
+        (3, "dispatch_failed", "invocation_error"),
+        (5, "timeout", "timeout"),
+    ):
+        bg_runner = tmp_path / f"fake_bg_runner_mask_{exit_code}.py"
+        _write_executable(
+            bg_runner,
+            f"""#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--handoff-file") + 1]
+with open(handoff, "w") as fh:
+    json.dump({{"status": "needs_human", "questions": ["already answered?"]}}, fh)
+print(json.dumps({{"status": "{status}", "message": "synthetic {status}"}}))
+raise SystemExit({exit_code})
+""",
+        )
+        prompt_file = tmp_path / f"prompt_mask_{exit_code}.txt"
+        prompt_file.write_text("x\n", encoding="utf-8")
+
+        result = run_claude_role(
+            cwd=tmp_path,
+            quest_dir=tmp_path,
+            phase="plan",
+            agent="planner",
+            iteration=1,
+            prompt_file=prompt_file,
+            handoff_file=tmp_path / f"handoff_mask_{exit_code}.json",
+            bridge_script=tmp_path / "unused_bridge.py",
+            model="claude",
+            timeout=5.0,
+            permission_mode="bypassPermissions",
+            transport="background-agent",
+            bg_runner_script=bg_runner,
+        )
+
+        assert result.result_kind == expected_kind, (exit_code, status)
+        assert result.exit_code != 0, (exit_code, status)
+
+
 def test_run_claude_role_bg_status_takes_precedence_over_exit_code(tmp_path):
     cases = [
         (4, "rate_limited", "rate_limited", '"reset_at": "2pm (America/Chicago)"'),
