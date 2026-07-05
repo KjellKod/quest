@@ -1,0 +1,27 @@
+tests/unit/test_quest_runtime.py
+  s_75f54b38224c0e::t_4b723cbdd44a5c 1218-1220
+scripts/quest_runtime/claude_runner.py
+  s_75f54b38224c0e::t_e7db680da3fad7 878-879
+  s_75f54b38224c0e::t_4a4702a3f4e831 901-904,906-908
+  s_75f54b38224c0e::t_93f055c44eb925 761-769,771,776,786-789
+scripts/quest_preflight.sh
+  s_75f54b38224c0e::t_788cc90589130a 68-72
+ideas/quest-needs-human-resume-relay.md
+  s_75f54b38224c0e::t_39f9b5cda58006 29-31,115-116,120,125,129,135,142,147-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "80d297678f36521517532d61d7e6acdde177213c",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
