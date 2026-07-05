@@ -1,0 +1,25 @@
+ideas/README.md
+  s_75f54b38224c0e::t_1ef14d037e35ad 65,90-91
+ideas/archive/2026-07-03-claude-model-alias-dispatch-bug.md
+  s_75f54b38224c0e::t_bd6b0d412819c8 1-182
+ideas/quest-needs-human-resume-relay.md
+  s_75f54b38224c0e::t_1ef14d037e35ad 4
+ideas/archive/2026-07-04-bg-transport-hardening-quest-brief.md
+  s_75f54b38224c0e::t_bd6b0d412819c8 1-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2ac76b03ec3105c2b10a351e94090db5e5044fea",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
