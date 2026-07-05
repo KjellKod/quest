@@ -1,0 +1,23 @@
+docs/guides/quest_setup.md
+  s_75f54b38224c0e::t_4b8c0d3ac04a0f 257
+README.md
+  s_75f54b38224c0e::t_3f236b475f7aba 65
+scripts/quest_preflight.sh
+  s_75f54b38224c0e::t_30d841dbf83150 481
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e5bb15e4a1dab5c81c359314cbf696609b54c7e8",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
