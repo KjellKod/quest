@@ -13,14 +13,13 @@ def _read(relative_path: str) -> str:
     return (_repo_root() / relative_path).read_text(encoding="utf-8")
 
 
+# Completed transport specs live in docs/implementation/history/ — history is
+# a preserved record, deliberately NOT enforced by these accuracy contracts.
 ACTIVE_DOCS = (
     "README.md",
     "scripts/README.md",
     "docs/guides/quest_setup.md",
     "docs/guides/quest_presentation.md",
-    "docs/implementation/claude-bg-run-script.md",
-    "docs/implementation/claude-bg-transport-migration.md",
-    "docs/implementation/claude-bg-transport-step2-wiring.md",
     ".skills/quest/delegation/workflow.md",
 )
 

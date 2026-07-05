@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """claude_bg_run — standalone runner for one Claude background-agent task.
 
-PROOF OF CONCEPT (Step 1 of docs/implementation/claude-bg-run-script.md).
+Step 1 of the bg-transport migration; the original spec and its empirical
+findings are archived at docs/implementation/history/claude-bg-run-script.md.
 
 Quest-agnostic on purpose: this knows nothing about quest phases, handoff
 schemas, or orchestration.json. It does exactly one thing — dispatch a single
