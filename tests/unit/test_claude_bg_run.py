@@ -591,6 +591,25 @@ def test_tool_use_only_transcript_is_generic_blocked_not_startup_dialog(shim, tm
     assert "trust/bypass" not in env.message
 
 
+def test_rate_limit_regex_recall_and_precision():
+    # Recall: realistic CLI phrasings must match.
+    for text in (
+        "You've hit your session limit · resets 2pm (America/Chicago)",
+        "You have reached your usage limit",
+        "You've reached the 5-hour session limit",
+        "Session limit reached",
+        "rate limit exceeded",
+    ):
+        assert bg._RATE_LIMIT_RE.search(text), text
+    # Precision: agent prose about limits must NOT match.
+    for text in (
+        "I tightened the session limit and rate limit handling in claude_runner.py.",
+        "All session limits are updated in the docs.",
+        "The rate limiting middleware now retries.",
+    ):
+        assert not bg._RATE_LIMIT_RE.search(text), text
+
+
 def test_dispatch_output_rate_limit_reports_reset_time(shim, tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_BG_SCENARIO", "dispatch_rate_limited")
 
@@ -882,6 +901,9 @@ def test_fresh_dispatch_refuses_to_retire_working_same_name(shim, tmp_path, monk
     active_variants = [
         {"state": "working"},
         {"state": None, "status": "busy"},
+        # Live rosters mix the fields: a working session awaiting a tool can
+        # read state=blocked while status=busy — still protected.
+        {"state": "blocked", "status": "busy"},
     ]
     for variant in active_variants:
         kills.clear()
@@ -898,6 +920,8 @@ def test_fresh_dispatch_refuses_to_retire_working_same_name(shim, tmp_path, monk
         assert env.status == "dispatch_failed", variant
         assert "actively working" in env.message, variant
         assert "busy1111" in env.message, variant
+        # The remediation must hand the human the exact stop command.
+        assert f"--sweep {name}" in env.message, variant
         assert kills == [], variant
         assert wait.read_text(encoding="utf-8") == '{"written": "by-concurrent-run"}'
 

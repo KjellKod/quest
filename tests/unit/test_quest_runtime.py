@@ -1714,6 +1714,31 @@ def test_cli_probe_requires_explicit_model_and_default_bridge_script_is_absolute
     assert ns.bridge_script.endswith("scripts/quest_claude_bridge.py")
 
 
+def test_run_claude_role_empty_model_returns_invocation_error(tmp_path):
+    # Library callers bypass the CLI argparse guards; an empty model must
+    # come back as a structured invocation_error, never a ValueError traceback.
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("x\n", encoding="utf-8")
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=tmp_path / "handoff.json",
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="   ",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        transport="background-agent",
+        bg_runner_script=tmp_path / "unused_bg_runner.py",
+    )
+    assert result.result_kind == "invocation_error"
+    assert result.exit_code == 1
+    assert "model" in result.stderr.lower()
+
+
 def test_cli_rejects_empty_or_whitespace_model():
     # An empty models.<role> value must die at argparse with a clear message,
     # not surface later as an unhandled ValueError traceback the orchestrator

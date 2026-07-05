@@ -661,35 +661,47 @@ def run_claude_role(
     default_add_dirs.extend(path.parent for path in local_artifact_paths)
     if add_dirs:
         default_add_dirs.extend(add_dirs)
-    if transport == "background-agent":
-        cmd = build_bg_cmd(
-            cwd=cwd,
-            bg_runner_script=bg_runner_script,
-            prompt_file=resolved_prompt_file,
-            name=bg_session_name(resolved_quest_dir.name, agent, iteration),
-            model=model,
-            timeout=timeout,
-            permission_mode=_effective_permission_mode(
-                permission_mode, permission_escalation
-            ),
-            handoff_file=resolved_handoff_file,
-            wait_for=[resolved_handoff_file, *resolved_artifact_paths],
-            add_dirs=default_add_dirs,
-            teardown_on_needs_human=teardown_on_needs_human,
-            resume=resume,
-            answer_file=resolve_path(cwd, answer_file) if answer_file else None,
-        )
-    else:
-        cmd = build_bridge_cmd(
-            cwd=cwd,
-            bridge_script=bridge_script,
-            prompt_file=resolved_prompt_file,
-            model=model,
-            timeout=timeout,
-            permission_mode=_effective_permission_mode(
-                permission_mode, permission_escalation
-            ),
-            add_dirs=default_add_dirs,
+    try:
+        if transport == "background-agent":
+            cmd = build_bg_cmd(
+                cwd=cwd,
+                bg_runner_script=bg_runner_script,
+                prompt_file=resolved_prompt_file,
+                name=bg_session_name(resolved_quest_dir.name, agent, iteration),
+                model=model,
+                timeout=timeout,
+                permission_mode=_effective_permission_mode(
+                    permission_mode, permission_escalation
+                ),
+                handoff_file=resolved_handoff_file,
+                wait_for=[resolved_handoff_file, *resolved_artifact_paths],
+                add_dirs=default_add_dirs,
+                teardown_on_needs_human=teardown_on_needs_human,
+                resume=resume,
+                answer_file=resolve_path(cwd, answer_file) if answer_file else None,
+            )
+        else:
+            cmd = build_bridge_cmd(
+                cwd=cwd,
+                bridge_script=bridge_script,
+                prompt_file=resolved_prompt_file,
+                model=model,
+                timeout=timeout,
+                permission_mode=_effective_permission_mode(
+                    permission_mode, permission_escalation
+                ),
+                add_dirs=default_add_dirs,
+            )
+    except ValueError as exc:
+        # e.g. an empty models.<role> value reaching normalize_claude_cli_model:
+        # library callers get a structured invocation_error, never a traceback.
+        return RunResult(
+            exit_code=1,
+            handoff_state="missing",
+            result_kind="invocation_error",
+            source=None,
+            stdout="",
+            stderr=str(exc),
         )
     process = subprocess.Popen(
         cmd,

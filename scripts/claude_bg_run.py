@@ -40,10 +40,11 @@ Transport facts this encodes (observed across Claude Code 2.1.x):
     polling must never match the parked parent's row (id/name take precedence
     over sessionId).
   * Claude CLI 2.1.x background-session management subcommands are not treated
-    as a stable scripting contract here. This runner uses the portable fallback:
+    as a stable scripting contract here (2.1.201 ships no scriptable
+    `logs`/`stop`). This runner deliberately uses ONLY the portable mechanisms:
     transcript JSONL for log tails and signalling the `pid` carried in the
-    `agents --json` row. Capability probing stays isolated so future stable
-    `logs`/`stop` commands can be adopted without changing Quest contracts.
+    `agents --json` row. Adopting real subcommands, if the CLI ever ships them,
+    is a contained follow-up: the mechanisms live in `logs_tail`/`stop_session`.
   * `claude --bg --resume <sid>` FORKS: the new agent continues the conversation
     under a NEW sessionId (daemon roster: launch.mode=resume, fork=true).
 
@@ -89,8 +90,8 @@ _BYPASS_REFUSAL_RE = re.compile(
 # 2pm"): bare "session limit"/"rate limit" substrings would false-positive on
 # assistant prose that merely DISCUSSES limits (routine in infra/AI repos).
 _RATE_LIMIT_RE = re.compile(
-    r"(?:you(?:'ve| have) hit your (?:session|rate|usage) limit"
-    r"|(?:session|rate|usage) limit (?:reached|exceeded))",
+    r"(?:you(?:'ve| have) (?:hit|reached) (?:your|the) (?:\d+-hour )?(?:session|rate|usage) limit"
+    r"|(?:session|rate|usage) limit (?:reached|exceeded|hit))",
     re.IGNORECASE,
 )
 _RESET_AT_RE = re.compile(
@@ -531,11 +532,11 @@ class BgRunner:
             # Never auto-retire an actively working same-name row: it may be a
             # concurrent orchestrator's in-flight session, and killing it loses
             # work. Only parked/blocked/idle/done rows are safe to retire.
-            # Liveness reads `state` with `status` as fallback — the same
-            # precedence the WAIT loop uses — so a row carrying only
-            # `status=busy` is protected too.
-            activity = row.get("state") or row.get("status")
-            if activity in ("working", "busy"):
+            # Liveness checks BOTH fields: live rosters mix them freely
+            # (state=blocked + status=busy is a working session awaiting a
+            # tool), so an `or` fallback that short-circuits on state would
+            # leave busy rows unprotected.
+            if {row.get("state"), row.get("status")} & {"working", "busy"}:
                 return StopResult(
                     settled=False,
                     survivor_id=row.get("id"),
@@ -667,7 +668,8 @@ class BgRunner:
                             f"run): id={same_name_stop.survivor_id} "
                             f"name={same_name_stop.survivor_name} "
                             f"session_id={same_name_stop.survivor_session_id}. "
-                            "Wait for it to finish or stop it manually, then retry."
+                            "Wait for it to finish, or stop it deliberately with: "
+                            f"python3 scripts/claude_bg_run.py --sweep {self.a.name}"
                         )
                     else:
                         detail = (
@@ -716,6 +718,10 @@ class BgRunner:
         classified = _classify_limit_or_model(out)
         if classified:
             status, message, reset_at, rejected = classified
+            if status == "model_rejected":
+                # Same fallback as the WAIT path: when the CLI phrasing hides
+                # the model name, the dispatched model is still the answer.
+                rejected = rejected or self.a.model or None
             return DispatchResult(
                 terminal_status=status,
                 message=message,
@@ -984,13 +990,15 @@ class BgRunner:
                         if env.status == "model_rejected":
                             env.rejected_model = rejected or self.a.model or None
                     elif (
-                        "send a prompt to start" in detail_text.lower()
+                        # ("send a prompt to start" is covered by
+                        # _STARTUP_DIALOG_RE over evidence, which includes
+                        # detail_text — no separate literal check.)
                         # Transcript FILE missing = the session never consumed
                         # its prompt: a startup dialog (trust/bypass) by
                         # definition. An existing transcript with no text
                         # (e.g. a tool_use-only first turn) is NOT that signal
                         # and falls through to generic blocked.
-                        or self._transcript_path(env.session_id) is None
+                        self._transcript_path(env.session_id) is None
                         or _STARTUP_DIALOG_RE.search(evidence)
                     ):
                         env.status = "startup_dialog"
@@ -998,12 +1006,15 @@ class BgRunner:
                             "background session registered but did not consume "
                             "the initial prompt (Claude CLI reported: "
                             f"{detail_text}); open Claude interactively in the "
-                            "target cwd and accept trust/bypass prompts, then retry."
+                            f"target cwd ({os.getcwd()}) and accept trust/bypass "
+                            "prompts, then retry."
                         )
                     else:
                         env.status = "blocked"
                         env.message = "session is blocked on an interactive prompt " + (
-                            f"({detail_text})" if detail_text else "(cause unknown; open Claude interactively in the target cwd to inspect)"
+                            f"({detail_text})"
+                            if detail_text
+                            else f"(cause unknown; open Claude interactively in the target cwd ({os.getcwd()}) to inspect)"
                         )
                     break
                 if state in ("done", "idle"):
@@ -1025,10 +1036,14 @@ class BgRunner:
         env.missing = [p for p in self.a.wait_for if not self._nonempty(p)]
         if env.status != "ok":
             env.logs_tail = self.logs_tail(env.session_id)
+            # Fallback field parsing uses the FINAL message only, like
+            # classification — parsing the multi-message tail would pull a
+            # reset time or model name out of earlier agent prose.
+            last_text = self.logs_tail(env.session_id, max_texts=1)
             if env.status == "model_rejected" and env.rejected_model is None:
-                env.rejected_model = _parse_rejected_model(env.logs_tail) or self.a.model or None
+                env.rejected_model = _parse_rejected_model(last_text) or self.a.model or None
             if env.status == "rate_limited" and env.reset_at is None:
-                env.reset_at = _parse_reset_at(env.logs_tail)
+                env.reset_at = _parse_reset_at(last_text)
 
         # TEARDOWN — by default PRESERVE a needs_human session so it can be
         # resumed (standalone use). Callers with no resume loop pass

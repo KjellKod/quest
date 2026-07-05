@@ -42,7 +42,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cwd", default=".")
     args = parser.parse_args()
     if not args.model.strip():
-        parser.error("--model must be a non-empty model name or the `claude` sentinel")
+        parser.error(
+            "--model must be a model name (e.g. `sonnet`, `claude-opus-4-8`) "
+            "or the literal `claude` for the account-default model"
+        )
     return args
 
 
