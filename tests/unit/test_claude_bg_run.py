@@ -1019,6 +1019,16 @@ def test_sweep_skips_active_rows_unless_included(shim, tmp_path, kills, capsys):
     assert any(pid == 222 for pid, _ in kills)  # parked row swept
     assert "skipped active activ001" in out
 
+    # A live-pid row with NEITHER state nor status is unknown — spared too,
+    # same rule as the same-name guard.
+    kills.clear()
+    (tmp_path / "state.json").write_text(json.dumps([
+        {**PARENT, "pid": 333, "id": "unknwn01", "name": "quest-q1-fixer-i1", "state": None, "status": None},
+    ]))
+    rc = bg.main(["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q1-"])
+    assert rc == bg.EXIT_OK
+    assert kills == []
+
     kills.clear()
     (tmp_path / "state.json").write_text(json.dumps([
         {**PARENT, "pid": 111, "id": "activ001", "name": "quest-q1-builder-i1", "state": "working"},

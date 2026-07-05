@@ -312,6 +312,18 @@ def _parse_rejected_model(text: str) -> str | None:
     return None
 
 
+def _row_active_or_unknown(row: dict) -> bool:
+    """True when a live roster row must NOT be auto-killed.
+
+    Actively working/busy rows are a concurrent orchestrator's in-flight work;
+    a row carrying NEITHER state nor status is outside the documented roster
+    contract — treat unknown as active, because guessing wrong kills work.
+    Single owner of this rule for both the same-name guard and sweep().
+    """
+    activity = {row.get("state"), row.get("status")} - {None}
+    return not activity or bool(activity & {"working", "busy"})
+
+
 def _classify_limit_or_model(text: str) -> tuple[str, str, str | None, str | None] | None:
     """Classify rate-limit / model-rejection evidence into
     (status, message, reset_at, rejected_model).
@@ -543,14 +555,7 @@ class BgRunner:
             # Never auto-retire an actively working same-name row: it may be a
             # concurrent orchestrator's in-flight session, and killing it loses
             # work. Only parked/blocked/idle/done rows are safe to retire.
-            # Liveness checks BOTH fields: live rosters mix them freely
-            # (state=blocked + status=busy is a working session awaiting a
-            # tool), so an `or` fallback that short-circuits on state would
-            # leave busy rows unprotected. A live-pid row carrying NEITHER
-            # field is outside the documented roster contract — refuse rather
-            # than guess, because guessing wrong kills in-flight work.
-            activity = {row.get("state"), row.get("status")} - {None}
-            if not activity or activity & {"working", "busy"}:
+            if _row_active_or_unknown(row):
                 return StopResult(
                     settled=False,
                     survivor_id=row.get("id"),
@@ -591,9 +596,7 @@ class BgRunner:
         failed = 0
         skipped_active = 0
         for row in rows:
-            if not include_active and (
-                {row.get("state"), row.get("status")} & {"working", "busy"}
-            ):
+            if not include_active and _row_active_or_unknown(row):
                 skipped_active += 1
                 print(f"skipped active {row.get('id')} ({row.get('name')})")
                 continue
