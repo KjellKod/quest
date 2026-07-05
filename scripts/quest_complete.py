@@ -405,6 +405,16 @@ def _sweep_parked_bg_sessions(quest_dir: Path) -> subprocess.CompletedProcess | 
     if result.returncode == 0:
         if result.stdout.strip().startswith("sweep skipped:"):
             print(f"Claude bg sweep before archive skipped: {prefix}")
+        elif "skipped active" in result.stdout:
+            # Exit 0, but rows were deliberately spared (active/unknown shape).
+            # At completion nothing should still be running for this quest —
+            # do not report a green cleanup over sessions left alive.
+            print(
+                "WARNING: Claude bg sweep before archive left session(s) alive "
+                "(active/unknown state); they will NOT be cleaned up "
+                "automatically. If they are this quest's own leftovers, run: "
+                f"python3 {runner} --sweep {prefix} --sweep-include-active"
+            )
         else:
             print(f"Claude bg sweep before archive complete: {prefix}")
         if result.stdout.strip():

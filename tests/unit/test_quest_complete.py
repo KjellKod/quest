@@ -426,6 +426,72 @@ def test_quest_complete_sweeps_parked_bg_sessions_before_archive(
     assert "Quest archived" in capsys.readouterr().out
 
 
+def test_quest_complete_warns_when_sweep_spares_active_sessions(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    # Exit 0 with "skipped active" rows is NOT a green cleanup: the human must
+    # see the survivors and the exact include-active command, and archive
+    # still proceeds (best-effort by design).
+    repo_root = tmp_path
+    journal_dir = repo_root / "docs" / "quest-journal"
+    journal_dir.mkdir(parents=True)
+    (journal_dir / "README.md").write_text(
+        "| Date | Quest | Outcome |\n|------|-------|---------|\n",
+        encoding="utf-8",
+    )
+    quest_dir = repo_root / ".quest" / "bg-active_2026-07-05__0900"
+    quest_dir.mkdir(parents=True)
+    (quest_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "quest_id": "bg-active_2026-07-05__0900",
+                "slug": "bg-active",
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (quest_dir / "quest_brief.md").write_text(
+        "# Quest Brief: BG Active\n\n## User Input\n\nDone.",
+        encoding="utf-8",
+    )
+
+    def fake_run(cmd, **kwargs):
+        return quest_complete.subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout=(
+                "skipped active abc12345 (quest-bg-active_2026-07-05__0900-builder-i1)\n"
+                "sweep left 1 actively working session(s) alive "
+                "(pass --sweep-include-active to stop sessions you own)\n"
+                "sweep complete: 0 session(s) matching 'quest-bg-active_2026-07-05__0900-' stopped"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(quest_complete.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "quest_complete.py",
+            "--quest-dir",
+            str(quest_dir),
+            "--skip-journal",
+            "--date",
+            "2026-07-05",
+        ],
+    )
+
+    assert quest_complete.main() == 0
+    out = capsys.readouterr().out
+    assert "WARNING: Claude bg sweep before archive left session(s) alive" in out
+    assert "--sweep quest-bg-active_2026-07-05__0900- --sweep-include-active" in out
+    assert (repo_root / ".quest" / "archive" / quest_dir.name).exists()
+
+
 def test_quest_complete_reports_incomplete_bg_sweep_but_archives(
     tmp_path,
     monkeypatch,
