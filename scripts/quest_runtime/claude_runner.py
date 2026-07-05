@@ -758,14 +758,22 @@ def run_claude_role(
                 stdout, stderr = process.communicate()
             # Killing the child does NOT stop the detached supervisor session,
             # and the killed child never finished its own teardown — sweep the
-            # session by name best-effort so the overrun cannot leak it.
+            # session by name so the overrun cannot leak it. An incomplete
+            # sweep must be REPORTED, not discarded: a bare `timeout` with no
+            # recovery guidance is exactly the silent-leak the sweep prevents.
+            session_name = bg_session_name(resolved_quest_dir.name, agent, iteration)
+            sweep_warning = (
+                f"WARNING: overrun cleanup incomplete; a background session may "
+                f"still be live — stop it manually: python3 {bg_runner_script} "
+                f"--sweep {session_name} --sweep-include-active"
+            )
             try:
-                subprocess.run(
+                sweep_cp = subprocess.run(
                     [
                         sys.executable,
                         str(bg_runner_script),
                         "--sweep",
-                        bg_session_name(resolved_quest_dir.name, agent, iteration),
+                        session_name,
                         # our own overrunning session: active rows included
                         "--sweep-include-active",
                     ],
@@ -775,7 +783,10 @@ def run_claude_role(
                     check=False,
                 )
             except (OSError, subprocess.SubprocessError):
-                pass
+                stderr = f"{stderr}\n{sweep_warning}".strip()
+            else:
+                if sweep_cp.returncode != 0 or "teardown_failed" in sweep_cp.stdout:
+                    stderr = f"{stderr}\n{sweep_warning}".strip()
     else:
         while time.monotonic() < deadline:
             handoff_state = classify_handoff_file(resolved_handoff_file)
@@ -864,7 +875,8 @@ def run_claude_role(
     # a failed resume deliberately RESTORES the parked needs_human handoff,
     # and letting that stale handoff win would report success, re-ask the
     # human their already-answered question, and bury the real failure.
-    if transport == "background-agent" and (process.returncode or 0) not in (0, 10):
+    bg_failed = transport == "background-agent" and (process.returncode or 0) not in (0, 10)
+    if bg_failed:
         handoff_result = False
     bg_exit_kind = (
         _BG_EXIT_RESULT_KINDS.get(process.returncode or 0)
@@ -886,8 +898,14 @@ def run_claude_role(
             or (
                 "handoff_missing"
                 if handoff_state == "found" and not artifacts_complete
+                # On a failed bg run (exit not 0/10) the generic classifier
+                # must never see handoff_state="found": that back door would
+                # re-grant handoff_json to e.g. exit 130 with a restored
+                # handoff, violating the only-wins-on-0/10 invariant.
                 else classify_result_kind(
-                    process.returncode or 1, stderr, handoff_state
+                    process.returncode or 1,
+                    stderr,
+                    "missing" if (bg_failed and handoff_state == "found") else handoff_state,
                 )
             )
         )

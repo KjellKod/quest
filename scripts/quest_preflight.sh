@@ -65,7 +65,11 @@ cleanup_bg_probes() {
   fi
 }
 
-trap cleanup_bg_probes EXIT INT TERM
+# EXIT handles the normal path; INT/TERM must actually terminate (a bare
+# function trap can let bash resume after cleanup, swallowing Ctrl-C/CI kill).
+trap cleanup_bg_probes EXIT
+trap 'cleanup_bg_probes; trap - EXIT; exit 130' INT
+trap 'cleanup_bg_probes; trap - EXIT; exit 143' TERM
 
 ###############################################################################
 # Argument Parsing

@@ -1215,6 +1215,9 @@ def test_restored_stale_handoff_cannot_mask_bg_failure(tmp_path):
     for exit_code, status, expected_kind in (
         (3, "dispatch_failed", "invocation_error"),
         (5, "timeout", "timeout"),
+        # Unmapped exits (130) must not sneak back to handoff_json through the
+        # generic classifier seeing handoff_state="found".
+        (130, "interrupted", "handoff_missing"),
     ):
         bg_runner = tmp_path / f"fake_bg_runner_mask_{exit_code}.py"
         _write_executable(
