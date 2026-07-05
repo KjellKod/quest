@@ -62,7 +62,7 @@ Current roadmap:
 | File | Status | Purpose |
 |---|---|---|
 | `codex_calls_claude.sh` | reference | Older experimental bash bridge prototype retained as a reference alongside the supported Python bridge. |
-| `quest-needs-human-resume-relay.md` | proposed | Wire claude_bg_run.py's needs_human → --resume relay into quest phases so a parked background session can be answered instead of re-dispatched. |
+| `quest-needs-human-resume-relay.md` | shipped (PR #142) | Full same-session relay wired: parked session id persisted via `quest_state.py --parked-bg-session`, runner `--resume/--answer-file`, cold-restart re-presentation, quest-end sweep. File kept for its measurement-gate notes. |
 
 ### Execution Discipline and Observability
 | File | Status | Purpose |
@@ -87,6 +87,8 @@ Current roadmap:
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| done | ~~2026-07-04-bg-transport-hardening-quest-brief~~ | Shipped in PR #142 (quest bg-transport-hardening_2026-07-04__1043): truthful block-cause classification, verified teardown, leak-proof sweeps, needs_human same-session relay, end-to-end model passthrough, docs accuracy sweep. Archived at [`ideas/archive/2026-07-04-bg-transport-hardening-quest-brief.md`](archive/2026-07-04-bg-transport-hardening-quest-brief.md). |
+| done | ~~2026-07-03-claude-model-alias-dispatch-bug~~ | Resolved in PR #142: the `claude` sentinel never reaches the CLI as `--model claude`, concrete IDs pass verbatim, rejection reports `model_rejected` naming the model. Archived at [`ideas/archive/2026-07-03-claude-model-alias-dispatch-bug.md`](archive/2026-07-03-claude-model-alias-dispatch-bug.md). |
 | done | ~~2026-05-31-codex-driven-interactive-claude-relay~~ | Implemented: Step 1 standalone `claude --bg` runner (PR #136) + Step 2 Quest wiring with `claude_role_transport: auto` default. Archived at [`ideas/archive/2026-05-31-codex-driven-interactive-claude-relay.md`](archive/2026-05-31-codex-driven-interactive-claude-relay.md). |
 | done | ~~2026-05-26-native-runtime-dispatch~~ | Encoded in the canonical dispatch matrix (`.skills/quest/delegation/workflow.md`) and `select_role_runtime()`. Archived at [`ideas/archive/2026-05-26-native-runtime-dispatch.md`](archive/2026-05-26-native-runtime-dispatch.md). |
 | superseded | ~~2026-05-31-quest-model-capability-improvements~~ | Transport portion landed with the `claude --bg` migration; measurement items re-proposable individually. Archived at [`ideas/archive/2026-05-31-quest-model-capability-improvements.md`](archive/2026-05-31-quest-model-capability-improvements.md). |

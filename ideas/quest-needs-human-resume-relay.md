@@ -1,7 +1,7 @@
 # Quest needs_human → Resume Relay
 
 Date: 2026-06-11 (updated 2026-06-16)
-Status: `proposed` — stopgap shipped in PR #137; full interactive relay deferred
+Status: `shipped` — stopgap in PR #137; full same-session relay implemented in PR #142 (park, persist id in state.json, resume with the human's answer, cold-restart re-presentation, quest-end sweep)
 Related: `scripts/claude_bg_run.py`, `scripts/quest_runtime/claude_runner.py`
 (`build_bg_cmd`), `docs/implementation/claude-bg-transport-step2-wiring.md`
 (declared this out of scope), `docs/implementation/history` (Step-1/Step-2 docs

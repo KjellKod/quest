@@ -3,7 +3,7 @@ title: Quest Brief — Harden the Claude background-agent transport
 purpose: Ready-to-run quest prompt fixing the six confirmed bg-transport defects from the 2026-07-03/04 incidents.
 audience: Quest orchestrator (Claude-led or Codex-led) and human maintainers.
 scope: scripts/claude_bg_run.py, scripts/quest_runtime/claude_runner.py, scripts/quest_claude_runner.py, scripts/quest_preflight.sh, .skills/quest/delegation/workflow.md, scripts/quest_installer.sh
-status: proposed
+status: shipped — PR #142 (quest bg-transport-hardening_2026-07-04__1043); all six work items + docs workstream implemented; the rate_limited park-until-reset stretch was explicitly de-scoped in the approved plan
 owner: maintainers
 ---
 

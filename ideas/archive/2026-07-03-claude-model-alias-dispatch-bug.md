@@ -1,7 +1,7 @@
 # Bug Report: Codex-Led Claude Dispatch Passes Runtime Sentinel as CLI Model
 
 Date: 2026-07-03
-Status: confirmed incident; implementation follow-up needed
+Status: resolved — shipped in PR #142 (quest bg-transport-hardening_2026-07-04__1043); all acceptance criteria implemented and test-pinned
 Observed in: `/Users/kjell/ws/ai-tools/internal-ai-tool-platform`
 Quest: `d1-cleanup_2026-07-03__1453`
 
