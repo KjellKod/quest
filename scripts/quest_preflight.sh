@@ -50,10 +50,18 @@ cleanup_bg_probes() {
   # start/resume (workflow.md), not by every preflight exit.
   if [ -n "$CURRENT_BG_PROBE_NAME" ]; then
     # Our own probe session: include active rows (a mid-probe session is ours
-    # to stop). An overridden older runner may not know the flag — fall back
-    # to a plain sweep rather than silently leaking the probe.
-    python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" --sweep-include-active >/dev/null 2>&1 \
-      || python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" >/dev/null 2>&1 || true
+    # to stop). Only an unrecognized-flag error (overridden older runner)
+    # falls back to a plain sweep; any REAL failure is surfaced on stderr
+    # (stdout carries the preflight JSON payload) with the manual command.
+    local sweep_out
+    if ! sweep_out=$(python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" --sweep-include-active 2>&1); then
+      if printf '%s' "$sweep_out" | grep -qi "unrecognized arguments"; then
+        sweep_out=$(python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" 2>&1) \
+          || echo "WARNING: preflight probe sweep failed; stop it manually: python3 $CLAUDE_BG_RUNNER_SCRIPT --sweep $CURRENT_BG_PROBE_NAME --sweep-include-active" >&2
+      else
+        echo "WARNING: preflight probe sweep failed; stop it manually: python3 $CLAUDE_BG_RUNNER_SCRIPT --sweep $CURRENT_BG_PROBE_NAME --sweep-include-active" >&2
+      fi
+    fi
   fi
 }
 

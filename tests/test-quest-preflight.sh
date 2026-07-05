@@ -114,6 +114,11 @@ write_prompt_not_consumed_bg_runner() {
 import json
 import sys
 
+args = sys.argv[1:]
+if "--sweep" in args:
+    # The real runner always supports --sweep; the cleanup trap exercises it.
+    print("sweep complete")
+    sys.exit(0)
 print(json.dumps({
     "status": "blocked",
     "message": "background session registered but did not consume the initial prompt (Claude CLI reported: send a prompt to start)",
