@@ -77,6 +77,9 @@ EXIT_DISPATCH_FAILED = 3  # never registered with the supervisor
 EXIT_BLOCKED = 4  # leaked interactive prompt (state=blocked)
 EXIT_TIMEOUT = 5
 EXIT_SESSION_FAILED = 6  # vanished / done-without-artifacts (incomplete)
+EXIT_RATE_LIMITED = 7  # account session/rate limit; retry after reset
+EXIT_STARTUP_DIALOG = 8  # trust/bypass dialog before the prompt was consumed
+EXIT_MODEL_REJECTED = 9  # CLI rejected the selected model
 EXIT_NEEDS_HUMAN = 10  # actionable, not a failure: agent asked for a decision
 EXIT_INTERRUPTED = 130  # Ctrl-C: session torn down before exit
 
@@ -265,9 +268,9 @@ class Envelope:
             "precondition_failed": EXIT_PRECONDITION,
             "dispatch_failed": EXIT_DISPATCH_FAILED,
             "blocked": EXIT_BLOCKED,
-            "rate_limited": EXIT_BLOCKED,
-            "startup_dialog": EXIT_BLOCKED,
-            "model_rejected": EXIT_PRECONDITION,
+            "rate_limited": EXIT_RATE_LIMITED,
+            "startup_dialog": EXIT_STARTUP_DIALOG,
+            "model_rejected": EXIT_MODEL_REJECTED,
             "timeout": EXIT_TIMEOUT,
             "session_failed": EXIT_SESSION_FAILED,
             "incomplete": EXIT_SESSION_FAILED,
@@ -629,6 +632,28 @@ class BgRunner:
             self._read_source(self.a.answer, self.a.answer_file, "answer (resume mode needs --answer/--answer-file)")
         )
 
+    def _fresh_dispatch_preserving_outputs(
+        self, message: str, *, exempt_same_name_short_id: str | None = None
+    ) -> DispatchResult:
+        """Fresh dispatch wrapped in the reversible stale-output guard.
+
+        Snapshot handoff + wait_for, clear them (stale content must not
+        satisfy this run), dispatch fresh; on ANY unconfirmed dispatch —
+        including a refused same-name working session, and the resume
+        fallback's failed re-dispatch (PR #137 review) — restore the snapshot
+        so pre-existing questions/artifacts survive for a later retry. The
+        single owner of this transaction: both the plain fresh path and the
+        resume fallback must never diverge on restore semantics.
+        """
+        outputs = self._snapshot_outputs(include_wait_for=True)
+        self._clear_stale_outputs(include_wait_for=True)
+        dispatch = self.dispatch_and_confirm(
+            message, None, exempt_same_name_short_id=exempt_same_name_short_id
+        )
+        if dispatch.terminal_status:
+            self._restore_outputs(outputs)
+        return dispatch
+
     def _fallback_prompt(self, answer: str) -> str:
         task = self._read_source(self.a.prompt, self.a.prompt_file, "prompt")
         return f"{task}\n\nThe human answered your earlier question:\n{answer}\n"
@@ -885,25 +910,13 @@ class BgRunner:
                     env.status, env.message = "precondition_failed", str(exc)
                     return env
                 env.resumed, env.fell_back = False, True
-                # Committing to a fresh run: clear the parked handoff + wait_for
-                # as the stale guard (the answer is carried into the new prompt).
-                # Snapshot them FIRST so a failed fresh dispatch can restore the
-                # parked session's question AND any artifacts it already wrote —
-                # clearing before the re-dispatch is confirmed must be reversible
-                # (PR #137 review).
-                parked_outputs = self._snapshot_outputs(include_wait_for=True)
-                self._clear_stale_outputs(include_wait_for=True)
-                dispatch2 = self.dispatch_and_confirm(
-                    fb,
-                    None,
-                    exempt_same_name_short_id=parent_short_id,
+                dispatch2 = self._fresh_dispatch_preserving_outputs(
+                    fb, exempt_same_name_short_id=parent_short_id
                 )
                 if dispatch2.terminal_status:
-                    # Fresh re-dispatch failed too: restore the parked outputs so
-                    # the question (and any artifacts) survive for a later retry,
-                    # and leave the parked session alive (teardown below is not
-                    # reached).
-                    self._restore_outputs(parked_outputs)
+                    # Restore already happened; leave the parked session alive
+                    # (teardown below is not reached) so a later retry can
+                    # still answer the question.
                     self._copy_dispatch_result(env, dispatch2)
                     env.message = (
                         f"resume failed ({dispatch.message}); "
@@ -920,15 +933,8 @@ class BgRunner:
             else:
                 short_id, row = dispatch.short_id, dispatch.row
         else:
-            # Snapshot before the stale-guard clear so a dispatch that never
-            # confirms — including a refused same-name working session (a
-            # concurrent orchestrator may be mid-write on these very paths) —
-            # can restore whatever was there instead of destroying it.
-            fresh_outputs = self._snapshot_outputs(include_wait_for=True)
-            self._clear_stale_outputs(include_wait_for=True)
-            dispatch = self.dispatch_and_confirm(message, None)
+            dispatch = self._fresh_dispatch_preserving_outputs(message)
             if dispatch.terminal_status:
-                self._restore_outputs(fresh_outputs)
                 self._copy_dispatch_result(env, dispatch)
                 env.duration_s = round(time.monotonic() - t0, 1)
                 return env

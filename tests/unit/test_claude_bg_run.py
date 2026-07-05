@@ -621,7 +621,7 @@ def test_dispatch_output_rate_limit_reports_reset_time(shim, tmp_path, monkeypat
 
     assert env.status == "rate_limited"
     assert env.reset_at == "2pm (America/Chicago)"
-    assert env.exit_code() == bg.EXIT_BLOCKED
+    assert env.exit_code() == bg.EXIT_RATE_LIMITED
     assert "retry after reset" in env.message
 
 
@@ -632,7 +632,7 @@ def test_dispatch_output_model_rejected_sets_structured_model(shim, tmp_path, mo
 
     assert env.status == "model_rejected"
     assert env.rejected_model == "claude-bad-1"
-    assert env.exit_code() == bg.EXIT_PRECONDITION
+    assert env.exit_code() == bg.EXIT_MODEL_REJECTED
 
 
 def test_generic_data_model_prose_does_not_classify_as_model_rejected(

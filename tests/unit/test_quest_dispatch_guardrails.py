@@ -227,14 +227,14 @@ def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
     # hand-edit of state.json), and clearing must be documented too.
     assert "scripts/quest_state.py --quest-dir .quest/<id> --parked-bg-session" in workflow
     assert "--clear-parked-bg-session" in workflow
-    assert "Cap repeated questions for one role at 3 loops" in workflow
+    assert "Cap repeated questions" in workflow  # anchor, not exact prose
     assert "For abandon/manual cleanup, run `python3 scripts/claude_bg_run.py --sweep quest-<id>-`" in workflow
     assert "**`rate_limited`:** Do NOT blind retry" in workflow
     assert "Surface `reset_at` when present" in workflow
     assert "**`startup_dialog`:** Do NOT retry" in workflow
-    assert "accept trust/bypass prompts" in workflow
+    assert "trust/bypass" in workflow  # anchor, not exact prose
     assert "**`model_rejected`:** Do NOT retry" in workflow
-    assert "name `rejected_model` when present" in workflow
+    assert "`rejected_model`" in workflow  # anchor, not exact prose
     # The human must be told WHERE to change the model, a leaked session must
     # never ride silently on success, and a cold restart must re-present a
     # parked role's pending questions before any other routing.

@@ -1021,21 +1021,18 @@ sys.exit(4)
 def test_bg_probe_failure_classifier_distinguishes_setup_failures():
     classify = claude_runner_module.classify_bg_probe_failure
 
+    # The transport kinds (rate_limited/startup_dialog/model_rejected) are NOT
+    # classified from stderr prose — run_bg_probe reads the structured envelope
+    # status for them (see test_bg_probe_reports_rate_limited_result_kind), and
+    # substring-matching would misclassify agent text that merely mentions
+    # limits or models.
     assert (
-        classify("bg status=rate_limited; bg message=You've hit your session limit; resets 2pm (America/Chicago)")
-        == "rate_limited"
+        classify("agent output discussed the session limit and rate limit logic")
+        is None
     )
     assert (
-        classify(
-            "bg status=startup_dialog; bg message=background session registered "
-            "but did not consume the initial prompt (Claude CLI reported: "
-            "idle - send a prompt to start)"
-        )
-        == "startup_dialog"
-    )
-    assert (
-        classify("bg status=model_rejected; bg message=Claude CLI rejected the selected model (opus)")
-        == "model_rejected"
+        classify("prose mentioning an issue with the selected model naming")
+        is None
     )
     assert (
         classify("bypassPermissions not accepted; run claude --dangerously-skip-permissions")

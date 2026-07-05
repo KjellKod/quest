@@ -95,6 +95,9 @@ _BG_EXIT_RESULT_KINDS: dict[int, str] = {
     3: "invocation_error",
     4: "invocation_error",
     5: "timeout",
+    7: "rate_limited",
+    8: "startup_dialog",
+    9: "model_rejected",
 }
 
 _BG_STATUS_RESULT_KINDS: dict[str, str] = {
@@ -375,14 +378,14 @@ def _run_result_fields_from_bg(stdout: str) -> dict:
 
 
 def classify_bg_probe_failure(stderr: str) -> str | None:
-    """Return a specific bg preflight failure kind when stderr is recognizable."""
+    """Return a specific bg preflight failure kind when stderr is recognizable.
+
+    Legacy stderr-only signals. The rate_limited/startup_dialog/model_rejected
+    kinds are NOT classified here: they arrive as the structured envelope
+    `status`, which run_bg_probe reads directly — substring-matching prose for
+    them would misclassify agent text that merely mentions limits/models.
+    """
     normalized = stderr.lower()
-    if "rate_limited" in normalized or "session limit" in normalized or "rate limit" in normalized:
-        return "rate_limited"
-    if "startup_dialog" in normalized or "trust this folder" in normalized or "do you trust" in normalized:
-        return "startup_dialog"
-    if "model_rejected" in normalized or "rejected the selected model" in normalized or "issue with the selected model" in normalized:
-        return "model_rejected"
     if "dangerously-skip-permissions" in normalized or (
         "bypasspermissions" in normalized and "accepted" in normalized
     ):
@@ -852,6 +855,13 @@ def run_claude_role(
         else {}
     )
     bg_status_kind = _BG_STATUS_RESULT_KINDS.get(str(bg_fields.get("status") or ""))
+    # A terminal transport status (rate_limited/startup_dialog/model_rejected)
+    # is the truth about THIS run and must outrank a found handoff: a failed
+    # resume deliberately RESTORES the parked needs_human handoff, and letting
+    # that stale handoff win would report success, re-ask the human their
+    # already-answered question, and bury reset_at/rejected_model.
+    if bg_status_kind:
+        handoff_result = False
     bg_exit_kind = (
         _BG_EXIT_RESULT_KINDS.get(process.returncode or 0)
         if transport == "background-agent"
@@ -1118,7 +1128,12 @@ def run_bg_probe(
         detail = _bg_failure_detail(cp.stdout)
         if detail:
             stderr = f"{stderr}\n{detail}".strip()
-    specific_failure = classify_bg_probe_failure(stderr)
+    # Structured envelope status is authoritative for the transport kinds;
+    # the stderr classifier only covers legacy signals with no envelope.
+    bg_status_kind = _BG_STATUS_RESULT_KINDS.get(
+        str((_bg_envelope(cp.stdout) or {}).get("status") or "")
+    )
+    specific_failure = bg_status_kind or classify_bg_probe_failure(stderr)
     if probe_ok:
         result_kind = "handoff_json"
     elif handoff_state == "found" and not artifact_present:
