@@ -404,7 +404,13 @@ def _sweep_parked_bg_sessions(quest_dir: Path) -> subprocess.CompletedProcess | 
         return None
     if result.returncode == 0:
         if result.stdout.strip().startswith("sweep skipped:"):
-            print(f"Claude bg sweep before archive skipped: {prefix}")
+            # Skipped means cleanup was NOT verified (CLI/roster unavailable) —
+            # same honesty rule as the incomplete/active cases.
+            print(
+                "WARNING: Claude bg sweep before archive skipped — cleanup "
+                "could not be verified; session(s) may remain live. Run "
+                f"manually: python3 {runner} --sweep {prefix} --sweep-include-active"
+            )
         elif "skipped active" in result.stdout:
             # Exit 0, but rows were deliberately spared (active/unknown shape).
             # At completion nothing should still be running for this quest —
