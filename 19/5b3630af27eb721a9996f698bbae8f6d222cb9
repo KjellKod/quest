@@ -1,0 +1,43 @@
+scripts/quest_claude_runner.py
+  s_75f54b38224c0e::t_5d095c48dd5f9a 98-99
+tests/unit/test_quest_runtime.py
+  s_75f54b38224c0e::t_9d3a21c1979ebe 1715-1720,1723-1756
+  s_75f54b38224c0e::t_586ef59365eabd 1721-1722
+tests/unit/test_quest_dispatch_guardrails.py
+  s_75f54b38224c0e::t_7771c6df152acf 216-223
+scripts/claude_bg_run.py
+  s_75f54b38224c0e::t_01b18765e9a6cb 426-427,429-430,433,436-449,453,465
+  s_75f54b38224c0e::t_35ce10f2d00389 510-520
+  s_75f54b38224c0e::t_b31201998d5a4f 975-985,988-993
+  s_75f54b38224c0e::t_a316c2e54164ee 716-718,720-721
+  s_75f54b38224c0e::t_10a02b754ee20d 88-90,92-93
+  s_75f54b38224c0e::t_177e34c4cdaf2a 311-341
+scripts/quest_claude_probe.py
+  s_75f54b38224c0e::t_1903878ee08321 43-46
+.skills/quest/delegation/workflow.md
+  s_75f54b38224c0e::t_b26deedb39e30b 1377
+  s_75f54b38224c0e::t_ed77af07fbc745 192
+tests/unit/test_quest_complete.py
+  s_75f54b38224c0e::t_2170ef3bfc9c25 482-488
+tests/unit/test_claude_bg_run.py
+  s_75f54b38224c0e::t_1ac38f1e4d0d81 542
+  s_75f54b38224c0e::t_ccacb946089c9c 528-541,543-593
+scripts/quest_complete.py
+  s_75f54b38224c0e::t_d6e887d307b9cd 413-415,417-419,421-423
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "195b3630af27eb721a9996f698bbae8f6d222cb9",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
