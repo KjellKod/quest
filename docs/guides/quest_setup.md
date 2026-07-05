@@ -254,7 +254,7 @@ claude --dangerously-skip-permissions
 
 Accept the prompt, exit Claude, return to Quest, and rerun preflight.
 
-Quest sends the initial background prompt on stdin, not as a trailing argv argument. This is required for Claude Code 2.1.191, where positional prompt delivery registers a session but parks it at `idle — send a prompt to start`. If Quest still reports `bg_initial_prompt_not_consumed`, treat that as a bg prompt-delivery regression and use `"bridge"` only if you explicitly accept API-metered bridge billing.
+Quest sends the initial background prompt on stdin, not as a trailing argv argument. This became required starting with Claude Code 2.1.191, where positional prompt delivery registers a session but parks it at `idle — send a prompt to start`. If Quest still reports `bg_initial_prompt_not_consumed`, treat that as a bg prompt-delivery regression and use `"bridge"` only if you explicitly accept API-metered bridge billing.
 
 `models.<role> = "claude"` is a sentinel for the Claude CLI/account default model. Quest passes the sentinel into its own runner, but the runner omits the CLI `--model` flag. Concrete configured models such as `sonnet` or full Claude model IDs pass through unchanged. If Claude rejects a concrete model, Quest reports `model_rejected` instead of downgrading or guessing.
 

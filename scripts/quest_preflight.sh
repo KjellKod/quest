@@ -478,7 +478,7 @@ raise SystemExit(0 if isinstance(data, list) else 1)
       warning_lines="${warning_lines}    \"  Claude rejected the configured probe model. Set the model to the literal value claude (account default) or a concrete supported model, in .ai/allowlist.json models.* or the per-quest chooser.\",\n"
     elif [ "$probe_result_kind" = "bg_initial_prompt_not_consumed" ]; then
       warning_lines="${warning_lines}    \"  Claude background session registered but did not consume the initial prompt (Claude CLI reported: send a prompt to start).\",\n"
-      warning_lines="${warning_lines}    \"  Quest sends bg prompts on stdin for Claude Code 2.1.191 compatibility; this indicates a remaining bg prompt-delivery regression.\",\n"
+      warning_lines="${warning_lines}    \"  Quest sends bg prompts on stdin (required since Claude Code 2.1.191); this indicates a remaining bg prompt-delivery regression.\",\n"
       warning_lines="${warning_lines}    \"  Use claude_role_transport=bridge only if you explicitly accept API-metered bridge billing for this run.\",\n"
     elif [ "$probe_result_kind" = "hook_startup_failed" ]; then
       warning_lines="${warning_lines}    \"  Claude startup hook failed. Check .claude/hooks permissions, especially executable bits, then rerun Quest.\",\n"
