@@ -1,0 +1,39 @@
+scripts/quest_claude_runner.py
+  s_75f54b38224c0e::t_69e18cd02a8534 99-102
+scripts/quest_claude_probe.py
+  s_75f54b38224c0e::t_25610c1c2060c4 45-48
+tests/unit/test_claude_bg_run.py
+  s_75f54b38224c0e::t_039431d244a442 594-612
+  s_75f54b38224c0e::t_f4487153c74b42 904-906
+  s_75f54b38224c0e::t_0a7b1fe6e417f2 923-924
+scripts/claude_bg_run.py
+  s_75f54b38224c0e::t_785e0fb45ba9ab 93-94
+  s_75f54b38224c0e::t_3bc5791c963fee 993-995
+  s_75f54b38224c0e::t_c7a2df5ac5e0d6 721-724
+  s_75f54b38224c0e::t_41c1002685e3d3 1001
+  s_75f54b38224c0e::t_cfb3543126fa0a 43-44,46-47
+  s_75f54b38224c0e::t_9e00a2e3e46323 671-672
+  s_75f54b38224c0e::t_15c89415905018 1039-1042,1044,1046
+  s_75f54b38224c0e::t_6b6072fc212be1 535-539
+  s_75f54b38224c0e::t_6214c4af3e2438 1009-1010,1015-1017
+scripts/quest_runtime/claude_runner.py
+  s_75f54b38224c0e::t_605da676527981 664-704
+tests/unit/test_quest_runtime.py
+  s_75f54b38224c0e::t_2f5bad3996584e 1717-1741
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1d363c56b1fdaa82ef0179121a744df8e078286e",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
