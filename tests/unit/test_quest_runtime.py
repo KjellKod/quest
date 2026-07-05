@@ -2008,6 +2008,34 @@ def test_run_claude_role_empty_model_returns_invocation_error(tmp_path):
     assert "model" in result.stderr.lower()
 
 
+def test_cli_resume_and_answer_file_require_each_other():
+    import sys
+
+    saved = sys.argv
+    base = [
+        "quest_claude_runner.py",
+        "--quest-dir", "/tmp/x",
+        "--phase", "plan",
+        "--agent", "planner",
+        "--iter", "1",
+        "--prompt-file", "/tmp/p",
+        "--handoff-file", "/tmp/h",
+        "--model", "claude",
+        "--transport", "background-agent",
+    ]
+    try:
+        for extra in (["--resume", "abc12345"], ["--answer-file", "/tmp/a"]):
+            sys.argv = base + extra
+            try:
+                quest_claude_runner.parse_args()
+            except SystemExit as exc:
+                assert exc.code == 2
+            else:
+                raise AssertionError(f"Expected {extra[0]} without its pair to be rejected")
+    finally:
+        sys.argv = saved
+
+
 def test_cli_rejects_empty_or_whitespace_model():
     # An empty models.<role> value must die at argparse with a clear message,
     # not surface later as an unhandled ValueError traceback the orchestrator

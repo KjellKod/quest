@@ -102,6 +102,11 @@ def parse_args() -> argparse.Namespace:
         )
     if args.answer_file and not args.resume:
         parser.error("--answer-file requires --resume (the parked session to continue)")
+    if args.resume and not args.answer_file:
+        parser.error(
+            "--resume requires --answer-file (the human's reply to deliver); "
+            "without it the bg runner would fall back to reading stdin"
+        )
     if (args.resume or args.answer_file) and args.transport == "bridge":
         parser.error(
             "--resume/--answer-file require the background-agent transport; "
