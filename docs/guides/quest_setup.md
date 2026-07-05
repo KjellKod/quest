@@ -256,7 +256,9 @@ Accept the prompt, exit Claude, return to Quest, and rerun preflight.
 
 Quest sends the initial background prompt on stdin, not as a trailing argv argument. This became required starting with Claude Code 2.1.191, where positional prompt delivery registers a session but parks it at `idle — send a prompt to start`. If Quest still reports `bg_initial_prompt_not_consumed`, treat that as a bg prompt-delivery regression and use `"bridge"` only if you explicitly accept API-metered bridge billing.
 
-`models.<role> = "claude"` is a sentinel for the Claude CLI/account default model. Quest passes the sentinel into its own runner, but the runner omits the CLI `--model` flag. Concrete configured models such as `sonnet` or full Claude model IDs pass through unchanged. If Claude rejects a concrete model, Quest reports `model_rejected` instead of downgrading or guessing.
+`models.<role> = "claude"` is a sentinel for the Claude CLI/account default model. Quest passes the sentinel into its own runner, but the runner omits the CLI `--model` flag. If Claude rejects a concrete model, Quest reports `model_rejected` instead of downgrading or guessing.
+
+To pin a **specific Claude model** for a role, put its full `claude-`-prefixed model ID in `models.<role>` (in `.ai/allowlist.json`, or per quest via the orchestration chooser override, e.g. `planner=claude-fable-5`): `claude-fable-5`, `claude-opus-4-8`, `claude-sonnet-5`, and so on. The ID passes verbatim to the CLI's `--model`. **Do not use bare CLI aliases like `opus` or `sonnet` in `models.<role>`** — Quest classifies the role's runtime by the `claude`/`claude-*` shape, so a bare alias would route the role to the Codex runtime. (Bare aliases are fine only when invoking `scripts/quest_claude_runner.py`/`quest_claude_probe.py` directly with `--model`.) To preflight a concrete model instead of the account default, set `QUEST_CLAUDE_PROBE_MODEL=claude-fable-5`.
 
 **Prerequisites (both transports):** Claude CLI installed and authenticated (`claude auth status` should show a valid session).
 
