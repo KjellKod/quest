@@ -785,7 +785,13 @@ def run_claude_role(
             except (OSError, subprocess.SubprocessError):
                 stderr = f"{stderr}\n{sweep_warning}".strip()
             else:
-                if sweep_cp.returncode != 0 or "teardown_failed" in sweep_cp.stdout:
+                # "sweep skipped:" also exits 0 (CLI/roster unavailable) —
+                # cleanup was NOT verified in that case either.
+                if (
+                    sweep_cp.returncode != 0
+                    or "teardown_failed" in sweep_cp.stdout
+                    or "sweep skipped:" in sweep_cp.stdout
+                ):
                     stderr = f"{stderr}\n{sweep_warning}".strip()
     else:
         while time.monotonic() < deadline:

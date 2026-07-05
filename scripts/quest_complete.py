@@ -549,7 +549,7 @@ def main() -> int:
         print(f"Quest archived: {archive_path}")
 
     # Historical needs_human rollup (runs after archival so this quest counts).
-    # Feeds the measurement gate in ideas/quest-needs-human-resume-relay.md.
+    # Feeds the measurement gate in ideas/2026-07-05-bg-claude-ask-policy-relaxation.md.
     status_stats = _handoff_status_stats(archive_root)
     print(
         f"needs_human across archive: {status_stats['needs_human']} occurrence(s) "

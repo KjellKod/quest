@@ -248,7 +248,7 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 <timestamp> | phase=<phase> | agent=<agent_name> | runtime=claude|codex | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback[ | status=complete|needs_human|blocked][ | transport=background-agent|bridge]
 ```
 
-**Status field (whenever the handoff status is known — any runtime):** record the handoff's own `status` verbatim as `status=complete|needs_human|blocked`. Include it on orchestrator-written lines (native `Task(...)`, Codex roles) whenever you read a parsable handoff or a text-fallback `STATUS:` line; `python3 scripts/quest_claude_runner.py` appends it automatically. **Omit the field — never guess — when the handoff is missing, unparsable, or carries an unknown value.** Counting contract: consumers (the quest-end needs_human rollup in `scripts/quest_complete.py`, and the measurement gate in `ideas/quest-needs-human-resume-relay.md`) count only lines that explicitly carry `status=`; lines without it are excluded from both numerator and denominator, so legacy logs that predate the field never skew the statistics.
+**Status field (whenever the handoff status is known — any runtime):** record the handoff's own `status` verbatim as `status=complete|needs_human|blocked`. Include it on orchestrator-written lines (native `Task(...)`, Codex roles) whenever you read a parsable handoff or a text-fallback `STATUS:` line; `python3 scripts/quest_claude_runner.py` appends it automatically. **Omit the field — never guess — when the handoff is missing, unparsable, or carries an unknown value.** Counting contract: consumers (the quest-end needs_human rollup in `scripts/quest_complete.py`, and the measurement gate in `ideas/2026-07-05-bg-claude-ask-policy-relaxation.md`) count only lines that explicitly carry `status=`; lines without it are excluded from both numerator and denominator, so legacy logs that predate the field never skew the statistics.
 
 **Transport field (Codex-led Claude roles only — mandatory there, absent everywhere else):** `python3 scripts/quest_claude_runner.py` appends `transport=background-agent|bridge` automatically on the lines it writes. Native `Task(...)` and Codex-runtime invocations never carry a `transport=` field — its presence is exactly what the Step 7 transport snapshot and the celebration key on.
 
@@ -1383,7 +1383,7 @@ If a Claude role returns `STATUS: needs_human`:
    - Cap repeated questions for one role at 3 loops; after that, route to blocked with the parked session id and the last question in the summary.
 6. Repeat until agent returns `complete` or `blocked`; do not sweep a deliberately parked session while waiting for the human answer.
 
-Every pass through this loop produces its own `context_health.log` line carrying `status=needs_human` (the runner writes it automatically; write it yourself for native `Task(...)` roles). This is the measurement feed for `ideas/quest-needs-human-resume-relay.md` — skipping it makes the resume-relay decision unanswerable.
+Every pass through this loop produces its own `context_health.log` line carrying `status=needs_human` (the runner writes it automatically; write it yourself for native `Task(...)` roles). This is the measurement feed for `ideas/2026-07-05-bg-claude-ask-policy-relaxation.md` — skipping it makes the ask-policy decision unanswerable.
 
 ---
 

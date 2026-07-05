@@ -1208,6 +1208,58 @@ raise SystemExit({exit_code})
         assert f"synthetic failure {exit_code}" in result.stderr
 
 
+def test_overrun_sweep_unverified_cleanup_is_reported(tmp_path, monkeypatch):
+    # When the bg child overruns and is killed, the by-name sweep is the only
+    # cleanup; an unverified sweep (nonzero, teardown_failed, or the exit-0
+    # "sweep skipped:" path) must surface recovery guidance in stderr.
+    bg_runner = tmp_path / "fake_bg_runner_overrun.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import time
+time.sleep(5)
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("x\n", encoding="utf-8")
+    monkeypatch.setattr(claude_runner_module, "_BG_TEARDOWN_MARGIN_SECONDS", 0.1)
+
+    real_run = claude_runner_module.subprocess.run
+
+    def fake_sweep_run(cmd, **kwargs):
+        assert "--sweep" in cmd and "--sweep-include-active" in cmd
+        return claude_runner_module.subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout="sweep skipped: claude CLI not found in PATH",
+            stderr="",
+        )
+
+    monkeypatch.setattr(claude_runner_module.subprocess, "run", fake_sweep_run)
+    try:
+        result = run_claude_role(
+            cwd=tmp_path,
+            quest_dir=tmp_path,
+            phase="plan",
+            agent="planner",
+            iteration=1,
+            prompt_file=prompt_file,
+            handoff_file=tmp_path / "handoff.json",
+            bridge_script=tmp_path / "unused_bridge.py",
+            model="claude",
+            timeout=0.2,
+            permission_mode="bypassPermissions",
+            transport="background-agent",
+            bg_runner_script=bg_runner,
+        )
+    finally:
+        monkeypatch.setattr(claude_runner_module.subprocess, "run", real_run)
+
+    assert result.result_kind == "timeout"
+    assert "overrun cleanup incomplete" in result.stderr
+    assert "--sweep-include-active" in result.stderr
+
+
 def test_restored_stale_handoff_cannot_mask_bg_failure(tmp_path):
     # A failed resume restores the parked needs_human handoff; ANY terminal bg
     # failure (not just the three structured statuses) must outrank it —
