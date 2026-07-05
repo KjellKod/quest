@@ -360,6 +360,10 @@ class BgRunner:
     def __init__(self, args: argparse.Namespace) -> None:
         self.a = args
         self.claude = shlex.split(args.claude_bin)
+        # Set once a dispatch is CONFIRMED: the only session interrupt cleanup
+        # may kill unconditionally — an unconfirmed same-name row may belong
+        # to a concurrent orchestrator.
+        self.confirmed_short_id: str | None = None
 
     # -- thin claude subcommand wrappers (all clean, structured) --------------
     def _claude(self, *sub: str, timeout: float = 30.0) -> subprocess.CompletedProcess:
@@ -961,6 +965,7 @@ class BgRunner:
             short_id, row = dispatch.short_id, dispatch.row
 
         env.short_id = short_id
+        self.confirmed_short_id = short_id
         env.session_id = (row or {}).get("sessionId")
 
         # Clear the parked handoff only now that the resume continuation is
@@ -1207,15 +1212,22 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         # run()'s own handler only covers the WAIT loop; an interrupt during
         # dispatch or final teardown would otherwise leak the (possibly just
-        # forked) detached session with no envelope. Best-effort retire by
-        # name, then exit with the interrupted code.
+        # forked) detached session with no envelope. Only a CONFIRMED session
+        # is provably ours to kill unconditionally; before confirmation a
+        # same-name active row may belong to a concurrent orchestrator, so
+        # the fallback sweep spares active/unknown rows and the human gets
+        # the manual command for anything left.
         print(
-            f"interrupted during dispatch/teardown; sweeping sessions named "
-            f"{args.name!r} best-effort before exit",
+            f"interrupted during dispatch/teardown; cleaning up sessions named "
+            f"{args.name!r} best-effort before exit. If one remains and it is "
+            f"yours, stop it with: python3 scripts/claude_bg_run.py --sweep "
+            f"{args.name} --sweep-include-active",
             file=sys.stderr,
         )
         try:
-            runner.sweep(args.name, include_active=True)  # our own session
+            if runner.confirmed_short_id:
+                runner.stop_session(runner.confirmed_short_id)
+            runner.sweep(args.name)
         except Exception:
             pass
         return EXIT_INTERRUPTED

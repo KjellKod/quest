@@ -53,20 +53,25 @@ cleanup_bg_probes() {
     # to stop). Only an unrecognized-flag error (overridden older runner)
     # falls back to a plain sweep; any REAL failure is surfaced on stderr
     # (stdout carries the preflight JSON payload) with the manual command.
-    local sweep_out
+    # The manual command in warnings must match the variant this runner
+    # actually supports — recommending --sweep-include-active to an older
+    # runner that just rejected it would fail the operator too.
+    local sweep_out manual_cmd
+    manual_cmd="python3 $CLAUDE_BG_RUNNER_SCRIPT --sweep $CURRENT_BG_PROBE_NAME --sweep-include-active"
     if ! sweep_out=$(python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" --sweep-include-active 2>&1); then
       if printf '%s' "$sweep_out" | grep -qi "unrecognized arguments"; then
+        manual_cmd="python3 $CLAUDE_BG_RUNNER_SCRIPT --sweep $CURRENT_BG_PROBE_NAME"
         sweep_out=$(python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" 2>&1) \
-          || echo "WARNING: preflight probe sweep failed; stop it manually: python3 $CLAUDE_BG_RUNNER_SCRIPT --sweep $CURRENT_BG_PROBE_NAME --sweep-include-active" >&2
+          || echo "WARNING: preflight probe sweep failed; stop it manually: $manual_cmd" >&2
       else
-        echo "WARNING: preflight probe sweep failed; stop it manually: python3 $CLAUDE_BG_RUNNER_SCRIPT --sweep $CURRENT_BG_PROBE_NAME --sweep-include-active" >&2
+        echo "WARNING: preflight probe sweep failed; stop it manually: $manual_cmd" >&2
       fi
     fi
     # Exit 0 with "sweep skipped:" (CLI/roster unavailable) is also
     # UNVERIFIED cleanup — same honesty rule as everywhere else.
     case "$sweep_out" in
       *"sweep skipped:"*)
-        echo "WARNING: preflight probe sweep could not be verified; stop it manually: python3 $CLAUDE_BG_RUNNER_SCRIPT --sweep $CURRENT_BG_PROBE_NAME --sweep-include-active" >&2 ;;
+        echo "WARNING: preflight probe sweep could not be verified; stop it manually: $manual_cmd" >&2 ;;
     esac
   fi
 }
