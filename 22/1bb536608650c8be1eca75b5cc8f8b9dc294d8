@@ -1,0 +1,23 @@
+docs/implementation/README.md
+  s_75f54b38224c0e::t_b1f4b2ce447d7e 18-25
+scripts/claude_bg_run.py
+  s_75f54b38224c0e::t_96f1a347afc911 4-5
+tests/unit/test_documentation_contracts.py
+  s_75f54b38224c0e::t_bfdc314b3d387f 16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "221bb536608650c8be1eca75b5cc8f8b9dc294d8",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
