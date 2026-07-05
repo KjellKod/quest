@@ -1,0 +1,31 @@
+scripts/quest_runtime/claude_runner.py
+  s_75f54b38224c0e::t_fb4938fc353f6f 788-794
+ideas/2026-07-05-bg-claude-ask-policy-relaxation.md
+  s_75f54b38224c0e::t_276065c5fbdf49 1-55
+ideas/README.md
+  s_75f54b38224c0e::t_35bf6fb17b7078 65,90
+scripts/quest_complete.py
+  s_75f54b38224c0e::t_35bf6fb17b7078 552
+.skills/quest/delegation/workflow.md
+  s_75f54b38224c0e::t_35bf6fb17b7078 251,1386
+tests/unit/test_quest_runtime.py
+  s_75f54b38224c0e::t_44e1254c77cfec 1211-1262
+ideas/archive/quest-needs-human-resume-relay.md
+  s_75f54b38224c0e::t_35bf6fb17b7078 1-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3053b26810a483d162eb90f4e912863a7b0ddd2f",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
