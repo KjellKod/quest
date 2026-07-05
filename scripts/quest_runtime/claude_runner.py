@@ -586,6 +586,17 @@ def run_claude_role(
         raise ValueError(
             f"transport must be 'bridge' or 'background-agent' (got {transport!r})"
         )
+    if resume is not None and not resume.strip():
+        # Presence means intent: an empty resume reference must fail loudly,
+        # not silently coerce into a fresh (artifact-truncating) dispatch.
+        return RunResult(
+            exit_code=1,
+            handoff_state="missing",
+            result_kind="invocation_error",
+            source=None,
+            stdout="",
+            stderr="resume must be a non-empty session id/short id/name when provided",
+        )
     workspace_root = Path(cwd).resolve()
     resolved_quest_dir = resolve_path(cwd, quest_dir)
     resolved_prompt_file = resolve_path(cwd, prompt_file)
@@ -600,7 +611,7 @@ def run_claude_role(
     # deliberately preserves --wait-for files ("the resumed agent will not
     # rewrite work it believes is done"). Truncating here destroys that work
     # and turns a successfully answered relay into handoff_missing/incomplete.
-    if resolved_artifact_paths and not permission_escalation and not resume:
+    if resolved_artifact_paths and not permission_escalation and resume is None:
         try:
             prepare_artifact_files(resolved_artifact_paths)
         except OSError as exc:

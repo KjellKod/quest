@@ -1680,6 +1680,31 @@ print(json.dumps({"status": "ok", "session_id": "22222222-2222-2222-2222-2222222
     assert result.result_kind == "handoff_json"
 
 
+def test_empty_resume_reference_is_invocation_error(tmp_path):
+    # Presence means intent: `resume=""` must fail loudly, never silently
+    # coerce into a fresh (artifact-truncating) dispatch.
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("x\n", encoding="utf-8")
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=tmp_path / "handoff.json",
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        transport="background-agent",
+        bg_runner_script=tmp_path / "unused_bg_runner.py",
+        resume="  ",
+    )
+    assert result.result_kind == "invocation_error"
+    assert "resume" in result.stderr
+
+
 def test_bridge_never_passes_model_claude_sentinel(monkeypatch, tmp_path):
     # Defense-in-depth at the bridge entrypoint: the sentinel means
     # account-default and must never reach the CLI as --model claude.

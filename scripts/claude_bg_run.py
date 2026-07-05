@@ -994,7 +994,12 @@ class BgRunner:
                         "re-dispatch the task."
                     )
                     break
-                if state == "blocked":
+                if state == "blocked" and row.get("status") != "busy":
+                    # state=blocked + status=busy is an active session
+                    # momentarily awaiting a tool (same mixed-field reality the
+                    # retirement guard honors) — keep polling and classify only
+                    # once the status settles; a persistent block will still be
+                    # here next poll, and a hung one ends at --timeout.
                     # Opportunistic only: Claude Code 2.1.191's initial-prompt
                     # parked signal was observed in dispatch stdout, not here.
                     detail = row.get("waitingFor") or row.get("needs") or row.get("detail")
@@ -1081,9 +1086,15 @@ class BgRunner:
         env.duration_s = round(time.monotonic() - t0, 1)
         if not env.message and env.status == "ok":
             env.message = "completed; declared artifacts present"
-        # A leaked session on an otherwise-successful run must never be silent:
-        # the exit code says ok, so the message is the only surface the caller
-        # is guaranteed to show a human.
+        if env.status == "needs_human" and not env.message:
+            env.message = (
+                "agent needs a human decision; session torn down (caller has no resume loop)"
+                if self.a.teardown_on_needs_human
+                else "agent needs a human decision; session left alive — answer via --resume <session_id|short_id|name> --answer"
+            )
+        # A leaked session must never be silent — appended LAST so it augments
+        # (never replaces) the status's own guidance, including the needs_human
+        # resume instructions above.
         if env.teardown_failed:
             env.message = (
                 f"{env.message} WARNING: session teardown failed; "
@@ -1091,12 +1102,6 @@ class BgRunner:
                 f"live — stop it with: python3 scripts/claude_bg_run.py "
                 f"--sweep {self.a.name}"
             ).strip()
-        if env.status == "needs_human" and not env.message:
-            env.message = (
-                "agent needs a human decision; session torn down (caller has no resume loop)"
-                if self.a.teardown_on_needs_human
-                else "agent needs a human decision; session left alive — answer via --resume <session_id|short_id|name> --answer"
-            )
         return env
 
 

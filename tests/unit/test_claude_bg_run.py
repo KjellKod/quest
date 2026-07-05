@@ -71,6 +71,8 @@ if args[:1] == ["--bg"]:
         st = {"blocked": "blocked", "startup_dialog": "blocked", "model_rejected": "blocked", "rate_limited": "blocked", "incomplete": "done"}.get(eff, "working")
         row = {"pid": 222, "id": sid, "name": name, "sessionId": sid + "-uuid",
                "kind": "background", "state": st, "status": "idle"}
+        if os.environ.get("FAKE_BG_ROW_STATUS"):
+            row["status"] = os.environ["FAKE_BG_ROW_STATUS"]
         if eff == "startup_dialog":
             row["detail"] = "idle — send a prompt to start"
         rs = rows()
@@ -842,6 +844,39 @@ def test_teardown_failure_reported_in_envelope(shim, tmp_path, monkeypatch, kill
     # and the exact sweep command even though teardown_failed is also set.
     assert "WARNING: session teardown failed" in env.message
     assert "--sweep" in env.message
+
+
+def test_blocked_with_busy_status_keeps_polling_not_torn_down(shim, tmp_path, monkeypatch):
+    # state=blocked + status=busy is an active session momentarily awaiting a
+    # tool — the WAIT loop must keep polling instead of classifying blocked and
+    # tearing the working session down. A hung one still ends at --timeout.
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "blocked")
+    monkeypatch.setenv("FAKE_BG_ROW_STATUS", "busy")
+
+    env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "never"), timeout="0.5")).run()
+
+    assert env.status == "timeout"
+    assert env.status != "blocked"
+
+
+def test_needs_human_teardown_warning_keeps_resume_guidance(shim, tmp_path, monkeypatch):
+    # When teardown fails on a needs_human (with --teardown-on-needs-human),
+    # the WARNING must AUGMENT the needs_human guidance, never replace it.
+    def fake_kill_without_settle(pid: int, sig: int) -> None:
+        return None
+
+    monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
+    hand = tmp_path / "handoff.json"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "needs_human")
+    monkeypatch.setenv("FAKE_BG_HANDOFF", str(hand))
+
+    env = bg.BgRunner(
+        _args(shim, handoff_file=str(hand), teardown_on_needs_human=True)
+    ).run()
+
+    assert env.status == "needs_human"
+    assert "agent needs a human decision" in env.message
+    assert "WARNING: session teardown failed" in env.message
 
 
 def test_teardown_failure_on_success_is_not_silent(shim, tmp_path, monkeypatch):
