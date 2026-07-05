@@ -487,7 +487,7 @@ def test_quest_complete_warns_when_sweep_spares_active_sessions(
 
     assert quest_complete.main() == 0
     out = capsys.readouterr().out
-    assert "WARNING: Claude bg sweep before archive left session(s) alive" in out
+    assert "WARNING: Claude bg sweep before archive incomplete" in out
     assert "--sweep quest-bg-active_2026-07-05__0900- --sweep-include-active" in out
     assert (repo_root / ".quest" / "archive" / quest_dir.name).exists()
 
@@ -552,7 +552,7 @@ def test_quest_complete_reports_incomplete_bg_sweep_but_archives(
     # asserted contiguously so a truncated/reordered command cannot pass.
     expected_runner = Path(quest_complete.__file__).resolve().parent / "claude_bg_run.py"
     assert (
-        f"Run manually: python3 {expected_runner} --sweep quest-{quest_dir.name}-"
+        f"run: python3 {expected_runner} --sweep quest-{quest_dir.name}- --sweep-include-active"
         in captured.out
     )
     assert (repo_root / ".quest" / "archive" / quest_dir.name).exists()

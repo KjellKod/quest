@@ -729,7 +729,8 @@ class BgRunner:
                             f"name={same_name_stop.survivor_name} "
                             f"session_id={same_name_stop.survivor_session_id}. "
                             "Wait for it to finish, or stop it deliberately with: "
-                            f"python3 scripts/claude_bg_run.py --sweep {self.a.name}"
+                            f"python3 scripts/claude_bg_run.py --sweep {self.a.name} "
+                            "--sweep-include-active"
                         )
                     else:
                         detail = (
@@ -985,6 +986,10 @@ class BgRunner:
         deadline = time.monotonic() + self.a.timeout
         next_status = 0.0
         grace_left = 2
+        # A freshly confirmed session can read blocked with no transcript for
+        # one poll before its first JSONL flush; require a second consecutive
+        # observation before inferring a startup dialog from the missing file.
+        startup_observations = 0
         try:
           while True:
             now = time.monotonic()
@@ -1052,17 +1057,30 @@ class BgRunner:
                         # its prompt: a startup dialog (trust/bypass) by
                         # definition. An existing transcript with no text
                         # (e.g. a tool_use-only first turn) is NOT that signal
-                        # and falls through to generic blocked.
-                        self._transcript_path(env.session_id) is None
+                        # and falls through to generic blocked. A resumed fork
+                        # cannot hit a trust dialog (the parent already
+                        # accepted it) — its missing file is just flush lag.
+                        (self._transcript_path(env.session_id) is None and not env.resumed)
                         or _STARTUP_DIALOG_RE.search(evidence)
                     ):
+                        startup_observations += 1
+                        if startup_observations < 2:
+                            # First observation may be pre-flush; confirm on
+                            # the next poll before committing to the terminal
+                            # startup_dialog status and its remediation.
+                            time.sleep(self.a.poll_interval)
+                            continue
+                        detail_note = (
+                            f"Claude CLI reported: {detail_text}"
+                            if detail_text
+                            else "no dialog detail; inferred from the missing transcript"
+                        )
                         env.status = "startup_dialog"
                         env.message = (
                             "background session registered but did not consume "
-                            "the initial prompt (Claude CLI reported: "
-                            f"{detail_text}); open Claude interactively in the "
-                            f"target cwd ({cwd}) and accept trust/bypass "
-                            "prompts, then re-run the task."
+                            f"the initial prompt ({detail_note}); open Claude "
+                            f"interactively in the target cwd ({cwd}) and accept "
+                            "trust/bypass prompts, then re-run the task."
                         )
                     else:
                         env.status = "blocked"
@@ -1117,21 +1135,31 @@ class BgRunner:
         env.duration_s = round(time.monotonic() - t0, 1)
         if not env.message and env.status == "ok":
             env.message = "completed; declared artifacts present"
-        if env.status == "needs_human" and not env.message:
-            env.message = (
+        if env.status == "needs_human":
+            # Every needs_human envelope must carry the answer-path guidance,
+            # even when an earlier phase (e.g. a resume fallback) already set
+            # a message describing how we got here.
+            guidance = (
                 "agent needs a human decision; session torn down (caller has no resume loop)"
                 if self.a.teardown_on_needs_human
                 else "agent needs a human decision; session left alive — answer via --resume <session_id|short_id|name> --answer"
             )
+            if not env.message:
+                env.message = guidance
+            elif "agent needs a human decision" not in env.message:
+                env.message = f"{env.message} {guidance}."
         # A leaked session must never be silent — appended LAST so it augments
         # (never replaces) the status's own guidance, including the needs_human
         # resume instructions above.
         if env.teardown_failed:
+            # The survivor is our own confirmed session and may still read
+            # working/busy — the plain sweep would spare it, so the recovery
+            # command must include active rows.
             env.message = (
                 f"{env.message} WARNING: session teardown failed; "
                 f"survivor {env.teardown_survivor_id or env.short_id} is still "
                 f"live — stop it with: python3 scripts/claude_bg_run.py "
-                f"--sweep {self.a.name}"
+                f"--sweep {self.a.name} --sweep-include-active"
             ).strip()
         return env
 

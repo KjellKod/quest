@@ -377,6 +377,22 @@ def _run_result_fields_from_bg(stdout: str) -> dict:
     }
 
 
+def sweep_left_survivor(returncode: int, stdout: str) -> bool:
+    """True when a `claude_bg_run.py --sweep` did NOT verifiably clean up.
+
+    Single owner of the sweep-output vocabulary (nonzero exit, teardown_failed
+    survivors, "sweep skipped:" when the CLI/roster is unavailable, and
+    "skipped active" rows a default sweep deliberately spares) so the callers
+    that warn about leaks can never drift apart on what counts as one.
+    """
+    return (
+        returncode != 0
+        or "teardown_failed" in stdout
+        or "sweep skipped:" in stdout
+        or "skipped active" in stdout
+    )
+
+
 def classify_bg_probe_failure(stderr: str) -> str | None:
     """Return a specific bg preflight failure kind when stderr is recognizable.
 
@@ -499,7 +515,16 @@ def classify_failure_kind(
 
     if result.result_kind == "timeout":
         return "timeout"
-    if result.result_kind == "invocation_error":
+    # Transport-terminal kinds must never route into the Tier B
+    # permission-escalation retry: artifacts are missing because the run never
+    # ran, not because of a write boundary — escalating just burns a retry
+    # against the same rate limit / rejected model / startup dialog.
+    if result.result_kind in {
+        "invocation_error",
+        "rate_limited",
+        "startup_dialog",
+        "model_rejected",
+    }:
         return "invocation"
 
     _, external_paths = check_artifact_paths(artifact_paths, workspace_root)
@@ -508,9 +533,6 @@ def classify_failure_kind(
 
     if "permission denied" in result.stderr.lower():
         return "permission"
-
-    if artifact_paths and not any_artifact_missing_or_empty(artifact_paths):
-        return "model"
 
     return "model"
 
@@ -785,13 +807,7 @@ def run_claude_role(
             except (OSError, subprocess.SubprocessError):
                 stderr = f"{stderr}\n{sweep_warning}".strip()
             else:
-                # "sweep skipped:" also exits 0 (CLI/roster unavailable) —
-                # cleanup was NOT verified in that case either.
-                if (
-                    sweep_cp.returncode != 0
-                    or "teardown_failed" in sweep_cp.stdout
-                    or "sweep skipped:" in sweep_cp.stdout
-                ):
+                if sweep_left_survivor(sweep_cp.returncode, sweep_cp.stdout):
                     stderr = f"{stderr}\n{sweep_warning}".strip()
     else:
         while time.monotonic() < deadline:
@@ -889,33 +905,29 @@ def run_claude_role(
         if transport == "background-agent"
         else None
     )
-    # Terminal bg kinds come BEFORE handoff_missing: a restored parked handoff
-    # with missing artifacts must not relabel a rate_limited/dispatch_failed
-    # run as handoff_missing. Exit 6 (incomplete) and 130 stay unmapped so the
-    # ordinary missing-artifact flow still reaches handoff_missing.
-    result_kind = (
-        "handoff_json"
-        if handoff_result
-        else (
-            "timeout"
-            if timed_out
-            else bg_status_kind
-            or bg_exit_kind
-            or (
-                "handoff_missing"
-                if handoff_state == "found" and not artifacts_complete
-                # On a failed bg run (exit not 0/10) the generic classifier
-                # must never see handoff_state="found": that back door would
-                # re-grant handoff_json to e.g. exit 130 with a restored
-                # handoff, violating the only-wins-on-0/10 invariant.
-                else classify_result_kind(
-                    process.returncode or 1,
-                    stderr,
-                    "missing" if (bg_failed and handoff_state == "found") else handoff_state,
-                )
-            )
+    # Precedence, explicit and in order. Terminal bg kinds come BEFORE
+    # handoff_missing: a restored parked handoff with missing artifacts must
+    # not relabel a rate_limited/dispatch_failed run. Exit 6 (incomplete) and
+    # 130 stay unmapped so the ordinary missing-artifact flow still reaches
+    # handoff_missing.
+    if handoff_result:
+        result_kind = "handoff_json"
+    elif timed_out:
+        result_kind = "timeout"
+    elif bg_status_kind or bg_exit_kind:
+        result_kind = bg_status_kind or bg_exit_kind
+    elif handoff_state == "found" and not artifacts_complete:
+        result_kind = "handoff_missing"
+    else:
+        # On a failed bg run (exit not 0/10) the generic classifier must never
+        # see handoff_state="found": that back door would re-grant handoff_json
+        # to e.g. exit 130 with a restored handoff, violating the
+        # only-wins-on-0/10 invariant.
+        result_kind = classify_result_kind(
+            process.returncode or 1,
+            stderr,
+            "missing" if (bg_failed and handoff_state == "found") else handoff_state,
         )
-    )
     source = "handoff_json" if handoff_result else None
     exit_code = 0 if handoff_result else process.returncode or 1
     result = RunResult(
@@ -976,7 +988,17 @@ def run_claude_role(
                 combined_stderr = f"{retry_note}\n{retry_result.stderr}"
             return replace(retry_result, stderr=combined_stderr)
 
-    if allow_text_fallback and text_handoff is not None:
+    # Text fallback is a LAST resort for a bridge run with no structured
+    # result. It must never override a found handoff (e.g. bridge needs_human
+    # without artifacts — a real terminal result the orchestrator routes on)
+    # nor stamp exit 0 over a failed bg run whose stdout happens to embed a
+    # ---HANDOFF--- block via the envelope's logs_tail.
+    if (
+        allow_text_fallback
+        and text_handoff is not None
+        and result.source is None
+        and not bg_failed
+    ):
         append_context_health_log(
             resolved_quest_dir,
             phase=phase,

@@ -32,6 +32,7 @@ from quest_celebrate.quest_data import (
     load_quest_data,
 )
 from quest_celebrate.persist import CelebrationWriteResult, write_celebration_file
+from quest_runtime.claude_runner import sweep_left_survivor
 from quest_runtime.quest_ids import parse_quest_id
 
 
@@ -402,41 +403,24 @@ def _sweep_parked_bg_sessions(quest_dir: Path) -> subprocess.CompletedProcess | 
     except OSError as exc:
         print(f"Claude bg sweep failed before archive: {exc}", file=sys.stderr)
         return None
-    if result.returncode == 0:
-        if result.stdout.strip().startswith("sweep skipped:"):
-            # Skipped means cleanup was NOT verified (CLI/roster unavailable) —
-            # same honesty rule as the incomplete/active cases.
-            print(
-                "WARNING: Claude bg sweep before archive skipped — cleanup "
-                "could not be verified; session(s) may remain live. Run "
-                f"manually: python3 {runner} --sweep {prefix} --sweep-include-active"
-            )
-        elif "skipped active" in result.stdout:
-            # Exit 0, but rows were deliberately spared (active/unknown shape).
-            # At completion nothing should still be running for this quest —
-            # do not report a green cleanup over sessions left alive.
-            print(
-                "WARNING: Claude bg sweep before archive left session(s) alive "
-                "(active/unknown state); they will NOT be cleaned up "
-                "automatically. If they are this quest's own leftovers, run: "
-                f"python3 {runner} --sweep {prefix} --sweep-include-active"
-            )
-        else:
-            print(f"Claude bg sweep before archive complete: {prefix}")
-        if result.stdout.strip():
-            print(result.stdout.strip())
-    else:
+    if sweep_left_survivor(result.returncode, result.stdout):
         # Prominent, actionable, on STDOUT: after archive nothing ever
-        # re-sweeps this quest's sessions, so a survivor leaks until the
-        # human runs the command themselves.
+        # re-sweeps this quest's sessions, so an unverified cleanup leaks
+        # until the human runs the command themselves.
         print(
             f"WARNING: Claude bg sweep before archive incomplete (exit {result.returncode}); "
-            "a background session survived and will NOT be cleaned up automatically. "
-            f"Run manually: python3 {runner} --sweep {prefix}"
+            "session(s) may remain live and will NOT be cleaned up automatically. "
+            f"If they are this quest's own leftovers, run: "
+            f"python3 {runner} --sweep {prefix} --sweep-include-active"
         )
-        detail = (result.stderr or result.stdout).strip()
-        if detail:
-            print(detail, file=sys.stderr)
+        if result.stdout.strip():
+            print(result.stdout.strip())
+        if result.stderr.strip():
+            print(result.stderr.strip(), file=sys.stderr)
+    else:
+        print(f"Claude bg sweep before archive complete: {prefix}")
+        if result.stdout.strip():
+            print(result.stdout.strip())
     return result
 
 

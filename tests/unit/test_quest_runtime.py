@@ -1208,6 +1208,73 @@ raise SystemExit({exit_code})
         assert f"synthetic failure {exit_code}" in result.stderr
 
 
+def test_text_fallback_never_overrides_structured_result(tmp_path):
+    # A found needs_human handoff on the bridge is a real terminal result;
+    # a ---HANDOFF--- text block in stdout must not relabel it text_fallback
+    # (dropping status/questions from the structured path).
+    bridge = tmp_path / "fake_bridge.py"
+    _write_executable(
+        bridge,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+prompt_path = args[args.index("--prompt-file") + 1]
+handoff = prompt_path.replace("prompt.txt", "handoff.json")
+with open(handoff, "w") as fh:
+    json.dump({"status": "needs_human", "questions": ["which path?"]}, fh)
+print("agent chatter")
+print("---HANDOFF---")
+print("STATUS: needs_human")
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("x\n", encoding="utf-8")
+    artifact = tmp_path / "plan.md"  # declared but never written
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=tmp_path / "handoff.json",
+        bridge_script=bridge,
+        model="claude",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        artifact_paths=[artifact],
+        allow_text_fallback=True,
+        poll_interval=0.05,
+        exit_grace_seconds=0.2,
+        transport="bridge",
+    )
+
+    assert result.result_kind == "handoff_json"
+    assert result.source == "handoff_json"
+
+
+def test_classify_failure_kind_transport_kinds_never_escalate():
+    # rate_limited/startup_dialog/model_rejected must not enter the Tier B
+    # write-boundary escalation retry: the run never wrote anything because it
+    # never ran, and escalation just burns a retry against the same failure.
+    for kind in ("rate_limited", "startup_dialog", "model_rejected"):
+        result = claude_runner_module.RunResult(
+            exit_code=7,
+            handoff_state="missing",
+            result_kind=kind,
+            source=None,
+            stdout="",
+            stderr="",
+        )
+        assert (
+            claude_runner_module.classify_failure_kind(
+                result, [Path("/outside/ws/artifact.md")], Path("/workspace")
+            )
+            == "invocation"
+        )
+
+
 def test_overrun_sweep_unverified_cleanup_is_reported(tmp_path, monkeypatch):
     # When the bg child overruns and is killed, the by-name sweep is the only
     # cleanup; an unverified sweep (nonzero, teardown_failed, or the exit-0
