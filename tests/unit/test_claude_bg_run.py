@@ -525,6 +525,72 @@ def test_model_rejected_from_logs_tail_is_model_rejected(shim, tmp_path, monkeyp
     assert "rejected the selected model" in env.message
 
 
+def test_prose_mentioning_limits_is_not_rate_limited(shim, tmp_path, monkeypatch):
+    # Assistant prose that merely DISCUSSES limits/models (routine in this
+    # repo's own quests) must not classify — only the CLI's dialog phrasing,
+    # and only in the FINAL assistant message, counts.
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "blocked")
+    tdir = tmp_path / "transcripts" / "proj"
+    tdir.mkdir(parents=True)
+    lines = [
+        json.dumps({
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": "I tightened the session limit and rate limit handling in claude_runner.py."}]},
+        }),
+        json.dumps({
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": "All model selection and session limit edge cases are now covered by tests."}]},
+        }),
+    ]
+    (tdir / "abc12345-uuid.jsonl").write_text("\n".join(lines) + "\n")
+
+    env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "transcripts"))).run()
+
+    assert env.status == "blocked"
+    assert env.reset_at is None
+
+
+def test_earlier_limit_message_does_not_classify_when_not_final(shim, tmp_path, monkeypatch):
+    # Only the FINAL assistant message is classification evidence: a limit
+    # dialog followed by later output means the session moved past it.
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "blocked")
+    tdir = tmp_path / "transcripts" / "proj"
+    tdir.mkdir(parents=True)
+    lines = [
+        json.dumps({
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": "You've hit your session limit. resets 2pm (America/Chicago)"}]},
+        }),
+        json.dumps({
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": "Continuing with the task output now."}]},
+        }),
+    ]
+    (tdir / "abc12345-uuid.jsonl").write_text("\n".join(lines) + "\n")
+
+    env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "transcripts"))).run()
+
+    assert env.status == "blocked"
+
+
+def test_tool_use_only_transcript_is_generic_blocked_not_startup_dialog(shim, tmp_path, monkeypatch):
+    # A transcript FILE exists (prompt was consumed) but carries no assistant
+    # text yet (tool_use-only first turn): that is NOT the startup-dialog
+    # signature — remediation must not say "accept trust/bypass".
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "blocked")
+    tdir = tmp_path / "transcripts" / "proj"
+    tdir.mkdir(parents=True)
+    (tdir / "abc12345-uuid.jsonl").write_text(json.dumps({
+        "type": "assistant",
+        "message": {"content": [{"type": "tool_use", "name": "Bash", "input": {}}]},
+    }) + "\n")
+
+    env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "transcripts"))).run()
+
+    assert env.status == "blocked"
+    assert "trust/bypass" not in env.message
+
+
 def test_dispatch_output_rate_limit_reports_reset_time(shim, tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_BG_SCENARIO", "dispatch_rate_limited")
 

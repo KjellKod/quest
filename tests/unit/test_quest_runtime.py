@@ -1712,3 +1712,45 @@ def test_cli_probe_requires_explicit_model_and_default_bridge_script_is_absolute
         sys.argv = saved
     assert os.path.isabs(ns.bridge_script)
     assert ns.bridge_script.endswith("scripts/quest_claude_bridge.py")
+
+
+def test_cli_rejects_empty_or_whitespace_model():
+    # An empty models.<role> value must die at argparse with a clear message,
+    # not surface later as an unhandled ValueError traceback the orchestrator
+    # cannot parse.
+    import sys
+
+    import quest_claude_probe
+
+    saved = sys.argv
+    try:
+        for argv in (
+            ["quest_claude_probe.py", "--quest-dir", "/tmp/x", "--model", "  "],
+            ["quest_claude_probe.py", "--quest-dir", "/tmp/x", "--model", ""],
+        ):
+            sys.argv = argv
+            try:
+                quest_claude_probe.parse_args()
+            except SystemExit as exc:
+                assert exc.code == 2
+            else:
+                raise AssertionError("Expected empty --model to be rejected")
+        for model in ("", "  "):
+            sys.argv = [
+                "quest_claude_runner.py",
+                "--quest-dir", "/tmp/x",
+                "--phase", "plan",
+                "--agent", "planner",
+                "--iter", "1",
+                "--prompt-file", "/tmp/p",
+                "--handoff-file", "/tmp/h",
+                "--model", model,
+            ]
+            try:
+                quest_claude_runner.parse_args()
+            except SystemExit as exc:
+                assert exc.code == 2
+            else:
+                raise AssertionError("Expected empty --model to be rejected")
+    finally:
+        sys.argv = saved

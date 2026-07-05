@@ -213,6 +213,14 @@ def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
     assert "python3 scripts/claude_bg_run.py --sweep quest-bg-probe-" in workflow
     assert "python3 scripts/quest_claude_probe.py --model claude --transport background-agent" in workflow
     assert "--resume <session_id> --answer-file <answer_file>" in workflow
+    # The resume example must be runnable as written: the runner requires the
+    # full role-argument set, and a fresh re-dispatch must never silently kill
+    # a parked session.
+    assert (
+        "python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase <phase> "
+        "--agent <role> --iter <n> --prompt-file" in workflow
+    )
+    assert "Parked-session guard (before ANY fresh retry/re-dispatch of a role)" in workflow
     assert "Persist the parked session id in `.quest/<id>/state.json`" in workflow
     assert '"parked_bg_session"' in workflow
     # The state helper must be the documented persistence path (never a

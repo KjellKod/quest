@@ -85,8 +85,12 @@ _BYPASS_REFUSAL_RE = re.compile(
     r"bypass[- ]?permissions.*requires accepting|dangerously-skip-permissions",
     re.IGNORECASE,
 )
+# Anchored to the CLI's own phrasing ("You've hit your session limit · resets
+# 2pm"): bare "session limit"/"rate limit" substrings would false-positive on
+# assistant prose that merely DISCUSSES limits (routine in infra/AI repos).
 _RATE_LIMIT_RE = re.compile(
-    r"(?:you(?:'ve| have)? hit your session limit|session limit|rate limit)",
+    r"(?:you(?:'ve| have) hit your (?:session|rate|usage) limit"
+    r"|(?:session|rate|usage) limit (?:reached|exceeded))",
     re.IGNORECASE,
 )
 _RESET_AT_RE = re.compile(
@@ -304,6 +308,37 @@ def _parse_rejected_model(text: str) -> str | None:
     return None
 
 
+def _classify_limit_or_model(text: str) -> tuple[str, str, str | None, str | None] | None:
+    """Classify rate-limit / model-rejection evidence into
+    (status, message, reset_at, rejected_model).
+
+    Single source of truth for both dispatch-time output and the WAIT loop's
+    blocked-state evidence — the wording and parsing must never drift between
+    the two exit paths. Returns None when the text carries neither signal.
+    """
+    if _RATE_LIMIT_RE.search(text):
+        reset_at = _parse_reset_at(text)
+        reset = f" after reset ({reset_at})" if reset_at else " after the session limit resets"
+        return (
+            "rate_limited",
+            "Claude background session hit the account session limit; "
+            f"retry{reset} or ask the human whether to choose a different model.",
+            reset_at,
+            None,
+        )
+    if _MODEL_REJECTED_RE.search(text):
+        rejected = _parse_rejected_model(text)
+        suffix = f" ({rejected})" if rejected else ""
+        return (
+            "model_rejected",
+            f"Claude CLI rejected the selected model{suffix}; "
+            "choose a supported Claude model or the `claude` sentinel.",
+            None,
+            rejected,
+        )
+    return None
+
+
 class BgRunner:
     def __init__(self, args: argparse.Namespace) -> None:
         self.a = args
@@ -388,22 +423,34 @@ class BgRunner:
             return ref, None
         return None, None
 
-    def logs_tail(self, session_id: str | None) -> str:
+    def _transcript_path(self, session_id: str | None) -> Path | None:
+        """Path of the session transcript JSONL, or None when it doesn't exist.
+
+        A missing transcript is a load-bearing signal: the session never
+        consumed its initial prompt (startup trust/bypass dialog).
+        """
+        if not session_id:
+            return None
+        root = Path(self.a.transcripts_root).expanduser()
+        matches = list(root.glob(f"*/{session_id}.jsonl")) or list(root.glob(f"{session_id}.jsonl"))
+        return matches[0] if matches else None
+
+    def logs_tail(self, session_id: str | None, max_texts: int = 4) -> str:
         """Tail of the session transcript (~/.claude/projects/*/<sid>.jsonl).
 
         This runner uses transcript JSONL as the portable fallback instead of
-        assuming a stable `claude logs <id>` subcommand. Returns the last few
-        assistant-text lines, distilled.
+        assuming a stable `claude logs <id>` subcommand. Returns the last
+        `max_texts` assistant-text lines, distilled. Classification callers
+        pass max_texts=1: a CLI dialog (rate limit, model rejection) is always
+        the FINAL assistant message, and scanning earlier messages invites
+        false positives from agent prose that merely discusses limits/models.
         """
-        if not session_id:
-            return ""
-        root = Path(self.a.transcripts_root).expanduser()
-        matches = list(root.glob(f"*/{session_id}.jsonl")) or list(root.glob(f"{session_id}.jsonl"))
-        if not matches:
+        transcript = self._transcript_path(session_id)
+        if transcript is None:
             return ""
         texts: list[str] = []
         try:
-            for line in matches[0].read_text(encoding="utf-8").splitlines():
+            for line in transcript.read_text(encoding="utf-8").splitlines():
                 try:
                     obj = json.loads(line)
                 except json.JSONDecodeError:
@@ -415,7 +462,7 @@ class BgRunner:
                         texts.append(block.get("text", ""))
         except OSError:
             return ""
-        return distill("\n".join(texts[-4:]))
+        return distill("\n".join(texts[-max_texts:]))
 
     def stop_session(self, short_id: str | None) -> StopResult:
         """Stop a background agent by signalling its supervisor-reported pid.
@@ -460,6 +507,17 @@ class BgRunner:
     def _retire_same_name_before_fresh_dispatch(
         self, *, exempt_short_id: str | None = None
     ) -> StopResult:
+        """Retire stale same-name rows so a fresh dispatch never duplicates.
+
+        CAUTION for callers: a deliberately PARKED needs_human session reads
+        state=blocked and is indistinguishable from a stale crashed row here —
+        the roster carries no parked-on-purpose marker. An orchestrator that
+        parked a session for resume must resume it (or sweep it and clear its
+        state marker) instead of fresh-dispatching the same name over it; see
+        the parked-session guard in .skills/quest/delegation/workflow.md.
+        Actively working/busy rows are refused (never killed), and the resume
+        fallback path passes exempt_short_id to protect the parked parent.
+        """
         rows = [
             row
             for row in self.agents_json()
@@ -655,27 +713,15 @@ class BgRunner:
                 short_id=None,
                 row=None,
             )
-        if _RATE_LIMIT_RE.search(out):
-            reset_at = _parse_reset_at(out)
-            reset = f" after reset ({reset_at})" if reset_at else " after the session limit resets"
+        classified = _classify_limit_or_model(out)
+        if classified:
+            status, message, reset_at, rejected = classified
             return DispatchResult(
-                terminal_status="rate_limited",
-                message=(
-                    "Claude background session hit the account session limit; "
-                    f"retry{reset} or ask the human whether to choose a different model."
-                ),
+                terminal_status=status,
+                message=message,
                 short_id=None,
                 row=None,
                 reset_at=reset_at,
-            )
-        if _MODEL_REJECTED_RE.search(out):
-            rejected = _parse_rejected_model(out)
-            suffix = f" ({rejected})" if rejected else ""
-            return DispatchResult(
-                terminal_status="model_rejected",
-                message=f"Claude CLI rejected the selected model{suffix}; choose a supported Claude model or the `claude` sentinel.",
-                short_id=None,
-                row=None,
                 rejected_model=rejected,
             )
         m = _SHORTID_RE.search(out)
@@ -922,36 +968,29 @@ class BgRunner:
                     env.message = "session disappeared from `claude agents` before completing"
                     break
                 if state == "blocked":
-                    detail_text = ""
                     # Opportunistic only: Claude Code 2.1.191's initial-prompt
                     # parked signal was observed in dispatch stdout, not here.
                     detail = row.get("waitingFor") or row.get("needs") or row.get("detail")
                     detail_text = str(detail) if detail else ""
-                    log_text = self.logs_tail(env.session_id)
-                    evidence = "\n".join(part for part in (detail_text, log_text) if part)
-                    if _RATE_LIMIT_RE.search(evidence):
-                        env.status = "rate_limited"
-                        env.reset_at = _parse_reset_at(evidence)
-                        reset = f" after reset ({env.reset_at})" if env.reset_at else " after the session limit resets"
-                        env.message = (
-                            "Claude background session hit the account session limit; "
-                            f"retry{reset} or ask the human whether to choose a different model."
-                        )
-                    elif _MODEL_REJECTED_RE.search(evidence):
-                        env.status = "model_rejected"
-                        env.rejected_model = _parse_rejected_model(evidence) or self.a.model or None
-                        suffix = f" ({env.rejected_model})" if env.rejected_model else ""
-                        env.message = (
-                            f"Claude CLI rejected the selected model{suffix}; "
-                            "choose a supported Claude model or the `claude` sentinel."
-                        )
+                    # Classification evidence: roster detail + the FINAL
+                    # assistant message only — a CLI dialog is always the last
+                    # message, and earlier prose that merely discusses limits
+                    # or models must not classify.
+                    last_text = self.logs_tail(env.session_id, max_texts=1)
+                    evidence = "\n".join(part for part in (detail_text, last_text) if part)
+                    classified = _classify_limit_or_model(evidence)
+                    if classified:
+                        env.status, env.message, env.reset_at, rejected = classified
+                        if env.status == "model_rejected":
+                            env.rejected_model = rejected or self.a.model or None
                     elif (
                         "send a prompt to start" in detail_text.lower()
-                        # No transcript = the session never consumed its prompt:
-                        # a startup dialog (trust/bypass) by definition — the
-                        # rate-limit/model evidence above lives in the transcript,
-                        # so with none present those causes are already ruled out.
-                        or not log_text
+                        # Transcript FILE missing = the session never consumed
+                        # its prompt: a startup dialog (trust/bypass) by
+                        # definition. An existing transcript with no text
+                        # (e.g. a tool_use-only first turn) is NOT that signal
+                        # and falls through to generic blocked.
+                        or self._transcript_path(env.session_id) is None
                         or _STARTUP_DIALOG_RE.search(evidence)
                     ):
                         env.status = "startup_dialog"

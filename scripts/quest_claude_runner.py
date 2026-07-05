@@ -95,6 +95,8 @@ def parse_args() -> argparse.Namespace:
         help="tear down bg needs_human sessions instead of parking them for resume",
     )
     args = parser.parse_args()
+    if not args.model.strip():
+        parser.error("--model must be a non-empty model name or the `claude` sentinel")
     if args.answer_file and not args.resume:
         parser.error("--answer-file requires --resume (the parked session to continue)")
     if (args.resume or args.answer_file) and args.transport == "bridge":

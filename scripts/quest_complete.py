@@ -410,11 +410,17 @@ def _sweep_parked_bg_sessions(quest_dir: Path) -> subprocess.CompletedProcess | 
         if result.stdout.strip():
             print(result.stdout.strip())
     else:
+        # Prominent, actionable, on STDOUT: after archive nothing ever
+        # re-sweeps this quest's sessions, so a survivor leaks until the
+        # human runs the command themselves.
         print(
-            f"Claude bg sweep before archive incomplete with exit {result.returncode}: "
-            f"{(result.stderr or result.stdout).strip()}",
-            file=sys.stderr,
+            f"WARNING: Claude bg sweep before archive incomplete (exit {result.returncode}); "
+            "a background session survived and will NOT be cleaned up automatically. "
+            f"Run manually: python3 scripts/claude_bg_run.py --sweep {prefix}"
         )
+        detail = (result.stderr or result.stdout).strip()
+        if detail:
+            print(detail, file=sys.stderr)
     return result
 
 

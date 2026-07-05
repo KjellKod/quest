@@ -479,7 +479,13 @@ def test_quest_complete_reports_incomplete_bg_sweep_but_archives(
 
     assert quest_complete.main() == 0
     captured = capsys.readouterr()
-    assert "Claude bg sweep before archive incomplete with exit 4" in captured.err
+    # Survivor warning is prominent (stdout) and actionable: nothing re-sweeps
+    # an archived quest, so the human must get the exact manual command.
+    assert "WARNING: Claude bg sweep before archive incomplete (exit 4)" in captured.out
+    assert (
+        f"Run manually: python3 scripts/claude_bg_run.py --sweep quest-{quest_dir.name}-"
+        in captured.out
+    )
     assert (repo_root / ".quest" / "archive" / quest_dir.name).exists()
 
 

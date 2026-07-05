@@ -40,7 +40,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bridge-script", default=DEFAULT_BRIDGE_SCRIPT)
     parser.add_argument("--bg-runner-script", default=DEFAULT_BG_RUNNER_SCRIPT)
     parser.add_argument("--cwd", default=".")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not args.model.strip():
+        parser.error("--model must be a non-empty model name or the `claude` sentinel")
+    return args
 
 
 def main() -> int:
