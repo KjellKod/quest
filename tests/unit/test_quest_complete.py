@@ -482,10 +482,9 @@ def test_quest_complete_reports_incomplete_bg_sweep_but_archives(
     # Survivor warning is prominent (stdout) and actionable: nothing re-sweeps
     # an archived quest, so the human must get the exact manual command.
     assert "WARNING: Claude bg sweep before archive incomplete (exit 4)" in captured.out
-    assert (
-        f"Run manually: python3 scripts/claude_bg_run.py --sweep quest-{quest_dir.name}-"
-        in captured.out
-    )
+    # The command must be runnable from ANY cwd: absolute runner path.
+    assert "Run manually: python3 /" in captured.out
+    assert f"claude_bg_run.py --sweep quest-{quest_dir.name}-" in captured.out
     assert (repo_root / ".quest" / "archive" / quest_dir.name).exists()
 
 

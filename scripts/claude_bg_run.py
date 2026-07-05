@@ -424,6 +424,14 @@ class BgRunner:
             return ref, None
         return None, None
 
+    def _rejected_model_fallback(self) -> str | None:
+        """The dispatched model as rejected_model fallback — but never the
+        `claude` sentinel: sentinel means --model was omitted, so the CLI
+        rejected the account-default model whose name we don't know."""
+        if self.a.model and self.a.model != "claude":
+            return self.a.model
+        return None
+
     def _transcript_path(self, session_id: str | None) -> Path | None:
         """Path of the session transcript JSONL, or None when it doesn't exist.
 
@@ -721,7 +729,7 @@ class BgRunner:
             if status == "model_rejected":
                 # Same fallback as the WAIT path: when the CLI phrasing hides
                 # the model name, the dispatched model is still the answer.
-                rejected = rejected or self.a.model or None
+                rejected = rejected or self._rejected_model_fallback()
             return DispatchResult(
                 terminal_status=status,
                 message=message,
@@ -988,7 +996,7 @@ class BgRunner:
                     if classified:
                         env.status, env.message, env.reset_at, rejected = classified
                         if env.status == "model_rejected":
-                            env.rejected_model = rejected or self.a.model or None
+                            env.rejected_model = rejected or self._rejected_model_fallback()
                     elif (
                         # ("send a prompt to start" is covered by
                         # _STARTUP_DIALOG_RE over evidence, which includes
@@ -1041,7 +1049,7 @@ class BgRunner:
             # reset time or model name out of earlier agent prose.
             last_text = self.logs_tail(env.session_id, max_texts=1)
             if env.status == "model_rejected" and env.rejected_model is None:
-                env.rejected_model = _parse_rejected_model(last_text) or self.a.model or None
+                env.rejected_model = _parse_rejected_model(last_text) or self._rejected_model_fallback()
             if env.status == "rate_limited" and env.reset_at is None:
                 env.reset_at = _parse_reset_at(last_text)
 

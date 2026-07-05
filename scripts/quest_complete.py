@@ -416,7 +416,7 @@ def _sweep_parked_bg_sessions(quest_dir: Path) -> subprocess.CompletedProcess | 
         print(
             f"WARNING: Claude bg sweep before archive incomplete (exit {result.returncode}); "
             "a background session survived and will NOT be cleaned up automatically. "
-            f"Run manually: python3 scripts/claude_bg_run.py --sweep {prefix}"
+            f"Run manually: python3 {runner} --sweep {prefix}"
         )
         detail = (result.stderr or result.stdout).strip()
         if detail:
