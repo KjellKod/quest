@@ -62,6 +62,12 @@ cleanup_bg_probes() {
         echo "WARNING: preflight probe sweep failed; stop it manually: python3 $CLAUDE_BG_RUNNER_SCRIPT --sweep $CURRENT_BG_PROBE_NAME --sweep-include-active" >&2
       fi
     fi
+    # Exit 0 with "sweep skipped:" (CLI/roster unavailable) is also
+    # UNVERIFIED cleanup — same honesty rule as everywhere else.
+    case "$sweep_out" in
+      *"sweep skipped:"*)
+        echo "WARNING: preflight probe sweep could not be verified; stop it manually: python3 $CLAUDE_BG_RUNNER_SCRIPT --sweep $CURRENT_BG_PROBE_NAME --sweep-include-active" >&2 ;;
+    esac
   fi
 }
 
