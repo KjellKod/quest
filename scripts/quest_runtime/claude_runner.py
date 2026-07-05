@@ -766,6 +766,8 @@ def run_claude_role(
                         str(bg_runner_script),
                         "--sweep",
                         bg_session_name(resolved_quest_dir.name, agent, iteration),
+                        # our own overrunning session: active rows included
+                        "--sweep-include-active",
                     ],
                     capture_output=True,
                     text=True,
@@ -869,18 +871,22 @@ def run_claude_role(
         if transport == "background-agent"
         else None
     )
+    # Terminal bg kinds come BEFORE handoff_missing: a restored parked handoff
+    # with missing artifacts must not relabel a rate_limited/dispatch_failed
+    # run as handoff_missing. Exit 6 (incomplete) and 130 stay unmapped so the
+    # ordinary missing-artifact flow still reaches handoff_missing.
     result_kind = (
         "handoff_json"
         if handoff_result
         else (
             "timeout"
             if timed_out
-            else (
+            else bg_status_kind
+            or bg_exit_kind
+            or (
                 "handoff_missing"
                 if handoff_state == "found" and not artifacts_complete
-                else bg_status_kind
-                or bg_exit_kind
-                or classify_result_kind(
+                else classify_result_kind(
                     process.returncode or 1, stderr, handoff_state
                 )
             )

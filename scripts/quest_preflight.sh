@@ -49,7 +49,8 @@ cleanup_bg_probes() {
   # transport check. The broad stale-probe sweep is owned by quest
   # start/resume (workflow.md), not by every preflight exit.
   if [ -n "$CURRENT_BG_PROBE_NAME" ]; then
-    python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" >/dev/null 2>&1 || true
+    # Our own probe session: include active rows (a mid-probe session is ours to stop).
+    python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" --sweep-include-active >/dev/null 2>&1 || true
   fi
 }
 

@@ -1005,6 +1005,32 @@ def test_self_test_passes_in_this_env():
     assert bg._self_test() == bg.EXIT_OK
 
 
+def test_sweep_skips_active_rows_unless_included(shim, tmp_path, kills, capsys):
+    # Orphan recovery must not kill a concurrent orchestrator's in-flight
+    # session; owners pass --sweep-include-active to stop their own.
+    (tmp_path / "state.json").write_text(json.dumps([
+        {**PARENT, "pid": 111, "id": "activ001", "name": "quest-q1-builder-i1", "state": "working"},
+        {**PARENT, "pid": 222, "id": "parked01", "name": "quest-q1-planner-i1", "state": "blocked"},
+    ]))
+    rc = bg.main(["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q1-"])
+    out = capsys.readouterr().out
+    assert rc == bg.EXIT_OK
+    assert all(pid != 111 for pid, _ in kills)  # active row untouched
+    assert any(pid == 222 for pid, _ in kills)  # parked row swept
+    assert "skipped active activ001" in out
+
+    kills.clear()
+    (tmp_path / "state.json").write_text(json.dumps([
+        {**PARENT, "pid": 111, "id": "activ001", "name": "quest-q1-builder-i1", "state": "working"},
+    ]))
+    rc = bg.main([
+        "--claude-bin", str(shim), "--poll-interval", "0.05",
+        "--sweep", "quest-q1-", "--sweep-include-active",
+    ])
+    assert rc == bg.EXIT_OK
+    assert any(pid == 111 for pid, _ in kills)  # owner opt-in stops it
+
+
 def test_sweep_stops_only_matching_prefix_sessions(shim, tmp_path, monkeypatch, kills, capsys):
     rows = [
         {**PARENT, "pid": 111, "id": "aaa11111", "name": "quest-q7-planner-i1"},

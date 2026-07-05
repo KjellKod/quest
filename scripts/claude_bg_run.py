@@ -563,11 +563,15 @@ class BgRunner:
                 return result
         return result
 
-    def sweep(self, prefix: str) -> int:
+    def sweep(self, prefix: str, *, include_active: bool = False) -> int:
         """Stop every background session whose name starts with `prefix`.
 
         Orphan recovery for orchestrators that crashed between dispatch and
         teardown (e.g. quest start/resume runs `--sweep quest-<id>-`).
+        By default an actively working/busy row is SKIPPED and reported — a
+        concurrent orchestrator on the same quest may own it, and orphan
+        recovery must not kill in-flight work. Callers stopping a session
+        they OWN (e.g. preflight retiring its own probe) pass include_active.
         """
         try:
             rows = [
@@ -585,13 +589,25 @@ class BgRunner:
             print(f"sweep skipped: claude agents roster unavailable: {exc}")
             return EXIT_OK
         failed = 0
+        skipped_active = 0
         for row in rows:
+            if not include_active and (
+                {row.get("state"), row.get("status")} & {"working", "busy"}
+            ):
+                skipped_active += 1
+                print(f"skipped active {row.get('id')} ({row.get('name')})")
+                continue
             result = self.stop_session(row.get("id"))
             status = "swept" if result.settled else "teardown_failed"
             if not result.settled:
                 failed += 1
             print(f"{status} {row.get('id')} ({row.get('name')})")
-        stopped = len(rows) - failed
+        stopped = len(rows) - failed - skipped_active
+        if skipped_active:
+            print(
+                f"sweep left {skipped_active} actively working session(s) alive "
+                "(pass --sweep-include-active to stop sessions you own)"
+            )
         if failed:
             print(
                 f"sweep incomplete: {stopped} session(s) matching {prefix!r} stopped; "
@@ -1153,7 +1169,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="where session transcript JSONLs live (logs_tail source)",
     )
     p.add_argument("--self-test", action="store_true", help="run the PTY noise-firewall demo and exit")
-    p.add_argument("--sweep", help="stop all background sessions whose NAME starts with this prefix, then exit (orphan recovery)")
+    p.add_argument("--sweep", help="stop all background sessions whose NAME starts with this prefix, then exit (orphan recovery; skips actively working/busy rows)")
+    p.add_argument(
+        "--sweep-include-active",
+        action="store_true",
+        help="with --sweep: also stop actively working/busy rows (only for sessions you own, e.g. retiring your own probe)",
+    )
     return p
 
 
@@ -1173,7 +1194,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.self_test:
         return _self_test()
     if args.sweep:
-        return BgRunner(args).sweep(args.sweep)
+        return BgRunner(args).sweep(
+            args.sweep, include_active=args.sweep_include_active
+        )
     runner = BgRunner(args)
     try:
         env = runner.run()
@@ -1188,7 +1211,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         try:
-            runner.sweep(args.name)
+            runner.sweep(args.name, include_active=True)  # our own session
         except Exception:
             pass
         return EXIT_INTERRUPTED
