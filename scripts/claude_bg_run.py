@@ -91,7 +91,7 @@ _BYPASS_REFUSAL_RE = re.compile(
 # assistant prose that merely DISCUSSES limits (routine in infra/AI repos).
 _RATE_LIMIT_RE = re.compile(
     r"(?:you(?:'ve| have) (?:hit|reached) (?:your|the) (?:\d+-hour )?(?:session|rate|usage) limit"
-    r"|(?:session|rate|usage) limit (?:reached|exceeded|hit))",
+    r"|(?:session|rate|usage) limit (?:reached|exceeded))",
     re.IGNORECASE,
 )
 _RESET_AT_RE = re.compile(
@@ -543,8 +543,11 @@ class BgRunner:
             # Liveness checks BOTH fields: live rosters mix them freely
             # (state=blocked + status=busy is a working session awaiting a
             # tool), so an `or` fallback that short-circuits on state would
-            # leave busy rows unprotected.
-            if {row.get("state"), row.get("status")} & {"working", "busy"}:
+            # leave busy rows unprotected. A live-pid row carrying NEITHER
+            # field is outside the documented roster contract — refuse rather
+            # than guess, because guessing wrong kills in-flight work.
+            activity = {row.get("state"), row.get("status")} - {None}
+            if not activity or activity & {"working", "busy"}:
                 return StopResult(
                     settled=False,
                     survivor_id=row.get("id"),
@@ -956,6 +959,11 @@ class BgRunner:
             now = time.monotonic()
             if now > deadline:
                 env.status, env.final_state = "timeout", env.final_state or "working"
+                env.message = (
+                    f"task exceeded --timeout ({self.a.timeout:g}s); the session "
+                    "is being stopped. Increase --timeout or split the task; "
+                    "artifacts written so far are listed in artifacts_found."
+                )
                 break  # final teardown below stops the session
 
             hf = self.read_handoff()
@@ -979,7 +987,12 @@ class BgRunner:
                 env.final_state = state
                 if row is None:
                     env.status = "session_failed"
-                    env.message = "session disappeared from `claude agents` before completing"
+                    env.message = (
+                        "session disappeared from `claude agents` before "
+                        "completing; check `claude agents` and the transcript "
+                        "tail (logs_tail) for the last activity, then "
+                        "re-dispatch the task."
+                    )
                     break
                 if state == "blocked":
                     # Opportunistic only: Claude Code 2.1.191's initial-prompt
@@ -992,15 +1005,13 @@ class BgRunner:
                     # or models must not classify.
                     last_text = self.logs_tail(env.session_id, max_texts=1)
                     evidence = "\n".join(part for part in (detail_text, last_text) if part)
+                    cwd = os.getcwd()
                     classified = _classify_limit_or_model(evidence)
                     if classified:
                         env.status, env.message, env.reset_at, rejected = classified
                         if env.status == "model_rejected":
                             env.rejected_model = rejected or self._rejected_model_fallback()
                     elif (
-                        # ("send a prompt to start" is covered by
-                        # _STARTUP_DIALOG_RE over evidence, which includes
-                        # detail_text — no separate literal check.)
                         # Transcript FILE missing = the session never consumed
                         # its prompt: a startup dialog (trust/bypass) by
                         # definition. An existing transcript with no text
@@ -1014,15 +1025,15 @@ class BgRunner:
                             "background session registered but did not consume "
                             "the initial prompt (Claude CLI reported: "
                             f"{detail_text}); open Claude interactively in the "
-                            f"target cwd ({os.getcwd()}) and accept trust/bypass "
-                            "prompts, then retry."
+                            f"target cwd ({cwd}) and accept trust/bypass "
+                            "prompts, then re-run the task."
                         )
                     else:
                         env.status = "blocked"
                         env.message = "session is blocked on an interactive prompt " + (
                             f"({detail_text})"
                             if detail_text
-                            else f"(cause unknown; open Claude interactively in the target cwd ({os.getcwd()}) to inspect)"
+                            else f"(cause unknown; open Claude interactively in the target cwd ({cwd}) to inspect)"
                         )
                     break
                 if state in ("done", "idle"):
@@ -1032,7 +1043,12 @@ class BgRunner:
                     grace_left -= 1
                     if grace_left <= 0:
                         env.status = "incomplete"
-                        env.message = "session finished but declared output files are missing/empty"
+                        env.message = (
+                            "session finished but declared output files are "
+                            "missing/empty (see missing); re-dispatch the task, "
+                            "and if it recurs check logs_tail for what the "
+                            "agent believed it wrote."
+                        )
                         break
             time.sleep(self.a.poll_interval)
         except KeyboardInterrupt:
@@ -1065,6 +1081,16 @@ class BgRunner:
         env.duration_s = round(time.monotonic() - t0, 1)
         if not env.message and env.status == "ok":
             env.message = "completed; declared artifacts present"
+        # A leaked session on an otherwise-successful run must never be silent:
+        # the exit code says ok, so the message is the only surface the caller
+        # is guaranteed to show a human.
+        if env.teardown_failed:
+            env.message = (
+                f"{env.message} WARNING: session teardown failed; "
+                f"survivor {env.teardown_survivor_id or env.short_id} is still "
+                f"live — stop it with: python3 scripts/claude_bg_run.py "
+                f"--sweep {self.a.name}"
+            ).strip()
         if env.status == "needs_human" and not env.message:
             env.message = (
                 "agent needs a human decision; session torn down (caller has no resume loop)"
@@ -1137,7 +1163,24 @@ def main(argv: list[str] | None = None) -> int:
         return _self_test()
     if args.sweep:
         return BgRunner(args).sweep(args.sweep)
-    env = BgRunner(args).run()
+    runner = BgRunner(args)
+    try:
+        env = runner.run()
+    except KeyboardInterrupt:
+        # run()'s own handler only covers the WAIT loop; an interrupt during
+        # dispatch or final teardown would otherwise leak the (possibly just
+        # forked) detached session with no envelope. Best-effort retire by
+        # name, then exit with the interrupted code.
+        print(
+            f"interrupted during dispatch/teardown; sweeping sessions named "
+            f"{args.name!r} best-effort before exit",
+            file=sys.stderr,
+        )
+        try:
+            runner.sweep(args.name)
+        except Exception:
+            pass
+        return EXIT_INTERRUPTED
     if args.json:
         print(json.dumps(asdict(env), indent=2))
     else:

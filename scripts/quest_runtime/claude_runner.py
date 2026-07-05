@@ -595,7 +595,12 @@ def run_claude_role(
         resolved_artifact_paths,
         workspace_root,
     )
-    if resolved_artifact_paths and not permission_escalation:
+    # NEVER truncate artifacts on a resume: the parked agent may have written
+    # them before asking its question, and claude_bg_run.py's resume mode
+    # deliberately preserves --wait-for files ("the resumed agent will not
+    # rewrite work it believes is done"). Truncating here destroys that work
+    # and turns a successfully answered relay into handoff_missing/incomplete.
+    if resolved_artifact_paths and not permission_escalation and not resume:
         try:
             prepare_artifact_files(resolved_artifact_paths)
         except OSError as exc:
@@ -737,6 +742,24 @@ def run_claude_role(
             except subprocess.TimeoutExpired:
                 process.kill()
                 stdout, stderr = process.communicate()
+            # Killing the child does NOT stop the detached supervisor session,
+            # and the killed child never finished its own teardown — sweep the
+            # session by name best-effort so the overrun cannot leak it.
+            try:
+                subprocess.run(
+                    [
+                        sys.executable,
+                        str(bg_runner_script),
+                        "--sweep",
+                        bg_session_name(resolved_quest_dir.name, agent, iteration),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=60.0,
+                    check=False,
+                )
+            except (OSError, subprocess.SubprocessError):
+                pass
     else:
         while time.monotonic() < deadline:
             handoff_state = classify_handoff_file(resolved_handoff_file)

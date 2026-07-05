@@ -461,9 +461,9 @@ raise SystemExit(0 if isinstance(data, list) else 1)
       warning_lines="${warning_lines}    \"  Claude background session blocked on a startup trust/bypass dialog before consuming the prompt.\",\n"
       warning_lines="${warning_lines}    \"  Open Claude interactively in the target cwd, accept trust/bypass prompts, exit Claude, then rerun Quest.\",\n"
     elif [ "$probe_result_kind" = "rate_limited" ]; then
-      warning_lines="${warning_lines}    \"  Claude reported a session/rate limit. Retry after the reset time shown by Claude, or ask whether to choose another configured Claude model.\",\n"
+      warning_lines="${warning_lines}    \"  Claude reported a session/rate limit. This is transient, NOT a setup problem: wait for the reset time shown by Claude, then rerun Quest — or ask whether to choose another configured Claude model.\",\n"
     elif [ "$probe_result_kind" = "model_rejected" ]; then
-      warning_lines="${warning_lines}    \"  Claude rejected the configured probe model. Use the exact claude sentinel for account default model, or choose a concrete supported Claude model.\",\n"
+      warning_lines="${warning_lines}    \"  Claude rejected the configured probe model. Set the model to the literal value claude (account default) or a concrete supported model, in .ai/allowlist.json models.* or the per-quest chooser.\",\n"
     elif [ "$probe_result_kind" = "bg_initial_prompt_not_consumed" ]; then
       warning_lines="${warning_lines}    \"  Claude background session registered but did not consume the initial prompt (Claude CLI reported: send a prompt to start).\",\n"
       warning_lines="${warning_lines}    \"  Quest sends bg prompts on stdin for Claude Code 2.1.191 compatibility; this indicates a remaining bg prompt-delivery regression.\",\n"
@@ -475,8 +475,15 @@ raise SystemExit(0 if isinstance(data, list) else 1)
     elif [ -n "$probe_result_kind" ]; then
       warning_lines="${warning_lines}    \"  Probe result: ${probe_result_kind}\",\n"
     fi
-    warning_lines="${warning_lines}    \"  To use the API-metered bridge instead, make it explicit: set claude_role_transport to bridge for this run.\",\n"
-    warning_lines="${warning_lines}    \"  See docs/guides/quest_setup.md for the one-time machine setup.\""
+    if [ "$probe_result_kind" = "rate_limited" ]; then
+      # A transient limit is not a setup/config problem: appending machine-setup
+      # and switch-to-bridge boilerplate here misdirects the human toward
+      # API-metered billing for something that clears on its own.
+      warning_lines="${warning_lines}    \"  (Switching to the API-metered bridge is NOT needed for a rate limit; it clears at the reset time.)\""
+    else
+      warning_lines="${warning_lines}    \"  To use the API-metered bridge instead, make it explicit: set claude_role_transport to bridge for this run.\",\n"
+      warning_lines="${warning_lines}    \"  See docs/guides/quest_setup.md for the one-time machine setup.\""
+    fi
   fi
 
   local payload

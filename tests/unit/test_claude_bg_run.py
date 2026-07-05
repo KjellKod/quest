@@ -606,6 +606,8 @@ def test_rate_limit_regex_recall_and_precision():
         "I tightened the session limit and rate limit handling in claude_runner.py.",
         "All session limits are updated in the docs.",
         "The rate limiting middleware now retries.",
+        "The rate limit hit path now retries correctly.",
+        "the session limit hit its ceiling last week",
     ):
         assert not bg._RATE_LIMIT_RE.search(text), text
 
@@ -830,11 +832,38 @@ def test_teardown_failure_reported_in_envelope(shim, tmp_path, monkeypatch, kill
     env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "never"), timeout="0.1")).run()
 
     assert env.status == "timeout"
+    assert "exceeded --timeout" in env.message
     assert env.teardown_failed is True
     assert env.teardown_survivor_id == "abc12345"
     assert env.teardown_survivor_name
     assert env.teardown_survivor_session_id == "abc12345-uuid"
     assert len(recorded) >= 6
+    # A leaked session must never be silent: the message carries the warning
+    # and the exact sweep command even though teardown_failed is also set.
+    assert "WARNING: session teardown failed" in env.message
+    assert "--sweep" in env.message
+
+
+def test_teardown_failure_on_success_is_not_silent(shim, tmp_path, monkeypatch):
+    # Exit code says ok, so the message is the only guaranteed human surface.
+    def fake_kill_without_settle(pid: int, sig: int) -> None:
+        return None
+
+    monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
+    wait = tmp_path / "out.json"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
+    monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
+    monkeypatch.setenv("FAKE_BG_KEEP_ROW_ALIVE", "1")
+
+    env = bg.BgRunner(_args(shim, wait_for=str(wait))).run()
+
+    if env.teardown_failed:
+        assert "WARNING: session teardown failed" in env.message
+        assert "--sweep" in env.message
+    else:
+        # The shim settled the row on its own; the warning contract is then
+        # covered by the timeout-path test above.
+        assert env.status == "ok"
 
 
 def test_stop_session_resignals_respawned_pid_until_settled(shim, tmp_path, monkeypatch):
@@ -904,6 +933,9 @@ def test_fresh_dispatch_refuses_to_retire_working_same_name(shim, tmp_path, monk
         # Live rosters mix the fields: a working session awaiting a tool can
         # read state=blocked while status=busy — still protected.
         {"state": "blocked", "status": "busy"},
+        # A live-pid row with NEITHER field is outside the documented roster
+        # contract: refuse rather than guess (guessing wrong kills live work).
+        {"state": None, "status": None},
     ]
     for variant in active_variants:
         kills.clear()

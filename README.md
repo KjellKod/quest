@@ -107,6 +107,8 @@ Abort anytime, resume later. State persists in `.quest/<id>/state.json`.
 
 Quest is artifact-driven, not chat-history driven. `state.json`, `handoff.json`, plans, reviews, and logs are the durable contract, so a run can recover after an outage, token/session exhaustion, crash, or context loss. If Claude is unavailable, start Codex and run `$quest <quest-id>`; if Codex is unavailable, start Claude Code and run `/quest <quest-id>`. Quest resumes from `.quest/<id>/state.json` and the existing phase artifacts instead of depending on the original transcript.
 
+Resume applies to **in-flight** quests (directories under `.quest/<id>/`). A completed quest is archived to `.quest/archive/<id>/` with its journal entry in `docs/quest-journal/` — archived quests are finished history, not resumable runs; start a new quest to build on their outcome.
+
 For advanced patterns (phased execution, plan comparison, model mixing), see the [Quest Presentation](docs/guides/quest_presentation.md). 
 
 > _Kjell: My personal approach for things like [doc2md](https://kjellkod.github.io/doc2md/) or the multiple MCP and CLI tools I've built, is to collect references, ideas and start with an **analysis quest** with the stated goal of creating a roadmap that delivers the `functionality` or the whole feature or app. Then use each phase in the roamap as a new quest._

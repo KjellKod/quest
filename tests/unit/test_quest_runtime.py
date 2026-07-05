@@ -1633,6 +1633,87 @@ print(json.dumps({{
     assert result.resumed_from == "11111111-1111-1111-1111-111111111111"
 
 
+def test_resume_preserves_parked_artifacts(tmp_path):
+    # AC10 intent: the parked agent's completed artifacts must survive a resume.
+    # claude_bg_run.py resume mode deliberately keeps --wait-for files; the
+    # quest layer must not truncate them first via prepare_artifact_files.
+    bg_runner = tmp_path / "fake_bg_runner.py"
+    _write_executable(
+        bg_runner,
+        """#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+handoff = args[args.index("--handoff-file") + 1]
+with open(handoff, "w") as fh:
+    json.dump({"status": "complete", "summary": "answered"}, fh)
+print(json.dumps({"status": "ok", "session_id": "22222222-2222-2222-2222-222222222222"}))
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    answer_file = tmp_path / "answer.txt"
+    handoff_file = tmp_path / "handoff.json"
+    parked_artifact = tmp_path / "plan.md"
+    prompt_file.write_text("task\n", encoding="utf-8")
+    answer_file.write_text("use path A\n", encoding="utf-8")
+    parked_artifact.write_text("# plan written before the question\n", encoding="utf-8")
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=tmp_path / "unused_bridge.py",
+        model="claude",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        transport="background-agent",
+        bg_runner_script=bg_runner,
+        artifact_paths=[parked_artifact],
+        resume="11111111-1111-1111-1111-111111111111",
+        answer_file=answer_file,
+    )
+
+    assert parked_artifact.read_text(encoding="utf-8") == "# plan written before the question\n"
+    assert result.result_kind == "handoff_json"
+
+
+def test_bridge_never_passes_model_claude_sentinel(monkeypatch, tmp_path):
+    # Defense-in-depth at the bridge entrypoint: the sentinel means
+    # account-default and must never reach the CLI as --model claude.
+    import quest_claude_bridge
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+
+        class CP:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return CP()
+
+    monkeypatch.setattr(quest_claude_bridge.subprocess, "run", fake_run)
+    quest_claude_bridge.run_claude(
+        prompt="x",
+        output_format="text",
+        timeout=1.0,
+        model="claude",
+        system_prompt="",
+        append_system_prompt="",
+        permission_mode="default",
+        max_budget_usd=None,
+        add_dirs=[],
+        allowed_tools="",
+        disallowed_tools="",
+    )
+    assert "--model" not in captured["cmd"]
+
+
 def test_validate_or_remap_treats_unset_active_model_as_unavailable():
     from quest_runtime.orchestration import validate_or_remap_models_for_orchestrator
 

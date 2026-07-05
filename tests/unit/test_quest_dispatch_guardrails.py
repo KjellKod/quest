@@ -235,6 +235,12 @@ def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
     assert "accept trust/bypass prompts" in workflow
     assert "**`model_rejected`:** Do NOT retry" in workflow
     assert "name `rejected_model` when present" in workflow
+    # The human must be told WHERE to change the model, a leaked session must
+    # never ride silently on success, and a cold restart must re-present a
+    # parked role's pending questions before any other routing.
+    assert "`models.<role>` in `.quest/<id>/orchestration.json`" in workflow
+    assert "**`teardown_failed` (any status, including success):**" in workflow
+    assert "Parked-session check (cold restart)" in workflow
 
 
 def test_gpt_skill_excludes_codex_led_quest_dispatch() -> None:

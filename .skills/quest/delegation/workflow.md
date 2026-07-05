@@ -193,8 +193,9 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
      - **Timeout:** Retry the same Claude role once with a reduced artifact-first prompt: no questions, no `needs_human`, read only the listed files, and write the required artifacts plus `handoff.json` before any optional commentary. If the second attempt also times out, treat the step as `blocked`.
      - **Auth/CLI/environment failure** (for example Claude CLI missing from `PATH`, not authenticated, or transport script missing): Do NOT retry. Treat the step as `blocked` and surface the stderr summary to the user.
      - **`rate_limited`:** Do NOT blind retry. Surface `reset_at` when present and tell the human to retry after the reset or choose a different supported Claude model; keep the selected model/runtime language intact unless the human chooses a different model.
-     - **`startup_dialog`:** Do NOT retry. Treat the step as `blocked` with the remediation to open Claude interactively in the target cwd, accept trust/bypass prompts, then resume the quest.
-     - **`model_rejected`:** Do NOT retry. Treat the step as `blocked`, name `rejected_model` when present, and ask the human to choose a supported Claude model or the `claude` sentinel.
+     - **`startup_dialog`:** Do NOT retry. Treat the step as `blocked` with the remediation to open Claude interactively in the target cwd, accept trust/bypass prompts, then resume the quest with `/quest <id>` (or `$quest <id>`).
+     - **`model_rejected`:** Do NOT retry. Treat the step as `blocked`, name `rejected_model` when present, and ask the human to choose a supported Claude model or the `claude` sentinel — the value to change is `models.<role>` in `.quest/<id>/orchestration.json` (repo defaults live in `.ai/allowlist.json` `models`).
+     - **`teardown_failed` (any status, including success):** if the runner JSON carries `teardown_failed: true`, surface the survivor and the exact sweep command (`python3 scripts/claude_bg_run.py --sweep <session name>`) to the human immediately — a leaked live session must never ride silently on a green result.
      - **Other failures** (missing/unparsable handoff, malformed output, `blocked`): Re-run the same Claude role once with a reduced artifact-first prompt and a strict reminder to write the expected artifact files and `handoff.json`. If the second attempt still fails, parse text `---HANDOFF---` as last-resort compatibility fallback; if no parseable text handoff exists, treat the step as `blocked`.
 
    **Codex runtime invocation — Tier C:**
@@ -294,6 +295,7 @@ If the user provides a quest ID matching either supported Quest ID format (`<slu
 
 1. Check if `.quest/<id>/state.json` exists
 2. If yes, read it and resume from the recorded phase
+2a. **Parked-session check (cold restart):** if `state.json` contains `parked_bg_session`, a Claude role is still waiting on a human answer from a previous session. Before any other routing, re-present the pending questions (read them from that phase's handoff file) and continue the relay: collect the answer, then resume via `python3 scripts/quest_claude_runner.py ... --resume <session_id> --answer-file <answer_file>` per the needs_human relay steps. Do not fresh-dispatch that role, and do not sweep the parked session, while the marker is present.
 3. If the user also provided an instruction, route it (Step 2)
 4. If no instruction, auto-resume based on state:
    - `phase: plan` + no approval verdict → continue plan phase
