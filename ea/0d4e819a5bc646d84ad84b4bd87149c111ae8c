@@ -1,0 +1,30 @@
+.skills/quest/delegation/workflow.md
+  s_75f54b38224c0e::t_8b40811468bce6 225-226
+scripts/claude_bg_run.py
+  s_75f54b38224c0e::t_b1947f2d3041aa 1089-1097
+  s_75f54b38224c0e::t_6f6253ba78996a 997-1002
+tests/unit/test_claude_bg_run.py
+  s_75f54b38224c0e::t_aa2d93ada16b7b 849-881
+  s_75f54b38224c0e::t_eb88d2bde9d314 74-75
+scripts/quest_runtime/claude_runner.py
+  s_75f54b38224c0e::t_6e341722843094 589-599
+  s_75f54b38224c0e::t_b98ba80e66cf4b 614
+tests/unit/test_quest_runtime.py
+  s_75f54b38224c0e::t_903c5bef6da332 1683-1707
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ea0d4e819a5bc646d84ad84b4bd87149c111ae8c",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
