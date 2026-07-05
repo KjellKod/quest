@@ -57,10 +57,10 @@ cleanup_bg_probes() {
     # actually supports — recommending --sweep-include-active to an older
     # runner that just rejected it would fail the operator too.
     local sweep_out manual_cmd
-    manual_cmd="python3 $CLAUDE_BG_RUNNER_SCRIPT --sweep $CURRENT_BG_PROBE_NAME --sweep-include-active"
+    manual_cmd="python3 \"$CLAUDE_BG_RUNNER_SCRIPT\" --sweep \"$CURRENT_BG_PROBE_NAME\" --sweep-include-active"
     if ! sweep_out=$(python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" --sweep-include-active 2>&1); then
       if printf '%s' "$sweep_out" | grep -qi "unrecognized arguments"; then
-        manual_cmd="python3 $CLAUDE_BG_RUNNER_SCRIPT --sweep $CURRENT_BG_PROBE_NAME"
+        manual_cmd="python3 \"$CLAUDE_BG_RUNNER_SCRIPT\" --sweep \"$CURRENT_BG_PROBE_NAME\""
         sweep_out=$(python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" 2>&1) \
           || echo "WARNING: preflight probe sweep failed; stop it manually: $manual_cmd" >&2
       else
