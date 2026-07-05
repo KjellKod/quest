@@ -1,0 +1,24 @@
+scripts/claude_bg_run.py
+  s_75f54b38224c0e::t_1b2f284fed69de 427-434
+  s_75f54b38224c0e::t_1c5c8fc7ac7547 732,999,1052
+scripts/quest_complete.py
+  s_75f54b38224c0e::t_2655096df917e2 419
+tests/unit/test_quest_complete.py
+  s_75f54b38224c0e::t_174182aad5c856 485-487
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "45f4c72d8d537c7a013770ff6b41f5cf30713d94",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
