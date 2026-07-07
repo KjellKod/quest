@@ -126,6 +126,15 @@ def main() -> int:
 
     target_phase = args.transition or args.phase
 
+    # Fail closed on an empty lock value: a shell caller expanding an unset
+    # variable (--expect-phase "$PHASE") must not silently bypass the lock.
+    if args.expect_phase is not None and not args.expect_phase.strip():
+        print(
+            "--expect-phase requires a non-empty phase name.",
+            file=sys.stderr,
+        )
+        return 1
+
     if args.expect_phase and not args.transition:
         print(
             "--expect-phase requires --transition (ignored with --phase).",

@@ -108,3 +108,21 @@ def test_set_and_clear_flags_are_mutually_exclusive(tmp_path):
     )
 
     assert cp.returncode == 2  # argparse usage error
+
+
+def test_empty_expect_phase_fails_closed_instead_of_bypassing_lock(tmp_path):
+    # A shell caller expanding an unset variable (--expect-phase "$PHASE")
+    # passes "" — truthiness checks would silently skip BOTH lock checks and
+    # proceed unlocked. The helper must reject it before touching state.
+    quest_dir = _make_quest_dir(tmp_path)
+
+    cp = _run(
+        "--quest-dir", str(quest_dir),
+        "--transition", "build",
+        "--expect-phase", "",
+    )
+
+    assert cp.returncode == 1
+    assert "non-empty" in cp.stderr
+    state = json.loads((quest_dir / "state.json").read_text(encoding="utf-8"))
+    assert state["phase"] == "plan"  # unmodified

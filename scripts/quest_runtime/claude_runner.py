@@ -1102,9 +1102,13 @@ def run_bridge_probe(
     )
 
     handoff_state = classify_handoff_file(handoff_file)
-    # Same contract as run_bg_probe: a probe only proves the transport when
-    # the declared artifact was actually written — a handoff alone must not
+    # Same artifact contract as run_bg_probe: a handoff alone must not
     # cache/select the bridge on a machine that never proved the write.
+    # Deliberately UNLIKE run_bg_probe, the exit code is NOT required: the
+    # bridge wrapper may timeout-kill the process after the work completed
+    # (handoff + artifact written), and its exit code is not a structured
+    # contract the way claude_bg_run.py's envelope exit codes are — pinned by
+    # test_run_bridge_probe_treats_found_handoff_as_success_even_on_nonzero_exit.
     artifact_present = not any_artifact_missing_or_empty([artifact_file])
     probe_ok = handoff_state == "found" and artifact_present
     source = "handoff_json" if probe_ok else None
@@ -1112,7 +1116,9 @@ def run_bridge_probe(
     if probe_ok:
         result_kind = "handoff_json"
     elif handoff_state == "found" and not artifact_present:
-        result_kind = "handoff_missing"
+        # Distinct from handoff_missing (handoff never written): the transport
+        # responded, only the artifact write failed.
+        result_kind = "artifact_missing"
     else:
         result_kind = classify_result_kind(exit_code, cp.stderr, handoff_state)
     return RunResult(
@@ -1198,7 +1204,9 @@ def run_bg_probe(
     if probe_ok:
         result_kind = "handoff_json"
     elif handoff_state == "found" and not artifact_present:
-        result_kind = "handoff_missing"
+        # Distinct from handoff_missing (handoff never written): the transport
+        # responded, only the artifact write failed.
+        result_kind = "artifact_missing"
     else:
         result_kind = specific_failure or _BG_EXIT_RESULT_KINDS.get(
             exit_code

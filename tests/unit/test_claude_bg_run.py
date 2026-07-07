@@ -1006,7 +1006,7 @@ def test_self_test_passes_in_this_env():
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores file modes; chmod 444 would not raise")
-def test_uncleaable_stale_output_fails_instead_of_false_ok(shim, tmp_path, monkeypatch):
+def test_unclearable_stale_output_fails_instead_of_false_ok(shim, tmp_path, monkeypatch):
     # A pre-existing NON-EMPTY wait-for file that cannot be cleared would
     # instantly satisfy the WAIT loop — the run must fail up front, never
     # report stale content as success.

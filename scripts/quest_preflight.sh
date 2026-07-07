@@ -641,7 +641,7 @@ probe_claude_bridge() {
     fi
     if [ -n "$probe_message" ] && printf '%s' "$probe_message" | grep -Fq "Not logged in"; then
       warning_lines="${warning_lines}    \"  Claude CLI reported that it is not logged in.\",\n"
-    elif [ "$probe_result_kind" = "handoff_missing" ]; then
+    elif [ "$probe_result_kind" = "artifact_missing" ]; then
       warning_lines="${warning_lines}    \"  Claude responded (probe handoff written) but the probe ARTIFACT was not written — the transport is reachable; the failure is a filesystem write.\",\n"
       warning_lines="${warning_lines}    \"  Check write permissions/sandbox access for the quest logs probe directory, then rerun preflight.\",\n"
     elif [ -n "$probe_result_kind" ]; then

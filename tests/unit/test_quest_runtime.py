@@ -343,7 +343,7 @@ def test_run_bridge_probe_requires_artifact_not_just_handoff(tmp_path, monkeypat
     )
 
     assert result.exit_code != 0
-    assert result.result_kind == "handoff_missing"
+    assert result.result_kind == "artifact_missing"
     assert result.source is None
 
 
