@@ -1,0 +1,31 @@
+scripts/quest_preflight.sh
+  s_75f54b38224c0e::t_fc194935fc9a2a 644
+scripts/quest_runtime/claude_runner.py
+  s_75f54b38224c0e::t_00c02c469c2965 1207-1209
+  s_75f54b38224c0e::t_700146561a1372 1119-1121
+  s_75f54b38224c0e::t_0e30a311972f76 1105,1107-1111
+scripts/quest_state.py
+  s_75f54b38224c0e::t_69eb14c7529c0a 129-137
+tests/unit/test_quest_runtime.py
+  s_75f54b38224c0e::t_24b0692117282c 346
+tests/unit/test_claude_bg_run.py
+  s_75f54b38224c0e::t_fc348479f06355 1009
+tests/unit/test_quest_state.py
+  s_75f54b38224c0e::t_994e030f2a3114 111-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5e2286c3937eb708692996b84764f8f0e71cf79d",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
