@@ -1,0 +1,51 @@
+scripts/quest_validate-quest-state.sh
+  s_75f54b38224c0e::t_de467a093ec60e 580,582-585
+  s_75f54b38224c0e::t_d533c803405c4d 596,598-601
+scripts/quest_runtime/pr_review_cycle.py
+  s_75f54b38224c0e::t_e89fe69bd0bc25 654-656
+scripts/quest_installer.sh
+  s_75f54b38224c0e::t_852353f391af50 1648-1653
+scripts/quest_select_tests.py
+  s_75f54b38224c0e::t_d94590867dc781 58-60
+tests/unit/test_quest_runtime.py
+  s_75f54b38224c0e::t_4238d240c51295 317-383
+scripts/quest_complete.py
+  s_75f54b38224c0e::t_22eadd725e296e 452-456
+scripts/quest_runtime/orchestration.py
+  s_75f54b38224c0e::t_5157e3cfa02820 464-475
+scripts/quest_validate-manifest.sh
+  s_75f54b38224c0e::t_ba128e7154649a 184-187,189-193
+scripts/quest_state.py
+  s_75f54b38224c0e::t_495c69dc5377a0 20-21,89
+  s_75f54b38224c0e::t_ba5553a4faa70b 164-181
+tests/unit/test_claude_bg_run.py
+  s_75f54b38224c0e::t_792aef9979ee39 1008-1027
+scripts/quest_runtime/claude_runner.py
+  s_75f54b38224c0e::t_e3dd08cb029b1b 1105-1117,1121
+scripts/claude_bg_run.py
+  s_75f54b38224c0e::t_d9b4070f3b51a5 673-686
+  s_75f54b38224c0e::t_e38e64ed343666 879,887-889,891-893,896-898
+  s_75f54b38224c0e::t_ba64076f2e0dbc 1003-1016
+  s_75f54b38224c0e::t_6c565cc824354e 864-870,875,877
+  s_75f54b38224c0e::t_f30c7b30130d5a 1059-1063
+scripts/quest_runtime/review_intelligence.py
+  s_75f54b38224c0e::t_d94590867dc781 620-623
+docs/guides/quest_setup.md
+  s_75f54b38224c0e::t_3f9f35de58b07c 220-222,226-232
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f5f0cfd7d12db68af2ff6600408c5dd6494530fc",
+  "prompts": {},
+  "sessions": {
+    "s_75f54b38224c0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8e01ef-112b-4c20-b4d7-93a1c6478b43",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
