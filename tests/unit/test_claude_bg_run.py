@@ -1005,6 +1005,7 @@ def test_self_test_passes_in_this_env():
     assert bg._self_test() == bg.EXIT_OK
 
 
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores file modes; chmod 444 would not raise")
 def test_uncleaable_stale_output_fails_instead_of_false_ok(shim, tmp_path, monkeypatch):
     # A pre-existing NON-EMPTY wait-for file that cannot be cleared would
     # instantly satisfy the WAIT loop — the run must fail up front, never
@@ -1015,13 +1016,34 @@ def test_uncleaable_stale_output_fails_instead_of_false_ok(shim, tmp_path, monke
     monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
     monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
 
+    # A second, clearable stale file: the partial clear must be REVERSED on
+    # the failure return — no dispatch will rewrite the truncated content.
+    other = tmp_path / "other.json"
+    other.write_text("PARKED QUESTION CONTENT", encoding="utf-8")
+
     try:
-        env = bg.BgRunner(_args(shim, wait_for=str(wait))).run()
+        env = bg.BgRunner(
+            _args(shim, wait_for=str(wait), handoff_file=str(other))
+        ).run()
     finally:
         wait.chmod(0o644)
 
     assert env.status == "precondition_failed"
     assert "could not clear stale output" in env.message
+    assert str(wait) in env.message
+    assert other.read_text(encoding="utf-8") == "PARKED QUESTION CONTENT"
+
+
+def test_directory_at_output_path_fails_instead_of_false_ok(shim, tmp_path, monkeypatch):
+    # A directory stats non-empty, so it would satisfy the WAIT loop while
+    # never being this run's result — unclearable stale state, fail up front.
+    wait = tmp_path / "out.json"
+    wait.mkdir()
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
+
+    env = bg.BgRunner(_args(shim, wait_for=str(wait))).run()
+
+    assert env.status == "precondition_failed"
     assert str(wait) in env.message
 
 

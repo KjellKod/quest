@@ -673,7 +673,10 @@ class BgRunner:
         uncleared = self._clear_stale_outputs(include_wait_for=True)
         if uncleared:
             # Stale non-empty content we could not clear would satisfy the
-            # WAIT loop instantly — a false success. Fail before dispatching.
+            # WAIT loop instantly — a false success. Fail before dispatching,
+            # but FIRST restore whatever the partial clear already truncated
+            # (e.g. the parked question) — no dispatch will rewrite it.
+            self._restore_outputs(outputs)
             return DispatchResult(
                 terminal_status="precondition_failed",
                 message=(
@@ -872,6 +875,11 @@ class BgRunner:
             target = Path(path)
             if target.is_file():
                 target.write_text("", encoding="utf-8")
+            elif target.exists():
+                # A directory (or other non-file) at an output path satisfies
+                # the WAIT loop's stat-size check yet can never be this run's
+                # result — unclearable stale state, fail it.
+                return False
             return True
         except OSError:
             return not BgRunner._nonempty(path)
