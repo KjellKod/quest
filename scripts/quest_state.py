@@ -17,7 +17,8 @@ If validation fails, state.json is not modified.
 
 The --expect-phase flag adds optimistic locking: the transition is
 rejected immediately if the current phase in state.json does not match
-the expected value, preventing TOCTOU race conditions when multiple
+the expected value, narrowing (not eliminating — the check precedes the
+validator and the final write) TOCTOU races when multiple
 agents may be updating state concurrently.
 """
 
@@ -85,7 +86,7 @@ def parse_args() -> argparse.Namespace:
         metavar="PHASE",
         help=(
             "Optimistic lock: reject immediately if current phase in "
-            "state.json does not match PHASE. Prevents TOCTOU races "
+            "state.json does not match PHASE. Narrows (not eliminates) TOCTOU races "
             "when multiple agents update state concurrently."
         ),
     )
@@ -159,6 +160,24 @@ def main() -> int:
             )
             print(output, file=sys.stderr)
             return 1
+
+        # Re-check the lock AFTER the (slow) validator subprocess: a
+        # concurrent update landing during validation would otherwise be
+        # clobbered. This narrows the remaining check-to-write window from
+        # validator-duration to microseconds.
+        if args.expect_phase:
+            try:
+                current_phase = load_state(quest_dir).get("phase", "unknown")
+            except Exception:
+                current_phase = "unknown"
+            if current_phase != args.expect_phase:
+                print(
+                    f"Optimistic lock failed after validation: expected phase "
+                    f"'{args.expect_phase}' but state.json has '{current_phase}'. "
+                    "Another agent modified state concurrently.",
+                    file=sys.stderr,
+                )
+                return 1
 
     parked_bg_session = None
     if args.parked_bg_session is not None:

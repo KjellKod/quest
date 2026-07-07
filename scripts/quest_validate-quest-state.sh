@@ -577,9 +577,12 @@ validate_semantic_content() {
           fail "Semantic check: handoff_plan-reviewer-a.json not found at $reviewer_a_file"
           return
         fi
-        local next_val
+        local next_val status_val
         next_val=$(jq -r '.next' "$reviewer_a_file" 2>/dev/null)
-        if [ "$next_val" = "builder" ] || [ "$next_val" = "arbiter" ]; then
+        status_val=$(jq -r '.status' "$reviewer_a_file" 2>/dev/null)
+        if [ "$status_val" != "complete" ]; then
+          fail "Semantic check: reviewer A handoff status is '$status_val', not 'complete' — partial handoff must not unblock build"
+        elif [ "$next_val" = "builder" ] || [ "$next_val" = "arbiter" ]; then
           pass "Semantic check: reviewer A approved for building (next=$next_val, solo mode)"
         else
           fail "Semantic check: reviewer A did not approve for building (next=$next_val, expected builder or arbiter)"
@@ -590,9 +593,12 @@ validate_semantic_content() {
           fail "Semantic check: handoff_arbiter.json not found at $arbiter_file"
           return
         fi
-        local next_val
+        local next_val status_val
         next_val=$(jq -r '.next' "$arbiter_file" 2>/dev/null)
-        if [ "$next_val" = "builder" ]; then
+        status_val=$(jq -r '.status' "$arbiter_file" 2>/dev/null)
+        if [ "$status_val" != "complete" ]; then
+          fail "Semantic check: arbiter handoff status is '$status_val', not 'complete' — partial handoff must not unblock build"
+        elif [ "$next_val" = "builder" ]; then
           pass "Semantic check: arbiter approved (next=builder)"
         else
           fail "Semantic check: arbiter did not approve for building (next=$next_val, expected builder)"

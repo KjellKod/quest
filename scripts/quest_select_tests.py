@@ -55,7 +55,9 @@ def main() -> int:
             _write_json(Path(args.output), validation_steps)
         print(json.dumps(validation_steps, sort_keys=True))
         return 0
-    except ValueError as exc:
+    except (ValueError, OSError) as exc:
+        # OSError covers missing files/permission errors: the CLI contract is
+        # a structured error, never a traceback.
         print(json.dumps({"ok": False, "error": str(exc)}, sort_keys=True), file=sys.stderr)
         return 1
 

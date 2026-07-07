@@ -670,7 +670,20 @@ class BgRunner:
         resume fallback must never diverge on restore semantics.
         """
         outputs = self._snapshot_outputs(include_wait_for=True)
-        self._clear_stale_outputs(include_wait_for=True)
+        uncleared = self._clear_stale_outputs(include_wait_for=True)
+        if uncleared:
+            # Stale non-empty content we could not clear would satisfy the
+            # WAIT loop instantly — a false success. Fail before dispatching.
+            return DispatchResult(
+                terminal_status="precondition_failed",
+                message=(
+                    "could not clear stale output file(s) before dispatch "
+                    f"({', '.join(uncleared)}); fix permissions or remove them, "
+                    "then retry — proceeding would report stale content as success"
+                ),
+                short_id=None,
+                row=None,
+            )
         dispatch = self.dispatch_and_confirm(
             message, None, exempt_same_name_short_id=exempt_same_name_short_id
         )
@@ -848,16 +861,22 @@ class BgRunner:
             return None
 
     @staticmethod
-    def _clear_file(path: str) -> None:
-        """Truncate a pre-existing file so stale content cannot satisfy this run."""
+    def _clear_file(path: str) -> bool:
+        """Truncate a pre-existing file so stale content cannot satisfy this run.
+
+        Returns False when a NON-EMPTY file could not be cleared: that stale
+        content would instantly satisfy the WAIT loop's non-empty check — a
+        false success — so the caller must fail the run instead of proceeding.
+        """
         try:
             target = Path(path)
             if target.is_file():
                 target.write_text("", encoding="utf-8")
+            return True
         except OSError:
-            pass  # an unwritable path surfaces later as incomplete, never as false success
+            return not BgRunner._nonempty(path)
 
-    def _clear_stale_outputs(self, *, include_wait_for: bool) -> None:
+    def _clear_stale_outputs(self, *, include_wait_for: bool) -> list[str]:
         """Stale-state guard: pre-existing outputs must not satisfy THIS run.
 
         Fresh dispatch clears the handoff and every --wait-for target. Resume
@@ -865,12 +884,18 @@ class BgRunner:
         WAIT loop instantly) and keeps --wait-for files the parked session
         already wrote — the resumed agent will not rewrite work it believes
         is done.
+
+        Returns the paths whose stale non-empty content could NOT be cleared;
+        callers must fail the run for those (false-success guard).
         """
-        if self.a.handoff_file:
-            self._clear_file(self.a.handoff_file)
+        failed: list[str] = []
+        if self.a.handoff_file and not self._clear_file(self.a.handoff_file):
+            failed.append(self.a.handoff_file)
         if include_wait_for:
             for path in self.a.wait_for:
-                self._clear_file(path)
+                if not self._clear_file(path):
+                    failed.append(path)
+        return failed
 
     def _snapshot_outputs(self, *, include_wait_for: bool) -> dict[str, bytes]:
         """Capture non-empty parked outputs (handoff + optionally --wait-for) so
@@ -975,7 +1000,20 @@ class BgRunner:
         # parked agent already wrote are kept (the resumed agent won't redo
         # them). The fallback path cleared its own stale outputs above.
         if resume_mode and not env.fell_back:
-            self._clear_stale_outputs(include_wait_for=False)
+            if self._clear_stale_outputs(include_wait_for=False):
+                # The parked needs_human handoff could not be cleared: it
+                # would re-trigger the WAIT loop instantly as a false result.
+                env.status = "precondition_failed"
+                env.message = (
+                    f"could not clear the stale handoff file "
+                    f"({self.a.handoff_file}) after resume; fix permissions "
+                    "and retry — its parked content would masquerade as this "
+                    "run's result"
+                )
+                env.duration_s = round(time.monotonic() - t0, 1)
+                if env.short_id:
+                    self._copy_stop_result(env, self.teardown(env.short_id))
+                return env
 
         # The conversation has moved on (resumed into a new agent, or re-dispatched
         # fresh); retire the parked parent so it is not orphaned. Respects --keep.
@@ -1018,7 +1056,11 @@ class BgRunner:
 
             if now >= next_status:
                 next_status = now + self.a.status_interval
-                row = self.find_session(env.short_id, self.a.name)
+                # Track ONLY the confirmed id: a name fallback could silently
+                # adopt a different same-name agent if ours vanished, hiding
+                # the real failure. (Daemon respawns keep the row id, so id
+                # tracking survives them.)
+                row = self.find_session(env.short_id)
                 state = (row or {}).get("state") or (row or {}).get("status")
                 env.final_state = state
                 if row is None:

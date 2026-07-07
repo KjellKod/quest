@@ -217,12 +217,19 @@ If you want to use Codex for reviews and arbiter, add the config to `.claude/mcp
 
 This enables the `mcp__codex-cli__codex` tool for spawning Codex agents.
 
-If you don't have Codex or prefer Claude for all roles, set in `allowlist.json`:
+If you don't have Codex or prefer Claude for all roles, set the role models in
+`.ai/allowlist.json` `models` (the same keys shown in the configuration table
+above):
 
 ```json
 {
-  "arbiter": {
-    "tool": "claude"
+  "models": {
+    "planner": "claude",
+    "plan-reviewer-b": "claude",
+    "arbiter": "claude",
+    "builder": "claude",
+    "code-reviewer-b": "claude",
+    "fixer": "claude"
   }
 }
 ```

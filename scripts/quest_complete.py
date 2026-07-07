@@ -449,7 +449,11 @@ def main() -> int:
         print(f"Error: no state.json in {quest_dir}", file=sys.stderr)
         return 1
 
-    state = json.loads(state_file.read_text())
+    try:
+        state = json.loads(state_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        print(f"Error: could not read state.json in {quest_dir}: {exc}", file=sys.stderr)
+        return 1
     if state.get("status") != "complete":
         print(f"Error: quest status is '{state.get('status')}', not 'complete'. "
               "Transition to complete or abandoned first.", file=sys.stderr)

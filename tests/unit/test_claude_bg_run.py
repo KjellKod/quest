@@ -1005,6 +1005,26 @@ def test_self_test_passes_in_this_env():
     assert bg._self_test() == bg.EXIT_OK
 
 
+def test_uncleaable_stale_output_fails_instead_of_false_ok(shim, tmp_path, monkeypatch):
+    # A pre-existing NON-EMPTY wait-for file that cannot be cleared would
+    # instantly satisfy the WAIT loop — the run must fail up front, never
+    # report stale content as success.
+    wait = tmp_path / "out.json"
+    wait.write_text("STALE RESULT FROM A PREVIOUS RUN", encoding="utf-8")
+    wait.chmod(0o444)  # read-only: truncation raises PermissionError
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
+    monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
+
+    try:
+        env = bg.BgRunner(_args(shim, wait_for=str(wait))).run()
+    finally:
+        wait.chmod(0o644)
+
+    assert env.status == "precondition_failed"
+    assert "could not clear stale output" in env.message
+    assert str(wait) in env.message
+
+
 def test_sweep_skips_active_rows_unless_included(shim, tmp_path, kills, capsys):
     # Orphan recovery must not kill a concurrent orchestrator's in-flight
     # session; owners pass --sweep-include-active to stop their own.

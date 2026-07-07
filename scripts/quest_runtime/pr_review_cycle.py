@@ -651,6 +651,9 @@ def _nearest_test_targets(finding: JsonObject, test_paths: list[str]) -> list[st
         current: PurePosixPath | None = PurePosixPath(source_dir or ".")
         while current is not None:
             current_dir = "" if str(current) == "." else str(current)
+            # Deliberately NO mirrored prefix at repo root: matching the whole
+            # tests/** tree would shadow the more-specific same-directory
+            # sibling check below (pinned by test_..._finds_root_level_nearest_tests).
             mirrored_prefix = f"tests/{current_dir}" if current_dir else ""
             if mirrored_prefix:
                 mirrored_matches = [

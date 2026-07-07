@@ -314,6 +314,73 @@ def test_run_bridge_probe_treats_found_handoff_as_success_even_on_nonzero_exit(
     assert result.stderr == "Timed out after 30.0s"
 
 
+def test_run_bridge_probe_requires_artifact_not_just_handoff(tmp_path, monkeypatch):
+    # Same contract as the bg probe: a handoff alone must not prove the
+    # transport — the declared artifact write is the point of the probe.
+    completed = subprocess.CompletedProcess(
+        args=["bridge"], returncode=0, stdout="", stderr=""
+    )
+
+    def fake_run(*args, **kwargs):
+        probe_dir = tmp_path / "logs" / "bridge_probe"
+        handoff_file = probe_dir / "probe_handoff.json"
+        handoff_file.write_text(
+            '{"status":"complete","artifacts":[],"next":null,"summary":"probe ok"}',
+            encoding="utf-8",
+        )
+        # probe_artifact.txt deliberately NOT written
+        return completed
+
+    monkeypatch.setattr(claude_runner_module.subprocess, "run", fake_run)
+
+    result = run_bridge_probe(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        bridge_script=tmp_path / "bridge.py",
+        model="claude",
+        timeout=30.0,
+        permission_mode="bypassPermissions",
+    )
+
+    assert result.exit_code != 0
+    assert result.result_kind == "handoff_missing"
+    assert result.source is None
+
+
+def test_migration_fails_closed_on_missing_role_instead_of_writing_null(tmp_path):
+    from quest_runtime.orchestration import migrate_from_snapshot
+
+    orch = tmp_path / "orchestration.json"
+    # Missing a non-legacy canonical role (builder) AND missing the transport
+    # keys, so the migration has a reason to rewrite the file.
+    orch.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "models": {
+                    "planner": "claude",
+                    "plan-reviewer-a": "claude",
+                    "plan-reviewer-b": "gpt-5.5",
+                    "arbiter": "claude",
+                    # builder missing
+                    "code-reviewer-a": "claude",
+                    "code-reviewer-b": "gpt-5.5",
+                    "fixer": "gpt-5.5",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="builder"):
+        migrate_from_snapshot(tmp_path)
+    # The malformed file must not have been rewritten with null roles.
+    persisted = json.loads(orch.read_text(encoding="utf-8"))
+    assert "builder" not in persisted["models"]
+
+
 def test_run_claude_role_treats_found_handoff_as_success_even_after_timeout(
     tmp_path, monkeypatch
 ):

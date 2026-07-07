@@ -1102,16 +1102,23 @@ def run_bridge_probe(
     )
 
     handoff_state = classify_handoff_file(handoff_file)
-    source = "handoff_json" if handoff_state == "found" else None
-    exit_code = 0 if handoff_state == "found" else cp.returncode or 1
+    # Same contract as run_bg_probe: a probe only proves the transport when
+    # the declared artifact was actually written — a handoff alone must not
+    # cache/select the bridge on a machine that never proved the write.
+    artifact_present = not any_artifact_missing_or_empty([artifact_file])
+    probe_ok = handoff_state == "found" and artifact_present
+    source = "handoff_json" if probe_ok else None
+    exit_code = 0 if probe_ok else cp.returncode or 1
+    if probe_ok:
+        result_kind = "handoff_json"
+    elif handoff_state == "found" and not artifact_present:
+        result_kind = "handoff_missing"
+    else:
+        result_kind = classify_result_kind(exit_code, cp.stderr, handoff_state)
     return RunResult(
         exit_code=exit_code,
         handoff_state=handoff_state,
-        result_kind=(
-            "handoff_json"
-            if handoff_state == "found"
-            else classify_result_kind(exit_code, cp.stderr, handoff_state)
-        ),
+        result_kind=result_kind,
         source=source,
         stdout=cp.stdout,
         stderr=cp.stderr,
