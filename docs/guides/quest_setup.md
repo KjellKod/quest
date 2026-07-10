@@ -217,12 +217,19 @@ If you want to use Codex for reviews and arbiter, add the config to `.claude/mcp
 
 This enables the `mcp__codex-cli__codex` tool for spawning Codex agents.
 
-If you don't have Codex or prefer Claude for all roles, set in `allowlist.json`:
+If you don't have Codex or prefer Claude for all roles, set the role models in
+`.ai/allowlist.json` `models` (the same keys shown in the configuration table
+above):
 
 ```json
 {
-  "arbiter": {
-    "tool": "claude"
+  "models": {
+    "planner": "claude",
+    "plan-reviewer-b": "claude",
+    "arbiter": "claude",
+    "builder": "claude",
+    "code-reviewer-b": "claude",
+    "fixer": "claude"
   }
 }
 ```
@@ -254,7 +261,11 @@ claude --dangerously-skip-permissions
 
 Accept the prompt, exit Claude, return to Quest, and rerun preflight.
 
-Quest sends the initial background prompt on stdin, not as a trailing argv argument. This is required for Claude Code 2.1.191, where positional prompt delivery registers a session but parks it at `idle — send a prompt to start`. If Quest still reports `bg_initial_prompt_not_consumed`, treat that as a bg prompt-delivery regression and use `"bridge"` only if you explicitly accept API-metered bridge billing.
+Quest sends the initial background prompt on stdin, not as a trailing argv argument. This became required starting with Claude Code 2.1.191, where positional prompt delivery registers a session but parks it at `idle — send a prompt to start`. If Quest still reports `bg_initial_prompt_not_consumed`, treat that as a bg prompt-delivery regression and use `"bridge"` only if you explicitly accept API-metered bridge billing.
+
+`models.<role> = "claude"` is a sentinel for the Claude CLI/account default model. Quest passes the sentinel into its own runner, but the runner omits the CLI `--model` flag. If Claude rejects a concrete model, Quest reports `model_rejected` instead of downgrading or guessing.
+
+To pin a **specific Claude model** for a role, put its full `claude-`-prefixed model ID in `models.<role>` (in `.ai/allowlist.json`, or per quest via the orchestration chooser override, e.g. `planner=claude-fable-5`): `claude-fable-5`, `claude-opus-4-8`, `claude-sonnet-5`, and so on. The ID passes verbatim to the CLI's `--model`. **Do not use bare CLI aliases like `opus` or `sonnet` in `models.<role>`** — Quest classifies the role's runtime by the `claude`/`claude-*` shape, so a bare alias would route the role to the Codex runtime. (Bare aliases are fine only when invoking `scripts/quest_claude_runner.py`/`quest_claude_probe.py` directly with `--model`.) To preflight a concrete model instead of the account default, set `QUEST_CLAUDE_PROBE_MODEL=claude-fable-5`.
 
 **Prerequisites (both transports):** Claude CLI installed and authenticated (`claude auth status` should show a valid session).
 
@@ -280,8 +291,9 @@ For the full architecture rationale, see [Why the Bridge, Not MCP](quest_present
 ### What Quest handles automatically
 
 - Probes the configured transport once per session and retains recent successful host probes (bg under `auto`; bridge only when explicitly configured/selected)
-- Sweeps orphaned `quest-<id>-*` background sessions at quest start/resume (`python3 scripts/claude_bg_run.py --sweep quest-<id>-`)
-- Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py --transport <resolved>` in the same host-visible context used for the probe/cache refresh
+- Sweeps orphaned `quest-<id>-*` background sessions and stale `quest-bg-probe-*` probe sessions at quest start/resume (`python3 scripts/claude_bg_run.py --sweep quest-<id>-` and `python3 scripts/claude_bg_run.py --sweep quest-bg-probe-`)
+- Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py --model <models.<role>> --transport <resolved>` in the same host-visible context used for the probe/cache refresh
+- Keeps background-agent `needs_human` sessions parked for same-session resume, then resumes with `--resume <session_id> --answer-file <answer_file>` and updates the chained session id after Claude forks a continuation
 - Records the transport per role in `context_health.log` (`transport=background-agent|bridge`) and reports it in the quest end summary and celebration
 - Claude-led quests are unaffected, they keep native `Task(...)` execution
 
@@ -298,11 +310,15 @@ claude agents --json
 ls -la scripts/claude_bg_run.py
 python3 scripts/quest_claude_probe.py \
   --quest-dir .quest/<id> \
-  --model opus \
+  --model claude \
   --transport background-agent
 ```
 
 This is the same bg probe Quest runs automatically under `auto`. It asks Claude to write a real artifact and a handoff JSON, proving the background-agent transport end-to-end. To test the explicit bridge path instead, use `--transport bridge --bridge-script scripts/quest_claude_bridge.py`.
+
+## Resume and recovery
+
+Quest can resume across orchestrators because the authoritative state lives in files, not in one chat transcript. After a Claude outage, rate/session limit, crash, or context loss, start Codex and run `$quest <quest-id>`. After a Codex outage, start Claude Code and run `/quest <quest-id>`. Resume reads `.quest/<id>/state.json` plus the existing plan, review, `handoff.json`, and log artifacts, so the next orchestrator can continue from the recorded phase.
 
 ## Verification
 

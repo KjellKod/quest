@@ -69,9 +69,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--iter", required=True, type=int)
     parser.add_argument("--prompt-file", required=True)
     parser.add_argument("--handoff-file", required=True)
-    parser.add_argument("--model", default="opus")
-    # NOTE: This default is duplicated in scripts/quest_claude_bridge.py.
-    # If you change it here, update it there too.
+    parser.add_argument(
+        "--model",
+        required=True,
+        help="Claude model value from orchestration.json; exact `claude` omits the CLI --model flag.",
+    )
     parser.add_argument("--timeout", type=float, default=1800.0,
                         help="Command timeout seconds (default: 1800)")
     parser.add_argument("--permission-mode", default="bypassPermissions")
@@ -85,7 +87,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bg-runner-script", default=DEFAULT_BG_RUNNER_SCRIPT)
     parser.add_argument("--cwd", default=".")
     parser.add_argument("--add-dir", action="append", default=[])
-    return parser.parse_args()
+    parser.add_argument("--resume", help="background-agent session id/short id/name to resume")
+    parser.add_argument("--answer-file", help="file containing the human answer for --resume")
+    parser.add_argument(
+        "--teardown-on-needs-human",
+        action="store_true",
+        help="tear down bg needs_human sessions instead of parking them for resume",
+    )
+    args = parser.parse_args()
+    if not args.model.strip():
+        parser.error(
+            "--model must be a model name (e.g. `sonnet`, `claude-opus-4-8`) "
+            "or the literal `claude` for the account-default model"
+        )
+    if args.answer_file and not args.resume:
+        parser.error("--answer-file requires --resume (the parked session to continue)")
+    if args.resume and not args.answer_file:
+        parser.error(
+            "--resume requires --answer-file (the human's reply to deliver); "
+            "without it the bg runner would fall back to reading stdin"
+        )
+    if (args.resume or args.answer_file) and args.transport == "bridge":
+        parser.error(
+            "--resume/--answer-file require the background-agent transport; "
+            "the bridge cannot continue a parked session"
+        )
+    return args
 
 
 def main() -> int:
@@ -151,6 +178,9 @@ def main() -> int:
         add_dirs=args.add_dir,
         transport=transport,
         bg_runner_script=resolve_path(args.cwd, args.bg_runner_script),
+        teardown_on_needs_human=getattr(args, "teardown_on_needs_human", False),
+        resume=getattr(args, "resume", None),
+        answer_file=getattr(args, "answer_file", None),
     )
     payload = {
         "exit_code": result.exit_code,
@@ -162,6 +192,22 @@ def main() -> int:
         "stderr": result.stderr.strip(),
         "stdout": result.stdout.strip(),
     }
+    for key in (
+        "status",
+        "session_id",
+        "short_id",
+        "questions",
+        "resumed_from",
+        "teardown_failed",
+        "teardown_survivor_id",
+        "teardown_survivor_name",
+        "teardown_survivor_session_id",
+        "reset_at",
+        "rejected_model",
+    ):
+        value = getattr(result, key)
+        if value not in (None, [], False):
+            payload[key] = value
     _append_telemetry(
         {
             "event": "attempt_end",

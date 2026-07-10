@@ -39,6 +39,48 @@ CLAUDE_PROBE_SCRIPT="${QUEST_CLAUDE_PROBE_SCRIPT:-$SCRIPT_DIR/quest_claude_probe
 CLAUDE_BRIDGE_CACHE_FILE="${QUEST_PREFLIGHT_CACHE_FILE:-.quest/cache/claude_bridge_codex.json}"
 CLAUDE_BG_CACHE_FILE="${QUEST_PREFLIGHT_BG_CACHE_FILE:-.quest/cache/claude_bg_codex.json}"
 ALLOWLIST_FILE="${QUEST_ALLOWLIST_FILE:-.ai/allowlist.json}"
+CLAUDE_PROBE_MODEL="${QUEST_CLAUDE_PROBE_MODEL:-claude}"
+CURRENT_BG_PROBE_NAME=""
+
+cleanup_bg_probes() {
+  [ -f "$CLAUDE_BG_RUNNER_SCRIPT" ] || return 0
+  # Sweep ONLY this preflight's own probe: a broad quest-bg-probe- sweep here
+  # would kill a concurrent preflight's active probe and falsely fail its
+  # transport check. The broad stale-probe sweep is owned by quest
+  # start/resume (workflow.md), not by every preflight exit.
+  if [ -n "$CURRENT_BG_PROBE_NAME" ]; then
+    # Our own probe session: include active rows (a mid-probe session is ours
+    # to stop). Only an unrecognized-flag error (overridden older runner)
+    # falls back to a plain sweep; any REAL failure is surfaced on stderr
+    # (stdout carries the preflight JSON payload) with the manual command.
+    # The manual command in warnings must match the variant this runner
+    # actually supports — recommending --sweep-include-active to an older
+    # runner that just rejected it would fail the operator too.
+    local sweep_out manual_cmd
+    manual_cmd="python3 \"$CLAUDE_BG_RUNNER_SCRIPT\" --sweep \"$CURRENT_BG_PROBE_NAME\" --sweep-include-active"
+    if ! sweep_out=$(python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" --sweep-include-active 2>&1); then
+      if printf '%s' "$sweep_out" | grep -qi "unrecognized arguments"; then
+        manual_cmd="python3 \"$CLAUDE_BG_RUNNER_SCRIPT\" --sweep \"$CURRENT_BG_PROBE_NAME\""
+        sweep_out=$(python3 "$CLAUDE_BG_RUNNER_SCRIPT" --sweep "$CURRENT_BG_PROBE_NAME" 2>&1) \
+          || echo "WARNING: preflight probe sweep failed; stop it manually: $manual_cmd" >&2
+      else
+        echo "WARNING: preflight probe sweep failed; stop it manually: $manual_cmd" >&2
+      fi
+    fi
+    # Exit 0 with "sweep skipped:" (CLI/roster unavailable) is also
+    # UNVERIFIED cleanup — same honesty rule as everywhere else.
+    case "$sweep_out" in
+      *"sweep skipped:"*)
+        echo "WARNING: preflight probe sweep could not be verified; stop it manually: $manual_cmd" >&2 ;;
+    esac
+  fi
+}
+
+# EXIT handles the normal path; INT/TERM must actually terminate (a bare
+# function trap can let bash resume after cleanup, swallowing Ctrl-C/CI kill).
+trap cleanup_bg_probes EXIT
+trap 'cleanup_bg_probes; trap - EXIT; exit 130' INT
+trap 'cleanup_bg_probes; trap - EXIT; exit 143' TERM
 
 ###############################################################################
 # Argument Parsing
@@ -388,7 +430,9 @@ raise SystemExit(0 if isinstance(data, list) else 1)
       probe_message="quest_claude_probe.py not found at $CLAUDE_PROBE_SCRIPT"
       probe_json=""
     else
-      probe_json=$(python3 "$CLAUDE_PROBE_SCRIPT" --quest-dir "$probe_dir" --model opus --transport background-agent --bg-runner-script "$CLAUDE_BG_RUNNER_SCRIPT" 2>/dev/null || true)
+      CURRENT_BG_PROBE_NAME="quest-bg-probe-$(basename "$probe_dir")"
+      cleanup_bg_probes
+      probe_json=$(python3 "$CLAUDE_PROBE_SCRIPT" --quest-dir "$probe_dir" --model "$CLAUDE_PROBE_MODEL" --transport background-agent --bg-runner-script "$CLAUDE_BG_RUNNER_SCRIPT" 2>/dev/null || true)
     fi
     if [ -n "$probe_json" ]; then
       probe_exit_code=$(printf '%s' "$probe_json" | json_get "exit_code" 2>/dev/null || true)
@@ -440,9 +484,16 @@ raise SystemExit(0 if isinstance(data, list) else 1)
       warning_lines="${warning_lines}    \"  Background running of Claude failed because bypassPermissions has not been accepted for background sessions.\",\n"
       warning_lines="${warning_lines}    \"  Run: claude --dangerously-skip-permissions\",\n"
       warning_lines="${warning_lines}    \"  Accept the prompt, exit Claude, then return here and rerun Quest; Quest will retry the bg probe.\",\n"
+    elif [ "$probe_result_kind" = "startup_dialog" ]; then
+      warning_lines="${warning_lines}    \"  Claude background session blocked on a startup trust/bypass dialog before consuming the prompt.\",\n"
+      warning_lines="${warning_lines}    \"  Open Claude interactively in the target cwd, accept trust/bypass prompts, exit Claude, then rerun Quest.\",\n"
+    elif [ "$probe_result_kind" = "rate_limited" ]; then
+      warning_lines="${warning_lines}    \"  Claude reported a session/rate limit. This is transient, NOT a setup problem: wait for the reset time shown by Claude, then rerun Quest — or ask whether to choose another configured Claude model.\",\n"
+    elif [ "$probe_result_kind" = "model_rejected" ]; then
+      warning_lines="${warning_lines}    \"  Claude rejected the configured probe model. Set the model to the literal value claude (account default) or a concrete supported model, in .ai/allowlist.json models.* or the per-quest chooser.\",\n"
     elif [ "$probe_result_kind" = "bg_initial_prompt_not_consumed" ]; then
       warning_lines="${warning_lines}    \"  Claude background session registered but did not consume the initial prompt (Claude CLI reported: send a prompt to start).\",\n"
-      warning_lines="${warning_lines}    \"  Quest sends bg prompts on stdin for Claude Code 2.1.191 compatibility; this indicates a remaining bg prompt-delivery regression.\",\n"
+      warning_lines="${warning_lines}    \"  Quest sends bg prompts on stdin (required since Claude Code 2.1.191); this indicates a remaining bg prompt-delivery regression.\",\n"
       warning_lines="${warning_lines}    \"  Use claude_role_transport=bridge only if you explicitly accept API-metered bridge billing for this run.\",\n"
     elif [ "$probe_result_kind" = "hook_startup_failed" ]; then
       warning_lines="${warning_lines}    \"  Claude startup hook failed. Check .claude/hooks permissions, especially executable bits, then rerun Quest.\",\n"
@@ -451,8 +502,15 @@ raise SystemExit(0 if isinstance(data, list) else 1)
     elif [ -n "$probe_result_kind" ]; then
       warning_lines="${warning_lines}    \"  Probe result: ${probe_result_kind}\",\n"
     fi
-    warning_lines="${warning_lines}    \"  To use the API-metered bridge instead, make it explicit: set claude_role_transport to bridge for this run.\",\n"
-    warning_lines="${warning_lines}    \"  See docs/guides/quest_setup.md for the one-time machine setup.\""
+    if [ "$probe_result_kind" = "rate_limited" ]; then
+      # A transient limit is not a setup/config problem: appending machine-setup
+      # and switch-to-bridge boilerplate here misdirects the human toward
+      # API-metered billing for something that clears on its own.
+      warning_lines="${warning_lines}    \"  (Switching to the API-metered bridge is NOT needed for a rate limit; it clears at the reset time.)\""
+    else
+      warning_lines="${warning_lines}    \"  To use the API-metered bridge instead, make it explicit: set claude_role_transport to bridge for this run.\",\n"
+      warning_lines="${warning_lines}    \"  See docs/guides/quest_setup.md for the one-time machine setup.\""
+    fi
   fi
 
   local payload
@@ -534,7 +592,7 @@ probe_claude_bridge() {
       probe_message="quest_claude_probe.py not found at $CLAUDE_PROBE_SCRIPT"
       probe_json=""
     else
-      probe_json=$(python3 "$CLAUDE_PROBE_SCRIPT" --quest-dir "$probe_dir" --model opus --bridge-script "$CLAUDE_BRIDGE_SCRIPT" 2>/dev/null || true)
+      probe_json=$(python3 "$CLAUDE_PROBE_SCRIPT" --quest-dir "$probe_dir" --model "$CLAUDE_PROBE_MODEL" --bridge-script "$CLAUDE_BRIDGE_SCRIPT" 2>/dev/null || true)
     fi
     if [ -n "$probe_json" ]; then
       probe_exit_code=$(printf '%s' "$probe_json" | json_get "exit_code" 2>/dev/null || true)
@@ -583,6 +641,9 @@ probe_claude_bridge() {
     fi
     if [ -n "$probe_message" ] && printf '%s' "$probe_message" | grep -Fq "Not logged in"; then
       warning_lines="${warning_lines}    \"  Claude CLI reported that it is not logged in.\",\n"
+    elif [ "$probe_result_kind" = "artifact_missing" ]; then
+      warning_lines="${warning_lines}    \"  Claude responded (probe handoff written) but the probe ARTIFACT was not written — the transport is reachable; the failure is a filesystem write.\",\n"
+      warning_lines="${warning_lines}    \"  Check write permissions/sandbox access for the quest logs probe directory, then rerun preflight.\",\n"
     elif [ -n "$probe_result_kind" ]; then
       warning_lines="${warning_lines}    \"  Probe result: ${probe_result_kind}\",\n"
     fi

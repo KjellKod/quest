@@ -1645,8 +1645,12 @@ SETTINGS
   if command -v jq &>/dev/null; then
     local tmp_file
     tmp_file=$(mktemp)
-    jq '.permissions.allow += ["mcp__codex-cli__*"]' "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"
-    log_success "Added mcp__codex-cli__* permission to $settings_file"
+    if jq '.permissions.allow += ["mcp__codex-cli__*"]' "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"; then
+      log_success "Added mcp__codex-cli__* permission to $settings_file"
+    else
+      rm -f "$tmp_file"
+      log_warn "Could not update $settings_file automatically — please add \"mcp__codex-cli__*\" to permissions.allow"
+    fi
   else
     log_warn "jq not found — please add \"mcp__codex-cli__*\" to permissions.allow in $settings_file"
   fi

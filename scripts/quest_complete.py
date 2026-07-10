@@ -18,6 +18,7 @@ import argparse
 import json
 import re
 import shutil
+import subprocess
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -31,6 +32,7 @@ from quest_celebrate.quest_data import (
     load_quest_data,
 )
 from quest_celebrate.persist import CelebrationWriteResult, write_celebration_file
+from quest_runtime.claude_runner import sweep_left_survivor
 from quest_runtime.quest_ids import parse_quest_id
 
 
@@ -43,7 +45,7 @@ def _build_celebration_json(data: QuestData) -> dict:
     metrics = [
         {"icon": "📊", "label": f"Plan iterations: {data.plan_iterations}"},
         {"icon": "🔧", "label": f"Fix iterations: {data.fix_iterations}"},
-        {"icon": "📝", "label": f"Review findings: {data.review_count}"},
+        {"icon": "📝", "label": f"Review rounds: {data.review_count}"},
     ]
     if data.claude_transport_counts:
         # Only when Codex called Claude — silent empty state otherwise.
@@ -384,6 +386,44 @@ def _archive_quest(quest_dir: Path) -> Path:
     return dest
 
 
+def _sweep_parked_bg_sessions(quest_dir: Path) -> subprocess.CompletedProcess | None:
+    """Best-effort cleanup for parked Claude background sessions before archive."""
+    runner = Path(__file__).resolve().parent / "claude_bg_run.py"
+    if not runner.exists():
+        print(f"Claude bg sweep skipped: runner not found at {runner}", file=sys.stderr)
+        return None
+    prefix = f"quest-{quest_dir.name}-"
+    try:
+        result = subprocess.run(
+            [sys.executable, str(runner), "--sweep", prefix],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as exc:
+        print(f"Claude bg sweep failed before archive: {exc}", file=sys.stderr)
+        return None
+    if sweep_left_survivor(result.returncode, result.stdout):
+        # Prominent, actionable, on STDOUT: after archive nothing ever
+        # re-sweeps this quest's sessions, so an unverified cleanup leaks
+        # until the human runs the command themselves.
+        print(
+            f"WARNING: Claude bg sweep before archive incomplete (exit {result.returncode}); "
+            "session(s) may remain live and will NOT be cleaned up automatically. "
+            f"If they are this quest's own leftovers, run: "
+            f"python3 {runner} --sweep {prefix} --sweep-include-active"
+        )
+        if result.stdout.strip():
+            print(result.stdout.strip())
+        if result.stderr.strip():
+            print(result.stderr.strip(), file=sys.stderr)
+    else:
+        print(f"Claude bg sweep before archive complete: {prefix}")
+        if result.stdout.strip():
+            print(result.stdout.strip())
+    return result
+
+
 def _slug_from_quest_dir(quest_dir: Path) -> str:
     parsed = parse_quest_id(quest_dir.name)
     if parsed is not None:
@@ -409,7 +449,11 @@ def main() -> int:
         print(f"Error: no state.json in {quest_dir}", file=sys.stderr)
         return 1
 
-    state = json.loads(state_file.read_text())
+    try:
+        state = json.loads(state_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        print(f"Error: could not read state.json in {quest_dir}: {exc}", file=sys.stderr)
+        return 1
     if state.get("status") != "complete":
         print(f"Error: quest status is '{state.get('status')}', not 'complete'. "
               "Transition to complete or abandoned first.", file=sys.stderr)
@@ -494,11 +538,12 @@ def main() -> int:
 
     archive_root = quest_dir.parent / "archive"
     if not args.skip_archive:
+        _sweep_parked_bg_sessions(quest_dir)
         archive_path = _archive_quest(quest_dir)
         print(f"Quest archived: {archive_path}")
 
     # Historical needs_human rollup (runs after archival so this quest counts).
-    # Feeds the measurement gate in ideas/quest-needs-human-resume-relay.md.
+    # Feeds the measurement gate in ideas/2026-07-05-bg-claude-ask-policy-relaxation.md.
     status_stats = _handoff_status_stats(archive_root)
     print(
         f"needs_human across archive: {status_stats['needs_human']} occurrence(s) "

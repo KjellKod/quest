@@ -461,6 +461,18 @@ def migrate_from_snapshot(
             transport_backfilled = True
         if not backfilled and not transport_backfilled:
             return False
+        # Fail closed BEFORE writing: a role missing from the merged models
+        # would be written as null and rejected by the very validation this
+        # migration feeds — never persist a file we know is invalid.
+        missing_roles = [
+            role for role in CANONICAL_ROLES if not merged_models.get(role)
+        ]
+        if missing_roles:
+            raise ValueError(
+                "orchestration.json migration would write null model(s) for "
+                f"role(s) {missing_roles}; the existing file is malformed — "
+                "fix models.<role> entries before resuming."
+            )
         existing["models"] = {
             role: merged_models.get(role) for role in CANONICAL_ROLES
         }

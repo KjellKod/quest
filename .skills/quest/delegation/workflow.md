@@ -38,7 +38,7 @@ Quest dispatch separates **runtime** from **entrypoint**:
 | Orchestrator | Selected role runtime | Entrypoint | Rule |
 |--------------|-----------------------|------------|------|
 | Codex-led | Codex | local Codex subagent (the `spawn_agent` tool family — versioned namespace such as `multi_agent_v2` varies by Codex CLI release — or repo-supported equivalent) | Inherit the active Codex model by default. Do not set a Codex model name unless the user explicitly requested one or the repo has a tested reason. Do not use Codex MCP. |
-| Codex-led | Claude | `python3 scripts/quest_claude_runner.py` when `claude_transport_available` is true | The runner owns the transport underneath: background-agent (`scripts/claude_bg_run.py`, `claude --bg`, subscription billing) when preflight proved it, or the bridge (`scripts/quest_claude_bridge.py`, `claude --print`) only when bridge was explicitly configured/selected. Pass `--transport <claude_transport_resolved from orchestration.json>`. Block with transport guidance if unavailable and no explicit Codex fallback exists. |
+| Codex-led | Claude | `python3 scripts/quest_claude_runner.py` when `claude_transport_available` is true | The runner owns the transport underneath: background-agent (`scripts/claude_bg_run.py`, `claude --bg`, subscription billing) when preflight proved it, or the bridge (`scripts/quest_claude_bridge.py`, `claude --print`) only when bridge was explicitly configured/selected. Pass `--model <models.<role> from .quest/<id>/orchestration.json>` and `--transport <claude_transport_resolved from orchestration.json>`. The exact `claude` model sentinel means use the Claude CLI/account default and must not be sent to the CLI as `--model claude`; concrete configured model strings pass through unchanged. Block with transport guidance if unavailable and no explicit Codex fallback exists. |
 | Claude-led | Codex | Codex MCP (`mcp__codex-cli__codex`, `codex_codex`, or the platform's registered Codex MCP tool) | MCP is the cross-runtime path only from Claude-led sessions. |
 | Claude-led | Claude | native `Task(...)` | Use the orchestrator's native Claude task path. |
 
@@ -83,8 +83,8 @@ The transport is chosen by config + probe, never by orchestration prose: `.ai/al
 
 Before the first Claude-designated role invocation in a Codex-orchestrated session, the orchestrator MUST probe transport availability:
 
-1. **Orphan sweep:** run `python3 scripts/claude_bg_run.py --sweep quest-<id>-` (quest start and resume) to stop background sessions a crashed earlier run may have leaked.
-2. Run `scripts/quest_preflight.sh --orchestrator codex` in a host-visible context and parse the JSON. It probes the configured transport (for `auto`: background-agent via `python3 scripts/quest_claude_probe.py --transport background-agent`; bridge is probed only when explicitly selected/configured). Probes are the source of truth: each writes a tiny artifact plus `probe_handoff.json` under `.quest/<id>/logs/bg_probe/` or `.quest/<id>/logs/bridge_probe/`.
+1. **Orphan sweep:** run `python3 scripts/claude_bg_run.py --sweep quest-<id>-` and `python3 scripts/claude_bg_run.py --sweep quest-bg-probe-` (quest start and resume) to stop background sessions or probe sessions a crashed earlier run may have leaked. **Parked-session exception:** when `state.json` carries `parked_bg_session`, a deliberately parked needs_human session matches the `quest-<id>-` prefix and this sweep would kill it — run the Step 0 §2a parked relay FIRST and defer the `quest-<id>-` sweep until that relay resolves (the `quest-bg-probe-` sweep is always safe).
+2. Run `scripts/quest_preflight.sh --orchestrator codex` in a host-visible context and parse the JSON. It probes the configured transport (for `auto`: background-agent via `python3 scripts/quest_claude_probe.py --model claude --transport background-agent` unless a concrete probe model is explicitly configured; bridge is probed only when explicitly selected/configured). Probes are the source of truth: each writes a tiny artifact plus `probe_handoff.json` under `.quest/<id>/logs/bg_probe/` or `.quest/<id>/logs/bridge_probe/`.
 3. Successful host probes are retained in `.quest/cache/claude_bg_codex.json` (background-agent) and `.quest/cache/claude_bridge_codex.json` (bridge). A fresh sandboxed session may reuse a cache while the TTL is valid, but Claude roles still need the same host-visible execution path.
 4. Cache `available` as `claude_transport_available` and `transport` as the session transport; record both transport fields in `orchestration.json` (step 3 of the Codex-led preflight rules above).
 5. If `claude_transport_available` is false:
@@ -93,7 +93,7 @@ Before the first Claude-designated role invocation in a Codex-orchestrated sessi
    - Do not keep retrying the probe for later Claude roles.
 6. If `claude_transport_available` is true:
    - Claude-designated roles may be invoked through the transport with the same artifact paths and handoff contract used by native Claude execution.
-   - **Preferred Codex-led execution path:** use `python3 scripts/quest_claude_runner.py --transport <claude_transport_resolved>` instead of calling a transport script directly, and run that helper in the same host-visible context used for the successful probe/cache refresh. The helper sets `--permission-mode bypassPermissions` by default, adds explicit repo/quest filesystem access via `--add-dir`, polls `handoff.json`, echoes the transport in its JSON envelope, and appends the `context_health.log` line for `runtime=claude` with the `transport=` field.
+   - **Preferred Codex-led execution path:** use `python3 scripts/quest_claude_runner.py --model <models.<role> from .quest/<id>/orchestration.json> --transport <claude_transport_resolved>` instead of calling a transport script directly, and run that helper in the same host-visible context used for the successful probe/cache refresh. The helper sets `--permission-mode bypassPermissions` by default, adds explicit repo/quest filesystem access via `--add-dir`, polls `handoff.json`, echoes the transport in its JSON envelope, and appends the `context_health.log` line for `runtime=claude` with the `transport=` field.
    - A forced `background-agent` transport that cannot dispatch fails loudly (`invocation_error`) — it never silently bridges.
 
 **Global runtime-selection rule:** the workflow chooses execution path by selected runtime plus orchestrator, not by role label alone. For every role, read the `models.<role>` model ID from `.quest/<id>/orchestration.json`, derive `runtime` from it (`runtime_for_model()` mapping above), then resolve `entrypoint` from the matrix above before invoking the role.
@@ -189,8 +189,12 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
    **Claude runtime invocation (Tier C):**
    - **Native Claude `Task(...)`:** If `handoff.json` is missing/unparsable, parse text `---HANDOFF---` as fallback.
    - **Runner-invoked Claude (`python3 scripts/quest_claude_runner.py`, either transport):**
+     - **Parked-session guard (before ANY fresh retry/re-dispatch of a role):** read `parked_bg_session` from `.quest/<id>/state.json`. If it references this role, do NOT fresh-dispatch over it — the same-name retirement guard would kill the parked conversation. Either resume it (`--resume <session_id> --answer-file ...`) or deliberately abandon it first: `python3 scripts/claude_bg_run.py --sweep quest-<id>-<role>-` then `python3 scripts/quest_state.py --quest-dir .quest/<id> --clear-parked-bg-session`.
      - **Timeout:** Retry the same Claude role once with a reduced artifact-first prompt: no questions, no `needs_human`, read only the listed files, and write the required artifacts plus `handoff.json` before any optional commentary. If the second attempt also times out, treat the step as `blocked`.
      - **Auth/CLI/environment failure** (for example Claude CLI missing from `PATH`, not authenticated, or transport script missing): Do NOT retry. Treat the step as `blocked` and surface the stderr summary to the user.
+     - **`rate_limited`:** Do NOT blind retry. Surface `reset_at` when present and tell the human to retry after the reset or choose a different supported Claude model; keep the selected model/runtime language intact unless the human chooses a different model.
+     - **`startup_dialog`:** Do NOT retry. Treat the step as `blocked` with the remediation to open Claude interactively in the target cwd, accept trust/bypass prompts, then resume the quest with `/quest <id>` (or `$quest <id>`).
+     - **`model_rejected`:** Do NOT retry. Treat the step as `blocked`, name `rejected_model` when present, and ask the human to choose a supported Claude model or the `claude` sentinel — the value to change is `models.<role>` in `.quest/<id>/orchestration.json` (repo defaults live in `.ai/allowlist.json` `models`).
      - **Other failures** (missing/unparsable handoff, malformed output, `blocked`): Re-run the same Claude role once with a reduced artifact-first prompt and a strict reminder to write the expected artifact files and `handoff.json`. If the second attempt still fails, parse text `---HANDOFF---` as last-resort compatibility fallback; if no parseable text handoff exists, treat the step as `blocked`.
 
    **Codex runtime invocation — Tier C:**
@@ -218,6 +222,8 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 
 **Claude runner response handling:** In Codex-led sessions, prefer `python3 scripts/quest_claude_runner.py` for Claude-designated roles. It polls the expected `handoff.json` file, defaults to `--permission-mode bypassPermissions`, adds explicit repo/quest filesystem access via `--add-dir`, and logs `runtime=claude` to `context_health.log`. If the helper cannot be used, a raw `python3 scripts/quest_claude_bridge.py` call is still allowed, but the orchestrator must manually perform the same file polling, filesystem access, and logging steps.
 
+**`teardown_failed` (any status, including success):** after EVERY runner completion — success and failure alike, before routing on the handoff — check the runner JSON for `teardown_failed: true`. When set, surface the survivor and the exact sweep command (`python3 scripts/claude_bg_run.py --sweep <session name>`) to the human immediately — a leaked live session must never ride silently on a green result. This check lives here, on the normal post-invocation path, precisely because a successful run never enters the failure ladder.
+
 **Codex response handling:** After a local Codex subagent or Claude-led Codex MCP call returns, the orchestrator reads the corresponding `handoff.json` file and does NOT retain the Codex response body in working context. The response may still appear in the conversation history (platform limitation), but the orchestrator treats it as consumed and does not reference it for any subsequent decision.
 
 **Codex non-interactive contract (all Codex runtime invocations):**
@@ -242,7 +248,7 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 <timestamp> | phase=<phase> | agent=<agent_name> | runtime=claude|codex | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback[ | status=complete|needs_human|blocked][ | transport=background-agent|bridge]
 ```
 
-**Status field (whenever the handoff status is known — any runtime):** record the handoff's own `status` verbatim as `status=complete|needs_human|blocked`. Include it on orchestrator-written lines (native `Task(...)`, Codex roles) whenever you read a parsable handoff or a text-fallback `STATUS:` line; `python3 scripts/quest_claude_runner.py` appends it automatically. **Omit the field — never guess — when the handoff is missing, unparsable, or carries an unknown value.** Counting contract: consumers (the quest-end needs_human rollup in `scripts/quest_complete.py`, and the measurement gate in `ideas/quest-needs-human-resume-relay.md`) count only lines that explicitly carry `status=`; lines without it are excluded from both numerator and denominator, so legacy logs that predate the field never skew the statistics.
+**Status field (whenever the handoff status is known — any runtime):** record the handoff's own `status` verbatim as `status=complete|needs_human|blocked`. Include it on orchestrator-written lines (native `Task(...)`, Codex roles) whenever you read a parsable handoff or a text-fallback `STATUS:` line; `python3 scripts/quest_claude_runner.py` appends it automatically. **Omit the field — never guess — when the handoff is missing, unparsable, or carries an unknown value.** Counting contract: consumers (the quest-end needs_human rollup in `scripts/quest_complete.py`, and the measurement gate in `ideas/2026-07-05-bg-claude-ask-policy-relaxation.md`) count only lines that explicitly carry `status=`; lines without it are excluded from both numerator and denominator, so legacy logs that predate the field never skew the statistics.
 
 **Transport field (Codex-led Claude roles only — mandatory there, absent everywhere else):** `python3 scripts/quest_claude_runner.py` appends `transport=background-agent|bridge` automatically on the lines it writes. Native `Task(...)` and Codex-runtime invocations never carry a `transport=` field — its presence is exactly what the Step 7 transport snapshot and the celebration key on.
 
@@ -290,6 +296,7 @@ If the user provides a quest ID matching either supported Quest ID format (`<slu
 
 1. Check if `.quest/<id>/state.json` exists
 2. If yes, read it and resume from the recorded phase
+2a. **Parked-session check (cold restart):** if `state.json` contains `parked_bg_session`, a Claude role is still waiting on a human answer from a previous session. Before any other routing, re-present the pending questions (read them from that phase's handoff file) and continue the relay: collect the answer, then resume via `python3 scripts/quest_claude_runner.py ... --resume <session_id> --answer-file <answer_file>` per the needs_human relay steps. Do not fresh-dispatch that role, and do not sweep the parked session, while the marker is present.
 3. If the user also provided an instruction, route it (Step 2)
 4. If no instruction, auto-resume based on state:
    - `phase: plan` + no approval verdict → continue plan phase
@@ -1258,6 +1265,7 @@ After plan approval, present the plan interactively before proceeding to build.
     python3 scripts/quest_complete.py --quest-dir .quest/<id>
     ```
     This script handles all of the following automatically:
+    - Runs a best-effort parked background-agent sweep with `python3 scripts/claude_bg_run.py --sweep quest-<id>-` before archive
     - Creates `docs/quest-journal/<slug>_<YYYY-MM-DD>.md` with quest metadata, summary, files changed, iterations, agent credits, and an embedded `celebration_data` JSON block (for future `/celebrate` replay)
     - Inserts a row at the top of `docs/quest-journal/README.md` index table
     - Moves `.quest/<id>/` to `.quest/archive/<id>/`
@@ -1267,6 +1275,7 @@ After plan approval, present the plan interactively before proceeding to build.
     **If the script fails**, fall back to manual creation:
     - Write journal entry manually following the format in existing entries
     - Move quest directory to archive manually
+    - For abandon/manual cleanup, run `python3 scripts/claude_bg_run.py --sweep quest-<id>-` before leaving or deleting quest artifacts so deliberately parked Claude background sessions do not leak.
 
     **Idea file cleanup** (manual, after script runs):
     - If quest originated from an idea file:
@@ -1363,10 +1372,19 @@ If a Claude role returns `STATUS: needs_human`:
 1. Extract questions from the response (text before `---HANDOFF---`) -- this is an intentional, bounded content read for human interaction, similar to Step 3.5
 2. Present questions to user
 3. Collect answers
-4. Re-invoke the same agent with answers appended to context, referencing the same artifact paths
-5. Repeat until agent returns `complete` or `blocked`
+4. For native Claude `Task(...)`, re-invoke the same agent with answers appended to context, referencing the same artifact paths.
+5. For runner-invoked Claude on `transport=background-agent`, use the same-session relay:
+   - Read the runner JSON `session_id` and `questions` fields.
+   - Persist the parked session id in `.quest/<id>/state.json` before waiting for the human answer, via the state helper (never hand-edit state.json): `python3 scripts/quest_state.py --quest-dir .quest/<id> --parked-bg-session '{"agent": "<role>", "phase": "<phase>", "iteration": <n>, "session_id": "<session_id>", "short_id": "<short_id>"}'`
+   - Write the human answer to an answer file under `.quest/<id>/logs/`.
+   - Resume with the SAME role arguments as the original invocation (the runner requires them): `python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase <phase> --agent <role> --iter <n> --prompt-file <original prompt file> --handoff-file <original handoff path> --model <models.<role> from .quest/<id>/orchestration.json> --transport background-agent --resume <session_id> --answer-file <answer_file>` using the same artifact paths.
+   - If the resumed runner JSON reports a new `session_id`, update the parked session id (rerun the `--parked-bg-session` command with the new id) because `claude --bg --resume` forks to a new background session.
+   - When the role finally returns `complete` or `blocked`, clear the parked marker: `python3 scripts/quest_state.py --quest-dir .quest/<id> --clear-parked-bg-session`
+   - Cap repeated questions for one role at 3 loops. At the cap, deliberately abandon the parked session BEFORE routing to blocked — otherwise the marker and the live session survive forever and the cold-restart check re-enters this same capped relay on every resume: run `python3 scripts/claude_bg_run.py --sweep <session name> --sweep-include-active`, then `python3 scripts/quest_state.py --quest-dir .quest/<id> --clear-parked-bg-session`, then route to blocked with the last question in the summary.
+5b. For runner-invoked Claude on `transport=bridge` there is no session to resume (`claude --print` is stateless; the runner rejects `--resume` on the bridge). Relay the answer the same way as native `Task(...)`: re-invoke the same role via the runner with the human's answers appended to the prompt file, same artifact paths — a fresh dispatch carrying the answers, not a continuation.
+6. Repeat until agent returns `complete` or `blocked`; do not sweep a deliberately parked session while waiting for the human answer.
 
-Every pass through this loop produces its own `context_health.log` line carrying `status=needs_human` (the runner writes it automatically; write it yourself for native `Task(...)` roles). This is the measurement feed for `ideas/quest-needs-human-resume-relay.md` — skipping it makes the resume-relay decision unanswerable.
+Every pass through this loop produces its own `context_health.log` line carrying `status=needs_human` (the runner writes it automatically; write it yourself for native `Task(...)` roles). This is the measurement feed for `ideas/2026-07-05-bg-claude-ask-policy-relaxation.md` — skipping it makes the ask-policy decision unanswerable.
 
 ---
 
@@ -1388,6 +1406,14 @@ Every pass through this loop produces its own `context_health.log` line carrying
   "fix_iteration": 0,
   "last_role": "arbiter_agent",
   "last_verdict": "approve | iterate",
+  "parked_bg_session": {
+    "agent": "planner",
+    "phase": "plan",
+    "iteration": 1,
+    "session_id": "11111111-1111-1111-1111-111111111111",
+    "short_id": "abc12345",
+    "updated_at": "2026-02-02T14:44:00Z"
+  },
   "created_at": "2026-02-02T14:30:00Z",
   "updated_at": "2026-02-02T14:45:00Z"
 }

@@ -39,8 +39,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="json",
         help="Claude output format (default: json)",
     )
-    # NOTE: This default is duplicated in scripts/quest_claude_runner.py.
-    # If you change it here, update it there too.
     parser.add_argument(
         "--timeout",
         type=float,
@@ -138,7 +136,10 @@ def run_claude(
     disallowed_tools: str,
 ) -> dict[str, Any]:
     cmd = ["claude", "--print", prompt, "--output-format", output_format]
-    if model:
+    # `claude` is the runtime-family sentinel meaning account-default model —
+    # never a CLI model name (defense-in-depth mirroring the bg runner; the
+    # quest layer normalizes it away, but direct callers reach here unfiltered).
+    if model and model != "claude":
         cmd.extend(["--model", model])
     if system_prompt:
         cmd.extend(["--system-prompt", system_prompt])

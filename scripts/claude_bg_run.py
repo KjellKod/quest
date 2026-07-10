@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """claude_bg_run — standalone runner for one Claude background-agent task.
 
-PROOF OF CONCEPT (Step 1 of docs/implementation/claude-bg-run-script.md).
+Step 1 of the bg-transport migration; the original spec and its empirical
+findings are archived at docs/implementation/history/claude-bg-run-script.md.
 
 Quest-agnostic on purpose: this knows nothing about quest phases, handoff
 schemas, or orchestration.json. It does exactly one thing — dispatch a single
@@ -39,11 +40,12 @@ Transport facts this encodes (observed across Claude Code 2.1.x):
     (idle, awaiting-input) session ALSO reads `state==blocked`, so resume-mode
     polling must never match the parked parent's row (id/name take precedence
     over sessionId).
-  * Early 2.1.x builds did not expose scriptable `logs|stop|rm`; this runner
-    still uses the portable fallback: transcript JSONL for log tails and
-    signalling the `pid` carried in the `agents --json` row. Claude Code 2.1.191
-    exposes real `claude logs <id>` and `claude stop <id>` commands; adopting
-    those subcommands is tracked as follow-up cleanup.
+  * Claude CLI 2.1.x background-session management subcommands are not treated
+    as a stable scripting contract here (2.1.201 ships no scriptable
+    `logs`/`stop`). This runner deliberately uses ONLY the portable mechanisms:
+    transcript JSONL for log tails and signalling the `pid` carried in the
+    `agents --json` row. Adopting real subcommands, if the CLI ever ships them,
+    is a contained follow-up: the mechanisms live in `logs_tail`/`stop_session`.
   * `claude --bg --resume <sid>` FORKS: the new agent continues the conversation
     under a NEW sessionId (daemon roster: launch.mode=resume, fork=true).
 
@@ -76,6 +78,9 @@ EXIT_DISPATCH_FAILED = 3  # never registered with the supervisor
 EXIT_BLOCKED = 4  # leaked interactive prompt (state=blocked)
 EXIT_TIMEOUT = 5
 EXIT_SESSION_FAILED = 6  # vanished / done-without-artifacts (incomplete)
+EXIT_RATE_LIMITED = 7  # account session/rate limit; retry after reset
+EXIT_STARTUP_DIALOG = 8  # trust/bypass dialog before the prompt was consumed
+EXIT_MODEL_REJECTED = 9  # CLI rejected the selected model
 EXIT_NEEDS_HUMAN = 10  # actionable, not a failure: agent asked for a decision
 EXIT_INTERRUPTED = 130  # Ctrl-C: session torn down before exit
 
@@ -83,6 +88,30 @@ _SHORTID_RE = re.compile(r"backgrounded\s*·\s*([0-9a-fA-F]+)")
 _SESSION_ID_RE = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}|[0-9a-fA-F]{32}")
 _BYPASS_REFUSAL_RE = re.compile(
     r"bypass[- ]?permissions.*requires accepting|dangerously-skip-permissions",
+    re.IGNORECASE,
+)
+# Anchored to the CLI's own phrasing ("You've hit your session limit · resets
+# 2pm"): bare "session limit"/"rate limit" substrings would false-positive on
+# assistant prose that merely DISCUSSES limits (routine in infra/AI repos).
+_RATE_LIMIT_RE = re.compile(
+    r"(?:you(?:'ve| have) (?:hit|reached) (?:your|the) (?:\d+-hour )?(?:session|rate|usage) limit"
+    r"|(?:session|rate|usage) limit (?:reached|exceeded))",
+    re.IGNORECASE,
+)
+_RESET_AT_RE = re.compile(
+    r"\b(?:resets?|reset(?:s)?(?: at| on)?|try again(?: at| after)?)\s+"
+    r"([^\n.;]+(?:\([^)]+\))?)",
+    re.IGNORECASE,
+)
+_MODEL_REJECTED_RE = re.compile(
+    r"(?:(?:there(?:'s| is)\s+an\s+)?(?:issue|problem)\s+with\s+the\s+selected\s+model"
+    r"|(?:invalid|unknown|unsupported)\s+selected\s+model)"
+    r"(?:\s*(?:\(|:)\s*([A-Za-z0-9._:/-]+))?",
+    re.IGNORECASE,
+)
+_STARTUP_DIALOG_RE = re.compile(
+    r"(?:send a prompt to start|trust this folder|do you trust|accept.*(?:trust|bypass)|"
+    r"bypasspermissions.*accept|dangerously-skip-permissions)",
     re.IGNORECASE,
 )
 # CSI / OSC / single-char escapes — covers the TUI redraw soup from `claude logs`.
@@ -227,6 +256,12 @@ class Envelope:
     duration_s: float = 0.0
     logs_tail: str = ""
     message: str = ""
+    reset_at: str | None = None
+    rejected_model: str | None = None
+    teardown_failed: bool = False
+    teardown_survivor_id: str | None = None
+    teardown_survivor_name: str | None = None
+    teardown_survivor_session_id: str | None = None
 
     def exit_code(self) -> int:
         return {
@@ -234,6 +269,9 @@ class Envelope:
             "precondition_failed": EXIT_PRECONDITION,
             "dispatch_failed": EXIT_DISPATCH_FAILED,
             "blocked": EXIT_BLOCKED,
+            "rate_limited": EXIT_RATE_LIMITED,
+            "startup_dialog": EXIT_STARTUP_DIALOG,
+            "model_rejected": EXIT_MODEL_REJECTED,
             "timeout": EXIT_TIMEOUT,
             "session_failed": EXIT_SESSION_FAILED,
             "incomplete": EXIT_SESSION_FAILED,
@@ -242,10 +280,90 @@ class Envelope:
         }.get(self.status, EXIT_SESSION_FAILED)
 
 
+@dataclass
+class StopResult:
+    settled: bool
+    survivor_id: str | None = None
+    survivor_name: str | None = None
+    survivor_session_id: str | None = None
+    # "working" when retirement was REFUSED because the row is actively
+    # working (likely a concurrent orchestrator) — distinct from a failed kill.
+    reason: str | None = None
+
+
+@dataclass
+class DispatchResult:
+    terminal_status: str | None
+    message: str
+    short_id: str | None
+    row: dict[str, Any] | None
+    reset_at: str | None = None
+    rejected_model: str | None = None
+
+
+def _parse_reset_at(text: str) -> str | None:
+    match = _RESET_AT_RE.search(text)
+    return match.group(1).strip() if match else None
+
+
+def _parse_rejected_model(text: str) -> str | None:
+    match = _MODEL_REJECTED_RE.search(text)
+    if match and match.group(1):
+        return match.group(1).strip(").,;: ")
+    return None
+
+
+def _row_active_or_unknown(row: dict) -> bool:
+    """True when a live roster row must NOT be auto-killed.
+
+    Actively working/busy rows are a concurrent orchestrator's in-flight work;
+    a row carrying NEITHER state nor status is outside the documented roster
+    contract — treat unknown as active, because guessing wrong kills work.
+    Single owner of this rule for both the same-name guard and sweep().
+    """
+    activity = {row.get("state"), row.get("status")} - {None}
+    return not activity or bool(activity & {"working", "busy"})
+
+
+def _classify_limit_or_model(text: str) -> tuple[str, str, str | None, str | None] | None:
+    """Classify rate-limit / model-rejection evidence into
+    (status, message, reset_at, rejected_model).
+
+    Single source of truth for both dispatch-time output and the WAIT loop's
+    blocked-state evidence — the wording and parsing must never drift between
+    the two exit paths. Returns None when the text carries neither signal.
+    """
+    if _RATE_LIMIT_RE.search(text):
+        reset_at = _parse_reset_at(text)
+        reset = f" after reset ({reset_at})" if reset_at else " after the session limit resets"
+        return (
+            "rate_limited",
+            "Claude background session hit the account session limit; "
+            f"retry{reset} or ask the human whether to choose a different model.",
+            reset_at,
+            None,
+        )
+    if _MODEL_REJECTED_RE.search(text):
+        rejected = _parse_rejected_model(text)
+        suffix = f" ({rejected})" if rejected else ""
+        return (
+            "model_rejected",
+            f"Claude CLI rejected the selected model{suffix}; "
+            "choose a supported Claude model or the `claude` sentinel.",
+            None,
+            rejected,
+        )
+    return None
+
+
 class BgRunner:
     def __init__(self, args: argparse.Namespace) -> None:
         self.a = args
         self.claude = shlex.split(args.claude_bin)
+        # Set once a dispatch is CONFIRMED: the only session interrupt cleanup
+        # may kill unconditionally — an unconfirmed same-name row may belong
+        # to a concurrent orchestrator.
+        self.confirmed_short_id: str | None = None
 
     # -- thin claude subcommand wrappers (all clean, structured) --------------
     def _claude(self, *sub: str, timeout: float = 30.0) -> subprocess.CompletedProcess:
@@ -326,22 +444,42 @@ class BgRunner:
             return ref, None
         return None, None
 
-    def logs_tail(self, session_id: str | None) -> str:
-        """Tail of the session transcript (~/.claude/projects/*/<sid>.jsonl).
+    def _rejected_model_fallback(self) -> str | None:
+        """The dispatched model as rejected_model fallback — but never the
+        `claude` sentinel: sentinel means --model was omitted, so the CLI
+        rejected the account-default model whose name we don't know."""
+        if self.a.model and self.a.model != "claude":
+            return self.a.model
+        return None
 
-        Claude Code 2.1.191 has `claude logs <id>`, but this runner still uses
-        transcript JSONL as the portable fallback. Returns the last few
-        assistant-text lines, distilled.
+    def _transcript_path(self, session_id: str | None) -> Path | None:
+        """Path of the session transcript JSONL, or None when it doesn't exist.
+
+        A missing transcript is a load-bearing signal: the session never
+        consumed its initial prompt (startup trust/bypass dialog).
         """
         if not session_id:
-            return ""
+            return None
         root = Path(self.a.transcripts_root).expanduser()
         matches = list(root.glob(f"*/{session_id}.jsonl")) or list(root.glob(f"{session_id}.jsonl"))
-        if not matches:
+        return matches[0] if matches else None
+
+    def logs_tail(self, session_id: str | None, max_texts: int = 4) -> str:
+        """Tail of the session transcript (~/.claude/projects/*/<sid>.jsonl).
+
+        This runner uses transcript JSONL as the portable fallback instead of
+        assuming a stable `claude logs <id>` subcommand. Returns the last
+        `max_texts` assistant-text lines, distilled. Classification callers
+        pass max_texts=1: a CLI dialog (rate limit, model rejection) is always
+        the FINAL assistant message, and scanning earlier messages invites
+        false positives from agent prose that merely discusses limits/models.
+        """
+        transcript = self._transcript_path(session_id)
+        if transcript is None:
             return ""
         texts: list[str] = []
         try:
-            for line in matches[0].read_text(encoding="utf-8").splitlines():
+            for line in transcript.read_text(encoding="utf-8").splitlines():
                 try:
                     obj = json.loads(line)
                 except json.JSONDecodeError:
@@ -353,13 +491,13 @@ class BgRunner:
                         texts.append(block.get("text", ""))
         except OSError:
             return ""
-        return distill("\n".join(texts[-4:]))
+        return distill("\n".join(texts[-max_texts:]))
 
-    def stop_session(self, short_id: str | None) -> None:
+    def stop_session(self, short_id: str | None) -> StopResult:
         """Stop a background agent by signalling its supervisor-reported pid.
 
-        Claude Code 2.1.191 has `claude stop <id>`, but this runner still uses
-        the older pid-signalling fallback. The daemon may RESPAWN a parked
+        This runner uses the pid-signalling fallback instead of assuming a
+        stable `claude stop <id>` subcommand. The daemon may RESPAWN a parked
         session once from its spare pool after a kill (the row keeps its id but
         shows a fresh pid), so keep signalling the row's *current* pid until the
         row settles — drops its pid ("settled (killed)" in the daemon log) or
@@ -367,42 +505,124 @@ class BgRunner:
         that is retired enough.
         """
         if not short_id:
-            return
+            return StopResult(settled=True)
+        row: dict[str, Any] | None = None
         for attempt in range(6):
             row = self.find_session(short_id=short_id)
             pid = (row or {}).get("pid")
             if not isinstance(pid, int):
-                return  # gone, or settled with no live process
+                return StopResult(settled=True)
             sig = signal.SIGTERM if attempt < 2 else signal.SIGKILL
             try:
                 os.kill(pid, sig)
             except (ProcessLookupError, PermissionError):
                 pass
             time.sleep(self.a.poll_interval)
+        row = self.find_session(short_id=short_id)
+        if not isinstance((row or {}).get("pid"), int):
+            return StopResult(settled=True)
+        return StopResult(
+            settled=False,
+            survivor_id=(row or {}).get("id"),
+            survivor_name=(row or {}).get("name"),
+            survivor_session_id=(row or {}).get("sessionId"),
+        )
 
-    def teardown(self, short_id: str | None) -> None:
+    def teardown(self, short_id: str | None) -> StopResult:
         if self.a.keep:
-            return
-        self.stop_session(short_id)
+            return StopResult(settled=True)
+        return self.stop_session(short_id)
 
-    def sweep(self, prefix: str) -> int:
-        """Stop every background session whose name starts with `prefix`.
+    def _retire_same_name_before_fresh_dispatch(
+        self, *, exempt_short_id: str | None = None
+    ) -> StopResult:
+        """Retire stale same-name rows so a fresh dispatch never duplicates.
 
-        Orphan recovery for orchestrators that crashed between dispatch and
-        teardown (e.g. quest start/resume runs `--sweep quest-<id>-`).
+        CAUTION for callers: a deliberately PARKED needs_human session reads
+        state=blocked and is indistinguishable from a stale crashed row here —
+        the roster carries no parked-on-purpose marker. An orchestrator that
+        parked a session for resume must resume it (or sweep it and clear its
+        state marker) instead of fresh-dispatching the same name over it; see
+        the parked-session guard in .skills/quest/delegation/workflow.md.
+        Actively working/busy rows are refused (never killed), and the resume
+        fallback path passes exempt_short_id to protect the parked parent.
         """
         rows = [
             row
             for row in self.agents_json()
             if row.get("kind") != "interactive"
-            and isinstance(row.get("name"), str)
-            and row["name"].startswith(prefix)
+            and row.get("name") == self.a.name
             and isinstance(row.get("pid"), int)
+            and row.get("id") != exempt_short_id
         ]
+        result = StopResult(settled=True)
         for row in rows:
-            self.stop_session(row.get("id"))
-            print(f"swept {row.get('id')} ({row.get('name')})")
-        print(f"sweep complete: {len(rows)} session(s) matching {prefix!r} stopped")
+            # Never auto-retire an actively working same-name row: it may be a
+            # concurrent orchestrator's in-flight session, and killing it loses
+            # work. Only parked/blocked/idle/done rows are safe to retire.
+            if _row_active_or_unknown(row):
+                return StopResult(
+                    settled=False,
+                    survivor_id=row.get("id"),
+                    survivor_name=row.get("name"),
+                    survivor_session_id=row.get("sessionId"),
+                    reason="working",
+                )
+            result = self.stop_session(row.get("id"))
+            if not result.settled:
+                return result
+        return result
+
+    def sweep(self, prefix: str, *, include_active: bool = False) -> int:
+        """Stop every background session whose name starts with `prefix`.
+
+        Orphan recovery for orchestrators that crashed between dispatch and
+        teardown (e.g. quest start/resume runs `--sweep quest-<id>-`).
+        By default an actively working/busy row is SKIPPED and reported — a
+        concurrent orchestrator on the same quest may own it, and orphan
+        recovery must not kill in-flight work. Callers stopping a session
+        they OWN (e.g. preflight retiring its own probe) pass include_active.
+        """
+        try:
+            rows = [
+                row
+                for row in self.agents_json()
+                if row.get("kind") != "interactive"
+                and isinstance(row.get("name"), str)
+                and row["name"].startswith(prefix)
+                and isinstance(row.get("pid"), int)
+            ]
+        except FileNotFoundError:
+            print("sweep skipped: claude CLI not found in PATH")
+            return EXIT_OK
+        except (OSError, subprocess.SubprocessError) as exc:
+            print(f"sweep skipped: claude agents roster unavailable: {exc}")
+            return EXIT_OK
+        failed = 0
+        skipped_active = 0
+        for row in rows:
+            if not include_active and _row_active_or_unknown(row):
+                skipped_active += 1
+                print(f"skipped active {row.get('id')} ({row.get('name')})")
+                continue
+            result = self.stop_session(row.get("id"))
+            status = "swept" if result.settled else "teardown_failed"
+            if not result.settled:
+                failed += 1
+            print(f"{status} {row.get('id')} ({row.get('name')})")
+        stopped = len(rows) - failed - skipped_active
+        if skipped_active:
+            print(
+                f"sweep left {skipped_active} actively working session(s) alive "
+                "(pass --sweep-include-active to stop sessions you own)"
+            )
+        if failed:
+            print(
+                f"sweep incomplete: {stopped} session(s) matching {prefix!r} stopped; "
+                f"{failed} survivor(s) still live"
+            )
+            return EXIT_BLOCKED
+        print(f"sweep complete: {stopped} session(s) matching {prefix!r} stopped")
         return EXIT_OK
 
     # -- message construction -------------------------------------------------
@@ -436,6 +656,44 @@ class BgRunner:
             self._read_source(self.a.answer, self.a.answer_file, "answer (resume mode needs --answer/--answer-file)")
         )
 
+    def _fresh_dispatch_preserving_outputs(
+        self, message: str, *, exempt_same_name_short_id: str | None = None
+    ) -> DispatchResult:
+        """Fresh dispatch wrapped in the reversible stale-output guard.
+
+        Snapshot handoff + wait_for, clear them (stale content must not
+        satisfy this run), dispatch fresh; on ANY unconfirmed dispatch —
+        including a refused same-name working session, and the resume
+        fallback's failed re-dispatch (PR #137 review) — restore the snapshot
+        so pre-existing questions/artifacts survive for a later retry. The
+        single owner of this transaction: both the plain fresh path and the
+        resume fallback must never diverge on restore semantics.
+        """
+        outputs = self._snapshot_outputs(include_wait_for=True)
+        uncleared = self._clear_stale_outputs(include_wait_for=True)
+        if uncleared:
+            # Stale non-empty content we could not clear would satisfy the
+            # WAIT loop instantly — a false success. Fail before dispatching,
+            # but FIRST restore whatever the partial clear already truncated
+            # (e.g. the parked question) — no dispatch will rewrite it.
+            self._restore_outputs(outputs)
+            return DispatchResult(
+                terminal_status="precondition_failed",
+                message=(
+                    "could not clear stale output file(s) before dispatch "
+                    f"({', '.join(uncleared)}); fix permissions or remove them, "
+                    "then retry — proceeding would report stale content as success"
+                ),
+                short_id=None,
+                row=None,
+            )
+        dispatch = self.dispatch_and_confirm(
+            message, None, exempt_same_name_short_id=exempt_same_name_short_id
+        )
+        if dispatch.terminal_status:
+            self._restore_outputs(outputs)
+        return dispatch
+
     def _fallback_prompt(self, answer: str) -> str:
         task = self._read_source(self.a.prompt, self.a.prompt_file, "prompt")
         return f"{task}\n\nThe human answered your earlier question:\n{answer}\n"
@@ -445,7 +703,7 @@ class BgRunner:
         argv = [*self.claude, "--bg", "--name", self.a.name]
         if resume_sid:
             argv += ["--resume", resume_sid]
-        if self.a.model:
+        if self.a.model and self.a.model != "claude":
             argv += ["--model", self.a.model]
         if self.a.effort:
             argv += ["--effort", self.a.effort]
@@ -457,9 +715,13 @@ class BgRunner:
         return argv
 
     def dispatch_and_confirm(
-        self, message: str, resume_sid: str | None
-    ) -> tuple[str | None, str, str | None, dict[str, Any] | None]:
-        """Returns (terminal_status_or_None, message, short_id, session_row)."""
+        self,
+        message: str,
+        resume_sid: str | None,
+        *,
+        exempt_same_name_short_id: str | None = None,
+    ) -> DispatchResult:
+        """Return the dispatch terminal status, confirmed row, and metadata."""
         # Roster snapshot BEFORE dispatch: the confirm loop's name fallback may
         # only accept a row that appeared after this dispatch. Callers can pass
         # a stable --name (quest: quest-<id>-<role>-i<n>), so a stale row from a
@@ -470,14 +732,43 @@ class BgRunner:
         # quietly reintroduce the stale-row false-confirm this guards against.
         pre_existing: set[str] = set()
         try:
+            if resume_sid is None:
+                same_name_stop = self._retire_same_name_before_fresh_dispatch(
+                    exempt_short_id=exempt_same_name_short_id
+                )
+                if not same_name_stop.settled:
+                    if same_name_stop.reason == "working":
+                        detail = (
+                            "live same-name background session is actively working; "
+                            "refusing to retire it (likely a concurrent orchestrator "
+                            f"run): id={same_name_stop.survivor_id} "
+                            f"name={same_name_stop.survivor_name} "
+                            f"session_id={same_name_stop.survivor_session_id}. "
+                            "Wait for it to finish, or stop it deliberately with: "
+                            f"python3 scripts/claude_bg_run.py --sweep {self.a.name} "
+                            "--sweep-include-active"
+                        )
+                    else:
+                        detail = (
+                            "live same-name background session could not be retired "
+                            f"before dispatch: id={same_name_stop.survivor_id} "
+                            f"name={same_name_stop.survivor_name} "
+                            f"session_id={same_name_stop.survivor_session_id}"
+                        )
+                    return DispatchResult(
+                        terminal_status="dispatch_failed",
+                        message=detail,
+                        short_id=same_name_stop.survivor_id,
+                        row=None,
+                    )
             for r in self.agents_json():
                 for key in ("id", "sessionId"):
                     if r.get(key):
                         pre_existing.add(r[key])
         except FileNotFoundError:
-            return "precondition_failed", "claude CLI not found in PATH", None, None
+            return DispatchResult("precondition_failed", "claude CLI not found in PATH", None, None)
         except (OSError, subprocess.SubprocessError) as exc:
-            return "dispatch_failed", f"roster snapshot before dispatch failed: {exc}", None, None
+            return DispatchResult("dispatch_failed", f"roster snapshot before dispatch failed: {exc}", None, None)
         argv = self.dispatch_argv(resume_sid)
         try:
             cp = subprocess.run(
@@ -489,17 +780,32 @@ class BgRunner:
                 check=False,
             )
         except FileNotFoundError:
-            return "precondition_failed", "claude CLI not found in PATH", None, None
+            return DispatchResult("precondition_failed", "claude CLI not found in PATH", None, None)
         except subprocess.SubprocessError as exc:
-            return "dispatch_failed", f"dispatch error: {exc}", None, None
+            return DispatchResult("dispatch_failed", f"dispatch error: {exc}", None, None)
 
         out = cp.stdout + cp.stderr
         if _BYPASS_REFUSAL_RE.search(out):
-            return (
-                "precondition_failed",
-                "bypassPermissions not accepted — run `claude --dangerously-skip-permissions` once interactively, then retry.",
-                None,
-                None,
+            return DispatchResult(
+                terminal_status="precondition_failed",
+                message="bypassPermissions not accepted — run `claude --dangerously-skip-permissions` once interactively, then retry.",
+                short_id=None,
+                row=None,
+            )
+        classified = _classify_limit_or_model(out)
+        if classified:
+            status, message, reset_at, rejected = classified
+            if status == "model_rejected":
+                # Same fallback as the WAIT path: when the CLI phrasing hides
+                # the model name, the dispatched model is still the answer.
+                rejected = rejected or self._rejected_model_fallback()
+            return DispatchResult(
+                terminal_status=status,
+                message=message,
+                short_id=None,
+                row=None,
+                reset_at=reset_at,
+                rejected_model=rejected,
             )
         m = _SHORTID_RE.search(out)
         short_id = m.group(1) if m else None
@@ -516,13 +822,30 @@ class BgRunner:
                 break
             time.sleep(self.a.poll_interval)
         if not row:
-            return (
-                "dispatch_failed",
-                "session never registered with the supervisor (printed: %r)" % out.strip()[:200],
-                short_id,
-                None,
+            return DispatchResult(
+                terminal_status="dispatch_failed",
+                message="session never registered with the supervisor (printed: %r)" % out.strip()[:200],
+                short_id=short_id,
+                row=None,
             )
-        return None, "", short_id or row.get("id"), row
+        return DispatchResult(None, "", short_id or row.get("id"), row)
+
+    @staticmethod
+    def _copy_stop_result(env: Envelope, result: StopResult) -> None:
+        if result.settled:
+            return
+        env.teardown_failed = True
+        env.teardown_survivor_id = result.survivor_id
+        env.teardown_survivor_name = result.survivor_name
+        env.teardown_survivor_session_id = result.survivor_session_id
+
+    @staticmethod
+    def _copy_dispatch_result(env: Envelope, result: DispatchResult) -> None:
+        env.status = result.terminal_status or ""
+        env.message = result.message
+        env.short_id = result.short_id
+        env.reset_at = result.reset_at
+        env.rejected_model = result.rejected_model
 
     # -- file/handoff helpers -------------------------------------------------
     @staticmethod
@@ -541,16 +864,27 @@ class BgRunner:
             return None
 
     @staticmethod
-    def _clear_file(path: str) -> None:
-        """Truncate a pre-existing file so stale content cannot satisfy this run."""
+    def _clear_file(path: str) -> bool:
+        """Truncate a pre-existing file so stale content cannot satisfy this run.
+
+        Returns False when a NON-EMPTY file could not be cleared: that stale
+        content would instantly satisfy the WAIT loop's non-empty check — a
+        false success — so the caller must fail the run instead of proceeding.
+        """
         try:
             target = Path(path)
             if target.is_file():
                 target.write_text("", encoding="utf-8")
+            elif target.exists():
+                # A directory (or other non-file) at an output path satisfies
+                # the WAIT loop's stat-size check yet can never be this run's
+                # result — unclearable stale state, fail it.
+                return False
+            return True
         except OSError:
-            pass  # an unwritable path surfaces later as incomplete, never as false success
+            return not BgRunner._nonempty(path)
 
-    def _clear_stale_outputs(self, *, include_wait_for: bool) -> None:
+    def _clear_stale_outputs(self, *, include_wait_for: bool) -> list[str]:
         """Stale-state guard: pre-existing outputs must not satisfy THIS run.
 
         Fresh dispatch clears the handoff and every --wait-for target. Resume
@@ -558,12 +892,18 @@ class BgRunner:
         WAIT loop instantly) and keeps --wait-for files the parked session
         already wrote — the resumed agent will not rewrite work it believes
         is done.
+
+        Returns the paths whose stale non-empty content could NOT be cleared;
+        callers must fail the run for those (false-success guard).
         """
-        if self.a.handoff_file:
-            self._clear_file(self.a.handoff_file)
+        failed: list[str] = []
+        if self.a.handoff_file and not self._clear_file(self.a.handoff_file):
+            failed.append(self.a.handoff_file)
         if include_wait_for:
             for path in self.a.wait_for:
-                self._clear_file(path)
+                if not self._clear_file(path):
+                    failed.append(path)
+        return failed
 
     def _snapshot_outputs(self, *, include_wait_for: bool) -> dict[str, bytes]:
         """Capture non-empty parked outputs (handoff + optionally --wait-for) so
@@ -619,49 +959,47 @@ class BgRunner:
                 return env
             env.resumed = True
             env.resumed_from = resume_sid
-            status, msg, short_id, row = self.dispatch_and_confirm(message, resume_sid)
+            dispatch = self.dispatch_and_confirm(message, resume_sid)
             have_task = self.a.prompt is not None or bool(self.a.prompt_file)
-            if status and self.a.fallback and have_task:
+            if dispatch.terminal_status and self.a.fallback and have_task:
                 try:
                     fb = self._fallback_prompt(message)
                 except (ValueError, OSError) as exc:
                     env.status, env.message = "precondition_failed", str(exc)
                     return env
                 env.resumed, env.fell_back = False, True
-                # Committing to a fresh run: clear the parked handoff + wait_for
-                # as the stale guard (the answer is carried into the new prompt).
-                # Snapshot them FIRST so a failed fresh dispatch can restore the
-                # parked session's question AND any artifacts it already wrote —
-                # clearing before the re-dispatch is confirmed must be reversible
-                # (PR #137 review).
-                parked_outputs = self._snapshot_outputs(include_wait_for=True)
-                self._clear_stale_outputs(include_wait_for=True)
-                status2, msg2, short_id, row = self.dispatch_and_confirm(fb, None)
-                if status2:
-                    # Fresh re-dispatch failed too: restore the parked outputs so
-                    # the question (and any artifacts) survive for a later retry,
-                    # and leave the parked session alive (teardown below is not
-                    # reached).
-                    self._restore_outputs(parked_outputs)
-                    env.status = status2
-                    env.message = f"resume failed ({msg}); re-dispatch also failed ({msg2})"
-                    env.short_id = short_id
+                dispatch2 = self._fresh_dispatch_preserving_outputs(
+                    fb, exempt_same_name_short_id=parent_short_id
+                )
+                if dispatch2.terminal_status:
+                    # Restore already happened; leave the parked session alive
+                    # (teardown below is not reached) so a later retry can
+                    # still answer the question.
+                    self._copy_dispatch_result(env, dispatch2)
+                    env.message = (
+                        f"resume failed ({dispatch.message}); "
+                        f"re-dispatch also failed ({dispatch2.message})"
+                    )
                     env.duration_s = round(time.monotonic() - t0, 1)
                     return env
-                env.message = f"resume failed ({msg}); re-dispatched fresh with the answer"
-            elif status:
-                env.status, env.message, env.short_id = status, msg, short_id
+                short_id, row = dispatch2.short_id, dispatch2.row
+                env.message = f"resume failed ({dispatch.message}); re-dispatched fresh with the answer"
+            elif dispatch.terminal_status:
+                self._copy_dispatch_result(env, dispatch)
                 env.duration_s = round(time.monotonic() - t0, 1)
                 return env
+            else:
+                short_id, row = dispatch.short_id, dispatch.row
         else:
-            self._clear_stale_outputs(include_wait_for=True)
-            status, msg, short_id, row = self.dispatch_and_confirm(message, None)
-            if status:
-                env.status, env.message, env.short_id = status, msg, short_id
+            dispatch = self._fresh_dispatch_preserving_outputs(message)
+            if dispatch.terminal_status:
+                self._copy_dispatch_result(env, dispatch)
                 env.duration_s = round(time.monotonic() - t0, 1)
                 return env
+            short_id, row = dispatch.short_id, dispatch.row
 
         env.short_id = short_id
+        self.confirmed_short_id = short_id
         env.session_id = (row or {}).get("sessionId")
 
         # Clear the parked handoff only now that the resume continuation is
@@ -670,22 +1008,44 @@ class BgRunner:
         # parked agent already wrote are kept (the resumed agent won't redo
         # them). The fallback path cleared its own stale outputs above.
         if resume_mode and not env.fell_back:
-            self._clear_stale_outputs(include_wait_for=False)
+            if self._clear_stale_outputs(include_wait_for=False):
+                # The parked needs_human handoff could not be cleared: it
+                # would re-trigger the WAIT loop instantly as a false result.
+                env.status = "precondition_failed"
+                env.message = (
+                    f"could not clear the stale handoff file "
+                    f"({self.a.handoff_file}) after resume; fix permissions "
+                    "and retry — its parked content would masquerade as this "
+                    "run's result"
+                )
+                env.duration_s = round(time.monotonic() - t0, 1)
+                if env.short_id:
+                    self._copy_stop_result(env, self.teardown(env.short_id))
+                return env
 
         # The conversation has moved on (resumed into a new agent, or re-dispatched
         # fresh); retire the parked parent so it is not orphaned. Respects --keep.
         if parent_short_id and parent_short_id != short_id:
-            self.teardown(parent_short_id)
+            self._copy_stop_result(env, self.teardown(parent_short_id))
 
         # WAIT
         deadline = time.monotonic() + self.a.timeout
         next_status = 0.0
         grace_left = 2
+        # A freshly confirmed session can read blocked with no transcript for
+        # one poll before its first JSONL flush; require a second consecutive
+        # observation before inferring a startup dialog from the missing file.
+        startup_observations = 0
         try:
           while True:
             now = time.monotonic()
             if now > deadline:
                 env.status, env.final_state = "timeout", env.final_state or "working"
+                env.message = (
+                    f"task exceeded --timeout ({self.a.timeout:g}s); the session "
+                    "is being stopped. Increase --timeout or split the task; "
+                    "artifacts written so far are listed in artifacts_found."
+                )
                 break  # final teardown below stops the session
 
             hf = self.read_handoff()
@@ -704,28 +1064,80 @@ class BgRunner:
 
             if now >= next_status:
                 next_status = now + self.a.status_interval
-                row = self.find_session(env.short_id, self.a.name)
+                # Track ONLY the confirmed id: a name fallback could silently
+                # adopt a different same-name agent if ours vanished, hiding
+                # the real failure. (Daemon respawns keep the row id, so id
+                # tracking survives them.)
+                row = self.find_session(env.short_id)
                 state = (row or {}).get("state") or (row or {}).get("status")
                 env.final_state = state
                 if row is None:
                     env.status = "session_failed"
-                    env.message = "session disappeared from `claude agents` before completing"
+                    env.message = (
+                        "session disappeared from `claude agents` before "
+                        "completing; check `claude agents` and the transcript "
+                        "tail (logs_tail) for the last activity, then "
+                        "re-dispatch the task."
+                    )
                     break
-                if state == "blocked":
-                    env.status = "blocked"
+                if state == "blocked" and row.get("status") != "busy":
+                    # state=blocked + status=busy is an active session
+                    # momentarily awaiting a tool (same mixed-field reality the
+                    # retirement guard honors) — keep polling and classify only
+                    # once the status settles; a persistent block will still be
+                    # here next poll, and a hung one ends at --timeout.
                     # Opportunistic only: Claude Code 2.1.191's initial-prompt
                     # parked signal was observed in dispatch stdout, not here.
                     detail = row.get("waitingFor") or row.get("needs") or row.get("detail")
                     detail_text = str(detail) if detail else ""
-                    if "send a prompt to start" in detail_text.lower():
+                    # Classification evidence: roster detail + the FINAL
+                    # assistant message only — a CLI dialog is always the last
+                    # message, and earlier prose that merely discusses limits
+                    # or models must not classify.
+                    last_text = self.logs_tail(env.session_id, max_texts=1)
+                    evidence = "\n".join(part for part in (detail_text, last_text) if part)
+                    cwd = os.getcwd()
+                    classified = _classify_limit_or_model(evidence)
+                    if classified:
+                        env.status, env.message, env.reset_at, rejected = classified
+                        if env.status == "model_rejected":
+                            env.rejected_model = rejected or self._rejected_model_fallback()
+                    elif (
+                        # Transcript FILE missing = the session never consumed
+                        # its prompt: a startup dialog (trust/bypass) by
+                        # definition. An existing transcript with no text
+                        # (e.g. a tool_use-only first turn) is NOT that signal
+                        # and falls through to generic blocked. A resumed fork
+                        # cannot hit a trust dialog (the parent already
+                        # accepted it) — its missing file is just flush lag.
+                        (self._transcript_path(env.session_id) is None and not env.resumed)
+                        or _STARTUP_DIALOG_RE.search(evidence)
+                    ):
+                        startup_observations += 1
+                        if startup_observations < 2:
+                            # First observation may be pre-flush; confirm on
+                            # the next poll before committing to the terminal
+                            # startup_dialog status and its remediation.
+                            time.sleep(self.a.poll_interval)
+                            continue
+                        detail_note = (
+                            f"Claude CLI reported: {detail_text}"
+                            if detail_text
+                            else "no dialog detail; inferred from the missing transcript"
+                        )
+                        env.status = "startup_dialog"
                         env.message = (
                             "background session registered but did not consume "
-                            "the initial prompt (Claude CLI reported: "
-                            f"{detail_text})"
+                            f"the initial prompt ({detail_note}); open Claude "
+                            f"interactively in the target cwd ({cwd}) and accept "
+                            "trust/bypass prompts, then re-run the task."
                         )
                     else:
+                        env.status = "blocked"
                         env.message = "session is blocked on an interactive prompt " + (
-                            f"({detail_text})" if detail_text else "(a permission hook likely did not cover it)"
+                            f"({detail_text})"
+                            if detail_text
+                            else f"(cause unknown; open Claude interactively in the target cwd ({cwd}) to inspect)"
                         )
                     break
                 if state in ("done", "idle"):
@@ -735,7 +1147,12 @@ class BgRunner:
                     grace_left -= 1
                     if grace_left <= 0:
                         env.status = "incomplete"
-                        env.message = "session finished but declared output files are missing/empty"
+                        env.message = (
+                            "session finished but declared output files are "
+                            "missing/empty (see missing); re-dispatch the task, "
+                            "and if it recurs check logs_tail for what the "
+                            "agent believed it wrote."
+                        )
                         break
             time.sleep(self.a.poll_interval)
         except KeyboardInterrupt:
@@ -747,6 +1164,14 @@ class BgRunner:
         env.missing = [p for p in self.a.wait_for if not self._nonempty(p)]
         if env.status != "ok":
             env.logs_tail = self.logs_tail(env.session_id)
+            # Fallback field parsing uses the FINAL message only, like
+            # classification — parsing the multi-message tail would pull a
+            # reset time or model name out of earlier agent prose.
+            last_text = self.logs_tail(env.session_id, max_texts=1)
+            if env.status == "model_rejected" and env.rejected_model is None:
+                env.rejected_model = _parse_rejected_model(last_text) or self._rejected_model_fallback()
+            if env.status == "rate_limited" and env.reset_at is None:
+                env.reset_at = _parse_reset_at(last_text)
 
         # TEARDOWN — by default PRESERVE a needs_human session so it can be
         # resumed (standalone use). Callers with no resume loop pass
@@ -756,16 +1181,36 @@ class BgRunner:
             env.status == "needs_human" and not self.a.teardown_on_needs_human
         )
         if env.short_id and not preserve_for_resume:
-            self.teardown(env.short_id)
+            self._copy_stop_result(env, self.teardown(env.short_id))
         env.duration_s = round(time.monotonic() - t0, 1)
         if not env.message and env.status == "ok":
             env.message = "completed; declared artifacts present"
-        if env.status == "needs_human" and not env.message:
-            env.message = (
+        if env.status == "needs_human":
+            # Every needs_human envelope must carry the answer-path guidance,
+            # even when an earlier phase (e.g. a resume fallback) already set
+            # a message describing how we got here.
+            guidance = (
                 "agent needs a human decision; session torn down (caller has no resume loop)"
                 if self.a.teardown_on_needs_human
                 else "agent needs a human decision; session left alive — answer via --resume <session_id|short_id|name> --answer"
             )
+            if not env.message:
+                env.message = guidance
+            elif "agent needs a human decision" not in env.message:
+                env.message = f"{env.message} {guidance}."
+        # A leaked session must never be silent — appended LAST so it augments
+        # (never replaces) the status's own guidance, including the needs_human
+        # resume instructions above.
+        if env.teardown_failed:
+            # The survivor is our own confirmed session and may still read
+            # working/busy — the plain sweep would spare it, so the recovery
+            # command must include active rows.
+            env.message = (
+                f"{env.message} WARNING: session teardown failed; "
+                f"survivor {env.teardown_survivor_id or env.short_id} is still "
+                f"live — stop it with: python3 scripts/claude_bg_run.py "
+                f"--sweep {self.a.name} --sweep-include-active"
+            ).strip()
         return env
 
 
@@ -786,12 +1231,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "tear the session down on needs_human instead of leaving it alive "
-            "for --resume. For callers with no resume loop (e.g. Quest): "
+            "for --resume. For direct callers with no relay: "
             "needs_human then behaves like the bridge — surfaced promptly, "
             "session torn down — rather than parked until a human answers."
         ),
     )
-    p.add_argument("--model", default="")
+    p.add_argument("--model", default="", help="Claude model; exact `claude` uses the CLI/account default")
     p.add_argument("--effort", default="", choices=["", "low", "medium", "high", "xhigh", "max"])
     p.add_argument("--permission-mode", default="bypassPermissions")
     p.add_argument("--add-dir", action="append", default=[])
@@ -811,7 +1256,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="where session transcript JSONLs live (logs_tail source)",
     )
     p.add_argument("--self-test", action="store_true", help="run the PTY noise-firewall demo and exit")
-    p.add_argument("--sweep", help="stop all background sessions whose NAME starts with this prefix, then exit (orphan recovery)")
+    p.add_argument("--sweep", help="stop all background sessions whose NAME starts with this prefix, then exit (orphan recovery; skips actively working/busy rows)")
+    p.add_argument(
+        "--sweep-include-active",
+        action="store_true",
+        help="with --sweep: also stop actively working/busy rows (only for sessions you own, e.g. retiring your own probe)",
+    )
     return p
 
 
@@ -831,8 +1281,34 @@ def main(argv: list[str] | None = None) -> int:
     if args.self_test:
         return _self_test()
     if args.sweep:
-        return BgRunner(args).sweep(args.sweep)
-    env = BgRunner(args).run()
+        return BgRunner(args).sweep(
+            args.sweep, include_active=args.sweep_include_active
+        )
+    runner = BgRunner(args)
+    try:
+        env = runner.run()
+    except KeyboardInterrupt:
+        # run()'s own handler only covers the WAIT loop; an interrupt during
+        # dispatch or final teardown would otherwise leak the (possibly just
+        # forked) detached session with no envelope. Only a CONFIRMED session
+        # is provably ours to kill unconditionally; before confirmation a
+        # same-name active row may belong to a concurrent orchestrator, so
+        # the fallback sweep spares active/unknown rows and the human gets
+        # the manual command for anything left.
+        print(
+            f"interrupted during dispatch/teardown; cleaning up sessions named "
+            f"{args.name!r} best-effort before exit. If one remains and it is "
+            f"yours, stop it with: python3 scripts/claude_bg_run.py --sweep "
+            f"{args.name} --sweep-include-active",
+            file=sys.stderr,
+        )
+        try:
+            if runner.confirmed_short_id:
+                runner.stop_session(runner.confirmed_short_id)
+            runner.sweep(args.name)
+        except Exception:
+            pass
+        return EXIT_INTERRUPTED
     if args.json:
         print(json.dumps(asdict(env), indent=2))
     else:

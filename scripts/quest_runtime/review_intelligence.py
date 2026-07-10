@@ -617,6 +617,10 @@ def scan_deferred_backlog(
             record = json.loads(line)
         except json.JSONDecodeError:
             continue
+        if not isinstance(record, dict):
+            # Valid JSON but not an object (e.g. a bare list/string line):
+            # skip it rather than crashing the whole scan.
+            continue
 
         write_scope = record.get("write_scope", [])
         if isinstance(write_scope, str):

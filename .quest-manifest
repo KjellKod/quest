@@ -52,6 +52,7 @@
 .opencode/commands/celebrate.md
 .opencode/commands/pre-commit-review.md
 .opencode/opencode.json
+docs/guides/quest_setup.md
 .agents/skills/README.md
 .agents/skills/celebrate/SKILL.md
 .agents/skills/git-commit-assistant/SKILL.md

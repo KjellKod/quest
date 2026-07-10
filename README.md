@@ -62,7 +62,7 @@ That's it. Quest evaluates complexity, asks clarifying questions if needed, and 
 
 **Recommended:** Add both [Codex CLI](https://developers.openai.com/codex/cli/) and [Claude CLI](https://code.claude.com/docs/en/quickstart) for dual-model reviews. See the [Setup Guide](docs/guides/quest_setup.md) for full instructions, which include using either Codex or Claude as the orchestrator.
 
-> **⚠️ Don't skip the one-time machine setup.** When Codex orchestrates, Claude roles default to the background-agent transport (`claude --bg`), which bills to your **Claude subscription**. Quest sends the initial bg prompt over stdin for Claude Code 2.1.191 compatibility. Without the [one-time setup](docs/guides/quest_setup.md#one-time-machine-setup-for-the-background-agent-transport) — `claude login`, accept bypass mode once, CLI ≥ 2.1.143 — Quest stops and asks you to fix bg or explicitly choose the `claude --print` bridge, which bills to the **metered API pool after June 15, 2026**.
+> **⚠️ Don't skip the one-time machine setup.** When Codex orchestrates, Claude roles default to the background-agent transport (`claude --bg`), which bills to your **Claude subscription**. Quest sends the initial bg prompt over stdin (required since Claude Code 2.1.191). Without the [one-time setup](docs/guides/quest_setup.md#one-time-machine-setup-for-the-background-agent-transport) — `claude login`, accept bypass mode once, CLI ≥ 2.1.143 — Quest stops and asks you to fix bg or explicitly choose the `claude --print` bridge, which bills to the **metered API pool after June 15, 2026**.
 
 ## Writing a Good Brief
 
@@ -102,6 +102,12 @@ Say **"just go with it"** anytime to skip questions and proceed with assumptions
 Quest IDs default to `feature-x_2026-02-04__1430`; set `quest_id_format` to `date-first` in `.ai/allowlist.json` to create new IDs like `2026-02-04_1430__feature-x`. Resume accepts both formats.
 
 Abort anytime, resume later. State persists in `.quest/<id>/state.json`.
+
+### Cross-vendor resume
+
+Quest is artifact-driven, not chat-history driven. `state.json`, `handoff.json`, plans, reviews, and logs are the durable contract, so a run can recover after an outage, token/session exhaustion, crash, or context loss. If Claude is unavailable, start Codex and run `$quest <quest-id>`; if Codex is unavailable, start Claude Code and run `/quest <quest-id>`. Quest resumes from `.quest/<id>/state.json` and the existing phase artifacts instead of depending on the original transcript.
+
+Resume applies to **in-flight** quests (directories under `.quest/<id>/`). A completed quest is archived to `.quest/archive/<id>/` with its journal entry in `docs/quest-journal/` — archived quests are finished history, not resumable runs; start a new quest to build on their outcome.
 
 For advanced patterns (phased execution, plan comparison, model mixing), see the [Quest Presentation](docs/guides/quest_presentation.md). 
 

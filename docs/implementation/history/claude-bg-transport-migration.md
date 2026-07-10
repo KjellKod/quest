@@ -35,10 +35,11 @@ corresponding details below:
    `dispatch_bg()` is added to `claude_runner.py`.
 2. **Claude bg management commands have changed across 2.1.x.** On the tested
    2.1.173 CLI, `claude logs|stop|rm` parsed as a *prompt* and silently no-oped.
-   On 2.1.191, `claude logs <id>` and `claude stop <id>` are real subcommands.
-   The runner still uses the portable fallback: teardown signals the `pid` carried
-   in the session's `agents --json` row until the row settles, and logs come from
-   the transcript JSONL. Adopting `logs`/`stop` directly is follow-up cleanup.
+   The runner does not assume `logs`/`stop` availability in later CLIs without a
+   capability probe. It uses the portable fallback: teardown signals the `pid`
+   carried in the session's `agents --json` row until the row settles, and logs
+   come from the transcript JSONL. Adopting management subcommands directly is
+   follow-up cleanup.
 3. **Rollout collapsed to auto-from-day-one** (user decision, 2026-06-11): the
    dark-launch phase's purpose was served by Step 1's live end-to-end
    validation, so the repo ships `claude_role_transport: "auto"` directly.
@@ -76,10 +77,9 @@ Checked live in this repo's environment (Claude Code 2.1.159, auto-updated to
 2. `claude agents --json` prints live sessions as a JSON array
    (`pid, cwd, kind, startedAt, sessionId[, name, status]`) and needs no TTY.
 3. Management command availability varies across 2.1.x. `claude attach <id>` and
-   `claude daemon status` are established surfaces; 2.1.191 also exposes
-   `claude logs <id>` and `claude stop <id>`. The runner does not currently
-   depend on `logs`, `stop`, or `rm`; state lives in `~/.claude/jobs/<id>/state.json`
-   + `~/.claude/daemon/roster.json`.
+   `claude daemon status` are established surfaces, but this runner does not
+   depend on `logs`, `stop`, or `rm` without a capability probe; state lives in
+   `~/.claude/jobs/<id>/state.json` + `~/.claude/daemon/roster.json`.
 4. Billing: subscription pool, verbatim quote above; the supervisor
    "authenticate[s] with the same credentials as your interactive sessions."
 5. **Dispatch can false-positive.** In this sandboxed container the `--bg`
@@ -114,7 +114,7 @@ AFTER (background-agent default, bridge fallback)
     └─ quest_claude_runner.py ──► transport selected from orchestration.json/preflight
          ├─ background-agent:  claude --bg ... ──► supervisor-hosted session  [detached]
          │     └─ SAME poll loop on handoff.json + artifacts
-         │     └─ NEW side-channel: claude agents --json (status), claude logs (diagnostics)
+         │     └─ NEW side-channel: claude agents --json (status), transcript JSONL (diagnostics)
          └─ bridge (fallback): quest_claude_bridge.py ──► claude --print      [unchanged]
 ```
 
@@ -169,14 +169,14 @@ subprocess) as the **secondary** signal:
 |---|---|
 | working | keep polling files |
 | completed, handoff found | success (normal) |
-| completed/failed, handoff missing | capture `claude logs <id>` tail to stderr context; classify via existing `classify_result_kind` (`handoff_missing` → ladder) |
+| completed/failed, handoff missing | capture transcript JSONL tail to stderr context; classify via existing `classify_result_kind` (`handoff_missing` → ladder) |
 | needs input | see T4 |
 | absent from `agents --json` and no handoff | `invocation_error` (supervisor died / session evaporated) → ladder |
 
 Timeout enforcement moves to the runner: `--bg` has no per-session timeout flag,
 so the existing wall-clock deadline (default 1800s, same as the bridge) is
-enforced by the runner issuing `claude stop <id>` at deadline, then classifying
-`timeout` (existing ladder: retry-once-reduced-prompt, then blocked).
+enforced by the runner signalling the supervisor-reported pid at deadline, then
+classifying `timeout` (existing ladder: retry-once-reduced-prompt, then blocked).
 
 ### T4. `needs input` policy
 
@@ -185,8 +185,8 @@ that path is unchanged. A background session stuck in `needs input` *without* a
 handoff means an interactive blocker (typically a permission prompt) leaked
 through. Policy:
 
-1. Capture the question via `claude logs <id>` (tail).
-2. `claude stop <id>`.
+1. Capture the question via transcript JSONL tail.
+2. Signal the supervisor-reported pid until the row settles.
 3. Treat as the existing `needs_human` route with the captured text as the
    question — never silently retry, never attempt TUI keystroke replies.
 4. Prevention is primary: `bypassPermissions` + the one-time acceptance (fact 8)
@@ -197,13 +197,13 @@ through. Policy:
 
 - On success or final failure: verify artifacts exist under `.quest/<id>/`
   (they always live in the repo, never in a Claude-created worktree, because
-  `bgIsolation` is disabled and artifact paths are absolute), then
-  `claude stop <id>` (if alive) and `claude rm <id>`. Order matters: never `rm`
-  before artifacts are confirmed on disk (fact 7).
+  `bgIsolation` is disabled and artifact paths are absolute), then signal the
+  supervisor-reported pid until the row settles. Do not assume `claude stop` or
+  `claude rm` are available without a capability-probed implementation.
 - **Orphan sweep:** at quest start and resume, list `claude agents --json` and
-  `claude stop`/`rm` any session whose `name` matches `quest-<this quest_id>-*`
-  but has no corresponding in-flight runner (stale from a crashed orchestrator).
-  Sessions from *other* quests are left alone.
+  signal any session whose `name` matches `quest-<this quest_id>-*` but has no
+  corresponding in-flight runner (stale from a crashed orchestrator). Sessions
+  from *other* quests are left alone.
 
 ### T6. Worktree isolation (fact 7)
 

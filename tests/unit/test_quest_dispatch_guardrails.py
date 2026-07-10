@@ -205,6 +205,44 @@ def test_dispatch_matrix_documents_runtime_entrypoint_split() -> None:
     assert "entrypoint violation, not a model-selection or model/account failure" in workflow
 
 
+def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
+    workflow = _read(".skills/quest/delegation/workflow.md")
+
+    assert "--model <models.<role> from .quest/<id>/orchestration.json>" in workflow
+    assert "must not be sent to the CLI as `--model claude`" in workflow
+    assert "python3 scripts/claude_bg_run.py --sweep quest-bg-probe-" in workflow
+    assert "python3 scripts/quest_claude_probe.py --model claude --transport background-agent" in workflow
+    assert "--resume <session_id> --answer-file <answer_file>" in workflow
+    # The resume example must be runnable as written: the runner requires the
+    # full role-argument set, and a fresh re-dispatch must never silently kill
+    # a parked session.
+    assert (
+        "python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase <phase> "
+        "--agent <role> --iter <n> --prompt-file" in workflow
+    )
+    assert "Parked-session guard (before ANY fresh retry/re-dispatch of a role)" in workflow
+    assert "Persist the parked session id in `.quest/<id>/state.json`" in workflow
+    assert '"parked_bg_session"' in workflow
+    # The state helper must be the documented persistence path (never a
+    # hand-edit of state.json), and clearing must be documented too.
+    assert "scripts/quest_state.py --quest-dir .quest/<id> --parked-bg-session" in workflow
+    assert "--clear-parked-bg-session" in workflow
+    assert "Cap repeated questions" in workflow  # anchor, not exact prose
+    assert "For abandon/manual cleanup, run `python3 scripts/claude_bg_run.py --sweep quest-<id>-`" in workflow
+    assert "**`rate_limited`:** Do NOT blind retry" in workflow
+    assert "Surface `reset_at` when present" in workflow
+    assert "**`startup_dialog`:** Do NOT retry" in workflow
+    assert "trust/bypass" in workflow  # anchor, not exact prose
+    assert "**`model_rejected`:** Do NOT retry" in workflow
+    assert "`rejected_model`" in workflow  # anchor, not exact prose
+    # The human must be told WHERE to change the model, a leaked session must
+    # never ride silently on success, and a cold restart must re-present a
+    # parked role's pending questions before any other routing.
+    assert "`models.<role>` in `.quest/<id>/orchestration.json`" in workflow
+    assert "**`teardown_failed` (any status, including success):**" in workflow
+    assert "Parked-session check (cold restart)" in workflow
+
+
 def test_gpt_skill_excludes_codex_led_quest_dispatch() -> None:
     skill = _read(".skills/gpt/SKILL.md")
 

@@ -101,6 +101,7 @@ EXPECTED_PATTERNS=(
   ".claude/agents/*.md"
   ".claude/hooks/*.sh"
   ".claude/skills/*/*.md"
+  "docs/guides/quest_setup.md"
   "scripts/quest_allowlist_matcher.py"
   "scripts/quest_claude_bridge.py"
   "scripts/quest_claude_probe.py"
@@ -180,11 +181,16 @@ fi
 echo ""
 echo "Checking for stale manifest entries..."
 
-# Get only files (not directories) from manifest
+# Get only files (not directories) from manifest.
+# NOTE: an awk range like /^\[section\]/,/^\[/ terminates on its OWN header
+# line (both patterns match the same record), silently emitting nothing —
+# a flag-based scan actually reads the sections.
 get_manifest_files_only() {
-  awk '/^\[copy-as-is\]/,/^\[/' "$MANIFEST" | grep -v '^\[' | grep -v '^#' | grep -v '^[[:space:]]*$'
-  awk '/^\[user-customized\]/,/^\[/' "$MANIFEST" | grep -v '^\[' | grep -v '^#' | grep -v '^[[:space:]]*$'
-  awk '/^\[merge-carefully\]/,/^\[/' "$MANIFEST" | grep -v '^\[' | grep -v '^#' | grep -v '^[[:space:]]*$'
+  awk '
+    /^\[(copy-as-is|user-customized|merge-carefully)\]$/ { in_section = 1; next }
+    /^\[/ { in_section = 0; next }
+    in_section { print }
+  ' "$MANIFEST" | grep -v '^#' | grep -v '^[[:space:]]*$'
 }
 
 STALE_COUNT=0
