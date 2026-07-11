@@ -9,6 +9,7 @@ _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
+import quest_allowlist_matcher
 from quest_allowlist_matcher import is_bash_command_allowed
 
 
@@ -193,13 +194,23 @@ def test_absolute_path_find_exec_is_blocked_for_bare_find_entry():
     assert reason == "blocked_find_action"
 
 
-def test_absolute_path_find_query_is_allowed_for_bare_find_entry():
+def test_bare_find_entry_rejects_same_basename_outside_resolved_path(
+    monkeypatch, tmp_path
+):
+    installed = tmp_path / "installed" / "find"
+    installed.parent.mkdir()
+    installed.touch()
+    lookalike = tmp_path / "lookalike" / "find"
+    lookalike.parent.mkdir()
+    lookalike.touch()
+    monkeypatch.setattr(quest_allowlist_matcher.shutil, "which", lambda _: str(installed))
+
     allowed, reason = is_bash_command_allowed(
-        "/usr/bin/find . -name '*.py' -type f",
+        f"{lookalike} . -name '*.py' -type f",
         ["find"],
     )
-    assert allowed is True
-    assert reason == "token_prefix_match"
+    assert allowed is False
+    assert reason == "no_match"
 
 
 def test_exact_find_exec_entry_is_allowed():
@@ -263,13 +274,72 @@ def test_absolute_path_rg_pre_is_blocked_for_bare_rg_entry():
     assert reason == "blocked_rg_flag"
 
 
-def test_absolute_path_rg_query_is_allowed_for_bare_rg_entry():
+def test_bare_rg_entry_rejects_same_basename_outside_resolved_path(
+    monkeypatch, tmp_path
+):
+    installed = tmp_path / "installed" / "rg"
+    installed.parent.mkdir()
+    installed.touch()
+    lookalike = tmp_path / "lookalike" / "rg"
+    lookalike.parent.mkdir()
+    lookalike.touch()
+    monkeypatch.setattr(quest_allowlist_matcher.shutil, "which", lambda _: str(installed))
+
     allowed, reason = is_bash_command_allowed(
-        "/opt/homebrew/bin/rg TODO tests/unit/",
+        f"{lookalike} TODO tests/unit/",
         ["rg"],
     )
-    assert allowed is True
-    assert reason == "token_prefix_match"
+    assert allowed is False
+    assert reason == "no_match"
+
+
+def test_bare_entry_accepts_path_resolved_absolute_executable(monkeypatch, tmp_path):
+    target = tmp_path / "bin" / "rg-real"
+    target.parent.mkdir()
+    target.touch()
+    path_entry = tmp_path / "path" / "rg"
+    path_entry.parent.mkdir()
+    path_entry.symlink_to(target)
+    monkeypatch.setattr(
+        quest_allowlist_matcher.shutil, "which", lambda _: str(path_entry)
+    )
+
+    assert is_bash_command_allowed(f"{path_entry} TODO", ["rg"]) == (
+        True,
+        "token_prefix_match",
+    )
+    assert is_bash_command_allowed(f"{target} TODO", ["rg"]) == (
+        True,
+        "token_prefix_match",
+    )
+
+
+def test_bare_entry_does_not_authorize_absolute_command_when_missing_from_path(
+    monkeypatch,
+):
+    monkeypatch.setattr(quest_allowlist_matcher.shutil, "which", lambda _: None)
+    assert is_bash_command_allowed("/custom/bin/rg TODO", ["rg"]) == (
+        False,
+        "no_match",
+    )
+
+
+def test_explicit_absolute_entry_requires_exact_executable_token(tmp_path):
+    configured = tmp_path / "bin" / "rg"
+    configured.parent.mkdir()
+    configured.touch()
+    alias = tmp_path / "alias" / "rg"
+    alias.parent.mkdir()
+    alias.symlink_to(configured)
+
+    assert is_bash_command_allowed(f"{configured} TODO", [str(configured)]) == (
+        True,
+        "token_prefix_match",
+    )
+    assert is_bash_command_allowed(f"{alias} TODO", [str(configured)]) == (
+        False,
+        "no_match",
+    )
 
 
 def test_exact_rg_pre_entry_is_allowed():

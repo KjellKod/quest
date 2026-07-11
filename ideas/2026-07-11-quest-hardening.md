@@ -67,11 +67,11 @@ parallel.
 
 | Status | PR workstream | Original findings | Branch suggestion | PR |
 |---|---|---|---|---|
-| [todo] | A. Runtime trust and state boundaries | #1, #4, #18, #22 | `hardening/runtime-boundaries` | — |
+| [ongoing] | A. Runtime trust and state boundaries | #1, #4, #18, #22 | `hardening/runtime-boundaries` | — |
 | [todo] | B. Operational helper and transport correctness | #3, #9, #20 | `hardening/operational-contracts` | — |
 | [todo] | C. Installed documentation accuracy | #16, #17 | `hardening/installed-docs` | — |
 
-## Workstream A — Runtime trust and state boundaries [todo]
+## Workstream A — Runtime trust and state boundaries [ongoing]
 
 ### Goal
 
@@ -439,4 +439,3 @@ added for `quest_claude_bridge.py`.
   small standard-library file-lock helper is acceptable. If current platform
   support requires a different locking primitive, resolve that within Workstream
   A without expanding the state model.
-

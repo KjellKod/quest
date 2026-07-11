@@ -57,6 +57,23 @@ with open(path, "w", encoding="utf-8") as fh:
 PY
 }
 
+set_builder_bash_entries() {
+  local entries_json="$1"
+  python3 - "$ALLOWLIST_FILE" "$entries_json" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+entries = json.loads(sys.argv[2])
+with open(path, encoding="utf-8") as fh:
+    data = json.load(fh)
+data["role_permissions"]["builder_agent"]["bash"] = entries
+with open(path, "w", encoding="utf-8") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+PY
+}
+
 test_bridge_allows_manifest_validation_command() {
   local output rc
   output=$(run_hook_for_command "builder_agent" "bash scripts/quest_validate-manifest.sh" 2>&1)
@@ -71,6 +88,42 @@ test_bridge_rejects_compound_bypass() {
   [ "$rc" -eq 2 ] &&
     echo "$output" | grep -q "BLOCKED:" &&
     echo "$output" | grep -q "blocked_metacharacter"
+}
+
+test_bridge_binds_absolute_command_to_path_selected_identity() {
+  local backup tmpdir resolved lookalike alias output rc
+  backup=$(mktemp) || return 1
+  tmpdir=$(mktemp -d) || return 1
+  cp "$ALLOWLIST_FILE" "$backup" || return 1
+  trap 'mv "$backup" "$ALLOWLIST_FILE"; rm -rf "$tmpdir"' RETURN
+
+  mkdir -p "$tmpdir/bin" "$tmpdir/other" "$tmpdir/alias"
+  resolved="$tmpdir/bin/rg"
+  lookalike="$tmpdir/other/rg"
+  alias="$tmpdir/alias/rg"
+  touch "$resolved" "$lookalike"
+  chmod +x "$resolved" "$lookalike"
+  ln -s "$resolved" "$alias"
+
+  set_builder_bash_entries '["rg"]' || return 1
+  output=$(PATH="$tmpdir/bin:$PATH" run_hook_for_command "builder_agent" "$resolved TODO" 2>&1)
+  rc=$?
+  [ "$rc" -eq 0 ] && [ -z "$output" ] || return 1
+  output=$(PATH="$tmpdir/bin:$PATH" run_hook_for_command "builder_agent" "$lookalike TODO" 2>&1)
+  rc=$?
+  [ "$rc" -eq 2 ] && printf '%s' "$output" | grep -q "no_match" || return 1
+
+  set_builder_bash_entries "[\"$resolved\"]" || return 1
+  output=$(PATH="$tmpdir/bin:$PATH" run_hook_for_command "builder_agent" "$resolved TODO" 2>&1)
+  rc=$?
+  [ "$rc" -eq 0 ] && [ -z "$output" ] || return 1
+  output=$(PATH="$tmpdir/bin:$PATH" run_hook_for_command "builder_agent" "$alias TODO" 2>&1)
+  rc=$?
+
+  trap - RETURN
+  mv "$backup" "$ALLOWLIST_FILE"
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 2 ] && printf '%s' "$output" | grep -q "no_match"
 }
 
 test_file_write_allows_nested_double_star_path() {
@@ -144,6 +197,7 @@ fi
 
 run_test test_bridge_allows_manifest_validation_command
 run_test test_bridge_rejects_compound_bypass
+run_test test_bridge_binds_absolute_command_to_path_selected_identity
 run_test test_file_write_allows_nested_double_star_path
 run_test test_file_write_allows_nested_docs_output
 run_test test_file_write_allows_root_markdown_for_double_star_slash_pattern

@@ -6,6 +6,8 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 
+import pytest
+
 import quest_complete
 from quest_complete import build_journal_entry
 from quest_celebrate.quest_data import QuestData
@@ -35,6 +37,52 @@ def test_generate_journal_entry_prefers_full_original_prompt():
     assert "Full original prompt line two." in entry
     assert "Full original prompt was not recorded" not in entry
     assert "- Outcome: Shipped the fix cleanly." in entry
+
+
+@pytest.mark.parametrize(
+    ("payload", "category"),
+    [("{bad", "decode"), ("[]", "shape"), ("null", "shape")],
+)
+def test_complete_rejects_malformed_state_cleanly(
+    tmp_path, monkeypatch, capsys, payload, category
+):
+    quest_dir = tmp_path / "quest"
+    quest_dir.mkdir()
+    state_path = quest_dir / "state.json"
+    state_path.write_text(payload, encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["quest_complete.py", "--quest-dir", str(quest_dir), "--skip-journal"],
+    )
+
+    assert quest_complete.main() == 1
+    captured = capsys.readouterr()
+    assert f"state_error[{category}]: {state_path.resolve()}" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_complete_translates_state_read_failure(tmp_path, monkeypatch, capsys):
+    quest_dir = tmp_path / "quest"
+    quest_dir.mkdir()
+    state_path = quest_dir / "state.json"
+    state_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["quest_complete.py", "--quest-dir", str(quest_dir), "--skip-journal"],
+    )
+
+    def fail_read(*_args, **_kwargs):
+        raise OSError("platform read detail")
+
+    monkeypatch.setattr(quest_complete.Path, "read_text", fail_read)
+
+    assert quest_complete.main() == 1
+    captured = capsys.readouterr()
+    assert captured.err == f"Error: state_error[read]: {state_path.resolve()}\n"
+    assert "platform read detail" not in captured.err
+    assert "Traceback" not in captured.err
 
 
 def test_generate_journal_entry_avoids_problem_statement_as_outcome():

@@ -4,7 +4,7 @@ When starting, say: "Now I understand the Quest." Then proceed directly with the
 
 Follow these steps in order. After each step that modifies state, update `.quest/<id>/state.json`.
 
-**State update helper:** Use `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition <phase> ...` for state mutations instead of hand-editing `state.json`. The `--transition` flag validates the transition against `quest_validate-quest-state.sh` before writing — if validation fails, state.json is not modified. Use `--phase` only for non-transition updates (e.g., setting status without changing phase). Add `--expect-phase <current>` for optimistic locking — the transition is rejected immediately if the on-disk phase doesn't match the expected value, preventing TOCTOU race conditions when multiple agents update state concurrently. **Recommended for all Codex-orchestrated transitions.**
+**State update helper:** Use `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition <phase> ...` for state mutations instead of hand-editing `state.json`. The `--transition` flag validates the transition against `quest_validate-quest-state.sh` before writing — if validation fails, state.json is not modified. Use `--phase` only for non-transition updates (e.g., setting status without changing phase). Add `--expect-phase <current>` for concurrent transitions: validation runs outside the lock, then the final read, expected-phase check, mutation, and atomic replacement happen under the persistent sibling `state.json.lock`. **Recommended for all Codex-orchestrated transitions.**
 
 ### Defaults (Opinionated)
 
@@ -56,8 +56,9 @@ If the preflight result was already cached by SKILL.md Step 2b, use the cached v
 1. Run `scripts/quest_preflight.sh --orchestrator claude` and parse the JSON output.
 2. Cache the `available` field as `codex_available` (boolean) for the rest of the session.
 3. If `codex_available` is false:
-   - Log: `"Codex MCP not available — using Claude runtime fallback for all roles."`
-   - **Global rule:** Every Claude-led + Codex-runtime entrypoint in this workflow (Reviewer B slots, Builder, Fixer — any role) is replaced with the equivalent Claude runtime fallback for that role. Use the same prompt (minus the non-interactive rule), the same output file paths, and the same handoff contract. Do not retry Codex. Do not treat this as an error.
+   - Pause startup and surface the preflight `warning` lines. Do not remap roles automatically.
+   - Ask the human to choose one route: fix the Codex setup and rerun preflight successfully, explicitly continue Claude-only for this Quest, or cancel.
+   - Only an explicit `continue Claude-only` choice may remap Codex-designated roles to Claude. A failed fix attempt returns to the same decision point.
 
 **Codex-led sessions:**
 1. `codex_available` is always true (Codex is the active runtime — no MCP needed).
