@@ -988,6 +988,25 @@ test_workflow_defaults_are_not_dispatch_fallbacks() {
   return 0
 }
 
+test_orchestration_docs_do_not_duplicate_model_defaults() {
+  local skill_md="$REPO_ROOT/.skills/quest/SKILL.md"
+  local agents_dir="$REPO_ROOT/.skills/quest/agents"
+  local readme="$REPO_ROOT/README.md"
+
+  if grep -q 'omitted keys use the documented defaults (`' "$skill_md"; then
+    return 1
+  fi
+  if grep -q '| Allowlist Key | Default | Runtime |' "$WORKFLOW_MD"; then
+    return 1
+  fi
+  if grep -R -nE 'models\.[a-z-]+.*default[ =`]*(claude|gpt)' "$agents_dir"; then
+    return 1
+  fi
+  grep -q 'DEFAULT_MODELS' "$readme" || return 1
+  grep -q 'effective source of truth for that quest' "$readme" || return 1
+  return 0
+}
+
 test_opencode_dispatch_uses_orchestration_json() {
   if grep -n 'For these roles, use `codex_codex`' "$OPENCODE_QUEST_MD"; then
     return 1
@@ -1037,6 +1056,7 @@ run_test test_resume_does_not_modify_existing_complete_orchestration_json
 run_test test_workflow_dispatch_reads_orchestration_json_not_allowlist
 run_test test_workflow_no_allowlist_models_string
 run_test test_workflow_defaults_are_not_dispatch_fallbacks
+run_test test_orchestration_docs_do_not_duplicate_model_defaults
 run_test test_opencode_dispatch_uses_orchestration_json
 
 echo ""

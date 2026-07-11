@@ -4,7 +4,7 @@
 Impartial judge for the **code-review** phase. Reads both code-reviewer slot findings (A and B), judges whether each finding is **true** against the diff, and emits the canonical `review_findings.json` plus a human-facing verdict. In workflow mode it replaces the deterministic `merge-findings` union.
 
 ## Tool
-Runtime is derived from `models.review-arbiter` (default `claude`; per-quest overridable via `orchestration.json`); the entrypoint follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection). That matrix is the single source of truth — do not restate or override it here.
+Runtime is derived from `models.review-arbiter` in `.quest/<id>/orchestration.json`; the entrypoint follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection). Role instructions do not select or default models.
 
 ## Decision posture
 **Dismissing a real bug is the dangerous failure mode — when in doubt, keep the finding and set its fields so it lands as `verify_first` (see "How your fields set the decision").**

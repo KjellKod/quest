@@ -129,7 +129,7 @@ For advanced patterns (phased execution, plan comparison, model mixing), see the
 
 ### Choosing and overriding models
 
-The `models` block in `.ai/allowlist.json` is the persistent default for new quests. At startup, Quest copies it into the quest snapshot, shows the active role assignments, and writes the accepted selection to `.quest/<id>/orchestration.json`. That per-quest file is then the source of truth for the rest of the run, so changing the repo allowlist does not rewrite an in-flight quest.
+Model selection has three layers. `DEFAULT_MODELS` in `scripts/quest_runtime/orchestration.py` is the shipped fallback used only to fill canonical role keys omitted from configuration. The `models` block in `.ai/allowlist.json` is the repo-configured startup default for new quests. At startup, Quest expands that block, shows the active assignments, applies any per-quest overrides, and writes the accepted selection to `.quest/<id>/orchestration.json`. That file is the effective source of truth for that quest, so changing the allowlist does not rewrite an in-flight run.
 
 Choose **Customize for this quest only** at startup to change one or more roles without editing repo defaults. The chooser accepts either format:
 
