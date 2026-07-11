@@ -51,6 +51,15 @@ def test_cli_main_runs_all_installed_commands(monkeypatch: pytest.MonkeyPatch) -
     assert all(cwd == module.REPO_ROOT and check is False for _, cwd, check in calls)
 
 
+def test_cli_uses_consumer_safe_default_manifest_validation() -> None:
+    module = _load_cli_module()
+    manifest_commands = [
+        command for label, command in module.COMMANDS if label == "validate manifest"
+    ]
+
+    assert manifest_commands == [["bash", "scripts/quest_validate-manifest.sh"]]
+
+
 def test_cli_entrypoint_executes_main(monkeypatch: pytest.MonkeyPatch) -> None:
     script_path = _repo_root() / "scripts" / "quest_checks" / "cli.py"
     calls: list[tuple[list[str], Path, bool]] = []

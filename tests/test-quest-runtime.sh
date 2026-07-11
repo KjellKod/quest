@@ -1407,25 +1407,42 @@ test_manifest_excludes_repo_tests() {
   ! grep -q '^tests/' "$MANIFEST_FILE"
 }
 
-test_manifest_validator_allows_custom_skills_in_installed_mode() {
+test_manifest_validator_defaults_to_installed_inventory_with_host_extensions() {
   local tmpdir
   tmpdir=$(mktemp -d)
   (
     cd "$tmpdir" || exit 1
-    mkdir -p scripts .skills/prepare-mcp-quest
+    mkdir -p scripts .ai .skills/engineering-throughput-spreadsheet
     cp "$REPO_ROOT/scripts/quest_validate-manifest.sh" scripts/quest_validate-manifest.sh
+    cp "$REPO_ROOT/scripts/quest_installer.sh" scripts/quest_installer.sh
     cat > .quest-manifest <<'EOF'
 [copy-as-is]
+.quest-manifest
+.quest-checksums
+.quest-version
 scripts/quest_validate-manifest.sh
+scripts/quest_installer.sh
 
 [directories]
 .quest
 EOF
-    printf '# local custom skill\n' > .skills/prepare-mcp-quest/SKILL.md
+    printf '# representative installed checksums\n' > .quest-checksums
+    printf 'test-version\n' > .quest-version
+    printf '# host context digest\n' > .ai/context_digest.md
+    printf '# host spreadsheet skill\n' > .skills/engineering-throughput-spreadsheet/SKILL.md
 
-    bash scripts/quest_validate-manifest.sh > output.txt 2>&1 &&
-      grep -q 'Installed repo mode' output.txt &&
-      ! grep -q 'prepare-mcp-quest' output.txt
+    bash scripts/quest_validate-manifest.sh > default-output.txt 2>&1 &&
+      bash scripts/quest_validate-manifest.sh --installed > installed-output.txt 2>&1 &&
+      QUEST_MANIFEST_STRICT=0 bash scripts/quest_validate-manifest.sh > env-installed-output.txt 2>&1 &&
+      grep -q 'Installed repo mode' default-output.txt &&
+      grep -q 'Installed repo mode' installed-output.txt &&
+      grep -q 'Installed repo mode' env-installed-output.txt &&
+      ! grep -q 'context_digest.md' default-output.txt &&
+      ! grep -q 'engineering-throughput-spreadsheet' default-output.txt &&
+      ! grep -q 'context_digest.md' installed-output.txt &&
+      ! grep -q 'engineering-throughput-spreadsheet' installed-output.txt &&
+      ! grep -q 'context_digest.md' env-installed-output.txt &&
+      ! grep -q 'engineering-throughput-spreadsheet' env-installed-output.txt
   )
   local rc=$?
   rm -rf "$tmpdir"
@@ -1448,14 +1465,39 @@ scripts/quest_validate-manifest.sh
 EOF
     printf '# local custom skill\n' > .skills/prepare-mcp-quest/SKILL.md
 
-    if QUEST_MANIFEST_STRICT=1 bash scripts/quest_validate-manifest.sh > output.txt 2>&1; then
+    if bash scripts/quest_validate-manifest.sh --strict > output.txt 2>&1; then
       exit 1
     fi
-    grep -q '.skills/prepare-mcp-quest/SKILL.md' output.txt
+    grep -q '.skills/prepare-mcp-quest/SKILL.md' output.txt &&
+      grep -q 'Quest source-maintainer mode' output.txt &&
+      grep -q 'only Quest-owned files intended for distribution' output.txt &&
+      grep -q 'Consumers must not add host-owned files' output.txt &&
+      ! grep -q 'Please add these files' output.txt &&
+      if QUEST_MANIFEST_STRICT=1 bash scripts/quest_validate-manifest.sh > env-output.txt 2>&1; then
+        exit 1
+      fi &&
+      grep -q '.skills/prepare-mcp-quest/SKILL.md' env-output.txt
   )
   local rc=$?
   rm -rf "$tmpdir"
   return $rc
+}
+
+test_generic_commit_and_review_skills_do_not_gate_on_manifest_validation() {
+  local skill
+  for skill in \
+    "$REPO_ROOT/.skills/git-commit-assistant/SKILL.md" \
+    "$REPO_ROOT/.skills/code-reviewer/SKILL.md" \
+    "$REPO_ROOT/.skills/ci-code-reviewer/SKILL.md"; do
+    if grep -q 'quest_validate-manifest.sh' "$skill"; then
+      return 1
+    fi
+  done
+}
+
+test_quest_source_ci_requests_strict_manifest_validation() {
+  grep -Eq 'quest_validate-manifest\.sh[[:space:]]+--strict' \
+    "$REPO_ROOT/.github/workflows/validate-quest-config.yml"
 }
 
 test_manifest_validator_rejects_unknown_option() {
@@ -1500,6 +1542,27 @@ EOF
     fi
     grep -q "Repo tests do not belong in .quest-manifest or the Quest installer" output.txt &&
       grep -q "tests/integration/test-enforce-allowlist.sh" output.txt
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_manifest_validator_reports_stale_declared_entries() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  (
+    cd "$tmpdir" || exit 1
+    mkdir -p scripts
+    cp "$REPO_ROOT/scripts/quest_validate-manifest.sh" scripts/quest_validate-manifest.sh
+    cat > .quest-manifest <<'EOF'
+[copy-as-is]
+scripts/quest_validate-manifest.sh
+scripts/missing-managed-file.py
+EOF
+
+    bash scripts/quest_validate-manifest.sh > output.txt 2>&1 &&
+      grep -q 'Stale entry (file not found): scripts/missing-managed-file.py' output.txt
   )
   local rc=$?
   rm -rf "$tmpdir"
@@ -2116,10 +2179,13 @@ run_test test_installer_preserves_modified_untracked_legacy_installed_test
 run_test test_installer_preserves_unowned_source_only_test_path
 run_test test_manifest_lists_prefixed_scripts
 run_test test_manifest_excludes_repo_tests
-run_test test_manifest_validator_allows_custom_skills_in_installed_mode
+run_test test_manifest_validator_defaults_to_installed_inventory_with_host_extensions
 run_test test_manifest_validator_strict_mode_catches_unmanifested_skills
 run_test test_manifest_validator_rejects_unknown_option
 run_test test_manifest_validator_rejects_test_paths
+run_test test_manifest_validator_reports_stale_declared_entries
+run_test test_generic_commit_and_review_skills_do_not_gate_on_manifest_validation
+run_test test_quest_source_ci_requests_strict_manifest_validation
 run_test test_validation_hook_script_accepts_legacy_symlink_target
 run_test test_quest_claude_runner_polls_handoff_and_logs_runtime
 run_test test_quest_claude_probe_requires_real_artifacts

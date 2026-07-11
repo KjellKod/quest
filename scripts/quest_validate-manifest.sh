@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# Validates that .quest-manifest includes all installer-managed Quest files
-# Fails if shipped Quest files are missing from the manifest
+# Validates Quest's declared installer inventory. Source-distribution
+# completeness is an explicit maintainer check, never inferred from repo files.
 #
 
 set -e
 
 MANIFEST=".quest-manifest"
 ERRORS=0
-STRICT_MODE="${QUEST_MANIFEST_STRICT:-auto}"
+STRICT_MODE="${QUEST_MANIFEST_STRICT:-0}"
 
 case "${1:-}" in
   "")
@@ -26,11 +26,12 @@ Usage: scripts/quest_validate-manifest.sh [--strict|--installed]
 Validates .quest-manifest.
 
 Modes:
-  --strict     Also scan Quest source paths for files missing from the manifest.
-  --installed  Validate only manifest entries; allow repo-local custom files.
+  --strict     Source-maintainer mode: scan canonical Quest source paths.
+  --installed  Consumer mode: validate declared inventory only.
 
-Default mode is auto: strict when scripts/quest_installer.sh exists, installed
-otherwise. Set QUEST_MANIFEST_STRICT=1 or 0 to override auto mode.
+Default mode is consumer-safe and equivalent to --installed. Shared namespaces
+may contain host-owned files that do not belong in .quest-manifest. Set
+QUEST_MANIFEST_STRICT=1 or 0 to explicitly select a mode without a flag.
 EOF
     exit 0
     ;;
@@ -40,14 +41,6 @@ EOF
     exit 2
     ;;
 esac
-
-if [ "$STRICT_MODE" = "auto" ]; then
-  if [ -f "scripts/quest_installer.sh" ]; then
-    STRICT_MODE=1
-  else
-    STRICT_MODE=0
-  fi
-fi
 
 # Colors
 RED=$'\033[0;31m'
@@ -123,25 +116,23 @@ EXPECTED_PATTERNS=(
   "scripts/quest_runtime/*.py"
 )
 
-# Find all files matching our patterns
-# Prune nested git worktrees so their files do not masquerade as repo content.
-FOUND_FILES=""
-for pattern in "${EXPECTED_PATTERNS[@]}"; do
-  # Use find with -path to handle glob patterns
-  matches=$(find . \
-    -type d \( -path './.claude/worktrees' -o -path './.worktrees' -o -path './.git' \) -prune -o \
-    -path "./$pattern" -type f -print 2>/dev/null | sed 's|^\./||' || true)
-  if [ -n "$matches" ]; then
-    FOUND_FILES="$FOUND_FILES"$'\n'"$matches"
-  fi
-done
-
-# Clean up and sort
-FOUND_FILES=$(echo "$FOUND_FILES" | grep -v '^$' | sort | uniq)
-
 if [ "$STRICT_MODE" = "1" ]; then
+  # Find canonical Quest source files only when a maintainer explicitly asks
+  # for distribution completeness. Prune nested git worktrees so their files
+  # do not masquerade as source-repository content.
+  FOUND_FILES=""
+  for pattern in "${EXPECTED_PATTERNS[@]}"; do
+    matches=$(find . \
+      -type d \( -path './.claude/worktrees' -o -path './.worktrees' -o -path './.git' \) -prune -o \
+      -path "./$pattern" -type f -print 2>/dev/null | sed 's|^\./||' || true)
+    if [ -n "$matches" ]; then
+      FOUND_FILES="$FOUND_FILES"$'\n'"$matches"
+    fi
+  done
+  FOUND_FILES=$(echo "$FOUND_FILES" | grep -v '^$' | sort | uniq)
+
   # Check each found file is in the manifest
-  echo "Checking Quest files are listed in $MANIFEST..."
+  echo "Quest source-maintainer mode: checking shipped files are listed in $MANIFEST..."
   echo ""
 
   MISSING_FILES=""
@@ -162,7 +153,8 @@ if [ "$STRICT_MODE" = "1" ]; then
       echo "  - $f"
     done
     echo ""
-    echo "Please add these files to the appropriate section in .quest-manifest"
+    echo "Quest maintainers should add only Quest-owned files intended for distribution."
+    echo "Consumers must not add host-owned files to .quest-manifest; use the default or --installed mode."
     echo ""
     echo "Sections:"
     echo "  [copy-as-is]       - Files replaced with upstream (most files)"
@@ -172,9 +164,9 @@ if [ "$STRICT_MODE" = "1" ]; then
     exit 1
   fi
 
-  log_ok "All Quest files are listed in .quest-manifest"
+  log_ok "All Quest-owned shipped files are listed in .quest-manifest"
 else
-  log_ok "Installed repo mode: allowing repo-local files outside .quest-manifest"
+  log_ok "Installed repo mode: validating declared inventory and allowing host-owned files outside .quest-manifest"
 fi
 
 # Also check for stale entries (files in manifest that don't exist)

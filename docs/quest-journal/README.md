@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-07-11 | [host-safe-manifest-validation](host-safe-manifest-validation_2026-07-11.md) | Implement the Quest manifest-validation bugfix through the full Quest workflow. Quest is used in two supported topolo... |
 | 2026-07-04 | [bg-transport-hardening](bg-transport-hardening_2026-07-04.md) | implement ideas/2026-07-04-bg-transport-hardening-quest-brief.md The referenced brief (`ideas/2026-07-04-bg-transport... |
 | 2026-06-04 | [codex-subagent-dispatch-guardrails](codex-subagent-dispatch-guardrails_2026-06-04.md) | Fix Quest Codex-led role dispatch so Codex roles use local subagents, never Codex MCP. Context: In Codex-led Quest ru... |
 | 2026-05-31 | [pre-pr-sync](pre-pr-sync_2026-05-31.md) | implement using $quest ideas/2026-05-30-pre-pr-freshness-and-force-push-guard.md |
