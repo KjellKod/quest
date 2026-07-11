@@ -87,6 +87,7 @@ Current roadmap:
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| done | ~~deterministic-json-orchestration-overrides~~ | Implemented in PR #144: deterministic parser API and stdin CLI, pair/JSON compatibility, duplicate and delimiter validation, and equivalent orchestration output across accepted formats. Archived at [`ideas/archive/deterministic-json-orchestration-overrides.md`](archive/deterministic-json-orchestration-overrides.md). |
 | done | ~~quest-needs-human-resume-relay~~ | Full same-session relay shipped in PR #142 (items 0–6); item 7 (ask-policy) continues as `2026-07-05-bg-claude-ask-policy-relaxation.md`. Archived at [`ideas/archive/quest-needs-human-resume-relay.md`](archive/quest-needs-human-resume-relay.md). |
 | done | ~~2026-07-04-bg-transport-hardening-quest-brief~~ | Shipped in PR #142 (quest bg-transport-hardening_2026-07-04__1043): truthful block-cause classification, verified teardown, leak-proof sweeps, needs_human same-session relay, end-to-end model passthrough, docs accuracy sweep. Archived at [`ideas/archive/2026-07-04-bg-transport-hardening-quest-brief.md`](archive/2026-07-04-bg-transport-hardening-quest-brief.md). |
 | done | ~~2026-07-03-claude-model-alias-dispatch-bug~~ | Resolved in PR #142: the `claude` sentinel never reaches the CLI as `--model claude`, concrete IDs pass verbatim, rejection reports `model_rejected` naming the model. Archived at [`ideas/archive/2026-07-03-claude-model-alias-dispatch-bug.md`](archive/2026-07-03-claude-model-alias-dispatch-bug.md). |

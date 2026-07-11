@@ -1,11 +1,19 @@
 ---
 title: Deterministic JSON orchestration overrides
-status: idea
+status: implemented
 owner: maintainers
 origin: host-safe-manifest-validation Quest startup discussion
+implemented_by: PR #144
+archived: 2026-07-11
 ---
 
 # Deterministic JSON orchestration overrides
+
+Implemented in PR #144 with a canonical `parse_override_input()` API, the
+`parse_override_line()` compatibility wrapper, a stdin parser CLI required by
+the chooser, shared validation, and format-equivalence regression coverage.
+The implementation deliberately also accepts copied `"models": {...}` fragments
+because that was the concrete user input that motivated the change.
 
 ## Problem
 
