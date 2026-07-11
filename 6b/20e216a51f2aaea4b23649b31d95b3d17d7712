@@ -1,0 +1,33 @@
+.quest-manifest
+  s_c7960b6747cbfe::t_e2a152ad0743bf 100
+scripts/quest_runtime/__init__.py
+  s_c7960b6747cbfe::t_8d31cb32e82a73 21,82
+tests/test-quest-orchestration.sh
+  s_c7960b6747cbfe::t_8773c48dde12e2 462-463,474-582,1024-1026
+scripts/quest_parse_overrides.py
+  s_c7960b6747cbfe::t_8d31cb32e82a73 1-34
+.skills/quest/SKILL.md
+  s_c7960b6747cbfe::t_e2a152ad0743bf 252,256-257
+scripts/quest_runtime/orchestration.py
+  s_c7960b6747cbfe::t_8d31cb32e82a73 85-128,144,148,153,155-157,162-163,169,171-175,178,180,192-196,200-202
+  s_c7960b6747cbfe::t_e7487e83a0d3a5 170
+  s_c7960b6747cbfe::t_dc21640aeeedf2 203-204
+README.md
+  s_c7960b6747cbfe::t_e2a152ad0743bf 149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "6b20e216a51f2aaea4b23649b31d95b3d17d7712",
+  "prompts": {},
+  "sessions": {
+    "s_c7960b6747cbfe": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4ee6-73c8-7621-94f7-2ff81e73eef9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
