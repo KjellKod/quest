@@ -146,9 +146,9 @@ write_default_from_allowlist(
     preflight_validated_at="2026-05-18T05:42:13Z",
 )
 orch = json.loads(Path(sys.argv[1]).read_text())
-assert orch["models"]["plan-reviewer-a"] == "gpt-5.5", orch
-assert orch["models"]["arbiter"] == "gpt-5.5", orch
-assert orch["models"]["code-reviewer-a"] == "gpt-5.5", orch
+assert orch["models"]["plan-reviewer-a"] == "gpt-5.6-sol", orch
+assert orch["models"]["arbiter"] == "gpt-5.6-sol", orch
+assert orch["models"]["code-reviewer-a"] == "gpt-5.6-sol", orch
 assert orch["models"]["builder"] == "gpt-5.5", orch
 PY
   local rc=$?
@@ -215,12 +215,37 @@ from quest_runtime.orchestration import build_default_models
 result = build_default_models({"planner": "gpt-5.5", "builder": "claude"})
 assert result["planner"] == "gpt-5.5", result
 assert result["builder"] == "claude", result
-assert result["plan-reviewer-a"] == "claude", result
-assert result["plan-reviewer-b"] == "gpt-5.5", result
-assert result["arbiter"] == "claude", result
-assert result["code-reviewer-a"] == "claude", result
-assert result["code-reviewer-b"] == "gpt-5.5", result
-assert result["fixer"] == "gpt-5.5", result
+assert result["plan-reviewer-a"] == "claude-opus-4-8", result
+assert result["plan-reviewer-b"] == "gpt-5.6-terra", result
+assert result["arbiter"] == "claude-opus-4-8", result
+assert result["code-reviewer-a"] == "claude-opus-4-8", result
+assert result["code-reviewer-b"] == "gpt-5.6-terra", result
+assert result["fixer"] == "gpt-5.6-terra", result
+PY
+}
+
+test_repo_default_models_match_recommended_matrix() {
+  python3 - <<PY
+${PY_HELPER}
+import json
+from pathlib import Path
+from quest_runtime.orchestration import CODEX_NATIVE_FALLBACK_MODEL, DEFAULT_MODELS
+
+expected = {
+    "planner": "gpt-5.6-sol",
+    "plan-reviewer-a": "claude-opus-4-8",
+    "plan-reviewer-b": "gpt-5.6-terra",
+    "arbiter": "claude-opus-4-8",
+    "builder": "gpt-5.6-sol",
+    "code-reviewer-a": "claude-opus-4-8",
+    "code-reviewer-b": "gpt-5.6-terra",
+    "review-arbiter": "claude-opus-4-8",
+    "fixer": "gpt-5.6-terra",
+}
+allowlist = json.loads(Path(".ai/allowlist.json").read_text())
+assert DEFAULT_MODELS == expected, DEFAULT_MODELS
+assert allowlist["models"] == expected, allowlist["models"]
+assert CODEX_NATIVE_FALLBACK_MODEL == "gpt-5.6-sol", CODEX_NATIVE_FALLBACK_MODEL
 PY
 }
 
@@ -373,6 +398,185 @@ expected = [
     Override("fixer", "o1-mini"),
 ]
 assert result == expected, result
+PY
+}
+
+test_chooser_accepts_wrapped_json_overrides() {
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import parse_override_line, Override
+result = parse_override_line('''{
+  "models": {
+    "planner": "gpt-5.6-sol",
+    "builder": "claude-opus-4-8"
+  }
+}''')
+assert result == [
+    Override("planner", "gpt-5.6-sol"),
+    Override("builder", "claude-opus-4-8"),
+], result
+PY
+}
+
+test_chooser_accepts_models_json_fragment() {
+  # This is the exact shape users commonly paste after copying a models block.
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import parse_override_line, Override
+result = parse_override_line('''"models": {
+  "planner": "gpt-5.6-sol",
+  "fixer": "gpt-5.6-terra"
+}''')
+assert result == [
+    Override("planner", "gpt-5.6-sol"),
+    Override("fixer", "gpt-5.6-terra"),
+], result
+PY
+}
+
+test_chooser_accepts_direct_json_role_map() {
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import parse_override_line, Override
+result = parse_override_line('''{
+  "Planner": "gpt-5.6-sol",
+  "code-reviewer-a": "claude-opus-4-8"
+}''')
+assert result == [
+    Override("planner", "gpt-5.6-sol"),
+    Override("code-reviewer-a", "claude-opus-4-8"),
+], result
+PY
+}
+
+test_chooser_rejects_invalid_json_override_values() {
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import parse_override_line, OverrideParseError
+bad_inputs = (
+    '{"models": {"planner": null}}',
+    '{"models": {"planner": ""}}',
+    '{"models": {"plannr": "gpt-5.6-sol"}}',
+    '{"models": ["gpt-5.6-sol"]}',
+    '{"models": {"planner": "gpt-5.6-sol"}',
+    '{"models": {"planner": "gpt-5.6,sol"}}',
+    '{"models": {"planner": "gpt-5.6=sol"}}',
+)
+for bad in bad_inputs:
+    try:
+        parse_override_line(bad)
+    except OverrideParseError:
+        continue
+    raise SystemExit(f"Expected OverrideParseError for {bad!r}")
+PY
+}
+
+test_chooser_rejects_duplicate_roles_in_all_formats() {
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import parse_override_input, OverrideParseError
+bad_inputs = (
+    "planner=gpt-5.6-sol, planner=gpt-5.6-terra",
+    "Planner=gpt-5.6-sol, PLANNER=gpt-5.6-terra",
+    '{"planner":"gpt-5.6-sol","planner":"gpt-5.6-terra"}',
+    '{"Planner":"gpt-5.6-sol","planner":"gpt-5.6-terra"}',
+    '{"models":{"planner":"gpt-5.6-sol","planner":"gpt-5.6-terra"}}',
+)
+for bad in bad_inputs:
+    try:
+        parse_override_input(bad)
+    except OverrideParseError as exc:
+        assert "Duplicate role: planner" in str(exc), (bad, exc)
+        continue
+    raise SystemExit(f"Expected OverrideParseError for {bad!r}")
+PY
+}
+
+test_override_formats_produce_identical_orchestration() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import json
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import (
+    DEFAULT_MODELS,
+    apply_overrides,
+    parse_override_input,
+    parse_override_line,
+    write_orchestration_json,
+)
+
+submissions = (
+    "planner=gpt-5.6-terra, builder=claude-opus-4-8",
+    '{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}',
+    '{"models":{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}}',
+    '"models":{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}',
+)
+payloads = []
+for index, submission in enumerate(submissions):
+    overrides = parse_override_input(submission)
+    assert parse_override_line(submission) == overrides
+    merged, overridden, ignored = apply_overrides(
+        DEFAULT_MODELS,
+        overrides,
+        quest_mode="workflow",
+    )
+    assert ignored == [], ignored
+    path = Path(sys.argv[1]) / f"orchestration-{index}.json"
+    write_orchestration_json(
+        path,
+        models=merged,
+        source="overridden",
+        overridden_roles=overridden,
+        preflight_validated_at="2026-07-11T00:00:00Z",
+    )
+    payloads.append(json.loads(path.read_text()))
+
+assert all(payload == payloads[0] for payload in payloads[1:]), payloads
+PY
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
+}
+
+test_override_parser_cli_reads_stdin() {
+  python3 - <<PY
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+repo = Path("$REPO_ROOT")
+command = [sys.executable, str(repo / "scripts" / "quest_parse_overrides.py")]
+result = subprocess.run(
+    command,
+    input='{"models":{"planner":"gpt-5.6-sol","fixer":"gpt-5.6-terra"}}',
+    text=True,
+    capture_output=True,
+    cwd=repo,
+    check=False,
+)
+assert result.returncode == 0, result
+assert json.loads(result.stdout) == {
+    "ok": True,
+    "overrides": [
+        {"model": "gpt-5.6-sol", "role": "planner"},
+        {"model": "gpt-5.6-terra", "role": "fixer"},
+    ],
+}, result.stdout
+
+bad = subprocess.run(
+    command,
+    input="planner=gpt-5.6-sol, planner=gpt-5.6-terra",
+    text=True,
+    capture_output=True,
+    cwd=repo,
+    check=False,
+)
+assert bad.returncode == 2, bad
+assert json.loads(bad.stderr)["error"].startswith("Duplicate role: planner"), bad.stderr
 PY
 }
 
@@ -533,7 +737,7 @@ from quest_runtime.orchestration import migrate_from_snapshot
 written = migrate_from_snapshot(Path(sys.argv[1]))
 assert written is True, "expected legacy role backfill write"
 orch = json.loads((Path(sys.argv[1]) / "orchestration.json").read_text())
-assert orch["models"]["review-arbiter"] == "claude", orch["models"]
+assert orch["models"]["review-arbiter"] == "claude-opus-4-8", orch["models"]
 PY
 
   rm -f "$tmpdir/orchestration.json"
@@ -596,7 +800,7 @@ quest_dir = Path(sys.argv[1])
 written = migrate_from_snapshot(quest_dir)
 assert written is True, "expected legacy backfill write"
 orch = json.loads((quest_dir / "orchestration.json").read_text())
-assert orch["models"]["review-arbiter"] == "claude", orch["models"]
+assert orch["models"]["review-arbiter"] == "claude-opus-4-8", orch["models"]
 assert orch["source"] == "overridden", orch
 assert orch["overridden_roles"] == ["planner", "builder"], orch
 PY
@@ -784,6 +988,25 @@ test_workflow_defaults_are_not_dispatch_fallbacks() {
   return 0
 }
 
+test_orchestration_docs_do_not_duplicate_model_defaults() {
+  local skill_md="$REPO_ROOT/.skills/quest/SKILL.md"
+  local agents_dir="$REPO_ROOT/.skills/quest/agents"
+  local readme="$REPO_ROOT/README.md"
+
+  if grep -q 'omitted keys use the documented defaults (`' "$skill_md"; then
+    return 1
+  fi
+  if grep -q '| Allowlist Key | Default | Runtime |' "$WORKFLOW_MD"; then
+    return 1
+  fi
+  if grep -R -nE 'models\.[a-z-]+.*default[ =`]*(claude|gpt)' "$agents_dir"; then
+    return 1
+  fi
+  grep -q 'DEFAULT_MODELS' "$readme" || return 1
+  grep -q 'effective source of truth for that quest' "$readme" || return 1
+  return 0
+}
+
 test_opencode_dispatch_uses_orchestration_json() {
   if grep -n 'For these roles, use `codex_codex`' "$OPENCODE_QUEST_MD"; then
     return 1
@@ -806,12 +1029,20 @@ run_test test_chooser_default_writer_contract
 run_test test_chooser_default_writer_remaps_unavailable_active_models
 run_test test_chooser_override_writer_contract
 run_test test_default_models_fill_missing_allowlist_keys
+run_test test_repo_default_models_match_recommended_matrix
 run_test test_chooser_ignores_unused_solo_roles
 run_test test_chooser_rejects_unavailable_codex_model
 run_test test_chooser_gates_claude_family_in_codex_led_session
 run_test test_chooser_accepts_top_level_preflight_available
 run_test test_chooser_requires_literal_true_preflight_available
 run_test test_chooser_accepts_valid_model_names_with_dashes
+run_test test_chooser_accepts_wrapped_json_overrides
+run_test test_chooser_accepts_models_json_fragment
+run_test test_chooser_accepts_direct_json_role_map
+run_test test_chooser_rejects_invalid_json_override_values
+run_test test_chooser_rejects_duplicate_roles_in_all_formats
+run_test test_override_formats_produce_identical_orchestration
+run_test test_override_parser_cli_reads_stdin
 run_test test_chooser_rejects_unknown_role
 run_test test_chooser_rejects_multiple_equals
 run_test test_chooser_skips_empty_pieces
@@ -825,6 +1056,7 @@ run_test test_resume_does_not_modify_existing_complete_orchestration_json
 run_test test_workflow_dispatch_reads_orchestration_json_not_allowlist
 run_test test_workflow_no_allowlist_models_string
 run_test test_workflow_defaults_are_not_dispatch_fallbacks
+run_test test_orchestration_docs_do_not_duplicate_model_defaults
 run_test test_opencode_dispatch_uses_orchestration_json
 
 echo ""

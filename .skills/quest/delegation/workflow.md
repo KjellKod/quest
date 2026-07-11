@@ -1425,19 +1425,19 @@ Every pass through this loop produces its own `context_health.log` line carrying
 
 ### Agent-to-Tool Mapping
 
-| Role | Allowlist Key | Default | Runtime |
-|------|---------------|---------|---------|
-| Planner | `models.planner` | `claude` | Claude runtime or Codex per config |
-| Plan Reviewer A | `models.plan-reviewer-a` | `claude` | Claude runtime or Codex per config |
-| Plan Reviewer B | `models.plan-reviewer-b` | `gpt-5.5` | Claude runtime or Codex per config |
-| Arbiter | `models.arbiter` | `claude` | Claude runtime or Codex per config |
-| Builder | `models.builder` | `gpt-5.5` | Codex or Claude runtime per config |
-| Code Reviewer A | `models.code-reviewer-a` | `claude` | Claude runtime or Codex per config |
-| Code Reviewer B | `models.code-reviewer-b` | `gpt-5.5` | Claude runtime or Codex per config |
-| Review Arbiter | `models.review-arbiter` | `claude` | Claude runtime or Codex per config |
-| Fixer | `models.fixer` | `gpt-5.5` | Codex or Claude runtime per config |
+| Role | Per-quest model key | Runtime |
+|------|---------------------|---------|
+| Planner | `models.planner` | Claude runtime or Codex per config |
+| Plan Reviewer A | `models.plan-reviewer-a` | Claude runtime or Codex per config |
+| Plan Reviewer B | `models.plan-reviewer-b` | Claude runtime or Codex per config |
+| Arbiter | `models.arbiter` | Claude runtime or Codex per config |
+| Builder | `models.builder` | Codex or Claude runtime per config |
+| Code Reviewer A | `models.code-reviewer-a` | Claude runtime or Codex per config |
+| Code Reviewer B | `models.code-reviewer-b` | Claude runtime or Codex per config |
+| Review Arbiter | `models.review-arbiter` | Claude runtime or Codex per config |
+| Fixer | `models.fixer` | Codex or Claude runtime per config |
 
-All role-to-model assignments are read from `.quest/<id>/orchestration.json` → `models` for the active quest. `.ai/allowlist.json` → `models` is consulted only at quest startup as the default source the chooser pre-fills; see `.skills/quest/SKILL.md` Step 3 sub-step 8.5 and Step 1 sub-step 1a. The defaults above are startup defaults only: once `orchestration.json` exists, dispatch must stop on missing active-role model keys or active-role model keys that are not non-empty strings instead of falling back. **Model diversity** in review phases gives independent perspectives from different model families. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
+All role-to-model assignments are read from `.quest/<id>/orchestration.json` → `models` for the active quest. `.ai/allowlist.json` → `models` is consulted only at quest startup as the repo-configured default source the chooser pre-fills; omitted keys are filled by `DEFAULT_MODELS` in `scripts/quest_runtime/orchestration.py`. Once `orchestration.json` exists, dispatch must stop on missing active-role model keys or active-role model keys that are not non-empty strings instead of falling back. **Model diversity** in review phases gives independent perspectives from different model families. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
 
 ### Codex Runtime Prompt Pattern
 
