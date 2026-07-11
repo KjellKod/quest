@@ -67,11 +67,11 @@ parallel.
 
 | Status | PR workstream | Original findings | Branch suggestion | PR |
 |---|---|---|---|---|
-| [ongoing] | A. Runtime trust and state boundaries | #1, #4, #18, #22 | `hardening/runtime-boundaries` | — |
+| [done] | A. Runtime trust and state boundaries | #1, #4, #18, #22 | `hardening/runtime-boundaries` | [#149](https://github.com/KjellKod/quest/pull/149) |
 | [todo] | B. Operational helper and transport correctness | #3, #9, #20 | `hardening/operational-contracts` | — |
 | [todo] | C. Installed documentation accuracy | #16, #17 | `hardening/installed-docs` | — |
 
-## Workstream A — Runtime trust and state boundaries [ongoing]
+## Workstream A — Runtime trust and state boundaries [done] — [PR #149](https://github.com/KjellKod/quest/pull/149)
 
 ### Goal
 
