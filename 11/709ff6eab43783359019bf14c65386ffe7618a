@@ -1,0 +1,21 @@
+ideas/archive/deterministic-json-orchestration-overrides.md
+  s_c7960b6747cbfe::t_39e8c8a0cc2b25 3,6-7,12-17
+ideas/README.md
+  s_c7960b6747cbfe::t_39e8c8a0cc2b25 90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "11709ff6eab43783359019bf14c65386ffe7618a",
+  "prompts": {},
+  "sessions": {
+    "s_c7960b6747cbfe": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4ee6-73c8-7621-94f7-2ff81e73eef9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
