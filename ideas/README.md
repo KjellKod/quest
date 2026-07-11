@@ -43,6 +43,7 @@ Current roadmap:
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
 |---|---|---|
+| `2026-07-11-quest-hardening.md` | proposed | Three-PR hardening plan for findings #1, #3, #4, #9, #16, #17, #18, #20, and #22, tracked from `[todo]` through PR-created `[done]`. |
 | `2026-04-24-quest-hooks-vs-instructions-boundary.md` | proposed | Define the boundary between instruction files, hooks, and scripts for Quest, with Claude-first enforcement and Codex-aware adapter guidance. |
 | `2026-04-29-research-fanout-skill.md` | proposed | Add a reusable research fan-out skill for human-triggered and planner-requested parallel investigation with reconciled findings. |
 | `2026-05-19-sharpen-context-grounding.md` | proposed | Require sharpening questions to be grounded in targeted repo evidence before asking the user. |
