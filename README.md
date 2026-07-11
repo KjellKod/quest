@@ -146,7 +146,7 @@ planner=gpt-5.6-sol, builder=claude-opus-4-8
 }
 ```
 
-A direct JSON role map and a copied `"models": {...}` fragment are accepted too. Omitted roles keep their defaults. Quest validates role names, runtime-family availability, and whether a role is used in the selected solo/full mode before saving the override. A concrete model ID can still be rejected later by its provider if that account or client does not support it.
+A direct JSON role map and a copied `"models": {...}` fragment are accepted too. Omitted roles keep their defaults. The chooser sends the submission to Quest's deterministic parser CLI instead of interpreting it conversationally. Quest rejects duplicate roles and applies the same model-token rules to both formats, then validates runtime-family availability and whether a role is used in the selected solo/full mode. A concrete model ID can still be rejected later by its provider if that account or client does not support it.
 
 Model IDs select the runtime family: `claude` and `claude-*` use Claude; other IDs use Codex. In Claude-led runs, Codex MCP receives the configured Codex model. In Codex-led runs, local Codex subagents currently inherit the active Codex model by default, so a per-role Sol/Terra distinction is recorded but may not be enforceable without explicit model-aware local dispatch. Concrete Claude model IDs are passed through by the Claude runner.
 

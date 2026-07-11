@@ -97,6 +97,7 @@ scripts/quest_claude_probe.py
 scripts/quest_claude_runner.py
 scripts/quest_allowlist_matcher.py
 scripts/quest_review_intelligence.py
+scripts/quest_parse_overrides.py
 scripts/quest_select_tests.py
 scripts/quest_startup_branch.py
 scripts/pr_shepherd_annotate_scope.py

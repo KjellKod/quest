@@ -459,6 +459,8 @@ bad_inputs = (
     '{"models": {"plannr": "gpt-5.6-sol"}}',
     '{"models": ["gpt-5.6-sol"]}',
     '{"models": {"planner": "gpt-5.6-sol"}',
+    '{"models": {"planner": "gpt-5.6,sol"}}',
+    '{"models": {"planner": "gpt-5.6=sol"}}',
 )
 for bad in bad_inputs:
     try:
@@ -466,6 +468,115 @@ for bad in bad_inputs:
     except OverrideParseError:
         continue
     raise SystemExit(f"Expected OverrideParseError for {bad!r}")
+PY
+}
+
+test_chooser_rejects_duplicate_roles_in_all_formats() {
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import parse_override_input, OverrideParseError
+bad_inputs = (
+    "planner=gpt-5.6-sol, planner=gpt-5.6-terra",
+    "Planner=gpt-5.6-sol, PLANNER=gpt-5.6-terra",
+    '{"planner":"gpt-5.6-sol","planner":"gpt-5.6-terra"}',
+    '{"Planner":"gpt-5.6-sol","planner":"gpt-5.6-terra"}',
+    '{"models":{"planner":"gpt-5.6-sol","planner":"gpt-5.6-terra"}}',
+)
+for bad in bad_inputs:
+    try:
+        parse_override_input(bad)
+    except OverrideParseError as exc:
+        assert "Duplicate role: planner" in str(exc), (bad, exc)
+        continue
+    raise SystemExit(f"Expected OverrideParseError for {bad!r}")
+PY
+}
+
+test_override_formats_produce_identical_orchestration() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
+${PY_HELPER}
+import json
+import sys
+from pathlib import Path
+from quest_runtime.orchestration import (
+    DEFAULT_MODELS,
+    apply_overrides,
+    parse_override_input,
+    parse_override_line,
+    write_orchestration_json,
+)
+
+submissions = (
+    "planner=gpt-5.6-terra, builder=claude-opus-4-8",
+    '{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}',
+    '{"models":{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}}',
+    '"models":{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}',
+)
+payloads = []
+for index, submission in enumerate(submissions):
+    overrides = parse_override_input(submission)
+    assert parse_override_line(submission) == overrides
+    merged, overridden, ignored = apply_overrides(
+        DEFAULT_MODELS,
+        overrides,
+        quest_mode="workflow",
+    )
+    assert ignored == [], ignored
+    path = Path(sys.argv[1]) / f"orchestration-{index}.json"
+    write_orchestration_json(
+        path,
+        models=merged,
+        source="overridden",
+        overridden_roles=overridden,
+        preflight_validated_at="2026-07-11T00:00:00Z",
+    )
+    payloads.append(json.loads(path.read_text()))
+
+assert all(payload == payloads[0] for payload in payloads[1:]), payloads
+PY
+  local rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 0 ]
+}
+
+test_override_parser_cli_reads_stdin() {
+  python3 - <<PY
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+repo = Path("$REPO_ROOT")
+command = [sys.executable, str(repo / "scripts" / "quest_parse_overrides.py")]
+result = subprocess.run(
+    command,
+    input='{"models":{"planner":"gpt-5.6-sol","fixer":"gpt-5.6-terra"}}',
+    text=True,
+    capture_output=True,
+    cwd=repo,
+    check=False,
+)
+assert result.returncode == 0, result
+assert json.loads(result.stdout) == {
+    "ok": True,
+    "overrides": [
+        {"model": "gpt-5.6-sol", "role": "planner"},
+        {"model": "gpt-5.6-terra", "role": "fixer"},
+    ],
+}, result.stdout
+
+bad = subprocess.run(
+    command,
+    input="planner=gpt-5.6-sol, planner=gpt-5.6-terra",
+    text=True,
+    capture_output=True,
+    cwd=repo,
+    check=False,
+)
+assert bad.returncode == 2, bad
+assert json.loads(bad.stderr)["error"].startswith("Duplicate role: planner"), bad.stderr
 PY
 }
 
@@ -910,6 +1021,9 @@ run_test test_chooser_accepts_wrapped_json_overrides
 run_test test_chooser_accepts_models_json_fragment
 run_test test_chooser_accepts_direct_json_role_map
 run_test test_chooser_rejects_invalid_json_override_values
+run_test test_chooser_rejects_duplicate_roles_in_all_formats
+run_test test_override_formats_produce_identical_orchestration
+run_test test_override_parser_cli_reads_stdin
 run_test test_chooser_rejects_unknown_role
 run_test test_chooser_rejects_multiple_equals
 run_test test_chooser_skips_empty_pieces

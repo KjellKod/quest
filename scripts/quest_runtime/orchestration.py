@@ -82,8 +82,50 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def parse_override_line(line: str) -> list[Override]:
-    """Parse JSON or a comma-separated `role=model` line.
+class _JsonObjectPairs(list[tuple[str, object]]):
+    """Preserve JSON object order and duplicate keys at the input boundary."""
+
+
+def _validated_override(raw_role: object, raw_model: object) -> Override:
+    """Validate one role/model pair shared by both accepted syntaxes."""
+    if not isinstance(raw_role, str):
+        raise OverrideParseError(
+            "Override role names must be strings. Re-enter overrides."
+        )
+    role = raw_role.strip().lower()
+    if role not in CANONICAL_ROLES:
+        valid_list = ", ".join(CANONICAL_ROLES)
+        raise OverrideParseError(
+            f"Unknown role: {raw_role.strip()} (valid: {valid_list})"
+        )
+    if not isinstance(raw_model, str) or not raw_model.strip():
+        raise OverrideParseError(
+            f"Override model for {role} must be a non-empty string. "
+            "Re-enter overrides."
+        )
+    model = raw_model.strip()
+    if "," in model or "=" in model:
+        raise OverrideParseError(
+            f"Override model for {role} cannot contain ',' or '='. "
+            "Re-enter overrides."
+        )
+    return Override(role=role, model=model)
+
+
+def _append_unique_override(
+    parsed: list[Override], seen_roles: set[str], override: Override
+) -> None:
+    """Append one override, rejecting ambiguous case-normalized duplicates."""
+    if override.role in seen_roles:
+        raise OverrideParseError(
+            f"Duplicate role: {override.role}. Re-enter overrides."
+        )
+    seen_roles.add(override.role)
+    parsed.append(override)
+
+
+def parse_override_input(text: str) -> list[Override]:
+    """Parse JSON or comma-separated `role=model` overrides.
 
     Contract (mirrors SKILL.md §8.5):
     - JSON input may be a direct role map, a top-level `models` object, or the
@@ -99,51 +141,43 @@ def parse_override_line(line: str) -> list[Override]:
       character constraints (so `gpt-5.5`, `claude-opus-4.7`, `o1-mini`
       all pass parsing).
     """
-    stripped = line.strip()
+    stripped = text.strip()
     if stripped.startswith("{") or stripped.startswith('"models"'):
         candidate = "{" + stripped + "}" if stripped.startswith('"models"') else stripped
         try:
-            data = json.loads(candidate)
+            data = json.loads(candidate, object_pairs_hook=_JsonObjectPairs)
         except json.JSONDecodeError as exc:
             raise OverrideParseError(
                 f"Override JSON syntax error: {exc.msg}. Re-enter overrides."
             ) from exc
-        if not isinstance(data, dict):
+        if not isinstance(data, _JsonObjectPairs):
             raise OverrideParseError("Override JSON must be an object. Re-enter overrides.")
-        if "models" in data:
-            if set(data) != {"models"}:
+        models_values = [value for key, value in data if key == "models"]
+        if models_values:
+            if len(data) != 1:
                 raise OverrideParseError(
                     "Override JSON with a models block cannot contain other top-level keys. "
                     "Re-enter overrides."
                 )
-            data = data["models"]
-            if not isinstance(data, dict):
+            data = models_values[0]
+            if not isinstance(data, _JsonObjectPairs):
                 raise OverrideParseError(
                     "Override JSON models value must be an object. Re-enter overrides."
                 )
 
         parsed_json: list[Override] = []
-        for raw_role, raw_model in data.items():
-            if not isinstance(raw_role, str):
-                raise OverrideParseError(
-                    "Override JSON role names must be strings. Re-enter overrides."
-                )
-            role = raw_role.strip().lower()
-            if role not in CANONICAL_ROLES:
-                valid_list = ", ".join(CANONICAL_ROLES)
-                raise OverrideParseError(
-                    f"Unknown role: {raw_role.strip()} (valid: {valid_list})"
-                )
-            if not isinstance(raw_model, str) or not raw_model.strip():
-                raise OverrideParseError(
-                    f"Override JSON model for {role} must be a non-empty string. "
-                    "Re-enter overrides."
-                )
-            parsed_json.append(Override(role=role, model=raw_model.strip()))
+        seen_json_roles: set[str] = set()
+        for raw_role, raw_model in data:
+            _append_unique_override(
+                parsed_json,
+                seen_json_roles,
+                _validated_override(raw_role, raw_model),
+            )
         return parsed_json
 
-    pieces = [piece.strip() for piece in line.split(",")]
+    pieces = [piece.strip() for piece in text.split(",")]
     parsed: list[Override] = []
+    seen_roles: set[str] = set()
     for piece in pieces:
         if not piece:
             # Empty piece — silently skip (trailing comma case).
@@ -155,20 +189,17 @@ def parse_override_line(line: str) -> list[Override]:
                 "Re-enter overrides."
             )
         raw_role, raw_model = piece.split("=", 1)
-        role = raw_role.strip().lower()
-        model = raw_model.strip()
-        if role not in CANONICAL_ROLES:
-            valid_list = ", ".join(CANONICAL_ROLES)
-            raise OverrideParseError(
-                f"Unknown role: {raw_role.strip()} (valid: {valid_list})"
-            )
-        if not model:
-            raise OverrideParseError(
-                f"Override syntax error: {piece!r} (expected role=model). "
-                "Re-enter overrides."
-            )
-        parsed.append(Override(role=role, model=model))
+        _append_unique_override(
+            parsed,
+            seen_roles,
+            _validated_override(raw_role, raw_model),
+        )
     return parsed
+
+
+def parse_override_line(line: str) -> list[Override]:
+    """Compatibility wrapper for callers using the original parser name."""
+    return parse_override_input(line)
 
 
 def is_claude_model(model: str) -> bool:
