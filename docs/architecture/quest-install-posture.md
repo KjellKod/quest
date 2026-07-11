@@ -5,7 +5,7 @@ audience: Maintainers, contributors, and anyone setting up Quest in a project
 scope: Distribution and install topology only — not the runtime contract
 status: active
 owner: maintainers
-last_updated: 2026-05-26
+last_updated: 2026-07-11
 related:
   - docs/architecture/orchestration-runtime-v1.md
 ---
@@ -43,6 +43,11 @@ cd /path/to/your/repo
 It honours `.quest-manifest` categories (`copy-as-is`,
 `user-customized`, `merge-carefully`), self-updates, and can target a
 branch. Updating means re-running it.
+
+The manifest is an inventory of files managed by the Quest installer, not an
+allowlist for the project's tooling namespaces. Unlisted files under shared
+locations such as `.ai/`, `.skills/`, `.agents/`, and `.claude/` remain
+host-owned. Their location alone never transfers ownership to Quest.
 
 **Strengths**
 - Self-contained: works offline after install; CI can run Quest with no
@@ -88,6 +93,24 @@ up by host-specific means:
 - No one-command setup; the mechanism is host-specific.
 - Harder for offline/air-gapped projects and for forks that need
   customization the canonical install shouldn't carry.
+
+Outside-in operation does not make the target repository part of Quest's
+source distribution. Generic commit and review work runs against the target's
+own code and conventions; it does not apply canonical Quest source-completeness
+checks to target files.
+
+## Manifest validation by topology
+
+`scripts/quest_validate-manifest.sh` defaults to installed/consumer mode. It
+validates the inventory already declared in `.quest-manifest`, including stale
+or forbidden entries, while leaving unlisted host files alone. `--installed`
+selects the same behavior explicitly.
+
+`--strict` is for maintainers validating the canonical Quest source checkout
+and for Quest's own CI. It scans the source distribution patterns for omitted
+Quest-owned files. Do not run strict distribution validation as a generic
+commit or review gate in a vendored consumer repo or against an outside-in
+target, and do not add host-owned files to `.quest-manifest` to satisfy it.
 
 ---
 
