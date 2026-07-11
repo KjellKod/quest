@@ -35,15 +35,15 @@ CANONICAL_ROLES: tuple[str, ...] = (
 )
 
 DEFAULT_MODELS: dict[str, str] = {
-    "planner": "claude",
-    "plan-reviewer-a": "claude",
-    "plan-reviewer-b": "gpt-5.5",
-    "arbiter": "claude",
-    "builder": "gpt-5.5",
-    "code-reviewer-a": "claude",
-    "code-reviewer-b": "gpt-5.5",
-    "review-arbiter": "claude",
-    "fixer": "gpt-5.5",
+    "planner": "gpt-5.6-sol",
+    "plan-reviewer-a": "claude-opus-4-8",
+    "plan-reviewer-b": "gpt-5.6-terra",
+    "arbiter": "claude-opus-4-8",
+    "builder": "gpt-5.6-sol",
+    "code-reviewer-a": "claude-opus-4-8",
+    "code-reviewer-b": "gpt-5.6-terra",
+    "review-arbiter": "claude-opus-4-8",
+    "fixer": "gpt-5.6-terra",
 }
 
 # Roles added after early snapshots/existing orchestration files were already
@@ -56,7 +56,7 @@ SOLO_UNUSED_ROLES: frozenset[str] = frozenset(
 )
 
 ORCHESTRATION_VERSION = 1
-CODEX_NATIVE_FALLBACK_MODEL = "gpt-5.5"
+CODEX_NATIVE_FALLBACK_MODEL = "gpt-5.6-sol"
 
 # Transport for Codex-led Claude roles (.ai/allowlist.json claude_role_transport).
 # "auto" resolves to background-agent when the preflight bg probe succeeds.
@@ -83,9 +83,12 @@ def _now_iso() -> str:
 
 
 def parse_override_line(line: str) -> list[Override]:
-    """Parse a comma-separated `role=model` line.
+    """Parse JSON or a comma-separated `role=model` line.
 
     Contract (mirrors SKILL.md §8.5):
+    - JSON input may be a direct role map, a top-level `models` object, or the
+      copied `"models": {...}` fragment without outer braces.
+    - JSON role names and model values use the same validation as pairs.
     - Split on commas, trim each piece. Empty pieces are silently skipped
       (a trailing comma is fine).
     - Each non-empty piece must contain exactly one `=`. Zero or two-or-more
@@ -96,6 +99,49 @@ def parse_override_line(line: str) -> list[Override]:
       character constraints (so `gpt-5.5`, `claude-opus-4.7`, `o1-mini`
       all pass parsing).
     """
+    stripped = line.strip()
+    if stripped.startswith("{") or stripped.startswith('"models"'):
+        candidate = "{" + stripped + "}" if stripped.startswith('"models"') else stripped
+        try:
+            data = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            raise OverrideParseError(
+                f"Override JSON syntax error: {exc.msg}. Re-enter overrides."
+            ) from exc
+        if not isinstance(data, dict):
+            raise OverrideParseError("Override JSON must be an object. Re-enter overrides.")
+        if "models" in data:
+            if set(data) != {"models"}:
+                raise OverrideParseError(
+                    "Override JSON with a models block cannot contain other top-level keys. "
+                    "Re-enter overrides."
+                )
+            data = data["models"]
+            if not isinstance(data, dict):
+                raise OverrideParseError(
+                    "Override JSON models value must be an object. Re-enter overrides."
+                )
+
+        parsed_json: list[Override] = []
+        for raw_role, raw_model in data.items():
+            if not isinstance(raw_role, str):
+                raise OverrideParseError(
+                    "Override JSON role names must be strings. Re-enter overrides."
+                )
+            role = raw_role.strip().lower()
+            if role not in CANONICAL_ROLES:
+                valid_list = ", ".join(CANONICAL_ROLES)
+                raise OverrideParseError(
+                    f"Unknown role: {raw_role.strip()} (valid: {valid_list})"
+                )
+            if not isinstance(raw_model, str) or not raw_model.strip():
+                raise OverrideParseError(
+                    f"Override JSON model for {role} must be a non-empty string. "
+                    "Re-enter overrides."
+                )
+            parsed_json.append(Override(role=role, model=raw_model.strip()))
+        return parsed_json
+
     pieces = [piece.strip() for piece in line.split(",")]
     parsed: list[Override] = []
     for piece in pieces:

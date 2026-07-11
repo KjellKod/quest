@@ -117,16 +117,40 @@ For advanced patterns (phased execution, plan comparison, model mixing), see the
 
 | Role | Default model | What it does |
 |------|--------------|-------------|
-| **Planner** | Claude | Explores the codebase and writes the implementation plan |
-| **Reviewer A** | Claude | Reviews plans and code from one perspective |
-| **Reviewer B** | GPT-5.x | Reviews independently, different model, different blind spots |
-| **Arbiter** | Claude | Synthesizes reviews, filters nitpicks, decides approve or iterate |
-| **Builder** | GPT-5.x | Implements the approved plan, runs tests, produces PR description |
-| **Fixer** | GPT-5.x | Surgical fixes from review feedback without rebuilding |
+| **Planner** | GPT-5.6 Sol | Explores the codebase and writes the implementation plan |
+| **Plan Reviewer A** | Claude Opus 4.8 | Challenges the plan from a different model family |
+| **Plan Reviewer B** | GPT-5.6 Terra | Adds a fast, independent second review |
+| **Arbiter** | Claude Opus 4.8 | Synthesizes plan reviews and decides approve or iterate |
+| **Builder** | GPT-5.6 Sol | Implements the approved plan and runs validation |
+| **Code Reviewer A** | Claude Opus 4.8 | Reviews Sol-produced code across model families |
+| **Code Reviewer B** | GPT-5.6 Terra | Adds a second code-review perspective |
+| **Review Arbiter** | Claude Opus 4.8 | Converts review findings into canonical decisions |
+| **Fixer** | GPT-5.6 Terra | Applies bounded fixes before the next review pass |
 
-These defaults work with Claude (Sonnet or Opus) or GPT-5.x (5.2 or later) as the orchestrator, and across runtimes: Claude Code, Codex CLI, or Cursor IDE.
+### Choosing and overriding models
 
-Every role is swappable. Update `models` in `.ai/allowlist.json` to reassign roles, or just ask the orchestrator mid-quest to swap models. Want GPT as your planner and Claude as reviewer? KiMi as arbiter? Try it. With the installer setup you can mix and match any models you prefer. See the [OpenCode Field Notes](docs/guides/opencode-model-observations.md) for tested configurations across 30+ models.
+The `models` block in `.ai/allowlist.json` is the persistent default for new quests. At startup, Quest copies it into the quest snapshot, shows the active role assignments, and writes the accepted selection to `.quest/<id>/orchestration.json`. That per-quest file is then the source of truth for the rest of the run, so changing the repo allowlist does not rewrite an in-flight quest.
+
+Choose **Customize for this quest only** at startup to change one or more roles without editing repo defaults. The chooser accepts either format:
+
+```text
+planner=gpt-5.6-sol, builder=claude-opus-4-8
+```
+
+```json
+{
+  "models": {
+    "planner": "gpt-5.6-sol",
+    "builder": "claude-opus-4-8"
+  }
+}
+```
+
+A direct JSON role map and a copied `"models": {...}` fragment are accepted too. Omitted roles keep their defaults. Quest validates role names, runtime-family availability, and whether a role is used in the selected solo/full mode before saving the override. A concrete model ID can still be rejected later by its provider if that account or client does not support it.
+
+Model IDs select the runtime family: `claude` and `claude-*` use Claude; other IDs use Codex. In Claude-led runs, Codex MCP receives the configured Codex model. In Codex-led runs, local Codex subagents currently inherit the active Codex model by default, so a per-role Sol/Terra distinction is recorded but may not be enforceable without explicit model-aware local dispatch. Concrete Claude model IDs are passed through by the Claude runner.
+
+Quest currently overrides **models only**, not per-role reasoning effort. Codex supports `model_reasoning_effort` values such as `low`, `medium`, `high`, `xhigh`, `max`, and `ultra` when the selected model supports them, but the available levels and behavior vary by model and surface. Configure reasoning in Codex itself or in a Codex agent definition for now; it is not stored in Quest's `orchestration.json`. Ultra is not simply a stronger spelling of High: on supported accounts/models it can also enable proactive subagent delegation. See the [Codex subagent model and reasoning guidance](https://learn.chatgpt.com/docs/agent-configuration/subagents#choosing-models-and-reasoning).
 
 Solo mode skips Reviewer B and the Arbiter. Same pipeline, just faster.
 
