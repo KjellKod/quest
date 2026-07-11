@@ -1,0 +1,45 @@
+.skills/quest/delegation/workflow.md
+  s_f6fcc2495a2451::t_76c76c72254342 58,62
+tests/unit/test_quest_dispatch_guardrails.py
+  s_f6fcc2495a2451::t_76c76c72254342 219-220
+docs/quest-journal/runtime-trust-state-boundaries_2026-07-11.md
+  s_f6fcc2495a2451::t_76c76c72254342 15,19-35
+  s_2122649f591df6::t_ad962697eff4d8 36
+ideas/2026-07-11-quest-hardening.md
+  s_f6fcc2495a2451::t_53e49b1eb9e57f 44-47,52-53,66,68-71,78
+  s_f6fcc2495a2451::t_877b3540833d1c 391-457,460
+  s_f6fcc2495a2451::t_69b84425138844 502,506
+tests/unit/test_quest_state.py
+  s_f6fcc2495a2451::t_2a11827eed2318 167-169
+  s_f6fcc2495a2451::t_76c76c72254342 170-188,193,314,329-348
+  s_f6fcc2495a2451::t_6283d607f06deb 349,365,405,470
+scripts/quest_runtime/state.py
+  s_f6fcc2495a2451::t_76c76c72254342 58,134-137
+  s_f6fcc2495a2451::t_97982ba1ffa5a1 30
+tests/unit/test_allowlist_matcher.py
+  s_f6fcc2495a2451::t_b7715bcc29f7b6 206-208,288-290
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "6800d2b7751342c4129b74dfc75ed7a2c6ba95d9",
+  "prompts": {},
+  "sessions": {
+    "s_2122649f591df6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f51f4-e9d8-7702-8f2f-1018a4619245",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_f6fcc2495a2451": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f52d8-13f4-7260-bd62-d98c4e31fe35",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
