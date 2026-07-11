@@ -61,11 +61,14 @@ def _backlog_item(
         "needs_validation": [],
         "owner": "builder",
         "batch": "batch",
-        "validation_steps": validation_steps or _validation_step("tests/unit/test_default.py"),
+        "validation_steps": validation_steps
+        or _validation_step("tests/unit/test_default.py"),
     }
 
 
-def test_normalize_pr_review_intake_merges_ci_inline_general_into_canonical_findings() -> None:
+def test_normalize_pr_review_intake_merges_ci_inline_general_into_canonical_findings() -> (
+    None
+):
     intake = {
         "ci_checks": [
             {
@@ -121,7 +124,9 @@ def test_normalize_pr_review_intake_merges_ci_inline_general_into_canonical_find
     assert "pr-general-001" in finding_ids
     assert "existing-001" in finding_ids
 
-    inline = next(finding for finding in findings if finding["finding_id"] == "pr-inline-001")
+    inline = next(
+        finding for finding in findings if finding["finding_id"] == "pr-inline-001"
+    )
     ci = next(finding for finding in findings if finding["finding_id"] == "pr-ci-001")
 
     assert inline["severity"] == "high"
@@ -420,7 +425,9 @@ def test_normalize_records_summary_fingerprint_uses_stable_fallback() -> None:
         "line": None,
         "body": "Fingerprint-only review body.",
     }
-    fingerprint = __import__("quest_runtime.pr_shepherd", fromlist=["stable_fingerprint"]).stable_fingerprint(record)
+    fingerprint = __import__(
+        "quest_runtime.pr_shepherd", fromlist=["stable_fingerprint"]
+    ).stable_fingerprint(record)
 
     findings = normalize_pr_review_intake(
         {
@@ -518,8 +525,12 @@ def test_classify_pr_operational_state_wraps_pass_facts() -> None:
     assert result["operational_state"] == "clean"
 
 
-def test_cli_classify_pr_stop_passes_ci_state_to_operational_fallback(tmp_path: Path) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+def test_cli_classify_pr_stop_passes_ci_state_to_operational_fallback(
+    tmp_path: Path,
+) -> None:
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     backlog_path = tmp_path / "review_backlog.json"
     pass_facts_path = tmp_path / "pass_facts.json"
     backlog_path.write_text(json.dumps({"items": []}), encoding="utf-8")
@@ -739,7 +750,9 @@ def test_classify_pr_loop_stop_matrix(
 
 
 def test_cli_normalize_pr_intake_round_trip(tmp_path: Path) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     input_path = tmp_path / "intake.json"
     output_path = tmp_path / "findings.json"
 
@@ -783,7 +796,9 @@ def test_cli_normalize_pr_intake_round_trip(tmp_path: Path) -> None:
 
 
 def test_cli_build_fix_batches_round_trip(tmp_path: Path) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     backlog_path = tmp_path / "review_backlog.json"
     output_path = tmp_path / "batches.json"
 
@@ -831,7 +846,9 @@ def test_cli_build_fix_batches_round_trip(tmp_path: Path) -> None:
 
 
 def test_cli_classify_pr_stop_round_trip(tmp_path: Path) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     quest_id = "sample-quest_2026-04-17__2101"
     backlog_dir = tmp_path / ".quest" / quest_id / "phase_03_review"
     backlog_dir.mkdir(parents=True, exist_ok=True)
@@ -944,7 +961,9 @@ def test_normalize_pr_review_intake_tokenized_blocker_upgrade() -> None:
     assert by_commenter["pr-inline:carol"]["severity"] == "high"
 
 
-def test_classify_pr_loop_stop_resolves_cap_from_allowlist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_classify_pr_loop_stop_resolves_cap_from_allowlist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     allowlist = tmp_path / "allowlist.json"
     allowlist.write_text(
         json.dumps({"gates": {"max_fix_iterations": 5}}),
@@ -1012,12 +1031,19 @@ def test_normalize_pr_review_intake_skips_pending_and_unknown_ci_states() -> Non
             {"job": "typecheck", "state": "unknown"},
             {"job": "in-progress-runner", "state": "in_progress"},
             {"job": "flaky", "state": "failing", "failed_path": "scripts/foo.py"},
-            {"job": "build", "state": "error", "failed_path": "Makefile", "kind_hint": "build_failure"},
+            {
+                "job": "build",
+                "state": "error",
+                "failed_path": "Makefile",
+                "kind_hint": "build_failure",
+            },
         ]
     }
 
     findings = normalize_pr_review_intake(intake)
-    ci_findings = [finding for finding in findings if finding["finding_id"].startswith("pr-ci-")]
+    ci_findings = [
+        finding for finding in findings if finding["finding_id"].startswith("pr-ci-")
+    ]
 
     sources = sorted(finding["source"] for finding in ci_findings)
     assert sources == ["pr-ci:build", "pr-ci:flaky"], ci_findings
@@ -1026,7 +1052,9 @@ def test_normalize_pr_review_intake_skips_pending_and_unknown_ci_states() -> Non
 def test_cli_classify_pr_stop_derives_deferred_jsonl_from_backlog_when_cwd_unrelated(
     tmp_path: Path,
 ) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
 
     # Repo root with the real backlog; we will run the CLI from a separate cwd
     repo = tmp_path / "repo"
@@ -1098,7 +1126,9 @@ def test_cli_classify_pr_stop_derives_deferred_jsonl_from_backlog_when_cwd_unrel
     cwd_deferred = cwd_dir / ".quest" / "backlog" / "deferred_findings.jsonl"
     assert expected_deferred.exists()
     assert not cwd_deferred.exists()
-    first_record = json.loads(expected_deferred.read_text(encoding="utf-8").splitlines()[0])
+    first_record = json.loads(
+        expected_deferred.read_text(encoding="utf-8").splitlines()[0]
+    )
     assert first_record["deferred_by_quest"] == quest_id
 
 
@@ -1131,7 +1161,9 @@ def test_classify_pr_loop_stop_resolves_cap_from_context_path(tmp_path: Path) ->
 def test_cli_classify_pr_stop_honors_backlog_repo_allowlist_from_unrelated_cwd(
     tmp_path: Path,
 ) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
 
     repo = tmp_path / "repo"
     (repo / ".ai").mkdir(parents=True)
@@ -1207,13 +1239,17 @@ def test_cli_classify_pr_stop_honors_backlog_repo_allowlist_from_unrelated_cwd(
     assert payload["outcome"] == "continue", payload
 
 
-def test_allowlist_path_from_context_accepts_repo_root_directory(tmp_path: Path) -> None:
+def test_allowlist_path_from_context_accepts_repo_root_directory(
+    tmp_path: Path,
+) -> None:
     from quest_runtime.pr_review_cycle import allowlist_path_from_context
 
     repo = tmp_path / "repo"
     (repo / ".ai").mkdir(parents=True)
     allowlist = repo / ".ai" / "allowlist.json"
-    allowlist.write_text(json.dumps({"gates": {"max_fix_iterations": 9}}), encoding="utf-8")
+    allowlist.write_text(
+        json.dumps({"gates": {"max_fix_iterations": 9}}), encoding="utf-8"
+    )
 
     # Passing the repo root directory itself should discover the allowlist at
     # <repo>/.ai/allowlist.json, not skip past the repo root and fall back
@@ -1231,7 +1267,9 @@ def test_canonical_pipeline_order_yields_multi_item_batches(tmp_path: Path) -> N
     can group two non-overlapping items under one batch.
     """
 
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
 
     backlog_path = tmp_path / "review_backlog.json"
     batches_path = tmp_path / "fix_batches.json"
@@ -1334,7 +1372,13 @@ def test_canonical_pipeline_order_yields_multi_item_batches(tmp_path: Path) -> N
         assert any(step["level"] == 0 for step in item["validation_steps"])
 
     # --- Step 5: batch ---
-    run("build-fix-batches", "--backlog", str(backlog_path), "--output", str(batches_path))
+    run(
+        "build-fix-batches",
+        "--backlog",
+        str(backlog_path),
+        "--output",
+        str(batches_path),
+    )
 
     batches = json.loads(batches_path.read_text(encoding="utf-8"))
     # With the fixed order, the two fix_now items share batch_key
@@ -1356,7 +1400,9 @@ def test_skipping_select_batch_validation_forces_one_item_batches_regression_gua
     select-batch-validation step gets caught by a failing test.
     """
 
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
 
     backlog_path = tmp_path / "review_backlog.json"
     batches_path = tmp_path / "fix_batches.json"

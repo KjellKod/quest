@@ -71,7 +71,11 @@ def _read(relative_path: str | Path) -> str:
 
 
 def _paragraphs(content: str) -> list[str]:
-    return [paragraph.strip() for paragraph in re.split(r"\n\s*\n", content) if paragraph.strip()]
+    return [
+        paragraph.strip()
+        for paragraph in re.split(r"\n\s*\n", content)
+        if paragraph.strip()
+    ]
 
 
 def _has_forbidden_term(text: str) -> bool:
@@ -197,12 +201,17 @@ def test_dispatch_matrix_documents_runtime_entrypoint_split() -> None:
 
     assert "Quest dispatch separates **runtime** from **entrypoint**" in workflow
     assert "`models.*` stores model IDs, not runtime names" in workflow
-    assert "`runtime_for_model()` in `scripts/quest_runtime/orchestration.py`" in workflow
+    assert (
+        "`runtime_for_model()` in `scripts/quest_runtime/orchestration.py`" in workflow
+    )
     assert "| Codex-led | Codex | local Codex subagent" in workflow
     assert "| Codex-led | Claude | `python3 scripts/quest_claude_runner.py`" in workflow
     assert "| Claude-led | Codex | Codex MCP" in workflow
     assert "| Claude-led | Claude | native `Task(...)`" in workflow
-    assert "entrypoint violation, not a model-selection or model/account failure" in workflow
+    assert (
+        "entrypoint violation, not a model-selection or model/account failure"
+        in workflow
+    )
 
 
 def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
@@ -211,7 +220,10 @@ def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
     assert "--model <models.<role> from .quest/<id>/orchestration.json>" in workflow
     assert "must not be sent to the CLI as `--model claude`" in workflow
     assert "python3 scripts/claude_bg_run.py --sweep quest-bg-probe-" in workflow
-    assert "python3 scripts/quest_claude_probe.py --model claude --transport background-agent" in workflow
+    assert (
+        "python3 scripts/quest_claude_probe.py --model claude --transport background-agent"
+        in workflow
+    )
     assert "--resume <session_id> --answer-file <answer_file>" in workflow
     # The resume example must be runnable as written: the runner requires the
     # full role-argument set, and a fresh re-dispatch must never silently kill
@@ -220,15 +232,23 @@ def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
         "python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase <phase> "
         "--agent <role> --iter <n> --prompt-file" in workflow
     )
-    assert "Parked-session guard (before ANY fresh retry/re-dispatch of a role)" in workflow
+    assert (
+        "Parked-session guard (before ANY fresh retry/re-dispatch of a role)"
+        in workflow
+    )
     assert "Persist the parked session id in `.quest/<id>/state.json`" in workflow
     assert '"parked_bg_session"' in workflow
     # The state helper must be the documented persistence path (never a
     # hand-edit of state.json), and clearing must be documented too.
-    assert "scripts/quest_state.py --quest-dir .quest/<id> --parked-bg-session" in workflow
+    assert (
+        "scripts/quest_state.py --quest-dir .quest/<id> --parked-bg-session" in workflow
+    )
     assert "--clear-parked-bg-session" in workflow
     assert "Cap repeated questions" in workflow  # anchor, not exact prose
-    assert "For abandon/manual cleanup, run `python3 scripts/claude_bg_run.py --sweep quest-<id>-`" in workflow
+    assert (
+        "For abandon/manual cleanup, run `python3 scripts/claude_bg_run.py --sweep quest-<id>-`"
+        in workflow
+    )
     assert "**`rate_limited`:** Do NOT blind retry" in workflow
     assert "Surface `reset_at` when present" in workflow
     assert "**`startup_dialog`:** Do NOT retry" in workflow
@@ -250,7 +270,10 @@ def test_gpt_skill_excludes_codex_led_quest_dispatch() -> None:
     assert "If you are already Codex" in skill
     assert "use local Codex subagents" in skill
     assert "inherit the active Codex model" in skill
-    assert "Codex MCP is only the cross-runtime path when the orchestrator is Claude-led" in skill
+    assert (
+        "Codex MCP is only the cross-runtime path when the orchestrator is Claude-led"
+        in skill
+    )
 
 
 def test_skills_index_scopes_gpt_to_claude_led_dispatch() -> None:
@@ -275,7 +298,10 @@ def test_codex_wrapper_and_entrypoint_point_at_canonical_matrix() -> None:
         assert "local Codex subagents" in content
         assert "never use Codex MCP" in content
         assert ".skills/quest/delegation/workflow.md" in content
-        assert "single source of truth" in content or "intentionally does not restate" in content
+        assert (
+            "single source of truth" in content
+            or "intentionally does not restate" in content
+        )
         # Restated matrix details belong only in the canonical doc.
         assert "multi_agent_v1.spawn_agent" not in content
         assert "inherit the active Codex model" not in content
@@ -437,7 +463,9 @@ def test_opencode_agent_descriptions_do_not_advertise_mcp_dispatch() -> None:
 def test_opencode_quest_doc_scopes_codex_mcp_to_claude_led_sessions() -> None:
     content = _read(".opencode/agents/quest.md")
 
-    assert "canonical dispatch matrix in `.skills/quest/delegation/workflow.md`" in content
+    assert (
+        "canonical dispatch matrix in `.skills/quest/delegation/workflow.md`" in content
+    )
     assert "local `task` subagent" in content
     assert "orchestration violation" in content
     assert "Codex-backed model names use the `codex_codex` MCP tool" not in content
@@ -453,7 +481,9 @@ def test_codex_facing_docs_do_not_dispatch_codex_roles_with_cli_model_aliases() 
 
     positive_alias_patterns = (
         re.compile(r"codex(?:-led)?[^.\n]{0,120}codex[^.\n]{0,120}codex exec -m", re.I),
-        re.compile(r"codex(?:-led)?[^.\n]{0,120}codex[^.\n]{0,120}model:\s*[\"']gpt-", re.I),
+        re.compile(
+            r"codex(?:-led)?[^.\n]{0,120}codex[^.\n]{0,120}model:\s*[\"']gpt-", re.I
+        ),
         re.compile(r"codex(?:-led)?[^.\n]{0,120}codex[^.\n]{0,120}use\s+gpt-\d", re.I),
     )
 

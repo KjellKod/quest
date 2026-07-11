@@ -159,7 +159,9 @@ More content.
     assert "first paragraph after the title" not in entry.elevator_pitch
 
 
-def test_journal_elevator_pitch_prefers_outcome_metadata_over_fallback_paragraph(tmp_path):
+def test_journal_elevator_pitch_prefers_outcome_metadata_over_fallback_paragraph(
+    tmp_path,
+):
     """Outcome metadata should win over later paragraph fallback when Summary is absent."""
     journal_dir = tmp_path / "docs" / "quest-journal"
     journal_dir.mkdir(parents=True)
@@ -596,7 +598,10 @@ def test_active_quest_pitch_supports_original_user_input_variant(tmp_path):
 
     quest, warnings = _parse_active_quest(quest_dir / "state.json")
 
-    assert quest.elevator_pitch == "Recover this original user input for active quest cards."
+    assert (
+        quest.elevator_pitch
+        == "Recover this original user input for active quest cards."
+    )
     assert warnings == []
 
 

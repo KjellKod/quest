@@ -41,12 +41,16 @@ def _extract_findings(payload: Any) -> list[dict[str, Any]]:
             return payload["findings"]
         if isinstance(payload.get("items"), list):
             return payload["items"]
-    raise ValueError("expected findings JSON as a list or an object with findings/items")
+    raise ValueError(
+        "expected findings JSON as a list or an object with findings/items"
+    )
 
 
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def _quest_id_from_backlog_path(backlog_path: Path) -> str:
@@ -121,7 +125,11 @@ def _cmd_merge_findings(args: argparse.Namespace) -> int:
         groups.append(_extract_findings(payload))
     merged = merge_and_dedupe(groups)
     _write_json(Path(args.output), merged)
-    print(json.dumps({"ok": True, "count": len(merged), "output": args.output}, sort_keys=True))
+    print(
+        json.dumps(
+            {"ok": True, "count": len(merged), "output": args.output}, sort_keys=True
+        )
+    )
     return 0
 
 
@@ -134,7 +142,12 @@ def _cmd_build_backlog(args: argparse.Namespace) -> int:
         phase=args.phase,
     )
     _write_json(Path(args.output), backlog)
-    print(json.dumps({"ok": True, "count": len(backlog["items"]), "output": args.output}, sort_keys=True))
+    print(
+        json.dumps(
+            {"ok": True, "count": len(backlog["items"]), "output": args.output},
+            sort_keys=True,
+        )
+    )
     return 0
 
 
@@ -152,7 +165,13 @@ def _cmd_validate_backlog(args: argparse.Namespace) -> int:
         errors = list(errors) + validate_plan_phase_defaults(payload)
     items = payload.get("items") if isinstance(payload, dict) else None
     item_count = len(items) if isinstance(items, list) else 0
-    print(json.dumps({"ok": not errors, "count": item_count, "errors": errors}, indent=2, sort_keys=True))
+    print(
+        json.dumps(
+            {"ok": not errors, "count": item_count, "errors": errors},
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 1 if errors else 0
 
 
@@ -162,7 +181,11 @@ def _cmd_normalize_pr_intake(args: argparse.Namespace) -> int:
         raise ValueError("expected intake JSON object")
     findings = normalize_pr_review_intake(payload)
     _write_json(Path(args.output), findings)
-    print(json.dumps({"ok": True, "count": len(findings), "output": args.output}, sort_keys=True))
+    print(
+        json.dumps(
+            {"ok": True, "count": len(findings), "output": args.output}, sort_keys=True
+        )
+    )
     return 0
 
 
@@ -218,7 +241,11 @@ def _cmd_build_fix_batches(args: argparse.Namespace) -> int:
 
     batches = build_fix_batches(items)
     _write_json(Path(args.output), batches)
-    print(json.dumps({"ok": True, "count": len(batches), "output": args.output}, sort_keys=True))
+    print(
+        json.dumps(
+            {"ok": True, "count": len(batches), "output": args.output}, sort_keys=True
+        )
+    )
     return 0
 
 
@@ -304,7 +331,8 @@ def _cmd_append_deferred(args: argparse.Namespace) -> int:
         findings = [
             finding
             for finding in findings
-            if isinstance(finding, dict) and finding.get("decision") == args.decision_filter
+            if isinstance(finding, dict)
+            and finding.get("decision") == args.decision_filter
         ]
 
     lineage = {
@@ -314,7 +342,11 @@ def _cmd_append_deferred(args: argparse.Namespace) -> int:
         "proposed_followup": args.proposed_followup,
     }
     appended = append_deferred_findings(Path(args.jsonl), findings, lineage)
-    print(json.dumps({"ok": True, "appended": appended, "jsonl": args.jsonl}, sort_keys=True))
+    print(
+        json.dumps(
+            {"ok": True, "appended": appended, "jsonl": args.jsonl}, sort_keys=True
+        )
+    )
     return 0
 
 
@@ -322,7 +354,11 @@ def _cmd_scan_backlog(args: argparse.Namespace) -> int:
     matches = scan_deferred_backlog(Path(args.jsonl), set(args.paths or []))
     if args.output:
         _write_json(Path(args.output), matches)
-    print(json.dumps({"ok": True, "count": len(matches), "output": args.output}, sort_keys=True))
+    print(
+        json.dumps(
+            {"ok": True, "count": len(matches), "output": args.output}, sort_keys=True
+        )
+    )
     return 0
 
 
@@ -335,19 +371,31 @@ def parse_args() -> argparse.Namespace:
         help="Normalize PR intake JSON into canonical findings",
     )
     normalize.add_argument("--input", required=True, help="PR intake JSON path")
-    normalize.add_argument("--output", required=True, help="Path to normalized findings JSON")
+    normalize.add_argument(
+        "--output", required=True, help="Path to normalized findings JSON"
+    )
     normalize.set_defaults(func=_cmd_normalize_pr_intake)
 
-    validate = subparsers.add_parser("validate-findings", help="Validate canonical findings JSON")
+    validate = subparsers.add_parser(
+        "validate-findings", help="Validate canonical findings JSON"
+    )
     validate.add_argument("--input", required=True, help="Path to findings JSON file")
     validate.set_defaults(func=_cmd_validate_findings)
 
-    merge = subparsers.add_parser("merge-findings", help="Merge and dedupe findings from multiple files")
-    merge.add_argument("--inputs", nargs="+", required=True, help="Input findings JSON files")
-    merge.add_argument("--output", required=True, help="Path to merged findings output JSON")
+    merge = subparsers.add_parser(
+        "merge-findings", help="Merge and dedupe findings from multiple files"
+    )
+    merge.add_argument(
+        "--inputs", nargs="+", required=True, help="Input findings JSON files"
+    )
+    merge.add_argument(
+        "--output", required=True, help="Path to merged findings output JSON"
+    )
     merge.set_defaults(func=_cmd_merge_findings)
 
-    backlog = subparsers.add_parser("build-backlog", help="Build review backlog from findings")
+    backlog = subparsers.add_parser(
+        "build-backlog", help="Build review backlog from findings"
+    )
     backlog.add_argument("--findings", required=True, help="Input findings JSON file")
     backlog.add_argument("--output", required=True, help="Path to backlog output JSON")
     backlog.add_argument(
@@ -356,14 +404,18 @@ def parse_args() -> argparse.Namespace:
         choices=["plan", "review"],
         help="Backlog decision policy phase (default: review)",
     )
-    backlog.add_argument("--at-loop-cap", action="store_true", help="Apply loop-cap decision policy")
+    backlog.add_argument(
+        "--at-loop-cap", action="store_true", help="Apply loop-cap decision policy"
+    )
     backlog.set_defaults(func=_cmd_build_backlog)
 
     validate_backlog = subparsers.add_parser(
         "validate-backlog",
         help="Validate canonical review backlog JSON",
     )
-    validate_backlog.add_argument("--input", required=True, help="Path to review backlog JSON file")
+    validate_backlog.add_argument(
+        "--input", required=True, help="Path to review backlog JSON file"
+    )
     validate_backlog.add_argument(
         "--expected-phase",
         choices=["plan", "review"],
@@ -393,7 +445,9 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     select_validation.add_argument(
-        "--backlog", required=True, help="Input review_backlog.json path (updated in place unless --output is given)"
+        "--backlog",
+        required=True,
+        help="Input review_backlog.json path (updated in place unless --output is given)",
     )
     select_validation.add_argument(
         "--repo-inventory",
@@ -411,8 +465,12 @@ def parse_args() -> argparse.Namespace:
         "build-fix-batches",
         help="Build non-overlapping actionable fix batches from backlog items",
     )
-    fix_batches.add_argument("--backlog", required=True, help="Input review_backlog.json path")
-    fix_batches.add_argument("--output", required=True, help="Path to fix-batches output JSON")
+    fix_batches.add_argument(
+        "--backlog", required=True, help="Input review_backlog.json path"
+    )
+    fix_batches.add_argument(
+        "--output", required=True, help="Path to fix-batches output JSON"
+    )
     fix_batches.set_defaults(func=_cmd_build_fix_batches)
 
     classify = subparsers.add_parser(
@@ -425,8 +483,12 @@ def parse_args() -> argparse.Namespace:
         choices=["green", "failing", "pending", "unknown"],
         help="Current CI state",
     )
-    classify.add_argument("--actionable", required=True, type=int, help="Open actionable backlog count")
-    classify.add_argument("--iteration", required=True, type=int, help="Current iteration number")
+    classify.add_argument(
+        "--actionable", required=True, type=int, help="Open actionable backlog count"
+    )
+    classify.add_argument(
+        "--iteration", required=True, type=int, help="Current iteration number"
+    )
     classify.add_argument(
         "--cap",
         default=None,
@@ -490,7 +552,9 @@ def parse_args() -> argparse.Namespace:
         "append-deferred",
         help="Append findings to deferred backlog JSONL with lineage fields",
     )
-    append.add_argument("--findings", required=True, help="Findings or backlog JSON file")
+    append.add_argument(
+        "--findings", required=True, help="Findings or backlog JSON file"
+    )
     append.add_argument("--jsonl", required=True, help="Deferred backlog JSONL path")
     append.add_argument(
         "--decision-filter",
@@ -498,13 +562,21 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Only append findings matching this decision",
     )
-    append.add_argument("--deferred-by-quest", required=True, help="Quest id that deferred the findings")
-    append.add_argument("--deferred-at", default=None, help="ISO8601 UTC timestamp (default: now)")
+    append.add_argument(
+        "--deferred-by-quest", required=True, help="Quest id that deferred the findings"
+    )
+    append.add_argument(
+        "--deferred-at", default=None, help="ISO8601 UTC timestamp (default: now)"
+    )
     append.add_argument("--defer-reason", required=True, help="Reason for deferral")
-    append.add_argument("--proposed-followup", required=True, help="Follow-up recommendation")
+    append.add_argument(
+        "--proposed-followup", required=True, help="Follow-up recommendation"
+    )
     append.set_defaults(func=_cmd_append_deferred)
 
-    scan = subparsers.add_parser("scan-backlog", help="Scan deferred backlog for exact write_scope matches")
+    scan = subparsers.add_parser(
+        "scan-backlog", help="Scan deferred backlog for exact write_scope matches"
+    )
     scan.add_argument("--jsonl", required=True, help="Deferred backlog JSONL path")
     scan.add_argument(
         "--paths",
@@ -512,7 +584,9 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Candidate paths to match exactly (empty list is valid)",
     )
-    scan.add_argument("--output", default=None, help="Optional output JSON path for matches")
+    scan.add_argument(
+        "--output", default=None, help="Optional output JSON path for matches"
+    )
     scan.set_defaults(func=_cmd_scan_backlog)
 
     return parser.parse_args()
@@ -523,7 +597,10 @@ def main() -> int:
     try:
         return args.func(args)
     except ValueError as exc:
-        print(json.dumps({"ok": False, "error": str(exc)}, sort_keys=True), file=sys.stderr)
+        print(
+            json.dumps({"ok": False, "error": str(exc)}, sort_keys=True),
+            file=sys.stderr,
+        )
         return 1
 
 

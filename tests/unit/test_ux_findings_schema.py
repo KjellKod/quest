@@ -13,7 +13,9 @@ def _repo_root() -> Path:
 
 
 def _extract_example_finding() -> dict:
-    skill_text = (_repo_root() / ".skills" / "ux-review" / "SKILL.md").read_text(encoding="utf-8")
+    skill_text = (_repo_root() / ".skills" / "ux-review" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
     # Find the first ```json block that looks like a canonical finding.
     matches = re.findall(r"```json\n(\{.*?\})\n```", skill_text, re.DOTALL)
     for block in matches:
@@ -25,7 +27,9 @@ def _extract_example_finding() -> dict:
             obj = json.loads(sanitized)
         if isinstance(obj, dict) and "finding_id" in obj:
             return obj
-    raise AssertionError("Could not find a canonical-finding JSON block in ux-review/SKILL.md")
+    raise AssertionError(
+        "Could not find a canonical-finding JSON block in ux-review/SKILL.md"
+    )
 
 
 def test_ux_example_finding_validates_against_canonical_schema() -> None:

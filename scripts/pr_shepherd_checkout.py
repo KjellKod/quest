@@ -69,7 +69,12 @@ def _pr_view(target: str | None) -> tuple[dict[str, Any] | None, str]:
     args = ["gh", "pr", "view"]
     if target:
         args.append(target)
-    args.extend(["--json", "number,url,headRefName,headRefOid,headRepository,headRepositoryOwner"])
+    args.extend(
+        [
+            "--json",
+            "number,url,headRefName,headRefOid,headRepository,headRepositoryOwner",
+        ]
+    )
     result = _run(args)
     if result.returncode != 0:
         return None, (result.stderr or result.stdout).strip()
@@ -171,7 +176,9 @@ def inspect_checkout(target: str | None, *, apply: bool) -> tuple[int, dict[str,
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", nargs="?", help="PR number, URL, or branch")
-    parser.add_argument("--target", dest="target_option", help="PR number, URL, or branch")
+    parser.add_argument(
+        "--target", dest="target_option", help="PR number, URL, or branch"
+    )
     parser.add_argument("--apply", action="store_true", help="Apply checkout mutation")
     parser.add_argument("--json", action="store_true", help="Emit JSON (default)")
     return parser.parse_args()

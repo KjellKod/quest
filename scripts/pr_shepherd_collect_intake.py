@@ -46,11 +46,23 @@ def _gh_json(args: list[str]) -> tuple[Any | None, str]:
 
 def _gh_api_page(endpoint: str, page: int) -> tuple[Any | None, str]:
     return _gh_json(
-        ["gh", "api", endpoint, "--method", "GET", "-F", f"per_page={PER_PAGE}", "-F", f"page={page}"]
+        [
+            "gh",
+            "api",
+            endpoint,
+            "--method",
+            "GET",
+            "-F",
+            f"per_page={PER_PAGE}",
+            "-F",
+            f"page={page}",
+        ]
     )
 
 
-def _collect_paginated(endpoint: str, *, page_cap: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _collect_paginated(
+    endpoint: str, *, page_cap: int
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     records: list[dict[str, Any]] = []
     unavailable: list[dict[str, Any]] = []
     for page in range(1, max(page_cap, 1) + 1):
@@ -99,13 +111,19 @@ def _author(comment: dict[str, Any]) -> tuple[str, str]:
     return login, "bot" if user_type == "bot" or login.endswith("[bot]") else "human"
 
 
-def _trusted_marker_author(author: str, author_kind: str, trusted_marker_author: str) -> bool:
+def _trusted_marker_author(
+    author: str, author_kind: str, trusted_marker_author: str
+) -> bool:
     if author_kind == "bot":
         return True
-    return author_kind == "human" and bool(trusted_marker_author and author == trusted_marker_author)
+    return author_kind == "human" and bool(
+        trusted_marker_author and author == trusted_marker_author
+    )
 
 
-def _activity(comment: dict[str, Any], *, trusted_marker_author: str = "") -> dict[str, Any]:
+def _activity(
+    comment: dict[str, Any], *, trusted_marker_author: str = ""
+) -> dict[str, Any]:
     author, author_kind = _author(comment)
     body = str(comment.get("body") or "")
     marker_trusted = _trusted_marker_author(author, author_kind, trusted_marker_author)
@@ -130,7 +148,9 @@ def _excerpt(text: object, limit: int = 600) -> str:
     return " ".join(str(text or "").split())[:limit]
 
 
-def _review_thread_records(comments: list[dict[str, Any]], *, trusted_marker_author: str = "") -> list[dict[str, Any]]:
+def _review_thread_records(
+    comments: list[dict[str, Any]], *, trusted_marker_author: str = ""
+) -> list[dict[str, Any]]:
     grouped: dict[int, list[dict[str, Any]]] = {}
     roots: dict[int, dict[str, Any]] = {}
     for comment in comments:
@@ -150,7 +170,10 @@ def _review_thread_records(comments: list[dict[str, Any]], *, trusted_marker_aut
             "source_kind": "review_thread",
             "source_label": "github-review-thread",
             "activity_state": activity_state(
-                [_activity(item, trusted_marker_author=trusted_marker_author) for item in ordered]
+                [
+                    _activity(item, trusted_marker_author=trusted_marker_author)
+                    for item in ordered
+                ]
             ),
             "author": author,
             "author_kind": author_kind,
@@ -165,15 +188,23 @@ def _review_thread_records(comments: list[dict[str, Any]], *, trusted_marker_aut
     return records
 
 
-def _issue_comment_record(comment: dict[str, Any], *, trusted_marker_author: str = "") -> dict[str, Any]:
+def _issue_comment_record(
+    comment: dict[str, Any], *, trusted_marker_author: str = ""
+) -> dict[str, Any]:
     author, author_kind = _author(comment)
     body = str(comment.get("body") or "")
     marker_trusted = _trusted_marker_author(author, author_kind, trusted_marker_author)
-    source_kind = "shepherd_summary" if marker_trusted and has_marker(body, SUMMARY_MARKER) else "issue_comment"
+    source_kind = (
+        "shepherd_summary"
+        if marker_trusted and has_marker(body, SUMMARY_MARKER)
+        else "issue_comment"
+    )
     record = {
         "source_kind": source_kind,
         "source_label": "github-pr-comment",
-        "activity_state": activity_state([_activity(comment, trusted_marker_author=trusted_marker_author)]),
+        "activity_state": activity_state(
+            [_activity(comment, trusted_marker_author=trusted_marker_author)]
+        ),
         "author": author,
         "author_kind": author_kind,
         "path": "pr/comment",
@@ -188,7 +219,9 @@ def _issue_comment_record(comment: dict[str, Any], *, trusted_marker_author: str
     return record
 
 
-def _review_body_record(review: dict[str, Any], *, trusted_marker_author: str = "") -> dict[str, Any] | None:
+def _review_body_record(
+    review: dict[str, Any], *, trusted_marker_author: str = ""
+) -> dict[str, Any] | None:
     body = str(review.get("body") or "").strip()
     if not body:
         return None
@@ -199,7 +232,9 @@ def _review_body_record(review: dict[str, Any], *, trusted_marker_author: str = 
     record = {
         "source_kind": "review_body_item",
         "source_label": "github-review-body",
-        "activity_state": activity_state([_activity(review, trusted_marker_author=trusted_marker_author)]),
+        "activity_state": activity_state(
+            [_activity(review, trusted_marker_author=trusted_marker_author)]
+        ),
         "author": author,
         "author_kind": author_kind,
         "path": "pr/review",
@@ -224,7 +259,12 @@ def _check_records(checks: object) -> list[dict[str, Any]]:
         state = conclusion or status or context_state or "unknown"
         if state not in CHECK_FAILURE_STATES:
             continue
-        name = str(check.get("name") or check.get("workflowName") or check.get("context") or "check")
+        name = str(
+            check.get("name")
+            or check.get("workflowName")
+            or check.get("context")
+            or "check"
+        )
         record = {
             "source_kind": "check_run",
             "source_label": name,
@@ -234,7 +274,10 @@ def _check_records(checks: object) -> list[dict[str, Any]]:
             "body_excerpt": f"{name}: Check state: {state}",
             "path": "ci/check",
             "line": None,
-            "url": check.get("detailsUrl") or check.get("url") or check.get("targetUrl") or "",
+            "url": check.get("detailsUrl")
+            or check.get("url")
+            or check.get("targetUrl")
+            or "",
         }
         record["fingerprint"] = stable_fingerprint(record)
         records.append(record)
@@ -252,10 +295,14 @@ def _merge_failed_log_summary(payload: dict[str, Any], summary: Any) -> None:
         return
     records = summary.get("records")
     if isinstance(records, list):
-        payload["records"].extend(record for record in records if isinstance(record, dict))
+        payload["records"].extend(
+            record for record in records if isinstance(record, dict)
+        )
     unavailable = summary.get("unavailable")
     if isinstance(unavailable, list):
-        payload["unavailable"].extend(item for item in unavailable if isinstance(item, dict))
+        payload["unavailable"].extend(
+            item for item in unavailable if isinstance(item, dict)
+        )
 
 
 def _load_failed_log_summary(path: str) -> dict[str, Any]:
@@ -325,14 +372,29 @@ def collect(
     failed_log_summaries: list[dict[str, Any]] | None = None,
     trusted_marker_author: str = "",
 ) -> dict[str, Any]:
-    pr_payload, pr_error = _gh_json(["gh", "pr", "view", str(pr), "--json", "number,url,headRefName,baseRefName,isDraft,statusCheckRollup"])
+    pr_payload, pr_error = _gh_json(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(pr),
+            "--json",
+            "number,url,headRefName,baseRefName,isDraft,statusCheckRollup",
+        ]
+    )
     payload: dict[str, Any] = {
         "pr": pr_payload or {"number": pr},
         "records": [],
         "unavailable": [],
     }
     if pr_error:
-        payload["unavailable"].append({"source_kind": "pr", "unavailable_reason": "api_unavailable", "message": pr_error})
+        payload["unavailable"].append(
+            {
+                "source_kind": "pr",
+                "unavailable_reason": "api_unavailable",
+                "message": pr_error,
+            }
+        )
         return payload
 
     checks = pr_payload.get("statusCheckRollup") if isinstance(pr_payload, dict) else []
@@ -351,13 +413,21 @@ def collect(
         page_cap=page_cap,
     )
 
-    payload["records"].extend(_review_thread_records(review_comments, trusted_marker_author=trusted_marker_author))
     payload["records"].extend(
-        _issue_comment_record(comment, trusted_marker_author=trusted_marker_author) for comment in issue_comments
+        _review_thread_records(
+            review_comments, trusted_marker_author=trusted_marker_author
+        )
+    )
+    payload["records"].extend(
+        _issue_comment_record(comment, trusted_marker_author=trusted_marker_author)
+        for comment in issue_comments
     )
     payload["records"].extend(
         record
-        for record in (_review_body_record(review, trusted_marker_author=trusted_marker_author) for review in reviews)
+        for record in (
+            _review_body_record(review, trusted_marker_author=trusted_marker_author)
+            for review in reviews
+        )
         if record is not None
     )
     payload["unavailable"].extend(review_unavailable)
@@ -385,7 +455,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    failed_log_summaries = [_load_failed_log_summary(path) for path in args.failed_log_summary]
+    failed_log_summaries = [
+        _load_failed_log_summary(path) for path in args.failed_log_summary
+    ]
     payload = collect(
         args.pr,
         page_cap=args.page_cap,

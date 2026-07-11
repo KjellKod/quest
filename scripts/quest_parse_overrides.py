@@ -22,8 +22,7 @@ def main() -> int:
     payload = {
         "ok": True,
         "overrides": [
-            {"role": override.role, "model": override.model}
-            for override in overrides
+            {"role": override.role, "model": override.model} for override in overrides
         ],
     }
     print(json.dumps(payload, sort_keys=True))

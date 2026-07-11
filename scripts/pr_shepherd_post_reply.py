@@ -22,8 +22,12 @@ from quest_runtime.pr_shepherd import (
 PER_PAGE = 100
 
 
-def _run(args: list[str], *, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(args, check=False, text=True, capture_output=True, input=input_text)
+def _run(
+    args: list[str], *, input_text: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        args, check=False, text=True, capture_output=True, input=input_text
+    )
 
 
 def _body_input(body: str) -> str:
@@ -62,18 +66,34 @@ def _current_login() -> str:
     return ""
 
 
-def _trusted_summary_author(comment: dict[str, Any], trusted_marker_author: str) -> bool:
+def _trusted_summary_author(
+    comment: dict[str, Any], trusted_marker_author: str
+) -> bool:
     author, author_kind = _author(comment)
-    return author_kind != "human" or bool(trusted_marker_author and author == trusted_marker_author)
+    return author_kind != "human" or bool(
+        trusted_marker_author and author == trusted_marker_author
+    )
 
 
-def _collect_issue_comments(pr: int, *, page_cap: int) -> tuple[list[dict[str, Any]], str]:
+def _collect_issue_comments(
+    pr: int, *, page_cap: int
+) -> tuple[list[dict[str, Any]], str]:
     comments: list[dict[str, Any]] = []
     endpoint = f"repos/{{owner}}/{{repo}}/issues/{pr}/comments"
     max_pages = max(page_cap, 1)
     for page in range(1, max_pages + 2):
         payload, error = _gh_json(
-            ["gh", "api", endpoint, "--method", "GET", "-F", f"per_page={PER_PAGE}", "-F", f"page={page}"]
+            [
+                "gh",
+                "api",
+                endpoint,
+                "--method",
+                "GET",
+                "-F",
+                f"per_page={PER_PAGE}",
+                "-F",
+                f"page={page}",
+            ]
         )
         if error:
             return comments, error
@@ -87,9 +107,13 @@ def _collect_issue_comments(pr: int, *, page_cap: int) -> tuple[list[dict[str, A
     return comments, ""
 
 
-def _find_summary_comment(comments: list[dict[str, Any]], *, trusted_marker_author: str = "") -> dict[str, Any] | None:
+def _find_summary_comment(
+    comments: list[dict[str, Any]], *, trusted_marker_author: str = ""
+) -> dict[str, Any] | None:
     for comment in comments:
-        if has_marker(str(comment.get("body") or ""), SUMMARY_MARKER) and _trusted_summary_author(
+        if has_marker(
+            str(comment.get("body") or ""), SUMMARY_MARKER
+        ) and _trusted_summary_author(
             comment,
             trusted_marker_author,
         ):
@@ -99,37 +123,70 @@ def _find_summary_comment(comments: list[dict[str, Any]], *, trusted_marker_auth
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pr", type=int, help="PR number for top-level summary comments")
-    parser.add_argument("--thread-id", help="Review thread/comment id for threaded replies")
+    parser.add_argument(
+        "--pr", type=int, help="PR number for top-level summary comments"
+    )
+    parser.add_argument(
+        "--thread-id", help="Review thread/comment id for threaded replies"
+    )
     parser.add_argument("--body", default="", help="Reply body")
     parser.add_argument("--body-file", help="Read reply body from file")
-    parser.add_argument("--followup", action="store_true", help="Append follow-up marker before addressed marker")
-    parser.add_argument("--summary", action="store_true", help="Upsert marker-owned top-level summary comment")
+    parser.add_argument(
+        "--followup",
+        action="store_true",
+        help="Append follow-up marker before addressed marker",
+    )
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Upsert marker-owned top-level summary comment",
+    )
     parser.add_argument("--summary-rows", help="JSON file with compact summary rows")
-    parser.add_argument("--comments-json", help="Fixture/current top-level PR comments JSON")
-    parser.add_argument("--page-cap", type=int, default=10, help="Max issue-comment pages to scan for summary upsert")
-    parser.add_argument("--dry-run", action="store_true", help="Do not call gh; emit action/body JSON")
+    parser.add_argument(
+        "--comments-json", help="Fixture/current top-level PR comments JSON"
+    )
+    parser.add_argument(
+        "--page-cap",
+        type=int,
+        default=10,
+        help="Max issue-comment pages to scan for summary upsert",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Do not call gh; emit action/body JSON"
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    body = Path(args.body_file).read_text(encoding="utf-8") if args.body_file else args.body
+    body = (
+        Path(args.body_file).read_text(encoding="utf-8")
+        if args.body_file
+        else args.body
+    )
 
     if args.summary:
         rows = _load_json(args.summary_rows) or []
         if not isinstance(rows, list):
             raise ValueError("--summary-rows must contain a JSON list")
-        body = compact_summary_body(rows) if rows else append_marker(body, SUMMARY_MARKER)
+        body = (
+            compact_summary_body(rows) if rows else append_marker(body, SUMMARY_MARKER)
+        )
         comments = _load_json(args.comments_json)
         if comments is None and not args.dry_run:
             if not args.pr:
                 raise ValueError("--pr is required when posting a summary")
-            comments, comments_error = _collect_issue_comments(args.pr, page_cap=args.page_cap)
+            comments, comments_error = _collect_issue_comments(
+                args.pr, page_cap=args.page_cap
+            )
             if comments_error:
                 print(
                     json.dumps(
-                        {"ok": False, "action": "load_summary_comments", "error": comments_error},
+                        {
+                            "ok": False,
+                            "action": "load_summary_comments",
+                            "error": comments_error,
+                        },
                         sort_keys=True,
                     )
                 )
@@ -139,7 +196,9 @@ def main() -> int:
         if not isinstance(comments, list):
             raise ValueError("--comments-json must contain a JSON list")
         trusted_marker_author = _current_login() if not args.dry_run else ""
-        existing = _find_summary_comment(comments, trusted_marker_author=trusted_marker_author)
+        existing = _find_summary_comment(
+            comments, trusted_marker_author=trusted_marker_author
+        )
         action = "update_summary" if existing else "create_summary"
         payload = {
             "ok": True,
@@ -168,7 +227,16 @@ def main() -> int:
         else:
             result = _run(["gh", "pr", "comment", str(args.pr), "--body", body])
         if result.returncode != 0:
-            print(json.dumps({"ok": False, "action": action, "error": (result.stderr or result.stdout)[:500]}, sort_keys=True))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "action": action,
+                        "error": (result.stderr or result.stdout)[:500],
+                    },
+                    sort_keys=True,
+                )
+            )
             return result.returncode
         print(json.dumps(payload, sort_keys=True))
         return 0
@@ -178,7 +246,17 @@ def main() -> int:
     if args.followup:
         marked = append_marker(marked, ADDRESSED_MARKER)
     if args.dry_run:
-        print(json.dumps({"ok": True, "action": "reply_thread", "thread_id": args.thread_id, "body": marked}, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "action": "reply_thread",
+                    "thread_id": args.thread_id,
+                    "body": marked,
+                },
+                sort_keys=True,
+            )
+        )
         return 0
     if not args.thread_id or not args.pr:
         raise ValueError("--pr and --thread-id are required unless --summary is used")
@@ -195,9 +273,23 @@ def main() -> int:
         input_text=_body_input(marked),
     )
     if result.returncode != 0:
-        print(json.dumps({"ok": False, "action": "reply_thread", "error": (result.stderr or result.stdout)[:500]}, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "action": "reply_thread",
+                    "error": (result.stderr or result.stdout)[:500],
+                },
+                sort_keys=True,
+            )
+        )
         return result.returncode
-    print(json.dumps({"ok": True, "action": "reply_thread", "thread_id": args.thread_id}, sort_keys=True))
+    print(
+        json.dumps(
+            {"ok": True, "action": "reply_thread", "thread_id": args.thread_id},
+            sort_keys=True,
+        )
+    )
     return 0
 
 

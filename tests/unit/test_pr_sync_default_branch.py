@@ -46,14 +46,24 @@ def _standard_success(args: list[str]) -> _Result:
 def test_detects_default_branch_via_remote_head(monkeypatch) -> None:
     calls = _install_runner(
         monkeypatch,
-        lambda args: _Result(stdout="ref: refs/heads/trunk\tHEAD\nc0ffee\tHEAD\n")
-        if args == ["git", "ls-remote", "--symref", "origin", "HEAD"]
-        else _Result(returncode=1),
+        lambda args: (
+            _Result(stdout="ref: refs/heads/trunk\tHEAD\nc0ffee\tHEAD\n")
+            if args == ["git", "ls-remote", "--symref", "origin", "HEAD"]
+            else _Result(returncode=1)
+        ),
     )
 
     assert pr_sync_default_branch.detect_default_branch() == ("trunk", "ls-remote")
     assert ["git", "symbolic-ref", "refs/remotes/origin/HEAD"] not in calls
-    assert ["gh", "repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"] not in calls
+    assert [
+        "gh",
+        "repo",
+        "view",
+        "--json",
+        "defaultBranchRef",
+        "--jq",
+        ".defaultBranchRef.name",
+    ] not in calls
 
 
 def test_falls_back_to_symbolic_ref_when_remote_head_fails(monkeypatch) -> None:
@@ -67,7 +77,15 @@ def test_falls_back_to_symbolic_ref_when_remote_head_fails(monkeypatch) -> None:
     calls = _install_runner(monkeypatch, fake_run)
 
     assert pr_sync_default_branch.detect_default_branch() == ("trunk", "symbolic-ref")
-    assert ["gh", "repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"] not in calls
+    assert [
+        "gh",
+        "repo",
+        "view",
+        "--json",
+        "defaultBranchRef",
+        "--jq",
+        ".defaultBranchRef.name",
+    ] not in calls
 
 
 def test_falls_back_to_gh_when_git_default_detection_fails(monkeypatch) -> None:
@@ -76,7 +94,15 @@ def test_falls_back_to_gh_when_git_default_detection_fails(monkeypatch) -> None:
             return _Result(returncode=1)
         if args == ["git", "symbolic-ref", "refs/remotes/origin/HEAD"]:
             return _Result(returncode=1)
-        if args == ["gh", "repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"]:
+        if args == [
+            "gh",
+            "repo",
+            "view",
+            "--json",
+            "defaultBranchRef",
+            "--jq",
+            ".defaultBranchRef.name",
+        ]:
             return _Result(stdout="develop\n")
         raise AssertionError(f"unexpected call: {args}")
 
@@ -191,15 +217,29 @@ def test_rebase_apply_refuses_when_upstream_not_contained(monkeypatch) -> None:
     assert ["git", "rebase", "origin/main"] not in calls
 
 
-def test_rebase_apply_refuses_when_same_named_remote_branch_not_contained(monkeypatch) -> None:
+def test_rebase_apply_refuses_when_same_named_remote_branch_not_contained(
+    monkeypatch,
+) -> None:
     def fake_run(args: list[str]) -> _Result:
         if args == ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]:
             return _Result(returncode=1)
         if args == ["git", "branch", "--show-current"]:
             return _Result(stdout="quest/pre-pr-sync\n")
-        if args == ["git", "rev-parse", "--verify", "-q", "refs/remotes/origin/quest/pre-pr-sync"]:
+        if args == [
+            "git",
+            "rev-parse",
+            "--verify",
+            "-q",
+            "refs/remotes/origin/quest/pre-pr-sync",
+        ]:
             return _Result(stdout="abc123\n")
-        if args == ["git", "merge-base", "--is-ancestor", "origin/quest/pre-pr-sync", "HEAD"]:
+        if args == [
+            "git",
+            "merge-base",
+            "--is-ancestor",
+            "origin/quest/pre-pr-sync",
+            "HEAD",
+        ]:
             return _Result(returncode=1)
         return _standard_success(args)
 
@@ -216,7 +256,9 @@ def test_rebase_apply_refuses_when_same_named_remote_branch_not_contained(monkey
 def test_conflict_lists_files_and_exits_nonzero(monkeypatch) -> None:
     def fake_run(args: list[str]) -> _Result:
         if args[:4] == ["git", "merge-tree", "--write-tree", "--no-messages"]:
-            return _Result(returncode=1, stdout="b" * 40 + "\0src/app.py\0docs/notes.md\0")
+            return _Result(
+                returncode=1, stdout="b" * 40 + "\0src/app.py\0docs/notes.md\0"
+            )
         return _standard_success(args)
 
     _install_runner(monkeypatch, fake_run)
@@ -274,7 +316,10 @@ def test_merge_tree_failure_reports_error_not_conflict(monkeypatch) -> None:
 def test_apply_time_rebase_conflict_aborts_and_reports_conflict(monkeypatch) -> None:
     def fake_run(args: list[str]) -> _Result:
         if args == ["git", "rebase", "origin/main"]:
-            return _Result(returncode=1, stderr="CONFLICT (content): Merge conflict in src/app.py\n")
+            return _Result(
+                returncode=1,
+                stderr="CONFLICT (content): Merge conflict in src/app.py\n",
+            )
         if args == ["git", "diff", "--name-only", "--diff-filter=U"]:
             return _Result(stdout="src/app.py\n")
         if args == ["git", "rebase", "--abort"]:
@@ -297,7 +342,9 @@ def test_apply_time_rebase_conflict_aborts_and_reports_conflict(monkeypatch) -> 
 def test_apply_failure_without_conflicted_files_reports_error(monkeypatch) -> None:
     def fake_run(args: list[str]) -> _Result:
         if args == ["git", "rebase", "origin/main"]:
-            return _Result(returncode=1, stderr="fatal: unable to auto-detect email address\n")
+            return _Result(
+                returncode=1, stderr="fatal: unable to auto-detect email address\n"
+            )
         if args == ["git", "diff", "--name-only", "--diff-filter=U"]:
             return _Result(stdout="")
         if args == ["git", "rebase", "--abort"]:
@@ -318,7 +365,11 @@ def test_apply_failure_without_conflicted_files_reports_error(monkeypatch) -> No
 def test_fetch_failure_reports_error(monkeypatch) -> None:
     _install_runner(
         monkeypatch,
-        lambda args: _Result(returncode=1, stderr="fetch failed") if args == ["git", "fetch", "origin"] else _Result(),
+        lambda args: (
+            _Result(returncode=1, stderr="fetch failed")
+            if args == ["git", "fetch", "origin"]
+            else _Result()
+        ),
     )
 
     code, payload = pr_sync_default_branch.sync()
@@ -335,7 +386,15 @@ def test_default_branch_undetected_reports_error(monkeypatch) -> None:
         if args in (
             ["git", "ls-remote", "--symref", "origin", "HEAD"],
             ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
-            ["gh", "repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"],
+            [
+                "gh",
+                "repo",
+                "view",
+                "--json",
+                "defaultBranchRef",
+                "--jq",
+                ".defaultBranchRef.name",
+            ],
         ):
             return _Result(returncode=1)
         raise AssertionError(f"unexpected call: {args}")
@@ -360,4 +419,7 @@ def test_conflict_parser_skips_tree_oid_and_message_lines() -> None:
         ]
     )
 
-    assert pr_sync_default_branch._parse_conflict_files(output) == ["src/app.py", "docs/notes.md"]
+    assert pr_sync_default_branch._parse_conflict_files(output) == [
+        "src/app.py",
+        "docs/notes.md",
+    ]

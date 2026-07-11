@@ -77,7 +77,9 @@ def load_quest_stats(quest_dir: Path) -> QuestStats:
                 stats.name = stats.slug.replace("-", " ").title()
             elif stats.quest_id:
                 parsed = parse_quest_id(stats.quest_id)
-                slug = parsed.slug if parsed is not None else stats.quest_id.split("_")[0]
+                slug = (
+                    parsed.slug if parsed is not None else stats.quest_id.split("_")[0]
+                )
                 if slug:
                     stats.name = slug.replace("-", " ").title()
 

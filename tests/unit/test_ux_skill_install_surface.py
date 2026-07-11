@@ -13,7 +13,9 @@ def test_ux_context_canonical_skill_exists() -> None:
     root = _repo_root()
     assert (root / ".skills" / "ux-context" / "SKILL.md").exists()
     assert (root / ".skills" / "ux-context" / "resources" / "ux-guidebook.md").exists()
-    assert (root / ".skills" / "ux-context" / "resources" / "ux-stress-test.md").exists()
+    assert (
+        root / ".skills" / "ux-context" / "resources" / "ux-stress-test.md"
+    ).exists()
 
 
 def test_ux_review_canonical_and_wrappers_exist() -> None:
@@ -27,7 +29,10 @@ def test_ux_review_wrappers_delegate_to_canonical() -> None:
     root = _repo_root()
     for mirror in (".claude/skills/ux-review", ".agents/skills/ux-review"):
         wrapper_text = (root / mirror / "SKILL.md").read_text(encoding="utf-8")
-        assert "Read and follow the instructions in `.skills/ux-review/SKILL.md`." in wrapper_text
+        assert (
+            "Read and follow the instructions in `.skills/ux-review/SKILL.md`."
+            in wrapper_text
+        )
         assert "name: ux-review" in wrapper_text
 
 
@@ -58,7 +63,13 @@ def test_ux_context_uses_progressive_resource_loading() -> None:
     assert "Do not read the whole guidebook by default" in skill
     assert "Find your row in the table and read those sections only" in skill
     assert "Read `resources/ux-guidebook.md` in full" not in skill
-    for required_role in ("Planner", "Builder", "Fixer", "Plan-reviewer", "Code-reviewer"):
+    for required_role in (
+        "Planner",
+        "Builder",
+        "Fixer",
+        "Plan-reviewer",
+        "Code-reviewer",
+    ):
         assert required_role in skill, f"role {required_role} missing from Step 1 table"
 
 
@@ -129,16 +140,22 @@ def test_quest_skill_discloses_ui_work_routing_to_user() -> None:
 
 def test_ux_defaults_contract_uses_canonical_order_and_state_sentence_limit() -> None:
     root = _repo_root()
-    ux_context = (root / ".skills" / "ux-context" / "SKILL.md").read_text(encoding="utf-8")
+    ux_context = (root / ".skills" / "ux-context" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
     ux_guidebook = (
         root / ".skills" / "ux-context" / "resources" / "ux-guidebook.md"
     ).read_text(encoding="utf-8")
-    ux_review = (root / ".skills" / "ux-review" / "SKILL.md").read_text(encoding="utf-8")
+    ux_review = (root / ".skills" / "ux-review" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
 
     canonical_order = "mobile, gray ramp, density, ratio, accent, destructive actions"
     assert canonical_order in ux_context
     assert canonical_order in ux_guidebook
     assert canonical_order in ux_review
-    assert "exactly one sentence each for empty, loading, and error states" in ux_context
+    assert (
+        "exactly one sentence each for empty, loading, and error states" in ux_context
+    )
     assert "exactly one sentence each for empty/loading/error states" in ux_guidebook
     assert "exactly one sentence each" in ux_review

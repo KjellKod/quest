@@ -111,7 +111,9 @@ def token_prefix_matches(command_tokens: list[str], entry: str) -> bool:
     return command_tokens[1 : len(entry_tokens)] == entry_tokens[1:]
 
 
-def is_bash_command_allowed(command: str, allowed_entries: list[str]) -> tuple[bool, str]:
+def is_bash_command_allowed(
+    command: str, allowed_entries: list[str]
+) -> tuple[bool, str]:
     if command in allowed_entries:
         return True, "exact_match"
 
@@ -137,7 +139,9 @@ def is_bash_command_allowed(command: str, allowed_entries: list[str]) -> tuple[b
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Quest bash allowlist matcher")
-    parser.add_argument("--command", required=True, help="Raw command string to evaluate")
+    parser.add_argument(
+        "--command", required=True, help="Raw command string to evaluate"
+    )
     parser.add_argument(
         "--allow",
         required=True,

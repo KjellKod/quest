@@ -20,7 +20,13 @@ from quest_runtime.pr_shepherd import (
     stable_fingerprint,
 )
 
-INTAKE_SOURCES = ("ci_check", "inline_comment", "general_comment", "existing_finding", "record")
+INTAKE_SOURCES = (
+    "ci_check",
+    "inline_comment",
+    "general_comment",
+    "existing_finding",
+    "record",
+)
 BLOCKER_KEYWORDS = ("blocker", "blocking", "critical")
 _BLOCKER_TOKEN_STRIP = ".,:;!?()[]{}\"'"
 FALLBACK_LOOP_CAP = 3
@@ -82,6 +88,7 @@ def resolve_loop_cap(allowlist_path: Path | None = None) -> int:
         return FALLBACK_LOOP_CAP
     return value
 
+
 _ACTIONABLE_DECISIONS = {"fix_now", "verify_first"}
 _SHARED_INFRA_KINDS = {"build_failure", "shared_infrastructure", "cross_cutting"}
 _SHARED_SCOPE_PREFIXES = ("scripts/quest_runtime/", ".skills/", "docs/architecture/")
@@ -137,7 +144,10 @@ def _finding_key(finding: JsonObject) -> tuple[str, str, str, str, str, str]:
     summary = " ".join(str(finding.get("summary") or "").lower().split())
     identity_part = ""
     fingerprint_part = ""
-    if finding.get("source_kind") == "check_run" and str(finding.get("path") or "") == "ci/check":
+    if (
+        finding.get("source_kind") == "check_run"
+        and str(finding.get("path") or "") == "ci/check"
+    ):
         identity_part = str(finding.get("source_label") or "")
         fingerprint_part = str(finding.get("fingerprint") or "")
     return (
@@ -177,7 +187,9 @@ def _merge_record_findings(findings: list[JsonObject]) -> list[JsonObject]:
                     continue
                 seen.add(label)
                 unique_labels.append(label)
-            existing["source_label"] = unique_labels if len(unique_labels) > 1 else unique_labels[0]
+            existing["source_label"] = (
+                unique_labels if len(unique_labels) > 1 else unique_labels[0]
+            )
     return list(merged.values())
 
 
@@ -185,12 +197,20 @@ def _record_to_finding(record: JsonObject, counter: int) -> JsonObject:
     source_kind = str(record.get("source_kind") or "record").strip() or "record"
     source_label = str(record.get("source_label") or source_kind).strip() or source_kind
     body = str(record.get("body") or record.get("body_excerpt") or "").strip()
-    summary = str(record.get("summary") or body[:120] or f"PR feedback from {source_label}.").strip()
-    if source_kind == "check_run" and source_label and summary.startswith("Check state:"):
+    summary = str(
+        record.get("summary") or body[:120] or f"PR feedback from {source_label}."
+    ).strip()
+    if (
+        source_kind == "check_run"
+        and source_label
+        and summary.startswith("Check state:")
+    ):
         summary = f"{source_label}: {summary}"
     path = str(record.get("path") or "pr/record").strip() or "pr/record"
     line = _finding_line(record.get("line"))
-    fingerprint = str(record.get("fingerprint") or "").strip() or stable_fingerprint(record)
+    fingerprint = str(record.get("fingerprint") or "").strip() or stable_fingerprint(
+        record
+    )
 
     finding: JsonObject = {
         "finding_id": f"pr-record-{counter:03d}",
@@ -240,7 +260,9 @@ def _summary_addressed_fingerprints(records: list[JsonObject]) -> set[str]:
             continue
         body = str(record.get("body") or record.get("body_excerpt") or "")
         for line in body.splitlines():
-            cells = [cell.strip().strip("`") for cell in line.strip().strip("|").split("|")]
+            cells = [
+                cell.strip().strip("`") for cell in line.strip().strip("|").split("|")
+            ]
             if len(cells) < 2:
                 continue
             state = cells[0].strip().lower()
@@ -250,7 +272,9 @@ def _summary_addressed_fingerprints(records: list[JsonObject]) -> set[str]:
     return addressed
 
 
-def _apply_summary_addressed_fingerprints(records: list[JsonObject]) -> list[JsonObject]:
+def _apply_summary_addressed_fingerprints(
+    records: list[JsonObject],
+) -> list[JsonObject]:
     addressed = _summary_addressed_fingerprints(records)
     if not addressed:
         return records
@@ -258,9 +282,14 @@ def _apply_summary_addressed_fingerprints(records: list[JsonObject]) -> list[Jso
     updated: list[JsonObject] = []
     for record in records:
         candidate = copy.deepcopy(record)
-        fingerprint = str(candidate.get("fingerprint") or "").strip() or stable_fingerprint(candidate)
+        fingerprint = str(
+            candidate.get("fingerprint") or ""
+        ).strip() or stable_fingerprint(candidate)
         reply_target = candidate.get("reply_target")
-        has_thread_state = isinstance(reply_target, dict) and reply_target.get("kind") == "review_comment"
+        has_thread_state = (
+            isinstance(reply_target, dict)
+            and reply_target.get("kind") == "review_comment"
+        )
         if (
             not has_thread_state
             and fingerprint
@@ -285,9 +314,15 @@ def normalize_pr_review_intake(intake: JsonObject) -> list[JsonObject]:
         raise ValueError("intake must be an object")
 
     ci_checks = _as_dict_list(intake.get("ci_checks"), field_name="ci_checks")
-    inline_comments = _as_dict_list(intake.get("inline_comments"), field_name="inline_comments")
-    general_comments = _as_dict_list(intake.get("general_comments"), field_name="general_comments")
-    existing_findings = _as_dict_list(intake.get("existing_findings"), field_name="existing_findings")
+    inline_comments = _as_dict_list(
+        intake.get("inline_comments"), field_name="inline_comments"
+    )
+    general_comments = _as_dict_list(
+        intake.get("general_comments"), field_name="general_comments"
+    )
+    existing_findings = _as_dict_list(
+        intake.get("existing_findings"), field_name="existing_findings"
+    )
     records = _as_dict_list(intake.get("records"), field_name="records")
 
     existing_errors = validate_findings(existing_findings)
@@ -296,7 +331,9 @@ def normalize_pr_review_intake(intake: JsonObject) -> list[JsonObject]:
 
     if records:
         records = _apply_summary_addressed_fingerprints(records)
-        actionable_records = [record for record in records if _record_is_actionable(record)]
+        actionable_records = [
+            record for record in records if _record_is_actionable(record)
+        ]
         record_findings = [
             _record_to_finding(record, index)
             for index, record in enumerate(actionable_records, start=1)
@@ -359,10 +396,7 @@ def normalize_pr_review_intake(intake: JsonObject) -> list[JsonObject]:
         path = str(comment.get("path") or "").strip() or "pr/inline"
         line = _finding_line(comment.get("line"))
         body_lower = body.lower()
-        tokens = {
-            token.strip(_BLOCKER_TOKEN_STRIP)
-            for token in body_lower.split()
-        }
+        tokens = {token.strip(_BLOCKER_TOKEN_STRIP) for token in body_lower.split()}
         severity = "high" if tokens & set(BLOCKER_KEYWORDS) else "medium"
         summary = body[:120].strip() or f"Inline review feedback from {commenter}."
 
@@ -424,7 +458,11 @@ def _validation_steps_from_item(item: JsonObject) -> list[JsonObject]:
         if not isinstance(step, dict):
             continue
         level_raw = step.get("level")
-        level = level_raw if isinstance(level_raw, int) and not isinstance(level_raw, bool) else 0
+        level = (
+            level_raw
+            if isinstance(level_raw, int) and not isinstance(level_raw, bool)
+            else 0
+        )
         target = str(step.get("target") or "").strip()
         command = str(step.get("command") or "").strip()
         steps.append({"level": level, "target": target, "command": command})
@@ -495,7 +533,9 @@ def build_fix_batches(backlog_items: list[JsonObject]) -> list[JsonObject]:
 
     batches: list[JsonObject] = []
     for (batch_key, signature, _unknown_scope_bucket), items in grouped.items():
-        sorted_items = sorted(items, key=lambda value: str(value.get("finding_id") or ""))
+        sorted_items = sorted(
+            items, key=lambda value: str(value.get("finding_id") or "")
+        )
         partitions: list[list[JsonObject]] = []
 
         for item in sorted_items:
@@ -530,7 +570,9 @@ def build_fix_batches(backlog_items: list[JsonObject]) -> list[JsonObject]:
                 }
             )
 
-    batches.sort(key=lambda batch: (str(batch["batch_key"]), _min_finding_id(batch["items"])))
+    batches.sort(
+        key=lambda batch: (str(batch["batch_key"]), _min_finding_id(batch["items"]))
+    )
     return batches
 
 
@@ -557,7 +599,11 @@ def _repo_inventory_test_paths(repo_inventory: JsonObject | None) -> list[str]:
         for key in ("test_paths", "tests", "test_inventory"):
             value = repo_inventory.get(key)
             if isinstance(value, list):
-                paths = [str(item).strip() for item in value if isinstance(item, str) and item.strip()]
+                paths = [
+                    str(item).strip()
+                    for item in value
+                    if isinstance(item, str) and item.strip()
+                ]
                 if paths:
                     return sorted(set(paths))
 
@@ -668,7 +714,9 @@ def _nearest_test_targets(finding: JsonObject, test_paths: list[str]) -> list[st
                     return sorted(set(mirrored_matches))
 
             same_dir_matches = [
-                path for path in by_dir.get(current_dir or ".", []) if _is_test_path(path)
+                path
+                for path in by_dir.get(current_dir or ".", [])
+                if _is_test_path(path)
             ]
             if same_dir_matches:
                 return sorted(set(same_dir_matches))
@@ -709,7 +757,10 @@ def select_validation_steps(
 
     steps: list[JsonObject] = []
     has_inventory = isinstance(repo_inventory, dict)
-    pytest_cmd = _inventory_command(repo_inventory, "pytest_command", "pytest") or "python3 -m pytest"
+    pytest_cmd = (
+        _inventory_command(repo_inventory, "pytest_command", "pytest")
+        or "python3 -m pytest"
+    )
 
     level0_config = (
         ("format", "format_command"),
@@ -732,9 +783,7 @@ def select_validation_steps(
                 f"Level 0 {guard_name} guard configured as passthrough because repo "
                 "inventory is unavailable."
             )
-        steps.append(
-            {"level": 0, "target": ".", "command": command, "reason": reason}
-        )
+        steps.append({"level": 0, "target": ".", "command": command, "reason": reason})
 
     level1_found = False
     explicit_targets = _explicit_test_targets(finding)
@@ -796,12 +845,14 @@ def select_validation_steps(
         or shared_boundary_flag
         or missing_level1_with_test_need
     ):
-        level2_target = _inventory_command(
-            repo_inventory, "level2_tests_target", "level2_target"
-        ) or "tests/"
-        level2_command = _inventory_command(
-            repo_inventory, "level2_command", "broad_test_command"
-        ) or f"{pytest_cmd} {level2_target}"
+        level2_target = (
+            _inventory_command(repo_inventory, "level2_tests_target", "level2_target")
+            or "tests/"
+        )
+        level2_command = (
+            _inventory_command(repo_inventory, "level2_command", "broad_test_command")
+            or f"{pytest_cmd} {level2_target}"
+        )
 
         trigger_reason = "shared-scope changes"
         if finding_kind in _SHARED_INFRA_KINDS:
@@ -851,7 +902,11 @@ def classify_pr_loop_stop(
     resolved_cap = cap if cap is not None else resolve_loop_cap(allowlist_path)
     max_iterations = max(1, int(resolved_cap))
 
-    if normalized_state == "green" and actionable == 0 and current_iteration <= max_iterations:
+    if (
+        normalized_state == "green"
+        and actionable == 0
+        and current_iteration <= max_iterations
+    ):
         return {
             "stop": True,
             "outcome": "success",
@@ -881,7 +936,9 @@ def classify_pr_loop_stop(
     }
 
 
-def classify_pr_operational_state(loop_result: JsonObject, pass_facts: JsonObject) -> JsonObject:
+def classify_pr_operational_state(
+    loop_result: JsonObject, pass_facts: JsonObject
+) -> JsonObject:
     """Classify whole-pass PR shepherd state using compact pass facts."""
 
     return classify_operational_state(loop_result, pass_facts)

@@ -28,7 +28,7 @@ import claude_bg_run as bg
 # `os.kill` already IS the fake — restoring from it would be a no-op.
 _REAL_OS_KILL = os.kill
 
-FAKE_CLAUDE = r'''#!/usr/bin/env python3
+FAKE_CLAUDE = r"""#!/usr/bin/env python3
 import os, sys, json, pathlib
 D = pathlib.Path(os.environ["FAKE_BG_DIR"])
 S = os.environ.get("FAKE_BG_SCENARIO", "ok")
@@ -92,7 +92,7 @@ if args[:2] == ["agents", "--json"]:
 # shim keeps that historical behavior for tests that exercise pid fallback paths.
 log("unknown " + " ".join(args[:2]))
 sys.exit(0)
-'''
+"""
 
 PARENT_SID = "11111111-1111-1111-1111-111111111111"
 PARENT = {
@@ -143,12 +143,18 @@ def _seed_parent(tmp_path: Path, **over) -> dict:
 
 def _args(shim: Path, **over):
     argv = [
-        "--claude-bin", f"{shim}",
-        "--prompt", "do the thing",
-        "--confirm-timeout", "1",
-        "--poll-interval", "0.05",
-        "--status-interval", "0",
-        "--timeout", "2",
+        "--claude-bin",
+        f"{shim}",
+        "--prompt",
+        "do the thing",
+        "--confirm-timeout",
+        "1",
+        "--poll-interval",
+        "0.05",
+        "--status-interval",
+        "0",
+        "--timeout",
+        "2",
     ]
     for k, v in over.items():
         flag = "--" + k.replace("_", "-")
@@ -179,18 +185,29 @@ def test_strip_ansi_removes_escapes():
 
 
 def test_shortid_parses_with_and_without_name_and_idle_suffix():
-    assert bg._SHORTID_RE.search("backgrounded · 7c5dcf5d · my-name").group(1) == "7c5dcf5d"
-    assert bg._SHORTID_RE.search("backgrounded · e590de4c (idle — send a prompt to start)").group(1) == "e590de4c"
+    assert (
+        bg._SHORTID_RE.search("backgrounded · 7c5dcf5d · my-name").group(1)
+        == "7c5dcf5d"
+    )
+    assert (
+        bg._SHORTID_RE.search(
+            "backgrounded · e590de4c (idle — send a prompt to start)"
+        ).group(1)
+        == "e590de4c"
+    )
 
 
 def test_bypass_refusal_regex():
-    assert bg._BYPASS_REFUSAL_RE.search("requires accepting the disclaimer; run claude --dangerously-skip-permissions")
+    assert bg._BYPASS_REFUSAL_RE.search(
+        "requires accepting the disclaimer; run claude --dangerously-skip-permissions"
+    )
 
 
 def test_pty_capture_strips_noise_to_signal():
     code, text = bg.pty_capture(
         ["sh", "-c", "printf '\\033[2J\\033[31mHELLO\\033[0m clean\\n'"],
-        total_timeout=5.0, idle_timeout=1.0,
+        total_timeout=5.0,
+        idle_timeout=1.0,
     )
     assert "HELLO clean" in text
     assert "\x1b" not in text
@@ -202,7 +219,8 @@ def test_pty_capture_total_timeout_kills_child_and_returns_failure(monkeypatch):
     monkeypatch.setattr(bg.os, "kill", _REAL_OS_KILL)  # undo the autouse kill shim
     code, text = bg.pty_capture(
         ["sh", "-c", "while :; do printf x; sleep 0.05; done"],
-        total_timeout=0.5, idle_timeout=5.0,
+        total_timeout=0.5,
+        idle_timeout=5.0,
     )
     assert code == 124
     assert "x" in text  # partial capture still returned for diagnostics
@@ -216,7 +234,8 @@ def test_pty_capture_idle_quiescence_is_success_and_reaps_child(monkeypatch):
     monkeypatch.setattr(bg.os, "kill", _REAL_OS_KILL)  # undo the autouse kill shim
     code, text = bg.pty_capture(
         ["sh", "-c", "printf 'SCREEN'; sleep 30"],
-        total_timeout=15.0, idle_timeout=0.4,
+        total_timeout=15.0,
+        idle_timeout=0.4,
     )
     assert code == 0
     assert "SCREEN" in text
@@ -227,7 +246,8 @@ def test_pty_capture_reports_child_exit_code():
     # (the old WNOHANG race could miss the just-exited status entirely).
     code, _ = bg.pty_capture(
         ["sh", "-c", "printf 'boom'; exit 3"],
-        total_timeout=5.0, idle_timeout=1.0,
+        total_timeout=5.0,
+        idle_timeout=1.0,
     )
     assert code == 3
 
@@ -282,13 +302,17 @@ def test_needs_human_keeps_session_alive_for_resume(shim, tmp_path, monkeypatch,
     hand = tmp_path / "handoff.json"
     monkeypatch.setenv("FAKE_BG_SCENARIO", "needs_human")
     monkeypatch.setenv("FAKE_BG_HANDOFF", str(hand))
-    env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "out.json"), handoff_file=str(hand))).run()
+    env = bg.BgRunner(
+        _args(shim, wait_for=str(tmp_path / "out.json"), handoff_file=str(hand))
+    ).run()
     assert env.status == "needs_human"
     # Session must NOT be torn down: no signals sent, so it can be resumed.
     assert kills == []
 
 
-def test_needs_human_teardown_flag_tears_session_down(shim, tmp_path, monkeypatch, kills):
+def test_needs_human_teardown_flag_tears_session_down(
+    shim, tmp_path, monkeypatch, kills
+):
     # Direct callers with no relay pass
     # --teardown-on-needs-human so needs_human is surfaced AND the session is
     # torn down (like the bridge), instead of left alive to leak.
@@ -318,7 +342,9 @@ def test_teardown_on_needs_human_help_is_relay_agnostic():
     assert stale_quest_no_relay_phrase not in help_text
 
 
-def test_resume_continues_same_session_not_shadowed_by_parked_parent(shim, tmp_path, monkeypatch, kills):
+def test_resume_continues_same_session_not_shadowed_by_parked_parent(
+    shim, tmp_path, monkeypatch, kills
+):
     # Regression: the parked parent (state==blocked because it is idle awaiting
     # input) matches sessionId==resume target and used to shadow the new agent,
     # misreporting the whole run as `blocked`.
@@ -326,12 +352,16 @@ def test_resume_continues_same_session_not_shadowed_by_parked_parent(shim, tmp_p
     wait = tmp_path / "out.json"
     monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_ok")
     monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
-    env = bg.BgRunner(_args(shim, resume=PARENT_SID, answer="use option A", wait_for=str(wait))).run()
+    env = bg.BgRunner(
+        _args(shim, resume=PARENT_SID, answer="use option A", wait_for=str(wait))
+    ).run()
     assert env.status == "ok"
     assert env.resumed is True and env.fell_back is False
     assert env.resumed_from == PARENT_SID
     assert env.session_id == "abc12345-uuid"  # the NEW session id, for chained resumes
-    assert any(c.startswith("resume ") and f"sid={PARENT_SID}" in c for c in _calls(tmp_path))
+    assert any(
+        c.startswith("resume ") and f"sid={PARENT_SID}" in c for c in _calls(tmp_path)
+    )
     # The parked parent is retired once the conversation moved on; the new agent
     # is torn down at the end as usual.
     assert (111, bg.signal.SIGTERM) in kills
@@ -345,7 +375,9 @@ def test_resume_by_agent_name_survives_rename(shim, tmp_path, monkeypatch, kills
     wait = tmp_path / "out.json"
     monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_ok")
     monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
-    env = bg.BgRunner(_args(shim, resume="fix-login-bug", answer="use option A", wait_for=str(wait))).run()
+    env = bg.BgRunner(
+        _args(shim, resume="fix-login-bug", answer="use option A", wait_for=str(wait))
+    ).run()
     assert env.status == "ok"
     assert env.resumed_from == PARENT_SID
     assert any(f"sid={PARENT_SID}" in c for c in _calls(tmp_path))
@@ -357,7 +389,9 @@ def test_resume_by_short_id(shim, tmp_path, monkeypatch):
     wait = tmp_path / "out.json"
     monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_ok")
     monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
-    env = bg.BgRunner(_args(shim, resume="parent01", answer="use option A", wait_for=str(wait))).run()
+    env = bg.BgRunner(
+        _args(shim, resume="parent01", answer="use option A", wait_for=str(wait))
+    ).run()
     assert env.status == "ok"
     assert env.resumed_from == PARENT_SID
 
@@ -365,13 +399,17 @@ def test_resume_by_short_id(shim, tmp_path, monkeypatch):
 def test_resume_unknown_target_is_precondition_failed(shim, tmp_path, monkeypatch):
     # Not a live agent (by sid/short id/name) and not session-id-shaped.
     monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_ok")
-    env = bg.BgRunner(_args(shim, resume="no-such-agent", answer="A", wait_for=str(tmp_path / "x"))).run()
+    env = bg.BgRunner(
+        _args(shim, resume="no-such-agent", answer="A", wait_for=str(tmp_path / "x"))
+    ).run()
     assert env.status == "precondition_failed"
     assert env.exit_code() == bg.EXIT_PRECONDITION
     assert "no live agent" in env.message
 
 
-def test_failed_resume_dispatch_preserves_parked_handoff(shim, tmp_path, monkeypatch, kills):
+def test_failed_resume_dispatch_preserves_parked_handoff(
+    shim, tmp_path, monkeypatch, kills
+):
     # Regression (PR #137 review): the parked needs_human handoff must NOT be
     # cleared until a continuation is confirmed. With --no-fallback and a resume
     # dispatch that never registers, the parked session lives on, so its
@@ -381,8 +419,14 @@ def test_failed_resume_dispatch_preserves_parked_handoff(shim, tmp_path, monkeyp
     hand.write_text(json.dumps({"status": "needs_human", "questions": ["A or B?"]}))
     monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_fallback")  # resume never confirms
     env = bg.BgRunner(
-        _args(shim, resume=PARENT_SID, answer="use A", handoff_file=str(hand),
-              no_fallback=True, wait_for=str(tmp_path / "out.json"))
+        _args(
+            shim,
+            resume=PARENT_SID,
+            answer="use A",
+            handoff_file=str(hand),
+            no_fallback=True,
+            wait_for=str(tmp_path / "out.json"),
+        )
     ).run()
     assert env.status == "dispatch_failed"
     # The parked question survived the failed resume dispatch.
@@ -391,7 +435,9 @@ def test_failed_resume_dispatch_preserves_parked_handoff(shim, tmp_path, monkeyp
     assert (111, bg.signal.SIGTERM) not in kills
 
 
-def test_failed_fallback_dispatch_preserves_parked_handoff(shim, tmp_path, monkeypatch, kills):
+def test_failed_fallback_dispatch_preserves_parked_handoff(
+    shim, tmp_path, monkeypatch, kills
+):
     # Regression (PR #137 review): when resume fails AND the fresh fallback
     # re-dispatch also fails, the parked needs_human handoff AND any artifacts
     # the parked session already wrote are restored (both cleared as the stale
@@ -404,10 +450,17 @@ def test_failed_fallback_dispatch_preserves_parked_handoff(shim, tmp_path, monke
     # A non-UTF-8 (binary) artifact: snapshot/restore must be byte-safe, never
     # decode it (read_text would raise UnicodeDecodeError before the restore).
     out.write_bytes(b"\xff\xfePARTIAL")
-    monkeypatch.setenv("FAKE_BG_SCENARIO", "never_confirm")  # resume AND fresh both fail
+    monkeypatch.setenv(
+        "FAKE_BG_SCENARIO", "never_confirm"
+    )  # resume AND fresh both fail
     env = bg.BgRunner(
-        _args(shim, resume=PARENT_SID, answer="use A", handoff_file=str(hand),
-              wait_for=str(out))
+        _args(
+            shim,
+            resume=PARENT_SID,
+            answer="use A",
+            handoff_file=str(hand),
+            wait_for=str(out),
+        )
     ).run()
     assert env.status == "dispatch_failed"
     assert env.fell_back is True
@@ -451,7 +504,9 @@ def test_resume_falls_back_to_fresh_dispatch(shim, tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_fallback")
     monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
     dead = "22222222-2222-2222-2222-222222222222"
-    env = bg.BgRunner(_args(shim, resume=dead, answer="use option A", wait_for=str(wait))).run()
+    env = bg.BgRunner(
+        _args(shim, resume=dead, answer="use option A", wait_for=str(wait))
+    ).run()
     assert env.status == "ok"
     assert env.fell_back is True
     assert "re-dispatched" in env.message
@@ -461,7 +516,9 @@ def test_resume_falls_back_to_fresh_dispatch(shim, tmp_path, monkeypatch):
 
 def test_resume_without_answer_is_precondition_failed(shim, tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_ok")
-    env = bg.BgRunner(_args(shim, resume=PARENT_SID, wait_for=str(tmp_path / "x"))).run()
+    env = bg.BgRunner(
+        _args(shim, resume=PARENT_SID, wait_for=str(tmp_path / "x"))
+    ).run()
     assert env.status == "precondition_failed"
     assert env.exit_code() == bg.EXIT_PRECONDITION
 
@@ -470,10 +527,22 @@ def test_blocked_is_detected_with_transcript_logs(shim, tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_BG_SCENARIO", "blocked")
     tdir = tmp_path / "transcripts" / "proj"
     tdir.mkdir(parents=True)
-    (tdir / "abc12345-uuid.jsonl").write_text(json.dumps({
-        "type": "assistant",
-        "message": {"content": [{"type": "text", "text": "\x1b[31mneeds input: choose A or B?\x1b[0m"}]},
-    }) + "\n")
+    (tdir / "abc12345-uuid.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "\x1b[31mneeds input: choose A or B?\x1b[0m",
+                        }
+                    ]
+                },
+            }
+        )
+        + "\n"
+    )
     env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "transcripts"))).run()
     assert env.status == "blocked"
     assert env.exit_code() == bg.EXIT_BLOCKED
@@ -486,10 +555,22 @@ def test_rate_limit_block_reports_reset_time(shim, tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_BG_SCENARIO", "rate_limited")
     tdir = tmp_path / "transcripts" / "proj"
     tdir.mkdir(parents=True)
-    (tdir / "abc12345-uuid.jsonl").write_text(json.dumps({
-        "type": "assistant",
-        "message": {"content": [{"type": "text", "text": "You've hit your session limit. resets 2pm (America/Chicago)"}]},
-    }) + "\n")
+    (tdir / "abc12345-uuid.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "You've hit your session limit. resets 2pm (America/Chicago)",
+                        }
+                    ]
+                },
+            }
+        )
+        + "\n"
+    )
 
     env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "transcripts"))).run()
 
@@ -499,10 +580,14 @@ def test_rate_limit_block_reports_reset_time(shim, tmp_path, monkeypatch):
     assert "permission hook" not in env.message
 
 
-def test_startup_dialog_without_transcript_is_not_permission_guess(shim, tmp_path, monkeypatch):
+def test_startup_dialog_without_transcript_is_not_permission_guess(
+    shim, tmp_path, monkeypatch
+):
     monkeypatch.setenv("FAKE_BG_SCENARIO", "startup_dialog")
 
-    env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "missing-transcripts"))).run()
+    env = bg.BgRunner(
+        _args(shim, transcripts_root=str(tmp_path / "missing-transcripts"))
+    ).run()
 
     assert env.status == "startup_dialog"
     assert "did not consume" in env.message
@@ -515,10 +600,22 @@ def test_model_rejected_from_logs_tail_is_model_rejected(shim, tmp_path, monkeyp
     monkeypatch.setenv("FAKE_BG_SCENARIO", "model_rejected")
     tdir = tmp_path / "transcripts" / "proj"
     tdir.mkdir(parents=True)
-    (tdir / "abc12345-uuid.jsonl").write_text(json.dumps({
-        "type": "assistant",
-        "message": {"content": [{"type": "text", "text": "There's an issue with the selected model (claude-bad-1)."}]},
-    }) + "\n")
+    (tdir / "abc12345-uuid.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "There's an issue with the selected model (claude-bad-1).",
+                        }
+                    ]
+                },
+            }
+        )
+        + "\n"
+    )
 
     env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "transcripts"))).run()
 
@@ -535,14 +632,32 @@ def test_prose_mentioning_limits_is_not_rate_limited(shim, tmp_path, monkeypatch
     tdir = tmp_path / "transcripts" / "proj"
     tdir.mkdir(parents=True)
     lines = [
-        json.dumps({
-            "type": "assistant",
-            "message": {"content": [{"type": "text", "text": "I tightened the session limit and rate limit handling in claude_runner.py."}]},
-        }),
-        json.dumps({
-            "type": "assistant",
-            "message": {"content": [{"type": "text", "text": "All model selection and session limit edge cases are now covered by tests."}]},
-        }),
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "I tightened the session limit and rate limit handling in claude_runner.py.",
+                        }
+                    ]
+                },
+            }
+        ),
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "All model selection and session limit edge cases are now covered by tests.",
+                        }
+                    ]
+                },
+            }
+        ),
     ]
     (tdir / "abc12345-uuid.jsonl").write_text("\n".join(lines) + "\n")
 
@@ -552,21 +667,38 @@ def test_prose_mentioning_limits_is_not_rate_limited(shim, tmp_path, monkeypatch
     assert env.reset_at is None
 
 
-def test_earlier_limit_message_does_not_classify_when_not_final(shim, tmp_path, monkeypatch):
+def test_earlier_limit_message_does_not_classify_when_not_final(
+    shim, tmp_path, monkeypatch
+):
     # Only the FINAL assistant message is classification evidence: a limit
     # dialog followed by later output means the session moved past it.
     monkeypatch.setenv("FAKE_BG_SCENARIO", "blocked")
     tdir = tmp_path / "transcripts" / "proj"
     tdir.mkdir(parents=True)
     lines = [
-        json.dumps({
-            "type": "assistant",
-            "message": {"content": [{"type": "text", "text": "You've hit your session limit. resets 2pm (America/Chicago)"}]},
-        }),
-        json.dumps({
-            "type": "assistant",
-            "message": {"content": [{"type": "text", "text": "Continuing with the task output now."}]},
-        }),
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "You've hit your session limit. resets 2pm (America/Chicago)",
+                        }
+                    ]
+                },
+            }
+        ),
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {"type": "text", "text": "Continuing with the task output now."}
+                    ]
+                },
+            }
+        ),
     ]
     (tdir / "abc12345-uuid.jsonl").write_text("\n".join(lines) + "\n")
 
@@ -575,17 +707,26 @@ def test_earlier_limit_message_does_not_classify_when_not_final(shim, tmp_path, 
     assert env.status == "blocked"
 
 
-def test_tool_use_only_transcript_is_generic_blocked_not_startup_dialog(shim, tmp_path, monkeypatch):
+def test_tool_use_only_transcript_is_generic_blocked_not_startup_dialog(
+    shim, tmp_path, monkeypatch
+):
     # A transcript FILE exists (prompt was consumed) but carries no assistant
     # text yet (tool_use-only first turn): that is NOT the startup-dialog
     # signature — remediation must not say "accept trust/bypass".
     monkeypatch.setenv("FAKE_BG_SCENARIO", "blocked")
     tdir = tmp_path / "transcripts" / "proj"
     tdir.mkdir(parents=True)
-    (tdir / "abc12345-uuid.jsonl").write_text(json.dumps({
-        "type": "assistant",
-        "message": {"content": [{"type": "tool_use", "name": "Bash", "input": {}}]},
-    }) + "\n")
+    (tdir / "abc12345-uuid.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "tool_use", "name": "Bash", "input": {}}]
+                },
+            }
+        )
+        + "\n"
+    )
 
     env = bg.BgRunner(_args(shim, transcripts_root=str(tmp_path / "transcripts"))).run()
 
@@ -625,7 +766,9 @@ def test_dispatch_output_rate_limit_reports_reset_time(shim, tmp_path, monkeypat
     assert "retry after reset" in env.message
 
 
-def test_dispatch_output_model_rejected_sets_structured_model(shim, tmp_path, monkeypatch):
+def test_dispatch_output_model_rejected_sets_structured_model(
+    shim, tmp_path, monkeypatch
+):
     monkeypatch.setenv("FAKE_BG_SCENARIO", "dispatch_model_rejected")
 
     env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "x"))).run()
@@ -692,8 +835,12 @@ def test_bypass_refusal_is_precondition_failed(shim, tmp_path, monkeypatch):
 
 
 def test_timeout_stops_session(shim, tmp_path, monkeypatch, kills):
-    monkeypatch.setenv("FAKE_BG_SCENARIO", "timeout")  # state stays working, no artifact
-    env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "never"), timeout="0.4")).run()
+    monkeypatch.setenv(
+        "FAKE_BG_SCENARIO", "timeout"
+    )  # state stays working, no artifact
+    env = bg.BgRunner(
+        _args(shim, wait_for=str(tmp_path / "never"), timeout="0.4")
+    ).run()
     assert env.status == "timeout"
     assert env.exit_code() == bg.EXIT_TIMEOUT
     assert (222, bg.signal.SIGTERM) in kills
@@ -728,7 +875,10 @@ def test_runner_exit_paths_leave_no_new_blocked_session_except_intentional_park(
                 "type": "assistant",
                 "message": {
                     "content": [
-                        {"type": "text", "text": "Mid-task note with no known block markers."}
+                        {
+                            "type": "text",
+                            "text": "Mid-task note with no known block markers.",
+                        }
                     ]
                 },
             }
@@ -739,8 +889,18 @@ def test_runner_exit_paths_leave_no_new_blocked_session_except_intentional_park(
 
     cases = [
         ("blocked", {"transcripts_root": str(generic_transcripts)}, "blocked", False),
-        ("startup_dialog", {"transcripts_root": str(tmp_path / "missing-transcripts")}, "startup_dialog", False),
-        ("timeout", {"timeout": "0.1", "wait_for": str(tmp_path / "never")}, "timeout", False),
+        (
+            "startup_dialog",
+            {"transcripts_root": str(tmp_path / "missing-transcripts")},
+            "startup_dialog",
+            False,
+        ),
+        (
+            "timeout",
+            {"timeout": "0.1", "wait_for": str(tmp_path / "never")},
+            "timeout",
+            False,
+        ),
     ]
 
     for scenario, args_overrides, expected_status, expect_live in cases:
@@ -831,7 +991,9 @@ def test_teardown_failure_reported_in_envelope(shim, tmp_path, monkeypatch, kill
     monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
     monkeypatch.setenv("FAKE_BG_SCENARIO", "timeout")
 
-    env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "never"), timeout="0.1")).run()
+    env = bg.BgRunner(
+        _args(shim, wait_for=str(tmp_path / "never"), timeout="0.1")
+    ).run()
 
     assert env.status == "timeout"
     assert "exceeded --timeout" in env.message
@@ -846,20 +1008,26 @@ def test_teardown_failure_reported_in_envelope(shim, tmp_path, monkeypatch, kill
     assert "--sweep" in env.message
 
 
-def test_blocked_with_busy_status_keeps_polling_not_torn_down(shim, tmp_path, monkeypatch):
+def test_blocked_with_busy_status_keeps_polling_not_torn_down(
+    shim, tmp_path, monkeypatch
+):
     # state=blocked + status=busy is an active session momentarily awaiting a
     # tool — the WAIT loop must keep polling instead of classifying blocked and
     # tearing the working session down. A hung one still ends at --timeout.
     monkeypatch.setenv("FAKE_BG_SCENARIO", "blocked")
     monkeypatch.setenv("FAKE_BG_ROW_STATUS", "busy")
 
-    env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "never"), timeout="0.5")).run()
+    env = bg.BgRunner(
+        _args(shim, wait_for=str(tmp_path / "never"), timeout="0.5")
+    ).run()
 
     assert env.status == "timeout"
     assert env.status != "blocked"
 
 
-def test_needs_human_teardown_warning_keeps_resume_guidance(shim, tmp_path, monkeypatch):
+def test_needs_human_teardown_warning_keeps_resume_guidance(
+    shim, tmp_path, monkeypatch
+):
     # When teardown fails on a needs_human (with --teardown-on-needs-human),
     # the WARNING must AUGMENT the needs_human guidance, never replace it.
     def fake_kill_without_settle(pid: int, sig: int) -> None:
@@ -901,7 +1069,9 @@ def test_teardown_failure_on_success_is_not_silent(shim, tmp_path, monkeypatch):
         assert env.status == "ok"
 
 
-def test_stop_session_resignals_respawned_pid_until_settled(shim, tmp_path, monkeypatch):
+def test_stop_session_resignals_respawned_pid_until_settled(
+    shim, tmp_path, monkeypatch
+):
     rows = [{**PARENT, "pid": 111, "id": "respawn1", "name": "quest-q7-builder-i1"}]
     (tmp_path / "state.json").write_text(json.dumps(rows))
     recorded: list[tuple[int, int]] = []
@@ -924,11 +1094,13 @@ def test_stop_session_resignals_respawned_pid_until_settled(shim, tmp_path, monk
     assert recorded[:2] == [(111, bg.signal.SIGTERM), (222, bg.signal.SIGTERM)]
 
 
-def test_fresh_dispatch_retires_live_same_name_before_launch(shim, tmp_path, monkeypatch, kills):
+def test_fresh_dispatch_retires_live_same_name_before_launch(
+    shim, tmp_path, monkeypatch, kills
+):
     name = "quest-q7-builder-i1"
-    (tmp_path / "state.json").write_text(json.dumps([
-        {**PARENT, "pid": 111, "id": "old11111", "name": name}
-    ]))
+    (tmp_path / "state.json").write_text(
+        json.dumps([{**PARENT, "pid": 111, "id": "old11111", "name": name}])
+    )
     wait = tmp_path / "out.json"
     monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
     monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
@@ -939,11 +1111,13 @@ def test_fresh_dispatch_retires_live_same_name_before_launch(shim, tmp_path, mon
     assert (111, bg.signal.SIGTERM) in kills
 
 
-def test_fresh_dispatch_fails_when_same_name_cannot_be_retired(shim, tmp_path, monkeypatch):
+def test_fresh_dispatch_fails_when_same_name_cannot_be_retired(
+    shim, tmp_path, monkeypatch
+):
     name = "quest-q7-builder-i1"
-    (tmp_path / "state.json").write_text(json.dumps([
-        {**PARENT, "pid": 111, "id": "old11111", "name": name}
-    ]))
+    (tmp_path / "state.json").write_text(
+        json.dumps([{**PARENT, "pid": 111, "id": "old11111", "name": name}])
+    )
 
     def fake_kill_without_settle(pid: int, sig: int) -> None:
         return None
@@ -956,7 +1130,9 @@ def test_fresh_dispatch_fails_when_same_name_cannot_be_retired(shim, tmp_path, m
     assert "same-name" in env.message
 
 
-def test_fresh_dispatch_refuses_to_retire_working_same_name(shim, tmp_path, monkeypatch, kills):
+def test_fresh_dispatch_refuses_to_retire_working_same_name(
+    shim, tmp_path, monkeypatch, kills
+):
     # An actively working same-name row (e.g. a concurrent orchestrator's
     # in-flight session) must never be auto-retired — dispatch fails with a
     # working-specific diagnostic and no signal is sent. Liveness may be
@@ -974,9 +1150,11 @@ def test_fresh_dispatch_refuses_to_retire_working_same_name(shim, tmp_path, monk
     ]
     for variant in active_variants:
         kills.clear()
-        (tmp_path / "state.json").write_text(json.dumps([
-            {**PARENT, "pid": 111, "id": "busy1111", "name": name, **variant}
-        ]))
+        (tmp_path / "state.json").write_text(
+            json.dumps(
+                [{**PARENT, "pid": 111, "id": "busy1111", "name": name, **variant}]
+            )
+        )
         # The concurrent session may be mid-write on these very paths: a
         # refused dispatch must restore them, not leave them cleared.
         wait = tmp_path / "out.json"
@@ -994,7 +1172,9 @@ def test_fresh_dispatch_refuses_to_retire_working_same_name(shim, tmp_path, monk
 
 
 def test_incomplete_when_done_without_artifact(shim, tmp_path, monkeypatch):
-    monkeypatch.setenv("FAKE_BG_SCENARIO", "incomplete")  # state done, artifact never written
+    monkeypatch.setenv(
+        "FAKE_BG_SCENARIO", "incomplete"
+    )  # state done, artifact never written
     env = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "missing"))).run()
     assert env.status == "incomplete"
     assert env.exit_code() == bg.EXIT_SESSION_FAILED
@@ -1005,8 +1185,12 @@ def test_self_test_passes_in_this_env():
     assert bg._self_test() == bg.EXIT_OK
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores file modes; chmod 444 would not raise")
-def test_unclearable_stale_output_fails_instead_of_false_ok(shim, tmp_path, monkeypatch):
+@pytest.mark.skipif(
+    os.geteuid() == 0, reason="root ignores file modes; chmod 444 would not raise"
+)
+def test_unclearable_stale_output_fails_instead_of_false_ok(
+    shim, tmp_path, monkeypatch
+):
     # A pre-existing NON-EMPTY wait-for file that cannot be cleared would
     # instantly satisfy the WAIT loop — the run must fail up front, never
     # report stale content as success.
@@ -1034,7 +1218,9 @@ def test_unclearable_stale_output_fails_instead_of_false_ok(shim, tmp_path, monk
     assert other.read_text(encoding="utf-8") == "PARKED QUESTION CONTENT"
 
 
-def test_directory_at_output_path_fails_instead_of_false_ok(shim, tmp_path, monkeypatch):
+def test_directory_at_output_path_fails_instead_of_false_ok(
+    shim, tmp_path, monkeypatch
+):
     # A directory stats non-empty, so it would satisfy the WAIT loop while
     # never being this run's result — unclearable stale state, fail up front.
     wait = tmp_path / "out.json"
@@ -1050,11 +1236,29 @@ def test_directory_at_output_path_fails_instead_of_false_ok(shim, tmp_path, monk
 def test_sweep_skips_active_rows_unless_included(shim, tmp_path, kills, capsys):
     # Orphan recovery must not kill a concurrent orchestrator's in-flight
     # session; owners pass --sweep-include-active to stop their own.
-    (tmp_path / "state.json").write_text(json.dumps([
-        {**PARENT, "pid": 111, "id": "activ001", "name": "quest-q1-builder-i1", "state": "working"},
-        {**PARENT, "pid": 222, "id": "parked01", "name": "quest-q1-planner-i1", "state": "blocked"},
-    ]))
-    rc = bg.main(["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q1-"])
+    (tmp_path / "state.json").write_text(
+        json.dumps(
+            [
+                {
+                    **PARENT,
+                    "pid": 111,
+                    "id": "activ001",
+                    "name": "quest-q1-builder-i1",
+                    "state": "working",
+                },
+                {
+                    **PARENT,
+                    "pid": 222,
+                    "id": "parked01",
+                    "name": "quest-q1-planner-i1",
+                    "state": "blocked",
+                },
+            ]
+        )
+    )
+    rc = bg.main(
+        ["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q1-"]
+    )
     out = capsys.readouterr().out
     assert rc == bg.EXIT_OK
     assert all(pid != 111 for pid, _ in kills)  # active row untouched
@@ -1064,26 +1268,58 @@ def test_sweep_skips_active_rows_unless_included(shim, tmp_path, kills, capsys):
     # A live-pid row with NEITHER state nor status is unknown — spared too,
     # same rule as the same-name guard.
     kills.clear()
-    (tmp_path / "state.json").write_text(json.dumps([
-        {**PARENT, "pid": 333, "id": "unknwn01", "name": "quest-q1-fixer-i1", "state": None, "status": None},
-    ]))
-    rc = bg.main(["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q1-"])
+    (tmp_path / "state.json").write_text(
+        json.dumps(
+            [
+                {
+                    **PARENT,
+                    "pid": 333,
+                    "id": "unknwn01",
+                    "name": "quest-q1-fixer-i1",
+                    "state": None,
+                    "status": None,
+                },
+            ]
+        )
+    )
+    rc = bg.main(
+        ["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q1-"]
+    )
     assert rc == bg.EXIT_OK
     assert kills == []
 
     kills.clear()
-    (tmp_path / "state.json").write_text(json.dumps([
-        {**PARENT, "pid": 111, "id": "activ001", "name": "quest-q1-builder-i1", "state": "working"},
-    ]))
-    rc = bg.main([
-        "--claude-bin", str(shim), "--poll-interval", "0.05",
-        "--sweep", "quest-q1-", "--sweep-include-active",
-    ])
+    (tmp_path / "state.json").write_text(
+        json.dumps(
+            [
+                {
+                    **PARENT,
+                    "pid": 111,
+                    "id": "activ001",
+                    "name": "quest-q1-builder-i1",
+                    "state": "working",
+                },
+            ]
+        )
+    )
+    rc = bg.main(
+        [
+            "--claude-bin",
+            str(shim),
+            "--poll-interval",
+            "0.05",
+            "--sweep",
+            "quest-q1-",
+            "--sweep-include-active",
+        ]
+    )
     assert rc == bg.EXIT_OK
     assert any(pid == 111 for pid, _ in kills)  # owner opt-in stops it
 
 
-def test_sweep_stops_only_matching_prefix_sessions(shim, tmp_path, monkeypatch, kills, capsys):
+def test_sweep_stops_only_matching_prefix_sessions(
+    shim, tmp_path, monkeypatch, kills, capsys
+):
     rows = [
         {**PARENT, "pid": 111, "id": "aaa11111", "name": "quest-q7-planner-i1"},
         {**PARENT, "pid": 112, "id": "bbb22222", "name": "quest-q7-builder-i2"},
@@ -1091,7 +1327,9 @@ def test_sweep_stops_only_matching_prefix_sessions(shim, tmp_path, monkeypatch, 
         {**PARENT, "pid": 114, "id": "ddd44444", "name": "bgrun-unrelated"},
     ]
     (tmp_path / "state.json").write_text(json.dumps(rows))
-    rc = bg.main(["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q7-"])
+    rc = bg.main(
+        ["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q7-"]
+    )
     out = capsys.readouterr().out
     assert rc == bg.EXIT_OK
     killed_pids = {pid for pid, _ in kills}
@@ -1111,7 +1349,9 @@ def test_sweep_reports_incomplete_when_teardown_survives(
 
     monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
 
-    rc = bg.main(["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q7-"])
+    rc = bg.main(
+        ["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q7-"]
+    )
     out = capsys.readouterr().out
 
     assert rc == bg.EXIT_BLOCKED
@@ -1120,7 +1360,9 @@ def test_sweep_reports_incomplete_when_teardown_survives(
 
 
 def test_sweep_skips_without_traceback_when_claude_cli_missing(tmp_path, capsys):
-    rc = bg.main(["--claude-bin", str(tmp_path / "missing-claude"), "--sweep", "quest-q7-"])
+    rc = bg.main(
+        ["--claude-bin", str(tmp_path / "missing-claude"), "--sweep", "quest-q7-"]
+    )
     out = capsys.readouterr().out
 
     assert rc == bg.EXIT_OK
@@ -1169,9 +1411,7 @@ def test_fresh_dispatch_clears_stale_needs_human_handoff(
     monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
     monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
 
-    env = bg.BgRunner(
-        _args(shim, wait_for=str(wait), handoff_file=str(hand))
-    ).run()
+    env = bg.BgRunner(_args(shim, wait_for=str(wait), handoff_file=str(hand))).run()
 
     assert env.status == "ok"  # was: instant needs_human replay of the stale file
     assert env.questions == []
@@ -1209,7 +1449,9 @@ def test_resume_clears_parked_handoff_but_keeps_wait_for(
 
 
 # ---- confirm must not adopt a stale same-name row ---------------------------
-def test_stale_same_name_row_does_not_confirm_failed_dispatch(shim, tmp_path, monkeypatch):
+def test_stale_same_name_row_does_not_confirm_failed_dispatch(
+    shim, tmp_path, monkeypatch
+):
     """Quest passes deterministic names (quest-<id>-<role>-i<n>), so a settled
     row left by a crashed prior run shares the new dispatch's name. A dispatch
     that never registers must report dispatch_failed — not adopt the stale row
@@ -1229,8 +1471,18 @@ def test_confirm_name_fallback_prefers_new_row_over_stale(shim, monkeypatch):
     before the dispatch and accept the newly registered one — even when the
     stale row lists first."""
     runner = bg.BgRunner(_args(shim, name="quest-q7-planner-i1"))
-    stale = {"id": "old00001", "sessionId": "old-sid", "name": "quest-q7-planner-i1", "kind": "background"}
-    fresh = {"id": "new00002", "sessionId": "new-sid", "name": "quest-q7-planner-i1", "kind": "background"}
+    stale = {
+        "id": "old00001",
+        "sessionId": "old-sid",
+        "name": "quest-q7-planner-i1",
+        "kind": "background",
+    }
+    fresh = {
+        "id": "new00002",
+        "sessionId": "new-sid",
+        "name": "quest-q7-planner-i1",
+        "kind": "background",
+    }
     monkeypatch.setattr(runner, "agents_json", lambda: [stale, fresh])
     row = runner._confirm_row(None, {"old00001", "old-sid"})
     assert row is not None and row["id"] == "new00002"

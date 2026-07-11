@@ -1273,7 +1273,9 @@ class TestQuestDataLoading:
         backlog_dir = Path(__file__).resolve().parents[2] / ".quest" / "backlog"
         backlog_dir.mkdir(parents=True, exist_ok=True)
         backlog_path = backlog_dir / "deferred_findings.jsonl"
-        original = backlog_path.read_text(encoding="utf-8") if backlog_path.exists() else None
+        original = (
+            backlog_path.read_text(encoding="utf-8") if backlog_path.exists() else None
+        )
         try:
             backlog_path.write_text(
                 "\n".join(
@@ -1310,7 +1312,9 @@ class TestQuestDataLoading:
             "Follow up on dashboard backlog rendering."
         ]
 
-    def test_load_quest_data_reads_deferred_backlog_from_quest_repo_root(self, tmp_path):
+    def test_load_quest_data_reads_deferred_backlog_from_quest_repo_root(
+        self, tmp_path
+    ):
         """A .quest/<id> input resolves deferred backlog from its own repo."""
         quest_id = "target-quest_2026-01-01__1200"
         quest_dir = tmp_path / ".quest" / quest_id

@@ -74,8 +74,12 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Claude model value from orchestration.json; exact `claude` omits the CLI --model flag.",
     )
-    parser.add_argument("--timeout", type=float, default=1800.0,
-                        help="Command timeout seconds (default: 1800)")
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=1800.0,
+        help="Command timeout seconds (default: 1800)",
+    )
     parser.add_argument("--permission-mode", default="bypassPermissions")
     parser.add_argument(
         "--transport",
@@ -87,8 +91,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bg-runner-script", default=DEFAULT_BG_RUNNER_SCRIPT)
     parser.add_argument("--cwd", default=".")
     parser.add_argument("--add-dir", action="append", default=[])
-    parser.add_argument("--resume", help="background-agent session id/short id/name to resume")
-    parser.add_argument("--answer-file", help="file containing the human answer for --resume")
+    parser.add_argument(
+        "--resume", help="background-agent session id/short id/name to resume"
+    )
+    parser.add_argument(
+        "--answer-file", help="file containing the human answer for --resume"
+    )
     parser.add_argument(
         "--teardown-on-needs-human",
         action="store_true",

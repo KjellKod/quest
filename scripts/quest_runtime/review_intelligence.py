@@ -58,14 +58,19 @@ _UX_CITATION_IN_TEXT_RE = re.compile(r"ux-guidebook§(\d+(?:\.\d+)?)")
 _SEVERITY_RANK = {name: index for index, name in enumerate(ALLOWED_SEVERITIES)}
 _CONFIDENCE_RANK = {name: index for index, name in enumerate(ALLOWED_CONFIDENCE)}
 ALLOWED_BACKLOG_PHASES = ("plan", "review")
-_REVIEW_LOCAL_INDEX_RE = re.compile(r"^(?:\[(?P<bracket>[1-9]\d*)\]|(?P<dot>[1-9]\d*)\.)\s+")
+_REVIEW_LOCAL_INDEX_RE = re.compile(
+    r"^(?:\[(?P<bracket>[1-9]\d*)\]|(?P<dot>[1-9]\d*)\.)\s+"
+)
 
 
 def utc_now_iso() -> str:
     """Return a UTC ISO-8601 timestamp with a trailing Z."""
 
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace(
-        "+00:00", "Z"
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
     )
 
 
@@ -152,23 +157,28 @@ def validate_finding(finding: dict[str, Any]) -> list[str]:
 
     kind_value = finding.get("kind")
     if kind_value not in ALLOWED_KINDS:
-        errors.append(
-            f"field 'kind' must be one of {', '.join(ALLOWED_KINDS)}"
-        )
+        errors.append(f"field 'kind' must be one of {', '.join(ALLOWED_KINDS)}")
     if kind_value == "ux":
         principle_id = finding.get("principle_id")
-        if not isinstance(principle_id, str) or not _UX_PRINCIPLE_ID_RE.match(principle_id):
+        if not isinstance(principle_id, str) or not _UX_PRINCIPLE_ID_RE.match(
+            principle_id
+        ):
             errors.append(
                 "field 'principle_id' is required for UX findings and must match ux-guidebook§<section_number>"
             )
 
     line_value = finding.get("line")
-    if line_value is not None and (isinstance(line_value, bool) or not isinstance(line_value, int) or line_value < 1):
+    if line_value is not None and (
+        isinstance(line_value, bool)
+        or not isinstance(line_value, int)
+        or line_value < 1
+    ):
         errors.append("field 'line' must be null or an integer >= 1")
 
-    if "review_local_index" in finding and review_local_index_from_value(
-        finding.get("review_local_index")
-    ) is None:
+    if (
+        "review_local_index" in finding
+        and review_local_index_from_value(finding.get("review_local_index")) is None
+    ):
         errors.append("field 'review_local_index' must be a positive integer")
 
     if not isinstance(finding.get("needs_test"), bool):
@@ -208,7 +218,9 @@ def validate_findings(findings: list[dict[str, Any]]) -> list[str]:
     return errors
 
 
-def merge_and_dedupe(findings_by_source: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
+def merge_and_dedupe(
+    findings_by_source: list[list[dict[str, Any]]]
+) -> list[dict[str, Any]]:
     """Merge findings from multiple reviewers and dedupe by canonical key."""
 
     flattened: list[dict[str, Any]] = []
@@ -235,7 +247,9 @@ def merge_and_dedupe(findings_by_source: list[list[dict[str, Any]]]) -> list[dic
         if _severity_rank(finding["severity"]) < _severity_rank(existing["severity"]):
             existing["severity"] = finding["severity"]
 
-        if _confidence_rank(finding["confidence"]) < _confidence_rank(existing["confidence"]):
+        if _confidence_rank(finding["confidence"]) < _confidence_rank(
+            existing["confidence"]
+        ):
             existing["confidence"] = finding["confidence"]
 
         existing["needs_test"] = bool(existing["needs_test"] or finding["needs_test"])
@@ -289,7 +303,9 @@ def _path_group_from_finding(finding: dict[str, Any]) -> str:
     candidate = ""
     write_scope = finding.get("write_scope")
     if isinstance(write_scope, list):
-        scopes = sorted(item for item in write_scope if isinstance(item, str) and item.strip())
+        scopes = sorted(
+            item for item in write_scope if isinstance(item, str) and item.strip()
+        )
         if scopes:
             candidate = scopes[0]
     if not candidate:
@@ -604,7 +620,9 @@ def scan_deferred_backlog(
     if not target.exists():
         return []
 
-    normalized_paths = {path.strip() for path in candidate_paths if path and path.strip()}
+    normalized_paths = {
+        path.strip() for path in candidate_paths if path and path.strip()
+    }
     if not normalized_paths:
         return []
 

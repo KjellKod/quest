@@ -117,7 +117,8 @@ def _journal_outcome(data: QuestData) -> str:
     plan_summary = data.plan_summary.strip()
     preferred = (
         plan_summary
-        if plan_summary and not re.match(r"^\*{0,2}problem\*{0,2}:", plan_summary, re.IGNORECASE)
+        if plan_summary
+        and not re.match(r"^\*{0,2}problem\*{0,2}:", plan_summary, re.IGNORECASE)
         else (data.brief_summary or "Completed successfully.")
     )
     collapsed = re.sub(r"(?m)^\s*>\s?", "", preferred)
@@ -170,7 +171,9 @@ def build_celebration_section(
     return "\n".join(lines)
 
 
-def _build_carryover_journal_section(title: str, count: int, summaries: list[str]) -> str:
+def _build_carryover_journal_section(
+    title: str, count: int, summaries: list[str]
+) -> str:
     """Build one reader-facing carry-over findings section."""
     if count <= 0:
         return ""
@@ -311,7 +314,9 @@ def build_journal_entry(
     return "\n".join(lines)
 
 
-def _update_readme_index(journal_dir: Path, slug: str, completion_date: date, outcome: str) -> None:
+def _update_readme_index(
+    journal_dir: Path, slug: str, completion_date: date, outcome: str
+) -> None:
     """Insert a row at the top of the journal README index table."""
     readme = journal_dir / "README.md"
     if not readme.exists():
@@ -350,9 +355,11 @@ def _handoff_status_stats(archive_root: Path) -> dict:
                 continue
             archived_quests += 1
             try:
-                lines = (quest / "logs" / "context_health.log").read_text(
-                    encoding="utf-8"
-                ).splitlines()
+                lines = (
+                    (quest / "logs" / "context_health.log")
+                    .read_text(encoding="utf-8")
+                    .splitlines()
+                )
             except (OSError, UnicodeDecodeError):
                 # A malformed (non-UTF-8) archived log must not crash this
                 # optional rollup; skip it, matching the graceful-degradation
@@ -381,7 +388,9 @@ def _archive_quest(quest_dir: Path) -> Path:
     archive_root.mkdir(exist_ok=True)
     dest = archive_root / quest_dir.name
     if dest.exists():
-        raise FileExistsError(f"Archive already exists: {dest}. Remove it manually to re-archive.")
+        raise FileExistsError(
+            f"Archive already exists: {dest}. Remove it manually to re-archive."
+        )
     shutil.move(str(quest_dir), str(dest))
     return dest
 
@@ -434,9 +443,15 @@ def _slug_from_quest_dir(quest_dir: Path) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Complete a quest: journal + archive")
     parser.add_argument("--quest-dir", required=True, help="Path to quest directory")
-    parser.add_argument("--skip-archive", action="store_true", help="Skip archival step")
-    parser.add_argument("--skip-journal", action="store_true", help="Skip journal creation")
-    parser.add_argument("--date", default=None, help="Override completion date (YYYY-MM-DD)")
+    parser.add_argument(
+        "--skip-archive", action="store_true", help="Skip archival step"
+    )
+    parser.add_argument(
+        "--skip-journal", action="store_true", help="Skip journal creation"
+    )
+    parser.add_argument(
+        "--date", default=None, help="Override completion date (YYYY-MM-DD)"
+    )
     args = parser.parse_args()
 
     quest_dir = Path(args.quest_dir)
@@ -452,11 +467,16 @@ def main() -> int:
     try:
         state = json.loads(state_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-        print(f"Error: could not read state.json in {quest_dir}: {exc}", file=sys.stderr)
+        print(
+            f"Error: could not read state.json in {quest_dir}: {exc}", file=sys.stderr
+        )
         return 1
     if state.get("status") != "complete":
-        print(f"Error: quest status is '{state.get('status')}', not 'complete'. "
-              "Transition to complete or abandoned first.", file=sys.stderr)
+        print(
+            f"Error: quest status is '{state.get('status')}', not 'complete'. "
+            "Transition to complete or abandoned first.",
+            file=sys.stderr,
+        )
         return 1
 
     # Load quest data
@@ -474,7 +494,10 @@ def main() -> int:
     slug = data.slug or state.get("slug", _slug_from_quest_dir(quest_dir))
     data.slug = slug
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", slug):
-        print(f"Error: invalid slug '{slug}'. Must match [a-z0-9][a-z0-9-]*", file=sys.stderr)
+        print(
+            f"Error: invalid slug '{slug}'. Must match [a-z0-9][a-z0-9-]*",
+            file=sys.stderr,
+        )
         return 1
     outcome = _journal_outcome(data)
     # Sanitize outcome for README markdown table: collapse newlines, escape pipes
@@ -497,7 +520,10 @@ def main() -> int:
                 break
             repo_root = parent
         if not found:
-            print(f"Error: could not find docs/quest-journal/ above {quest_dir}", file=sys.stderr)
+            print(
+                f"Error: could not find docs/quest-journal/ above {quest_dir}",
+                file=sys.stderr,
+            )
             return 1
         journal_dir = repo_root / "docs" / "quest-journal"
         journal_dir.mkdir(parents=True, exist_ok=True)
@@ -513,7 +539,9 @@ def main() -> int:
                 completion_date,
                 journal_rel_path,
             )
-            celebration_rel_path = _celebration_link_for_result(celebration_result, data)
+            celebration_rel_path = _celebration_link_for_result(
+                celebration_result, data
+            )
             if celebration_rel_path is not None:
                 celebration_path = str(celebration_result.path)
             elif celebration_result.path.exists() and not celebration_result.created:
@@ -552,14 +580,18 @@ def main() -> int:
         "(lines without status= are not counted)"
     )
 
-    print(json.dumps({
-        "slug": slug,
-        "journal": journal_path,
-        "celebration": celebration_path,
-        "archived": not args.skip_archive,
-        "quality_tier": data.quality_tier,
-        "needs_human_stats": status_stats,
-    }))
+    print(
+        json.dumps(
+            {
+                "slug": slug,
+                "journal": journal_path,
+                "celebration": celebration_path,
+                "archived": not args.skip_archive,
+                "quality_tier": data.quality_tier,
+                "needs_human_stats": status_stats,
+            }
+        )
+    )
 
     return 0
 

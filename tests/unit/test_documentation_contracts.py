@@ -81,6 +81,5 @@ def test_docs_contract_scope_excludes_history_and_journal_archives() -> None:
     assert (_repo_root() / "docs" / "quest-journal").exists()
     assert all(not path.startswith("docs/quest-journal/") for path in ACTIVE_DOCS)
     assert all(
-        not path.startswith("docs/implementation/history/")
-        for path in ACTIVE_DOCS
+        not path.startswith("docs/implementation/history/") for path in ACTIVE_DOCS
     )

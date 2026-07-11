@@ -32,7 +32,9 @@ UTC = timezone.utc
 def _find_repo_root(start: Path) -> Path:
     current = start.resolve()
     for candidate in (current, *current.parents):
-        if (candidate / "docs" / "quest-journal").exists() and (candidate / ".quest").exists():
+        if (candidate / "docs" / "quest-journal").exists() and (
+            candidate / ".quest"
+        ).exists():
             return candidate
     raise FileNotFoundError(f"Could not find repo root above {start}")
 
@@ -53,7 +55,9 @@ def _extract_date_from_journal_filename(journal_path: Path) -> date | None:
 
 def _extract_journal_completed_date(journal_path: Path) -> date | None:
     content = journal_path.read_text(encoding="utf-8")
-    completed = extract_metadata_value(content, "completed") or extract_metadata_value(content, "date")
+    completed = extract_metadata_value(content, "completed") or extract_metadata_value(
+        content, "date"
+    )
     if completed:
         try:
             return date.fromisoformat(completed[:10])
@@ -69,7 +73,11 @@ def _archive_completion_date(archive_dir: Path) -> date | None:
         if not value:
             continue
         try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC).date()
+            return (
+                datetime.fromisoformat(value.replace("Z", "+00:00"))
+                .astimezone(UTC)
+                .date()
+            )
         except ValueError:
             continue
     return None
@@ -93,10 +101,15 @@ def _find_matching_journal(
 
     completion_date = _archive_completion_date(archive_dir)
     if completion_date is None:
-        return None, f"{archive_dir.name}: missing or invalid completion date; cannot use slug/date fallback"
+        return (
+            None,
+            f"{archive_dir.name}: missing or invalid completion date; cannot use slug/date fallback",
+        )
 
     completion_date_str = completion_date.isoformat()
-    fallback_candidates = sorted(journal_dir.glob(f"{data.slug}_{completion_date_str}*.md"))
+    fallback_candidates = sorted(
+        journal_dir.glob(f"{data.slug}_{completion_date_str}*.md")
+    )
     if len(fallback_candidates) > 1:
         return None, (
             f"{archive_dir.name}: ambiguous slug/date fallback "
@@ -142,7 +155,9 @@ def _replace_or_insert_section(
     return f"{source.rstrip()}\n\n{replacement_text}\n"
 
 
-def _extract_section_block(content: str, heading_patterns: tuple[str, ...]) -> str | None:
+def _extract_section_block(
+    content: str, heading_patterns: tuple[str, ...]
+) -> str | None:
     for heading_pattern in heading_patterns:
         match = re.search(
             rf"(?ms)^##\s+(?:{heading_pattern})\s*$.*?(?=^##\s+|\Z)",
@@ -194,14 +209,18 @@ def _preferred_brief_section(content: str, generated_section: str) -> str:
     return f"## Quest Brief\n\n{existing_body.strip()}\n"
 
 
-def _patch_journal_content(content: str, archive_dir: Path, repo_root: Path, journal_path: Path) -> str:
+def _patch_journal_content(
+    content: str, archive_dir: Path, repo_root: Path, journal_path: Path
+) -> str:
     data = load_quest_data(archive_dir)
     journal_rel_path = journal_path.relative_to(repo_root)
     patched_content = content
 
     quest_brief_section = build_quest_brief_section(data)
     if quest_brief_section:
-        quest_brief_section = _preferred_brief_section(patched_content, quest_brief_section)
+        quest_brief_section = _preferred_brief_section(
+            patched_content, quest_brief_section
+        )
         patched_content = _replace_or_insert_section(
             patched_content,
             ("Quest Brief", r"This is where it all began[^\n]*"),
@@ -242,7 +261,9 @@ def backfill_journal_entries(
             "skipped": [],
         }
 
-    journal_paths = [path for path in sorted(journal_dir.glob("*.md")) if path.name != "README.md"]
+    journal_paths = [
+        path for path in sorted(journal_dir.glob("*.md")) if path.name != "README.md"
+    ]
     journal_by_quest_id: dict[str, Path] = {}
     duplicate_quest_ids: set[str] = set()
     for journal_path in journal_paths:
@@ -274,10 +295,14 @@ def backfill_journal_entries(
             continue
 
         if journal_path is None:
-            skipped.append(f"{archive_dir.name}: matching journal path missing unexpectedly")
+            skipped.append(
+                f"{archive_dir.name}: matching journal path missing unexpectedly"
+            )
             continue
         existing = journal_path.read_text(encoding="utf-8")
-        rendered = _patch_journal_content(existing, archive_dir, repo_root, journal_path)
+        rendered = _patch_journal_content(
+            existing, archive_dir, repo_root, journal_path
+        )
 
         if existing == rendered:
             unchanged.append(journal_path.name)
@@ -295,17 +320,27 @@ def backfill_journal_entries(
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Backfill quest journal pages from archived quests")
-    parser.add_argument("--repo-root", default=".", help="Repository root (default: current directory)")
-    parser.add_argument("--quest-id", default=None, help="Only backfill one archived quest ID")
-    parser.add_argument("--dry-run", action="store_true", help="Report changes without writing files")
+    parser = argparse.ArgumentParser(
+        description="Backfill quest journal pages from archived quests"
+    )
+    parser.add_argument(
+        "--repo-root", default=".", help="Repository root (default: current directory)"
+    )
+    parser.add_argument(
+        "--quest-id", default=None, help="Only backfill one archived quest ID"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Report changes without writing files"
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     repo_root = _find_repo_root(Path(args.repo_root))
-    result = backfill_journal_entries(repo_root, quest_id=args.quest_id, write=not args.dry_run)
+    result = backfill_journal_entries(
+        repo_root, quest_id=args.quest_id, write=not args.dry_run
+    )
 
     print(f"Patched: {len(result['patched'])}")
     for path in result["patched"]:

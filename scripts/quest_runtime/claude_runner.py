@@ -110,7 +110,9 @@ _BG_STATUS_RESULT_KINDS: dict[str, str] = {
 def normalize_claude_cli_model(model: str) -> str | None:
     normalized = model.strip()
     if not normalized:
-        raise ValueError("Claude model must be a non-empty value or the `claude` sentinel")
+        raise ValueError(
+            "Claude model must be a non-empty value or the `claude` sentinel"
+        )
     if normalized == "claude":
         return None
     return normalized
@@ -363,17 +365,53 @@ def _run_result_fields_from_bg(stdout: str) -> dict:
     envelope = _bg_envelope(stdout) or {}
     questions = envelope.get("questions")
     return {
-        "status": envelope.get("status") if isinstance(envelope.get("status"), str) else None,
-        "session_id": envelope.get("session_id") if isinstance(envelope.get("session_id"), str) else None,
-        "short_id": envelope.get("short_id") if isinstance(envelope.get("short_id"), str) else None,
-        "questions": [str(q) for q in questions] if isinstance(questions, list) else None,
-        "resumed_from": envelope.get("resumed_from") if isinstance(envelope.get("resumed_from"), str) else None,
+        "status": (
+            envelope.get("status") if isinstance(envelope.get("status"), str) else None
+        ),
+        "session_id": (
+            envelope.get("session_id")
+            if isinstance(envelope.get("session_id"), str)
+            else None
+        ),
+        "short_id": (
+            envelope.get("short_id")
+            if isinstance(envelope.get("short_id"), str)
+            else None
+        ),
+        "questions": (
+            [str(q) for q in questions] if isinstance(questions, list) else None
+        ),
+        "resumed_from": (
+            envelope.get("resumed_from")
+            if isinstance(envelope.get("resumed_from"), str)
+            else None
+        ),
         "teardown_failed": bool(envelope.get("teardown_failed")),
-        "teardown_survivor_id": envelope.get("teardown_survivor_id") if isinstance(envelope.get("teardown_survivor_id"), str) else None,
-        "teardown_survivor_name": envelope.get("teardown_survivor_name") if isinstance(envelope.get("teardown_survivor_name"), str) else None,
-        "teardown_survivor_session_id": envelope.get("teardown_survivor_session_id") if isinstance(envelope.get("teardown_survivor_session_id"), str) else None,
-        "reset_at": envelope.get("reset_at") if isinstance(envelope.get("reset_at"), str) else None,
-        "rejected_model": envelope.get("rejected_model") if isinstance(envelope.get("rejected_model"), str) else None,
+        "teardown_survivor_id": (
+            envelope.get("teardown_survivor_id")
+            if isinstance(envelope.get("teardown_survivor_id"), str)
+            else None
+        ),
+        "teardown_survivor_name": (
+            envelope.get("teardown_survivor_name")
+            if isinstance(envelope.get("teardown_survivor_name"), str)
+            else None
+        ),
+        "teardown_survivor_session_id": (
+            envelope.get("teardown_survivor_session_id")
+            if isinstance(envelope.get("teardown_survivor_session_id"), str)
+            else None
+        ),
+        "reset_at": (
+            envelope.get("reset_at")
+            if isinstance(envelope.get("reset_at"), str)
+            else None
+        ),
+        "rejected_model": (
+            envelope.get("rejected_model")
+            if isinstance(envelope.get("rejected_model"), str)
+            else None
+        ),
     }
 
 
@@ -885,9 +923,7 @@ def run_claude_role(
             stderr = f"{stderr}\n{detail}".strip()
 
     bg_fields = (
-        _run_result_fields_from_bg(stdout)
-        if transport == "background-agent"
-        else {}
+        _run_result_fields_from_bg(stdout) if transport == "background-agent" else {}
     )
     bg_status_kind = _BG_STATUS_RESULT_KINDS.get(str(bg_fields.get("status") or ""))
     # A found handoff only wins when the bg child actually succeeded (exit 0)
@@ -897,7 +933,10 @@ def run_claude_role(
     # a failed resume deliberately RESTORES the parked needs_human handoff,
     # and letting that stale handoff win would report success, re-ask the
     # human their already-answered question, and bury the real failure.
-    bg_failed = transport == "background-agent" and (process.returncode or 0) not in (0, 10)
+    bg_failed = transport == "background-agent" and (process.returncode or 0) not in (
+        0,
+        10,
+    )
     if bg_failed:
         handoff_result = False
     bg_exit_kind = (
@@ -1208,9 +1247,11 @@ def run_bg_probe(
         # responded, only the artifact write failed.
         result_kind = "artifact_missing"
     else:
-        result_kind = specific_failure or _BG_EXIT_RESULT_KINDS.get(
-            exit_code
-        ) or classify_result_kind(exit_code, stderr, handoff_state)
+        result_kind = (
+            specific_failure
+            or _BG_EXIT_RESULT_KINDS.get(exit_code)
+            or classify_result_kind(exit_code, stderr, handoff_state)
+        )
     return RunResult(
         exit_code=exit_code,
         handoff_state=handoff_state,

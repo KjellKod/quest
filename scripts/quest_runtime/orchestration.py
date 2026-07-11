@@ -143,7 +143,9 @@ def parse_override_input(text: str) -> list[Override]:
     """
     stripped = text.strip()
     if stripped.startswith("{") or stripped.startswith('"models"'):
-        candidate = "{" + stripped + "}" if stripped.startswith('"models"') else stripped
+        candidate = (
+            "{" + stripped + "}" if stripped.startswith('"models"') else stripped
+        )
         try:
             data = json.loads(candidate, object_pairs_hook=_JsonObjectPairs)
         except json.JSONDecodeError as exc:
@@ -151,7 +153,9 @@ def parse_override_input(text: str) -> list[Override]:
                 f"Override JSON syntax error: {exc.msg}. Re-enter overrides."
             ) from exc
         if not isinstance(data, _JsonObjectPairs):
-            raise OverrideParseError("Override JSON must be an object. Re-enter overrides.")
+            raise OverrideParseError(
+                "Override JSON must be an object. Re-enter overrides."
+            )
         models_values = [value for key, value in data if key == "models"]
         if models_values:
             if len(data) != 1:
@@ -347,7 +351,9 @@ def load_codex_available_from_cache(cache_path: Path) -> bool:
     return False
 
 
-def build_default_models(allowlist_models: dict[str, str | None]) -> dict[str, str | None]:
+def build_default_models(
+    allowlist_models: dict[str, str | None]
+) -> dict[str, str | None]:
     """Return a fresh copy of an allowlist `models` block with all 9 keys.
 
     Missing keys are filled from the documented workflow defaults so older or
@@ -355,7 +361,9 @@ def build_default_models(allowlist_models: dict[str, str | None]) -> dict[str, s
     Explicit null values are preserved for compatibility with legacy snapshots.
     """
     return {
-        role: allowlist_models[role] if role in allowlist_models else DEFAULT_MODELS[role]
+        role: (
+            allowlist_models[role] if role in allowlist_models else DEFAULT_MODELS[role]
+        )
         for role in CANONICAL_ROLES
     }
 
@@ -375,7 +383,9 @@ def _backfill_legacy_compatible_roles(
     return merged, backfilled
 
 
-def build_snapshot_models(snapshot_models: dict[str, str | None]) -> dict[str, str | None]:
+def build_snapshot_models(
+    snapshot_models: dict[str, str | None]
+) -> dict[str, str | None]:
     """Return a shape-stable model block from a saved snapshot.
 
     Unlike fresh allowlist defaults, resume migration stays fail-closed for
@@ -428,9 +438,7 @@ def write_orchestration_json(
 ) -> None:
     """Write the orchestration.json artifact with canonical key order."""
     if source not in {"default", "overridden"}:
-        raise ValueError(
-            f"source must be 'default' or 'overridden' (got {source!r})"
-        )
+        raise ValueError(f"source must be 'default' or 'overridden' (got {source!r})")
     if claude_role_transport not in CLAUDE_ROLE_TRANSPORTS:
         raise ValueError(
             f"claude_role_transport must be one of {CLAUDE_ROLE_TRANSPORTS} "
@@ -550,12 +558,10 @@ def migrate_from_snapshot(
                 f"role(s) {missing_roles}; the existing file is malformed — "
                 "fix models.<role> entries before resuming."
             )
-        existing["models"] = {
-            role: merged_models.get(role) for role in CANONICAL_ROLES
-        }
-        if not isinstance(existing.get("preflight_validated_at"), str) or not existing.get(
-            "preflight_validated_at"
-        ):
+        existing["models"] = {role: merged_models.get(role) for role in CANONICAL_ROLES}
+        if not isinstance(
+            existing.get("preflight_validated_at"), str
+        ) or not existing.get("preflight_validated_at"):
             existing["preflight_validated_at"] = preflight_validated_at or _now_iso()
         with orch_path.open("w", encoding="utf-8") as handle:
             json.dump(existing, handle, indent=2)

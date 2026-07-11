@@ -50,7 +50,9 @@ def format_quest_id(
     """Format a quest ID using the selected supported format."""
     normalized = normalize_quest_id_format(quest_id_format)
     if not re.fullmatch(_SLUG_PATTERN, slug):
-        raise ValueError("Invalid slug. Expected lowercase letters, numbers, and hyphens.")
+        raise ValueError(
+            "Invalid slug. Expected lowercase letters, numbers, and hyphens."
+        )
     if not isinstance(when, datetime):
         raise TypeError("format_quest_id expected a datetime.datetime for 'when'.")
 
@@ -99,10 +101,14 @@ def load_quest_id_format(allowlist_path: Path) -> str:
         raise ValueError(f"Invalid JSON in {allowlist_path}: {exc}") from exc
 
     if not isinstance(data, dict):
-        raise ValueError(f"Invalid allowlist.json: expected object at {allowlist_path}.")
+        raise ValueError(
+            f"Invalid allowlist.json: expected object at {allowlist_path}."
+        )
 
     value = data.get("quest_id_format")
     if value is not None and not isinstance(value, str):
         allowed = ", ".join(VALID_QUEST_ID_FORMATS)
-        raise ValueError(f"Invalid quest_id_format: {value!r}. Expected one of: {allowed}.")
+        raise ValueError(
+            f"Invalid quest_id_format: {value!r}. Expected one of: {allowed}."
+        )
     return normalize_quest_id_format(value)

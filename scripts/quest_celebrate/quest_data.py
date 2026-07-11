@@ -84,7 +84,9 @@ class QuestData:
     # From review*.md files
     review_findings: List[str] = field(default_factory=list)
     review_count: int = 0
-    inherited_findings_used: CarryoverFindings = field(default_factory=CarryoverFindings)
+    inherited_findings_used: CarryoverFindings = field(
+        default_factory=CarryoverFindings
+    )
     findings_left_for_future_quests: CarryoverFindings = field(
         default_factory=CarryoverFindings
     )
@@ -584,10 +586,7 @@ def _read_findings_left_for_future_quests(
                 record = json.loads(line)
             except (json.JSONDecodeError, ValueError):
                 continue
-            if (
-                isinstance(record, dict)
-                and record.get("deferred_by_quest") == quest_id
-            ):
+            if isinstance(record, dict) and record.get("deferred_by_quest") == quest_id:
                 records.append(record)
     except OSError:
         return CarryoverFindings()
@@ -964,7 +963,9 @@ def _extract_carryover_findings(value: object) -> CarryoverFindings:
     raw_count = value.get("count")
     count = (
         raw_count
-        if isinstance(raw_count, int) and not isinstance(raw_count, bool) and raw_count >= 0
+        if isinstance(raw_count, int)
+        and not isinstance(raw_count, bool)
+        and raw_count >= 0
         else 0
     )
     summaries = []

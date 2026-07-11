@@ -14,7 +14,9 @@ def _repo_root() -> Path:
 def test_claude_runtime_agents_reference_canonical() -> None:
     root = _repo_root()
     for role in ROLES:
-        wrapper = (root / ".claude" / "agents" / f"{role}.md").read_text(encoding="utf-8")
+        wrapper = (root / ".claude" / "agents" / f"{role}.md").read_text(
+            encoding="utf-8"
+        )
         canonical_ref = f".skills/quest/agents/{role}.md"
         assert canonical_ref in wrapper, (
             f".claude/agents/{role}.md does not reference {canonical_ref}; "

@@ -10,7 +10,9 @@ NEW_INSTALLED_FILES = {
     ".skills/pre-commit-review/SKILL.md",
 }
 
-DELEGATION_LINE = "Read and follow the instructions in `.skills/pre-commit-review/SKILL.md`."
+DELEGATION_LINE = (
+    "Read and follow the instructions in `.skills/pre-commit-review/SKILL.md`."
+)
 
 
 def _repo_root() -> Path:

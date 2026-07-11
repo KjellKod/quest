@@ -210,7 +210,9 @@ def _parse_journal_entry(journal_path: Path, repo_root: Path) -> JournalEntry:
 
     # Compute relative journal path
     journal_rel_path = journal_path.relative_to(repo_root)
-    celebration_path = _extract_celebration_path(content, journal_path, repo_root, quest_id)
+    celebration_path = _extract_celebration_path(
+        content, journal_path, repo_root, quest_id
+    )
 
     return JournalEntry(
         quest_id=quest_id,
@@ -298,6 +300,7 @@ def _celebration_link_target(content: str) -> str | None:
         if value and not value.startswith("["):
             return value.strip("`")
     return None
+
 
 def _extract_title(content: str) -> str | None:
     """Extract title from journal heading.
@@ -488,7 +491,9 @@ def _extract_outcome_pitch(content: str) -> str | None:
             break
         if re.match(r"^[-*]\s+[^:]+:\s+", stripped):
             break
-        if re.match(r"^\*\*[^*]+:\s*\*\*", stripped) or re.match(r"^\*\*[^*]+\*\*\s*:", stripped):
+        if re.match(r"^\*\*[^*]+:\s*\*\*", stripped) or re.match(
+            r"^\*\*[^*]+\*\*\s*:", stripped
+        ):
             break
         if not stripped.startswith(">"):
             break
@@ -684,7 +689,9 @@ def _parse_active_quest(state_path: Path) -> tuple[ActiveQuest | None, list[str]
 
     # Completed quests should already be journaled/archived and should not show up
     # in the active dashboard lane even if a stale .quest directory remains locally.
-    if str(raw_status).lower() in {"complete", "completed", "done"} or str(raw_phase).lower() in {
+    if str(raw_status).lower() in {"complete", "completed", "done"} or str(
+        raw_phase
+    ).lower() in {
         "complete",
         "completed",
         "done",

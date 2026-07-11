@@ -59,7 +59,9 @@ def stable_fingerprint(payload: JsonObject) -> str:
 
 
 def _activity_timestamp(activity: JsonObject) -> str:
-    return max(str(activity.get("created_at") or ""), str(activity.get("updated_at") or ""))
+    return max(
+        str(activity.get("created_at") or ""), str(activity.get("updated_at") or "")
+    )
 
 
 def activity_state(activities: list[JsonObject]) -> str:
@@ -73,7 +75,9 @@ def activity_state(activities: list[JsonObject]) -> str:
     for index, activity in enumerate(ordered):
         body = str(activity.get("body") or "")
         marker_trusted = activity.get("marker_trusted") is not False
-        if marker_trusted and (has_marker(body, ADDRESSED_MARKER) or has_marker(body, SUMMARY_MARKER)):
+        if marker_trusted and (
+            has_marker(body, ADDRESSED_MARKER) or has_marker(body, SUMMARY_MARKER)
+        ):
             last_marker_index = index
 
     if last_marker_index is None:
@@ -138,7 +142,9 @@ def _bool_fact(pass_facts: JsonObject, key: str) -> bool:
     return pass_facts.get(key) is True
 
 
-def classify_operational_state(loop_result: JsonObject, pass_facts: JsonObject) -> JsonObject:
+def classify_operational_state(
+    loop_result: JsonObject, pass_facts: JsonObject
+) -> JsonObject:
     """Classify a whole PR shepherd pass as clean, progressing, or stuck."""
 
     ci_state = str(pass_facts.get("ci_state") or "unknown").strip().lower()
@@ -147,14 +153,23 @@ def classify_operational_state(loop_result: JsonObject, pass_facts: JsonObject) 
     active = _int_fact(pass_facts, "active_feedback_count")
     uncertain = _int_fact(pass_facts, "uncertain_feedback_count")
     human_decisions = _int_fact(pass_facts, "unresolved_human_decision_count")
-    blockers = [
-        str(item).strip()
-        for item in pass_facts.get("blockers", [])
-        if isinstance(item, str) and item.strip()
-    ] if isinstance(pass_facts.get("blockers"), list) else []
+    blockers = (
+        [
+            str(item).strip()
+            for item in pass_facts.get("blockers", [])
+            if isinstance(item, str) and item.strip()
+        ]
+        if isinstance(pass_facts.get("blockers"), list)
+        else []
+    )
 
     hard_blockers = list(blockers)
-    for key in ("checkout_mismatch", "auth_unavailable", "logs_unavailable", "merge_conflict"):
+    for key in (
+        "checkout_mismatch",
+        "auth_unavailable",
+        "logs_unavailable",
+        "merge_conflict",
+    ):
         if _bool_fact(pass_facts, key):
             hard_blockers.append(key)
     if _bool_fact(pass_facts, "loop_cap_enforced"):

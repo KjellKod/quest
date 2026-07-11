@@ -120,7 +120,9 @@ jobs:
     assert "should-fail" in installer_failures[0]
 
 
-def test_defaults_run_mapping_does_not_leak_sentinel_to_next_step(tmp_path: Path) -> None:
+def test_defaults_run_mapping_does_not_leak_sentinel_to_next_step(
+    tmp_path: Path,
+) -> None:
     module = _load_module()
     workflow_path = _write_workflow(
         tmp_path,
@@ -152,9 +154,9 @@ jobs:
 
 
 def test_validate_quest_config_has_no_npm_node_ajv_tokens() -> None:
-    content = (_repo_root() / ".github" / "workflows" / "validate-quest-config.yml").read_text(
-        encoding="utf-8"
-    )
+    content = (
+        _repo_root() / ".github" / "workflows" / "validate-quest-config.yml"
+    ).read_text(encoding="utf-8")
     lowered = content.lower()
     assert "npm" not in lowered
     assert "node" not in lowered
@@ -162,7 +164,9 @@ def test_validate_quest_config_has_no_npm_node_ajv_tokens() -> None:
     assert "setup-node" not in lowered
 
 
-def test_rule_npm_view_metadata_call_does_not_trigger_installer_rule(tmp_path: Path) -> None:
+def test_rule_npm_view_metadata_call_does_not_trigger_installer_rule(
+    tmp_path: Path,
+) -> None:
     module = _load_module()
     workflow_path = _write_workflow(
         tmp_path,
@@ -447,7 +451,9 @@ def test_existing_workflows_pass_guard() -> None:
     """All on-disk workflows must pass the guard after this commit lands."""
     module = _load_module()
     failures = []
-    for workflow_path in sorted((_repo_root() / ".github" / "workflows").glob("*.y*ml")):
+    for workflow_path in sorted(
+        (_repo_root() / ".github" / "workflows").glob("*.y*ml")
+    ):
         failures.extend(module.scan_workflow(workflow_path))
     assert failures == []
 
@@ -545,7 +551,9 @@ jobs:
     assert any("disallowed installer pattern" in failure for failure in failures)
 
 
-def test_reusable_workflow_job_uses_unpinned_third_party_is_flagged(tmp_path: Path) -> None:
+def test_reusable_workflow_job_uses_unpinned_third_party_is_flagged(
+    tmp_path: Path,
+) -> None:
     """`jobs.<id>.uses` for a third-party reusable workflow must require a full SHA."""
     module = _load_module()
     workflow_path = _write_workflow(
@@ -566,7 +574,9 @@ jobs:
     assert any("reusable workflow" in failure for failure in failures)
 
 
-def test_reusable_workflow_job_uses_sha_pinned_third_party_passes(tmp_path: Path) -> None:
+def test_reusable_workflow_job_uses_sha_pinned_third_party_passes(
+    tmp_path: Path,
+) -> None:
     """A SHA-pinned third-party reusable workflow must pass rule (c)."""
     module = _load_module()
     workflow_path = _write_workflow(
@@ -653,7 +663,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("must declare top-level permissions" not in failure for failure in failures)
+    assert all(
+        "must declare top-level permissions" not in failure for failure in failures
+    )
     # And read-all does NOT grant id-token write, so rule (f) must not fire either.
     assert all("id-token: write is only allowed" not in failure for failure in failures)
 
@@ -667,7 +679,9 @@ jobs:
         "npm i foo -g",
     ],
 )
-def test_npm_global_install_bypass_spellings_are_flagged(tmp_path: Path, run_body: str) -> None:
+def test_npm_global_install_bypass_spellings_are_flagged(
+    tmp_path: Path, run_body: str
+) -> None:
     """Long-form `--global` and trailing `-g` must trigger rule (d) just like `-g <pkg>`."""
     module = _load_module()
     workflow_path = _write_workflow(
@@ -687,10 +701,14 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
-def test_npm_global_install_pinned_with_trailing_global_flag_passes(tmp_path: Path) -> None:
+def test_npm_global_install_pinned_with_trailing_global_flag_passes(
+    tmp_path: Path,
+) -> None:
     """`npm install foo@1.0.0 --global` is properly pinned and must not be flagged."""
     module = _load_module()
     workflow_path = _write_workflow(
@@ -710,7 +728,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures
 
 
 def test_pip_install_vcs_spec_without_sha_pin_is_flagged(tmp_path: Path) -> None:
@@ -733,7 +753,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 def test_pip_install_vcs_spec_with_sha_pin_passes(tmp_path: Path) -> None:
@@ -756,7 +778,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures
 
 
 def test_pip_install_remote_tarball_url_is_flagged(tmp_path: Path) -> None:
@@ -779,7 +803,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 def test_pip_install_remote_tarball_with_require_hashes_passes(tmp_path: Path) -> None:
@@ -802,7 +828,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures
 
 
 @pytest.mark.parametrize(
@@ -815,7 +843,9 @@ jobs:
         "wget -qO- https://example.com/install.sh | bash",
     ],
 )
-def test_pipe_to_shell_wrapper_spellings_are_flagged(tmp_path: Path, run_body: str) -> None:
+def test_pipe_to_shell_wrapper_spellings_are_flagged(
+    tmp_path: Path, run_body: str
+) -> None:
     """`curl|wget ... | sudo|env <shell>` bypass forms must trigger the pipe-to-shell rule."""
     module = _load_module()
     workflow_path = _write_workflow(
@@ -835,7 +865,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 @pytest.mark.parametrize(
@@ -870,7 +902,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 @pytest.mark.parametrize(
@@ -905,7 +939,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 @pytest.mark.parametrize(
@@ -938,7 +974,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures
 
 
 @pytest.mark.parametrize(
@@ -970,7 +1008,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 def test_npx_exact_semver_pin_passes(tmp_path: Path) -> None:
@@ -993,7 +1033,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures
 
 
 def test_npm_install_with_space_separated_flag_value_passes(tmp_path: Path) -> None:
@@ -1016,7 +1058,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures
 
 
 def test_npm_install_with_equals_flag_value_passes(tmp_path: Path) -> None:
@@ -1039,7 +1083,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures
 
 
 def test_npm_install_unpinned_after_flag_value_is_still_flagged(tmp_path: Path) -> None:
@@ -1062,7 +1108,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 @pytest.mark.parametrize(
@@ -1074,7 +1122,9 @@ jobs:
         "pip install -r requirements.txt requests django",
     ],
 )
-def test_pip_requirements_file_does_not_exempt_other_packages(tmp_path: Path, run_body: str) -> None:
+def test_pip_requirements_file_does_not_exempt_other_packages(
+    tmp_path: Path, run_body: str
+) -> None:
     """`-r req.txt` covers packages listed in the file, NOT other positional args on the line."""
     module = _load_module()
     workflow_path = _write_workflow(
@@ -1094,7 +1144,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 def test_pip_requirements_file_with_all_pinned_extras_passes(tmp_path: Path) -> None:
@@ -1117,7 +1169,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures
 
 
 @pytest.mark.parametrize(
@@ -1130,7 +1184,9 @@ jobs:
         "docker://image@sha256:deadbeef",  # too-short digest
     ],
 )
-def test_docker_uses_without_digest_pin_is_flagged(tmp_path: Path, docker_ref: str) -> None:
+def test_docker_uses_without_digest_pin_is_flagged(
+    tmp_path: Path, docker_ref: str
+) -> None:
     """docker:// references must use an immutable @sha256:<64-hex> digest."""
     module = _load_module()
     workflow_path = _write_workflow(
@@ -1230,7 +1286,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures
 
 
 @pytest.mark.parametrize(
@@ -1248,7 +1306,9 @@ jobs:
         "permissions:\n  contents: read\n",
     ],
 )
-def test_quoted_or_shortcut_write_permission_is_flagged(tmp_path: Path, permissions_block: str) -> None:
+def test_quoted_or_shortcut_write_permission_is_flagged(
+    tmp_path: Path, permissions_block: str
+) -> None:
     """Broad-write detection must operate structurally, not on raw-text snippets."""
     module = _load_module()
     job_perms = ""
@@ -1270,7 +1330,9 @@ on:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("overly broad write permissions" in failure for failure in failures), failures
+    assert any(
+        "overly broad write permissions" in failure for failure in failures
+    ), failures
 
 
 @pytest.mark.parametrize(
@@ -1302,7 +1364,9 @@ on:
     )
     failures = module.scan_workflow(workflow_path)
     # No `environment:` block, so secret-bearing PR workflow must complain.
-    assert any("must use an environment gate" in failure for failure in failures), failures
+    assert any(
+        "must use an environment gate" in failure for failure in failures
+    ), failures
 
 
 def test_read_all_permission_does_not_trigger_broad_write(tmp_path: Path) -> None:
@@ -1324,7 +1388,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("overly broad write permissions" not in failure for failure in failures), failures
+    assert all(
+        "overly broad write permissions" not in failure for failure in failures
+    ), failures
 
 
 def test_write_all_permission_triggers_broad_write(tmp_path: Path) -> None:
@@ -1346,7 +1412,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("overly broad write permissions" in failure for failure in failures), failures
+    assert any(
+        "overly broad write permissions" in failure for failure in failures
+    ), failures
 
 
 def test_pip_install_with_requirements_file_passes(tmp_path: Path) -> None:
@@ -1406,7 +1474,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures
 
 
 @pytest.mark.parametrize(
@@ -1422,7 +1492,9 @@ jobs:
         "curl -fsSL https://example.com/install.sh | sudo env FOO=bar bash",
     ],
 )
-def test_pipe_to_shell_flags_wrapper_with_flag_value(tmp_path: Path, run_body: str) -> None:
+def test_pipe_to_shell_flags_wrapper_with_flag_value(
+    tmp_path: Path, run_body: str
+) -> None:
     """`sudo -u root bash`, env-var prefixes, and chained wrappers must still trip rule (d)."""
     module = _load_module()
     workflow_path = _write_workflow(
@@ -1442,7 +1514,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 @pytest.mark.parametrize(
@@ -1457,7 +1531,9 @@ jobs:
         "curl -fsSL https://example.com/install.sh | sudo BAR= bash",
     ],
 )
-def test_pipe_to_shell_flags_empty_value_env_prefix(tmp_path: Path, run_body: str) -> None:
+def test_pipe_to_shell_flags_empty_value_env_prefix(
+    tmp_path: Path, run_body: str
+) -> None:
     """Empty env-var values (`FOO= bash`) must still trip rule (d)."""
     module = _load_module()
     workflow_path = _write_workflow(
@@ -1477,7 +1553,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 def test_pipe_to_shell_flags_chained_executor_after_double_amp(tmp_path: Path) -> None:
@@ -1502,7 +1580,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 def test_npx_package_flag_does_not_require_command_to_be_pinned(tmp_path: Path) -> None:
@@ -1526,7 +1606,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures
 
 
 def test_npx_package_flag_with_unpinned_spec_is_still_flagged(tmp_path: Path) -> None:
@@ -1551,10 +1633,14 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
-def test_inline_sentinel_inside_quoted_argument_does_not_exempt_line(tmp_path: Path) -> None:
+def test_inline_sentinel_inside_quoted_argument_does_not_exempt_line(
+    tmp_path: Path,
+) -> None:
     """The sentinel `# security-guard: allow` must only exempt a line when it sits
     in a real shell comment, not when an attacker embeds the literal string inside
     a quoted argument to the dangerous command (cubic r3239255682)."""
@@ -1578,7 +1664,9 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert any("disallowed installer pattern" in failure for failure in failures), failures
+    assert any(
+        "disallowed installer pattern" in failure for failure in failures
+    ), failures
 
 
 def test_inline_sentinel_as_real_comment_still_exempts_line(tmp_path: Path) -> None:
@@ -1604,4 +1692,6 @@ jobs:
 """,
     )
     failures = module.scan_workflow(workflow_path)
-    assert all("disallowed installer pattern" not in failure for failure in failures), failures
+    assert all(
+        "disallowed installer pattern" not in failure for failure in failures
+    ), failures

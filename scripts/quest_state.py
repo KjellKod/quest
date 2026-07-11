@@ -40,9 +40,7 @@ def find_validator() -> Path:
     validator = script_dir / "quest_validate-quest-state.sh"
     if validator.is_file():
         return validator
-    raise FileNotFoundError(
-        f"quest_validate-quest-state.sh not found at {validator}"
-    )
+    raise FileNotFoundError(f"quest_validate-quest-state.sh not found at {validator}")
 
 
 def run_validator(quest_dir: str, target_phase: str) -> tuple[int, str]:

@@ -58,7 +58,9 @@ def test_select_validation_steps_prioritizes_backlog_named_tests() -> None:
     assert level1_steps[0]["command"] == "pytest tests/unit/test_named.py"
 
 
-def test_select_validation_steps_falls_back_to_nearest_tests_then_module_level() -> None:
+def test_select_validation_steps_falls_back_to_nearest_tests_then_module_level() -> (
+    None
+):
     inventory = {
         "format_command": "fmt",
         "lint_command": "lint",
@@ -76,7 +78,10 @@ def test_select_validation_steps_falls_back_to_nearest_tests_then_module_level()
         repo_inventory=inventory,
     )
     nearest_level1 = [step for step in nearest_steps if step["level"] == 1]
-    assert nearest_level1[0]["target"] == "tests/scripts/quest_runtime/test_pr_review_cycle.py"
+    assert (
+        nearest_level1[0]["target"]
+        == "tests/scripts/quest_runtime/test_pr_review_cycle.py"
+    )
 
     module_steps = select_validation_steps(
         _finding(path="unmapped/module.py", write_scope=["unmapped/module.py"]),
@@ -86,7 +91,9 @@ def test_select_validation_steps_falls_back_to_nearest_tests_then_module_level()
     assert module_level1[0]["target"] == "tests/unit/"
 
 
-def test_select_validation_steps_escalates_to_level_2_only_for_shared_boundary_changes() -> None:
+def test_select_validation_steps_escalates_to_level_2_only_for_shared_boundary_changes() -> (
+    None
+):
     inventory = {
         "format_command": "fmt",
         "lint_command": "lint",
@@ -98,7 +105,9 @@ def test_select_validation_steps_escalates_to_level_2_only_for_shared_boundary_c
     }
 
     local_steps = select_validation_steps(
-        _finding(path="scripts/local_module.py", write_scope=["scripts/local_module.py"]),
+        _finding(
+            path="scripts/local_module.py", write_scope=["scripts/local_module.py"]
+        ),
         repo_inventory=inventory,
     )
     assert not [step for step in local_steps if step["level"] == 2]
@@ -115,7 +124,9 @@ def test_select_validation_steps_escalates_to_level_2_only_for_shared_boundary_c
     assert level2[0]["target"] == "tests/"
 
 
-def test_select_validation_steps_escalates_level_2_for_directory_scope_shared_boundary() -> None:
+def test_select_validation_steps_escalates_level_2_for_directory_scope_shared_boundary() -> (
+    None
+):
     inventory = {
         "format_command": "fmt",
         "lint_command": "lint",
