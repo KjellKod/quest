@@ -9,17 +9,14 @@ Supports two modes:
   Atomic validated transition (preferred):
     python3 scripts/quest_state.py --quest-dir .quest/<id> --transition building --status in_progress
 
-  With optimistic locking (recommended for multi-agent):
+  With an atomic expected-phase check (recommended for multi-agent):
     python3 scripts/quest_state.py --quest-dir .quest/<id> --transition building --status in_progress --expect-phase plan_reviewed
 
 The --transition flag calls quest_validate-quest-state.sh before writing.
 If validation fails, state.json is not modified.
 
-The --expect-phase flag adds optimistic locking: the transition is
-rejected immediately if the current phase in state.json does not match
-the expected value, narrowing (not eliminating — the check precedes the
-validator and the final write) TOCTOU races when multiple
-agents may be updating state concurrently.
+The --expect-phase flag checks the final state inside the same locked
+read/check/write transaction that atomically publishes the transition.
 """
 
 from __future__ import annotations
@@ -31,7 +28,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from quest_runtime.state import load_state, update_state, write_state
+from quest_runtime.state import (
+    PhaseMismatchError,
+    StateError,
+    update_state,
+)
 
 
 def find_validator() -> Path:
@@ -83,9 +84,8 @@ def parse_args() -> argparse.Namespace:
         "--expect-phase",
         metavar="PHASE",
         help=(
-            "Optimistic lock: reject immediately if current phase in "
-            "state.json does not match PHASE. Narrows (not eliminates) TOCTOU races "
-            "when multiple agents update state concurrently."
+            "Atomically reject the mutation if the locked state.json phase "
+            "does not match PHASE."
         ),
     )
     parser.add_argument("--last-role")
@@ -141,50 +141,17 @@ def main() -> int:
         return 1
 
     if args.transition:
-        # Read current phase BEFORE validation for accurate error reporting
-        current_phase = "unknown"
-        try:
-            current_phase = load_state(quest_dir).get("phase", "unknown")
-        except Exception:
-            pass
-
-        # Optimistic lock: reject if current phase doesn't match expectation
-        if args.expect_phase and current_phase != args.expect_phase:
-            print(
-                f"Optimistic lock failed: expected phase '{args.expect_phase}' "
-                f"but state.json has '{current_phase}'. Another agent may have "
-                f"modified state concurrently.",
-                file=sys.stderr,
-            )
-            return 1
-
+        # Validation is intentionally outside the filesystem lock. The final
+        # expected-phase comparison remains authoritative inside update_state().
         # Validate before mutating
         rc, output = run_validator(quest_dir, args.transition)
         if rc != 0:
             print(
-                f"Transition {current_phase} -> {args.transition} rejected by validator.",
+                f"Transition to {args.transition} rejected by validator.",
                 file=sys.stderr,
             )
             print(output, file=sys.stderr)
             return 1
-
-        # Re-check the lock AFTER the (slow) validator subprocess: a
-        # concurrent update landing during validation would otherwise be
-        # clobbered. This narrows the remaining check-to-write window from
-        # validator-duration to microseconds.
-        if args.expect_phase:
-            try:
-                current_phase = load_state(quest_dir).get("phase", "unknown")
-            except Exception:
-                current_phase = "unknown"
-            if current_phase != args.expect_phase:
-                print(
-                    f"Optimistic lock failed after validation: expected phase "
-                    f"'{args.expect_phase}' but state.json has '{current_phase}'. "
-                    "Another agent modified state concurrently.",
-                    file=sys.stderr,
-                )
-                return 1
 
     parked_bg_session = None
     if args.parked_bg_session is not None:
@@ -202,20 +169,26 @@ def main() -> int:
             )
             return 1
 
-    state = update_state(
-        quest_dir,
-        phase=target_phase,
-        status=args.status,
-        last_role=args.last_role,
-        last_verdict=args.last_verdict,
-        quest_mode=args.quest_mode,
-        plan_iteration=args.plan_iteration,
-        fix_iteration=args.fix_iteration,
-        parked_bg_session=parked_bg_session,
-    )
-    if args.clear_parked_bg_session and "parked_bg_session" in state:
-        state.pop("parked_bg_session", None)
-        write_state(quest_dir, state)
+    try:
+        state = update_state(
+            quest_dir,
+            expected_phase=args.expect_phase,
+            clear_parked_bg_session=args.clear_parked_bg_session,
+            phase=target_phase,
+            status=args.status,
+            last_role=args.last_role,
+            last_verdict=args.last_verdict,
+            quest_mode=args.quest_mode,
+            plan_iteration=args.plan_iteration,
+            fix_iteration=args.fix_iteration,
+            parked_bg_session=parked_bg_session,
+        )
+    except PhaseMismatchError as exc:
+        print(f"{exc}. Another agent modified state concurrently.", file=sys.stderr)
+        return 1
+    except StateError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     print(json.dumps(state, indent=2))
     return 0
 

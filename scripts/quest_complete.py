@@ -34,6 +34,7 @@ from quest_celebrate.quest_data import (
 from quest_celebrate.persist import CelebrationWriteResult, write_celebration_file
 from quest_runtime.claude_runner import sweep_left_survivor
 from quest_runtime.quest_ids import parse_quest_id
+from quest_runtime.state import StateError, load_state
 
 
 def _today() -> date:
@@ -465,11 +466,9 @@ def main() -> int:
         return 1
 
     try:
-        state = json.loads(state_file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-        print(
-            f"Error: could not read state.json in {quest_dir}: {exc}", file=sys.stderr
-        )
+        state = load_state(quest_dir)
+    except StateError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
     if state.get("status") != "complete":
         print(

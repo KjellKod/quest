@@ -21,6 +21,10 @@ CACHE_TTL_SECONDS="${QUEST_PREFLIGHT_CACHE_TTL_SECONDS:-43200}"
 case "$CACHE_TTL_SECONDS" in
   ''|*[!0-9]*) CACHE_TTL_SECONDS=43200 ;;  # fallback on non-integer input
 esac
+CODEX_LOGIN_TIMEOUT_SECONDS="${QUEST_CODEX_LOGIN_TIMEOUT_SECONDS:-5}"
+case "$CODEX_LOGIN_TIMEOUT_SECONDS" in
+  ''|*[!0-9]*|0) CODEX_LOGIN_TIMEOUT_SECONDS=5 ;;
+esac
 
 # Resolve THIS script's real directory so helper scripts are found regardless of
 # the caller's cwd. Quest may be installed outside the target repo and invoked by
@@ -243,9 +247,32 @@ cache_fallback_allowed() {
 # Claude-led session: probe for Codex
 ###############################################################################
 
+codex_login_status_bounded() {
+  python3 - "$CODEX_LOGIN_TIMEOUT_SECONDS" <<'PY'
+import subprocess
+import sys
+
+try:
+    result = subprocess.run(
+        ["codex", "login", "status"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=int(sys.argv[1]),
+        check=False,
+    )
+except subprocess.TimeoutExpired:
+    raise SystemExit(124)
+except OSError:
+    raise SystemExit(1)
+raise SystemExit(0 if result.returncode == 0 else 1)
+PY
+}
+
 probe_codex() {
   local codex_cli_installed="false"
   local codex_mcp_registered="false"
+  local codex_authenticated="false"
+  local codex_auth_reason="not_checked"
   local openai_auth="false"
   local available="false"
   local warning=""
@@ -253,6 +280,20 @@ probe_codex() {
   # Check Codex CLI
   if has_cmd codex; then
     codex_cli_installed="true"
+    local login_rc=0
+    if codex_login_status_bounded; then
+      codex_authenticated="true"
+      codex_auth_reason="authenticated"
+    else
+      login_rc=$?
+      if [ "$login_rc" -eq 124 ]; then
+        codex_auth_reason="timeout"
+      else
+        codex_auth_reason="unauthenticated"
+      fi
+    fi
+  else
+    codex_auth_reason="missing_cli"
   fi
 
   # Check MCP registration (requires claude CLI)
@@ -270,20 +311,22 @@ probe_codex() {
   fi
 
   # Determine overall availability
-  if [ "$codex_cli_installed" = "true" ] && [ "$codex_mcp_registered" = "true" ]; then
+  if [ "$codex_cli_installed" = "true" ] && \
+     [ "$codex_mcp_registered" = "true" ] && \
+     [ "$codex_authenticated" = "true" ]; then
     available="true"
   fi
 
   # Build warning lines if not available
   local warning_lines=""
   if [ "$available" = "false" ]; then
-    warning_lines="    \"Codex MCP not available -- quest will run Claude-only (all roles).\",\n"
+    warning_lines="    \"Codex is unavailable -- quest startup is paused for your decision.\",\n"
     warning_lines="${warning_lines}    \"To enable dual-model mode (Claude + Codex), run:\",\n"
     if [ "$codex_cli_installed" = "false" ]; then
       warning_lines="${warning_lines}    \"  npm i -g @openai/codex          # install Codex CLI\",\n"
     fi
-    if [ "$openai_auth" = "false" ]; then
-      warning_lines="${warning_lines}    \"  codex auth                       # login to OpenAI\",\n"
+    if [ "$codex_authenticated" = "false" ]; then
+      warning_lines="${warning_lines}    \"  codex login                      # login to OpenAI\",\n"
     fi
     if [ "$codex_mcp_registered" = "false" ]; then
       warning_lines="${warning_lines}    \"  claude mcp add --scope user codex-cli -- codex mcp-server\",\n"
@@ -299,6 +342,8 @@ probe_codex() {
   "checks": {
     "codex_cli_installed": ${codex_cli_installed},
     "codex_mcp_registered": ${codex_mcp_registered},
+    "codex_authenticated": ${codex_authenticated},
+    "codex_auth_reason": "${codex_auth_reason}",
     "openai_auth": ${openai_auth}
   },
   "warning": $(if [ -n "$warning_lines" ]; then printf '[\n%b\n  ]' "$warning_lines"; else echo 'null'; fi)

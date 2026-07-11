@@ -202,6 +202,136 @@ EOF
   chmod +x "$path"
 }
 
+write_codex_preflight_claude() {
+  local path="$1"
+  local registered="$2"
+  cat > "$path" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = "mcp" ] && [ "\$2" = "list" ]; then
+  if [ "$registered" = "true" ]; then
+    echo "codex-cli: codex mcp-server"
+  fi
+  exit 0
+fi
+exit 1
+EOF
+  chmod +x "$path"
+}
+
+write_codex_login_cli() {
+  local path="$1"
+  local mode="$2"
+  cat > "$path" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = "login" ] && [ "\$2" = "status" ]; then
+  case "$mode" in
+    authenticated) echo "Logged in"; exit 0 ;;
+    unauthenticated) echo "Not logged in" >&2; exit 1 ;;
+    timeout) sleep 2; exit 0 ;;
+  esac
+fi
+exit 1
+EOF
+  chmod +x "$path"
+}
+
+run_claude_codex_probe() {
+  local tmpdir="$1"
+  PATH="$tmpdir/bin:$PATH" \
+    QUEST_CODEX_LOGIN_TIMEOUT_SECONDS=1 \
+    "$PREFLIGHT_SCRIPT" --orchestrator claude 2>/dev/null
+}
+
+test_claude_preflight_requires_authenticated_codex() {
+  local tmpdir output
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_codex_preflight_claude "$tmpdir/bin/claude" true
+  write_codex_login_cli "$tmpdir/bin/codex" authenticated
+  output=$(run_claude_codex_probe "$tmpdir")
+  rm -rf "$tmpdir"
+
+  [ "$(printf '%s' "$output" | jq -r '.available')" = "true" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_authenticated')" = "true" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_auth_reason')" = "authenticated" ]
+}
+
+test_claude_preflight_reports_login_failure_without_crashing() {
+  local tmpdir output rc warning
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_codex_preflight_claude "$tmpdir/bin/claude" true
+  write_codex_login_cli "$tmpdir/bin/codex" unauthenticated
+  output=$(run_claude_codex_probe "$tmpdir")
+  rc=$?
+  warning=$(printf '%s' "$output" | jq -r '.warning | join(" ")')
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$(printf '%s' "$output" | jq -r '.available')" = "false" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_authenticated')" = "false" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_auth_reason')" = "unauthenticated" ] &&
+    printf '%s' "$warning" | grep -q "codex login" &&
+    ! printf '%s' "$warning" | grep -q "codex auth"
+}
+
+test_claude_preflight_reports_bounded_login_timeout() {
+  local tmpdir output rc
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_codex_preflight_claude "$tmpdir/bin/claude" true
+  write_codex_login_cli "$tmpdir/bin/codex" timeout
+  output=$(run_claude_codex_probe "$tmpdir")
+  rc=$?
+  rm -rf "$tmpdir"
+
+  [ "$rc" -eq 0 ] &&
+    [ "$(printf '%s' "$output" | jq -r '.available')" = "false" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_auth_reason')" = "timeout" ]
+}
+
+test_claude_preflight_does_not_treat_api_key_as_login() {
+  local tmpdir output
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_codex_preflight_claude "$tmpdir/bin/claude" true
+  write_codex_login_cli "$tmpdir/bin/codex" unauthenticated
+  output=$(OPENAI_API_KEY=test-only run_claude_codex_probe "$tmpdir")
+  rm -rf "$tmpdir"
+
+  [ "$(printf '%s' "$output" | jq -r '.available')" = "false" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.openai_auth')" = "true" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_authenticated')" = "false" ]
+}
+
+test_claude_preflight_requires_codex_mcp_registration() {
+  local tmpdir output
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_codex_preflight_claude "$tmpdir/bin/claude" false
+  write_codex_login_cli "$tmpdir/bin/codex" authenticated
+  output=$(run_claude_codex_probe "$tmpdir")
+  rm -rf "$tmpdir"
+
+  [ "$(printf '%s' "$output" | jq -r '.available')" = "false" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_mcp_registered')" = "false" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_authenticated')" = "true" ]
+}
+
+test_claude_preflight_reports_missing_codex_cli() {
+  local tmpdir output
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_codex_preflight_claude "$tmpdir/bin/claude" true
+  output=$(PATH="$tmpdir/bin:/usr/bin:/bin" \
+    "$PREFLIGHT_SCRIPT" --orchestrator claude 2>/dev/null)
+  rm -rf "$tmpdir"
+
+  [ "$(printf '%s' "$output" | jq -r '.available')" = "false" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_cli_installed')" = "false" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_auth_reason')" = "missing_cli" ]
+}
+
 test_quest_preflight_caches_successful_codex_bridge_probe() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -604,6 +734,12 @@ test_quest_preflight_reports_missing_probe_helper_diagnostic() {
 run_test test_quest_preflight_resolves_helpers_by_absolute_path_from_foreign_cwd
 run_test test_quest_preflight_resolves_helpers_through_symlinked_entrypoint
 run_test test_quest_preflight_reports_missing_probe_helper_diagnostic
+run_test test_claude_preflight_requires_authenticated_codex
+run_test test_claude_preflight_reports_login_failure_without_crashing
+run_test test_claude_preflight_reports_bounded_login_timeout
+run_test test_claude_preflight_does_not_treat_api_key_as_login
+run_test test_claude_preflight_requires_codex_mcp_registration
+run_test test_claude_preflight_reports_missing_codex_cli
 run_test test_quest_preflight_caches_successful_codex_bridge_probe
 run_test test_quest_preflight_uses_cached_success_when_live_probe_fails
 run_test test_quest_preflight_does_not_use_cached_success_for_non_auth_probe_failure
