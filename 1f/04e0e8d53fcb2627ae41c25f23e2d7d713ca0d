@@ -1,0 +1,53 @@
+tests/unit/test_quest_checks_cli.py
+  s_2f4505380c0458::t_9c090d4a8694cf 54-62
+docs/architecture/quest-install-posture.md
+  s_2f4505380c0458::t_ed46c6624d17cb 8,47-51,97-113
+  s_2f4505380c0458::t_2edfdac54f36e2 114
+docs/quest-journal/README.md
+  s_2f4505380c0458::t_82fb11b33881cc 9
+.skills/ci-code-reviewer/SKILL.md
+  s_2f4505380c0458::t_ed46c6624d17cb 12-13,189
+ideas/deterministic-json-orchestration-overrides.md
+  s_2f4505380c0458::t_d3050926d6b9ff 1-85
+tests/test-quest-runtime.sh
+  s_2f4505380c0458::t_f4a93e8e472988 1501,1551-1571,2186
+  s_2f4505380c0458::t_9c090d4a8694cf 1410,1415,1417,1420-1422,1424,1429-1435,1437-1438,1440-1442,1468,1471-1479,1486-1500,2182,2187-2188
+  s_2f4505380c0458::t_3dcf73b2e517ad 1436,1439,1443-1445
+  s_2f4505380c0458::t_ab8bb5f3bcbc98 1502
+.github/workflows/validate-quest-config.yml
+  s_2f4505380c0458::t_ed46c6624d17cb 38
+scripts/quest_validate-manifest.sh
+  s_2f4505380c0458::t_ed46c6624d17cb 3-4,11,29-30,32-34,120-133,135,156-157,167,169
+docs/quest-journal/host-safe-manifest-validation_2026-07-11.md
+  s_86af001cca6f6f::t_90168610ebfc64 36-37
+  s_2f4505380c0458::t_82fb11b33881cc 1-35,38-145
+docs/quest-journal/celebrations/host-safe-manifest-validation_2026-07-11.md
+  s_86af001cca6f6f::t_90168610ebfc64 13-15,20-21,27-29,32
+  s_2f4505380c0458::t_82fb11b33881cc 1-12,16-19,22-26,30-31,33-99
+.skills/git-commit-assistant/SKILL.md
+  s_2f4505380c0458::t_ed46c6624d17cb 14-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "1f04e0e8d53fcb2627ae41c25f23e2d7d713ca0d",
+  "prompts": {},
+  "sessions": {
+    "s_2f4505380c0458": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4d77-718e-7442-ab87-8093d6473b25",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_86af001cca6f6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "019f4d77-718e-7442-ab87-8093d6473b25",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
