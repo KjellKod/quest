@@ -35,7 +35,7 @@ jobs:
       - name: Validate manifest completeness
         run: |
           chmod +x scripts/quest_validate-manifest.sh
-          ./scripts/quest_validate-manifest.sh
+          ./scripts/quest_validate-manifest.sh --strict
 
       - name: Validate handoff contracts
         run: |

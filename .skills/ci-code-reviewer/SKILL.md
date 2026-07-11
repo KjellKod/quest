@@ -9,8 +9,8 @@ Automated code review for CI pipelines. Designed to run inside GitHub Actions
 via `openai/codex-action`, producing a single structured PR comment.
 
 This skill extends `.skills/code-reviewer/SKILL.md` with CI-specific
-adaptations: no interactive prompts, PR description validation, manifest
-pre-checks, and concise output formatting for automated comments.
+adaptations: no interactive prompts, PR description validation, and concise
+output formatting for automated comments.
 
 At activation, announce the skill name and scope in one line. Example: `[ci-code-reviewer] reviewing PR #97`.
 
@@ -72,14 +72,6 @@ If neither condition is met:
 
 If description exists but is very thin (fewer than ~20 words, little context):
 - **Should fix**: "PR description is sparse. Add more context about purpose and approach."
-
-### Step 0.1: Manifest Validation (Mandatory)
-
-Run `bash scripts/quest_validate-manifest.sh`.
-
-- If it fails, flag **Must fix** with the failing file/path details.
-- If PR adds or renames files under Quest-managed paths, verify `.quest-manifest`
-  is updated in the diff.
 
 ### Step 0.5: Implementation Alignment
 
@@ -170,7 +162,6 @@ If acceptance criteria are available from Step 0.5:
 2. If missing, flag as **Must fix**.
 
 For workflow/config/skill-only changes, acceptable evidence can include:
-- `bash scripts/quest_validate-manifest.sh`
 - `./scripts/quest_validate-quest-config.sh`
 - Manual GitHub runtime verification steps when CI event behavior is required
 
@@ -195,7 +186,7 @@ Shell scripts:
 JSON/schema/config integrity:
 - Schema references and paths are valid
 - Config keys are spelled correctly and supported
-- New files are registered where required (`.quest-manifest`, skill index)
+- New skills are registered in the skill index where required
 
 Apply minimal diff principle: smallest correct change, no speculative refactors.
 

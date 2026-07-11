@@ -72,10 +72,6 @@ If a code-specific issue is fixed before you comment, do **not** repost stale fe
 
 ## Review Process
 
-### Step 0: Manifest Validation
-
-Before reviewing code, run `scripts/quest_validate-manifest.sh` to check that all Quest files are listed in `.quest-manifest`. If validation fails, flag it as a **Must fix** — new or renamed files must be added to the manifest before merge.
-
 ### Step 1: Architecture Boundaries and Standards
 
 Enforce boundaries and conventions defined in:
