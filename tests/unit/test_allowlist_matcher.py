@@ -291,7 +291,9 @@ def test_pipeline_spot_checks_allow_expected_commands():
         "python3 -m pytest",
         "gh pr view",
     ]
-    assert is_bash_command_allowed("bash scripts/quest_validate-manifest.sh", entries) == (
+    assert is_bash_command_allowed(
+        "bash scripts/quest_validate-manifest.sh", entries
+    ) == (
         True,
         "exact_match",
     )
@@ -317,9 +319,7 @@ def test_stdout_redirection_is_blocked() -> None:
 def test_stdout_append_redirection_is_blocked() -> None:
     from quest_allowlist_matcher import is_bash_command_allowed
 
-    allowed, reason = is_bash_command_allowed(
-        "git log >> /tmp/log", ["git log"]
-    )
+    allowed, reason = is_bash_command_allowed("git log >> /tmp/log", ["git log"])
     assert allowed is False
     assert reason == "blocked_metacharacter"
 

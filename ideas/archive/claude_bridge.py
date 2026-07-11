@@ -155,7 +155,9 @@ def call_anthropic(
     }
 
     for attempt in range(retries + 1):
-        request = urllib.request.Request(API_URL, data=body, headers=headers, method="POST")
+        request = urllib.request.Request(
+            API_URL, data=body, headers=headers, method="POST"
+        )
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 response_text = response.read().decode("utf-8")
@@ -174,7 +176,9 @@ def call_anthropic(
             if attempt < retries:
                 time.sleep(2**attempt)
                 continue
-            raise RuntimeError(f"Network error calling Anthropic API: {err.reason}") from err
+            raise RuntimeError(
+                f"Network error calling Anthropic API: {err.reason}"
+            ) from err
         except json.JSONDecodeError as err:
             raise RuntimeError("Could not parse API JSON response.") from err
 

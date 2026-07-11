@@ -14,7 +14,9 @@ def _repo_root() -> Path:
 
 def _load_module():
     module_path = _repo_root() / "scripts" / "check_quest_checksum_drift.py"
-    spec = importlib.util.spec_from_file_location("check_quest_checksum_drift", module_path)
+    spec = importlib.util.spec_from_file_location(
+        "check_quest_checksum_drift", module_path
+    )
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

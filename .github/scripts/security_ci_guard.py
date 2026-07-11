@@ -24,14 +24,16 @@ SECRET_TOKEN_RAW_SNIPPETS = (
     "secrets.OPENAI_API_KEY",
 )
 SECRET_BEARING_SCOPES = frozenset({"pull-requests", "issues"})
-BROAD_WRITE_SCOPES = frozenset({
-    "contents",
-    "actions",
-    "packages",
-    "deployments",
-    "attestations",
-    "checks",
-})
+BROAD_WRITE_SCOPES = frozenset(
+    {
+        "contents",
+        "actions",
+        "packages",
+        "deployments",
+        "attestations",
+        "checks",
+    }
+)
 # `permissions: write-all` is a scalar shortcut that grants every scope as write.
 # Mirror that structurally so every downstream permission check (id-token rule,
 # broad-write rule, secret-bearing rule) sees the implied grants. `read-all` is
@@ -88,12 +90,16 @@ def _has_unquoted_inline_sentinel(text: str) -> bool:
                 return SENTINEL_INLINE_RE.match(text[i:]) is not None
         i += 1
     return False
+
+
 PULL_REQUEST_TARGET_SENTINEL_RE = re.compile(
     r"^\s*#\s*security-guard:\s*allow\s+pull_request_target\b",
     re.MULTILINE,
 )
 RUN_LINE_RE = re.compile(r"^(?P<indent>\s*)(?:-\s*)?run:\s*(?P<tail>.*)$")
-ACTION_REF_RE = re.compile(r"^(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)@(?P<ref>\S+)$")
+ACTION_REF_RE = re.compile(
+    r"^(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)@(?P<ref>\S+)$"
+)
 REUSABLE_WORKFLOW_REF_RE = re.compile(
     r"^(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)/(?P<path>[A-Za-z0-9_./-]+\.ya?ml)@(?P<ref>\S+)$"
 )
@@ -260,7 +266,9 @@ def _extract_job_step_sentinel_flags(raw_text: str) -> dict[str, list[bool]]:
 
     job_step_sentinel_flags: dict[str, list[bool]] = {}
     for raw_job_name, raw_job_body in raw_jobs.value:
-        if not isinstance(raw_job_name, ScalarNode) or not isinstance(raw_job_body, MappingNode):
+        if not isinstance(raw_job_name, ScalarNode) or not isinstance(
+            raw_job_body, MappingNode
+        ):
             continue
 
         raw_steps = _mapping_node_get(raw_job_body, "steps")
@@ -359,7 +367,10 @@ def uses_pull_request_event(workflow: WorkflowView) -> bool:
 
 
 def uses_pull_request_target(workflow: WorkflowView) -> bool:
-    return "pull_request_target" in workflow.triggers or "pull_request_target:" in workflow.raw_text
+    return (
+        "pull_request_target" in workflow.triggers
+        or "pull_request_target:" in workflow.raw_text
+    )
 
 
 def uses_checkout(workflow: WorkflowView) -> bool:
@@ -370,7 +381,9 @@ def uses_checkout(workflow: WorkflowView) -> bool:
     return "actions/checkout@" in workflow.raw_text
 
 
-def _permissions_grant_any(perms: Mapping[str, str], scopes: frozenset[str], value: str) -> bool:
+def _permissions_grant_any(
+    perms: Mapping[str, str], scopes: frozenset[str], value: str
+) -> bool:
     return any(perms.get(scope) == value for scope in scopes)
 
 
@@ -435,29 +448,31 @@ _NPM_EXACT_SEMVER_RE = re.compile(
 # Skipped as a pair so the value isn't misclassified as a package spec — e.g.
 # `npm install -g --registry https://registry.example.com foo@1.2.3` must not
 # treat the registry URL as an unpinned package.
-_NPM_FLAGS_WITH_VALUE = frozenset({
-    "--registry",
-    "--prefix",
-    "--cache",
-    "--userconfig",
-    "--globalconfig",
-    "--proxy",
-    "--https-proxy",
-    "--ca",
-    "--cafile",
-    "--cert",
-    "--key",
-    "--user-agent",
-    "--workspace",
-    "-w",
-    "--workspaces",
-    "--loglevel",
-    "--script-shell",
-    "--tag",
-    "--save-prefix",
-    "-C",
-    "--prefix-dir",
-})
+_NPM_FLAGS_WITH_VALUE = frozenset(
+    {
+        "--registry",
+        "--prefix",
+        "--cache",
+        "--userconfig",
+        "--globalconfig",
+        "--proxy",
+        "--https-proxy",
+        "--ca",
+        "--cafile",
+        "--cert",
+        "--key",
+        "--user-agent",
+        "--workspace",
+        "-w",
+        "--workspaces",
+        "--loglevel",
+        "--script-shell",
+        "--tag",
+        "--save-prefix",
+        "-C",
+        "--prefix-dir",
+    }
+)
 
 
 def _npm_package_spec_is_immutable(spec: str) -> bool:
@@ -715,9 +730,7 @@ def _check_installer_line(line: str) -> str | None:
 def _find_unpinned_installer_line(step: StepView) -> str | None:
     if step.run is None:
         return None
-    logical_lines = [
-        raw for raw in _join_shell_continuations(step.run) if raw.strip()
-    ]
+    logical_lines = [raw for raw in _join_shell_continuations(step.run) if raw.strip()]
     # Single-logical-line steps may rely on a sentinel sourced from outside the
     # body (a YAML comment above the run key, or a trailing comment that YAML
     # stripped during parsing). Trust the AST-derived flag only for those.
@@ -775,11 +788,19 @@ def scan_workflow(path: Path) -> list[str]:
                     f"{path}: third-party action '{step.uses}' must be pinned to a full 40-character commit SHA."
                 )
 
-    if _contains_id_token_write(workflow.permissions) and not _is_id_token_allowlisted(path):
-        failures.append(f"{path}: id-token: write is only allowed for allowlisted workflows.")
+    if _contains_id_token_write(workflow.permissions) and not _is_id_token_allowlisted(
+        path
+    ):
+        failures.append(
+            f"{path}: id-token: write is only allowed for allowlisted workflows."
+        )
     for job in workflow.jobs.values():
-        if _contains_id_token_write(job.permissions) and not _is_id_token_allowlisted(path):
-            failures.append(f"{path}: id-token: write is only allowed for allowlisted workflows.")
+        if _contains_id_token_write(job.permissions) and not _is_id_token_allowlisted(
+            path
+        ):
+            failures.append(
+                f"{path}: id-token: write is only allowed for allowlisted workflows."
+            )
 
     if not pr_event:
         return failures
@@ -795,7 +816,9 @@ def scan_workflow(path: Path) -> list[str]:
             reason = _find_unpinned_installer_line(step)
             if reason:
                 step_name = step.name or "unnamed step"
-                failures.append(f"{path}: {step_name} uses disallowed installer pattern ({reason}).")
+                failures.append(
+                    f"{path}: {step_name} uses disallowed installer pattern ({reason})."
+                )
 
     if not is_secret_bearing(workflow):
         return failures

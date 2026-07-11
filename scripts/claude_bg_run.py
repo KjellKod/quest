@@ -85,7 +85,9 @@ EXIT_NEEDS_HUMAN = 10  # actionable, not a failure: agent asked for a decision
 EXIT_INTERRUPTED = 130  # Ctrl-C: session torn down before exit
 
 _SHORTID_RE = re.compile(r"backgrounded\s*·\s*([0-9a-fA-F]+)")
-_SESSION_ID_RE = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}|[0-9a-fA-F]{32}")
+_SESSION_ID_RE = re.compile(
+    r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}|[0-9a-fA-F]{32}"
+)
 _BYPASS_REFUSAL_RE = re.compile(
     r"bypass[- ]?permissions.*requires accepting|dangerously-skip-permissions",
     re.IGNORECASE,
@@ -325,7 +327,9 @@ def _row_active_or_unknown(row: dict) -> bool:
     return not activity or bool(activity & {"working", "busy"})
 
 
-def _classify_limit_or_model(text: str) -> tuple[str, str, str | None, str | None] | None:
+def _classify_limit_or_model(
+    text: str,
+) -> tuple[str, str, str | None, str | None] | None:
     """Classify rate-limit / model-rejection evidence into
     (status, message, reset_at, rejected_model).
 
@@ -335,7 +339,11 @@ def _classify_limit_or_model(text: str) -> tuple[str, str, str | None, str | Non
     """
     if _RATE_LIMIT_RE.search(text):
         reset_at = _parse_reset_at(text)
-        reset = f" after reset ({reset_at})" if reset_at else " after the session limit resets"
+        reset = (
+            f" after reset ({reset_at})"
+            if reset_at
+            else " after the session limit resets"
+        )
         return (
             "rate_limited",
             "Claude background session hit the account session limit; "
@@ -461,7 +469,9 @@ class BgRunner:
         if not session_id:
             return None
         root = Path(self.a.transcripts_root).expanduser()
-        matches = list(root.glob(f"*/{session_id}.jsonl")) or list(root.glob(f"{session_id}.jsonl"))
+        matches = list(root.glob(f"*/{session_id}.jsonl")) or list(
+            root.glob(f"{session_id}.jsonl")
+        )
         return matches[0] if matches else None
 
     def logs_tail(self, session_id: str | None, max_texts: int = 4) -> str:
@@ -648,12 +658,20 @@ class BgRunner:
 
     def build_prompt(self) -> str:
         return self._with_protocol(
-            self._read_source(self.a.prompt, self.a.prompt_file, "prompt (use --prompt/--prompt-file or stdin)")
+            self._read_source(
+                self.a.prompt,
+                self.a.prompt_file,
+                "prompt (use --prompt/--prompt-file or stdin)",
+            )
         )
 
     def build_answer(self) -> str:
         return self._with_protocol(
-            self._read_source(self.a.answer, self.a.answer_file, "answer (resume mode needs --answer/--answer-file)")
+            self._read_source(
+                self.a.answer,
+                self.a.answer_file,
+                "answer (resume mode needs --answer/--answer-file)",
+            )
         )
 
     def _fresh_dispatch_preserving_outputs(
@@ -766,9 +784,16 @@ class BgRunner:
                     if r.get(key):
                         pre_existing.add(r[key])
         except FileNotFoundError:
-            return DispatchResult("precondition_failed", "claude CLI not found in PATH", None, None)
+            return DispatchResult(
+                "precondition_failed", "claude CLI not found in PATH", None, None
+            )
         except (OSError, subprocess.SubprocessError) as exc:
-            return DispatchResult("dispatch_failed", f"roster snapshot before dispatch failed: {exc}", None, None)
+            return DispatchResult(
+                "dispatch_failed",
+                f"roster snapshot before dispatch failed: {exc}",
+                None,
+                None,
+            )
         argv = self.dispatch_argv(resume_sid)
         try:
             cp = subprocess.run(
@@ -780,9 +805,13 @@ class BgRunner:
                 check=False,
             )
         except FileNotFoundError:
-            return DispatchResult("precondition_failed", "claude CLI not found in PATH", None, None)
+            return DispatchResult(
+                "precondition_failed", "claude CLI not found in PATH", None, None
+            )
         except subprocess.SubprocessError as exc:
-            return DispatchResult("dispatch_failed", f"dispatch error: {exc}", None, None)
+            return DispatchResult(
+                "dispatch_failed", f"dispatch error: {exc}", None, None
+            )
 
         out = cp.stdout + cp.stderr
         if _BYPASS_REFUSAL_RE.search(out):
@@ -824,7 +853,8 @@ class BgRunner:
         if not row:
             return DispatchResult(
                 terminal_status="dispatch_failed",
-                message="session never registered with the supervisor (printed: %r)" % out.strip()[:200],
+                message="session never registered with the supervisor (printed: %r)"
+                % out.strip()[:200],
                 short_id=short_id,
                 row=None,
             )
@@ -1037,124 +1067,140 @@ class BgRunner:
         # observation before inferring a startup dialog from the missing file.
         startup_observations = 0
         try:
-          while True:
-            now = time.monotonic()
-            if now > deadline:
-                env.status, env.final_state = "timeout", env.final_state or "working"
-                env.message = (
-                    f"task exceeded --timeout ({self.a.timeout:g}s); the session "
-                    "is being stopped. Increase --timeout or split the task; "
-                    "artifacts written so far are listed in artifacts_found."
-                )
-                break  # final teardown below stops the session
+            while True:
+                now = time.monotonic()
+                if now > deadline:
+                    env.status, env.final_state = (
+                        "timeout",
+                        env.final_state or "working",
+                    )
+                    env.message = (
+                        f"task exceeded --timeout ({self.a.timeout:g}s); the session "
+                        "is being stopped. Increase --timeout or split the task; "
+                        "artifacts written so far are listed in artifacts_found."
+                    )
+                    break  # final teardown below stops the session
 
-            hf = self.read_handoff()
-            if hf and hf.get("status") == "needs_human":
-                qs = hf.get("questions") or ([hf["question"]] if hf.get("question") else [])
-                env.status, env.questions = "needs_human", [str(q) for q in qs]
-                break
+                hf = self.read_handoff()
+                if hf and hf.get("status") == "needs_human":
+                    qs = hf.get("questions") or (
+                        [hf["question"]] if hf.get("question") else []
+                    )
+                    env.status, env.questions = "needs_human", [str(q) for q in qs]
+                    break
 
-            if self.a.wait_for:
-                if all(self._nonempty(p) for p in self.a.wait_for):
+                if self.a.wait_for:
+                    if all(self._nonempty(p) for p in self.a.wait_for):
+                        env.status = "ok"
+                        break
+                elif hf and hf.get("status") == "complete":
                     env.status = "ok"
                     break
-            elif hf and hf.get("status") == "complete":
-                env.status = "ok"
-                break
 
-            if now >= next_status:
-                next_status = now + self.a.status_interval
-                # Track ONLY the confirmed id: a name fallback could silently
-                # adopt a different same-name agent if ours vanished, hiding
-                # the real failure. (Daemon respawns keep the row id, so id
-                # tracking survives them.)
-                row = self.find_session(env.short_id)
-                state = (row or {}).get("state") or (row or {}).get("status")
-                env.final_state = state
-                if row is None:
-                    env.status = "session_failed"
-                    env.message = (
-                        "session disappeared from `claude agents` before "
-                        "completing; check `claude agents` and the transcript "
-                        "tail (logs_tail) for the last activity, then "
-                        "re-dispatch the task."
-                    )
-                    break
-                if state == "blocked" and row.get("status") != "busy":
-                    # state=blocked + status=busy is an active session
-                    # momentarily awaiting a tool (same mixed-field reality the
-                    # retirement guard honors) — keep polling and classify only
-                    # once the status settles; a persistent block will still be
-                    # here next poll, and a hung one ends at --timeout.
-                    # Opportunistic only: Claude Code 2.1.191's initial-prompt
-                    # parked signal was observed in dispatch stdout, not here.
-                    detail = row.get("waitingFor") or row.get("needs") or row.get("detail")
-                    detail_text = str(detail) if detail else ""
-                    # Classification evidence: roster detail + the FINAL
-                    # assistant message only — a CLI dialog is always the last
-                    # message, and earlier prose that merely discusses limits
-                    # or models must not classify.
-                    last_text = self.logs_tail(env.session_id, max_texts=1)
-                    evidence = "\n".join(part for part in (detail_text, last_text) if part)
-                    cwd = os.getcwd()
-                    classified = _classify_limit_or_model(evidence)
-                    if classified:
-                        env.status, env.message, env.reset_at, rejected = classified
-                        if env.status == "model_rejected":
-                            env.rejected_model = rejected or self._rejected_model_fallback()
-                    elif (
-                        # Transcript FILE missing = the session never consumed
-                        # its prompt: a startup dialog (trust/bypass) by
-                        # definition. An existing transcript with no text
-                        # (e.g. a tool_use-only first turn) is NOT that signal
-                        # and falls through to generic blocked. A resumed fork
-                        # cannot hit a trust dialog (the parent already
-                        # accepted it) — its missing file is just flush lag.
-                        (self._transcript_path(env.session_id) is None and not env.resumed)
-                        or _STARTUP_DIALOG_RE.search(evidence)
-                    ):
-                        startup_observations += 1
-                        if startup_observations < 2:
-                            # First observation may be pre-flush; confirm on
-                            # the next poll before committing to the terminal
-                            # startup_dialog status and its remediation.
-                            time.sleep(self.a.poll_interval)
-                            continue
-                        detail_note = (
-                            f"Claude CLI reported: {detail_text}"
-                            if detail_text
-                            else "no dialog detail; inferred from the missing transcript"
-                        )
-                        env.status = "startup_dialog"
+                if now >= next_status:
+                    next_status = now + self.a.status_interval
+                    # Track ONLY the confirmed id: a name fallback could silently
+                    # adopt a different same-name agent if ours vanished, hiding
+                    # the real failure. (Daemon respawns keep the row id, so id
+                    # tracking survives them.)
+                    row = self.find_session(env.short_id)
+                    state = (row or {}).get("state") or (row or {}).get("status")
+                    env.final_state = state
+                    if row is None:
+                        env.status = "session_failed"
                         env.message = (
-                            "background session registered but did not consume "
-                            f"the initial prompt ({detail_note}); open Claude "
-                            f"interactively in the target cwd ({cwd}) and accept "
-                            "trust/bypass prompts, then re-run the task."
-                        )
-                    else:
-                        env.status = "blocked"
-                        env.message = "session is blocked on an interactive prompt " + (
-                            f"({detail_text})"
-                            if detail_text
-                            else f"(cause unknown; open Claude interactively in the target cwd ({cwd}) to inspect)"
-                        )
-                    break
-                if state in ("done", "idle"):
-                    if not self.a.wait_for and not self.a.handoff_file:
-                        env.status = "ok"  # --no-wait: completion == reached done
-                        break
-                    grace_left -= 1
-                    if grace_left <= 0:
-                        env.status = "incomplete"
-                        env.message = (
-                            "session finished but declared output files are "
-                            "missing/empty (see missing); re-dispatch the task, "
-                            "and if it recurs check logs_tail for what the "
-                            "agent believed it wrote."
+                            "session disappeared from `claude agents` before "
+                            "completing; check `claude agents` and the transcript "
+                            "tail (logs_tail) for the last activity, then "
+                            "re-dispatch the task."
                         )
                         break
-            time.sleep(self.a.poll_interval)
+                    if state == "blocked" and row.get("status") != "busy":
+                        # state=blocked + status=busy is an active session
+                        # momentarily awaiting a tool (same mixed-field reality the
+                        # retirement guard honors) — keep polling and classify only
+                        # once the status settles; a persistent block will still be
+                        # here next poll, and a hung one ends at --timeout.
+                        # Opportunistic only: Claude Code 2.1.191's initial-prompt
+                        # parked signal was observed in dispatch stdout, not here.
+                        detail = (
+                            row.get("waitingFor")
+                            or row.get("needs")
+                            or row.get("detail")
+                        )
+                        detail_text = str(detail) if detail else ""
+                        # Classification evidence: roster detail + the FINAL
+                        # assistant message only — a CLI dialog is always the last
+                        # message, and earlier prose that merely discusses limits
+                        # or models must not classify.
+                        last_text = self.logs_tail(env.session_id, max_texts=1)
+                        evidence = "\n".join(
+                            part for part in (detail_text, last_text) if part
+                        )
+                        cwd = os.getcwd()
+                        classified = _classify_limit_or_model(evidence)
+                        if classified:
+                            env.status, env.message, env.reset_at, rejected = classified
+                            if env.status == "model_rejected":
+                                env.rejected_model = (
+                                    rejected or self._rejected_model_fallback()
+                                )
+                        elif (
+                            # Transcript FILE missing = the session never consumed
+                            # its prompt: a startup dialog (trust/bypass) by
+                            # definition. An existing transcript with no text
+                            # (e.g. a tool_use-only first turn) is NOT that signal
+                            # and falls through to generic blocked. A resumed fork
+                            # cannot hit a trust dialog (the parent already
+                            # accepted it) — its missing file is just flush lag.
+                            (
+                                self._transcript_path(env.session_id) is None
+                                and not env.resumed
+                            )
+                            or _STARTUP_DIALOG_RE.search(evidence)
+                        ):
+                            startup_observations += 1
+                            if startup_observations < 2:
+                                # First observation may be pre-flush; confirm on
+                                # the next poll before committing to the terminal
+                                # startup_dialog status and its remediation.
+                                time.sleep(self.a.poll_interval)
+                                continue
+                            detail_note = (
+                                f"Claude CLI reported: {detail_text}"
+                                if detail_text
+                                else "no dialog detail; inferred from the missing transcript"
+                            )
+                            env.status = "startup_dialog"
+                            env.message = (
+                                "background session registered but did not consume "
+                                f"the initial prompt ({detail_note}); open Claude "
+                                f"interactively in the target cwd ({cwd}) and accept "
+                                "trust/bypass prompts, then re-run the task."
+                            )
+                        else:
+                            env.status = "blocked"
+                            env.message = "session is blocked on an interactive prompt " + (
+                                f"({detail_text})"
+                                if detail_text
+                                else f"(cause unknown; open Claude interactively in the target cwd ({cwd}) to inspect)"
+                            )
+                        break
+                    if state in ("done", "idle"):
+                        if not self.a.wait_for and not self.a.handoff_file:
+                            env.status = "ok"  # --no-wait: completion == reached done
+                            break
+                        grace_left -= 1
+                        if grace_left <= 0:
+                            env.status = "incomplete"
+                            env.message = (
+                                "session finished but declared output files are "
+                                "missing/empty (see missing); re-dispatch the task, "
+                                "and if it recurs check logs_tail for what the "
+                                "agent believed it wrote."
+                            )
+                            break
+                time.sleep(self.a.poll_interval)
         except KeyboardInterrupt:
             env.status = "interrupted"
             env.message = "interrupted by user; tearing the session down"
@@ -1169,7 +1215,9 @@ class BgRunner:
             # reset time or model name out of earlier agent prose.
             last_text = self.logs_tail(env.session_id, max_texts=1)
             if env.status == "model_rejected" and env.rejected_model is None:
-                env.rejected_model = _parse_rejected_model(last_text) or self._rejected_model_fallback()
+                env.rejected_model = (
+                    _parse_rejected_model(last_text) or self._rejected_model_fallback()
+                )
             if env.status == "rate_limited" and env.reset_at is None:
                 env.reset_at = _parse_reset_at(last_text)
 
@@ -1215,17 +1263,39 @@ class BgRunner:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Run one Claude background-agent task to a file-based result.")
+    p = argparse.ArgumentParser(
+        description="Run one Claude background-agent task to a file-based result."
+    )
     src = p.add_mutually_exclusive_group()
-    src.add_argument("--prompt", help="task prompt (also the fallback task in resume mode)")
+    src.add_argument(
+        "--prompt", help="task prompt (also the fallback task in resume mode)"
+    )
     src.add_argument("--prompt-file", help="path or '-' for stdin")
-    p.add_argument("--resume", help="resume an existing session: session id, agent short id, or agent name (rename-safe)")
+    p.add_argument(
+        "--resume",
+        help="resume an existing session: session id, agent short id, or agent name (rename-safe)",
+    )
     p.add_argument("--answer", help="resume mode: the human's reply to send back")
-    p.add_argument("--answer-file", help="resume mode: read the reply from a file ('-' for stdin)")
-    p.add_argument("--no-fallback", dest="fallback", action="store_false", help="resume mode: do not fall back to a fresh re-dispatch if resume fails")
+    p.add_argument(
+        "--answer-file", help="resume mode: read the reply from a file ('-' for stdin)"
+    )
+    p.add_argument(
+        "--no-fallback",
+        dest="fallback",
+        action="store_false",
+        help="resume mode: do not fall back to a fresh re-dispatch if resume fails",
+    )
     p.set_defaults(fallback=True)
-    p.add_argument("--wait-for", action="append", default=[], help="output file(s) that must exist & be non-empty (repeatable)")
-    p.add_argument("--handoff-file", help="optional JSON the agent writes; status needs_human bubbles back")
+    p.add_argument(
+        "--wait-for",
+        action="append",
+        default=[],
+        help="output file(s) that must exist & be non-empty (repeatable)",
+    )
+    p.add_argument(
+        "--handoff-file",
+        help="optional JSON the agent writes; status needs_human bubbles back",
+    )
     p.add_argument(
         "--teardown-on-needs-human",
         action="store_true",
@@ -1236,8 +1306,14 @@ def build_parser() -> argparse.ArgumentParser:
             "session torn down — rather than parked until a human answers."
         ),
     )
-    p.add_argument("--model", default="", help="Claude model; exact `claude` uses the CLI/account default")
-    p.add_argument("--effort", default="", choices=["", "low", "medium", "high", "xhigh", "max"])
+    p.add_argument(
+        "--model",
+        default="",
+        help="Claude model; exact `claude` uses the CLI/account default",
+    )
+    p.add_argument(
+        "--effort", default="", choices=["", "low", "medium", "high", "xhigh", "max"]
+    )
     p.add_argument("--permission-mode", default="bypassPermissions")
     p.add_argument("--add-dir", action="append", default=[])
     p.add_argument("--name", default=f"bgrun-{uuid.uuid4().hex[:8]}")
@@ -1247,16 +1323,29 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--poll-interval", type=float, default=2.0)
     p.add_argument("--status-interval", type=float, default=10.0)
     p.add_argument("--keep", action="store_true", help="skip teardown (debugging)")
-    p.add_argument("--no-protocol", action="store_true", help="do not append the completion-protocol block")
-    p.add_argument("--json", action="store_true", help="emit the result envelope as JSON")
+    p.add_argument(
+        "--no-protocol",
+        action="store_true",
+        help="do not append the completion-protocol block",
+    )
+    p.add_argument(
+        "--json", action="store_true", help="emit the result envelope as JSON"
+    )
     p.add_argument("--claude-bin", default=os.environ.get("CLAUDE_BIN", "claude"))
     p.add_argument(
         "--transcripts-root",
         default="~/.claude/projects",
         help="where session transcript JSONLs live (logs_tail source)",
     )
-    p.add_argument("--self-test", action="store_true", help="run the PTY noise-firewall demo and exit")
-    p.add_argument("--sweep", help="stop all background sessions whose NAME starts with this prefix, then exit (orphan recovery; skips actively working/busy rows)")
+    p.add_argument(
+        "--self-test",
+        action="store_true",
+        help="run the PTY noise-firewall demo and exit",
+    )
+    p.add_argument(
+        "--sweep",
+        help="stop all background sessions whose NAME starts with this prefix, then exit (orphan recovery; skips actively working/busy rows)",
+    )
     p.add_argument(
         "--sweep-include-active",
         action="store_true",

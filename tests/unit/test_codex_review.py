@@ -9,7 +9,9 @@ from pathlib import Path
 import pytest
 
 # Make the script importable
-_scripts_dir = str(Path(__file__).resolve().parent.parent.parent / ".github" / "scripts")
+_scripts_dir = str(
+    Path(__file__).resolve().parent.parent.parent / ".github" / "scripts"
+)
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
@@ -22,10 +24,7 @@ def review_tmp_files():
         Path("/tmp/review-output.json"),
         Path("/tmp/existing_comments.json"),
     ]
-    originals = {
-        path: path.read_bytes() if path.exists() else None
-        for path in paths
-    }
+    originals = {path: path.read_bytes() if path.exists() else None for path in paths}
 
     try:
         yield
@@ -40,6 +39,7 @@ def review_tmp_files():
 # ---------------------------------------------------------------------------
 # normalize_severity
 # ---------------------------------------------------------------------------
+
 
 class TestNormalizeSeverity:
     def test_valid_values(self):
@@ -72,6 +72,7 @@ class TestNormalizeSeverity:
 # format_inline_body
 # ---------------------------------------------------------------------------
 
+
 class TestFormatInlineBody:
     @pytest.mark.parametrize(
         "severity, expected_prefix",
@@ -91,7 +92,9 @@ class TestFormatInlineBody:
         assert formatted.count(codex_review.ADVISORY_FOOTER) == 1
 
     @pytest.mark.parametrize("severity", [None, "nit"])
-    def test_format_inline_body_unknown_or_missing_severity_only_adds_footer(self, severity):
+    def test_format_inline_body_unknown_or_missing_severity_only_adds_footer(
+        self, severity
+    ):
         formatted = codex_review.format_inline_body(severity, "Details here.")
 
         assert formatted == f"Details here.\n\n{codex_review.ADVISORY_FOOTER}"
@@ -109,7 +112,9 @@ class TestFormatInlineBody:
         assert formatted.count(codex_review.ADVISORY_FOOTER) == 1
 
     def test_format_inline_body_upgrades_legacy_prefix_without_duplication(self):
-        formatted = codex_review.format_inline_body("must-fix", "**Must fix** - details")
+        formatted = codex_review.format_inline_body(
+            "must-fix", "**Must fix** - details"
+        )
 
         assert formatted.startswith("\U0001f7e0 **Must fix** - details")
         assert formatted.count("**Must fix**") == 1
@@ -119,6 +124,7 @@ class TestFormatInlineBody:
 # ---------------------------------------------------------------------------
 # escape_github_command_field
 # ---------------------------------------------------------------------------
+
 
 class TestEscapeGithubCommandField:
     def test_escape_percent(self):
@@ -143,6 +149,7 @@ class TestEscapeGithubCommandField:
 # ---------------------------------------------------------------------------
 # is_valid_comment
 # ---------------------------------------------------------------------------
+
 
 class TestIsValidComment:
     def _make_comment(self, **overrides):
@@ -228,6 +235,7 @@ class TestIsValidComment:
 # parse_review_output
 # ---------------------------------------------------------------------------
 
+
 class TestParseReviewOutput:
     def test_parse_direct_json_array(self):
         data = [{"path": "a.py", "body": "fix", "line": 1}]
@@ -275,6 +283,7 @@ class TestParseReviewOutput:
 # extract_keywords
 # ---------------------------------------------------------------------------
 
+
 class TestExtractKeywords:
     def test_filters_short_words(self):
         result = codex_review.extract_keywords("do it now and fix the bug")
@@ -290,7 +299,9 @@ class TestExtractKeywords:
         assert result == set()
 
     def test_keeps_meaningful_words(self):
-        result = codex_review.extract_keywords("buffer overflow vulnerability detected here")
+        result = codex_review.extract_keywords(
+            "buffer overflow vulnerability detected here"
+        )
         assert "buffer" in result
         assert "overflow" in result
         assert "vulnerability" in result
@@ -305,39 +316,48 @@ class TestExtractKeywords:
 # is_duplicate
 # ---------------------------------------------------------------------------
 
+
 class TestIsDuplicate:
     def test_duplicate_resolved(self):
         resolved = {("src/main.py", 10)}
         result = codex_review.is_duplicate(
-            {"path": "src/main.py", "line": 10, "body": "anything"},
-            resolved, set(), []
+            {"path": "src/main.py", "line": 10, "body": "anything"}, resolved, set(), []
         )
         assert result == "resolved"
 
     def test_duplicate_already_commented(self):
         bot_locs = {("src/main.py", 10)}
         result = codex_review.is_duplicate(
-            {"path": "src/main.py", "line": 10, "body": "anything"},
-            set(), bot_locs, []
+            {"path": "src/main.py", "line": 10, "body": "anything"}, set(), bot_locs, []
         )
         assert result == "already-commented"
 
     def test_duplicate_similar_concern(self):
-        concerns = [{
-            "path": "src/main.py",
-            "line": 10,
-            "keywords": {"buffer", "overflow", "vulnerability", "detected"},
-        }]
+        concerns = [
+            {
+                "path": "src/main.py",
+                "line": 10,
+                "keywords": {"buffer", "overflow", "vulnerability", "detected"},
+            }
+        ]
         result = codex_review.is_duplicate(
-            {"path": "src/main.py", "line": 20, "body": "buffer overflow vulnerability detected here"},
-            set(), set(), concerns
+            {
+                "path": "src/main.py",
+                "line": 20,
+                "body": "buffer overflow vulnerability detected here",
+            },
+            set(),
+            set(),
+            concerns,
         )
         assert result == "similar-concern"
 
     def test_not_duplicate(self):
         result = codex_review.is_duplicate(
             {"path": "src/other.py", "line": 5, "body": "completely different concern"},
-            set(), set(), []
+            set(),
+            set(),
+            [],
         )
         assert result is None
 
@@ -345,6 +365,7 @@ class TestIsDuplicate:
 # ---------------------------------------------------------------------------
 # build_dedup_state
 # ---------------------------------------------------------------------------
+
 
 class TestBuildDedupState:
     def test_empty_input(self):
@@ -356,14 +377,32 @@ class TestBuildDedupState:
     def test_with_bot_comments_and_human_replies(self):
         existing = [
             # Bot comment
-            {"id": 100, "user": "github-actions[bot]", "path": "a.py", "line": 5,
-             "body": "potential buffer overflow here", "in_reply_to_id": None},
+            {
+                "id": 100,
+                "user": "github-actions[bot]",
+                "path": "a.py",
+                "line": 5,
+                "body": "potential buffer overflow here",
+                "in_reply_to_id": None,
+            },
             # Human reply to bot
-            {"id": 101, "user": "developer", "path": "a.py", "line": 5,
-             "body": "fixed", "in_reply_to_id": 100},
+            {
+                "id": 101,
+                "user": "developer",
+                "path": "a.py",
+                "line": 5,
+                "body": "fixed",
+                "in_reply_to_id": 100,
+            },
             # Another bot comment with no reply
-            {"id": 200, "user": "github-actions[bot]", "path": "b.py", "line": 10,
-             "body": "missing error handling check", "in_reply_to_id": None},
+            {
+                "id": 200,
+                "user": "github-actions[bot]",
+                "path": "b.py",
+                "line": 10,
+                "body": "missing error handling check",
+                "in_reply_to_id": None,
+            },
         ]
         resolved, bot_locs, concerns = codex_review.build_dedup_state(existing)
 
@@ -386,6 +425,7 @@ class TestBuildDedupState:
 # ---------------------------------------------------------------------------
 # Deep CI filtering, diff parsing, and chunking
 # ---------------------------------------------------------------------------
+
 
 class TestDeepCiCandidateFiltering:
     def test_deep_ci_candidate_accepts_supported_code_extensions(self):
@@ -468,6 +508,7 @@ class TestSelectDeepCiFiles:
 # Deep CI diff parsing and window helpers
 # ---------------------------------------------------------------------------
 
+
 class TestDeepCiDiffParsing:
     def test_parse_changed_line_ranges_records_right_side_additions(self):
         diff = (
@@ -479,7 +520,9 @@ class TestDeepCiDiffParsing:
             "+added two\n"
             " tail\n"
         )
-        assert codex_review.parse_changed_line_ranges(diff) == {"src/app.py": [(11, 12)]}
+        assert codex_review.parse_changed_line_ranges(diff) == {
+            "src/app.py": [(11, 12)]
+        }
 
     def test_parse_changed_line_ranges_ignores_deletions_and_metadata(self):
         diff = (
@@ -523,7 +566,9 @@ class TestDeepCiDiffParsing:
         )
         assert codex_review.parse_changed_line_ranges(diff) == {"src/new.py": [(1, 2)]}
 
-    def test_parse_changed_line_ranges_handles_paths_with_spaces_and_rename_new_paths(self):
+    def test_parse_changed_line_ranges_handles_paths_with_spaces_and_rename_new_paths(
+        self,
+    ):
         diff = (
             "diff --git a/src/old name.py b/src/new name.py\n"
             "similarity index 90%\n"
@@ -549,7 +594,9 @@ class TestDeepCiDiffParsing:
         )
         assert codex_review.parse_changed_line_ranges(diff) == {"src/app.py": [(5, 5)]}
 
-    def test_parse_changed_line_ranges_does_not_treat_in_hunk_plus_plus_space_as_header(self):
+    def test_parse_changed_line_ranges_does_not_treat_in_hunk_plus_plus_space_as_header(
+        self,
+    ):
         diff = (
             "diff --git a/src/app.py b/src/app.py\n"
             "--- a/src/app.py\n"
@@ -582,7 +629,10 @@ class TestDeepCiChunkHelpers:
             max_chunks=2,
         )
         # keep ranges with highest changed-line counts, rendered in file order
-        assert [(w["start_line"], w["end_line"]) for w in windows] == [(20, 22), (40, 44)]
+        assert [(w["start_line"], w["end_line"]) for w in windows] == [
+            (20, 22),
+            (40, 44),
+        ]
 
     def test_build_line_windows_can_report_chunk_cap_omissions(self):
         plan = codex_review.build_line_windows(
@@ -596,9 +646,7 @@ class TestDeepCiChunkHelpers:
             (20, 22),
             (40, 44),
         ]
-        assert [(w["start_line"], w["end_line"]) for w in plan["omitted"]] == [
-            (1, 1)
-        ]
+        assert [(w["start_line"], w["end_line"]) for w in plan["omitted"]] == [(1, 1)]
 
     def test_extract_line_chunk_and_fit_chunk_to_char_cap_respect_line_boundaries(self):
         content = "line1\nline2\nline3\nline4\nline5\n"
@@ -619,11 +667,15 @@ class TestDeepCiChunkHelpers:
 class TestFetchDeepCiFiles:
     def test_fetch_deep_ci_files_keeps_small_file_as_full_snapshot(self, monkeypatch):
         def fake_run(cmd, check, capture_output, text):
-            return subprocess.CompletedProcess(cmd, 0, stdout="print('ok')\n", stderr="")
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout="print('ok')\n", stderr=""
+            )
 
         monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
 
-        snapshots = codex_review.fetch_deep_ci_files("owner/repo", "abc123", ["src/app.py"])
+        snapshots = codex_review.fetch_deep_ci_files(
+            "owner/repo", "abc123", ["src/app.py"]
+        )
         assert snapshots[0]["mode"] == "full"
         rendered = codex_review.render_deep_ci_context(snapshots, ["src/app.py"])
         assert "Mode: full-file" in rendered
@@ -658,7 +710,9 @@ class TestFetchDeepCiFiles:
 
         def fake_run(cmd, check, capture_output, text):
             calls.append(cmd)
-            return subprocess.CompletedProcess(cmd, 0, stdout="should-not-be-read", stderr="")
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout="should-not-be-read", stderr=""
+            )
 
         monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
         snapshots = codex_review.fetch_deep_ci_files(
@@ -686,7 +740,9 @@ class TestFetchDeepCiFiles:
 
         def fake_run(cmd, check, capture_output, text):
             calls.append(cmd)
-            return subprocess.CompletedProcess(cmd, 0, stdout="print('ok')\n", stderr="")
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout="print('ok')\n", stderr=""
+            )
 
         monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
         snapshots = codex_review.fetch_deep_ci_files(
@@ -699,7 +755,9 @@ class TestFetchDeepCiFiles:
         assert len(calls) == 1
         assert snapshots[0]["mode"] == "full"
 
-    def test_fetch_deep_ci_files_chunks_oversized_file_with_changed_ranges(self, monkeypatch):
+    def test_fetch_deep_ci_files_chunks_oversized_file_with_changed_ranges(
+        self, monkeypatch
+    ):
         content = "\n".join(f"line {i}" for i in range(1, 30)) + "\n"
 
         def fake_run(cmd, check, capture_output, text):
@@ -721,9 +779,13 @@ class TestFetchDeepCiFiles:
         assert "Mode: chunked-large-file" in rendered
         assert "Included chunks:" in rendered
 
-    def test_fetch_deep_ci_files_skips_oversized_file_without_changed_ranges(self, monkeypatch):
+    def test_fetch_deep_ci_files_skips_oversized_file_without_changed_ranges(
+        self, monkeypatch
+    ):
         def fake_run(cmd, check, capture_output, text):
-            return subprocess.CompletedProcess(cmd, 0, stdout=("line\n" * 30), stderr="")
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout=("line\n" * 30), stderr=""
+            )
 
         monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
         snapshots = codex_review.fetch_deep_ci_files(
@@ -761,7 +823,9 @@ class TestFetchDeepCiFiles:
         assert "changed_lines_included:" in rendered
         assert "changed_lines_omitted:" in rendered
 
-    def test_fetch_deep_ci_files_respects_total_cap_across_full_files_and_chunks(self, monkeypatch):
+    def test_fetch_deep_ci_files_respects_total_cap_across_full_files_and_chunks(
+        self, monkeypatch
+    ):
         contents = {
             "src/a.py": "aaaaaa",
             "src/b.py": "\n".join(["line"] * 40) + "\n",
@@ -769,7 +833,9 @@ class TestFetchDeepCiFiles:
 
         def fake_run(cmd, check, capture_output, text):
             path_part = cmd[-1].split("/contents/", 1)[1].split("?ref=", 1)[0]
-            return subprocess.CompletedProcess(cmd, 0, stdout=contents[path_part], stderr="")
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout=contents[path_part], stderr=""
+            )
 
         monkeypatch.setattr(codex_review.subprocess, "run", fake_run)
         snapshots = codex_review.fetch_deep_ci_files(
@@ -782,7 +848,9 @@ class TestFetchDeepCiFiles:
             context_lines=0,
             max_chunk_chars=50,
         )
-        rendered = codex_review.render_deep_ci_context(snapshots, ["src/a.py", "src/b.py"])
+        rendered = codex_review.render_deep_ci_context(
+            snapshots, ["src/a.py", "src/b.py"]
+        )
         assert snapshots[0]["mode"] == "skipped"
         assert snapshots[1]["mode"] == "skipped"
         assert "total-cap-exhausted" in rendered
@@ -1121,7 +1189,10 @@ class TestDeepCiManifest:
         assert manifest_one_json == manifest_two_json
         assert manifest_one_json.endswith("\n")
         assert manifest_one["generated_at"] == "2026-04-24T12:34:56Z"
-        assert [item["path"] for item in manifest_one["files"]] == ["src/a.py", "src/b.py"]
+        assert [item["path"] for item in manifest_one["files"]] == [
+            "src/a.py",
+            "src/b.py",
+        ]
         assert [item["path"] for item in manifest_one["omitted_candidates"]] == [
             "docs/guide.py",
             "src/c.py",
@@ -1186,12 +1257,21 @@ class TestDeepCiManifest:
             for line in range(start, end + 1)
         }
         manifest_chunks = manifest["files"][0]["chunks"]
-        snapshot_chunks = sorted(snapshots[0]["chunks"], key=lambda chunk: chunk["start_line"])
+        snapshot_chunks = sorted(
+            snapshots[0]["chunks"], key=lambda chunk: chunk["start_line"]
+        )
         for manifest_chunk, snapshot_chunk in zip(manifest_chunks, snapshot_chunks):
-            assert manifest_chunk["changed_lines_included"] == snapshot_chunk["changed_lines_included"]
-            assert manifest_chunk["changed_lines_omitted"] == snapshot_chunk["changed_lines_omitted"]
+            assert (
+                manifest_chunk["changed_lines_included"]
+                == snapshot_chunk["changed_lines_included"]
+            )
+            assert (
+                manifest_chunk["changed_lines_omitted"]
+                == snapshot_chunk["changed_lines_omitted"]
+            )
             combined = set(
-                manifest_chunk["changed_lines_included"] + manifest_chunk["changed_lines_omitted"]
+                manifest_chunk["changed_lines_included"]
+                + manifest_chunk["changed_lines_omitted"]
             )
             assert combined == set(snapshot_chunk["changed_lines"])
             assert combined.issubset(right_side_lines)
@@ -1257,7 +1337,10 @@ class TestDeepCiManifest:
         )
 
         budget = manifest["budget"]
-        assert budget["used_total_chars"] + budget["remaining_total_chars"] == budget["max_total_chars"]
+        assert (
+            budget["used_total_chars"] + budget["remaining_total_chars"]
+            == budget["max_total_chars"]
+        )
         assert budget["selected_files"] == len(manifest["files"])
 
         assert budget["max_files"] == codex_review.DEEP_CI_MAX_FILES
@@ -1315,7 +1398,12 @@ class TestDeepCiManifest:
             },
             {
                 "id": "metadata-too-large",
-                "changed_files": [{"path": "src/noisy.py", "changes": codex_review.DEEP_CI_MAX_CHANGES + 1}],
+                "changed_files": [
+                    {
+                        "path": "src/noisy.py",
+                        "changes": codex_review.DEEP_CI_MAX_CHANGES + 1,
+                    }
+                ],
                 "path": "src/noisy.py",
                 "expected": codex_review.DEEP_CI_REASON_METADATA_TOO_LARGE,
             },
@@ -1343,7 +1431,10 @@ class TestDeepCiManifest:
                 "changed_files": [{"path": "src/ranges.py"}],
                 "path": "src/ranges.py",
                 "snapshots": [
-                    skipped_snapshot("src/ranges.py", "no changed-line ranges found for oversized file")
+                    skipped_snapshot(
+                        "src/ranges.py",
+                        "no changed-line ranges found for oversized file",
+                    )
                 ],
                 "expected": codex_review.DEEP_CI_REASON_NO_CHANGED_LINE_RANGES,
             },
@@ -1358,14 +1449,19 @@ class TestDeepCiManifest:
                 "id": "unavailable",
                 "changed_files": [{"path": "src/missing.py"}],
                 "path": "src/missing.py",
-                "snapshots": [skipped_snapshot("src/missing.py", "unavailable: not found")],
+                "snapshots": [
+                    skipped_snapshot("src/missing.py", "unavailable: not found")
+                ],
                 "expected": codex_review.DEEP_CI_REASON_UNAVAILABLE,
             },
         ]
 
         for row in rows:
             if "map_reason" in row:
-                assert codex_review._map_fetch_omission_reason(row["map_reason"]) == row["expected"]
+                assert (
+                    codex_review._map_fetch_omission_reason(row["map_reason"])
+                    == row["expected"]
+                )
                 continue
 
             snapshots = row.get("snapshots", [])
@@ -1475,7 +1571,9 @@ class TestDeepCiManifest:
             ),
         ],
     )
-    def test_render_deep_ci_markdown_from_manifest_parity(self, case_name, expected_markdown):
+    def test_render_deep_ci_markdown_from_manifest_parity(
+        self, case_name, expected_markdown
+    ):
         snapshots, changed_files = _build_render_parity_case(case_name)
         manifest = codex_review.build_deep_ci_manifest(
             "owner/repo",
@@ -1496,34 +1594,40 @@ class TestDeepCiManifest:
 # Workflow context contract
 # ---------------------------------------------------------------------------
 
+
 class TestWorkflowContextContract:
     def test_workflow_keeps_trusted_base_checkout_for_secret_review(self):
-        workflow = Path(".github/workflows/codex-ci-review.yml").read_text(encoding="utf-8")
+        workflow = Path(".github/workflows/codex-ci-review.yml").read_text(
+            encoding="utf-8"
+        )
 
         assert "ref: ${{ github.event.pull_request.base.sha }}" in workflow
         assert "ref: ${{ github.event.pull_request.head.sha }}" not in workflow
 
     def test_workflow_writes_raw_changed_file_paths_for_gather_context(self):
-        workflow = Path(".github/workflows/codex-ci-review.yml").read_text(encoding="utf-8")
+        workflow = Path(".github/workflows/codex-ci-review.yml").read_text(
+            encoding="utf-8"
+        )
 
-        raw_paths_command = (
-            "jq -r '.files[].path' /tmp/changed_files_payload.json > /tmp/changed_files.txt"
-        )
-        quoted_paths_command = (
-            "jq '.files[].path' /tmp/changed_files_payload.json > /tmp/changed_files.txt"
-        )
+        raw_paths_command = "jq -r '.files[].path' /tmp/changed_files_payload.json > /tmp/changed_files.txt"
+        quoted_paths_command = "jq '.files[].path' /tmp/changed_files_payload.json > /tmp/changed_files.txt"
 
         assert raw_paths_command in workflow
         assert quoted_paths_command not in workflow
 
     def test_workflow_has_legacy_build_prompt_fallback_for_base_checkout(self):
-        workflow = Path(".github/workflows/codex-ci-review.yml").read_text(encoding="utf-8")
+        workflow = Path(".github/workflows/codex-ci-review.yml").read_text(
+            encoding="utf-8"
+        )
 
         assert (
             "if python3 .github/scripts/codex_review.py build-prompt "
             "2>/tmp/build_prompt_err.log; then"
         ) in workflow
-        assert "grep -Eq \"Unknown subcommand: build-prompt|invalid choice: 'build-prompt'\"" in workflow
+        assert (
+            "grep -Eq \"Unknown subcommand: build-prompt|invalid choice: 'build-prompt'\""
+            in workflow
+        )
         assert "exit 1" in workflow
         assert "legacy prompt assembly" in workflow
         assert "touch /tmp/deep_ci_files.md" in workflow
@@ -1539,8 +1643,7 @@ class TestWorkflowContextContract:
             Path("/tmp/pr.diff"),
         ]
         originals = {
-            path: path.read_bytes() if path.exists() else None
-            for path in tmp_paths
+            path: path.read_bytes() if path.exists() else None for path in tmp_paths
         }
 
         captured = {}
@@ -1566,7 +1669,9 @@ class TestWorkflowContextContract:
             captured["changed_line_ranges"] = kwargs.get("changed_line_ranges")
             return []
 
-        monkeypatch.setattr(codex_review, "fetch_deep_ci_files", fake_fetch_deep_ci_files)
+        monkeypatch.setattr(
+            codex_review, "fetch_deep_ci_files", fake_fetch_deep_ci_files
+        )
 
         try:
             Path("/tmp/pr_head_sha.txt").write_text("abc123\n", encoding="utf-8")
@@ -1591,7 +1696,9 @@ class TestWorkflowContextContract:
             assert captured["deep_ci_head_sha"] == "abc123"
             assert captured["selected_files"] == ["lib/space name.py", "src/app.py"]
             assert captured["changed_line_ranges"] == {"src/app.py": [(1, 1)]}
-            manifest = json.loads(Path(codex_review.DEEP_CI_MANIFEST_PATH).read_text(encoding="utf-8"))
+            manifest = json.loads(
+                Path(codex_review.DEEP_CI_MANIFEST_PATH).read_text(encoding="utf-8")
+            )
             assert manifest["version"] == codex_review.DEEP_CI_MANIFEST_VERSION
             assert "files" in manifest
             assert "omitted_candidates" in manifest
@@ -1606,6 +1713,7 @@ class TestWorkflowContextContract:
 # ---------------------------------------------------------------------------
 # Prompt assembly
 # ---------------------------------------------------------------------------
+
 
 class TestBuildReviewPrompt:
     def test_build_review_prompt_includes_deep_ci_section(self):
@@ -1650,10 +1758,7 @@ class TestBuildReviewPrompt:
         assert "deep snapshot" in prompt
 
     def test_build_review_prompt_does_not_reprocess_inserted_placeholders(self):
-        template = (
-            "Head {PLACEHOLDER_PR_HEAD_FILES}\n"
-            "Diff {PLACEHOLDER_DIFF}\n"
-        )
+        template = "Head {PLACEHOLDER_PR_HEAD_FILES}\n" "Diff {PLACEHOLDER_DIFF}\n"
 
         prompt = codex_review.build_review_prompt(
             template,
@@ -1673,8 +1778,7 @@ class TestBuildReviewPrompt:
             Path(codex_review.DEEP_CI_MANIFEST_PATH),
         ]
         originals = {
-            path: path.read_bytes() if path.exists() else None
-            for path in tmp_paths
+            path: path.read_bytes() if path.exists() else None for path in tmp_paths
         }
 
         try:
@@ -1693,7 +1797,9 @@ class TestBuildReviewPrompt:
                 else:
                     path.write_bytes(content)
 
-    def test_prompt_keeps_structured_severity_but_not_body_prefix_or_footer_instruction(self):
+    def test_prompt_keeps_structured_severity_but_not_body_prefix_or_footer_instruction(
+        self,
+    ):
         prompt = Path(".github/codex-review-prompt.md").read_text(encoding="utf-8")
 
         assert '"severity": "must-fix"' in prompt
@@ -1735,23 +1841,28 @@ class TestDeepCiDedupeReuse:
         body = "initializer fallback leaves cached state stale"
         formatted = codex_review.format_inline_body("must-fix", body)
 
-        assert codex_review.extract_keywords(body) <= codex_review.extract_keywords(formatted)
-        assert codex_review.is_duplicate(
-            {
-                "path": "src/app.py",
-                "line": 42,
-                "body": body,
-            },
-            set(),
-            set(),
-            [
+        assert codex_review.extract_keywords(body) <= codex_review.extract_keywords(
+            formatted
+        )
+        assert (
+            codex_review.is_duplicate(
                 {
                     "path": "src/app.py",
-                    "line": 10,
-                    "keywords": codex_review.extract_keywords(body),
-                }
-            ],
-        ) == "similar-concern"
+                    "line": 42,
+                    "body": body,
+                },
+                set(),
+                set(),
+                [
+                    {
+                        "path": "src/app.py",
+                        "line": 10,
+                        "keywords": codex_review.extract_keywords(body),
+                    }
+                ],
+            )
+            == "similar-concern"
+        )
 
 
 class TestPostComments:
@@ -1794,7 +1905,9 @@ class TestPostComments:
 
 class TestPostReviewFallback:
     def _write_review_inputs(self, comments):
-        Path("/tmp/review-output.json").write_text(json.dumps(comments), encoding="utf-8")
+        Path("/tmp/review-output.json").write_text(
+            json.dumps(comments), encoding="utf-8"
+        )
         Path("/tmp/existing_comments.json").write_text("[]", encoding="utf-8")
 
     def test_post_review_does_not_post_fallback_when_some_inline_posts_succeed(
@@ -1828,8 +1941,16 @@ class TestPostReviewFallback:
             "post_comments",
             lambda comments, repo, pr_number, commit_sha: (
                 1,
-                [{"index": 1, "path": "src/other.py", "line": 7, "side": "RIGHT",
-                  "severity": "should-fix", "error": "bad line"}],
+                [
+                    {
+                        "index": 1,
+                        "path": "src/other.py",
+                        "line": 7,
+                        "side": "RIGHT",
+                        "severity": "should-fix",
+                        "error": "bad line",
+                    }
+                ],
             ),
         )
         monkeypatch.setattr(
@@ -1874,10 +1995,22 @@ class TestPostReviewFallback:
             lambda comments, repo, pr_number, commit_sha: (
                 0,
                 [
-                    {"index": 0, "path": "src/app.py", "line": 42, "side": "RIGHT",
-                     "severity": "must-fix", "error": "bad line"},
-                    {"index": 1, "path": "src/other.py", "line": 7, "side": "RIGHT",
-                     "severity": "should-fix", "error": "bad line"},
+                    {
+                        "index": 0,
+                        "path": "src/app.py",
+                        "line": 42,
+                        "side": "RIGHT",
+                        "severity": "must-fix",
+                        "error": "bad line",
+                    },
+                    {
+                        "index": 1,
+                        "path": "src/other.py",
+                        "line": 7,
+                        "side": "RIGHT",
+                        "severity": "should-fix",
+                        "error": "bad line",
+                    },
                 ],
             ),
         )

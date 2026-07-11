@@ -97,7 +97,9 @@ def test_select_role_runtime_uses_bridge_runner_for_codex_led_claude_roles():
     assert selection.entrypoint == "scripts/quest_claude_runner.py"
     assert selection.requires_probe is True
     assert "additive bridge-backed Quest runner" in selection.reason
-    assert "runtime=claude entrypoint=scripts/quest_claude_runner.py" in selection.reason
+    assert (
+        "runtime=claude entrypoint=scripts/quest_claude_runner.py" in selection.reason
+    )
 
 
 def test_select_role_runtime_blocks_codex_led_claude_role_without_bridge():
@@ -626,7 +628,9 @@ def test_tier_b_retry_preserves_bg_needs_human_metadata(tmp_path, monkeypatch):
     artifact = tmp_path / "artifact.md"
 
     class FakeProcess:
-        def __init__(self, *, returncode: int, stdout: str, stderr: str, on_communicate=None):
+        def __init__(
+            self, *, returncode: int, stdout: str, stderr: str, on_communicate=None
+        ):
             self.returncode = returncode
             self._stdout = stdout
             self._stderr = stderr
@@ -790,7 +794,9 @@ def test_cli_quest_claude_probe_relative_non_dot_cwd_resolves_bridge_script(
 
     exit_code = quest_claude_probe.main()
     payload = capsys.readouterr().out.strip()
-    expected_bridge_script = (tmp_path / "repo" / "scripts/quest_claude_bridge.py").resolve()
+    expected_bridge_script = (
+        tmp_path / "repo" / "scripts/quest_claude_bridge.py"
+    ).resolve()
 
     assert exit_code == 0
     assert captured["bridge_script"] == expected_bridge_script
@@ -848,7 +854,9 @@ def test_cli_quest_claude_runner_relative_non_dot_cwd_resolves_bridge_script(
 
     exit_code = quest_claude_runner.main()
     payload = capsys.readouterr().out.strip()
-    expected_bridge_script = (tmp_path / "repo" / "scripts/quest_claude_bridge.py").resolve()
+    expected_bridge_script = (
+        tmp_path / "repo" / "scripts/quest_claude_bridge.py"
+    ).resolve()
 
     assert exit_code == 0
     assert captured["bridge_script"] == expected_bridge_script
@@ -1097,16 +1105,17 @@ def test_bg_probe_failure_classifier_distinguishes_setup_failures():
         classify("agent output discussed the session limit and rate limit logic")
         is None
     )
+    assert classify("prose mentioning an issue with the selected model naming") is None
     assert (
-        classify("prose mentioning an issue with the selected model naming")
-        is None
-    )
-    assert (
-        classify("bypassPermissions not accepted; run claude --dangerously-skip-permissions")
+        classify(
+            "bypassPermissions not accepted; run claude --dangerously-skip-permissions"
+        )
         == "bypass_not_accepted"
     )
     assert (
-        classify("bg status=blocked; bg message=background session registered but did not consume the initial prompt (Claude CLI reported: send a prompt to start)")
+        classify(
+            "bg status=blocked; bg message=background session registered but did not consume the initial prompt (Claude CLI reported: send a prompt to start)"
+        )
         == "bg_initial_prompt_not_consumed"
     )
     assert (
@@ -1506,7 +1515,11 @@ def test_append_context_health_log_transport_field_is_optional(tmp_path):
         source="handoff_json",
         transport="bridge",
     )
-    lines = (tmp_path / "logs" / "context_health.log").read_text(encoding="utf-8").splitlines()
+    lines = (
+        (tmp_path / "logs" / "context_health.log")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
     assert "transport=" not in lines[0]
     assert lines[1].endswith(" | transport=bridge")
 
@@ -1545,15 +1558,24 @@ def test_quest_claude_runner_cli_resolves_and_echoes_transport(
         "sys.argv",
         [
             "quest_claude_runner.py",
-            "--quest-dir", str(tmp_path),
-            "--phase", "plan",
-            "--agent", "planner",
-            "--iter", "1",
-            "--prompt-file", str(prompt_file),
-            "--handoff-file", str(tmp_path / "handoff.json"),
-            "--model", "claude",
-            "--cwd", str(tmp_path),
-            "--transport", "auto",
+            "--quest-dir",
+            str(tmp_path),
+            "--phase",
+            "plan",
+            "--agent",
+            "planner",
+            "--iter",
+            "1",
+            "--prompt-file",
+            str(prompt_file),
+            "--handoff-file",
+            str(tmp_path / "handoff.json"),
+            "--model",
+            "claude",
+            "--cwd",
+            str(tmp_path),
+            "--transport",
+            "auto",
         ],
     )
     rc = quest_claude_runner.main()
@@ -1598,14 +1620,22 @@ def test_quest_claude_runner_cli_auto_uses_bg_without_cache(
         "sys.argv",
         [
             "quest_claude_runner.py",
-            "--quest-dir", str(tmp_path),
-            "--phase", "plan",
-            "--agent", "planner",
-            "--iter", "1",
-            "--prompt-file", str(prompt_file),
-            "--handoff-file", str(tmp_path / "handoff.json"),
-            "--model", "claude",
-            "--cwd", str(tmp_path),
+            "--quest-dir",
+            str(tmp_path),
+            "--phase",
+            "plan",
+            "--agent",
+            "planner",
+            "--iter",
+            "1",
+            "--prompt-file",
+            str(prompt_file),
+            "--handoff-file",
+            str(tmp_path / "handoff.json"),
+            "--model",
+            "claude",
+            "--cwd",
+            str(tmp_path),
         ],
     )
     rc = quest_claude_runner.main()
@@ -1767,7 +1797,9 @@ sys.exit(10)
     assert "status=needs_human" in log_text
 
 
-def test_bg_needs_human_result_includes_session_and_questions_without_teardown(tmp_path):
+def test_bg_needs_human_result_includes_session_and_questions_without_teardown(
+    tmp_path,
+):
     bg_runner = tmp_path / "fake_bg_runner.py"
     _write_executable(
         bg_runner,
@@ -1813,7 +1845,9 @@ sys.exit(10)
     assert result.questions == ["which path?"]
 
 
-def test_runner_resume_uses_same_session_answer_file_and_updates_chained_session(tmp_path):
+def test_runner_resume_uses_same_session_answer_file_and_updates_chained_session(
+    tmp_path,
+):
     argv_file = tmp_path / "argv.json"
     bg_runner = tmp_path / "fake_bg_runner.py"
     _write_executable(
@@ -1906,7 +1940,10 @@ print(json.dumps({"status": "ok", "session_id": "22222222-2222-2222-2222-2222222
         answer_file=answer_file,
     )
 
-    assert parked_artifact.read_text(encoding="utf-8") == "# plan written before the question\n"
+    assert (
+        parked_artifact.read_text(encoding="utf-8")
+        == "# plan written before the question\n"
+    )
     assert result.result_kind == "handoff_json"
 
 
@@ -2042,7 +2079,13 @@ def test_cli_probe_requires_explicit_model_and_default_bridge_script_is_absolute
             assert exc.code == 2
         else:
             raise AssertionError("Expected --model to be required")
-        sys.argv = ["quest_claude_probe.py", "--quest-dir", "/tmp/x", "--model", "claude"]
+        sys.argv = [
+            "quest_claude_probe.py",
+            "--quest-dir",
+            "/tmp/x",
+            "--model",
+            "claude",
+        ]
         ns = quest_claude_probe.parse_args()
     finally:
         sys.argv = saved
@@ -2081,14 +2124,22 @@ def test_cli_resume_and_answer_file_require_each_other():
     saved = sys.argv
     base = [
         "quest_claude_runner.py",
-        "--quest-dir", "/tmp/x",
-        "--phase", "plan",
-        "--agent", "planner",
-        "--iter", "1",
-        "--prompt-file", "/tmp/p",
-        "--handoff-file", "/tmp/h",
-        "--model", "claude",
-        "--transport", "background-agent",
+        "--quest-dir",
+        "/tmp/x",
+        "--phase",
+        "plan",
+        "--agent",
+        "planner",
+        "--iter",
+        "1",
+        "--prompt-file",
+        "/tmp/p",
+        "--handoff-file",
+        "/tmp/h",
+        "--model",
+        "claude",
+        "--transport",
+        "background-agent",
     ]
     try:
         for extra in (["--resume", "abc12345"], ["--answer-file", "/tmp/a"]):
@@ -2098,7 +2149,9 @@ def test_cli_resume_and_answer_file_require_each_other():
             except SystemExit as exc:
                 assert exc.code == 2
             else:
-                raise AssertionError(f"Expected {extra[0]} without its pair to be rejected")
+                raise AssertionError(
+                    f"Expected {extra[0]} without its pair to be rejected"
+                )
     finally:
         sys.argv = saved
 
@@ -2127,13 +2180,20 @@ def test_cli_rejects_empty_or_whitespace_model():
         for model in ("", "  "):
             sys.argv = [
                 "quest_claude_runner.py",
-                "--quest-dir", "/tmp/x",
-                "--phase", "plan",
-                "--agent", "planner",
-                "--iter", "1",
-                "--prompt-file", "/tmp/p",
-                "--handoff-file", "/tmp/h",
-                "--model", model,
+                "--quest-dir",
+                "/tmp/x",
+                "--phase",
+                "plan",
+                "--agent",
+                "planner",
+                "--iter",
+                "1",
+                "--prompt-file",
+                "/tmp/p",
+                "--handoff-file",
+                "/tmp/h",
+                "--model",
+                model,
             ]
             try:
                 quest_claude_runner.parse_args()

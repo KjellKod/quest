@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Any
 
 
-HUNK_RE = re.compile(r"@@ -(?P<old_start>\d+)(?:,(?P<old_count>\d+))? \+(?P<new_start>\d+)(?:,(?P<new_count>\d+))? @@")
+HUNK_RE = re.compile(
+    r"@@ -(?P<old_start>\d+)(?:,(?P<old_count>\d+))? \+(?P<new_start>\d+)(?:,(?P<new_count>\d+))? @@"
+)
 
 
 def _changed_lines(diff_text: str) -> dict[str, set[int]]:
@@ -62,7 +64,12 @@ def _load_diff(args: argparse.Namespace) -> str:
     if args.diff_file:
         return Path(args.diff_file).read_text(encoding="utf-8")
     if args.pr:
-        result = subprocess.run(["gh", "pr", "diff", str(args.pr), "--patch"], check=False, text=True, capture_output=True)
+        result = subprocess.run(
+            ["gh", "pr", "diff", str(args.pr), "--patch"],
+            check=False,
+            text=True,
+            capture_output=True,
+        )
         if result.returncode != 0:
             raise RuntimeError((result.stderr or result.stdout).strip())
         return result.stdout
@@ -76,7 +83,11 @@ def annotate(findings: list[dict[str, Any]], diff_text: str) -> list[dict[str, A
         item = dict(finding)
         path = str(item.get("path") or "")
         line = item.get("line")
-        if isinstance(line, int) and not isinstance(line, bool) and line in changed.get(path, set()):
+        if (
+            isinstance(line, int)
+            and not isinstance(line, bool)
+            and line in changed.get(path, set())
+        ):
             item["scope"] = "in_diff"
             item["scope_reason"] = f"{path}:{line} overlaps a changed diff line."
         else:
@@ -101,8 +112,14 @@ def main() -> int:
     if not isinstance(findings, list):
         raise ValueError("--findings must contain a JSON list")
     annotated = annotate(findings, _load_diff(args))
-    Path(args.output).write_text(json.dumps(annotated, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"ok": True, "count": len(annotated), "output": args.output}, sort_keys=True))
+    Path(args.output).write_text(
+        json.dumps(annotated, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print(
+        json.dumps(
+            {"ok": True, "count": len(annotated), "output": args.output}, sort_keys=True
+        )
+    )
     return 0
 
 

@@ -38,7 +38,10 @@ def test_codex_wrappers_delegate_to_matching_project_skills() -> None:
         wrapper_path = wrappers_root / skill_name / "SKILL.md"
         content = wrapper_path.read_text(encoding="utf-8")
         assert f"name: {skill_name}" in content
-        assert f"Read and follow the instructions in `.skills/{skill_name}/SKILL.md`." in content
+        assert (
+            f"Read and follow the instructions in `.skills/{skill_name}/SKILL.md`."
+            in content
+        )
         assert (_repo_root() / ".skills" / skill_name / "SKILL.md").exists()
 
 

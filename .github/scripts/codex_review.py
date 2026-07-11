@@ -122,7 +122,11 @@ def _normalize_path_info(changed_file):
     if not isinstance(changed_file, dict):
         return {"path": ""}
 
-    path = changed_file.get("path") or changed_file.get("filename") or changed_file.get("file")
+    path = (
+        changed_file.get("path")
+        or changed_file.get("filename")
+        or changed_file.get("file")
+    )
     info = dict(changed_file)
     info["path"] = path or ""
     return info
@@ -138,7 +142,11 @@ def _is_deleted_file(file_info):
         file_info.get("changeType"),
         file_info.get("change_type"),
     ]
-    return any(str(value).lower() in {"removed", "deleted", "delete"} for value in status_values if value)
+    return any(
+        str(value).lower() in {"removed", "deleted", "delete"}
+        for value in status_values
+        if value
+    )
 
 
 def _is_large_by_metadata(file_info, max_chars_per_file=DEEP_CI_MAX_FILE_CHARS):
@@ -173,7 +181,9 @@ def is_deep_ci_candidate(path, file_info=None):
         return False
     if name.endswith(".min.js") or name.endswith(".min.ts") or ".min." in name:
         return False
-    if any(segment in DEEP_CI_EXCLUDED_SEGMENTS for segment in _path_segments(lower_path)):
+    if any(
+        segment in DEEP_CI_EXCLUDED_SEGMENTS for segment in _path_segments(lower_path)
+    ):
         return False
 
     return True
@@ -215,7 +225,9 @@ def _classify_skip_reason(path, file_info):
         return DEEP_CI_REASON_UNSUPPORTED_EXTENSION
     if name.endswith(".min.js") or name.endswith(".min.ts") or ".min." in name:
         return DEEP_CI_REASON_MINIFIED_FILE
-    if any(segment in DEEP_CI_EXCLUDED_SEGMENTS for segment in _path_segments(lower_path)):
+    if any(
+        segment in DEEP_CI_EXCLUDED_SEGMENTS for segment in _path_segments(lower_path)
+    ):
         return DEEP_CI_REASON_EXCLUDED_PATH_SEGMENT
     return None
 
@@ -236,7 +248,9 @@ def _deep_ci_omitted_note(path, reason):
 
 def markdown_code_fence(content):
     """Return a backtick fence longer than any run inside content."""
-    longest = max((len(match.group(0)) for match in re.finditer(r"`+", content)), default=0)
+    longest = max(
+        (len(match.group(0)) for match in re.finditer(r"`+", content)), default=0
+    )
     return "`" * max(3, longest + 1)
 
 
@@ -457,7 +471,10 @@ def fit_chunk_to_char_cap(chunk, changed_lines, cap=DEEP_CI_MAX_CHUNK_CHARS):
     ):
         if keep_start < first_changed_idx:
             keep_start += 1
-        if _text_len(lines[keep_start : keep_end + 1]) > cap and keep_end > last_changed_idx:
+        if (
+            _text_len(lines[keep_start : keep_end + 1]) > cap
+            and keep_end > last_changed_idx
+        ):
             keep_end -= 1
 
     kept_lines = lines[keep_start : keep_end + 1]
@@ -568,7 +585,11 @@ def fetch_deep_ci_files(
         try:
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         except subprocess.CalledProcessError as exc:
-            detail = exc.stderr.strip() or exc.stdout.strip() or "unable to fetch current PR-head file"
+            detail = (
+                exc.stderr.strip()
+                or exc.stdout.strip()
+                or "unable to fetch current PR-head file"
+            )
             snapshots.append(_deep_ci_omitted_note(path, f"unavailable: {detail}"))
             continue
 
@@ -609,7 +630,9 @@ def fetch_deep_ci_files(
         ranges = changed_line_ranges.get(path, [])
         if not ranges:
             snapshots.append(
-                _deep_ci_omitted_note(path, "no changed-line ranges found for oversized file")
+                _deep_ci_omitted_note(
+                    path, "no changed-line ranges found for oversized file"
+                )
             )
             continue
 
@@ -627,7 +650,9 @@ def fetch_deep_ci_files(
         ]
         if not windows:
             snapshots.append(
-                _deep_ci_omitted_note(path, "no changed-line ranges found for oversized file")
+                _deep_ci_omitted_note(
+                    path, "no changed-line ranges found for oversized file"
+                )
             )
             continue
 
@@ -771,7 +796,9 @@ def _normalize_file_metadata(changed_files, file_metadata=None):
 
     if isinstance(file_metadata, dict):
         for raw_path, raw_info in file_metadata.items():
-            info = _normalize_path_info(raw_info if isinstance(raw_info, dict) else {"path": raw_path})
+            info = _normalize_path_info(
+                raw_info if isinstance(raw_info, dict) else {"path": raw_path}
+            )
             path = info.get("path") or raw_path
             if not path:
                 continue
@@ -819,7 +846,9 @@ def build_deep_ci_manifest(
     max_total_chars = int(budget.get("max_total_chars", DEEP_CI_MAX_TOTAL_CHARS))
     max_file_chars = int(budget.get("max_file_chars", DEEP_CI_MAX_FILE_CHARS))
     max_fetch_chars = int(budget.get("max_fetch_chars", DEEP_CI_MAX_FETCH_CHARS))
-    max_chunks_per_file = int(budget.get("max_chunks_per_file", DEEP_CI_MAX_CHUNKS_PER_FILE))
+    max_chunks_per_file = int(
+        budget.get("max_chunks_per_file", DEEP_CI_MAX_CHUNKS_PER_FILE)
+    )
     max_chunk_chars = int(budget.get("max_chunk_chars", DEEP_CI_MAX_CHUNK_CHARS))
     context_lines = int(budget.get("context_lines", DEEP_CI_CHUNK_CONTEXT_LINES))
 
@@ -873,7 +902,9 @@ def build_deep_ci_manifest(
             continue
 
         if mode == "full":
-            char_count = int(snapshot.get("char_count", len(snapshot.get("content", ""))))
+            char_count = int(
+                snapshot.get("char_count", len(snapshot.get("content", "")))
+            )
             used_total_chars += char_count
             files.append(
                 {
@@ -927,7 +958,9 @@ def build_deep_ci_manifest(
                 "mode": "chunked",
                 "char_count": int(snapshot.get("char_count", 0)),
                 "line_count": int(snapshot.get("line_count", 0)),
-                "changed_line_ranges": _coerce_manifest_ranges(snapshot.get("changed_line_ranges", [])),
+                "changed_line_ranges": _coerce_manifest_ranges(
+                    snapshot.get("changed_line_ranges", [])
+                ),
                 "chunks": sorted(chunks, key=lambda item: item["start_line"]),
                 "chunk_cap_omitted_windows": _coerce_manifest_windows(
                     snapshot.get("chunk_cap_omitted_windows")
@@ -1013,7 +1046,9 @@ def _render_deep_ci_snapshots(snapshots, selected_files=None):
             continue
 
         chunks = snapshot.get("chunks", [])
-        ranges = ", ".join(f"{chunk['start_line']}-{chunk['end_line']}" for chunk in chunks)
+        ranges = ", ".join(
+            f"{chunk['start_line']}-{chunk['end_line']}" for chunk in chunks
+        )
         file_lines = [
             f"## {path}",
             "Mode: chunked-large-file",
@@ -1060,7 +1095,9 @@ def _render_deep_ci_snapshots(snapshots, selected_files=None):
             if omitted:
                 chunk_lines.append(
                     "changed_lines_included: "
-                    + ", ".join(str(line) for line in chunk.get("changed_lines_included", []))
+                    + ", ".join(
+                        str(line) for line in chunk.get("changed_lines_included", [])
+                    )
                 )
                 chunk_lines.append(
                     "changed_lines_omitted: " + ", ".join(str(line) for line in omitted)
@@ -1128,9 +1165,13 @@ def _manifest_file_to_snapshot(file_entry, source_snapshot):
     }
 
 
-def _render_deep_ci_markdown_from_manifest(manifest, *, files_with_content=None, selected_files=None):
+def _render_deep_ci_markdown_from_manifest(
+    manifest, *, files_with_content=None, selected_files=None
+):
     manifest = manifest or {}
-    manifest_files = sorted(manifest.get("files", []), key=lambda item: item.get("path", ""))
+    manifest_files = sorted(
+        manifest.get("files", []), key=lambda item: item.get("path", "")
+    )
     content_by_path = {}
     selected_paths = []
     if isinstance(files_with_content, list):
@@ -1146,7 +1187,9 @@ def _render_deep_ci_markdown_from_manifest(manifest, *, files_with_content=None,
         path = file_entry.get("path")
         if not path:
             continue
-        snapshots.append(_manifest_file_to_snapshot(file_entry, content_by_path.get(path)))
+        snapshots.append(
+            _manifest_file_to_snapshot(file_entry, content_by_path.get(path))
+        )
 
     manifest_paths = {entry.get("path") for entry in manifest_files}
     if isinstance(files_with_content, list):
@@ -1166,7 +1209,9 @@ def _render_deep_ci_markdown_from_manifest(manifest, *, files_with_content=None,
     snapshots = sorted(snapshots, key=lambda item: item.get("path", ""))
     selected_for_render = selected_files
     if selected_for_render is None:
-        selected_for_render = selected_paths or [snapshot.get("path") for snapshot in snapshots]
+        selected_for_render = selected_paths or [
+            snapshot.get("path") for snapshot in snapshots
+        ]
     return _render_deep_ci_snapshots(snapshots, selected_files=selected_for_render)
 
 
@@ -1198,7 +1243,9 @@ def load_changed_file_metadata(path="/tmp/changed_files.json"):
 
     return [
         line.strip()
-        for line in Path("/tmp/changed_files.txt").read_text(encoding="utf-8").splitlines()
+        for line in Path("/tmp/changed_files.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
         if line.strip()
     ]
 
@@ -1207,28 +1254,34 @@ def fetch_head_files(repo, head_sha, changed_files, max_files=12, max_chars=1200
     """Fetch file snapshots and return rendered markdown sections."""
     rendered = []
     for path in changed_files[:max_files]:
-        encoded_path = quote(path, safe='/')
+        encoded_path = quote(path, safe="/")
         cmd = [
-            'gh', 'api',
-            '-H', 'Accept: application/vnd.github.raw',
-            f'repos/{repo}/contents/{encoded_path}?ref={head_sha}',
+            "gh",
+            "api",
+            "-H",
+            "Accept: application/vnd.github.raw",
+            f"repos/{repo}/contents/{encoded_path}?ref={head_sha}",
         ]
         try:
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
             content = result.stdout
         except subprocess.CalledProcessError as exc:
-            detail = exc.stderr.strip() or exc.stdout.strip() or 'unable to fetch file snapshot'
-            content = f'[unavailable: {detail}]'
+            detail = (
+                exc.stderr.strip()
+                or exc.stdout.strip()
+                or "unable to fetch file snapshot"
+            )
+            content = f"[unavailable: {detail}]"
 
         if len(content) > max_chars:
-            content = content[:max_chars] + '\n... [truncated]\n'
+            content = content[:max_chars] + "\n... [truncated]\n"
 
-        rendered.append(f'## {path}\n```\n{content.rstrip()}\n```')
+        rendered.append(f"## {path}\n```\n{content.rstrip()}\n```")
 
     if len(changed_files) > max_files:
         rendered.append(
-            f'## Additional changed files omitted\nOnly the first {max_files} changed files are included here for context. '
-            'Use the diff as the source of truth for the full change set.'
+            f"## Additional changed files omitted\nOnly the first {max_files} changed files are included here for context. "
+            "Use the diff as the source of truth for the full change set."
         )
 
     return rendered
@@ -1241,16 +1294,20 @@ def gather_context():
     Reads: /tmp/pr_head_sha.txt, /tmp/changed_files.txt
     Writes: /tmp/pr_head_files.md
     """
-    repo = os.environ['REPO']
-    head_sha = Path('/tmp/pr_head_sha.txt').read_text(encoding='utf-8').strip()
+    repo = os.environ["REPO"]
+    head_sha = Path("/tmp/pr_head_sha.txt").read_text(encoding="utf-8").strip()
     changed_files = [
         line.strip()
-        for line in Path('/tmp/changed_files.txt').read_text(encoding='utf-8').splitlines()
+        for line in Path("/tmp/changed_files.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
         if line.strip()
     ]
 
     rendered = fetch_head_files(repo, head_sha, changed_files)
-    Path('/tmp/pr_head_files.md').write_text('\n\n'.join(rendered).strip() + '\n', encoding='utf-8')
+    Path("/tmp/pr_head_files.md").write_text(
+        "\n\n".join(rendered).strip() + "\n", encoding="utf-8"
+    )
 
     changed_file_metadata = load_changed_file_metadata()
     selected_deep_ci_files = select_deep_ci_files(changed_file_metadata)
@@ -1283,7 +1340,7 @@ def gather_context():
         deep_ci_manifest,
         files_with_content=deep_ci_snapshots,
     )
-    Path('/tmp/deep_ci_files.md').write_text(deep_ci_context, encoding='utf-8')
+    Path("/tmp/deep_ci_files.md").write_text(deep_ci_context, encoding="utf-8")
 
 
 # --- Subcommand: build-prompt ---
@@ -1314,8 +1371,12 @@ def build_prompt():
     prompt = build_review_prompt(
         template,
         {
-            "PLACEHOLDER_PR_DESCRIPTION": _read_text_if_exists("/tmp/pr_description.txt"),
-            "PLACEHOLDER_EXISTING_COMMENTS": _read_text_if_exists("/tmp/existing_comments.json"),
+            "PLACEHOLDER_PR_DESCRIPTION": _read_text_if_exists(
+                "/tmp/pr_description.txt"
+            ),
+            "PLACEHOLDER_EXISTING_COMMENTS": _read_text_if_exists(
+                "/tmp/existing_comments.json"
+            ),
             "PLACEHOLDER_PR_HEAD_FILES": _read_text_if_exists("/tmp/pr_head_files.md"),
             "PLACEHOLDER_DEEP_CI_FILES": _read_text_if_exists("/tmp/deep_ci_files.md"),
             "PLACEHOLDER_DIFF": _read_text_if_exists("/tmp/pr.diff"),
@@ -1348,7 +1409,7 @@ def parse_review_output(raw):
 
     # Strategy 2: strip markdown fences
     if comments is None:
-        stripped = re.sub(r'```[\w]*\n?', '', raw)
+        stripped = re.sub(r"```[\w]*\n?", "", raw)
         try:
             parsed = json.loads(stripped.strip())
             if isinstance(parsed, list):
@@ -1358,7 +1419,7 @@ def parse_review_output(raw):
 
     # Strategy 3: extract from fenced code blocks
     if comments is None:
-        for fence_match in re.finditer(r'```(?:json)?\s*\n(.*?)```', raw, re.DOTALL):
+        for fence_match in re.finditer(r"```(?:json)?\s*\n(.*?)```", raw, re.DOTALL):
             try:
                 parsed = json.loads(fence_match.group(1))
                 if isinstance(parsed, list):
@@ -1370,8 +1431,8 @@ def parse_review_output(raw):
     # Strategy 4: find any JSON array in fence-stripped text
     if comments is None:
         # Use the same stripped text from strategy 2
-        stripped = re.sub(r'```[\w]*\n?', '', raw)
-        for match in re.finditer(r'\[.*?\]', stripped, re.DOTALL):
+        stripped = re.sub(r"```[\w]*\n?", "", raw)
+        for match in re.finditer(r"\[.*?\]", stripped, re.DOTALL):
             try:
                 candidate = json.loads(match.group())
                 if isinstance(candidate, list):
@@ -1417,12 +1478,37 @@ def is_valid_comment(c, severity_stats):
 
 def extract_keywords(body):
     """Extract meaningful words (4+ chars) for fuzzy dedup matching."""
-    words = set(re.findall(r'[a-z][a-z0-9_.-]{3,}', body.lower()))
+    words = set(re.findall(r"[a-z][a-z0-9_.-]{3,}", body.lower()))
     # Remove common filler words
-    words -= {"this", "that", "with", "from", "have", "been", "should",
-              "could", "would", "must", "which", "when", "into", "more",
-              "than", "also", "only", "will", "does", "about", "because",
-              "review", "automated", "openai", "codex", "comment", "file"}
+    words -= {
+        "this",
+        "that",
+        "with",
+        "from",
+        "have",
+        "been",
+        "should",
+        "could",
+        "would",
+        "must",
+        "which",
+        "when",
+        "into",
+        "more",
+        "than",
+        "also",
+        "only",
+        "will",
+        "does",
+        "about",
+        "because",
+        "review",
+        "automated",
+        "openai",
+        "codex",
+        "comment",
+        "file",
+    }
     return words
 
 
@@ -1456,16 +1542,20 @@ def build_dedup_state(existing_comments):
     bot_concerns = []  # list of {path, line, keywords}
     for ex in existing_comments:
         if ex.get("user") == "github-actions[bot]" and ex.get("body"):
-            bot_concerns.append({
-                "path": ex.get("path"),
-                "line": ex.get("line"),
-                "keywords": extract_keywords(ex["body"]),
-            })
+            bot_concerns.append(
+                {
+                    "path": ex.get("path"),
+                    "line": ex.get("line"),
+                    "keywords": extract_keywords(ex["body"]),
+                }
+            )
 
     return resolved_locations, bot_commented_locations, bot_concerns
 
 
-def is_duplicate(new_comment, resolved_locations, bot_commented_locations, bot_concerns):
+def is_duplicate(
+    new_comment, resolved_locations, bot_commented_locations, bot_concerns
+):
     """Check if comment is duplicate. Returns reason string or None."""
     new_path = new_comment.get("path", "")
     new_line = new_comment.get("line")
@@ -1628,13 +1718,17 @@ def post_review():
     except Exception:
         pass
 
-    resolved_locations, bot_commented_locations, bot_concerns = build_dedup_state(existing)
+    resolved_locations, bot_commented_locations, bot_concerns = build_dedup_state(
+        existing
+    )
 
     before_count = len(comments)
     skipped = {"resolved": 0, "already-commented": 0, "similar-concern": 0}
     filtered = []
     for c in comments:
-        reason = is_duplicate(c, resolved_locations, bot_commented_locations, bot_concerns)
+        reason = is_duplicate(
+            c, resolved_locations, bot_commented_locations, bot_concerns
+        )
         if reason:
             skipped[reason] = skipped.get(reason, 0) + 1
         else:
@@ -1650,18 +1744,22 @@ def post_review():
         print("All comments were duplicates or already resolved. Nothing new to post.")
         sys.exit(0)
 
-    repo = os.environ['REPO']
-    pr_number = os.environ['PR_NUMBER']
-    commit_sha = os.environ['COMMIT_SHA']
+    repo = os.environ["REPO"]
+    pr_number = os.environ["PR_NUMBER"]
+    commit_sha = os.environ["COMMIT_SHA"]
 
-    print(f"Posting {len(comments)} new inline comment(s) against commit {commit_sha[:8]}.")
+    print(
+        f"Posting {len(comments)} new inline comment(s) against commit {commit_sha[:8]}."
+    )
 
     posted, failed = post_comments(comments, repo, pr_number, commit_sha)
 
     print(f"Posted {posted} inline comment(s). Failed: {len(failed)}.")
 
     if failed:
-        print("::warning::Some inline comments could not be posted (often invalid path/line).")
+        print(
+            "::warning::Some inline comments could not be posted (often invalid path/line)."
+        )
         for f in failed:
             print(
                 f"::warning::[{escape_github_command_field(f['index'])}] "
@@ -1678,7 +1776,9 @@ def post_review():
             "true",
             "yes",
         )
-        print("::warning::No inline comments were posted; all candidate comments failed.")
+        print(
+            "::warning::No inline comments were posted; all candidate comments failed."
+        )
 
         post_fallback_review(repo, pr_number, len(comments))
 
@@ -1691,7 +1791,10 @@ def post_review():
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: codex_review.py <gather-context|build-prompt|post-review>", file=sys.stderr)
+        print(
+            "Usage: codex_review.py <gather-context|build-prompt|post-review>",
+            file=sys.stderr,
+        )
         sys.exit(1)
     cmd = sys.argv[1]
     if cmd == "gather-context":

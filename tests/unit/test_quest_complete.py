@@ -298,14 +298,15 @@ def test_complete_date_first_quest_uses_parsed_slug(tmp_path, monkeypatch, capsy
     )
     assert journal.exists()
     celebration = (
-        journal_dir
-        / "celebrations"
-        / "portable-pre-commit-review_2026-04-29.md"
+        journal_dir / "celebrations" / "portable-pre-commit-review_2026-04-29.md"
     )
     assert celebration.exists()
     journal_text = journal.read_text(encoding="utf-8")
     assert "- Slug: portable-pre-commit-review" in journal_text
-    assert "- Celebration: [`celebrations/portable-pre-commit-review_2026-04-29.md`]" in journal_text
+    assert (
+        "- Celebration: [`celebrations/portable-pre-commit-review_2026-04-29.md`]"
+        in journal_text
+    )
     assert "```text" in celebration.read_text(encoding="utf-8")
 
 
@@ -550,7 +551,9 @@ def test_quest_complete_reports_incomplete_bg_sweep_but_archives(
     assert "WARNING: Claude bg sweep before archive incomplete (exit 4)" in captured.out
     # The command must be runnable from ANY cwd (absolute runner path) and
     # asserted contiguously so a truncated/reordered command cannot pass.
-    expected_runner = Path(quest_complete.__file__).resolve().parent / "claude_bg_run.py"
+    expected_runner = (
+        Path(quest_complete.__file__).resolve().parent / "claude_bg_run.py"
+    )
     assert (
         f"run: python3 {expected_runner} --sweep quest-{quest_dir.name}- --sweep-include-active"
         in captured.out
@@ -752,7 +755,9 @@ def test_complete_reports_needs_human_rollup(tmp_path, monkeypatch, capsys):
         json.dumps({"quest_id": "rollup-check_2026-06-12__1100", "status": "complete"}),
         encoding="utf-8",
     )
-    archive_logs = repo_root / ".quest" / "archive" / "old-quest_2026-06-01__0900" / "logs"
+    archive_logs = (
+        repo_root / ".quest" / "archive" / "old-quest_2026-06-01__0900" / "logs"
+    )
     archive_logs.mkdir(parents=True)
     (archive_logs / "context_health.log").write_text(
         "2026-06-01T09:00:00Z | phase=plan | agent=planner | runtime=claude | "

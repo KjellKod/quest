@@ -85,12 +85,18 @@ def test_validate_findings_accepts_shared_infrastructure_kinds() -> None:
 def test_validate_findings_requires_principle_id_for_ux_findings() -> None:
     missing = _finding(kind="ux")
     missing_errors = validate_findings([missing])
-    assert any("field 'principle_id' is required for UX findings" in error for error in missing_errors)
+    assert any(
+        "field 'principle_id' is required for UX findings" in error
+        for error in missing_errors
+    )
 
     invalid = _finding(kind="ux")
     invalid["principle_id"] = "ux-guidebook §4.8 #1"
     invalid_errors = validate_findings([invalid])
-    assert any("field 'principle_id' is required for UX findings" in error for error in invalid_errors)
+    assert any(
+        "field 'principle_id' is required for UX findings" in error
+        for error in invalid_errors
+    )
 
     valid = _finding(kind="ux")
     valid["principle_id"] = "ux-guidebook§4.8"
@@ -110,12 +116,16 @@ def test_validate_findings_rejects_wrong_types() -> None:
     invalid["needs_test"] = "yes"
     invalid["evidence"] = "single string"
     errors = validate_findings([invalid])
-    assert any("field 'line' must be null or an integer >= 1" in error for error in errors)
+    assert any(
+        "field 'line' must be null or an integer >= 1" in error for error in errors
+    )
     assert any("field 'needs_test' must be a boolean" in error for error in errors)
     assert any("field 'evidence' must be a list[str]" in error for error in errors)
 
 
-def test_validate_findings_accepts_optional_review_local_index_and_rejects_invalid_values() -> None:
+def test_validate_findings_accepts_optional_review_local_index_and_rejects_invalid_values() -> (
+    None
+):
     valid = _finding()
     valid["review_local_index"] = 2
     assert validate_findings([valid]) == []
@@ -244,7 +254,12 @@ def test_merge_and_dedupe_keeps_distinct_ux_principles_separate() -> None:
 
 def test_build_review_backlog_merges_dedupes_and_decides() -> None:
     findings = [
-        _finding(finding_id="F-1", severity="high", confidence="high", evidence=["one", "two"]),
+        _finding(
+            finding_id="F-1",
+            severity="high",
+            confidence="high",
+            evidence=["one", "two"],
+        ),
         _finding(
             finding_id="F-2",
             source="code-reviewer-b",
@@ -261,7 +276,9 @@ def test_build_review_backlog_merges_dedupes_and_decides() -> None:
     assert backlog["counts"]["fix_now"] == 1
 
 
-def test_build_backlog_plan_phase_defaults_to_fix_now_builder_and_deterministic_batch_slug() -> None:
+def test_build_backlog_plan_phase_defaults_to_fix_now_builder_and_deterministic_batch_slug() -> (
+    None
+):
     finding = _finding(
         finding_id="PLAN-1",
         source="arbiter",
@@ -385,7 +402,9 @@ def test_validate_review_backlog_rejects_phase_outside_allowed_values() -> None:
     ), f"expected an invalid-phase error, got: {errors}"
 
 
-def test_append_deferred_findings_writes_one_json_object_per_line(tmp_path: Path) -> None:
+def test_append_deferred_findings_writes_one_json_object_per_line(
+    tmp_path: Path,
+) -> None:
     backlog_path = tmp_path / "deferred_findings.jsonl"
     finding = _finding()
     count = append_deferred_findings(
@@ -439,7 +458,9 @@ def test_append_deferred_findings_bootstraps_missing_file(tmp_path: Path) -> Non
     assert nested.exists()
 
 
-def test_append_deferred_findings_is_idempotent_per_quest_and_finding(tmp_path: Path) -> None:
+def test_append_deferred_findings_is_idempotent_per_quest_and_finding(
+    tmp_path: Path,
+) -> None:
     backlog_path = tmp_path / "deferred_findings.jsonl"
     finding = _finding(finding_id="F-idempotent")
     lineage = {
@@ -479,7 +500,11 @@ def test_classify_pr_stop_does_not_persist_retagged_backlog_when_append_fails(
     monkeypatch.setattr(
         quest_review_intelligence,
         "classify_pr_loop_stop",
-        lambda *args, **kwargs: {"stop": True, "retag_required": True, "outcome": "cap_enforced"},
+        lambda *args, **kwargs: {
+            "stop": True,
+            "retag_required": True,
+            "outcome": "cap_enforced",
+        },
     )
     monkeypatch.setattr(
         quest_review_intelligence,
@@ -557,7 +582,9 @@ def test_scan_deferred_backlog_does_not_match_partial_paths(tmp_path: Path) -> N
     assert matches == []
 
 
-def test_synthesize_findings_from_review_markdown_parses_path_and_skips_short_bullets() -> None:
+def test_synthesize_findings_from_review_markdown_parses_path_and_skips_short_bullets() -> (
+    None
+):
     markdown = """
 - scripts/quest_runtime/review_intelligence.py:387 High severity parser bug.
 - v1.2 causes edge behavior with no slash path.
@@ -616,7 +643,9 @@ def test_synthesize_findings_from_review_markdown_maps_p_severity_markers() -> N
     assert validate_findings(findings[:4]) == []
 
 
-def test_synthesize_findings_from_review_markdown_p_marker_overrides_english_word() -> None:
+def test_synthesize_findings_from_review_markdown_p_marker_overrides_english_word() -> (
+    None
+):
     """When both markers are present, P-marker wins."""
     markdown = """
 [1] P0 - plan.md - critical-sounding but the P-marker is the source of truth (ux-guidebook§2).
@@ -632,7 +661,9 @@ def test_synthesize_findings_from_review_markdown_p_marker_overrides_english_wor
     assert findings[1]["severity"] == "low"
 
 
-def test_synthesize_findings_from_review_markdown_promotes_ux_citations_to_kind_ux() -> None:
+def test_synthesize_findings_from_review_markdown_promotes_ux_citations_to_kind_ux() -> (
+    None
+):
     """Plan-reviewers embed UX findings inline with `ux-guidebook§<section>` citations.
 
     The synthesis function must detect those citations and emit findings with
@@ -663,7 +694,9 @@ def test_synthesize_findings_from_review_markdown_promotes_ux_citations_to_kind_
     assert validate_findings(findings) == []
 
 
-def test_synthesize_findings_from_review_markdown_preserves_bracketed_review_local_index() -> None:
+def test_synthesize_findings_from_review_markdown_preserves_bracketed_review_local_index() -> (
+    None
+):
     markdown = """
 - [7] High - scripts/quest_runtime/review_intelligence.py:387 - Parser drops review numbering.
 """
@@ -683,7 +716,9 @@ def test_synthesize_findings_from_review_markdown_preserves_bracketed_review_loc
     assert validate_findings(findings) == []
 
 
-def test_synthesize_findings_from_review_markdown_preserves_dotted_review_local_index() -> None:
+def test_synthesize_findings_from_review_markdown_preserves_dotted_review_local_index() -> (
+    None
+):
     markdown = """
 2. Medium - scripts/quest_runtime/review_intelligence.py:401 - Dotted finding index should persist.
 """
@@ -782,7 +817,9 @@ def test_retag_backlog_at_cap_uses_select_decision_loop_cap_semantics() -> None:
 
 def test_scan_backlog_cli_accepts_empty_paths(tmp_path: Path) -> None:
     jsonl_path = tmp_path / "deferred_findings.jsonl"
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
 
     result = subprocess.run(
         [
@@ -805,12 +842,20 @@ def test_scan_backlog_cli_accepts_empty_paths(tmp_path: Path) -> None:
 
 
 def test_validate_findings_cli_accepts_empty_array(tmp_path: Path) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     findings_path = tmp_path / "findings.json"
     findings_path.write_text("[]\n", encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, str(script), "validate-findings", "--input", str(findings_path)],
+        [
+            sys.executable,
+            str(script),
+            "validate-findings",
+            "--input",
+            str(findings_path),
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -826,11 +871,19 @@ def test_validate_findings_cli_accepts_empty_array(tmp_path: Path) -> None:
 def test_validate_findings_cli_missing_file_emits_structured_failure(
     tmp_path: Path,
 ) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     missing_path = tmp_path / "does_not_exist.json"
 
     result = subprocess.run(
-        [sys.executable, str(script), "validate-findings", "--input", str(missing_path)],
+        [
+            sys.executable,
+            str(script),
+            "validate-findings",
+            "--input",
+            str(missing_path),
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -848,7 +901,9 @@ def test_validate_findings_cli_missing_file_emits_structured_failure(
 def test_validate_findings_cli_unparsable_file_emits_structured_failure(
     tmp_path: Path,
 ) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     bad_path = tmp_path / "bad.json"
     bad_path.write_text("{ not valid json\n", encoding="utf-8")
 
@@ -871,7 +926,9 @@ def test_validate_findings_cli_unparsable_file_emits_structured_failure(
 def test_validate_findings_cli_malformed_shape_emits_structured_failure(
     tmp_path: Path,
 ) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     shape_path = tmp_path / "shape.json"
     # Valid JSON, but not a findings list nor an object with findings/items.
     shape_path.write_text('{"unexpected": "object"}\n', encoding="utf-8")
@@ -893,7 +950,9 @@ def test_validate_findings_cli_malformed_shape_emits_structured_failure(
 
 
 def test_build_backlog_cli_plan_phase_uses_builder_defaults(tmp_path: Path) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     findings_path = tmp_path / "findings.json"
     output_path = tmp_path / "backlog.json"
     findings_path.write_text(
@@ -938,7 +997,9 @@ def test_build_backlog_cli_plan_phase_uses_builder_defaults(tmp_path: Path) -> N
 
 
 def test_validate_backlog_cli_rejects_invalid_shape(tmp_path: Path) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     backlog_path = tmp_path / "bad_backlog.json"
     backlog_path.write_text(
         json.dumps({"items": [{"finding_id": "bad"}]}, indent=2) + "\n",
@@ -967,7 +1028,9 @@ def test_validate_backlog_cli_rejects_invalid_shape(tmp_path: Path) -> None:
 def test_validate_backlog_cli_expected_phase_rejects_review_phase_backlog(
     tmp_path: Path,
 ) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     findings_path = tmp_path / "findings.json"
     backlog_path = tmp_path / "backlog.json"
     findings_path.write_text(
@@ -1021,7 +1084,9 @@ def test_validate_backlog_cli_expected_phase_rejects_review_phase_backlog(
 def test_validate_backlog_cli_expected_phase_accepts_matching_plan_backlog(
     tmp_path: Path,
 ) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     findings_path = tmp_path / "findings.json"
     backlog_path = tmp_path / "backlog.json"
     findings_path.write_text(
@@ -1072,7 +1137,9 @@ def test_validate_backlog_cli_expected_phase_accepts_matching_plan_backlog(
 def test_validate_backlog_cli_handles_null_items_without_crashing(
     tmp_path: Path,
 ) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     backlog_path = tmp_path / "bad_backlog.json"
     backlog_path.write_text(
         json.dumps({"phase": "plan", "items": None}, indent=2) + "\n",
@@ -1105,7 +1172,9 @@ def test_validate_backlog_cli_handles_null_items_without_crashing(
 def test_validate_backlog_cli_strict_plan_defaults_rejects_drifted_plan_backlog(
     tmp_path: Path,
 ) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     findings_path = tmp_path / "findings.json"
     backlog_path = tmp_path / "backlog.json"
     findings_path.write_text(
@@ -1158,20 +1227,19 @@ def test_validate_backlog_cli_strict_plan_defaults_rejects_drifted_plan_backlog(
     assert result.returncode == 1
     payload = json.loads(result.stdout)
     assert payload["ok"] is False
-    assert any(
-        "field 'decision' must be 'fix_now'" in err for err in payload["errors"]
-    )
+    assert any("field 'decision' must be 'fix_now'" in err for err in payload["errors"])
     assert any("field 'owner' must be 'builder'" in err for err in payload["errors"])
     assert any(
-        "field 'batch' must be 'edge-case-scripts'" in err
-        for err in payload["errors"]
+        "field 'batch' must be 'edge-case-scripts'" in err for err in payload["errors"]
     )
 
 
 def test_validate_backlog_cli_expected_phase_rejects_missing_phase_field(
     tmp_path: Path,
 ) -> None:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "quest_review_intelligence.py"
+    )
     findings_path = tmp_path / "findings.json"
     backlog_path = tmp_path / "backlog.json"
     findings_path.write_text(

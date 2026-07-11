@@ -30,7 +30,10 @@ def test_cli_references_installed_commands_that_exist() -> None:
 
     for _, command in module.COMMANDS:
         for token in command[1:]:
-            if token.startswith(("scripts/", "tests/")) and not (_repo_root() / token).exists():
+            if (
+                token.startswith(("scripts/", "tests/"))
+                and not (_repo_root() / token).exists()
+            ):
                 missing_paths.append(token)
 
     assert missing_paths == []
@@ -47,7 +50,9 @@ def test_cli_main_runs_all_installed_commands(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(subprocess, "run", fake_run)
 
     assert module.main() == 0
-    assert [command for _, command in module.COMMANDS] == [command for command, _, _ in calls]
+    assert [command for _, command in module.COMMANDS] == [
+        command for command, _, _ in calls
+    ]
     assert all(cwd == module.REPO_ROOT and check is False for _, cwd, check in calls)
 
 
@@ -74,4 +79,6 @@ def test_cli_entrypoint_executes_main(monkeypatch: pytest.MonkeyPatch) -> None:
         runpy.run_path(str(script_path), run_name="__main__")
 
     assert exc_info.value.code == 0
-    assert [command for _, command in _load_cli_module().COMMANDS] == [command for command, _, _ in calls]
+    assert [command for _, command in _load_cli_module().COMMANDS] == [
+        command for command, _, _ in calls
+    ]

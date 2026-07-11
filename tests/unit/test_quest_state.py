@@ -102,8 +102,10 @@ def test_set_and_clear_flags_are_mutually_exclusive(tmp_path):
     quest_dir = _make_quest_dir(tmp_path)
 
     cp = _run(
-        "--quest-dir", str(quest_dir),
-        "--parked-bg-session", json.dumps(PARKED),
+        "--quest-dir",
+        str(quest_dir),
+        "--parked-bg-session",
+        json.dumps(PARKED),
         "--clear-parked-bg-session",
     )
 
@@ -117,9 +119,12 @@ def test_empty_expect_phase_fails_closed_instead_of_bypassing_lock(tmp_path):
     quest_dir = _make_quest_dir(tmp_path)
 
     cp = _run(
-        "--quest-dir", str(quest_dir),
-        "--transition", "build",
-        "--expect-phase", "",
+        "--quest-dir",
+        str(quest_dir),
+        "--transition",
+        "build",
+        "--expect-phase",
+        "",
     )
 
     assert cp.returncode == 1

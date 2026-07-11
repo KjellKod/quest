@@ -65,22 +65,30 @@ def test_role_phase_aliases_keys_match_canonical() -> None:
 
 
 def test_allowlist_models_keys_match_canonical() -> None:
-    allowlist = json.loads((_repo_root() / ".ai" / "allowlist.json").read_text(encoding="utf-8"))
+    allowlist = json.loads(
+        (_repo_root() / ".ai" / "allowlist.json").read_text(encoding="utf-8")
+    )
     found = set(allowlist.get("models", {}).keys())
     assert found == CANONICAL, _diff_message(".ai/allowlist.json models", found)
 
 
 def test_allowlist_schema_models_enum_matches_canonical() -> None:
     schema = json.loads(
-        (_repo_root() / ".ai" / "schemas" / "allowlist.schema.json").read_text(encoding="utf-8")
+        (_repo_root() / ".ai" / "schemas" / "allowlist.schema.json").read_text(
+            encoding="utf-8"
+        )
     )
     enum = schema["properties"]["models"]["propertyNames"]["enum"]
     found = set(enum)
-    assert found == CANONICAL, _diff_message(".ai/schemas/allowlist.schema.json models enum", found)
+    assert found == CANONICAL, _diff_message(
+        ".ai/schemas/allowlist.schema.json models enum", found
+    )
 
 
 def test_validate_quest_state_required_roles_match_canonical() -> None:
-    text = (_repo_root() / "scripts" / "quest_validate-quest-state.sh").read_text(encoding="utf-8")
+    text = (_repo_root() / "scripts" / "quest_validate-quest-state.sh").read_text(
+        encoding="utf-8"
+    )
     # Collect quoted tokens from both `required_roles=(...)` and `required_roles+=(...)` lines.
     found: set[str] = set()
     for line in text.splitlines():
@@ -96,12 +104,16 @@ def test_validate_quest_state_required_roles_match_canonical() -> None:
 
 def test_solo_unused_roles_subset_of_canonical() -> None:
     extra = set(SOLO_UNUSED_ROLES) - CANONICAL
-    assert not extra, f"orchestration.SOLO_UNUSED_ROLES has non-canonical roles: {sorted(extra)}"
+    assert (
+        not extra
+    ), f"orchestration.SOLO_UNUSED_ROLES has non-canonical roles: {sorted(extra)}"
 
 
 def test_solo_disabled_agents_subset_of_canonical() -> None:
     extra = set(SOLO_DISABLED_AGENTS) - CANONICAL
-    assert not extra, f"artifacts.SOLO_DISABLED_AGENTS has non-canonical roles: {sorted(extra)}"
+    assert (
+        not extra
+    ), f"artifacts.SOLO_DISABLED_AGENTS has non-canonical roles: {sorted(extra)}"
 
 
 # --- Prose surfaces: presence-only (catches "new role never documented") ---
@@ -114,8 +126,10 @@ def test_skill_md_documents_every_role() -> None:
 
 
 def test_workflow_md_documents_every_role() -> None:
-    text = (_repo_root() / ".skills" / "quest" / "delegation" / "workflow.md").read_text(
-        encoding="utf-8"
-    )
+    text = (
+        _repo_root() / ".skills" / "quest" / "delegation" / "workflow.md"
+    ).read_text(encoding="utf-8")
     missing = sorted(role for role in CANONICAL_ROLES if role not in text)
-    assert not missing, f".skills/quest/delegation/workflow.md does not mention role(s): {missing}"
+    assert (
+        not missing
+    ), f".skills/quest/delegation/workflow.md does not mention role(s): {missing}"

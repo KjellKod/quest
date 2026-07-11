@@ -64,7 +64,12 @@ def _parse_remote_head(output: str) -> str:
     prefix = "refs/heads/"
     for raw_line in output.splitlines():
         parts = raw_line.strip().split()
-        if len(parts) == 3 and parts[0] == "ref:" and parts[2] == "HEAD" and parts[1].startswith(prefix):
+        if (
+            len(parts) == 3
+            and parts[0] == "ref:"
+            and parts[2] == "HEAD"
+            and parts[1].startswith(prefix)
+        ):
             return parts[1][len(prefix) :]
     return ""
 
@@ -83,7 +88,17 @@ def detect_default_branch() -> tuple[str, str]:
         if ref.startswith(prefix) and len(ref) > len(prefix):
             return ref[len(prefix) :], "symbolic-ref"
 
-    gh = _run(["gh", "repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"])
+    gh = _run(
+        [
+            "gh",
+            "repo",
+            "view",
+            "--json",
+            "defaultBranchRef",
+            "--jq",
+            ".defaultBranchRef.name",
+        ]
+    )
     if gh.returncode == 0 and gh.stdout.strip():
         return gh.stdout.strip(), "gh"
 
@@ -185,7 +200,9 @@ def _pre_apply_error() -> tuple[str, str]:
 
 
 def _pre_rebase_lease_error() -> tuple[str, str]:
-    upstream = _run(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+    upstream = _run(
+        ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]
+    )
     if upstream.returncode == 0 and upstream.stdout.strip():
         return _branch_contains(upstream.stdout.strip())
 
@@ -211,7 +228,9 @@ def _branch_contains(ref: str) -> tuple[str, str]:
     return "upstream_check_failed", _message(contains)
 
 
-def sync(strategy: str = "rebase", *, apply: bool = False) -> tuple[int, dict[str, Any]]:
+def sync(
+    strategy: str = "rebase", *, apply: bool = False
+) -> tuple[int, dict[str, Any]]:
     payload = _base_payload(strategy)
 
     fetch = _run(["git", "fetch", "origin"])

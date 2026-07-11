@@ -100,14 +100,20 @@ def test_sharpen_grounding_requires_grounded_on_block_when_local_facts_matter() 
 def test_sharpen_take_a_position_cites_grounding_facts() -> None:
     skill = _read(".skills/sharpen/SKILL.md").lower()
 
-    assert "when local facts support that recommendation, cite the grounding facts directly" in skill
+    assert (
+        "when local facts support that recommendation, cite the grounding facts directly"
+        in skill
+    )
 
 
 def test_sharpen_contradiction_handling_q1_template_and_resolved_path() -> None:
     skill = _read(".skills/sharpen/SKILL.md")
 
     assert "The plan says X. I found Y in path:line. Which is correct?" in skill
-    assert "If a contradiction is fully resolved by local evidence, log it under `Resolved`" in skill
+    assert (
+        "If a contradiction is fully resolved by local evidence, log it under `Resolved`"
+        in skill
+    )
 
 
 def test_sharpen_includes_generic_portable_smoke_runner_before_after_example() -> None:
@@ -118,7 +124,9 @@ def test_sharpen_includes_generic_portable_smoke_runner_before_after_example() -
     assert "after (grounded):" in skill
 
 
-def test_sharpen_interview_shape_preserved_one_question_cap12_progress_and_exit_summary() -> None:
+def test_sharpen_interview_shape_preserved_one_question_cap12_progress_and_exit_summary() -> (
+    None
+):
     skill = _read(".skills/sharpen/SKILL.md")
 
     assert "One at a time." in skill
@@ -136,7 +144,10 @@ def test_sharpen_portability_and_role_drift_guardrails() -> None:
     assert "adversarial interview" in skill
     assert "implementation planning deliverables" in skill
     assert "pr review findings" in skill
-    assert "primary output" not in skill or "instead of adversarial interview questions" in skill
+    assert (
+        "primary output" not in skill
+        or "instead of adversarial interview questions" in skill
+    )
 
 
 def test_claude_sharpen_wrapper_is_user_invocable_and_delegates() -> None:

@@ -173,11 +173,7 @@ def test_apply_quest_symlink_conflict_preserves_both_outside_quest(
     assert worktree_quest.is_symlink()
     assert (shared_quest / "same-id" / "state.json").read_text() == "shared"
     conflict_copy = (
-        shared_quest.parent
-        / ".quest_conflicts"
-        / "worktree"
-        / "same-id"
-        / "state.json"
+        shared_quest.parent / ".quest_conflicts" / "worktree" / "same-id" / "state.json"
     )
     assert conflict_copy.read_text() == "worktree"
     assert shared_quest not in conflict_copy.parents

@@ -44,7 +44,10 @@ def test_card_shows_full_pitch_and_labeled_metadata(tmp_path):
     # No "View Journal" link
     assert "View Journal" not in result
     assert "<b>Celebration:</b>" in result
-    assert "https://github.com/owner/repo/blob/main/docs/quest-journal/celebrations/test-quest.md" in result
+    assert (
+        "https://github.com/owner/repo/blob/main/docs/quest-journal/celebrations/test-quest.md"
+        in result
+    )
 
     # Labeled metadata present
     assert "<b>Quest ID:</b>" in result

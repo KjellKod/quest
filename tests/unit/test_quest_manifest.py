@@ -89,7 +89,9 @@ def test_manifest_includes_installed_quest_setup_guide() -> None:
 def test_manifest_validator_does_not_scan_repo_tests() -> None:
     patterns = _validator_patterns()
 
-    leaked_patterns = sorted(pattern for pattern in patterns if pattern.startswith("tests/"))
+    leaked_patterns = sorted(
+        pattern for pattern in patterns if pattern.startswith("tests/")
+    )
     assert leaked_patterns == [], (
         "The manifest validator must not require repo tests to be installed: "
         + ", ".join(leaked_patterns)
