@@ -1,0 +1,60 @@
+scripts/quest_allowlist_matcher.py
+  s_f6fcc2495a2451::t_c87b38b047545c 16,76-79
+scripts/quest_state.py
+  s_f6fcc2495a2451::t_632acc9b4c1cdf 12,18-19,31-35,87-88,144-145,172-191
+  s_f6fcc2495a2451::t_b22a863d45f251 150
+scripts/quest_complete.py
+  s_f6fcc2495a2451::t_632acc9b4c1cdf 37,469-471
+ideas/2026-07-11-quest-hardening.md
+  s_f6fcc2495a2451::t_c411010585ecb8 1-441
+tests/test-quest-preflight.sh
+  s_f6fcc2495a2451::t_1f18380bae7f66 205-306,737-740
+  s_f6fcc2495a2451::t_04c2a13a372a2b 307-334,741-742
+scripts/quest_preflight.sh
+  s_f6fcc2495a2451::t_98fdaec2eeaeae 24-27,250-270,274-275,283-296,314-316,323,328-329,345-346
+tests/integration/test-enforce-allowlist.sh
+  s_f6fcc2495a2451::t_d331d4c2b7df49 60-76,93-128,200
+docs/quest-journal/README.md
+  s_f6fcc2495a2451::t_d3ea928d03f73b 9
+tests/unit/test_quest_dispatch_guardrails.py
+  s_f6fcc2495a2451::t_1f18380bae7f66 207-219
+tests/unit/test_quest_state.py
+  s_f6fcc2495a2451::t_438c260613320b 11,341-350
+  s_f6fcc2495a2451::t_1bbb0284557023 285-340,351-352
+  s_f6fcc2495a2451::t_8bcb937b7f4582 18,364-389,391-437
+  s_f6fcc2495a2451::t_b22a863d45f251 390
+  s_f6fcc2495a2451::t_74ef7c89e1eadd 442-467,475
+  s_f6fcc2495a2451::t_f8830bb84e2c4e 16-17,19-20,140-284,353-363,438-441,468-474,476-483
+scripts/quest_runtime/state.py
+  s_f6fcc2495a2451::t_5d0aa7009da570 8,71,85
+  s_f6fcc2495a2451::t_2160edc786b51e 1,5,7,9,15-34,44-47,49-65,68-70,72-84,86-95,98-137
+tests/unit/test_quest_complete.py
+  s_f6fcc2495a2451::t_f8830bb84e2c4e 42-64
+  s_f6fcc2495a2451::t_8bcb937b7f4582 65-76,78,80-87
+  s_f6fcc2495a2451::t_40ef4139c057e3 77,79
+  s_f6fcc2495a2451::t_cc624180d88b41 9-10
+tests/unit/test_allowlist_matcher.py
+  s_f6fcc2495a2451::t_9cd60e26b6d4da 12,197-207,209,212-213,277-287,289,292-342
+.skills/quest/delegation/workflow.md
+  s_f6fcc2495a2451::t_98fdaec2eeaeae 7,59-61
+docs/quest-journal/celebrations/runtime-trust-state-boundaries_2026-07-11.md
+  s_f6fcc2495a2451::t_e3816281e895fa 1-120
+docs/quest-journal/runtime-trust-state-boundaries_2026-07-11.md
+  s_f6fcc2495a2451::t_40556513b08a4f 1-166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "de662476c81c31ea89bb20b2ff47acbf67d64a6b",
+  "prompts": {},
+  "sessions": {
+    "s_f6fcc2495a2451": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f52d8-13f4-7260-bd62-d98c4e31fe35",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
