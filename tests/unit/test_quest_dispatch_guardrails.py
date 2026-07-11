@@ -216,6 +216,8 @@ def test_claude_led_unavailable_preflight_requires_human_routing_decision() -> N
     assert "fix" in clause.lower() and "rerun preflight" in clause.lower()
     assert "continue Claude-only" in clause
     assert "cancel" in clause.lower()
+    assert "still assigns an active role to Codex" in clause
+    assert "do not prompt again" in clause
     assert "using Claude runtime fallback for all roles" not in clause
     assert "| Codex-led | Codex | local Codex subagent" in workflow
     assert "| Codex-led | Claude | `python3 scripts/quest_claude_runner.py`" in workflow

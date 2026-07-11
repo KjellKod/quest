@@ -41,11 +41,16 @@ Completing this plan will:
 - preserve caller prompt and answer content across both Claude transports;
 - prevent PR-summary upserts from targeting comments owned by another actor;
 - remove obsolete configuration guidance; and
-- keep installed Quest documentation from linking into unowned or stale host files.
+- keep installed Quest documentation from linking into unowned or stale host files;
+  and
+- enforce consistent Python formatting in the Quest source repository without
+  imposing that tooling on repositories where Quest is installed.
 
 ### Scope boundaries
 
 In scope: original findings **#1, #3, #4, #9, #16, #17, #18, #20, and #22**.
+Also in scope as a repository-maintenance follow-up: source-repo-only Python
+format enforcement that is not distributed by the Quest installer.
 
 Out of scope:
 
@@ -58,18 +63,19 @@ Out of scope:
 
 ## PR strategy
 
-Use three independent PRs. A single PR would mix security-sensitive command
+Use four independent PRs. A single PR would mix security-sensitive command
 matching, concurrency, git behavior, Claude transport fidelity, PR-comment
-ownership, and installed documentation across too many review surfaces. Nine
-separate PRs would add ceremony without improving isolation. These three
-vertical slices balance reviewability and delivery speed and may proceed in
-parallel.
+ownership, installed documentation, and repository tooling across too many
+review surfaces. Nine separate finding-level PRs would add ceremony without
+improving isolation. These four vertical slices balance reviewability and
+delivery speed and may proceed in parallel.
 
 | Status | PR workstream | Original findings | Branch suggestion | PR |
 |---|---|---|---|---|
 | [done] | A. Runtime trust and state boundaries | #1, #4, #18, #22 | `hardening/runtime-boundaries` | [#149](https://github.com/KjellKod/quest/pull/149) |
 | [todo] | B. Operational helper and transport correctness | #3, #9, #20 | `hardening/operational-contracts` | — |
 | [todo] | C. Installed documentation accuracy | #16, #17 | `hardening/installed-docs` | — |
+| [todo] | D. Source-repository Python formatting | Repository follow-up | `hardening/python-formatting` | — |
 
 ## Workstream A — Runtime trust and state boundaries [done] — [PR #149](https://github.com/KjellKod/quest/pull/149)
 
@@ -382,9 +388,76 @@ of host documentation.
   remaining link resolves.
 - **Observability:** installed file list and rendered Markdown links.
 
+## Workstream D — Source-repository Python formatting [todo]
+
+### Goal
+
+Keep Python formatting deterministic in the Quest source repository without
+installing or enforcing Black in consumer repositories.
+
+### Acceptance criteria
+
+1. Quest source uses one pinned Black configuration and passes
+   `python3 -m black --check .` in CI.
+2. A versioned, source-repo-only pre-commit hook provides the same check and a
+   clear remediation command without modifying files during `git commit`.
+3. The hook, formatter configuration, CI wiring, and formatter dependency are
+   not added to `.quest-manifest` or otherwise copied by `quest_installer.sh`.
+4. Existing Quest installation and update fixtures prove the installed file
+   surface is unchanged.
+
+### Implementation approach
+
+- Add the Black configuration to `/Users/kjell/ws/extra/quest/pyproject.toml`.
+- Add a pinned Black install and `python3 -m black --check .` to the Quest
+  repository's Python CI workflow.
+- Add a small `.githooks/pre-commit` check that developers may enable with
+  `git config core.hooksPath .githooks`. The hook must fail with the remediation
+  `python3 -m black .`; it must not rewrite files during a commit.
+- Keep `.githooks/`, `pyproject.toml`, and the source-repository CI workflow out
+  of `.quest-manifest`. Do not modify the installed
+  `scripts/quest_validate-quest-config.sh` hook to run Black.
+
+### Validation
+
+**Automated test — source formatting and installer isolation**
+
+- **Files:** `/Users/kjell/ws/extra/quest/.github/workflows/test-python.yml` and
+  the existing manifest/installer test modules.
+- **Tests:** run Black in check mode; assert the new repository-only hook and
+  formatter tooling are absent from the manifest and a clean installed fixture.
+- **Run:** `python3 -m black --check .` plus the focused manifest/installer tests.
+- **Mocking:** temporary installed-consumer filesystem only.
+- **Expected:** source formatting drift fails CI while the installed Quest file
+  surface and consumer development policy remain unchanged.
+
+### Integration touchpoints
+
+- **Developer commits:** local hooks are optional and bypassable, so CI remains
+  the authoritative formatting gate.
+- **Partially staged work:** check-only behavior avoids silently rewriting
+  unstaged files or creating index/worktree mismatches during commit.
+- **Installer ownership:** source-repository tooling must remain outside the
+  manifest-controlled consumer surface.
+
+### Manual validation
+
+**MANUAL TEST — local hook and clean consumer install**
+
+- **Why manual:** confirms the local Git hook experience and the absence of
+  repository-only tooling after installation.
+- **Preconditions:** Black installed in the Quest development environment and a
+  temporary clean consumer repository.
+- **Steps:** enable `.githooks`, attempt a commit with intentionally unformatted
+  Python, run the remediation, retry, then install Quest into the consumer.
+- **Expected:** the first commit is blocked with a clear command, the formatted
+  retry passes, and the consumer receives no Black hook or formatting policy.
+- **Observability:** hook output, CI result, manifest diff, and installed file
+  list.
+
 ## End-to-end validation
 
-After all three PRs exist, each PR must run its focused commands plus the relevant
+After all four PRs exist, each PR must run its focused commands plus the relevant
 repository gates. Before marking its workstream `[done]`, record the PR and verify
 that its description maps acceptance criteria to tests.
 
@@ -426,11 +499,11 @@ added for `quest_claude_bridge.py`.
 
 ## Dependencies and ordering
 
-- Workstreams A, B, and C are independent and may run in parallel.
+- Workstreams A, B, C, and D are independent and may run in parallel.
 - Within A, implement #18 before #1 so atomic mutation builds on a validated
   shared state boundary.
 - Within B, no finding depends on another; keep commits independently reviewable.
-- Archive this idea only after all three workstream rows have PR links and are
+- Archive this idea only after all four workstream rows have PR links and are
   marked `[done]`.
 
 ## Open questions

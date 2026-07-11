@@ -27,9 +27,7 @@ class PhaseMismatchError(Exception):
     def __init__(self, expected: str, actual: object) -> None:
         self.expected = expected
         self.actual = actual
-        super().__init__(
-            f"Expected phase '{expected}' but state.json has '{actual}'"
-        )
+        super().__init__(f"Expected phase '{expected}' but state.json has '{actual}'")
 
 
 def utc_now_iso() -> str:
@@ -57,7 +55,7 @@ def load_state(quest_dir: str | Path) -> dict[str, Any]:
 
     try:
         state = json.loads(serialized)
-    except json.JSONDecodeError as exc:
+    except (ValueError, RecursionError) as exc:
         raise StateError("decode", state_path) from exc
     if not isinstance(state, dict):
         raise StateError("shape", state_path)
@@ -133,5 +131,7 @@ def update_state(
         finally:
             try:
                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-            except OSError as exc:
-                raise StateError("lock", state_path) from exc
+            except OSError:
+                # Closing the descriptor releases the lock. Do not turn an
+                # already-committed replacement into a false failure report.
+                pass

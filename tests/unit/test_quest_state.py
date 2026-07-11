@@ -164,11 +164,33 @@ def test_load_state_classifies_invalid_json_as_decode(tmp_path):
     assert str(exc_info.value) == f"state_error[decode]: {state_path.resolve()}"
 
 
+@pytest.mark.parametrize(
+    "parse_error", [ValueError("too large"), RecursionError("deep")]
+)
+def test_load_state_classifies_parser_limit_failures_as_decode(
+    tmp_path, monkeypatch, parse_error
+):
+    quest_dir = tmp_path / "quest"
+    quest_dir.mkdir()
+    state_path = quest_dir / "state.json"
+    state_path.write_text("{}", encoding="utf-8")
+
+    def fail_parse(_serialized):
+        raise parse_error
+
+    monkeypatch.setattr(state_runtime.json, "loads", fail_parse)
+    with pytest.raises(state_runtime.StateError) as exc_info:
+        state_runtime.load_state(quest_dir)
+
+    assert str(exc_info.value) == f"state_error[decode]: {state_path.resolve()}"
+    assert str(parse_error) not in str(exc_info.value)
+
+
 def test_load_state_classifies_invalid_utf8_as_decode(tmp_path):
     quest_dir = tmp_path / "quest"
     quest_dir.mkdir()
     state_path = quest_dir / "state.json"
-    state_path.write_bytes(b'\xff')
+    state_path.write_bytes(b"\xff")
 
     with pytest.raises(state_runtime.StateError) as exc_info:
         state_runtime.load_state(quest_dir)
@@ -289,9 +311,7 @@ def test_update_state_holds_lock_through_atomic_replace(tmp_path, monkeypatch):
     real_replace = state_runtime.os.replace
 
     def record_flock(file_descriptor, operation):
-        events.append(
-            "lock" if operation == state_runtime.fcntl.LOCK_EX else "unlock"
-        )
+        events.append("lock" if operation == state_runtime.fcntl.LOCK_EX else "unlock")
         real_flock(file_descriptor, operation)
 
     def record_replace(source, destination):
@@ -304,6 +324,27 @@ def test_update_state_holds_lock_through_atomic_replace(tmp_path, monkeypatch):
     state_runtime.update_state(quest_dir, phase="building")
 
     assert events == ["lock", "replace", "unlock"]
+
+
+def test_update_state_does_not_report_failure_when_explicit_unlock_fails(
+    tmp_path, monkeypatch
+):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    real_flock = state_runtime.fcntl.flock
+
+    def fail_explicit_unlock(file_descriptor, operation):
+        if operation == state_runtime.fcntl.LOCK_UN:
+            raise OSError("platform unlock detail")
+        real_flock(file_descriptor, operation)
+
+    monkeypatch.setattr(state_runtime.fcntl, "flock", fail_explicit_unlock)
+
+    updated = state_runtime.update_state(quest_dir, phase="building")
+
+    assert updated["phase"] == "building"
+    persisted = json.loads(state_path.read_text(encoding="utf-8"))
+    assert persisted["phase"] == "building"
 
 
 def test_update_state_classifies_lock_failure(tmp_path, monkeypatch):
@@ -321,9 +362,7 @@ def test_update_state_classifies_lock_failure(tmp_path, monkeypatch):
     assert "platform lock detail" not in str(exc_info.value)
 
 
-def test_update_state_classifies_write_failure_and_cleans_temp(
-    tmp_path, monkeypatch
-):
+def test_update_state_classifies_write_failure_and_cleans_temp(tmp_path, monkeypatch):
     quest_dir = _make_quest_dir(tmp_path)
     state_path = quest_dir / "state.json"
     before = state_path.read_bytes()
@@ -363,9 +402,7 @@ def test_cli_invalid_state_has_readable_error_without_traceback(tmp_path):
     assert "Traceback" not in cp.stderr
 
 
-def test_validator_rejection_does_not_read_state(
-    tmp_path, monkeypatch, capsys
-):
+def test_validator_rejection_does_not_read_state(tmp_path, monkeypatch, capsys):
     quest_dir = _make_quest_dir(tmp_path)
     monkeypatch.setattr(
         sys,
@@ -430,9 +467,7 @@ def test_cli_translates_state_mutation_failures(
 
     assert quest_state.main() == 1
     captured = capsys.readouterr()
-    assert captured.err == (
-        f"Error: state_error[{category}]: {state_path.resolve()}\n"
-    )
+    assert captured.err == (f"Error: state_error[{category}]: {state_path.resolve()}\n")
     assert platform_text not in captured.err
     assert "Traceback" not in captured.err
 

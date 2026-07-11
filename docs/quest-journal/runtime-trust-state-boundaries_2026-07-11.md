@@ -12,9 +12,27 @@
 
 **Problem:** Four trust-boundary defects can falsely authorize an executable, falsely advertise an unauthenticated Codex runtime, pass structurally invalid persisted state to callers, or lose an expected-phase race between validation and writing.
 
-**Impact:** Command authorization will bind absol...
+**Impact:** Command authorization now binds absolute invocations to the PATH-resolved executable identity, Claude-led preflight distinguishes authenticated from merely installed Codex, malformed state fails at the shared boundary with readable CLI errors, and state writers serialize final read/check/mutate/replace operations.
 
 ## Files Changed
+
+### Shipped files
+
+- `.skills/quest/delegation/workflow.md`
+- `ideas/2026-07-11-quest-hardening.md`
+- `scripts/quest_allowlist_matcher.py`
+- `scripts/quest_preflight.sh`
+- `scripts/quest_runtime/state.py`
+- `scripts/quest_state.py`
+- `scripts/quest_complete.py`
+- `tests/unit/test_allowlist_matcher.py`
+- `tests/test-quest-preflight.sh`
+- `tests/unit/test_quest_dispatch_guardrails.py`
+- `tests/unit/test_quest_state.py`
+- `tests/unit/test_quest_complete.py`
+- `tests/integration/test-enforce-allowlist.sh`
+
+### Quest artifacts
 
 - `.quest/runtime-trust-state-boundaries_2026-07-11__1425/phase_01_plan/plan.md`
 - `.quest/runtime-trust-state-boundaries_2026-07-11__1425/phase_01_plan/arbiter_verdict.md.next`

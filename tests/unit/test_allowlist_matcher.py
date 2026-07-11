@@ -203,7 +203,9 @@ def test_bare_find_entry_rejects_same_basename_outside_resolved_path(
     lookalike = tmp_path / "lookalike" / "find"
     lookalike.parent.mkdir()
     lookalike.touch()
-    monkeypatch.setattr(quest_allowlist_matcher.shutil, "which", lambda _: str(installed))
+    monkeypatch.setattr(
+        quest_allowlist_matcher.shutil, "which", lambda _: str(installed)
+    )
 
     allowed, reason = is_bash_command_allowed(
         f"{lookalike} . -name '*.py' -type f",
@@ -283,7 +285,9 @@ def test_bare_rg_entry_rejects_same_basename_outside_resolved_path(
     lookalike = tmp_path / "lookalike" / "rg"
     lookalike.parent.mkdir()
     lookalike.touch()
-    monkeypatch.setattr(quest_allowlist_matcher.shutil, "which", lambda _: str(installed))
+    monkeypatch.setattr(
+        quest_allowlist_matcher.shutil, "which", lambda _: str(installed)
+    )
 
     allowed, reason = is_bash_command_allowed(
         f"{lookalike} TODO tests/unit/",

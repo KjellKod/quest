@@ -55,10 +55,11 @@ If the preflight result was already cached by SKILL.md Step 2b, use the cached v
 **Claude-led sessions:**
 1. Run `scripts/quest_preflight.sh --orchestrator claude` and parse the JSON output.
 2. Cache the `available` field as `codex_available` (boolean) for the rest of the session.
-3. If `codex_available` is false:
+3. If `codex_available` is false and the per-Quest orchestration still assigns an active role to Codex:
    - Pause startup and surface the preflight `warning` lines. Do not remap roles automatically.
    - Ask the human to choose one route: fix the Codex setup and rerun preflight successfully, explicitly continue Claude-only for this Quest, or cancel.
    - Only an explicit `continue Claude-only` choice may remap Codex-designated roles to Claude. A failed fix attempt returns to the same decision point.
+   - If SKILL.md Step 2b already recorded that explicit single-model choice and remapped every active role to Claude before writing `orchestration.json`, reuse that decision and do not prompt again.
 
 **Codex-led sessions:**
 1. `codex_available` is always true (Codex is the active runtime — no MCP needed).
