@@ -1,0 +1,27 @@
+.skills/quest/SKILL.md
+  s_c7960b6747cbfe::t_621f081bef4aec 231,262
+README.md
+  s_c7960b6747cbfe::t_621f081bef4aec 132
+.skills/quest/agents/review-arbiter.md
+  s_c7960b6747cbfe::t_621f081bef4aec 7
+tests/test-quest-orchestration.sh
+  s_c7960b6747cbfe::t_a9d544558fbdfa 991-1009,1059
+.skills/quest/delegation/workflow.md
+  s_c7960b6747cbfe::t_621f081bef4aec 1428-1440
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "ad475460dae3acfd689a7217e8f4d2493e0ef2e8",
+  "prompts": {},
+  "sessions": {
+    "s_c7960b6747cbfe": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4ee6-73c8-7621-94f7-2ff81e73eef9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
