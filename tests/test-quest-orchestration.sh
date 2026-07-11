@@ -1007,6 +1007,24 @@ test_orchestration_docs_do_not_duplicate_model_defaults() {
   return 0
 }
 
+test_chooser_default_prompt_is_affirmative() {
+  local skill_md="$REPO_ROOT/.skills/quest/SKILL.md"
+
+  grep -Fq 'Use these defaults? [Y/n]' "$skill_md" || return 1
+  grep -Fq '**On Y (default; single Enter):**' "$skill_md" || return 1
+  grep -Fq '**On N:** present the shorthand override prompt:' "$skill_md" || return 1
+  grep -Fq '(empty input = no overrides, equivalent to Y)' "$skill_md" || return 1
+  grep -Fq 'follow the **On Y** default writer above' "$skill_md" || return 1
+  grep -Fq 'same sourcing as the Y path above' "$skill_md" || return 1
+  if grep -Fq 'same sourcing as the N path above' "$skill_md"; then
+    return 1
+  fi
+  if grep -Fq 'Customize for this quest only? [y/N]' "$skill_md"; then
+    return 1
+  fi
+  return 0
+}
+
 test_opencode_dispatch_uses_orchestration_json() {
   if grep -n 'For these roles, use `codex_codex`' "$OPENCODE_QUEST_MD"; then
     return 1
@@ -1057,6 +1075,7 @@ run_test test_workflow_dispatch_reads_orchestration_json_not_allowlist
 run_test test_workflow_no_allowlist_models_string
 run_test test_workflow_defaults_are_not_dispatch_fallbacks
 run_test test_orchestration_docs_do_not_duplicate_model_defaults
+run_test test_chooser_default_prompt_is_affirmative
 run_test test_opencode_dispatch_uses_orchestration_json
 
 echo ""

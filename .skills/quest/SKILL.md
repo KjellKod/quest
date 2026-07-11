@@ -223,10 +223,10 @@ Before creating the quest folder, present the routing classification to the user
      review-arbiter    <model>  (unused in this mode)   [solo only]
      fixer             <model>
 
-   Customize for this quest only? [y/N]
+   Use these defaults? [Y/n]
    ```
 
-   **On N (default; single Enter):** before writing, validate every active-role model from the expanded default block against the Step 2b preflight result using the same availability rules as overrides below. If Step 2b was healthy, reject any unavailable active-role model as malformed config and stop before dispatch. If the user explicitly chose the single-model continuation after Step 2b failed, remap unavailable active-role models to this orchestrator's native runtime (`claude` for Claude-led sessions, `gpt-5.6-sol` for Codex-led sessions) before writing so `orchestration.json` only contains runnable active-role assignments. Then write `.quest/<id>/orchestration.json` with:
+   **On Y (default; single Enter):** before writing, validate every active-role model from the expanded default block against the Step 2b preflight result using the same availability rules as overrides below. If Step 2b was healthy, reject any unavailable active-role model as malformed config and stop before dispatch. If the user explicitly chose the single-model continuation after Step 2b failed, remap unavailable active-role models to this orchestrator's native runtime (`claude` for Claude-led sessions, `gpt-5.6-sol` for Codex-led sessions) before writing so `orchestration.json` only contains runnable active-role assignments. Then write `.quest/<id>/orchestration.json` with:
    - `version: 1`
    - `models`: `.ai/allowlist.json` `.models` expanded to all 9 canonical keys by `quest_runtime.orchestration.build_default_models`; omitted keys use the shipped `DEFAULT_MODELS` fallback from that module. The allowlist is the repo-configured startup default; do not restate the literal fallback matrix in this procedural skill.
    - `claude_role_transport`: the transport policy selected in Step 2b — `"bridge"` when the user explicitly chose the bridge option (including a per-run `QUEST_CLAUDE_ROLE_TRANSPORT=bridge` selection that was not written to `.ai/allowlist.json`), otherwise from `.ai/allowlist.json` (default `"auto"`). Persist the resolved opt-in so a bridge choice survives resume; never record `"auto"` alongside `claude_transport_resolved: "bridge"`.
@@ -236,7 +236,7 @@ Before creating the quest folder, present the routing classification to the user
    - `overridden_roles: []`
    - `preflight_validated_at: <ISO8601 now>`
 
-   **On Y:** present the shorthand override prompt:
+   **On N:** present the shorthand override prompt:
 
    ```
    Enter overrides as comma-separated role=model pairs or a JSON models object.
@@ -244,10 +244,12 @@ Before creating the quest folder, present the routing classification to the user
    Models: any model name your preflight reports as available (e.g., claude, gpt-5.6-sol, gpt-5.6-terra)
    Pair example: planner=gpt-5.6-sol, builder=claude-opus-4-8
    JSON example: {"models":{"planner":"gpt-5.6-sol","builder":"claude-opus-4-8"}}
-   (empty input = no overrides, equivalent to N)
+   (empty input = no overrides, equivalent to Y)
 
    Overrides:
    ```
+
+   If the override submission is empty after trimming, follow the **On Y** default writer above. Do not write `source: "overridden"`, do not add `overridden_roles`, and do not count the empty submission as a rejected attempt.
 
    **Parse contract (each full override submission is one attempt; cap re-prompts at 3, abort on the 4th rejection):** Run `python3 scripts/quest_parse_overrides.py`, send the complete submission unchanged on stdin, and consume its JSON envelope. Exit `0` returns `{"ok": true, "overrides": [...]}`; exit `2` returns `{"ok": false, "error": "..."}` on stderr and counts as one rejected attempt. Do not manually parse or rewrite JSON into pairs. `quest_runtime.orchestration.parse_override_input` is the canonical API; `parse_override_line` remains a compatibility wrapper.
 
@@ -262,7 +264,7 @@ Before creating the quest folder, present the routing classification to the user
    Once all overrides pass validation, build the merged `models` block (the expanded startup block returned by `build_default_models`, overlaid with the validated overrides — `overridden_roles` excludes ignored-because-unused entries) and write `.quest/<id>/orchestration.json` with:
    - `version: 1`
    - `models`: merged block (all 9 keys present; unused-in-mode roles still carry the default value)
-   - `claude_role_transport` / `claude_transport_resolved`: same sourcing as the N path above; `claude_transport_downgraded: false` for compatibility
+   - `claude_role_transport` / `claude_transport_resolved`: same sourcing as the Y path above; `claude_transport_downgraded: false` for compatibility
    - `source: "overridden"`
    - `overridden_roles`: list of role names that were actually overridden
    - `preflight_validated_at: <ISO8601 now>`
