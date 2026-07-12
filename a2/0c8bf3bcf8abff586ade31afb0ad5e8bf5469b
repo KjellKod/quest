@@ -1,0 +1,19 @@
+ideas/2026-07-11-quest-hardening.md
+  s_2a1cd990c21d63::t_542ebf7943fe35 76,216
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "a20c8bf3bcf8abff586ade31afb0ad5e8bf5469b",
+  "prompts": {},
+  "sessions": {
+    "s_2a1cd990c21d63": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5e6681a0-25e0-4c35-951a-87bccc00ecad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
