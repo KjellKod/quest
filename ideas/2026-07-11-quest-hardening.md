@@ -73,7 +73,7 @@ delivery speed and may proceed in parallel.
 | Status | PR workstream | Original findings | Branch suggestion | PR |
 |---|---|---|---|---|
 | [done] | A. Runtime trust and state boundaries | #1, #4, #18, #22 | `hardening/runtime-boundaries` | [#149](https://github.com/KjellKod/quest/pull/149) |
-| [todo] | B. Operational helper and transport correctness | #3, #9, #20 | `hardening/operational-contracts` | — |
+| [ongoing] | B. Operational helper and transport correctness | #3, #9, #20 | `hardening/operational-contracts` | — |
 | [todo] | C. Installed documentation accuracy | #16, #17 | `hardening/installed-docs` | — |
 | [todo] | D. Source-repository Python formatting | Repository follow-up | `hardening/python-formatting` | — |
 
@@ -213,7 +213,7 @@ general policy framework.
   succeeds; mismatch fails without changing `state.json`.
 - **Observability:** emitted preflight JSON, CLI exit codes, and final state bytes.
 
-## Workstream B — Operational helper and transport correctness [todo]
+## Workstream B — Operational helper and transport correctness [ongoing]
 
 ### Goal
 

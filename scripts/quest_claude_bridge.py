@@ -116,8 +116,7 @@ def read_prompt(args: argparse.Namespace) -> str:
             raise ValueError("No prompt provided. Use --prompt/--prompt-file or stdin.")
         prompt = sys.stdin.read()
 
-    prompt = prompt.strip()
-    if not prompt:
+    if not prompt.strip():
         raise ValueError("Prompt is empty.")
     return prompt
 

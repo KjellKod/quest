@@ -1296,6 +1296,184 @@ def test_post_reply_summary_ignores_untrusted_human_marker_comment(
     assert json.loads(capsys.readouterr().out)["action"] == "create_summary"
 
 
+def test_post_reply_summary_foreign_bot_marker_is_not_owned() -> None:
+    comment = {
+        "id": 201,
+        "body": SUMMARY_MARKER,
+        "user": {"login": "review-bot[bot]", "type": "Bot"},
+    }
+
+    assert (
+        pr_shepherd_post_reply._find_summary_comment(
+            [comment], trusted_marker_author="KjellKod"
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "comment,current_login",
+    [
+        ({"body": SUMMARY_MARKER}, "KjellKod"),
+        ({"body": SUMMARY_MARKER, "user": None}, "KjellKod"),
+        ({"body": SUMMARY_MARKER, "user": {"login": ""}}, "KjellKod"),
+        (
+            {"body": SUMMARY_MARKER, "user": {"login": "KjellKod", "type": "User"}},
+            "",
+        ),
+    ],
+)
+def test_post_reply_summary_unknown_or_empty_identity_is_not_owned(
+    comment, current_login
+) -> None:
+    assert (
+        pr_shepherd_post_reply._find_summary_comment(
+            [comment], trusted_marker_author=current_login
+        )
+        is None
+    )
+
+
+def test_post_reply_summary_skips_foreign_markers_to_find_owned_marker() -> None:
+    comments = [
+        {
+            "id": 201,
+            "body": SUMMARY_MARKER,
+            "user": {"login": "review-bot[bot]", "type": "Bot"},
+        },
+        {
+            "id": 202,
+            "body": SUMMARY_MARKER,
+            "user": {"login": "alice", "type": "User"},
+        },
+        {
+            "id": 203,
+            "body": SUMMARY_MARKER,
+            "user": {"login": "KjellKod", "type": "User"},
+        },
+    ]
+
+    existing = pr_shepherd_post_reply._find_summary_comment(
+        comments, trusted_marker_author="KjellKod"
+    )
+
+    assert existing is not None
+    assert existing["id"] == 203
+
+
+@pytest.mark.parametrize(
+    "login_result",
+    [
+        _Result(returncode=1, stderr="not authenticated"),
+        _Result(stdout=json.dumps({"login": ""})),
+    ],
+)
+def test_post_reply_summary_missing_current_login_creates_without_patch(
+    login_result,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": 200,
+                    "body": SUMMARY_MARKER,
+                    "user": {"login": "review-bot[bot]", "type": "Bot"},
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], *, input_text: str | None = None) -> _Result:
+        calls.append(args)
+        if args == ["gh", "api", "user"]:
+            return login_result
+        return _Result(stdout="{}")
+
+    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "pr_shepherd_post_reply.py",
+            "--summary",
+            "--pr",
+            "12",
+            "--body",
+            "status",
+            "--comments-json",
+            str(comments_path),
+        ],
+    )
+
+    assert pr_shepherd_post_reply.main() == 0
+    assert not any("PATCH" in call for call in calls)
+    assert calls[-1][:3] == ["gh", "pr", "comment"]
+    assert json.loads(capsys.readouterr().out)["action"] == "create_summary"
+
+
+@pytest.mark.parametrize(
+    ("author_login", "login_result", "expected_action", "expected_id"),
+    [
+        ("KjellKod", _Result(stdout=json.dumps({"login": "KjellKod"})), "update_summary", 200),
+        ("alice", _Result(stdout=json.dumps({"login": "KjellKod"})), "create_summary", None),
+        ("KjellKod", _Result(returncode=1, stderr="not authenticated"), "create_summary", None),
+    ],
+)
+def test_post_reply_summary_dry_run_uses_current_login_without_mutating(
+    author_login,
+    login_result,
+    expected_action,
+    expected_id,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    comments_path = tmp_path / "comments.json"
+    comments_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": 200,
+                    "body": SUMMARY_MARKER,
+                    "user": {"login": author_login, "type": "User"},
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], *, input_text: str | None = None) -> _Result:
+        calls.append(args)
+        assert args == ["gh", "api", "user"]
+        return login_result
+
+    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "pr_shepherd_post_reply.py",
+            "--summary",
+            "--body",
+            "status",
+            "--comments-json",
+            str(comments_path),
+            "--dry-run",
+        ],
+    )
+
+    assert pr_shepherd_post_reply.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["action"] == expected_action
+    assert payload["comment_id"] == expected_id
+    assert calls == [["gh", "api", "user"]]
+
+
 def test_post_reply_refuses_missing_target_without_summary_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

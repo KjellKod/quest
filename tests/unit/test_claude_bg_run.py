@@ -278,6 +278,82 @@ def test_dispatch_sends_prompt_on_stdin_not_argv(shim, tmp_path, monkeypatch):
     assert all(prompt not in arg for arg in _last_bg_argv(tmp_path))
 
 
+def test_direct_prompt_preserves_exact_stdin_with_no_protocol(
+    shim, tmp_path, monkeypatch
+):
+    wait = tmp_path / "out.json"
+    prompt = "  indented\nline\n\n"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
+    monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
+
+    env = bg.BgRunner(
+        _args(
+            shim,
+            prompt=prompt,
+            wait_for=str(wait),
+            no_protocol=True,
+        )
+    ).run()
+
+    assert env.status == "ok"
+    assert _last_bg_stdin(tmp_path) == prompt
+    assert all(prompt not in arg for arg in _last_bg_argv(tmp_path))
+
+
+def test_resume_answer_file_preserves_exact_stdin_with_no_protocol(
+    shim, tmp_path, monkeypatch
+):
+    # _fallback_prompt() is intentionally excluded: it creates a derived template.
+    _seed_parent(tmp_path)
+    wait = tmp_path / "out.json"
+    answer_file = tmp_path / "answer.txt"
+    answer = "  choose option A\n\n"
+    answer_file.write_text(answer, encoding="utf-8")
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "resume_ok")
+    monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
+
+    env = bg.BgRunner(
+        _args(
+            shim,
+            resume=PARENT_SID,
+            answer_file=str(answer_file),
+            wait_for=str(wait),
+            no_protocol=True,
+        )
+    ).run()
+
+    assert env.status == "ok"
+    assert _last_bg_stdin(tmp_path) == answer
+    assert all(answer not in arg for arg in _last_bg_argv(tmp_path))
+
+
+def test_whitespace_only_prompt_stops_before_dispatch(shim, tmp_path) -> None:
+    env = bg.BgRunner(_args(shim, prompt=" \t\n")).run()
+
+    assert env.status == "precondition_failed"
+    assert "is empty" in env.message
+    assert not (tmp_path / "last_bg_stdin.txt").exists()
+
+
+def test_whitespace_only_resume_answer_file_stops_before_dispatch(
+    shim, tmp_path
+) -> None:
+    answer_file = tmp_path / "answer.txt"
+    answer_file.write_text(" \t\n", encoding="utf-8")
+
+    env = bg.BgRunner(
+        _args(
+            shim,
+            resume=PARENT_SID,
+            answer_file=str(answer_file),
+        )
+    ).run()
+
+    assert env.status == "precondition_failed"
+    assert "is empty" in env.message
+    assert not (tmp_path / "last_bg_stdin.txt").exists()
+
+
 def test_keep_skips_teardown(shim, tmp_path, monkeypatch, kills):
     wait = tmp_path / "out.json"
     monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")

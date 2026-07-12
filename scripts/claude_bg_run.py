@@ -645,8 +645,7 @@ class BgRunner:
             text = Path(file_value).read_text(encoding="utf-8")
         else:
             raise ValueError(f"No {what} provided.")
-        text = text.strip()
-        if not text:
+        if not text.strip():
             raise ValueError(f"{what} is empty.")
         return text
 

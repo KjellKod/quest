@@ -69,10 +69,8 @@ def _current_login() -> str:
 def _trusted_summary_author(
     comment: dict[str, Any], trusted_marker_author: str
 ) -> bool:
-    author, author_kind = _author(comment)
-    return author_kind != "human" or bool(
-        trusted_marker_author and author == trusted_marker_author
-    )
+    author, _author_kind = _author(comment)
+    return bool(author and trusted_marker_author and author == trusted_marker_author)
 
 
 def _collect_issue_comments(
@@ -152,7 +150,9 @@ def parse_args() -> argparse.Namespace:
         help="Max issue-comment pages to scan for summary upsert",
     )
     parser.add_argument(
-        "--dry-run", action="store_true", help="Do not call gh; emit action/body JSON"
+        "--dry-run",
+        action="store_true",
+        help="Do not mutate GitHub; emit action/body JSON",
     )
     return parser.parse_args()
 
@@ -195,7 +195,7 @@ def main() -> int:
             comments = []
         if not isinstance(comments, list):
             raise ValueError("--comments-json must contain a JSON list")
-        trusted_marker_author = _current_login() if not args.dry_run else ""
+        trusted_marker_author = _current_login()
         existing = _find_summary_comment(
             comments, trusted_marker_author=trusted_marker_author
         )

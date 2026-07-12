@@ -255,32 +255,32 @@ def sync(
         )
         return 0, payload
 
-    probe_status, conflict_files, message = probe_merge(default_ref)
-    if probe_status == STATUS_ERROR:
-        payload.update(
-            {
-                "status": STATUS_ERROR,
-                "reason": "merge_tree_failed",
-            }
-        )
-        if message:
-            payload["message"] = message
-        return 1, payload
-
-    if probe_status == STATUS_CONFLICT:
-        payload.update(
-            {
-                "status": STATUS_CONFLICT,
-                "conflict_files": conflict_files,
-                "reason": "merge_tree_conflict",
-            }
-        )
-        if message:
-            payload["message"] = message
-        return 1, payload
-
-    action = "would_rebase" if strategy == "rebase" else "would_merge"
     if not apply:
+        probe_status, conflict_files, message = probe_merge(default_ref)
+        if probe_status == STATUS_ERROR:
+            payload.update(
+                {
+                    "status": STATUS_ERROR,
+                    "reason": "merge_tree_failed",
+                }
+            )
+            if message:
+                payload["message"] = message
+            return 1, payload
+
+        if probe_status == STATUS_CONFLICT:
+            payload.update(
+                {
+                    "status": STATUS_CONFLICT,
+                    "conflict_files": conflict_files,
+                    "reason": "merge_tree_conflict",
+                }
+            )
+            if message:
+                payload["message"] = message
+            return 1, payload
+
+        action = "would_rebase" if strategy == "rebase" else "would_merge"
         payload.update(
             {
                 "ok": True,
