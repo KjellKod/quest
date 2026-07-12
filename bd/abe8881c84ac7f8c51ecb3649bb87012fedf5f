@@ -1,0 +1,47 @@
+tests/unit/test_claude_bg_run.py
+  s_594d300b50590c::t_f60a742268afad 281-356
+ideas/2026-07-11-quest-hardening.md
+  s_594d300b50590c::t_7b086c232cb0b4 76,216
+scripts/claude_bg_run.py
+  s_594d300b50590c::t_520ede95df16d8 648
+tests/unit/test_pr_sync_default_branch.py
+  s_594d300b50590c::t_4435ada8ed8f07 273-274,283-301,318-319,326,334-347,374-399,422-442
+  s_2122649f591df6::t_18a0fe1177ed25 443-444
+tests/unit/test_quest_claude_bridge.py
+  s_594d300b50590c::t_088d1c446f3b5c 14,16,20,24-25,32-34,41,43,53,55
+  s_594d300b50590c::t_f60a742268afad 1-13,15,17-19,21-23,26-31,35-40,42,44-52,54,56-82
+scripts/pr_sync_default_branch.py
+  s_594d300b50590c::t_c67b074d6e9caa 259-283
+tests/unit/test_pr_shepherd.py
+  s_594d300b50590c::t_873843131d8ea1 1299-1476
+.quest-checksums
+  s_594d300b50590c::t_e6d0aeb8a1c8dd 76
+scripts/quest_claude_bridge.py
+  s_594d300b50590c::t_520ede95df16d8 119
+scripts/pr_shepherd_post_reply.py
+  s_594d300b50590c::t_8d940994311525 72-73,153-155,198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "bdabe8881c84ac7f8c51ecb3649bb87012fedf5f",
+  "prompts": {},
+  "sessions": {
+    "s_2122649f591df6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f51f4-e9d8-7702-8f2f-1018a4619245",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_594d300b50590c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5397-4afa-7e83-8671-16de5e32177c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
