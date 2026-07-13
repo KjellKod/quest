@@ -270,7 +270,8 @@ def test_conflict_lists_files_and_exits_nonzero(monkeypatch) -> None:
     assert payload["applied"] is False
 
 
-def test_conflict_does_not_rebase_even_with_apply(monkeypatch) -> None:
+def test_apply_rebase_runs_even_when_advisory_probe_would_conflict(monkeypatch) -> None:
+    # The old test encoded the defective contract: an advisory probe blocked apply.
     def fake_run(args: list[str]) -> _Result:
         if args[:4] == ["git", "merge-tree", "--write-tree", "--no-messages"]:
             return _Result(returncode=1, stdout="b" * 40 + "\0src/app.py\0")
@@ -279,9 +280,25 @@ def test_conflict_does_not_rebase_even_with_apply(monkeypatch) -> None:
     calls = _install_runner(monkeypatch, fake_run)
     code, payload = pr_sync_default_branch.sync(apply=True)
 
-    assert code == 1
-    assert payload["status"] == "conflict"
-    assert ["git", "rebase", "origin/main"] not in calls
+    assert code == 0
+    assert payload["status"] == "synced"
+    assert payload["action"] == "rebased"
+    assert ["git", "rebase", "origin/main"] in calls
+
+
+def test_apply_merge_runs_even_when_advisory_probe_would_conflict(monkeypatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args[:4] == ["git", "merge-tree", "--write-tree", "--no-messages"]:
+            return _Result(returncode=1, stdout="b" * 40 + "\0src/app.py\0")
+        return _standard_success(args)
+
+    calls = _install_runner(monkeypatch, fake_run)
+    code, payload = pr_sync_default_branch.sync("merge", apply=True)
+
+    assert code == 0
+    assert payload["status"] == "synced"
+    assert payload["action"] == "merged"
+    assert ["git", "merge", "--no-edit", "origin/main"] in calls
 
 
 def test_conflict_never_uses_strategy_theirs_or_ours(monkeypatch) -> None:
@@ -298,19 +315,34 @@ def test_conflict_never_uses_strategy_theirs_or_ours(monkeypatch) -> None:
     assert "-X ours" not in flattened
 
 
-def test_merge_tree_failure_reports_error_not_conflict(monkeypatch) -> None:
+def test_inspect_merge_tree_failure_reports_error_not_conflict(monkeypatch) -> None:
+    # The old test encoded the defective contract by expecting probe failure in apply.
     def fake_run(args: list[str]) -> _Result:
         if args[:4] == ["git", "merge-tree", "--write-tree", "--no-messages"]:
             return _Result(returncode=128, stderr="fatal: not a tree object\n")
         return _standard_success(args)
 
     _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync(apply=True)
+    code, payload = pr_sync_default_branch.sync(apply=False)
 
     assert code == 1
     assert payload["status"] == "error"
     assert payload["reason"] == "merge_tree_failed"
     assert payload["conflict_files"] == []
+
+
+def test_apply_runs_when_advisory_probe_would_fail(monkeypatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args[:4] == ["git", "merge-tree", "--write-tree", "--no-messages"]:
+            return _Result(returncode=128, stderr="fatal: not a tree object\n")
+        return _standard_success(args)
+
+    calls = _install_runner(monkeypatch, fake_run)
+    code, payload = pr_sync_default_branch.sync(apply=True)
+
+    assert code == 0
+    assert payload["status"] == "synced"
+    assert ["git", "rebase", "origin/main"] in calls
 
 
 def test_apply_time_rebase_conflict_aborts_and_reports_conflict(monkeypatch) -> None:
@@ -339,7 +371,32 @@ def test_apply_time_rebase_conflict_aborts_and_reports_conflict(monkeypatch) -> 
     assert "-X ours" not in flattened
 
 
-def test_apply_failure_without_conflicted_files_reports_error(monkeypatch) -> None:
+def test_apply_time_merge_conflict_aborts_and_reports_conflict(monkeypatch) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args == ["git", "merge", "--no-edit", "origin/main"]:
+            return _Result(
+                returncode=1,
+                stderr="CONFLICT (content): Merge conflict in src/app.py\n",
+            )
+        if args == ["git", "diff", "--name-only", "--diff-filter=U"]:
+            return _Result(stdout="src/app.py\n")
+        if args == ["git", "merge", "--abort"]:
+            return _Result()
+        return _standard_success(args)
+
+    calls = _install_runner(monkeypatch, fake_run)
+    code, payload = pr_sync_default_branch.sync("merge", apply=True)
+
+    assert code == 1
+    assert payload["status"] == "conflict"
+    assert payload["reason"] == "merge_conflict"
+    assert payload["conflict_files"] == ["src/app.py"]
+    assert ["git", "merge", "--abort"] in calls
+
+
+def test_rebase_failure_without_conflicted_files_aborts_and_reports_error(
+    monkeypatch,
+) -> None:
     def fake_run(args: list[str]) -> _Result:
         if args == ["git", "rebase", "origin/main"]:
             return _Result(
@@ -360,6 +417,29 @@ def test_apply_failure_without_conflicted_files_reports_error(monkeypatch) -> No
     assert payload["conflict_files"] == []
     assert "auto-detect email" in payload["message"]
     assert ["git", "rebase", "--abort"] in calls
+
+
+def test_merge_failure_without_conflicted_files_aborts_and_reports_error(
+    monkeypatch,
+) -> None:
+    def fake_run(args: list[str]) -> _Result:
+        if args == ["git", "merge", "--no-edit", "origin/main"]:
+            return _Result(returncode=1, stderr="fatal: refusing to merge unrelated\n")
+        if args == ["git", "diff", "--name-only", "--diff-filter=U"]:
+            return _Result(stdout="")
+        if args == ["git", "merge", "--abort"]:
+            return _Result()
+        return _standard_success(args)
+
+    calls = _install_runner(monkeypatch, fake_run)
+    code, payload = pr_sync_default_branch.sync("merge", apply=True)
+
+    assert code == 1
+    assert payload["status"] == "error"
+    assert payload["reason"] == "merge_failed"
+    assert payload["conflict_files"] == []
+    assert "refusing to merge" in payload["message"]
+    assert ["git", "merge", "--abort"] in calls
 
 
 def test_fetch_failure_reports_error(monkeypatch) -> None:
