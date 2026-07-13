@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-07-12 | [operational-contracts](operational-contracts_2026-07-12.md) | ### Problem Three operational contracts currently trust the wrong boundary: 1. `pr_sync_default_branch.py` lets an ad... |
 | 2026-07-11 | [runtime-trust-state-boundaries](runtime-trust-state-boundaries_2026-07-11.md) | Implement Workstream A — Runtime trust and state boundaries from `ideas/2026-07-11-quest-hardening.md`. Scope is stri... |
 | 2026-07-11 | [host-safe-manifest-validation](host-safe-manifest-validation_2026-07-11.md) | Implement the Quest manifest-validation bugfix through the full Quest workflow. Quest is used in two supported topolo... |
 | 2026-07-04 | [bg-transport-hardening](bg-transport-hardening_2026-07-04.md) | implement ideas/2026-07-04-bg-transport-hardening-quest-brief.md The referenced brief (`ideas/2026-07-04-bg-transport... |
