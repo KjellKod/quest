@@ -1,0 +1,23 @@
+docs/quest-journal/celebrations/operational-contracts_2026-07-12.md
+  s_2a1cd990c21d63::t_08cd1b5448b116 1-106
+docs/quest-journal/operational-contracts_2026-07-12.md
+  s_2a1cd990c21d63::t_08cd1b5448b116 1-191
+docs/quest-journal/README.md
+  s_2a1cd990c21d63::t_08cd1b5448b116 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "70d5bf002e051d663e163f489e1ba5f683105e51",
+  "prompts": {},
+  "sessions": {
+    "s_2a1cd990c21d63": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5e6681a0-25e0-4c35-951a-87bccc00ecad",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
