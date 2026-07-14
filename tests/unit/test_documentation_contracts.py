@@ -77,6 +77,59 @@ def test_docs_state_artifact_driven_orchestration_principle() -> None:
     assert "handoff.json" in workflow
 
 
+def test_setup_guide_documents_current_model_and_transport_contracts() -> None:
+    setup = _read("docs/guides/quest_setup.md")
+
+    required_terms = (
+        "models.<role>",
+        ".ai/allowlist.json",
+        ".quest/<id>/orchestration.json",
+        "claude_role_transport",
+        "auto",
+        "background-agent",
+        "bridge",
+        "scripts/quest_preflight.sh --orchestrator claude",
+        "scripts/quest_preflight.sh --orchestrator codex",
+    )
+    for term in required_terms:
+        assert term in setup, f"setup guide is missing current contract term: {term}"
+
+    model_config_row = next(
+        line for line in setup.splitlines() if line.startswith("| `models.<role>` |")
+    )
+    for role in (
+        "planner",
+        "plan-reviewer-a",
+        "plan-reviewer-b",
+        "arbiter",
+        "builder",
+        "code-reviewer-a",
+        "code-reviewer-b",
+        "review-arbiter",
+        "fixer",
+    ):
+        assert f"`{role}`" in model_config_row
+
+    transport_config_row = next(
+        line
+        for line in setup.splitlines()
+        if line.startswith("| `claude_role_transport` |")
+    )
+    for policy in ("`auto`", "`background-agent`", "`bridge`"):
+        assert policy in transport_config_row
+
+    stale_instructions = (
+        "arbiter.tool",
+        '"arbiter": {"tool": "codex"}',
+        "The plan and code reviewers will also fall back to Claude if Codex is unavailable.",
+        "The system falls back to Claude if Codex fails",
+    )
+    for instruction in stale_instructions:
+        assert instruction not in setup, (
+            f"setup guide contains obsolete runtime guidance: {instruction}"
+        )
+
+
 def test_docs_contract_scope_excludes_history_and_journal_archives() -> None:
     assert (_repo_root() / "docs" / "quest-journal").exists()
     assert all(not path.startswith("docs/quest-journal/") for path in ACTIVE_DOCS)

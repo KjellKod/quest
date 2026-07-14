@@ -26,7 +26,9 @@ Quest can use Codex as a second reviewer. This gives you two different model fam
 
 **Requires:**
 - [Codex CLI](https://developers.openai.com/codex/cli/) installed globally (`npm i -g @openai/codex`)
-- Either `OPENAI_API_KEY` in your environment or a Codex login (`codex` → `/login`)
+- A CLI-confirmed Codex login: run `codex login`, then verify that
+  `codex login status` succeeds. `OPENAI_API_KEY` is diagnostic-only in Quest
+  preflight and does not replace the CLI login.
 
 Register the Codex MCP server globally (one-time setup):
 
@@ -64,7 +66,11 @@ If the MCP server isn't showing up, you can manually add it to `.claude/mcp.json
 
 **Documentation:** https://platform.openai.com/docs/quickstart
 
-If you skip this, Quest uses Claude for all roles (still works, just single-model).
+In a Claude-led Quest, Codex-backed role selections require this MCP runtime.
+Before the per-quest chooser, preflight probes the second runtime regardless of
+the repository's current role defaults. If the probe fails, startup pauses for
+remediation or an explicit single-model choice; Quest does not silently change
+the role map.
 
 ### Optional: jq (for validation)
 
@@ -193,12 +199,20 @@ Key sections to customize:
 | `role_permissions.fixer_agent.file_write` | Paths where fixer can write (usually same as builder minus docs) |
 | `role_permissions.*.bash` | Shell commands each role can run (test runners, build tools) |
 | `auto_approve_phases` | Which phases run without human confirmation |
-| `models.arbiter` | Set to `"claude"` or `"gpt-5.4"` to choose arbiter runtime |
+| `models.<role>` | Set a model ID for each canonical role: `planner`, `plan-reviewer-a`, `plan-reviewer-b`, `arbiter`, `builder`, `code-reviewer-a`, `code-reviewer-b`, `review-arbiter`, and `fixer` |
+| `claude_role_transport` | Codex-led Claude transport policy: `auto` (default), `background-agent`, or `bridge` |
 | `quest_id_format` | `slug-first` (default) or `date-first`; affects only new Quest folder names |
 | `review_mode` | `auto` (default), `fast`, or `full` for Codex reviews |
 | `fast_review_thresholds` | File/LOC thresholds used when `review_mode: auto` |
 
 Quest IDs use `<slug>_YYYY-MM-DD__HHMM` by default. Set `"quest_id_format": "date-first"` to create new quests as `YYYY-MM-DD_HHMM__<slug>` for chronological `.quest/` sorting. Existing folders are not renamed, and resume accepts both formats in mixed repositories.
+
+The `.ai/allowlist.json` `models.<role>` values are repository defaults used at
+Quest startup. The chooser expands them to all nine roles, validates the active
+model families against preflight, and allows per-quest overrides. It then saves
+the selected role map and Claude transport metadata in
+`.quest/<id>/orchestration.json`. Every role dispatch reads that saved per-quest
+file; it does not reread the allowlist as live configuration.
 
 
 ### 2. Gitignore
@@ -213,28 +227,46 @@ The `.quest/` folder contains ephemeral run state and should not be committed.
 
 ## One-Time MCP Setup (if using Codex)
 
-If you want to use Codex for reviews and arbiter, add the config to `.claude/mcp.json` (see [Prerequisites](#optional-codex-mcp-for-dual-model-reviews) above).
+If you want a Claude-led Quest to assign any role to a Codex-backed model, add
+the config to `.claude/mcp.json` (see
+[Prerequisites](#optional-codex-mcp-for-dual-model-reviews) above).
 
 This enables the `mcp__codex-cli__codex` tool for spawning Codex agents.
 
-If you don't have Codex or prefer Claude for all roles, set the role models in
-`.ai/allowlist.json` `models` (the same keys shown in the configuration table
-above):
+Quest runs preflight before creating a new quest. Use the command matching the
+current orchestrator:
+
+```bash
+./scripts/quest_preflight.sh --orchestrator claude
+./scripts/quest_preflight.sh --orchestrator codex
+```
+
+Claude-led preflight always probes the Codex CLI and MCP runtime; Codex-led
+preflight always probes the configured Claude transport. This second-runtime
+probe happens before the role-model chooser and is independent of the current
+`models` defaults. The chooser then validates its active role selections against
+the cached preflight result. A failed probe pauses startup for remediation, an
+explicit supported transport choice, a deliberate single-model remap, or
+cancellation.
+
+To deliberately use Claude for every role, set all nine role models in
+`.ai/allowlist.json` `models`:
 
 ```json
 {
   "models": {
     "planner": "claude",
+    "plan-reviewer-a": "claude",
     "plan-reviewer-b": "claude",
     "arbiter": "claude",
     "builder": "claude",
+    "code-reviewer-a": "claude",
     "code-reviewer-b": "claude",
+    "review-arbiter": "claude",
     "fixer": "claude"
   }
 }
 ```
-
-The plan and code reviewers will also fall back to Claude if Codex is unavailable.
 
 ## Codex-Led Claude Transports
 
@@ -286,18 +318,18 @@ Quest uses a purpose-built CLI bridge (`scripts/quest_claude_bridge.py`) instead
 
 The bridge script itself is Quest-agnostic, it's a generic utility for calling Claude CLI with structured options. The Quest-specific behavior (handoff polling, logging, text fallback) lives in `quest_claude_runner.py`.
 
-For the full architecture rationale, see [Why the Bridge, Not MCP](quest_presentation.md#why-the-bridge-not-mcp) in the presentation doc.
-
 ### What Quest handles automatically
 
 - Probes the configured transport once per session and retains recent successful host probes (bg under `auto`; bridge only when explicitly configured/selected)
 - Sweeps orphaned `quest-<id>-*` background sessions and stale `quest-bg-probe-*` probe sessions at quest start/resume (`python3 scripts/claude_bg_run.py --sweep quest-<id>-` and `python3 scripts/claude_bg_run.py --sweep quest-bg-probe-`)
-- Routes Claude-designated roles (planner, reviewer A, arbiter) through `scripts/quest_claude_runner.py --model <models.<role>> --transport <resolved>` in the same host-visible context used for the probe/cache refresh
+- Routes every role whose saved model is Claude-family through `scripts/quest_claude_runner.py --model <models.<role>> --transport <resolved>` in the same host-visible context used for the probe/cache refresh
 - Keeps background-agent `needs_human` sessions parked for same-session resume, then resumes with `--resume <session_id> --answer-file <answer_file>` and updates the chained session id after Claude forks a continuation
 - Records the transport per role in `context_health.log` (`transport=background-agent|bridge`) and reports it in the quest end summary and celebration
-- Claude-led quests are unaffected, they keep native `Task(...)` execution
+- Claude-family roles in Claude-led quests keep native `Task(...)` execution
 
-If the probe fails, Claude-designated roles will block until the CLI/auth setup is fixed.
+If the probe fails, Quest pauses startup for the explicit remediation or
+single-model choices described above; it does not silently select the bridge or
+rewrite role models.
 
 ### Optional: manual verification
 
@@ -369,15 +401,18 @@ See `.ai/quest.md` for full usage documentation.
 
 Each agent runs in **complete isolation** — no shared conversation history:
 
-**Claude agents** (planner, builder, fixer, plan-reviewer):
-- Spawned via Task tool with `subagent_type: general-purpose`
-- Receive assembled prompt with role instructions from `.skills/quest/agents/*.md`
-- Start fresh, return handoff when done
+For every role, Quest reads `models.<role>` from the active quest's
+`orchestration.json`, derives the Claude or Codex runtime family, and then uses
+the entrypoint for the current orchestrator:
 
-**Codex agents** (code-reviewer, arbiter when configured):
-- Called via `mcp__codex-cli__codex` MCP tool
-- Completely separate model (GPT 5.x)
-- Receive assembled prompt, return handoff
+- Claude-led + Claude-family: native isolated task
+- Claude-led + Codex-backed: Codex MCP
+- Codex-led + Codex-backed: local Codex subagent
+- Codex-led + Claude-family: `scripts/quest_claude_runner.py` with the resolved
+  `background-agent` or explicitly selected `bridge` transport
+
+Each role receives an assembled prompt with its instructions and returns an
+artifact-backed handoff without sharing conversation history with other roles.
 
 ### Human as Gatekeeper
 
@@ -419,9 +454,14 @@ Check that your `allowlist.json` has the correct paths in `file_write` for the r
 
 If you have Codex installed but it's not being used:
 
-1. Check MCP is configured: `claude mcp list`
-2. Verify `allowlist.json` has `"arbiter": {"tool": "codex"}`
-3. The system falls back to Claude if Codex fails
+1. Run the preflight command for the active orchestrator and address every
+   reported availability warning.
+2. Inspect `.quest/<id>/orchestration.json` and verify the affected
+   `models.<role>` entries select the intended Codex-backed model.
+3. For Claude-led quests, check that MCP is configured with `claude mcp list`.
+4. To change repository defaults for future quests, update the corresponding
+   `.ai/allowlist.json` `models.<role>` values. Existing quests continue using
+   their saved orchestration file.
 
 ### Quest state is stale
 
