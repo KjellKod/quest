@@ -26,7 +26,9 @@ Quest can use Codex as a second reviewer. This gives you two different model fam
 
 **Requires:**
 - [Codex CLI](https://developers.openai.com/codex/cli/) installed globally (`npm i -g @openai/codex`)
-- Either `OPENAI_API_KEY` in your environment or a Codex login (`codex` → `/login`)
+- A CLI-confirmed Codex login: run `codex login`, then verify that
+  `codex login status` succeeds. `OPENAI_API_KEY` is diagnostic-only in Quest
+  preflight and does not replace the CLI login.
 
 Register the Codex MCP server globally (one-time setup):
 
