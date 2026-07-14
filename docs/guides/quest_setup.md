@@ -67,10 +67,10 @@ If the MCP server isn't showing up, you can manually add it to `.claude/mcp.json
 **Documentation:** https://platform.openai.com/docs/quickstart
 
 In a Claude-led Quest, Codex-backed role selections require this MCP runtime.
-Preflight verifies that the configured model families are available before the
-per-quest chooser is saved. If a selected runtime is unavailable, startup pauses
-for remediation or an explicit single-model choice; Quest does not silently
-change the role map.
+Before the per-quest chooser, preflight probes the second runtime regardless of
+the repository's current role defaults. If the probe fails, startup pauses for
+remediation or an explicit single-model choice; Quest does not silently change
+the role map.
 
 ### Optional: jq (for validation)
 
@@ -241,11 +241,13 @@ current orchestrator:
 ./scripts/quest_preflight.sh --orchestrator codex
 ```
 
-Claude-led preflight verifies the Codex MCP runtime when Codex-backed models are
-selected. Codex-led preflight verifies the configured Claude transport when
-Claude-family models are selected. An unavailable configured runtime pauses
-startup for remediation, an explicit supported transport choice, a deliberate
-single-model remap, or cancellation.
+Claude-led preflight always probes the Codex CLI and MCP runtime; Codex-led
+preflight always probes the configured Claude transport. This second-runtime
+probe happens before the role-model chooser and is independent of the current
+`models` defaults. The chooser then validates its active role selections against
+the cached preflight result. A failed probe pauses startup for remediation, an
+explicit supported transport choice, a deliberate single-model remap, or
+cancellation.
 
 To deliberately use Claude for every role, set all nine role models in
 `.ai/allowlist.json` `models`:
