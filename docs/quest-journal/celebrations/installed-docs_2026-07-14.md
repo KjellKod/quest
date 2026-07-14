@@ -97,7 +97,7 @@ QUALITY SCORE
 
 ## Quest Quote
 
-> "Review boundary holds.** The complete core diff (roadmap `[ongoing]` marker + two test modules + guide edits + any fixes) stays uncommitted through dual code review and the fix loop. Commit, push, manual consumer install, and draft-PR creation are orchestrator-owned and happen only after review/validation (Slice 6); the C `[done]` + PR-link change is a distinct second commit after the PR exists (Slice 7). HEAD is frozen at `bba0a0d…` and asserted at Builder/reviewer/Fixer boundaries (AC7, AC9). Builder/Fixer never commit."
+> "Review boundary holds." The complete core diff (roadmap `[ongoing]` marker + two test modules + guide edits + any fixes) stays uncommitted through dual code review and the fix loop. Commit, push, manual consumer install, and draft-PR creation are orchestrator-owned and happen only after review/validation (Slice 6); the C `[done]` + PR-link change is a distinct second commit after the PR exists (Slice 7). HEAD is frozen at `bba0a0d…` and asserted at Builder/reviewer/Fixer boundaries (AC7, AC9). Builder/Fixer never commit."
 >
 > — Review finding
 
