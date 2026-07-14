@@ -74,7 +74,7 @@ delivery speed and may proceed in parallel.
 |---|---|---|---|---|
 | [done] | A. Runtime trust and state boundaries | #1, #4, #18, #22 | `hardening/runtime-boundaries` | [#149](https://github.com/KjellKod/quest/pull/149) |
 | [done] | B. Operational helper and transport correctness | #3, #9, #20 | `hardening/operational-contracts` | [#150](https://github.com/KjellKod/quest/pull/150) |
-| [todo] | C. Installed documentation accuracy | #16, #17 | `hardening/installed-docs` | — |
+| [ongoing] | C. Installed documentation accuracy | #16, #17 | `hardening/installed-docs` | — |
 | [todo] | D. Source-repository Python formatting | Repository follow-up | `hardening/python-formatting` | — |
 
 ## Workstream A — Runtime trust and state boundaries [done] — [PR #149](https://github.com/KjellKod/quest/pull/149)
@@ -316,7 +316,7 @@ content and GitHub comment ownership.
   restore a non-conflicted worktree with actionable JSON.
 - **Observability:** exit code, JSON payload, `git status --porcelain`, and graph.
 
-## Workstream C — Installed documentation accuracy [todo]
+## Workstream C — Installed documentation accuracy [ongoing]
 
 ### Goal
 

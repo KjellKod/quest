@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import fnmatch
+import re
+import shutil
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 
 def _repo_root() -> Path:
@@ -19,6 +22,43 @@ def _manifest_entries() -> list[str]:
             continue
         entries.append(line)
     return entries
+
+
+def _manifest_file_entries() -> list[str]:
+    manifest = _repo_root() / ".quest-manifest"
+    entries: list[str] = []
+    section = ""
+    for raw_line in manifest.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if line.startswith("[") and line.endswith("]"):
+            section = line[1:-1]
+            continue
+        if not line or line.startswith("#") or section == "directories":
+            continue
+        entries.append(line)
+    return entries
+
+
+def _inline_markdown_targets(markdown: str) -> list[str]:
+    targets: list[str] = []
+    for match in re.finditer(r"(?<!!)\[[^\]]+\]\(([^)]+)\)", markdown):
+        raw_target = match.group(1).strip()
+        if raw_target.startswith("<") and ">" in raw_target:
+            target = raw_target[1 : raw_target.index(">")]
+        else:
+            target = raw_target.split(maxsplit=1)[0]
+        targets.append(target)
+    return targets
+
+
+def _guide_heading_slugs(markdown: str) -> set[str]:
+    slugs: set[str] = set()
+    for heading in re.findall(r"^#{1,6}\s+(.+?)\s*$", markdown, flags=re.MULTILINE):
+        slug = heading.lower()
+        for punctuation in ":()":
+            slug = slug.replace(punctuation, "")
+        slugs.add(re.sub(r"\s+", "-", slug.strip()))
+    return slugs
 
 
 def _validator_patterns() -> list[str]:
@@ -84,6 +124,85 @@ def test_manifest_validator_patterns_cover_installed_quest_surface() -> None:
 
 def test_manifest_includes_installed_quest_setup_guide() -> None:
     assert "docs/guides/quest_setup.md" in set(_manifest_entries())
+
+
+def test_installed_setup_guide_relative_links_resolve_to_manifest_owned_files(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_root()
+    owned_files = set(_manifest_file_entries())
+    for entry in owned_files:
+        source = repo_root / entry
+        if not source.is_file():
+            continue
+        destination = tmp_path / entry
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+
+    guide_entry = "docs/guides/quest_setup.md"
+    installed_guide = tmp_path / guide_entry
+    guide_text = installed_guide.read_text(encoding="utf-8")
+    local_targets = [
+        target
+        for target in _inline_markdown_targets(guide_text)
+        if not urlsplit(target).scheme and not target.startswith("//")
+    ]
+
+    assert local_targets, "expected at least one installed-guide local link"
+    assert "#optional-codex-mcp-for-dual-model-reviews" in local_targets
+
+    resolved_targets: list[str] = []
+    for target in local_targets:
+        path_text, _, fragment = target.partition("#")
+        relative_path = Path(unquote(path_text)) if path_text else Path(guide_entry)
+        if path_text:
+            target_path = (installed_guide.parent / relative_path).resolve()
+        else:
+            target_path = installed_guide.resolve()
+        try:
+            installed_entry = target_path.relative_to(tmp_path.resolve()).as_posix()
+        except ValueError:
+            raise AssertionError(f"local guide link escapes installed fixture: {target}")
+
+        assert installed_entry in owned_files, (
+            f"local guide link is not Quest-owned: {target} -> {installed_entry}"
+        )
+        assert target_path.is_file(), f"local guide link is not installed: {target}"
+        if not path_text and fragment:
+            assert fragment in _guide_heading_slugs(guide_text), (
+                f"local guide fragment does not match a heading: {target}"
+            )
+        resolved_targets.append(target)
+
+    assert len(resolved_targets) == len(local_targets)
+
+
+def test_installed_setup_guide_has_no_unchecked_relative_reference_links() -> None:
+    guide = (_repo_root() / "docs/guides/quest_setup.md").read_text(encoding="utf-8")
+    relative_definitions: list[str] = []
+    for target in re.findall(
+        r"^\s{0,3}\[[^\]]+\]:\s*(\S+)", guide, flags=re.MULTILINE
+    ):
+        normalized = (
+            target[1:-1]
+            if target.startswith("<") and target.endswith(">")
+            else target
+        )
+        if not urlsplit(normalized).scheme and not normalized.startswith("//"):
+            relative_definitions.append(normalized)
+
+    assert relative_definitions == [], (
+        "relative reference-style links are not covered by the installed-guide "
+        "resolver; extend it deliberately before using this syntax: "
+        + ", ".join(relative_definitions)
+    )
+
+
+def test_manifest_does_not_own_quest_presentation() -> None:
+    entries = set(_manifest_file_entries())
+
+    assert "docs/guides/quest_presentation.md" not in entries
+    assert "quest_presentation.md" not in entries
 
 
 def test_manifest_validator_does_not_scan_repo_tests() -> None:
