@@ -54,9 +54,7 @@ def _inline_markdown_targets(markdown: str) -> list[str]:
 def _guide_heading_slugs(markdown: str) -> set[str]:
     slugs: set[str] = set()
     for heading in re.findall(r"^#{1,6}\s+(.+?)\s*$", markdown, flags=re.MULTILINE):
-        slug = heading.lower()
-        for punctuation in ":()":
-            slug = slug.replace(punctuation, "")
+        slug = re.sub(r"[^\w\s-]", "", heading.lower())
         slugs.add(re.sub(r"\s+", "-", slug.strip()))
     return slugs
 
@@ -175,6 +173,12 @@ def test_installed_setup_guide_relative_links_resolve_to_manifest_owned_files(
         resolved_targets.append(target)
 
     assert len(resolved_targets) == len(local_targets)
+
+
+def test_guide_heading_slugs_strip_github_anchor_punctuation() -> None:
+    markdown = "### What's next? Ready, set... go!"
+
+    assert _guide_heading_slugs(markdown) == {"whats-next-ready-set-go"}
 
 
 def test_installed_setup_guide_has_no_unchecked_relative_reference_links() -> None:
