@@ -1,0 +1,19 @@
+ideas/2026-07-11-quest-hardening.md
+  s_e71b7c7412804a::t_a2129c17445253 77,319
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "655710033e0293cb3899e79ec4e4774781b2a4b2",
+  "prompts": {},
+  "sessions": {
+    "s_e71b7c7412804a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5ca1-0dd1-73f2-a1ce-9b8bb541c09b",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
