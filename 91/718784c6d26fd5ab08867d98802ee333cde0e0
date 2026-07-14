@@ -1,0 +1,41 @@
+docs/quest-journal/installed-docs_2026-07-14.md
+  s_e71b7c7412804a::t_adb608644cdcb8 1-188
+docs/quest-journal/celebrations/installed-docs_2026-07-14.md
+  s_e71b7c7412804a::t_adb608644cdcb8 1-106
+ideas/2026-07-11-quest-hardening.md
+  s_e71b7c7412804a::t_b3d19f74ac5bfa 77,319
+tests/unit/test_documentation_contracts.py
+  s_e71b7c7412804a::t_6cd537fdacb945 80-90,93-96,121,123-132
+  s_e71b7c7412804a::t_2b74dd25157e87 91-92
+  s_e71b7c7412804a::t_3d399452a3488b 97-112
+  s_e71b7c7412804a::t_1bf53f37d072d8 113-120
+  s_e71b7c7412804a::t_a19b31cb35f471 122
+docs/guides/quest_setup.md
+  s_e71b7c7412804a::t_61536bd08a6d10 321,400-408,410-411
+  s_e71b7c7412804a::t_cda49cfaf84fde 214
+  s_e71b7c7412804a::t_2b74dd25157e87 67-71,200-201,208-213,234-249,255,259,261,326-328,453-460
+  s_e71b7c7412804a::t_1bf53f37d072d8 228-230,324
+tests/unit/test_quest_manifest.py
+  s_e71b7c7412804a::t_6cd537fdacb945 6-7,9,27-63,129-135,138-185,191-205
+  s_e71b7c7412804a::t_98bca2f9acbd8e 136-137
+  s_e71b7c7412804a::t_61536bd08a6d10 186-190
+  s_e71b7c7412804a::t_d0896a49614dfa 206-207
+docs/quest-journal/README.md
+  s_e71b7c7412804a::t_adb608644cdcb8 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "91718784c6d26fd5ab08867d98802ee333cde0e0",
+  "prompts": {},
+  "sessions": {
+    "s_e71b7c7412804a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5ca1-0dd1-73f2-a1ce-9b8bb541c09b",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
