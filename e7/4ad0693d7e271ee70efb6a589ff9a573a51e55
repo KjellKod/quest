@@ -1,0 +1,19 @@
+docs/guides/quest_setup.md
+  s_e71b7c7412804a::t_87d43f22a9c2e1 29-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "e74ad0693d7e271ee70efb6a589ff9a573a51e55",
+  "prompts": {},
+  "sessions": {
+    "s_e71b7c7412804a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5ca1-0dd1-73f2-a1ce-9b8bb541c09b",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
