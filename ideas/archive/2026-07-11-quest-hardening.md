@@ -1,7 +1,7 @@
 # Quest hardening
 
 Date: 2026-07-11
-Status: `proposed`
+Status: `done`
 Source analysis: `.ws/findings.md`
 
 ## Status contract
@@ -75,7 +75,7 @@ delivery speed and may proceed in parallel.
 | [done] | A. Runtime trust and state boundaries | #1, #4, #18, #22 | `hardening/runtime-boundaries` | [#149](https://github.com/KjellKod/quest/pull/149) |
 | [done] | B. Operational helper and transport correctness | #3, #9, #20 | `hardening/operational-contracts` | [#150](https://github.com/KjellKod/quest/pull/150) |
 | [done] | C. Installed documentation accuracy | #16, #17 | `hardening/installed-docs` | [#152](https://github.com/KjellKod/quest/pull/152) |
-| [ongoing] | D. Source-repository Python formatting | Repository follow-up | `hardening/python-formatting` | — |
+| [done] | D. Source-repository Python formatting | Repository follow-up | `hardening/python-formatting` | [#153](https://github.com/KjellKod/quest/pull/153) |
 
 ## Workstream A — Runtime trust and state boundaries [done] — [PR #149](https://github.com/KjellKod/quest/pull/149)
 
@@ -388,7 +388,7 @@ of host documentation.
   remaining link resolves.
 - **Observability:** installed file list and rendered Markdown links.
 
-## Workstream D — Source-repository Python formatting [ongoing]
+## Workstream D — Source-repository Python formatting [done] — [PR #153](https://github.com/KjellKod/quest/pull/153)
 
 ### Goal
 
