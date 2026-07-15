@@ -2,20 +2,31 @@
 
 ## Development Setup
 
-### Pre-commit Hook (Recommended)
+### Required Development Setup
 
-Install the validation hook to catch configuration errors before commit:
+Install the pinned development dependencies and configure this repository to
+use its versioned pre-commit hook:
 
 ```bash
-./scripts/quest_validate-quest-config.sh --install
+python3 -m pip install -e '.[dev]'
+git config core.hooksPath .githooks
 ```
 
-This creates a symlink so the hook stays in sync with script updates.
+Every Quest contributor must configure `core.hooksPath` after cloning because
+Git cannot propagate this local setting through a clone. The hook runs the
+existing Quest configuration validation followed by
+`python3 -m black --check .`. It is check-only and never rewrites files during
+a commit.
 
-To remove:
+Check or format the source repository directly with:
+
 ```bash
-./scripts/quest_validate-quest-config.sh --uninstall
+python3 -m black --check .
+python3 -m black .
 ```
+
+The local hook can be bypassed, so CI is the authoritative, non-bypassable
+formatting gate.
 
 ### Manual Validation
 
@@ -46,7 +57,9 @@ The validation script checks:
 
 ## CI
 
-GitHub Actions runs the same validation on every push and PR. See `.github/workflows/validate-quest.yml`.
+GitHub Actions runs the same validation on every push and PR. See
+`.github/workflows/validate-quest-config.yml`. The Python workflow also enforces
+Black formatting for the Quest source repository.
 
 ## UI/UX Contributions
 

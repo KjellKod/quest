@@ -125,9 +125,9 @@ def test_setup_guide_documents_current_model_and_transport_contracts() -> None:
         "The system falls back to Claude if Codex fails",
     )
     for instruction in stale_instructions:
-        assert instruction not in setup, (
-            f"setup guide contains obsolete runtime guidance: {instruction}"
-        )
+        assert (
+            instruction not in setup
+        ), f"setup guide contains obsolete runtime guidance: {instruction}"
 
 
 def test_docs_contract_scope_excludes_history_and_journal_archives() -> None:

@@ -75,7 +75,7 @@ delivery speed and may proceed in parallel.
 | [done] | A. Runtime trust and state boundaries | #1, #4, #18, #22 | `hardening/runtime-boundaries` | [#149](https://github.com/KjellKod/quest/pull/149) |
 | [done] | B. Operational helper and transport correctness | #3, #9, #20 | `hardening/operational-contracts` | [#150](https://github.com/KjellKod/quest/pull/150) |
 | [done] | C. Installed documentation accuracy | #16, #17 | `hardening/installed-docs` | [#152](https://github.com/KjellKod/quest/pull/152) |
-| [todo] | D. Source-repository Python formatting | Repository follow-up | `hardening/python-formatting` | — |
+| [ongoing] | D. Source-repository Python formatting | Repository follow-up | `hardening/python-formatting` | — |
 
 ## Workstream A — Runtime trust and state boundaries [done] — [PR #149](https://github.com/KjellKod/quest/pull/149)
 
@@ -388,7 +388,7 @@ of host documentation.
   remaining link resolves.
 - **Observability:** installed file list and rendered Markdown links.
 
-## Workstream D — Source-repository Python formatting [todo]
+## Workstream D — Source-repository Python formatting [ongoing]
 
 ### Goal
 
@@ -411,8 +411,10 @@ installing or enforcing Black in consumer repositories.
 - Add the Black configuration to `/Users/kjell/ws/extra/quest/pyproject.toml`.
 - Add a pinned Black install and `python3 -m black --check .` to the Quest
   repository's Python CI workflow.
-- Add a small `.githooks/pre-commit` check that developers may enable with
-  `git config core.hooksPath .githooks`. The hook must fail with the remediation
+- Add a small `.githooks/pre-commit` check. Quest contributors must configure
+  this repository with `git config core.hooksPath .githooks`; Git cannot
+  propagate this local setting through a clone, so it is required contributor
+  setup after cloning. The hook must fail with the remediation
   `python3 -m black .`; it must not rewrite files during a commit.
 - Keep `.githooks/`, `pyproject.toml`, and the source-repository CI workflow out
   of `.quest-manifest`. Do not modify the installed
@@ -433,8 +435,9 @@ installing or enforcing Black in consumer repositories.
 
 ### Integration touchpoints
 
-- **Developer commits:** local hooks are optional and bypassable, so CI remains
-  the authoritative formatting gate.
+- **Developer commits:** configuring the source hook is required contributor
+  setup. The local check-only hook remains bypassable, so CI is the
+  authoritative, non-bypassable formatting gate.
 - **Partially staged work:** check-only behavior avoids silently rewriting
   unstaged files or creating index/worktree mismatches during commit.
 - **Installer ownership:** source-repository tooling must remain outside the
@@ -448,8 +451,9 @@ installing or enforcing Black in consumer repositories.
   repository-only tooling after installation.
 - **Preconditions:** Black installed in the Quest development environment and a
   temporary clean consumer repository.
-- **Steps:** enable `.githooks`, attempt a commit with intentionally unformatted
-  Python, run the remediation, retry, then install Quest into the consumer.
+- **Steps:** run `git config core.hooksPath .githooks`, attempt a commit with
+  intentionally unformatted Python, run the remediation, retry, then install
+  Quest into the consumer.
 - **Expected:** the first commit is blocked with a clear command, the formatted
   retry passes, and the consumer receives no Black hook or formatting policy.
 - **Observability:** hook output, CI result, manifest diff, and installed file

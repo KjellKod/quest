@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-07-15 | [source-python-formatting](source-python-formatting_2026-07-15.md) | Implement Workstream D — Source-repository Python formatting from `ideas/2026-07-11-quest-hardening.md`. Precondition... |
 | 2026-07-14 | [installed-docs](installed-docs_2026-07-14.md) | Implement Workstream C — Installed documentation accuracy from `ideas/2026-07-11-quest-hardening.md` using the comple... |
 | 2026-07-12 | [operational-contracts](operational-contracts_2026-07-12.md) | ### Problem Three operational contracts currently trust the wrong boundary: 1. `pr_sync_default_branch.py` lets an ad... |
 | 2026-07-11 | [runtime-trust-state-boundaries](runtime-trust-state-boundaries_2026-07-11.md) | Implement Workstream A — Runtime trust and state boundaries from `ideas/2026-07-11-quest-hardening.md`. Scope is stri... |
