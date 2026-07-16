@@ -1,0 +1,19 @@
+.gitignore
+  s_86cae1360c7340::t_ea612afe28532b 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "35db2a6b6a8d90ffcf1ec8d00dbe4a963c41f69c",
+  "prompts": {},
+  "sessions": {
+    "s_86cae1360c7340": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f62ec-8da7-7122-a958-36e9a6ab3c47",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
