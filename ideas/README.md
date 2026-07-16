@@ -43,7 +43,6 @@ Current roadmap:
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
 |---|---|---|
-| `2026-07-11-quest-hardening.md` | proposed | Three-PR hardening plan for findings #1, #3, #4, #9, #16, #17, #18, #20, and #22, tracked from `[todo]` through PR-created `[done]`. |
 | `2026-04-24-quest-hooks-vs-instructions-boundary.md` | proposed | Define the boundary between instruction files, hooks, and scripts for Quest, with Claude-first enforcement and Codex-aware adapter guidance. |
 | `2026-04-29-research-fanout-skill.md` | proposed | Add a reusable research fan-out skill for human-triggered and planner-requested parallel investigation with reconciled findings. |
 | `2026-05-19-sharpen-context-grounding.md` | proposed | Require sharpening questions to be grounded in targeted repo evidence before asking the user. |
@@ -88,6 +87,7 @@ Current roadmap:
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| done | ~~2026-07-11-quest-hardening~~ | Completed across PRs [#149](https://github.com/KjellKod/quest/pull/149), [#150](https://github.com/KjellKod/quest/pull/150), [#152](https://github.com/KjellKod/quest/pull/152), and [#153](https://github.com/KjellKod/quest/pull/153). Archived at [`ideas/archive/2026-07-11-quest-hardening.md`](archive/2026-07-11-quest-hardening.md). |
 | done | ~~deterministic-json-orchestration-overrides~~ | Implemented in PR #144: deterministic parser API and stdin CLI, pair/JSON compatibility, duplicate and delimiter validation, and equivalent orchestration output across accepted formats. Archived at [`ideas/archive/deterministic-json-orchestration-overrides.md`](archive/deterministic-json-orchestration-overrides.md). |
 | done | ~~quest-needs-human-resume-relay~~ | Full same-session relay shipped in PR #142 (items 0–6); item 7 (ask-policy) continues as `2026-07-05-bg-claude-ask-policy-relaxation.md`. Archived at [`ideas/archive/quest-needs-human-resume-relay.md`](archive/quest-needs-human-resume-relay.md). |
 | done | ~~2026-07-04-bg-transport-hardening-quest-brief~~ | Shipped in PR #142 (quest bg-transport-hardening_2026-07-04__1043): truthful block-cause classification, verified teardown, leak-proof sweeps, needs_human same-session relay, end-to-end model passthrough, docs accuracy sweep. Archived at [`ideas/archive/2026-07-04-bg-transport-hardening-quest-brief.md`](archive/2026-07-04-bg-transport-hardening-quest-brief.md). |

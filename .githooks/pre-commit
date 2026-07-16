@@ -1,0 +1,20 @@
+#!/bin/sh
+
+hook_dir=$(CDPATH= cd -P "$(dirname "$0")" && pwd) || exit 1
+repo_root=$(CDPATH= cd -P "$hook_dir/.." && pwd) || exit 1
+cd "$repo_root" || exit 1
+
+./scripts/quest_validate-quest-config.sh || exit $?
+
+if python3 -m black --check .; then
+  exit 0
+fi
+
+cat >&2 <<'EOF'
+Python formatting check failed.
+Install the pinned development dependency:
+  python3 -m pip install -e '.[dev]'
+Format the repository, then retry the commit:
+  python3 -m black .
+EOF
+exit 1

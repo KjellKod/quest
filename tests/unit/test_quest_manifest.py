@@ -160,16 +160,18 @@ def test_installed_setup_guide_relative_links_resolve_to_manifest_owned_files(
         try:
             installed_entry = target_path.relative_to(tmp_path.resolve()).as_posix()
         except ValueError:
-            raise AssertionError(f"local guide link escapes installed fixture: {target}")
+            raise AssertionError(
+                f"local guide link escapes installed fixture: {target}"
+            )
 
-        assert installed_entry in owned_files, (
-            f"local guide link is not Quest-owned: {target} -> {installed_entry}"
-        )
+        assert (
+            installed_entry in owned_files
+        ), f"local guide link is not Quest-owned: {target} -> {installed_entry}"
         assert target_path.is_file(), f"local guide link is not installed: {target}"
         if not path_text and fragment:
-            assert fragment in _guide_heading_slugs(guide_text), (
-                f"local guide fragment does not match a heading: {target}"
-            )
+            assert fragment in _guide_heading_slugs(
+                guide_text
+            ), f"local guide fragment does not match a heading: {target}"
         resolved_targets.append(target)
 
     assert len(resolved_targets) == len(local_targets)
@@ -184,13 +186,9 @@ def test_guide_heading_slugs_strip_github_anchor_punctuation() -> None:
 def test_installed_setup_guide_has_no_unchecked_relative_reference_links() -> None:
     guide = (_repo_root() / "docs/guides/quest_setup.md").read_text(encoding="utf-8")
     relative_definitions: list[str] = []
-    for target in re.findall(
-        r"^\s{0,3}\[[^\]]+\]:\s*(\S+)", guide, flags=re.MULTILINE
-    ):
+    for target in re.findall(r"^\s{0,3}\[[^\]]+\]:\s*(\S+)", guide, flags=re.MULTILINE):
         normalized = (
-            target[1:-1]
-            if target.startswith("<") and target.endswith(">")
-            else target
+            target[1:-1] if target.startswith("<") and target.endswith(">") else target
         )
         if not urlsplit(normalized).scheme and not normalized.startswith("//"):
             relative_definitions.append(normalized)

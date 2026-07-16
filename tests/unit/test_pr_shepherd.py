@@ -1419,9 +1419,24 @@ def test_post_reply_summary_missing_current_login_creates_without_patch(
 @pytest.mark.parametrize(
     ("author_login", "login_result", "expected_action", "expected_id"),
     [
-        ("KjellKod", _Result(stdout=json.dumps({"login": "KjellKod"})), "update_summary", 200),
-        ("alice", _Result(stdout=json.dumps({"login": "KjellKod"})), "create_summary", None),
-        ("KjellKod", _Result(returncode=1, stderr="not authenticated"), "create_summary", None),
+        (
+            "KjellKod",
+            _Result(stdout=json.dumps({"login": "KjellKod"})),
+            "update_summary",
+            200,
+        ),
+        (
+            "alice",
+            _Result(stdout=json.dumps({"login": "KjellKod"})),
+            "create_summary",
+            None,
+        ),
+        (
+            "KjellKod",
+            _Result(returncode=1, stderr="not authenticated"),
+            "create_summary",
+            None,
+        ),
     ],
 )
 def test_post_reply_summary_dry_run_uses_current_login_without_mutating(
