@@ -1,0 +1,30 @@
+tests/unit/test_source_python_formatting.py
+  s_86cae1360c7340::t_e002be40dac7f1 13-16
+  s_b1bba49bf438d7::t_5a92ce9b715461 17
+docs/quest-journal/celebrations/source-python-formatting_2026-07-15.md
+  s_86cae1360c7340::t_e002be40dac7f1 58,106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "01b3efc73e63bd753530fad1816970b022be9b96",
+  "prompts": {},
+  "sessions": {
+    "s_86cae1360c7340": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f62ec-8da7-7122-a958-36e9a6ab3c47",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_b1bba49bf438d7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6ddc751f-4ad5-4f0d-962b-7b31ed660786",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
