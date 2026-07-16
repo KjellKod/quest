@@ -13,6 +13,7 @@
 
 # Python
 __pycache__/
+*.egg-info/
 
 # OS files
 .DS_Store
