@@ -55,7 +55,7 @@
 
 ## What Started This
 
-Implement Workstream D — Source-repository Python formatting from ideas/2026-07-11-quest-hardening.md`.
+Implement Workstream D — Source-repository Python formatting from `ideas/2026-07-11-quest-hardening.md`.
 
 ## Starring Cast
 
@@ -103,4 +103,4 @@ QUALITY SCORE
 
 ## Victory Narrative
 
-Implement Workstream D — Source-repository Python formatting from ideas/2026-07-11-quest-hardening.md`. The quest finished with 2 plan iteration(s), 0 fix loop(s), and a persisted celebration artifact that future readers can open directly from the journal.
+Implement Workstream D — Source-repository Python formatting from `ideas/2026-07-11-quest-hardening.md`. The quest finished with 2 plan iteration(s), 0 fix loop(s), and a persisted celebration artifact that future readers can open directly from the journal.

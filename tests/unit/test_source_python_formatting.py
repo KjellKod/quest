@@ -6,10 +6,14 @@ import os
 import shutil
 import stat
 import subprocess
-import tomllib
 from pathlib import Path
 
 import yaml
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 
 
 BLACK_PIN = "black==24.10.0"
