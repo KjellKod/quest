@@ -1,0 +1,36 @@
+ideas/quest-policy-canonicalization-and-enforcement-roadmap.md
+  s_86cae1360c7340::t_b724f926b76389 16
+ideas/quest-multi-phase-execution.md
+  s_86cae1360c7340::t_b724f926b76389 6
+docs/quest-journal/orchestration-override_2026-05-18.md
+  s_86cae1360c7340::t_b724f926b76389 30,48-49
+ideas/archive/2026-05-26-native-runtime-dispatch.md
+  s_86cae1360c7340::t_b724f926b76389 14
+ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md
+  s_86cae1360c7340::t_b724f926b76389 6,10,23
+tests/unit/test_ideas_backlog.py
+  s_86cae1360c7340::t_b724f926b76389 9-11,13,21-26,37-38,162-170,175
+  s_86cae1360c7340::t_b5339097e8725f 230-237
+ideas/README.md
+  s_86cae1360c7340::t_b724f926b76389 46
+docs/implementation/backlog/quest-diamond-efficiency-roadmap.md
+  s_86cae1360c7340::t_b724f926b76389 7,10-13,25,27,30,33,36,39,73,289,291,476
+ideas/2026-04-13-instruction-architecture.md
+  s_86cae1360c7340::t_b724f926b76389 12,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3c18b969f1e9f087e266b255d929a2da0bfc0676",
+  "prompts": {},
+  "sessions": {
+    "s_86cae1360c7340": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f62ec-8da7-7122-a958-36e9a6ab3c47",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
