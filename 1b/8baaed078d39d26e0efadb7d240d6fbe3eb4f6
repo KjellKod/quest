@@ -1,0 +1,43 @@
+ideas/quest-policy-canonicalization-and-enforcement-roadmap.md
+  s_86cae1360c7340::t_fe0f520064c1b3 15-19,108-133
+ideas/2026-04-13-instruction-architecture.md
+  s_86cae1360c7340::t_fe0f520064c1b3 12,26-33
+  s_86cae1360c7340::t_095222314711df 34
+ideas/archive/2026-05-18-per-quest-orchestration-override.md
+  s_86cae1360c7340::t_c7131723d2bcf8 3,7-8,10,12-14,19,21-25,27-30,32,34-40,42,44-48,50,52-55,57,59-62
+ideas/quest-multi-phase-execution.md
+  s_86cae1360c7340::t_fe0f520064c1b3 5-11
+ideas/2026-04-17-persisted-celebrations-and-brief-in-cheers.md
+  s_86cae1360c7340::t_c7131723d2bcf8 3-23,53-54
+  s_86cae1360c7340::t_c8bad75667abfb 55
+tests/unit/test_ideas_backlog.py
+  s_86cae1360c7340::t_f418f53db9bcbb 1-85,88-119,121-182,185-207,214-226
+  s_86cae1360c7340::t_b050d8e6d540d9 86-87,120,183-184
+  s_86cae1360c7340::t_7b5ae29215ff5a 208-209,211-213
+  s_86cae1360c7340::t_e44d0e4adf0da4 210
+ideas/quest-diamond-efficiency-roadmap.md
+  s_86cae1360c7340::t_66dd3505029b4e 1-2,5-34,40-68,70-286,295-297,306-308,313-315,320-322,327-476
+  s_86cae1360c7340::t_3fbdd2ade51a2b 3-4,35-39,69,287-294,298-305,309-312,316-319,323-326
+ideas/README.md
+  s_86cae1360c7340::t_c61992b120e101 26
+  s_86cae1360c7340::t_3fbdd2ade51a2b 28
+  s_86cae1360c7340::t_c7131723d2bcf8 14,31,46,75-76
+ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md
+  s_86cae1360c7340::t_fe0f520064c1b3 9-10,19-26,465-480
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "1b8baaed078d39d26e0efadb7d240d6fbe3eb4f6",
+  "prompts": {},
+  "sessions": {
+    "s_86cae1360c7340": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f62ec-8da7-7122-a958-36e9a6ab3c47",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
