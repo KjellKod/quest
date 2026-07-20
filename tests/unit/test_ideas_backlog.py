@@ -18,6 +18,7 @@ CELEBRATION_PATH = (
 ORCHESTRATION_ARCHIVE_PATH = (
     IDEAS_DIR / "archive/2026-05-18-per-quest-orchestration-override.md"
 )
+CODE_REVIEW_ARCHIVE_PATH = IDEAS_DIR / "archive/2026-05-30-code-review-adjudication.md"
 ORCHESTRATION_JOURNAL_PATH = (
     REPO_ROOT / "docs/quest-journal/orchestration-override_2026-05-18.md"
 )
@@ -34,6 +35,7 @@ CHANGED_PLANNING_PATHS = (
     IDEAS_DIR / "quest-multi-phase-execution.md",
     CELEBRATION_PATH,
     ORCHESTRATION_ARCHIVE_PATH,
+    CODE_REVIEW_ARCHIVE_PATH,
     ORCHESTRATION_JOURNAL_PATH,
     NATIVE_RUNTIME_ARCHIVE_PATH,
 )
@@ -50,7 +52,9 @@ PERMITTED_DIAMOND_STATUSES = {
 def _section(text: str, start: str, end: str | None = None) -> str:
     section = text.split(start, 1)[1]
     if end:
-        section = section.split(end, 1)[0]
+        parts = section.split(end, 1)
+        assert len(parts) > 1, f"end delimiter {end!r} not found after {start!r}"
+        section = parts[0]
     return section
 
 
@@ -129,7 +133,15 @@ def test_active_ideas_exist_do_not_duplicate_done_and_record_status_evidence():
     assert "PR\n[#119]" in orchestration
     assert "[#144]" in orchestration
     assert "requires a new evidence-backed proposal" in orchestration
+    assert (
+        "../../docs/quest-journal/orchestration-override_2026-05-18.md" in orchestration
+    )
     assert "2026-05-18-per-quest-orchestration-override" in done_ids
+
+    code_review = CODE_REVIEW_ARCHIVE_PATH.read_text()
+    assert (
+        "../../docs/quest-journal/code-review-adjudication_2026-05-30.md" in code_review
+    )
 
 
 def test_ci_quality_superseded_ideas_are_not_active():
@@ -193,7 +205,7 @@ def test_diamond_roadmap_records_current_state_safe_topology_and_location():
         "WP0": "proposed",
         "WP1": "partial",
         "WP2": "proposed",
-        "WP3": "proposed",
+        "WP3": "partial",
         "WP4": "partial",
         "WP5": "proposed",
         "WP6": "proposed",

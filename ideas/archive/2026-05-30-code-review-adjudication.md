@@ -10,6 +10,8 @@ owner: kjell
 # Code-Review Adjudication
 
 > **Shipped in PR #124.** This idea is implemented; archived for history.
+> See the [Quest journal](../../docs/quest-journal/code-review-adjudication_2026-05-30.md)
+> for execution evidence.
 
 ## Two linked gaps
 

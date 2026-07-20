@@ -4,12 +4,14 @@
 
 PR [#112](https://github.com/KjellKod/quest/pull/112) shipped the core
 persistence and navigation behavior: completion writes a source-repository
-celebration artifact and links the celebration, brief, and Quest journal.
+celebration artifact with a brief excerpt, while the journal and celebration
+link to each other.
 
 ### Shipped
 
 - Persisted celebration Markdown for completed Quests.
-- Brief and journal cross-links that make the narrative discoverable.
+- Brief-excerpt embedding plus journal-to-celebration and
+  celebration-to-journal links that make the narrative discoverable.
 - Source-repository completion integration with no-overwrite protection.
 
 ### Unshipped Or Unresolved

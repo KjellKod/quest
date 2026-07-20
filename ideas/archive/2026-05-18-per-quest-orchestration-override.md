@@ -29,13 +29,17 @@ concrete model pass-through. PR
 [#144](https://github.com/KjellKod/quest/pull/144) added deterministic JSON
 override parsing and established the current explicit role defaults.
 
+See the [Quest journal](../../docs/quest-journal/orchestration-override_2026-05-18.md)
+for execution evidence.
+
 ## Shipped Contract
 
 - Repository `models.*` values provide startup defaults only.
 - `.quest/<id>/orchestration.json` is authoritative after Quest creation.
 - The user may accept the complete matrix or submit quest-local overrides.
 - Resume preserves the original orchestration selection.
-- Active role assignments are validated against runtime availability.
+- Active role assignments must be non-empty strings and are validated against
+  runtime availability.
 - Concrete Claude model IDs pass through; the exact `claude` sentinel uses the
   account default without being forwarded as a model ID.
 

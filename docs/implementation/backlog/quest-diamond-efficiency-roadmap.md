@@ -65,7 +65,7 @@ Evidence baseline: `origin/main` at `fb5ee46` (2026-07-20).
 | WP0 telemetry and baseline | proposed | `QUEST_RUNNER_TELEMETRY_LOG` is an opt-in transport test seam; there is no per-quest `metrics.jsonl`, `scripts/quest_runtime/metrics.py`, or `tests/benchmark/` suite. | Diamond | None beyond a current clean `main`. | First executable slice: define the schema, capture three baselines, and stop before optimization. |
 | WP1 contract unification | partial | Canonical findings and confidence-aware decisions shipped, while platform role files still repeat handoff and policy text. | Policy roadmap plus instruction architecture | Preserve existing findings compatibility; pointer work follows the instruction-architecture value gate. | Treat shipped contracts as foundations and plan remaining pointer/canonicalization work under the named owners. |
 | WP2 selective workflow loading | proposed | `.skills/quest/delegation/workflow.md` is 1,535 lines and no phase-loading directory exists. | Instruction architecture | WP0 baseline plus proof that invocation-time context changes, not merely file layout. | Measure first, then propose selective phase/role loading under the runtime-value gate. |
-| WP3 delta re-review and caps | proposed | There is no numbered review-checkpoint or review-delta artifact; iteration bounds remain warning-based. | Policy roadmap | WP0 measurement and an approved failure/escalation contract. | Specify bounded delta review and fail-safe escalation in a dedicated Quest. |
+| WP3 delta re-review and caps | partial | Loop caps already stop iteration and preserve or retag unresolved findings; there is no numbered review-checkpoint or review-delta artifact. | Policy roadmap | WP0 measurement and an approved checkpoint/fallback contract. | Preserve shipped cap behavior and specify bounded delta review in a dedicated Quest. |
 | WP4 reviewer signal and arbiter cost | partial | Confidence-aware routing sends uncertain findings to `verify_first` or `defer`; `.skills/review-anti-patterns.md` remains small and no measured arbiter-selection policy exists. | Diamond for measurement; CI roadmap for CI-facing signal | WP0 data before changing reviewer or arbiter defaults. | Measure signal/cost, then improve anti-pattern guidance or selection only when data supports it. |
 | WP5 planning lessons | proposed | No bounded `planning_lessons` artifact or archived per-iteration lesson extraction exists. | Memory architecture plus memory evaluation loop; Diamond owns sequencing and efficiency measurement | WP0 measurement, an approved memory MVP, and an approved selective-loading architecture. | Sequence a measured planning-efficiency comparison after the canonical memory owners define and validate the lesson contract. |
 | WP6 CI prompt consolidation | proposed | `.github/scripts/codex_review.py` still prepares both PR-head file context and bounded Deep CI context. | CI quality roadmap | Coordinate with CI quality Track 7 to avoid conflicting pipeline edits. | Measure duplicate context, then implement any consolidation in the canonical CI roadmap. |
@@ -215,17 +215,23 @@ prompt assembly, role dispatch, resume behavior, and all platform entrypoints.
 
 ## WP3: Delta Re-Review And Iteration Caps
 
-### Outcome
+### Shipped Foundation
 
-Give review iterations an explicit checkpoint/delta contract and enforce bounded
-loops without hiding unresolved findings or converting infrastructure failures
-into approval.
+Plan and fix iteration limits already stop their loops and preserve, retag, or
+escalate unresolved findings at the configured cap.
+
+### Remaining Outcome
+
+Give every review iteration an explicit checkpoint/delta contract without
+weakening the shipped cap behavior or converting infrastructure failures into
+approval.
 
 ### Acceptance Criteria
 
 - Every re-review records the prior checkpoint and exact changed range or files.
 - Full re-review remains available when the delta contract is missing or unsafe.
-- Plan and fix iteration limits have deterministic stop/escalation behavior.
+- Existing plan and fix iteration limits retain deterministic stop/escalation
+  behavior.
 - No unresolved actionable finding disappears solely because a cap was reached.
 
 ### Automated Validation
@@ -458,7 +464,7 @@ findings, and the final comparison report.
 |---|---|
 | Optimizing before trustworthy measurement | WP0 is the sole recommended next slice; later default changes depend on pinned data. |
 | Token reduction hides important context | Preserve critical/high baseline findings and validate role-specific inclusion manifests. |
-| Roadmaps become competing policy sources | Keep normative rules in the four named canonical plans and use reciprocal links. |
+| Roadmaps become competing policy sources | Keep normative rules in the named canonical plans and use reciprocal links. |
 | Telemetry changes behavior or leaks data | Make recording best-effort, test failure neutrality, and prohibit prompt/secret capture. |
 | Long programs blur review and approval | Use one bounded Quest and PR per executable package from current `main`. |
 | Baselines drift across models or revisions | Pin brief IDs, role assignments, and commit SHAs; fail comparison on mismatch. |
