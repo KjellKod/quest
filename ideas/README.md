@@ -11,6 +11,7 @@ architecture docs.
 ## Status Legend
 - `idea`: concept captured, not scoped
 - `proposed`: concrete plan exists, not started
+- `partial`: named behavior shipped and named follow-up outcomes remain
 - `in-progress`: partially implemented or actively iterating
 - `reference`: operational note or incident record (not a build proposal)
 - `wont-do`: evaluated and deliberately rejected; kept (archived) with reasoning to prevent re-proposal
@@ -21,24 +22,13 @@ architecture docs.
 | File | Status | Purpose |
 |---|---|---|
 | `quest-policy-canonicalization-and-enforcement-roadmap.md` | in-progress | Canonical plan to reduce policy drift and convert rules into enforced checks. |
-| `codex-review-severity-emoji.md` | proposed | Add severity emoji to Codex review inline comments for faster scanning in PR threads. |
 | `handoff-validation-and-failure-ux.md` | in-progress | Add actionable diagnostics when handoff fallback occurs. |
+| `2026-05-04-ci-review-allowlist-quality-roadmap.md` | in-progress | Canonical roadmap for CI review signal, allowlist, bug-fix, and PR-readiness quality work. |
 
-### Review Intelligence
+### Completion Experience
 | File | Status | Purpose |
 |---|---|---|
-| `2026-04-27-agent-commit-guard-pre-commit-review.md` | proposed | Add an opt-in agent-level commit guard that offers `pre-commit-review` before local commits without installing a raw Git hook. |
-| [`archive/2026-05-30-code-review-adjudication.md`](archive/2026-05-30-code-review-adjudication.md) | shipped (PR #124) | Enforce per-slot findings JSON (fail closed) and add a code-review arbiter so A-vs-B findings are judged for truth, bringing the build phase to plan-phase adjudication parity. |
-
-Current roadmap:
-
-| Phase | Status | Focus |
-|---|---|---|
-| Phase 1 | done | Canonical review findings, decisions, and backlog contracts. |
-| Phase 2 | done | Targeted validation and batched PR response. |
-| Phase 3 | done | Bounded Deep CI whole-file review for selected changed code files. |
-| Phase 3.1 | done | Deep CI oversized-file chunk fallback shipped in PR #98; see [`ideas/archive/deep-ci-chunked-context-plan.md`](archive/deep-ci-chunked-context-plan.md). |
-| Phase 3.2 | done | Structured review-context manifest shipped in PR #101; see [`ideas/archive/deep-ci-review-context-manifest-plan.md`](archive/deep-ci-review-context-manifest-plan.md) and [`docs/quest-journal/deep-ci-manifest_2026-04-24.md`](../docs/quest-journal/deep-ci-manifest_2026-04-24.md). |
+| `2026-04-17-persisted-celebrations-and-brief-in-cheers.md` | partial | PR #112 shipped persisted celebration artifacts and links; regeneration, provenance metadata, and ownership-list completion remain unresolved. |
 
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
@@ -46,7 +36,6 @@ Current roadmap:
 | `2026-04-24-quest-hooks-vs-instructions-boundary.md` | proposed | Define the boundary between instruction files, hooks, and scripts for Quest, with Claude-first enforcement and Codex-aware adapter guidance. |
 | `2026-04-29-research-fanout-skill.md` | proposed | Add a reusable research fan-out skill for human-triggered and planner-requested parallel investigation with reconciled findings. |
 | `2026-05-19-sharpen-context-grounding.md` | proposed | Require sharpening questions to be grounded in targeted repo evidence before asking the user. |
-| `2026-05-30-pre-pr-freshness-and-force-push-guard.md` | proposed | `pr-assistant` syncs the branch with the remote default branch as part of PR creation so we never open a PR stale against main; clean sync proceeds automatically, only conflicts stop for the human. |
 | `dual-model-planning.md` | proposed | Explore parallel plan generation with arbiter synthesis instead of a single planner output. |
 | `2026-04-13-codex-companion-runtime.md` | proposed | Phased prove-it roadmap for a shared Codex runtime serving both the human `/gpt` command surface and Quest orchestration, with strict go/no-go criteria after the minimum slice. |
 | `2026-04-13-feedback-intent-routing.md` | proposed | Canonical feedback-routing proposal: classify live quest feedback by intent and route to clarify, replan, second-opinion, or escalation paths deliberately. |
@@ -54,6 +43,7 @@ Current roadmap:
 | `2026-04-13-quest-memory-architecture.md` | proposed | Canonical memory architecture proposal: operational and reflective memory layers, structured records, narrow retrieval, freshness model, and strict guardrails. |
 | `2026-04-13-quest-memory-evaluation-loop.md` | proposed | Local benchmark design for proving whether Quest memory retrieval actually improves relevance, efficiency, and hallucination resistance versus plain filesystem exploration. |
 | `quest-file-attribution-line.md` | idea | File-level Quest attribution and license provenance line. |
+| `quest-diamond-efficiency-roadmap.md` | proposed | Measurement-first efficiency program; WP0 telemetry and three pinned baselines are the recommended next Diamond slice. |
 | `quest-multi-phase-execution.md` | proposed | Recommended pattern for handling large multi-phase initiatives: umbrella planning quest, then separate phase quests unless the passes still feed one bounded deliverable set. |
 | `quest-preflight-sandbox-false-negative-bugfix.md` | in-progress | Host-context probe caching and diagnostics shipped; fallback classification/reporting is still not fully explicit. |
 | `quest-requiem-ceremony.md` | idea | Add a reflective archive/abandon ceremony that mirrors completion celebration. |
@@ -69,11 +59,6 @@ Current roadmap:
 |---|---|---|
 | `2026-04-15-claude-insights-priorities.md` | proposed | Canonical Tier/Skip index mapping evaluation suggestions to sanity-checked Quest proposals. |
 | `2026-04-15-claude-rule-never-dismiss-acceptance-criteria.md` | proposed | Guardrail against rejecting explicit acceptance criteria as optional. |
-| `2026-04-15-pr-create-checklist-via-pr-assistant.md` | proposed | PR checklist workflow via existing `pr-assistant` to avoid duplicate skill drift. |
-| `2026-04-15-precommit-status-diffstat-discipline.md` | proposed | Pre-commit staging verification discipline with optional bounded hook. |
-| `2026-04-15-tool-failure-two-attempt-cap.md` | proposed | Two-attempt cap rule for failing tool investigations to limit rabbit-holing. |
-| `2026-04-29-test-driven-bug-fix-loops.md` | proposed | Safer bug-fix mode: failing test first, bounded distinct strategies, preserved attempt evidence, and no destructive rollback. |
-| `2026-04-15-autonomous-pr-shepherd-headless.md` | idea | Long-horizon autonomous PR shepherd design with strict safety boundaries. |
 
 ### Graduated
 | Idea | Destination |
@@ -87,6 +72,8 @@ Current roadmap:
 ### Done Index
 | Status | Idea | Note |
 |---|---|---|
+| done | ~~2026-05-30-code-review-adjudication~~ | Shipped in PR [#124](https://github.com/KjellKod/quest/pull/124): per-slot findings fail closed and the review arbiter adjudicates dual-review output. Archived at [`ideas/archive/2026-05-30-code-review-adjudication.md`](archive/2026-05-30-code-review-adjudication.md). |
+| done | ~~2026-05-18-per-quest-orchestration-override~~ | Core override shipped in PR [#119](https://github.com/KjellKod/quest/pull/119); JSON parsing and current model defaults were hardened in PR [#144](https://github.com/KjellKod/quest/pull/144). Archived at [`ideas/archive/2026-05-18-per-quest-orchestration-override.md`](archive/2026-05-18-per-quest-orchestration-override.md). |
 | done | ~~2026-07-11-quest-hardening~~ | Completed across PRs [#149](https://github.com/KjellKod/quest/pull/149), [#150](https://github.com/KjellKod/quest/pull/150), [#152](https://github.com/KjellKod/quest/pull/152), and [#153](https://github.com/KjellKod/quest/pull/153). Archived at [`ideas/archive/2026-07-11-quest-hardening.md`](archive/2026-07-11-quest-hardening.md). |
 | done | ~~deterministic-json-orchestration-overrides~~ | Implemented in PR #144: deterministic parser API and stdin CLI, pair/JSON compatibility, duplicate and delimiter validation, and equivalent orchestration output across accepted formats. Archived at [`ideas/archive/deterministic-json-orchestration-overrides.md`](archive/deterministic-json-orchestration-overrides.md). |
 | done | ~~quest-needs-human-resume-relay~~ | Full same-session relay shipped in PR #142 (items 0–6); item 7 (ask-policy) continues as `2026-07-05-bg-claude-ask-policy-relaxation.md`. Archived at [`ideas/archive/quest-needs-human-resume-relay.md`](archive/quest-needs-human-resume-relay.md). |

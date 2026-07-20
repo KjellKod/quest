@@ -6,6 +6,8 @@ scope: CI review helpers, allowlist enforcement, PR readiness helpers, bug-fix d
 status: active-roadmap
 owner: maintainers
 date: 2026-05-04
+related:
+  - ideas/quest-diamond-efficiency-roadmap.md
 ---
 
 # CI Review, Allowlist, and Quality Maturity Roadmap
@@ -13,6 +15,14 @@ date: 2026-05-04
 This roadmap supersedes the scattered CI, review, allowlist, pre-commit, and
 bug-fix idea docs listed at the end. Treat those files as historical source
 material; implement from this roadmap.
+
+## Relationship To Diamond
+
+This roadmap is the canonical owner for CI-facing review signal, taxonomy and
+rendering, prompt-pipeline evolution, output honesty, allowlist policy, and lane
+separation. The [Diamond efficiency roadmap](quest-diamond-efficiency-roadmap.md)
+measures WP4/WP6 efficiency outcomes and sequences them after WP0; it does not
+redefine CI policy or implementation mechanics.
 
 ## Baseline Already Implemented
 
@@ -452,21 +462,22 @@ Focused first-slice test plan:
 - Add workflow contract tests proving the workflow passes the exclusion policy
   into the Python helper and still uses trusted base checkout.
 
-## Superseded Active Idea Docs
+## Superseded Idea Docs
 
-Mark these as superseded by this roadmap:
+These documents are already archived and are historical inputs, not independent
+active implementation targets:
 
-- `ideas/2026-04-24-intent-coverage-and-severity-tagged-reviews.md`
-- `ideas/codex-review-severity-emoji.md`
-- `ideas/2026-04-22-review-ergonomics-and-team-preference-memory.md`
-- `ideas/2026-04-20-allowlist-pattern-hygiene.md`
-- `ideas/2026-04-20-allowlist-enforcement-activation.md`
-- `ideas/2026-04-15-precommit-status-diffstat-discipline.md`
-- `ideas/2026-04-27-agent-commit-guard-pre-commit-review.md`
-- `ideas/2026-04-29-test-driven-bug-fix-loops.md`
-- `ideas/2026-04-15-pr-create-checklist-via-pr-assistant.md`
-- `ideas/2026-04-15-autonomous-pr-shepherd-headless.md`
-- `ideas/2026-04-15-tool-failure-two-attempt-cap.md`
+- `ideas/archive/2026-04-24-intent-coverage-and-severity-tagged-reviews.md`
+- `ideas/archive/codex-review-severity-emoji.md`
+- `ideas/archive/2026-04-22-review-ergonomics-and-team-preference-memory.md`
+- `ideas/archive/2026-04-20-allowlist-pattern-hygiene.md`
+- `ideas/archive/2026-04-20-allowlist-enforcement-activation.md`
+- `ideas/archive/2026-04-15-precommit-status-diffstat-discipline.md`
+- `ideas/archive/2026-04-27-agent-commit-guard-pre-commit-review.md`
+- `ideas/archive/2026-04-29-test-driven-bug-fix-loops.md`
+- `ideas/archive/2026-04-15-pr-create-checklist-via-pr-assistant.md`
+- `ideas/archive/2026-04-15-autonomous-pr-shepherd-headless.md`
+- `ideas/archive/2026-04-15-tool-failure-two-attempt-cap.md`
 
 Keep these archived docs as baseline history, not active implementation plans:
 

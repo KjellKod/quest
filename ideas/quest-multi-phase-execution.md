@@ -2,6 +2,13 @@
 
 Status: proposed
 
+Related program roadmap:
+[Quest Diamond efficiency](quest-diamond-efficiency-roadmap.md). Diamond follows
+this topology: the umbrella roadmap remains a planning artifact, while each
+executable WP starts from current `main` and receives its own bounded Quest and
+independently reviewable PR. Benchmark comparison uses pinned commits rather
+than a persistent integration branch.
+
 ## Question
 
 How should Quest handle work that has multiple real phases, where later phases depend on artifacts produced and validated in earlier phases?

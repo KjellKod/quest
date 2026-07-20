@@ -9,6 +9,7 @@ supersedes:
   - .ws/2026-04-13-orchestration-improvement-workflow.md
 related:
   - ideas/quest-policy-canonicalization-and-enforcement-roadmap.md
+  - ideas/quest-diamond-efficiency-roadmap.md
   - .skills/quest/delegation/workflow.md
   - .skills/quest/SKILL.md
   - .skills/code-reviewer/SKILL.md
@@ -21,6 +22,15 @@ The scope is documentation and architecture guidance only.
 No runtime wiring, script creation, or `.skills/` edits are part of this proposal.
 
 The central design objective is to improve runtime instruction relevance and inspectability without introducing policy fragmentation.
+
+## Relationship To Diamond
+
+This proposal is the canonical owner for Diamond WP1/WP2 implementation details:
+selective invocation-time loading, the policy-pack structure, deterministic
+prompt assembly, and pointer-only role/policy wiring. The
+[Diamond efficiency roadmap](quest-diamond-efficiency-roadmap.md) owns sequencing
+and measurement. A file split alone does not satisfy either roadmap; runtime
+prompt inclusion must change observably and be compared against the WP0 baseline.
 
 ## Preservation Rules
 

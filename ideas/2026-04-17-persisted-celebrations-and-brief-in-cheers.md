@@ -1,6 +1,26 @@
 # Idea: Persisted Celebrations With Embedded Brief And Journal Cross-Links
 
-## Status: proposed (follow-up quest)
+## Status: partial
+
+PR [#112](https://github.com/KjellKod/quest/pull/112) shipped the core
+persistence and navigation behavior: completion writes a source-repository
+celebration artifact and links the celebration, brief, and Quest journal.
+
+### Shipped
+
+- Persisted celebration Markdown for completed Quests.
+- Brief and journal cross-links that make the narrative discoverable.
+- Source-repository completion integration with no-overwrite protection.
+
+### Unshipped Or Unresolved
+
+- Context-aware overwrite/regeneration and post-PR revision behavior.
+- Canonical `origin` and revision metadata plus any migration for older files.
+- Allowlist and ownership-list completion for every deliberately persisted
+  celebration surface.
+
+These outcomes remain proposals, not implied requirements. A future Quest must
+reconfirm their value and preserve explicit commit, push, and PR approval gates.
 
 ## Origin
 
@@ -29,6 +49,9 @@ We will borrow the **pattern** (persist + cross-link + frontmatter), not the dou
 4. **Dashboard has no hook into celebration narratives.** It reads journals and archives but cannot link out to "the good story."
 
 ## Proposal
+
+The sections below are the original design record. Treat them as candidate
+follow-up behavior; the status summary above is the current source of truth.
 
 Add three behaviors to the `celebrate` skill and the Step 7 (complete) path of `workflow.md`:
 

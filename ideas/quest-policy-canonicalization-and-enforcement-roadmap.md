@@ -12,6 +12,11 @@ This is the consolidation doc for policy hardening. It supersedes scattered one-
 Supporting incident note (deleted, fix shipped in `workflow.md` on this branch):
 - ~~`ideas/runtime-attribution-accuracy-for-context-health.md`~~
 
+Efficiency measurement and work-package sequencing belong to the
+[Diamond efficiency roadmap](quest-diamond-efficiency-roadmap.md). Diamond WP1
+and WP3 may consume this roadmap's canonical policy and enforcement outcomes,
+but they do not redefine those mechanics here.
+
 ## Problem 1: Policy Duplication (Drift Risk)
 
 ### Where duplication currently happens
@@ -100,15 +105,32 @@ These files all contain behavior rules. Some are source-of-truth, some are mirro
 - CI-enforced compliance for gate order, runtime attribution, and PR quality rules.
 - Lower chance of "instructions said X but run did Y" failures.
 
-## Progress (2026-04-11)
-- Problem 1 (duplication): canonical pointers in `.codex/AGENTS.md` and `.agents/` done. Lint script and `Canonical Source` annotations not started.
-- Problem 2 item 3 (PR body gate): shipped. See `docs/quest-journal/pr-body-gate_2026-02-22.md`.
-- Problem 2 item 1: partially shipped. `quest_validate-quest-state.sh` and `python3 scripts/quest_state.py --transition ...` enforce phase sequencing, but there is still no validator that scans the workspace for pre-build source edits outside `.quest/**`.
-- Problem 2 item 2: partially shipped. `context_health.log` records runtime per invocation and Quest documents require runtime logging, but there is not yet a standalone validator that enforces runtime attribution quality as a blocking check.
-- Problem 2 item 4: partially shipped in process/docs, not enforced as a dedicated merge gate in this repo.
-- Problem 2 item 5: partially shipped. We have `quest_validate-quest-state.sh`, `quest_validate-handoff-contracts.sh`, and `quest_validate-manifest.sh`, but there is no single completion gate that validates a finished quest end-to-end.
-- Problem 2 item 4.5 (runtime selection truth + Claude SDK preferred over bridge): partially shipped. Host-context probe caching and runtime logging exist, but preferred vs effective runtime/model is still not persisted per role slot as a first-class quest artifact.
-- Rollout Phase A partially started (PR body gate runs warn-only, not yet required).
+## Progress (2026-07-20)
+
+- Problem 1 remains partial. Canonical pointers exist, but platform role and
+  workflow surfaces still repeat some handoff and policy text. Pointer-only role
+  design and selective loading are owned by
+  [instruction architecture](2026-04-13-instruction-architecture.md).
+- Problem 2 item 1 is partial. `quest_validate-quest-state.sh` and
+  `scripts/quest_state.py --transition` enforce phase sequencing and gate
+  evidence; workspace-wide pre-build edit detection is not a complete blocking
+  contract.
+- Problem 2 item 2 is partial. Runtime/transport attribution is recorded and
+  validated in several paths, but there is no single end-to-end attribution
+  quality gate for every completed role slot.
+- Problem 2 item 3 shipped. See
+  [PR body gate journal](../docs/quest-journal/pr-body-gate_2026-02-22.md).
+- Problem 2 item 4 remains process-enforced rather than a dedicated merge gate.
+- Problem 2 item 4.5 is substantially shipped: per-quest
+  `.quest/<id>/orchestration.json`, model/runtime dispatch, transport resolution,
+  and explicit model pass-through landed across PRs #119, #142, and #144.
+  End-to-end preferred-versus-effective attribution remains broader than the
+  shipped orchestration selection contract.
+- Problem 2 item 5 remains partial. State, handoff, manifest, and configuration
+  validators exist, but no single completion command proves every finished-Quest
+  contract.
+- Efficiency claims about future consolidation or enforcement must use the
+  Diamond WP0 baseline rather than line counts or intuition.
 
 ## Status
 in-progress
