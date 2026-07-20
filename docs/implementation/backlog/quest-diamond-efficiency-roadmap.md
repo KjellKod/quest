@@ -4,12 +4,13 @@ Status: proposed umbrella roadmap
 Refreshed: 2026-07-20
 PR: [#135](https://github.com/KjellKod/quest/pull/135)
 
-## Why This Roadmap Lives In Ideas
+## Why This Roadmap Lives In The Implementation Backlog
 
 This document sequences future, independently reviewable efficiency work. It does
-not describe an implementation currently in flight, so `ideas/` is its truthful
-home. When a work package is selected, it gets its own Quest, implementation
-plan, approval gates, and PR to current `main`.
+not describe an implementation currently in flight, so
+`docs/implementation/backlog/` is its truthful home under the repository's
+planning-document convention. When a work package is selected, it gets its own
+Quest, implementation plan, approval gates, and PR to current `main`.
 
 The objective is to reduce unnecessary prompt, review, and iteration cost without
 weakening correctness or review diversity. Measurement comes first: WP0 is the
@@ -21,21 +22,21 @@ Diamond owns efficiency goals, current-state evidence for WP0-WP9, package
 sequencing, benchmark comparison, and the measurement-first decision order. It
 links to, but does not redefine, these canonical plans:
 
-- [Policy canonicalization and enforcement](quest-policy-canonicalization-and-enforcement-roadmap.md)
+- [Policy canonicalization and enforcement](../../../ideas/quest-policy-canonicalization-and-enforcement-roadmap.md)
   owns policy families and enforcement mechanics.
-- [Instruction architecture](2026-04-13-instruction-architecture.md) owns
+- [Instruction architecture](../../../ideas/2026-04-13-instruction-architecture.md) owns
   selective loading, policy-pack structure, prompt assembly, and pointer-only
   role wiring.
-- [CI review, allowlist, and quality maturity](2026-05-04-ci-review-allowlist-quality-roadmap.md)
+- [CI review, allowlist, and quality maturity](../../../ideas/2026-05-04-ci-review-allowlist-quality-roadmap.md)
   owns CI-review taxonomy, output honesty, prompt-pipeline structure, allowlist
   work, and CI lane separation.
-- [Multi-phase execution](quest-multi-phase-execution.md) owns execution
+- [Multi-phase execution](../../../ideas/quest-multi-phase-execution.md) owns execution
   topology: one program roadmap, then one bounded Quest and PR per executable
   package.
-- [Memory architecture](2026-04-13-quest-memory-architecture.md) owns reflective
+- [Memory architecture](../../../ideas/2026-04-13-quest-memory-architecture.md) owns reflective
   lesson persistence, record structure, retrieval, freshness, and privacy
   guardrails.
-- [Memory evaluation loop](2026-04-13-quest-memory-evaluation-loop.md) owns the
+- [Memory evaluation loop](../../../ideas/2026-04-13-quest-memory-evaluation-loop.md) owns the
   benchmark that proves whether retrieved memory is useful.
 
 ## Status Legend
@@ -69,7 +70,7 @@ Evidence baseline: `origin/main` at `fb5ee46` (2026-07-20).
 | WP5 planning lessons | proposed | No bounded `planning_lessons` artifact or archived per-iteration lesson extraction exists. | Memory architecture plus memory evaluation loop; Diamond owns sequencing and efficiency measurement | WP0 measurement, an approved memory MVP, and an approved selective-loading architecture. | Sequence a measured planning-efficiency comparison after the canonical memory owners define and validate the lesson contract. |
 | WP6 CI prompt consolidation | proposed | `.github/scripts/codex_review.py` still prepares both PR-head file context and bounded Deep CI context. | CI quality roadmap | Coordinate with CI quality Track 7 to avoid conflicting pipeline edits. | Measure duplicate context, then implement any consolidation in the canonical CI roadmap. |
 | WP7 per-role model plumbing | done | PRs [#119](https://github.com/KjellKod/quest/pull/119), [#142](https://github.com/KjellKod/quest/pull/142), and [#144](https://github.com/KjellKod/quest/pull/144) shipped per-quest orchestration, exact model pass-through, JSON overrides, and explicit role defaults. | Shipped runtime contracts | None. | No execution prompt; preserve behavior through existing tests. |
-| WP8 completion experience | partial | PR [#112](https://github.com/KjellKod/quest/pull/112) shipped persisted celebration artifacts and brief/journal links. The source proposal still records unresolved regeneration, provenance metadata, and ownership-list completion work. | [Persisted celebrations proposal](2026-04-17-persisted-celebrations-and-brief-in-cheers.md) | A separate decision on which unresolved outcomes still provide value. | Keep explicit commit, push, and PR approval gates; scope any remaining celebration work separately. |
+| WP8 completion experience | partial | PR [#112](https://github.com/KjellKod/quest/pull/112) shipped persisted celebration artifacts and brief/journal links. The source proposal still records unresolved regeneration, provenance metadata, and ownership-list completion work. | [Persisted celebrations proposal](../../../ideas/2026-04-17-persisted-celebrations-and-brief-in-cheers.md) | A separate decision on which unresolved outcomes still provide value. | Keep explicit commit, push, and PR approval gates; scope any remaining celebration work separately. |
 | WP9 benchmark comparison | blocked | Comparable baseline/after rollups and pinned comparison commits do not exist. | Diamond | WP0 merged with three baselines; chosen optimization packages merged independently; frozen briefs and model matrix; both SHAs recorded. | Execute only after every unblock condition is satisfied. |
 
 ## Execution Topology
@@ -285,9 +286,9 @@ intelligence, anti-pattern guidance, arbiter dispatch, and CI review boundaries.
 ### Outcome
 
 Determine whether planning lessons provided by the canonical
-[Memory architecture](2026-04-13-quest-memory-architecture.md) improve later
+[Memory architecture](../../../ideas/2026-04-13-quest-memory-architecture.md) improve later
 plans without increasing unnecessary context or iteration cost. The
-[Memory evaluation loop](2026-04-13-quest-memory-evaluation-loop.md) owns the
+[Memory evaluation loop](../../../ideas/2026-04-13-quest-memory-evaluation-loop.md) owns the
 usefulness benchmark. Those documents are the canonical owners of persistence,
 record structure, retrieval, freshness/privacy guardrails, and memory-quality
 evaluation. Diamond owns only package sequencing and efficiency measurement; it
@@ -472,5 +473,5 @@ brief/model/commit parity cannot be established.
 ## Historical Provenance
 
 Earlier model-capability exploration is archived at
-[2026-05-31-quest-model-capability-improvements.md](archive/2026-05-31-quest-model-capability-improvements.md).
+[2026-05-31-quest-model-capability-improvements.md](../../../ideas/archive/2026-05-31-quest-model-capability-improvements.md).
 It is historical evidence, not the current implementation source.

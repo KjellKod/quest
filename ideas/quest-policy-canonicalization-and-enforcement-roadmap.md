@@ -13,7 +13,7 @@ Supporting incident note (deleted, fix shipped in `workflow.md` on this branch):
 - ~~`ideas/runtime-attribution-accuracy-for-context-health.md`~~
 
 Efficiency measurement and work-package sequencing belong to the
-[Diamond efficiency roadmap](quest-diamond-efficiency-roadmap.md). Diamond WP1
+[Diamond efficiency roadmap](../docs/implementation/backlog/quest-diamond-efficiency-roadmap.md). Diamond WP1
 and WP3 may consume this roadmap's canonical policy and enforcement outcomes,
 but they do not redefine those mechanics here.
 

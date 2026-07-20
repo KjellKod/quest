@@ -6,14 +6,23 @@ from urllib.parse import unquote
 REPO_ROOT = Path(__file__).resolve().parents[2]
 IDEAS_DIR = REPO_ROOT / "ideas"
 INDEX_PATH = IDEAS_DIR / "README.md"
-DIAMOND_PATH = IDEAS_DIR / "quest-diamond-efficiency-roadmap.md"
+DIAMOND_PATH = (
+    REPO_ROOT / "docs/implementation/backlog/quest-diamond-efficiency-roadmap.md"
+)
 OLD_DIAMOND_PATH = REPO_ROOT / "docs/implementation/quest-diamond-efficiency-roadmap.md"
+OLD_IDEAS_DIAMOND_PATH = IDEAS_DIR / "quest-diamond-efficiency-roadmap.md"
 CI_ROADMAP_PATH = IDEAS_DIR / "2026-05-04-ci-review-allowlist-quality-roadmap.md"
 CELEBRATION_PATH = (
     IDEAS_DIR / "2026-04-17-persisted-celebrations-and-brief-in-cheers.md"
 )
 ORCHESTRATION_ARCHIVE_PATH = (
     IDEAS_DIR / "archive/2026-05-18-per-quest-orchestration-override.md"
+)
+ORCHESTRATION_JOURNAL_PATH = (
+    REPO_ROOT / "docs/quest-journal/orchestration-override_2026-05-18.md"
+)
+NATIVE_RUNTIME_ARCHIVE_PATH = (
+    IDEAS_DIR / "archive/2026-05-26-native-runtime-dispatch.md"
 )
 
 CHANGED_PLANNING_PATHS = (
@@ -25,6 +34,8 @@ CHANGED_PLANNING_PATHS = (
     IDEAS_DIR / "quest-multi-phase-execution.md",
     CELEBRATION_PATH,
     ORCHESTRATION_ARCHIVE_PATH,
+    ORCHESTRATION_JOURNAL_PATH,
+    NATIVE_RUNTIME_ARCHIVE_PATH,
 )
 
 PERMITTED_DIAMOND_STATUSES = {
@@ -148,10 +159,20 @@ def test_changed_idea_document_links_resolve():
 
     assert missing == []
 
+    stale_path = "ideas/2026-05-18-per-quest-orchestration-override.md"
+    stale_references = [
+        path.relative_to(REPO_ROOT).as_posix()
+        for directory in (REPO_ROOT / "docs", IDEAS_DIR)
+        for path in directory.rglob("*.md")
+        if stale_path in path.read_text()
+    ]
+    assert stale_references == []
+
 
 def test_diamond_roadmap_records_current_state_safe_topology_and_location():
     assert DIAMOND_PATH.is_file()
     assert not OLD_DIAMOND_PATH.exists()
+    assert not OLD_IDEAS_DIAMOND_PATH.exists()
     diamond = DIAMOND_PATH.read_text()
 
     assert "Refreshed: 2026-07-20" in diamond
@@ -206,8 +227,14 @@ def test_diamond_roadmap_records_current_state_safe_topology_and_location():
     assert "No persistent integration branch is required" in diamond
 
     wp5 = _section(diamond, "## WP5: Planning Lessons", "## WP6")
-    assert "[Memory architecture](2026-04-13-quest-memory-architecture.md)" in wp5
-    assert "[Memory evaluation loop](2026-04-13-quest-memory-evaluation-loop.md)" in wp5
+    assert (
+        "[Memory architecture](../../../ideas/2026-04-13-quest-memory-architecture.md)"
+        in wp5
+    )
+    assert (
+        "[Memory evaluation loop](../../../ideas/2026-04-13-quest-memory-evaluation-loop.md)"
+        in wp5
+    )
     assert "canonical owners" in wp5
     assert "Diamond owns only package sequencing and efficiency measurement" in wp5
 

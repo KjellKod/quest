@@ -11,7 +11,7 @@ related:
   - .skills/quest/SKILL.md
   - .skills/quest/delegation/workflow.md
   - .skills/quest/agents/planner.md
-  - ideas/2026-05-18-per-quest-orchestration-override.md
+  - ideas/archive/2026-05-18-per-quest-orchestration-override.md
   - ideas/2026-04-29-research-fanout-skill.md
   - scripts/quest_claude_runner.py
   - scripts/quest_claude_bridge.py

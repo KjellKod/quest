@@ -43,7 +43,7 @@ architecture docs.
 | `2026-04-13-quest-memory-architecture.md` | proposed | Canonical memory architecture proposal: operational and reflective memory layers, structured records, narrow retrieval, freshness model, and strict guardrails. |
 | `2026-04-13-quest-memory-evaluation-loop.md` | proposed | Local benchmark design for proving whether Quest memory retrieval actually improves relevance, efficiency, and hallucination resistance versus plain filesystem exploration. |
 | `quest-file-attribution-line.md` | idea | File-level Quest attribution and license provenance line. |
-| `quest-diamond-efficiency-roadmap.md` | proposed | Measurement-first efficiency program; WP0 telemetry and three pinned baselines are the recommended next Diamond slice. |
+| [`docs/implementation/backlog/quest-diamond-efficiency-roadmap.md`](../docs/implementation/backlog/quest-diamond-efficiency-roadmap.md) | proposed | Measurement-first efficiency program; WP0 telemetry and three pinned baselines are the recommended next Diamond slice. |
 | `quest-multi-phase-execution.md` | proposed | Recommended pattern for handling large multi-phase initiatives: umbrella planning quest, then separate phase quests unless the passes still feed one bounded deliverable set. |
 | `quest-preflight-sandbox-false-negative-bugfix.md` | in-progress | Host-context probe caching and diagnostics shipped; fallback classification/reporting is still not fully explicit. |
 | `quest-requiem-ceremony.md` | idea | Add a reflective archive/abandon ceremony that mirrors completion celebration. |

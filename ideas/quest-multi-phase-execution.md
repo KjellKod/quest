@@ -3,7 +3,7 @@
 Status: proposed
 
 Related program roadmap:
-[Quest Diamond efficiency](quest-diamond-efficiency-roadmap.md). Diamond follows
+[Quest Diamond efficiency](../docs/implementation/backlog/quest-diamond-efficiency-roadmap.md). Diamond follows
 this topology: the umbrella roadmap remains a planning artifact, while each
 executable WP starts from current `main` and receives its own bounded Quest and
 independently reviewable PR. Benchmark comparison uses pinned commits rather

@@ -27,7 +27,7 @@
 - `tests/test-validate-quest-state.sh`
 - `tests/test-quest-orchestration.sh`
 - `AGENTS.md`
-- `ideas/2026-05-18-per-quest-orchestration-override.md`
+- `ideas/archive/2026-05-18-per-quest-orchestration-override.md`
 - `.quest-manifest`
 - `.quest/orchestration-override_2026-05-18__0540/phase_03_review/review_code-reviewer-a.md`
 - `.quest/orchestration-override_2026-05-18__0540/phase_03_review/review_findings_code-reviewer-a.json`
@@ -45,7 +45,8 @@
 
 Implement per-quest orchestration override.
 
-Reference: `ideas/2026-05-18-per-quest-orchestration-override.md` (committed on this branch, `orchestration-override`).
+Reference: `ideas/archive/2026-05-18-per-quest-orchestration-override.md`
+(originally committed on the `orchestration-override` branch).
 
 ### PRE-DECISIONS (do not re-litigate in planning)
 

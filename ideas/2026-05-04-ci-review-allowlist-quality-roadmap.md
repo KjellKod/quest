@@ -3,11 +3,11 @@ title: CI Review, Allowlist, and Quality Maturity Roadmap
 purpose: Consolidate active CI/review/allowlist improvement ideas into one implementation-ready roadmap.
 audience: Quest maintainers and CI-touching agents
 scope: CI review helpers, allowlist enforcement, PR readiness helpers, bug-fix discipline, and review ergonomics
-status: active-roadmap
+status: in-progress
 owner: maintainers
 date: 2026-05-04
 related:
-  - ideas/quest-diamond-efficiency-roadmap.md
+  - docs/implementation/backlog/quest-diamond-efficiency-roadmap.md
 ---
 
 # CI Review, Allowlist, and Quality Maturity Roadmap
@@ -20,7 +20,7 @@ material; implement from this roadmap.
 
 This roadmap is the canonical owner for CI-facing review signal, taxonomy and
 rendering, prompt-pipeline evolution, output honesty, allowlist policy, and lane
-separation. The [Diamond efficiency roadmap](quest-diamond-efficiency-roadmap.md)
+separation. The [Diamond efficiency roadmap](../docs/implementation/backlog/quest-diamond-efficiency-roadmap.md)
 measures WP4/WP6 efficiency outcomes and sequences them after WP0; it does not
 redefine CI policy or implementation mechanics.
 
