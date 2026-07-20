@@ -1,0 +1,28 @@
+ideas/archive/2026-05-18-per-quest-orchestration-override.md
+  s_86cae1360c7340::t_574daab51627f1 32-34,41-42
+ideas/2026-04-17-persisted-celebrations-and-brief-in-cheers.md
+  s_86cae1360c7340::t_574daab51627f1 7-8,13-14
+ideas/archive/2026-05-30-code-review-adjudication.md
+  s_86cae1360c7340::t_574daab51627f1 13-14
+tests/unit/test_ideas_backlog.py
+  s_86cae1360c7340::t_574daab51627f1 21,38,55-57,136-138,141-144
+  s_86cae1360c7340::t_2e6e5b4804af47 145,208
+docs/implementation/backlog/quest-diamond-efficiency-roadmap.md
+  s_86cae1360c7340::t_574daab51627f1 68,218-221,223-227,233-234,467
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "556658f9faf3df57fcd8de60f6e4fef6106297cf",
+  "prompts": {},
+  "sessions": {
+    "s_86cae1360c7340": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f62ec-8da7-7122-a958-36e9a6ab3c47",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
