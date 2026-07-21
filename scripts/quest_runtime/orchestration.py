@@ -352,7 +352,7 @@ def load_codex_available_from_cache(cache_path: Path) -> bool:
 
 
 def build_default_models(
-    allowlist_models: dict[str, str | None]
+    allowlist_models: dict[str, str | None],
 ) -> dict[str, str | None]:
     """Return a fresh copy of an allowlist `models` block with all 9 keys.
 
@@ -384,7 +384,7 @@ def _backfill_legacy_compatible_roles(
 
 
 def build_snapshot_models(
-    snapshot_models: dict[str, str | None]
+    snapshot_models: dict[str, str | None],
 ) -> dict[str, str | None]:
     """Return a shape-stable model block from a saved snapshot.
 

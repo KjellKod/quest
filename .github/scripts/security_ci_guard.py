@@ -10,7 +10,6 @@ from typing import Mapping
 import yaml
 from yaml.nodes import MappingNode, ScalarNode, SequenceNode
 
-
 WORKFLOW_DIR = Path(".github/workflows")
 TRUSTED_AUTHOR = "KjellKod"
 TRUSTED_AUTHOR_SNIPPETS = {

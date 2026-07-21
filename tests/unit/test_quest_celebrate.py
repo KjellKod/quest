@@ -1746,8 +1746,7 @@ class TestQualityTier:
     def test_journal_replay_does_not_read_live_allowlist(self, tmp_path):
         journal_path = tmp_path / "journal.md"
         journal_path.write_text(
-            textwrap.dedent(
-                """\
+            textwrap.dedent("""\
                 # Quest Journal: test-quest
 
                 - Quest ID: `test-quest_2026-03-05__0643`
@@ -1757,8 +1756,7 @@ class TestQualityTier:
 
                 - Plan iterations: 1
                 - Fix iterations: 0
-            """
-            ),
+            """),
             encoding="utf-8",
         )
 
@@ -1793,8 +1791,7 @@ class TestQualityTier:
 class TestJournalCelebrationData:
     """Tests for celebration_data extraction from journal markdown."""
 
-    SAMPLE_JOURNAL = textwrap.dedent(
-        """\
+    SAMPLE_JOURNAL = textwrap.dedent("""\
         # Quest Journal: test-quest
 
         - Quest ID: `test-quest_2026-03-05__0643`
@@ -1836,8 +1833,7 @@ class TestJournalCelebrationData:
         }
         ```
         <!-- celebration-data-end -->
-    """
-    )
+    """)
 
     def test_extract_celebration_data_finds_json(self):
         data = extract_celebration_data_from_journal(self.SAMPLE_JOURNAL)
@@ -1880,8 +1876,7 @@ class TestJournalCelebrationData:
         assert data.fix_iterations == 1
 
     def test_load_quest_data_from_journal_reads_carryover_findings(self, tmp_path):
-        journal = textwrap.dedent(
-            """\
+        journal = textwrap.dedent("""\
             # Quest Journal: carryover
 
             - Quest ID: `carryover_2026-04-16__1200`
@@ -1906,8 +1901,7 @@ class TestJournalCelebrationData:
             }
             ```
             <!-- celebration-data-end -->
-            """
-        )
+            """)
         journal_path = tmp_path / "carryover_2026-04-16.md"
         journal_path.write_text(journal)
 
@@ -1920,8 +1914,7 @@ class TestJournalCelebrationData:
         assert data.findings_left_for_future_quests.count == 1
 
     def test_load_quest_data_from_journal_legacy_no_celebration_data(self, tmp_path):
-        legacy = textwrap.dedent(
-            """\
+        legacy = textwrap.dedent("""\
             # Quest Journal: old-quest
 
             - Quest ID: `old-quest_2026-01-01__0000`
@@ -1931,8 +1924,7 @@ class TestJournalCelebrationData:
 
             - Plan iterations: 2
             - Fix iterations: 2
-        """
-        )
+        """)
         journal_path = tmp_path / "old-quest_2026-01-01.md"
         journal_path.write_text(legacy)
 
@@ -1948,14 +1940,12 @@ class TestJournalCelebrationData:
     def test_load_quest_data_from_journal_parses_date_first_id_slug_when_slug_missing(
         self, tmp_path
     ):
-        journal = textwrap.dedent(
-            """\
+        journal = textwrap.dedent("""\
             # Quest Journal: Portable Pre Commit Review
 
             - Quest ID: `2026-04-29_1430__portable-pre-commit-review`
             - Completed: 2026-04-29
-            """
-        )
+            """)
         journal_path = tmp_path / "portable-pre-commit-review_2026-04-29.md"
         journal_path.write_text(journal, encoding="utf-8")
 
@@ -1966,8 +1956,7 @@ class TestJournalCelebrationData:
     def test_load_quest_data_from_journal_supports_existing_journal_formats(
         self, tmp_path
     ):
-        legacy = textwrap.dedent(
-            """\
+        legacy = textwrap.dedent("""\
             # Quest: Dashboard Final Implementation
 
             **Quest ID:** dashboard-final-implementation_2026-02-12__0913
@@ -1977,8 +1966,7 @@ class TestJournalCelebrationData:
 
             - Plan iterations: 1
             - Fix iterations: 0
-        """
-        )
+        """)
         journal_path = tmp_path / "dashboard-final-implementation_2026-02-12.md"
         journal_path.write_text(legacy)
 
@@ -1989,8 +1977,7 @@ class TestJournalCelebrationData:
         assert data.status == "abandoned"
 
     def test_load_quest_data_from_journal_skips_invalid_json_entries(self, tmp_path):
-        journal = textwrap.dedent(
-            """\
+        journal = textwrap.dedent("""\
             # Quest Journal: malformed-json
 
             - Quest ID: `malformed-json_2026-03-06__1200`
@@ -2005,8 +1992,7 @@ class TestJournalCelebrationData:
             }
             ```
             <!-- celebration-data-end -->
-        """
-        )
+        """)
         journal_path = tmp_path / "malformed-json_2026-03-06.md"
         journal_path.write_text(journal)
 
@@ -2019,8 +2005,7 @@ class TestJournalCelebrationData:
     def test_load_quest_data_from_journal_ignores_invalid_quality_tier_type(
         self, tmp_path
     ):
-        journal = textwrap.dedent(
-            """\
+        journal = textwrap.dedent("""\
             # Quest Journal: malformed-quality
 
             - Quest ID: `malformed-quality_2026-03-06__1200`
@@ -2032,8 +2017,7 @@ class TestJournalCelebrationData:
             }
             ```
             <!-- celebration-data-end -->
-        """
-        )
+        """)
         journal_path = tmp_path / "malformed-quality_2026-03-06.md"
         journal_path.write_text(journal)
 
@@ -2044,8 +2028,7 @@ class TestJournalCelebrationData:
     def test_load_quest_data_from_journal_rejects_boolean_carryover_count(
         self, tmp_path
     ):
-        journal = textwrap.dedent(
-            """\
+        journal = textwrap.dedent("""\
             # Quest Journal: malformed-carryover
 
             - Quest ID: `malformed-carryover_2026-03-06__1200`
@@ -2060,8 +2043,7 @@ class TestJournalCelebrationData:
             }
             ```
             <!-- celebration-data-end -->
-        """
-        )
+        """)
         journal_path = tmp_path / "malformed-carryover_2026-03-06.md"
         journal_path.write_text(journal)
 
@@ -2075,13 +2057,11 @@ class TestJournalCelebrationData:
     def test_load_quest_data_from_journal_leaves_tier_unset_without_iterations(
         self, tmp_path
     ):
-        journal = textwrap.dedent(
-            """\
+        journal = textwrap.dedent("""\
             # Quest Journal: legacy-no-iterations
 
             - Quest ID: `legacy-no-iterations_2026-03-06__1200`
-        """
-        )
+        """)
         journal_path = tmp_path / "legacy-no-iterations_2026-03-06.md"
         journal_path.write_text(journal)
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 NEW_INSTALLED_FILES = {
     ".claude/skills/pre-commit-review/SKILL.md",
     ".opencode/commands/pre-commit-review.md",

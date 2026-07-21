@@ -16,7 +16,7 @@ except ModuleNotFoundError:  # Python 3.10
     import tomli as tomllib
 
 
-BLACK_PIN = "black==24.10.0"
+BLACK_PIN = "black==26.3.1"
 INSTALL_REMEDIATION = "python3 -m pip install -e '.[dev]'"
 FORMAT_REMEDIATION = "python3 -m black ."
 
@@ -196,8 +196,8 @@ def test_python_ci_keeps_tests_and_enforces_pinned_black_unconditionally() -> No
     steps_by_name = {step["name"]: step for step in steps}
 
     assert "if" not in steps_by_name["Set up Python"]
-    assert steps_by_name["Install Black"]["run"] == (
-        "python3 -m pip install black==24.10.0"
+    assert (
+        steps_by_name["Install Black"]["run"] == f"python3 -m pip install {BLACK_PIN}"
     )
     assert steps_by_name["Check Python formatting"]["run"] == (
         "python3 -m black --check ."
