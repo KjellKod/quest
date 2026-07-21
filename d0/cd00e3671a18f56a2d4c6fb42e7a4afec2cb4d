@@ -1,0 +1,21 @@
+ideas/archive/2026-05-26-native-runtime-dispatch.md
+  s_d6ca45d202c8eb::t_c7e3701eb59955 14
+ideas/README.md
+  s_d6ca45d202c8eb::t_c7e3701eb59955 25,68-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d0cd00e3671a18f56a2d4c6fb42e7a4afec2cb4d",
+  "prompts": {},
+  "sessions": {
+    "s_d6ca45d202c8eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f8319-470c-7841-86bc-d3d633a7405c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
