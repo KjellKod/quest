@@ -1,0 +1,31 @@
+.github/workflows/test-python.yml
+  s_86cae1360c7340::t_0650d155f41c7c 45
+tests/unit/test_source_python_formatting.py
+  s_86cae1360c7340::t_0650d155f41c7c 19
+  s_86cae1360c7340::t_a0cb4285fa4d29 199
+  s_86cae1360c7340::t_8186ce6719bc23 200
+scripts/quest_runtime/orchestration.py
+  s_86cae1360c7340::t_6b62ee7caa47af 355,387
+scripts/quest_runtime/review_intelligence.py
+  s_86cae1360c7340::t_a1de7dd1831cfa 222
+tests/unit/test_quest_celebrate.py
+  s_86cae1360c7340::t_64b216597d5f8b 1749,1759,1794,1836,1879,1904,1917,1927,1943,1948,1959,1969,1980,1995,2008,2020,2031,2046,2060,2064
+tests/unit/test_quest_dashboard_loaders.py
+  s_86cae1360c7340::t_0e73e2a4b479a1 890,903,926,941,957,969,982,997,1019,1047,1063,1072
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "70f1a408d763fabb83d070c78222693d07341d2e",
+  "prompts": {},
+  "sessions": {
+    "s_86cae1360c7340": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f62ec-8da7-7122-a958-36e9a6ab3c47",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
