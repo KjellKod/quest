@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 HUNK_RE = re.compile(
     r"@@ -(?P<old_start>\d+)(?:,(?P<old_count>\d+))? \+(?P<new_start>\d+)(?:,(?P<new_count>\d+))? @@"
 )

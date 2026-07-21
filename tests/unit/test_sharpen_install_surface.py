@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 NEW_INSTALLED_FILES = {
     ".agents/skills/sharpen/SKILL.md",
     ".claude/skills/sharpen/SKILL.md",
