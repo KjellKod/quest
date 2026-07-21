@@ -12,7 +12,6 @@ import pytest
 import quest_startup_branch
 from quest_startup_branch import apply_quest_symlink, ensure_shared_quest_symlink
 
-
 SCRIPT = Path(quest_startup_branch.__file__).resolve()
 
 

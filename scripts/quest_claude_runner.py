@@ -28,7 +28,6 @@ from quest_runtime.claude_runner import (
     run_claude_role,
 )
 
-
 _TELEMETRY_ENV = "QUEST_RUNNER_TELEMETRY_LOG"
 
 

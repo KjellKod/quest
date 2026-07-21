@@ -7,7 +7,6 @@ import pytest
 
 import quest_claude_bridge as bridge
 
-
 EXACT_PROMPT = "  indented\nline\n\n"
 
 

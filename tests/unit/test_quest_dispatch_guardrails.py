@@ -6,7 +6,6 @@ import json
 import re
 from pathlib import Path
 
-
 FORBIDDEN_CODEX_MCP_TERMS = (
     "codex mcp",
     "mcp__codex",

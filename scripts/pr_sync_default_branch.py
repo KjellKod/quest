@@ -17,7 +17,6 @@ import subprocess
 import sys
 from typing import Any
 
-
 STRATEGIES = ("rebase", "merge")
 STATUS_UP_TO_DATE = "up_to_date"
 STATUS_CLEAN = "clean"

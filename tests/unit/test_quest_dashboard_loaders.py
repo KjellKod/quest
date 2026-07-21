@@ -887,8 +887,7 @@ def test_load_dashboard_data_normalizes_none_github_url(tmp_path):
 
 
 def test_extract_celebration_data_parses_json():
-    content = textwrap.dedent(
-        """\
+    content = textwrap.dedent("""\
         # Quest Journal: test
 
         <!-- celebration-data-start -->
@@ -901,8 +900,7 @@ def test_extract_celebration_data_parses_json():
         }
         ```
         <!-- celebration-data-end -->
-    """
-    )
+    """)
     data = _extract_celebration_data(content)
     assert data is not None
     assert data["quality"]["tier"] == "Gold"
@@ -925,8 +923,7 @@ def test_journal_entry_skips_invalid_agent_entries_in_celebration_json(tmp_path)
     journal_dir = tmp_path / "docs" / "quest-journal"
     journal_dir.mkdir(parents=True)
 
-    content = textwrap.dedent(
-        """\
+    content = textwrap.dedent("""\
         # Quest Journal: Rich Quest
 
         **Quest ID:** rich-quest-001
@@ -941,8 +938,7 @@ def test_journal_entry_skips_invalid_agent_entries_in_celebration_json(tmp_path)
         }
         ```
         <!-- celebration-data-end -->
-    """
-    )
+    """)
     (journal_dir / "rich-quest.md").write_text(content)
 
     entry = _parse_journal_entry(journal_dir / "rich-quest.md", tmp_path)
@@ -958,8 +954,7 @@ def test_journal_entry_ignores_invalid_quality_tier_type(tmp_path):
     journal_dir = tmp_path / "docs" / "quest-journal"
     journal_dir.mkdir(parents=True)
 
-    content = textwrap.dedent(
-        """\
+    content = textwrap.dedent("""\
         # Quest Journal: Rich Quest
 
         **Quest ID:** rich-quest-001
@@ -971,8 +966,7 @@ def test_journal_entry_ignores_invalid_quality_tier_type(tmp_path):
         }
         ```
         <!-- celebration-data-end -->
-    """
-    )
+    """)
     (journal_dir / "rich-quest.md").write_text(content)
 
     entry = _parse_journal_entry(journal_dir / "rich-quest.md", tmp_path)
@@ -985,8 +979,7 @@ def test_journal_entry_deduplicates_agent_models_by_normalized_label(tmp_path):
     journal_dir = tmp_path / "docs" / "quest-journal"
     journal_dir.mkdir(parents=True)
 
-    content = textwrap.dedent(
-        """\
+    content = textwrap.dedent("""\
         # Quest Journal: Rich Quest
 
         **Quest ID:** rich-quest-001
@@ -1001,8 +994,7 @@ def test_journal_entry_deduplicates_agent_models_by_normalized_label(tmp_path):
         }
         ```
         <!-- celebration-data-end -->
-    """
-    )
+    """)
     (journal_dir / "rich-quest.md").write_text(content)
 
     entry = _parse_journal_entry(journal_dir / "rich-quest.md", tmp_path)
@@ -1024,8 +1016,7 @@ def test_journal_entry_with_celebration_data(tmp_path):
     journal_dir = tmp_path / "docs" / "quest-journal"
     journal_dir.mkdir(parents=True)
 
-    content = textwrap.dedent(
-        """\
+    content = textwrap.dedent("""\
         # Quest Journal: Rich Quest
 
         **Quest ID:** rich-quest-001
@@ -1053,8 +1044,7 @@ def test_journal_entry_with_celebration_data(tmp_path):
         }
         ```
         <!-- celebration-data-end -->
-    """
-    )
+    """)
     (journal_dir / "rich-quest_2026-03-05.md").write_text(content)
 
     entry = _parse_journal_entry(journal_dir / "rich-quest_2026-03-05.md", tmp_path)
@@ -1070,8 +1060,7 @@ def test_journal_entry_without_celebration_data_has_none_fields(tmp_path):
     journal_dir = tmp_path / "docs" / "quest-journal"
     journal_dir.mkdir(parents=True)
 
-    content = textwrap.dedent(
-        """\
+    content = textwrap.dedent("""\
         # Quest Journal: Old Quest
 
         **Quest ID:** old-quest-001
@@ -1080,8 +1069,7 @@ def test_journal_entry_without_celebration_data_has_none_fields(tmp_path):
         ## Summary
 
         An old quest without celebration data.
-    """
-    )
+    """)
     (journal_dir / "old-quest_2026-01-15.md").write_text(content)
 
     entry = _parse_journal_entry(journal_dir / "old-quest_2026-01-15.md", tmp_path)

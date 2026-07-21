@@ -219,7 +219,7 @@ def validate_findings(findings: list[dict[str, Any]]) -> list[str]:
 
 
 def merge_and_dedupe(
-    findings_by_source: list[list[dict[str, Any]]]
+    findings_by_source: list[list[dict[str, Any]]],
 ) -> list[dict[str, Any]]:
     """Merge findings from multiple reviewers and dedupe by canonical key."""
 

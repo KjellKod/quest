@@ -7,7 +7,6 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-
 ADDRESSED_MARKER = "<!-- pr-shepherd:addressed v1 -->"
 FOLLOWUP_MARKER = "<!-- pr-shepherd:followup v1 -->"
 SUMMARY_MARKER = "<!-- pr-shepherd:summary v1 -->"
