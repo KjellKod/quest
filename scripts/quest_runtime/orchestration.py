@@ -36,13 +36,13 @@ CANONICAL_ROLES: tuple[str, ...] = (
 
 DEFAULT_MODELS: dict[str, str] = {
     "planner": "gpt-5.6-sol",
-    "plan-reviewer-a": "claude-opus-4-8",
+    "plan-reviewer-a": "claude-opus-5",
     "plan-reviewer-b": "gpt-5.6-terra",
-    "arbiter": "claude-opus-4-8",
+    "arbiter": "claude-opus-5",
     "builder": "gpt-5.6-sol",
-    "code-reviewer-a": "claude-opus-4-8",
+    "code-reviewer-a": "claude-opus-5",
     "code-reviewer-b": "gpt-5.6-terra",
-    "review-arbiter": "claude-opus-4-8",
+    "review-arbiter": "claude-opus-5",
     "fixer": "gpt-5.6-terra",
 }
 

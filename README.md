@@ -118,13 +118,13 @@ For advanced patterns (phased execution, plan comparison, model mixing), see the
 | Role | Default model | What it does |
 |------|--------------|-------------|
 | **Planner** | GPT-5.6 Sol | Explores the codebase and writes the implementation plan |
-| **Plan Reviewer A** | Claude Opus 4.8 | Challenges the plan from a different model family |
+| **Plan Reviewer A** | Claude Opus 5 | Challenges the plan from a different model family |
 | **Plan Reviewer B** | GPT-5.6 Terra | Adds a fast, independent second review |
-| **Arbiter** | Claude Opus 4.8 | Synthesizes plan reviews and decides approve or iterate |
+| **Arbiter** | Claude Opus 5 | Synthesizes plan reviews and decides approve or iterate |
 | **Builder** | GPT-5.6 Sol | Implements the approved plan and runs validation |
-| **Code Reviewer A** | Claude Opus 4.8 | Reviews Sol-produced code across model families |
+| **Code Reviewer A** | Claude Opus 5 | Reviews Sol-produced code across model families |
 | **Code Reviewer B** | GPT-5.6 Terra | Adds a second code-review perspective |
-| **Review Arbiter** | Claude Opus 4.8 | Converts review findings into canonical decisions |
+| **Review Arbiter** | Claude Opus 5 | Converts review findings into canonical decisions |
 | **Fixer** | GPT-5.6 Terra | Applies bounded fixes before the next review pass |
 
 ### Choosing and overriding models
@@ -134,14 +134,14 @@ Model selection has three layers. `DEFAULT_MODELS` in `scripts/quest_runtime/orc
 Choose **Customize for this quest only** at startup to change one or more roles without editing repo defaults. The chooser accepts either format:
 
 ```text
-planner=gpt-5.6-sol, builder=claude-opus-4-8
+planner=gpt-5.6-sol, builder=claude-opus-5
 ```
 
 ```json
 {
   "models": {
     "planner": "gpt-5.6-sol",
-    "builder": "claude-opus-4-8"
+    "builder": "claude-opus-5"
   }
 }
 ```
