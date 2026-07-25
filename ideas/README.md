@@ -46,6 +46,7 @@ architecture docs.
 |---|---|---|
 | `codex_calls_claude.sh` | reference | Older experimental bash bridge prototype retained as a reference alongside the supported Python bridge. |
 | `2026-07-05-bg-claude-ask-policy-relaxation.md` | proposed | Define when a bg Claude role may write `needs_human` (destructive ambiguity, credentials, genuine product decisions) and encode it in the role agent files; the relay mechanism itself shipped in PR #142. |
+| `2026-07-25-codex-claude-transport-hardening.md` | proposed | Deferred hardening of both codex→Claude transports (crash-and-leak guard, preflight probing the real target model, `--wait-for` integrity, bridge model-rejection parity, lifecycle races, structural decomposition). Surfaced during the Opus 5 upgrade; take on after the new orchestration is validated over a quest or two. |
 
 ### Execution Discipline and Observability
 | File | Status | Purpose |
