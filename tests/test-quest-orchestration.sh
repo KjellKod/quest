@@ -408,12 +408,12 @@ from quest_runtime.orchestration import parse_override_line, Override
 result = parse_override_line('''{
   "models": {
     "planner": "gpt-5.6-sol",
-    "builder": "claude-opus-4-8"
+    "builder": "claude-fake-model"
   }
 }''')
 assert result == [
     Override("planner", "gpt-5.6-sol"),
-    Override("builder", "claude-opus-4-8"),
+    Override("builder", "claude-fake-model"),
 ], result
 PY
 }
@@ -440,11 +440,11 @@ ${PY_HELPER}
 from quest_runtime.orchestration import parse_override_line, Override
 result = parse_override_line('''{
   "Planner": "gpt-5.6-sol",
-  "code-reviewer-a": "claude-opus-4-8"
+  "code-reviewer-a": "claude-fake-model"
 }''')
 assert result == [
     Override("planner", "gpt-5.6-sol"),
-    Override("code-reviewer-a", "claude-opus-4-8"),
+    Override("code-reviewer-a", "claude-fake-model"),
 ], result
 PY
 }
@@ -509,10 +509,10 @@ from quest_runtime.orchestration import (
 )
 
 submissions = (
-    "planner=gpt-5.6-terra, builder=claude-opus-4-8",
-    '{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}',
-    '{"models":{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}}',
-    '"models":{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}',
+    "planner=gpt-5.6-terra, builder=claude-fake-model",
+    '{"planner":"gpt-5.6-terra","builder":"claude-fake-model"}',
+    '{"models":{"planner":"gpt-5.6-terra","builder":"claude-fake-model"}}',
+    '"models":{"planner":"gpt-5.6-terra","builder":"claude-fake-model"}',
 )
 payloads = []
 for index, submission in enumerate(submissions):
