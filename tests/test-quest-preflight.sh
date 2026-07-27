@@ -58,6 +58,26 @@ EOF
   chmod +x "$path"
 }
 
+write_logged_out_bg_capable_claude() {
+  local path="$1"
+  cat > "$path" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "auth" ] && [ "$2" = "status" ]; then
+  cat <<'JSON'
+{"loggedIn":false,"authMethod":"none","apiProvider":"firstParty"}
+JSON
+  exit 0
+fi
+if [ "$1" = "agents" ] && [ "$2" = "--json" ]; then
+  echo "[]"
+  exit 0
+fi
+echo "unexpected claude invocation" >&2
+exit 1
+EOF
+  chmod +x "$path"
+}
+
 # Forces claude_role_transport for a test scenario.
 write_allowlist() {
   local path="$1"
@@ -149,10 +169,14 @@ write_success_bridge() {
   cat > "$path" <<'EOF'
 #!/usr/bin/env python3
 import json
+import os
 import pathlib
 import sys
 
 args = sys.argv[1:]
+argv_log = os.environ.get("FAKE_BRIDGE_ARGV_LOG")
+if argv_log:
+    pathlib.Path(argv_log).write_text(json.dumps(args), encoding="utf-8")
 prompt_file = pathlib.Path(args[args.index("--prompt-file") + 1])
 artifact_path = prompt_file.parent / "probe_artifact.txt"
 handoff_path = prompt_file.parent / "probe_handoff.json"
@@ -340,13 +364,15 @@ test_quest_preflight_caches_successful_codex_bridge_probe() {
   write_success_bridge "$tmpdir/fake_bridge.py"
   write_allowlist "$tmpdir/allowlist.json" "bridge"
 
-  local cache_file output rc available source runtime_requirement cache_hit cached_source
+  local cache_file argv_log output rc available source runtime_requirement cache_hit cached_source cached_probe_model args_log
   cache_file="$tmpdir/claude_bridge_cache.json"
+  argv_log="$tmpdir/bridge_argv.json"
   output=$(PATH="$tmpdir/bin:$PATH" \
     QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
     QUEST_CLAUDE_BRIDGE_SCRIPT="$tmpdir/fake_bridge.py" \
     QUEST_PREFLIGHT_CACHE_FILE="$cache_file" \
     QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    FAKE_BRIDGE_ARGV_LOG="$argv_log" \
     "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
   rc=$?
   available=$(printf '%s' "$output" | jq -r '.available')
@@ -354,6 +380,8 @@ test_quest_preflight_caches_successful_codex_bridge_probe() {
   runtime_requirement=$(printf '%s' "$output" | jq -r '.runtime_requirement')
   cache_hit=$(printf '%s' "$output" | jq -r '.checks.cache_hit')
   cached_source=$(jq -r '.payload.source' "$cache_file")
+  cached_probe_model=$(jq -r '.payload.probe_model' "$cache_file")
+  args_log=$(cat "$argv_log")
   rm -rf "$tmpdir"
 
   [ "$rc" -eq 0 ] &&
@@ -361,7 +389,9 @@ test_quest_preflight_caches_successful_codex_bridge_probe() {
     [ "$source" = "live_probe" ] &&
     [ "$runtime_requirement" = "host_context" ] &&
     [ "$cache_hit" = "false" ] &&
-    [ "$cached_source" = "live_probe" ]
+    [ "$cached_source" = "live_probe" ] &&
+    [ "$cached_probe_model" = "claude" ] &&
+    ! printf '%s' "$args_log" | grep -q -- '--model'
 }
 
 test_quest_preflight_uses_cached_success_when_live_probe_fails() {
@@ -451,6 +481,130 @@ test_quest_preflight_does_not_use_cached_success_for_non_auth_probe_failure() {
     [ "$cache_hit" = "false" ] &&
     [ "$warning" = "Claude bridge not available -- quest will run Codex-only (all roles)." ] &&
     [ "$probe_message" = "bridge transport failed" ]
+}
+
+test_quest_preflight_bridge_cache_is_model_specific() {
+  local tmpdir cache_file argv_log same_output other_output legacy_output
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  cache_file="$tmpdir/claude_bridge_cache.json"
+  argv_log="$tmpdir/bridge_argv.json"
+  write_logged_in_claude "$tmpdir/bin/claude"
+  write_success_bridge "$tmpdir/fake_bridge.py"
+  write_allowlist "$tmpdir/allowlist.json" "bridge"
+
+  PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BRIDGE_SCRIPT="$tmpdir/fake_bridge.py" \
+    QUEST_CLAUDE_PROBE_MODEL="  claude-fake-model  " \
+    QUEST_PREFLIGHT_CACHE_FILE="$cache_file" \
+    QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    FAKE_BRIDGE_ARGV_LOG="$argv_log" \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex >/dev/null 2>&1
+
+  local cached_model propagated_model
+  cached_model=$(jq -r '.payload.probe_model' "$cache_file")
+  propagated_model=$(jq -r '.[index("--model") + 1]' "$argv_log")
+
+  write_logged_out_claude "$tmpdir/bin/claude"
+  write_failing_bridge "$tmpdir/failing_bridge.py"
+  same_output=$(PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BRIDGE_SCRIPT="$tmpdir/failing_bridge.py" \
+    QUEST_CLAUDE_PROBE_MODEL="claude-fake-model" \
+    QUEST_PREFLIGHT_CACHE_FILE="$cache_file" \
+    QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+  other_output=$(PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BRIDGE_SCRIPT="$tmpdir/failing_bridge.py" \
+    QUEST_CLAUDE_PROBE_MODEL="claude-other-model" \
+    QUEST_PREFLIGHT_CACHE_FILE="$cache_file" \
+    QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+
+  local legacy_cache
+  legacy_cache="$tmpdir/legacy_bridge_cache.json"
+  jq 'del(.payload.probe_model)' "$cache_file" > "$legacy_cache"
+  legacy_output=$(PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BRIDGE_SCRIPT="$tmpdir/failing_bridge.py" \
+    QUEST_CLAUDE_PROBE_MODEL="claude-fake-model" \
+    QUEST_PREFLIGHT_CACHE_FILE="$legacy_cache" \
+    QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+  rm -rf "$tmpdir"
+
+  [ "$cached_model" = "claude-fake-model" ] &&
+    [ "$propagated_model" = "claude-fake-model" ] &&
+    [ "$(printf '%s' "$same_output" | jq -r '.source')" = "success_cache" ] &&
+    [ "$(printf '%s' "$same_output" | jq -r '.available')" = "true" ] &&
+    [ "$(printf '%s' "$other_output" | jq -r '.checks.cache_hit')" = "false" ] &&
+    [ "$(printf '%s' "$other_output" | jq -r '.available')" = "false" ] &&
+    [ "$(printf '%s' "$legacy_output" | jq -r '.checks.cache_hit')" = "false" ] &&
+    [ "$(printf '%s' "$legacy_output" | jq -r '.available')" = "false" ]
+}
+
+test_quest_preflight_background_cache_is_model_specific() {
+  local tmpdir cache_file argv_log same_output other_output legacy_output
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  cache_file="$tmpdir/claude_bg_cache.json"
+  argv_log="$tmpdir/bg_argv.json"
+  write_bg_capable_claude "$tmpdir/bin/claude"
+  write_success_bg_runner "$tmpdir/fake_bg_runner.py"
+  write_allowlist "$tmpdir/allowlist.json" "background-agent"
+
+  PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BG_RUNNER_SCRIPT="$tmpdir/fake_bg_runner.py" \
+    QUEST_CLAUDE_PROBE_MODEL="  claude-fake-model  " \
+    QUEST_PREFLIGHT_BG_CACHE_FILE="$cache_file" \
+    QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    FAKE_BG_ARGV_LOG="$argv_log" \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex >/dev/null 2>&1
+
+  local cached_model propagated_model
+  cached_model=$(jq -r '.payload.probe_model' "$cache_file")
+  propagated_model=$(jq -r '.[index("--model") + 1]' "$argv_log")
+
+  write_logged_out_bg_capable_claude "$tmpdir/bin/claude"
+  write_prompt_not_consumed_bg_runner "$tmpdir/failing_bg_runner.py"
+  same_output=$(PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BG_RUNNER_SCRIPT="$tmpdir/failing_bg_runner.py" \
+    QUEST_CLAUDE_PROBE_MODEL="claude-fake-model" \
+    QUEST_PREFLIGHT_BG_CACHE_FILE="$cache_file" \
+    QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+  other_output=$(PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BG_RUNNER_SCRIPT="$tmpdir/failing_bg_runner.py" \
+    QUEST_CLAUDE_PROBE_MODEL="claude-other-model" \
+    QUEST_PREFLIGHT_BG_CACHE_FILE="$cache_file" \
+    QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+
+  local legacy_cache
+  legacy_cache="$tmpdir/legacy_bg_cache.json"
+  jq 'del(.payload.probe_model)' "$cache_file" > "$legacy_cache"
+  legacy_output=$(PATH="$tmpdir/bin:$PATH" \
+    QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" \
+    QUEST_CLAUDE_BG_RUNNER_SCRIPT="$tmpdir/failing_bg_runner.py" \
+    QUEST_CLAUDE_PROBE_MODEL="claude-fake-model" \
+    QUEST_PREFLIGHT_BG_CACHE_FILE="$legacy_cache" \
+    QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
+    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+  rm -rf "$tmpdir"
+
+  [ "$cached_model" = "claude-fake-model" ] &&
+    [ "$propagated_model" = "claude-fake-model" ] &&
+    [ "$(printf '%s' "$same_output" | jq -r '.source')" = "success_cache" ] &&
+    [ "$(printf '%s' "$same_output" | jq -r '.available')" = "true" ] &&
+    [ "$(printf '%s' "$other_output" | jq -r '.checks.cache_hit')" = "false" ] &&
+    [ "$(printf '%s' "$other_output" | jq -r '.available')" = "false" ] &&
+    [ "$(printf '%s' "$legacy_output" | jq -r '.checks.cache_hit')" = "false" ] &&
+    [ "$(printf '%s' "$legacy_output" | jq -r '.available')" = "false" ]
 }
 
 test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds() {
@@ -743,6 +897,8 @@ run_test test_claude_preflight_reports_missing_codex_cli
 run_test test_quest_preflight_caches_successful_codex_bridge_probe
 run_test test_quest_preflight_uses_cached_success_when_live_probe_fails
 run_test test_quest_preflight_does_not_use_cached_success_for_non_auth_probe_failure
+run_test test_quest_preflight_bridge_cache_is_model_specific
+run_test test_quest_preflight_background_cache_is_model_specific
 run_test test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds
 run_test test_quest_preflight_auto_blocks_instead_of_downgrading_to_bridge
 run_test test_quest_preflight_reports_bg_prompt_not_consumed

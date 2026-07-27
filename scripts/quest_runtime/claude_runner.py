@@ -939,6 +939,11 @@ def run_claude_role(
     )
     if bg_failed:
         handoff_result = False
+    bridge_model_rejected = transport == "bridge" and process.returncode == 9
+    if bridge_model_rejected and not artifacts_complete:
+        # A failure-side rejection outranks a found handoff whose declared
+        # primary artifact is absent, including a stale terminal handoff.
+        handoff_result = False
     bg_exit_kind = (
         _BG_EXIT_RESULT_KINDS.get(process.returncode or 0)
         if transport == "background-agent"
@@ -953,6 +958,11 @@ def run_claude_role(
         result_kind = "handoff_json"
     elif timed_out:
         result_kind = "timeout"
+    elif bridge_model_rejected:
+        # Exit 9 is the bridge's explicit model-rejection contract. It wins
+        # over failure-side handoff/artifact/invocation classification, but
+        # never over a completed handoff or an outer runtime timeout.
+        result_kind = "model_rejected"
     elif bg_status_kind or bg_exit_kind:
         result_kind = bg_status_kind or bg_exit_kind
     elif handoff_state == "found" and not artifacts_complete:
@@ -969,6 +979,14 @@ def run_claude_role(
         )
     source = "handoff_json" if handoff_result else None
     exit_code = 0 if handoff_result else process.returncode or 1
+    bridge_fields = (
+        {
+            "status": "model_rejected",
+            "rejected_model": normalize_claude_cli_model(model),
+        }
+        if result_kind == "model_rejected" and transport == "bridge"
+        else {}
+    )
     result = RunResult(
         exit_code=exit_code,
         handoff_state=handoff_state,
@@ -977,6 +995,7 @@ def run_claude_role(
         stdout=stdout,
         stderr=stderr,
         **bg_fields,
+        **bridge_fields,
     )
 
     if (
@@ -1037,6 +1056,7 @@ def run_claude_role(
         and text_handoff is not None
         and result.source is None
         and not bg_failed
+        and result.result_kind != "model_rejected"
     ):
         append_context_health_log(
             resolved_quest_dir,
@@ -1154,6 +1174,8 @@ def run_bridge_probe(
     exit_code = 0 if probe_ok else cp.returncode or 1
     if probe_ok:
         result_kind = "handoff_json"
+    elif cp.returncode == 9:
+        result_kind = "model_rejected"
     elif handoff_state == "found" and not artifact_present:
         # Distinct from handoff_missing (handoff never written): the transport
         # responded, only the artifact write failed.
@@ -1167,6 +1189,12 @@ def run_bridge_probe(
         source=source,
         stdout=cp.stdout,
         stderr=cp.stderr,
+        status="model_rejected" if result_kind == "model_rejected" else None,
+        rejected_model=(
+            normalize_claude_cli_model(model)
+            if result_kind == "model_rejected"
+            else None
+        ),
     )
 
 

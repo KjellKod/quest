@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -890,6 +891,79 @@ def test_dispatch_failed_when_never_registers(shim, tmp_path, monkeypatch):
     assert env.exit_code() == bg.EXIT_DISPATCH_FAILED
 
 
+@pytest.mark.parametrize(
+    "roster_error",
+    [
+        FileNotFoundError("transient claude lookup failure"),
+        subprocess.TimeoutExpired(["claude", "agents", "--json"], 30),
+    ],
+)
+def test_dispatch_confirmation_retries_transient_roster_failure(
+    shim, monkeypatch, roster_error
+):
+    runner = bg.BgRunner(_args(shim))
+    fresh = {
+        "pid": 222,
+        "id": "abc12345",
+        "name": runner.a.name,
+        "sessionId": "abc12345-uuid",
+        "kind": "background",
+        "state": "working",
+        "status": "idle",
+    }
+    observations = iter([[], [], roster_error, [fresh]])
+
+    def fake_agents_json():
+        observation = next(observations)
+        if isinstance(observation, BaseException):
+            raise observation
+        return observation
+
+    monkeypatch.setattr(runner, "agents_json", fake_agents_json)
+    monkeypatch.setattr(
+        bg.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0], 0, "backgrounded · abc12345 · test", ""
+        ),
+    )
+
+    dispatch = runner.dispatch_and_confirm("do the thing", None)
+
+    assert dispatch.terminal_status is None
+    assert dispatch.short_id == "abc12345"
+    assert dispatch.row == fresh
+
+
+@pytest.mark.parametrize(
+    "roster_error",
+    [
+        FileNotFoundError("transient claude lookup failure"),
+        subprocess.TimeoutExpired(["claude", "agents", "--json"], 30),
+    ],
+)
+def test_wait_poll_retries_transient_roster_failure(
+    shim, tmp_path, monkeypatch, roster_error
+):
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "incomplete")
+    runner = bg.BgRunner(_args(shim, wait_for=str(tmp_path / "missing"), keep=True))
+    real_find_session = runner.find_session
+    observations = iter([roster_error, None])
+
+    def flaky_find_session(*args, **kwargs):
+        observation = next(observations, None)
+        if isinstance(observation, BaseException):
+            raise observation
+        return real_find_session(*args, **kwargs)
+
+    monkeypatch.setattr(runner, "find_session", flaky_find_session)
+
+    env = runner.run()
+
+    assert env.status == "incomplete"
+    assert env.final_state == "done"
+
+
 def test_missing_claude_cli_is_precondition_failed(tmp_path):
     # The pre-dispatch roster snapshot is the first `claude` invocation now; a
     # missing CLI must still surface as the structured envelope, not a raised
@@ -1170,6 +1244,117 @@ def test_stop_session_resignals_respawned_pid_until_settled(
     assert recorded[:2] == [(111, bg.signal.SIGTERM), (222, bg.signal.SIGTERM)]
 
 
+@pytest.mark.parametrize(
+    "roster_error",
+    [
+        FileNotFoundError("transient claude lookup failure"),
+        subprocess.TimeoutExpired(["claude", "agents", "--json"], 30),
+    ],
+)
+def test_stop_session_retries_transient_roster_failure(shim, monkeypatch, roster_error):
+    runner = bg.BgRunner(_args(shim))
+    live = {
+        "pid": 222,
+        "id": "abc12345",
+        "name": runner.a.name,
+        "sessionId": "abc12345-uuid",
+    }
+    observations = iter([roster_error, live, None])
+
+    def flaky_find_session(*_args, **_kwargs):
+        observation = next(observations)
+        if isinstance(observation, BaseException):
+            raise observation
+        return observation
+
+    monkeypatch.setattr(runner, "find_session", flaky_find_session)
+
+    result = runner.stop_session("abc12345")
+
+    assert result.settled is True
+
+
+def test_stop_session_sends_sigterm_first_after_transient_roster_failures(
+    shim, monkeypatch
+):
+    runner = bg.BgRunner(_args(shim))
+    live = {
+        "pid": 222,
+        "id": "abc12345",
+        "name": runner.a.name,
+        "sessionId": "abc12345-uuid",
+    }
+    observations = iter(
+        [
+            subprocess.TimeoutExpired(["claude", "agents", "--json"], 30),
+            FileNotFoundError("transient claude lookup failure"),
+            live,
+            None,
+        ]
+    )
+    signals: list[tuple[int, int]] = []
+
+    def flaky_find_session(*_args, **_kwargs):
+        observation = next(observations)
+        if isinstance(observation, BaseException):
+            raise observation
+        return observation
+
+    monkeypatch.setattr(runner, "find_session", flaky_find_session)
+    monkeypatch.setattr(bg.os, "kill", lambda pid, sig: signals.append((pid, sig)))
+
+    result = runner.stop_session("abc12345")
+
+    assert result.settled is True
+    assert signals == [(222, bg.signal.SIGTERM)]
+
+
+@pytest.mark.parametrize(
+    "roster_error",
+    [
+        FileNotFoundError("persistent claude lookup failure"),
+        subprocess.TimeoutExpired(["claude", "agents", "--json"], 30),
+    ],
+)
+def test_stop_session_reports_owned_survivor_when_final_roster_unavailable(
+    shim, monkeypatch, roster_error
+):
+    runner = bg.BgRunner(_args(shim))
+
+    def unavailable_roster(*_args, **_kwargs):
+        raise roster_error
+
+    monkeypatch.setattr(runner, "find_session", unavailable_roster)
+
+    result = runner.stop_session("abc12345")
+
+    assert result.settled is False
+    assert result.survivor_id == "abc12345"
+
+
+def test_persistent_teardown_roster_failure_emits_manual_sweep_guidance(
+    shim, tmp_path, monkeypatch
+):
+    wait = tmp_path / "out.json"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
+    monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
+    runner = bg.BgRunner(_args(shim, wait_for=str(wait)))
+
+    def unavailable_roster(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired(["claude", "agents", "--json"], 30)
+
+    monkeypatch.setattr(runner, "find_session", unavailable_roster)
+
+    env = runner.run()
+
+    assert env.status == "ok"
+    assert env.teardown_failed is True
+    assert env.teardown_survivor_id == "abc12345"
+    assert "WARNING: session teardown failed" in env.message
+    assert "--sweep" in env.message
+    assert "--sweep-include-active" in env.message
+
+
 def test_fresh_dispatch_retires_live_same_name_before_launch(
     shim, tmp_path, monkeypatch, kills
 ):
@@ -1255,6 +1440,128 @@ def test_incomplete_when_done_without_artifact(shim, tmp_path, monkeypatch):
     assert env.status == "incomplete"
     assert env.exit_code() == bg.EXIT_SESSION_FAILED
     assert str(tmp_path / "missing") in env.missing
+
+
+def test_file_signature_detects_same_metadata_atomic_replacement(shim, tmp_path):
+    runner = bg.BgRunner(_args(shim))
+    artifact = tmp_path / "artifact.bin"
+    artifact.write_bytes(b"first")
+    original_stat = artifact.stat()
+    first_signature = runner._file_signature(str(artifact))
+
+    replacement = tmp_path / "replacement.bin"
+    replacement.write_bytes(b"other")
+    os.utime(
+        replacement,
+        ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+    )
+    replacement.replace(artifact)
+    os.utime(
+        artifact,
+        ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+    )
+    second_signature = runner._file_signature(str(artifact))
+
+    assert first_signature is not None
+    assert second_signature is not None
+    assert first_signature[2:] == second_signature[2:]
+    assert first_signature[:2] != second_signature[:2]
+
+
+def test_done_session_waits_for_second_stable_artifact_observation(
+    shim, tmp_path, monkeypatch
+):
+    artifact = tmp_path / "artifact.txt"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "incomplete")
+    runner = bg.BgRunner(_args(shim, wait_for=str(artifact), keep=True))
+    signature = (1, 2, 6, 7)
+    observations = 0
+
+    def stable_signature(_path: str):
+        nonlocal observations
+        observations += 1
+        artifact.write_text("stable", encoding="utf-8")
+        return signature
+
+    monkeypatch.setattr(runner, "_file_signature", stable_signature)
+
+    env = runner.run()
+
+    assert env.status == "ok"
+    assert observations == 2
+
+
+def test_duplicate_wait_for_paths_settle_normally(shim, tmp_path, monkeypatch):
+    artifact = tmp_path / "artifact.txt"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "incomplete")
+    runner = bg.BgRunner(_args(shim, wait_for=str(artifact), keep=True))
+    runner.a.wait_for.append(str(artifact))
+    signature = (1, 2, 6, 7)
+    observations = 0
+
+    def stable_signature(_path: str):
+        nonlocal observations
+        observations += 1
+        artifact.write_text("stable", encoding="utf-8")
+        return signature
+
+    monkeypatch.setattr(runner, "_file_signature", stable_signature)
+
+    env = runner.run()
+
+    assert env.status == "ok"
+    assert observations == 2
+
+
+def test_changing_artifact_is_not_reported_as_success(shim, tmp_path, monkeypatch):
+    artifact = tmp_path / "artifact.txt"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "incomplete")
+    runner = bg.BgRunner(_args(shim, wait_for=str(artifact), keep=True))
+    signatures = iter([(1, 2, 4, 10), (1, 2, 8, 20)])
+
+    def changing_signature(_path: str):
+        artifact.write_text("partial", encoding="utf-8")
+        return next(signatures)
+
+    monkeypatch.setattr(runner, "_file_signature", changing_signature)
+
+    env = runner.run()
+
+    assert env.status == "incomplete"
+
+
+def test_all_declared_artifacts_must_settle_together(shim, tmp_path, monkeypatch):
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "timeout")
+    runner = bg.BgRunner(
+        _args(
+            shim,
+            wait_for=str(first),
+            keep=True,
+            timeout="1",
+        )
+    )
+    runner.a.wait_for.append(str(second))
+    signatures = {
+        str(first): iter([(1, 1, 3, 10), (1, 1, 3, 10), (1, 1, 3, 10)]),
+        str(second): iter([(1, 2, 2, 10), (1, 2, 4, 20), (1, 2, 4, 20)]),
+    }
+    observations = 0
+
+    def settling_signature(path: str):
+        nonlocal observations
+        observations += 1
+        first.write_text("one", encoding="utf-8")
+        second.write_text("two", encoding="utf-8")
+        return next(signatures[path])
+
+    monkeypatch.setattr(runner, "_file_signature", settling_signature)
+
+    env = runner.run()
+
+    assert env.status == "ok"
+    assert observations == 6
 
 
 def test_self_test_passes_in_this_env():

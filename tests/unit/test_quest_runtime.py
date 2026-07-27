@@ -314,6 +314,47 @@ def test_run_bridge_probe_treats_found_handoff_as_success_even_on_nonzero_exit(
     assert result.result_kind == "handoff_json"
     assert result.source == "handoff_json"
     assert result.stderr == "Timed out after 30.0s"
+    assert result.status is None
+    assert result.rejected_model is None
+
+
+def test_run_bridge_probe_found_handoff_wins_over_exit_9(tmp_path, monkeypatch):
+    completed = subprocess.CompletedProcess(
+        args=["bridge"],
+        returncode=9,
+        stdout="",
+        stderr="model rejected after artifacts were written",
+    )
+
+    def fake_run(*args, **kwargs):
+        probe_dir = tmp_path / "logs" / "bridge_probe"
+        artifact_file = probe_dir / "probe_artifact.txt"
+        handoff_file = probe_dir / "probe_handoff.json"
+        artifact_file.write_text("ok", encoding="utf-8")
+        handoff_file.write_text(
+            '{"status":"complete","artifacts":["probe_artifact.txt"],"next":null,"summary":"probe ok"}',
+            encoding="utf-8",
+        )
+        return completed
+
+    monkeypatch.setattr(claude_runner_module.subprocess, "run", fake_run)
+
+    result = run_bridge_probe(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        bridge_script=tmp_path / "bridge.py",
+        model="opus",
+        timeout=30.0,
+        permission_mode="bypassPermissions",
+    )
+
+    assert result.exit_code == 0
+    assert result.handoff_state == "found"
+    assert result.result_kind == "handoff_json"
+    assert result.source == "handoff_json"
+    assert result.stderr == "model rejected after artifacts were written"
+    assert result.status is None
+    assert result.rejected_model is None
 
 
 def test_run_bridge_probe_requires_artifact_not_just_handoff(tmp_path, monkeypatch):
@@ -347,6 +388,56 @@ def test_run_bridge_probe_requires_artifact_not_just_handoff(tmp_path, monkeypat
     assert result.exit_code != 0
     assert result.result_kind == "artifact_missing"
     assert result.source is None
+
+
+def test_run_bridge_probe_classifies_failure_exit_9_as_model_rejected(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        claude_runner_module.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0],
+            9,
+            "",
+            "claude CLI not found-looking text must not win",
+        ),
+    )
+
+    result = run_bridge_probe(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        bridge_script=tmp_path / "bridge.py",
+        model="claude-fake-model",
+        timeout=30.0,
+        permission_mode="bypassPermissions",
+    )
+
+    assert result.exit_code == 9
+    assert result.result_kind == "model_rejected"
+    assert result.status == "model_rejected"
+    assert result.rejected_model == "claude-fake-model"
+
+
+def test_run_bridge_probe_model_rejected_omits_claude_sentinel(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        claude_runner_module.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 9, "", ""),
+    )
+
+    result = run_bridge_probe(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        bridge_script=tmp_path / "bridge.py",
+        model="claude",
+        timeout=30.0,
+        permission_mode="bypassPermissions",
+    )
+
+    assert result.result_kind == "model_rejected"
+    assert result.status == "model_rejected"
+    assert result.rejected_model is None
 
 
 def test_migration_fails_closed_on_missing_role_instead_of_writing_null(tmp_path):
@@ -964,6 +1055,7 @@ def test_build_bridge_cmd_omits_model_for_claude_sentinel(tmp_path):
         permission_mode="bypassPermissions",
     )
     assert "--model" not in cmd
+    assert "--json-wrap" not in cmd
 
 
 def test_concrete_claude_model_passthrough(tmp_path):
@@ -1349,6 +1441,180 @@ def test_classify_failure_kind_transport_kinds_never_escalate():
             )
             == "invocation"
         )
+
+
+def test_run_claude_role_bridge_model_rejection_is_terminal_without_retry(tmp_path):
+    attempts = tmp_path / "attempts.txt"
+    bridge = tmp_path / "model_rejected_bridge.py"
+    _write_executable(
+        bridge,
+        f"""#!/usr/bin/env python3
+from pathlib import Path
+attempts = Path({str(attempts)!r})
+attempts.write_text(attempts.read_text() + "x" if attempts.exists() else "x")
+raise SystemExit(9)
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("x\n", encoding="utf-8")
+    artifact = tmp_path.parent / f"{tmp_path.name}-external-artifact.md"
+
+    try:
+        result = run_claude_role(
+            cwd=tmp_path,
+            quest_dir=tmp_path,
+            phase="plan",
+            agent="planner",
+            iteration=1,
+            prompt_file=prompt_file,
+            handoff_file=tmp_path / "handoff.json",
+            bridge_script=bridge,
+            model="claude-fake-model",
+            timeout=5.0,
+            permission_mode="bypassPermissions",
+            artifact_paths=[artifact],
+            poll_interval=0.01,
+            exit_grace_seconds=0.1,
+            transport="bridge",
+        )
+    finally:
+        artifact.unlink(missing_ok=True)
+
+    assert result.exit_code == 9
+    assert result.result_kind == "model_rejected"
+    assert result.status == "model_rejected"
+    assert result.rejected_model == "claude-fake-model"
+    assert attempts.read_text(encoding="utf-8") == "x"
+
+
+def test_run_claude_role_bridge_model_rejection_does_not_override_success(tmp_path):
+    bridge = tmp_path / "successful_model_rejected_bridge.py"
+    prompt_file = tmp_path / "prompt.txt"
+    handoff_file = tmp_path / "handoff.json"
+    artifact = tmp_path / "artifact.md"
+    prompt_file.write_text("x\n", encoding="utf-8")
+    _write_executable(
+        bridge,
+        f"""#!/usr/bin/env python3
+import json
+from pathlib import Path
+Path({str(artifact)!r}).write_text("ok")
+Path({str(handoff_file)!r}).write_text(json.dumps({{
+    "status": "complete",
+    "artifacts": [{str(artifact)!r}],
+    "next": "code_review",
+    "summary": "done",
+}}))
+raise SystemExit(9)
+""",
+    )
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=bridge,
+        model="claude-fake-model",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        artifact_paths=[artifact],
+        poll_interval=0.01,
+        exit_grace_seconds=0.1,
+        transport="bridge",
+    )
+
+    assert result.result_kind == "handoff_json"
+    assert result.source == "handoff_json"
+    assert result.status is None
+    assert result.rejected_model is None
+
+
+def test_run_claude_role_bridge_model_rejection_outranks_terminal_handoff_without_artifact(
+    tmp_path,
+):
+    bridge = tmp_path / "rejected_with_handoff_bridge.py"
+    prompt_file = tmp_path / "prompt.txt"
+    handoff_file = tmp_path / "handoff.json"
+    artifact = tmp_path / "artifact.md"
+    prompt_file.write_text("x\n", encoding="utf-8")
+    _write_executable(
+        bridge,
+        f"""#!/usr/bin/env python3
+import json
+from pathlib import Path
+Path({str(handoff_file)!r}).write_text(json.dumps({{
+    "status": "needs_human",
+    "questions": ["stale question?"],
+}}))
+raise SystemExit(9)
+""",
+    )
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff_file,
+        bridge_script=bridge,
+        model="claude-fake-model",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        artifact_paths=[artifact],
+        poll_interval=0.01,
+        exit_grace_seconds=0.1,
+        transport="bridge",
+    )
+
+    assert result.result_kind == "model_rejected"
+    assert result.source is None
+    assert result.rejected_model == "claude-fake-model"
+
+
+def test_run_claude_role_bridge_self_timeout_remains_retryable_timeout(tmp_path):
+    bridge = tmp_path / "self_timeout_bridge.py"
+    _write_executable(
+        bridge,
+        """#!/usr/bin/env python3
+import sys
+print("Timed out after 1s; there is an issue with the selected model", file=sys.stderr)
+raise SystemExit(124)
+""",
+    )
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("x\n", encoding="utf-8")
+    artifact = tmp_path / "artifact.md"
+
+    result = run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=tmp_path / "handoff.json",
+        bridge_script=bridge,
+        model="claude-fake-model",
+        timeout=5.0,
+        permission_mode="bypassPermissions",
+        artifact_paths=[artifact],
+        poll_interval=0.01,
+        exit_grace_seconds=0.1,
+        transport="bridge",
+    )
+
+    assert result.exit_code == 124
+    assert result.result_kind == "timeout"
+    assert (
+        claude_runner_module.classify_failure_kind(result, [artifact], tmp_path)
+        == "timeout"
+    )
 
 
 def test_overrun_sweep_unverified_cleanup_is_reported(tmp_path, monkeypatch):
