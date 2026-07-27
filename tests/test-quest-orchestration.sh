@@ -215,10 +215,10 @@ from quest_runtime.orchestration import build_default_models
 result = build_default_models({"planner": "gpt-5.5", "builder": "claude"})
 assert result["planner"] == "gpt-5.5", result
 assert result["builder"] == "claude", result
-assert result["plan-reviewer-a"] == "claude-opus-4-8", result
+assert result["plan-reviewer-a"] == "claude-opus-5", result
 assert result["plan-reviewer-b"] == "gpt-5.6-terra", result
-assert result["arbiter"] == "claude-opus-4-8", result
-assert result["code-reviewer-a"] == "claude-opus-4-8", result
+assert result["arbiter"] == "claude-opus-5", result
+assert result["code-reviewer-a"] == "claude-opus-5", result
 assert result["code-reviewer-b"] == "gpt-5.6-terra", result
 assert result["fixer"] == "gpt-5.6-terra", result
 PY
@@ -233,13 +233,13 @@ from quest_runtime.orchestration import CODEX_NATIVE_FALLBACK_MODEL, DEFAULT_MOD
 
 expected = {
     "planner": "gpt-5.6-sol",
-    "plan-reviewer-a": "claude-opus-4-8",
+    "plan-reviewer-a": "claude-opus-5",
     "plan-reviewer-b": "gpt-5.6-terra",
-    "arbiter": "claude-opus-4-8",
+    "arbiter": "claude-opus-5",
     "builder": "gpt-5.6-sol",
-    "code-reviewer-a": "claude-opus-4-8",
+    "code-reviewer-a": "claude-opus-5",
     "code-reviewer-b": "gpt-5.6-terra",
-    "review-arbiter": "claude-opus-4-8",
+    "review-arbiter": "claude-opus-5",
     "fixer": "gpt-5.6-terra",
 }
 allowlist = json.loads(Path(".ai/allowlist.json").read_text())
@@ -408,12 +408,12 @@ from quest_runtime.orchestration import parse_override_line, Override
 result = parse_override_line('''{
   "models": {
     "planner": "gpt-5.6-sol",
-    "builder": "claude-opus-4-8"
+    "builder": "claude-fake-model"
   }
 }''')
 assert result == [
     Override("planner", "gpt-5.6-sol"),
-    Override("builder", "claude-opus-4-8"),
+    Override("builder", "claude-fake-model"),
 ], result
 PY
 }
@@ -440,11 +440,11 @@ ${PY_HELPER}
 from quest_runtime.orchestration import parse_override_line, Override
 result = parse_override_line('''{
   "Planner": "gpt-5.6-sol",
-  "code-reviewer-a": "claude-opus-4-8"
+  "code-reviewer-a": "claude-fake-model"
 }''')
 assert result == [
     Override("planner", "gpt-5.6-sol"),
-    Override("code-reviewer-a", "claude-opus-4-8"),
+    Override("code-reviewer-a", "claude-fake-model"),
 ], result
 PY
 }
@@ -509,10 +509,10 @@ from quest_runtime.orchestration import (
 )
 
 submissions = (
-    "planner=gpt-5.6-terra, builder=claude-opus-4-8",
-    '{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}',
-    '{"models":{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}}',
-    '"models":{"planner":"gpt-5.6-terra","builder":"claude-opus-4-8"}',
+    "planner=gpt-5.6-terra, builder=claude-fake-model",
+    '{"planner":"gpt-5.6-terra","builder":"claude-fake-model"}',
+    '{"models":{"planner":"gpt-5.6-terra","builder":"claude-fake-model"}}',
+    '"models":{"planner":"gpt-5.6-terra","builder":"claude-fake-model"}',
 )
 payloads = []
 for index, submission in enumerate(submissions):
@@ -737,7 +737,7 @@ from quest_runtime.orchestration import migrate_from_snapshot
 written = migrate_from_snapshot(Path(sys.argv[1]))
 assert written is True, "expected legacy role backfill write"
 orch = json.loads((Path(sys.argv[1]) / "orchestration.json").read_text())
-assert orch["models"]["review-arbiter"] == "claude-opus-4-8", orch["models"]
+assert orch["models"]["review-arbiter"] == "claude-opus-5", orch["models"]
 PY
 
   rm -f "$tmpdir/orchestration.json"
@@ -800,7 +800,7 @@ quest_dir = Path(sys.argv[1])
 written = migrate_from_snapshot(quest_dir)
 assert written is True, "expected legacy backfill write"
 orch = json.loads((quest_dir / "orchestration.json").read_text())
-assert orch["models"]["review-arbiter"] == "claude-opus-4-8", orch["models"]
+assert orch["models"]["review-arbiter"] == "claude-opus-5", orch["models"]
 assert orch["source"] == "overridden", orch
 assert orch["overridden_roles"] == ["planner", "builder"], orch
 PY

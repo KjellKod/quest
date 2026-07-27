@@ -104,7 +104,7 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if not args.model.strip():
         parser.error(
-            "--model must be a model name (e.g. `sonnet`, `claude-opus-4-8`) "
+            "--model must be a model name (e.g. `sonnet`, `claude-opus-5`) "
             "or the literal `claude` for the account-default model"
         )
     if args.answer_file and not args.resume:
