@@ -23,6 +23,7 @@ architecture docs.
 | `quest-policy-canonicalization-and-enforcement-roadmap.md` | in-progress | Canonical plan to reduce policy drift and convert rules into enforced checks. |
 | `handoff-validation-and-failure-ux.md` | in-progress | Add actionable diagnostics when handoff fallback occurs. |
 | `2026-05-04-ci-review-allowlist-quality-roadmap.md` | in-progress | Canonical owner for remaining CI review, allowlist, bug-fix discipline, and PR-readiness work. |
+| `2026-07-27-closed-set-totality-and-cheap-review-ordering.md` | proposed | Add a totality review dimension for closed sets, and fix the ordering that hides draft-gated automated reviewers behind the full pipeline. |
 
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
