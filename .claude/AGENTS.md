@@ -22,16 +22,6 @@ This repository uses **layered documentation** for AI agent context management.
 2. Follow the entry point defined in bootstrap document
 3. Read `DOCUMENTATION_STRUCTURE.md` for project specific context
 
-## Documentation Layers
-
-| Layer | Location | Purpose |
-|-------|----------|---------|
-| Principles | `AGENTS.md`, `README.md` | Stable rules, always loaded |
-| Architecture | `docs/architecture/` | System design, when understanding how things work |
-| Implementation | `docs/implementation/` | Active plans, when building features |
-| History | `docs/implementation/history/` | Past decisions, when investigating |
-| Guides | `docs/guides/` | Reference docs, when doing specific tasks |
-
 ## Quick Navigation
 
 - **Delegate to Codex?** → Use `/gpt` command or `.skills/gpt/` skill
@@ -49,24 +39,6 @@ This repository uses **layered documentation** for AI agent context management.
 - **Create or update a PR?** → Use `.skills/pr-assistant/` skill
 - **IMPORTANT: For ALL pull request operations, you MUST invoke the `pr-assistant` skill. Always creates PRs in draft mode.**
 - **Understanding the system?** → Start with `docs/architecture/` if present
-
-## Skills
-
-This repository uses **skills** for specialized workflows. Skills are automatically discovered and used based on task context:
-
-- **gpt:** Delegate tasks to Codex via MCP — reviews, analysis, implementation, second opinions
-- **quest:** Multi-agent orchestration for features (plan → review → build → review → fix)
-- **celebrate:** Play quest completion celebration animation with achievements, metrics, and credits
-- **plan-reviewer:** Review implementation plans and PR specifications for test coverage
-- **code-reviewer:** Review actual code for quality, security, and patterns
-- **sharpen:** Adversarial Q&A against a plan or design — one question at a time with a recommended answer — to surface contradictions and unresolved tradeoffs
-- **ux-review:** Run the canonical UX stress-test rubric against a target (file, directory, URL, screenshot, or diff) and produce a P0–P3 critique with principle citations
-- **ux-context:** UX principles primer (auto-attached by quest orchestration when `ui_work: true`); bundles the canonical UX guidebook as a resource so the standard travels with the skill
-- **implementer:** Step-by-step implementation with traceability
-- **git-commit-assistant:** Generate commit messages from staged diff, match repo conventions, append Quest co-author trailer
-- **pr-assistant:** Create and update GitHub PRs in draft mode, generate title/description from branch commits
-
-See `.skills/BOOTSTRAP.md` for how to use skills with different AI platforms.
 
 ## Agentic Markdown Convention
 
