@@ -1,0 +1,33 @@
+ideas/2026-07-29-bug-report-quest-complete-worktree-journal-target.md
+  s_ad5a4bba569e05::t_370eed7385307b 1-73
+ideas/2026-07-28-bug-report-sharpen-replan-transition.md
+  s_ad5a4bba569e05::t_0d2885377db530 1-109
+ideas/README.md
+  s_dc07dbbf487cfd::t_98a7c10381dbf9 26
+ideas/2026-07-27-closed-set-totality-and-cheap-review-ordering.md
+  s_dc07dbbf487cfd::t_40c1df49902c74 1-157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "50fdc47c19bb8d02b6e542bbc01ed94bfe897098",
+  "prompts": {},
+  "sessions": {
+    "s_ad5a4bba569e05": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fab4d-b301-7fd0-b7da-68cc9caacd5d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_dc07dbbf487cfd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a50b150-c309-4a35-9b80-826ddf5a20c2",
+        "model": "claude-opus-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}

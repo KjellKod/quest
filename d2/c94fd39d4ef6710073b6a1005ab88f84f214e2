@@ -1,0 +1,80 @@
+.skills/quest/SKILL.md
+  s_993959295a81b7::t_b0b850ab8ec30c 259
+scripts/quest_preflight.sh
+  s_993959295a81b7::t_1dee9806ebeacd 46-51,511,513-515,576,675,677-679,718
+tests/unit/test_quest_runtime.py
+  s_993959295a81b7::t_bb25b6d91d3a03 317-323
+  s_67ef96c57add56::t_27972325383d0b 422
+  s_993959295a81b7::t_651b5f15d54c55 1536-1579
+  s_993959295a81b7::t_7ea1617f0e5f96 324-357,393-421,423-442,1058,1444-1535,1580-1617
+tests/test-quest-preflight.sh
+  s_993959295a81b7::t_013e30d177bf00 61-80,177-179
+  s_993959295a81b7::t_1a82ab42a5d0bb 172
+  s_993959295a81b7::t_a97d326243218b 367,369,375,383-384,392-394,486-609,900-901
+tests/unit/test_claude_bg_run.py
+  s_67ef96c57add56::t_27972325383d0b 949,1254,1516,1533
+  s_993959295a81b7::t_f8a7fc89a6b88d 20,894-948,950-966,1247-1253,1255-1276,1312-1357,1445-1473,1495-1497,1499-1515,1517-1532,1534-1564
+  s_993959295a81b7::t_bb25b6d91d3a03 1277-1303,1305-1311,1474-1494,1498
+  s_67ef96c57add56::t_60085f4c3584cb 1304
+  s_993959295a81b7::t_4310d5d576ebf9 1565-1566
+tests/unit/test_quest_claude_bridge.py
+  s_993959295a81b7::t_bb25b6d91d3a03 90,107-109,196-223
+  s_993959295a81b7::t_a8abbdd00cef05 8,83-89,91-104,106,110-113,115-171,174-195,224-289
+  s_67ef96c57add56::t_27972325383d0b 105,114,172-173
+docs/quest-journal/celebrations/claude-transport-tier1_2026-07-27.md
+  s_67ef96c57add56::t_618f8177c1440f 1-12,15-26,30-31,33-45,47-52,55-113
+  s_993959295a81b7::t_b0c340beaacbec 13-14,27-29,32,46,53-54
+docs/quest-journal/README.md
+  s_67ef96c57add56::t_618f8177c1440f 9
+scripts/quest_claude_bridge.py
+  s_993959295a81b7::t_22e671f4258f76 50
+  s_993959295a81b7::t_ce2163762c2d86 20,26-44,46-49,51,193,200-210,267-271
+  s_67ef96c57add56::t_27972325383d0b 45
+scripts/claude_bg_run.py
+  s_993959295a81b7::t_22e671f4258f76 520,532-533,1100,1132,1136,1345-1348
+  s_993959295a81b7::t_a98fd14d8f2d97 522-528,539-544,861-867,906-921,1101,1130-1131,1133-1135,1137-1138,1141,1152-1158
+  s_993959295a81b7::t_0f92baebb79e1b 521
+  s_993959295a81b7::t_381ecb17eee325 922
+scripts/quest_runtime/claude_runner.py
+  s_993959295a81b7::t_be77cc5b82b5c3 962-965,982-989,998,1059,1177-1178,1192-1197
+  s_993959295a81b7::t_651b5f15d54c55 942-946,961
+docs/guides/quest_setup.md
+  s_993959295a81b7::t_6c9eb852c8b188 328-330
+  s_993959295a81b7::t_b0b850ab8ec30c 298,306,321-327,331-334
+  s_e413913b6fc439::t_ea461e062e637b 335
+docs/quest-journal/claude-transport-tier1_2026-07-27.md
+  s_67ef96c57add56::t_618f8177c1440f 1-39,42-140
+  s_993959295a81b7::t_b0c340beaacbec 40-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "d2c94fd39d4ef6710073b6a1005ab88f84f214e2",
+  "prompts": {},
+  "sessions": {
+    "s_67ef96c57add56": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "019fa20b-3b50-77d3-bdda-aa5201492251",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_993959295a81b7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fa20b-3b50-77d3-bdda-aa5201492251",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_e413913b6fc439": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fa0d4-e72a-76e1-9172-08ab1ff3e439",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
