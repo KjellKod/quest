@@ -63,6 +63,7 @@ import re
 import select
 import shlex
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -517,18 +518,31 @@ class BgRunner:
         if not short_id:
             return StopResult(settled=True)
         row: dict[str, Any] | None = None
-        for attempt in range(6):
-            row = self.find_session(short_id=short_id)
+        signals_sent = 0
+        for _ in range(6):
+            try:
+                row = self.find_session(short_id=short_id)
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                # Roster unavailability is not proof that the owned session
+                # settled. Consume this bounded observation and keep trying.
+                time.sleep(self.a.poll_interval)
+                continue
             pid = (row or {}).get("pid")
             if not isinstance(pid, int):
                 return StopResult(settled=True)
-            sig = signal.SIGTERM if attempt < 2 else signal.SIGKILL
+            sig = signal.SIGTERM if signals_sent < 2 else signal.SIGKILL
+            signals_sent += 1
             try:
                 os.kill(pid, sig)
             except (ProcessLookupError, PermissionError):
                 pass
             time.sleep(self.a.poll_interval)
-        row = self.find_session(short_id=short_id)
+        try:
+            row = self.find_session(short_id=short_id)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            # Teardown may only claim success after observing the row absent or
+            # pid-less. Preserve the owned id for structured sweep guidance.
+            return StopResult(settled=False, survivor_id=short_id)
         if not isinstance((row or {}).get("pid"), int):
             return StopResult(settled=True)
         return StopResult(
@@ -845,7 +859,13 @@ class BgRunner:
             # sessionId: in resume mode the parked parent's row matches
             # `sessionId == resume_sid` and would falsely confirm a dispatch
             # that never registered.
-            row = self._confirm_row(short_id, pre_existing)
+            try:
+                row = self._confirm_row(short_id, pre_existing)
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                # A failed roster observation is not a failed dispatch. Retry
+                # under the existing confirmation deadline.
+                time.sleep(self.a.poll_interval)
+                continue
             if row:
                 break
             time.sleep(self.a.poll_interval)
@@ -883,6 +903,26 @@ class BgRunner:
             return Path(path).stat().st_size > 0
         except OSError:
             return False
+
+    @staticmethod
+    def _file_signature(path: str) -> tuple[int, int, int, int] | None:
+        """Return a readable, non-empty file's identity and write metadata."""
+        try:
+            file_descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+        except OSError:
+            return None
+        try:
+            metadata = os.fstat(file_descriptor)
+        finally:
+            os.close(file_descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size <= 0:
+            return None
+        return (
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+        )
 
     def read_handoff(self) -> dict[str, Any] | None:
         if not self.a.handoff_file or not self._nonempty(self.a.handoff_file):
@@ -1061,6 +1101,8 @@ class BgRunner:
         deadline = time.monotonic() + self.a.timeout
         next_status = 0.0
         grace_left = 2
+        expected_paths = list(dict.fromkeys(self.a.wait_for))
+        previous_signatures: dict[str, tuple[int, int, int, int]] | None = None
         # A freshly confirmed session can read blocked with no transcript for
         # one poll before its first JSONL flush; require a second consecutive
         # observation before inferring a startup dialog from the missing file.
@@ -1089,9 +1131,18 @@ class BgRunner:
                     break
 
                 if self.a.wait_for:
-                    if all(self._nonempty(p) for p in self.a.wait_for):
+                    current_signatures = {
+                        path: signature
+                        for path in expected_paths
+                        if (signature := self._file_signature(path)) is not None
+                    }
+                    if (
+                        len(current_signatures) == len(expected_paths)
+                        and current_signatures == previous_signatures
+                    ):
                         env.status = "ok"
                         break
+                    previous_signatures = current_signatures
                 elif hf and hf.get("status") == "complete":
                     env.status = "ok"
                     break
@@ -1102,7 +1153,13 @@ class BgRunner:
                     # adopt a different same-name agent if ours vanished, hiding
                     # the real failure. (Daemon respawns keep the row id, so id
                     # tracking survives them.)
-                    row = self.find_session(env.short_id)
+                    try:
+                        row = self.find_session(env.short_id)
+                    except (FileNotFoundError, subprocess.TimeoutExpired):
+                        # Preserve the last known state. A failed roster
+                        # observation is neither disappearance nor settlement.
+                        time.sleep(self.a.poll_interval)
+                        continue
                     state = (row or {}).get("state") or (row or {}).get("status")
                     env.final_state = state
                     if row is None:
@@ -1289,7 +1346,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--wait-for",
         action="append",
         default=[],
-        help="output file(s) that must exist & be non-empty (repeatable)",
+        help=(
+            "output file(s) that must exist, be non-empty, and be unchanged "
+            "across two consecutive polls (repeatable)"
+        ),
     )
     p.add_argument(
         "--handoff-file",

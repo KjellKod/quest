@@ -295,7 +295,7 @@ Accept the prompt, exit Claude, return to Quest, and rerun preflight.
 
 Quest sends the initial background prompt on stdin, not as a trailing argv argument. This became required starting with Claude Code 2.1.191, where positional prompt delivery registers a session but parks it at `idle — send a prompt to start`. If Quest still reports `bg_initial_prompt_not_consumed`, treat that as a bg prompt-delivery regression and use `"bridge"` only if you explicitly accept API-metered bridge billing.
 
-`models.<role> = "claude"` is a sentinel for the Claude CLI/account default model. Quest passes the sentinel into its own runner, but the runner omits the CLI `--model` flag. If Claude rejects a concrete model, Quest reports `model_rejected` instead of downgrading or guessing.
+`models.<role> = "claude"` is a sentinel for the Claude CLI/account default model. Quest passes the sentinel into its own runner, but the runner omits the CLI `--model` flag. If Claude rejects a concrete model, Quest reports `model_rejected` instead of downgrading or guessing. Because the sentinel does not identify the account-default model, rejection results omit `rejected_model` for it.
 
 To pin a **specific Claude model** for a role, put its full `claude-`-prefixed model ID in `models.<role>` (in `.ai/allowlist.json`, or per quest via the orchestration chooser override, e.g. `planner=claude-fable-5`): `claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`, and so on. The ID passes verbatim to the CLI's `--model`. **Do not use bare CLI aliases like `opus` or `sonnet` in `models.<role>`** — Quest classifies the role's runtime by the `claude`/`claude-*` shape, so a bare alias would route the role to the Codex runtime. (Bare aliases are fine only when invoking `scripts/quest_claude_runner.py`/`quest_claude_probe.py` directly with `--model`.) To preflight a concrete model instead of the account default, set `QUEST_CLAUDE_PROBE_MODEL=claude-fable-5`.
 
@@ -303,7 +303,7 @@ To pin a **specific Claude model** for a role, put its full `claude-`-prefixed m
 
 If the preflight says the Claude transport is unavailable, first run `claude auth login` in a normal shell and re-check `claude auth status`. If browser login already succeeded but preflight still reports Claude as unavailable, rerun `./scripts/quest_preflight.sh --orchestrator codex` outside any restricted sandbox before concluding the transport is broken; some sandboxed runners cannot see the host Claude CLI auth state.
 
-Successful Codex-led probes are retained for 12 hours: background-agent at `.quest/cache/claude_bg_codex.json`, bridge at `.quest/cache/claude_bridge_codex.json`. That avoids repeating the browser-login remediation on every quest start, but it does **not** make sandbox-local Claude auth trustworthy. Claude-designated roles still need to run in the same host-visible context that produced the successful probe. Override the retention window with `QUEST_PREFLIGHT_CACHE_TTL_SECONDS=<seconds>` or the cache paths with `QUEST_PREFLIGHT_CACHE_FILE=<path>` (bridge) / `QUEST_PREFLIGHT_BG_CACHE_FILE=<path>` (background-agent).
+Successful Codex-led probes are retained for 12 hours: background-agent at `.quest/cache/claude_bg_codex.json`, bridge at `.quest/cache/claude_bridge_codex.json`. Each cache records the normalized `probe_model` (`claude` for the account default, or the exact trimmed concrete model) and is reusable only for that same identity. A cache written before `probe_model` was added is ignored once and refreshed by the next successful live probe; it cannot validate either a concrete model or the sentinel. This avoids repeating browser-login remediation without letting one model's success validate another, but it does **not** make sandbox-local Claude auth trustworthy. Claude-designated roles still need to run in the same host-visible context that produced the successful probe. Override the retention window with `QUEST_PREFLIGHT_CACHE_TTL_SECONDS=<seconds>` or the cache paths with `QUEST_PREFLIGHT_CACHE_FILE=<path>` (bridge) / `QUEST_PREFLIGHT_BG_CACHE_FILE=<path>` (background-agent).
 
 ### What the bridge does
 
@@ -317,6 +317,21 @@ Quest uses a purpose-built CLI bridge (`scripts/quest_claude_bridge.py`) instead
 - **True isolation**, each call is a fresh `claude --print` invocation with no session state between roles
 
 The bridge script itself is Quest-agnostic, it's a generic utility for calling Claude CLI with structured options. The Quest-specific behavior (handoff polling, logging, text fallback) lives in `quest_claude_runner.py`.
+
+When the Claude CLI rejects the selected model, direct bridge execution exits
+`9` and the Quest runtime reports `result_kind=model_rejected`. For a concrete
+request, the runtime derives `rejected_model` from that requested model; it does
+not parse the bridge's agent-response stdout. The `claude` sentinel therefore
+has no concrete rejected-model field. A completed handoff with all declared
+artifacts still wins over a late bridge exit `9`; otherwise model rejection
+wins over ordinary missing/unparsable handoff, missing-artifact, invocation,
+and generic-error classifications. The bridge process itself exits `1` for a
+timeout and for a missing CLI; `124` and `127` appear only as the `exit_code`
+field of the out-of-band `--json-wrap` payload.
+
+Quest invokes the bridge in text mode and does not pass `--json-wrap`.
+`--json-wrap` remains an out-of-band interface for direct/external bridge
+callers; its envelope is not part of the Quest runtime protocol.
 
 ### What Quest handles automatically
 

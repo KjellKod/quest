@@ -43,7 +43,12 @@ CLAUDE_PROBE_SCRIPT="${QUEST_CLAUDE_PROBE_SCRIPT:-$SCRIPT_DIR/quest_claude_probe
 CLAUDE_BRIDGE_CACHE_FILE="${QUEST_PREFLIGHT_CACHE_FILE:-.quest/cache/claude_bridge_codex.json}"
 CLAUDE_BG_CACHE_FILE="${QUEST_PREFLIGHT_BG_CACHE_FILE:-.quest/cache/claude_bg_codex.json}"
 ALLOWLIST_FILE="${QUEST_ALLOWLIST_FILE:-.ai/allowlist.json}"
-CLAUDE_PROBE_MODEL="${QUEST_CLAUDE_PROBE_MODEL:-claude}"
+CLAUDE_PROBE_MODEL=$(python3 -c \
+  'import sys; print(sys.argv[1].strip())' \
+  "${QUEST_CLAUDE_PROBE_MODEL:-claude}")
+if [ -z "$CLAUDE_PROBE_MODEL" ]; then
+  CLAUDE_PROBE_MODEL="claude"
+fi
 CURRENT_BG_PROBE_NAME=""
 
 cleanup_bg_probes() {
@@ -503,7 +508,11 @@ raise SystemExit(0 if isinstance(data, list) else 1)
      cache_fallback_allowed "$claude_auth_logged_in" "$probe_result_kind" "$probe_message"; then
     local cache_json=""
     cache_json=$(load_success_cache "$CLAUDE_BG_CACHE_FILE" "$CACHE_TTL_SECONDS" 2>/dev/null || true)
+    local cached_probe_model=""
     if [ -n "$cache_json" ]; then
+      cached_probe_model=$(printf '%s' "$cache_json" | json_get "payload.probe_model" 2>/dev/null || true)
+    fi
+    if [ -n "$cache_json" ] && [ "$cached_probe_model" = "$CLAUDE_PROBE_MODEL" ]; then
       cache_hit="true"
       source="success_cache"
       available="true"
@@ -564,6 +573,7 @@ raise SystemExit(0 if isinstance(data, list) else 1)
   "orchestrator": "codex",
   "second_model": "claude",
   "transport": "background-agent",
+  "probe_model": $(json_quote_or_null "$CLAUDE_PROBE_MODEL"),
   "transport_downgraded": false,
   "source": $(json_quote_or_null "$source"),
   "runtime_requirement": $(json_quote_or_null "$runtime_requirement"),
@@ -662,7 +672,11 @@ probe_claude_bridge() {
      cache_fallback_allowed "$claude_auth_logged_in" "$probe_result_kind" "$probe_message"; then
     local cache_json=""
     cache_json=$(load_success_cache "$CLAUDE_BRIDGE_CACHE_FILE" "$CACHE_TTL_SECONDS" 2>/dev/null || true)
+    local cached_probe_model=""
     if [ -n "$cache_json" ]; then
+      cached_probe_model=$(printf '%s' "$cache_json" | json_get "payload.probe_model" 2>/dev/null || true)
+    fi
+    if [ -n "$cache_json" ] && [ "$cached_probe_model" = "$CLAUDE_PROBE_MODEL" ]; then
       cache_hit="true"
       source="success_cache"
       available="true"
@@ -701,6 +715,7 @@ probe_claude_bridge() {
   "orchestrator": "codex",
   "second_model": "claude",
   "transport": "bridge",
+  "probe_model": $(json_quote_or_null "$CLAUDE_PROBE_MODEL"),
   "transport_downgraded": false,
   "source": $(json_quote_or_null "$source"),
   "runtime_requirement": $(json_quote_or_null "$runtime_requirement"),
