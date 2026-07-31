@@ -72,7 +72,7 @@ In the KjellKod/quest repo, on a fresh branch off main: in `.skills/quest/SKILL.
 ## Achievements
 
 - [BUG] **Gremlin Slayer** — Tackled 10 review findings
-- [TEST] **Battle Tested** — Survived 8 reviews
+- [TEST] **Battle Tested** — Review rounds completed: 8
 - [PLAN] **Plan Perfectionist** — Iterated plan 3 times
 - [WIN] **Quest Complete** — All phases finished successfully
 
@@ -110,4 +110,4 @@ QUALITY SCORE
 
 ## Victory Narrative
 
-In the KjellKod/quest repo, on a fresh branch off main: in `.skills/quest/SKILL.md` (~line 259), replace `claude-opus-4-8` in the parser grab-bag example (`gpt-5.6-sol, claude-opus-4-8, o1-mini`) with the synthetic `claude-fake-model`, matching the override-parser test fixtures. Docs-only, no logic change. Then run `git grep -nE "opus-4-8|Opus 4\.8"` and confirm only history (`docs/quest-journal`), archives (`ideas/archive`), and the transport-hardening doc’s descriptive migration line remain. Run `bash scripts/quest_validate-quest-config.sh`, commit via git-commit-assistant, push, and open a draft PR via pr-assistant. The quest finished with 3 plan iteration(s), 2 fix loop(s), and a persisted celebration artifact that future readers can open directly from the journal.
+Hardened Tier 1 Claude transport reliability across roster polling, configured-model probing, artifact settling, and bridge rejection reporting, with regression coverage for each path. The quest finished with 3 plan iteration(s), 2 fix loop(s), and a persisted celebration artifact that future readers can open directly from the journal.

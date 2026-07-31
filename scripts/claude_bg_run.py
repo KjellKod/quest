@@ -63,6 +63,7 @@ import re
 import select
 import shlex
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -907,11 +908,14 @@ class BgRunner:
     def _file_signature(path: str) -> tuple[int, int, int, int] | None:
         """Return a readable, non-empty file's identity and write metadata."""
         try:
-            with Path(path).open("rb") as handle:
-                metadata = os.fstat(handle.fileno())
+            file_descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
         except OSError:
             return None
-        if metadata.st_size <= 0:
+        try:
+            metadata = os.fstat(file_descriptor)
+        finally:
+            os.close(file_descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size <= 0:
             return None
         return (
             metadata.st_dev,

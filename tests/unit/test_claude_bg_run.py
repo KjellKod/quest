@@ -1468,6 +1468,31 @@ def test_file_signature_detects_same_metadata_atomic_replacement(shim, tmp_path)
     assert first_signature[:2] != second_signature[:2]
 
 
+def test_file_signature_opens_nonblocking_and_rejects_fifo(shim, tmp_path, monkeypatch):
+    artifact = tmp_path / "artifact.txt"
+    artifact.write_text("content", encoding="utf-8")
+    read_fd, write_fd = os.pipe()
+    real_close = os.close
+    open_flags: list[int] = []
+
+    def open_fifo(_path: str, flags: int) -> int:
+        open_flags.append(flags)
+        return read_fd
+
+    monkeypatch.setattr(bg.os, "open", open_fifo)
+    try:
+        signature = bg.BgRunner(_args(shim))._file_signature(str(artifact))
+    finally:
+        for fd in (read_fd, write_fd):
+            try:
+                real_close(fd)
+            except OSError:
+                pass
+
+    assert signature is None
+    assert open_flags[0] & os.O_NONBLOCK
+
+
 def test_done_session_waits_for_second_stable_artifact_observation(
     shim, tmp_path, monkeypatch
 ):

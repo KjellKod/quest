@@ -6,7 +6,7 @@
 - Mode: workflow
 - Quality: Bronze
 - Celebration: [`celebrations/claude-transport-tier1_2026-07-27.md`](celebrations/claude-transport-tier1_2026-07-27.md)
-- Outcome: In the KjellKod/quest repo, on a fresh branch off main: in `.skills/quest/SKILL.md` (~line 259), replace `claude-opus-4-8` in the parser grab-bag example (`gpt-5.6-sol, claude-opus-4-8, o1-mini`) w...
+- Outcome: In the KjellKod/quest repo, on a fresh branch off main: in `.skills/quest/SKILL.md` (~line 259), replace `claude-opus-4-8` in the parser grab-bag example (`gpt-5.6-sol, claude-opus-4-8, o1-mini`) with the synthetic `claude-fake-model`, matching the override-parser test fixtures.
 
 ## What Shipped
 
@@ -89,7 +89,7 @@ This journal embeds the celebration payload used by `/celebrate`.
     {
       "icon": "[TEST]",
       "title": "Battle Tested",
-      "desc": "Survived 8 reviews"
+      "desc": "Review rounds completed: 8"
     },
     {
       "icon": "[PLAN]",
