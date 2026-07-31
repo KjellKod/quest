@@ -82,7 +82,6 @@ Repository Root
 │   ├── implementation/          ← Layer 3: Active plans
 │   │   ├── README.md                (navigation hub for plans)
 │   │   ├── [active plans...]
-│   │   ├── backlog/                 (future work)
 │   │   └── history/             ← Layer 4: Completed work
 │   │
 │   └── guides/                  ← Layer 5: Reference docs
