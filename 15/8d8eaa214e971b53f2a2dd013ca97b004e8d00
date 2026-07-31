@@ -1,0 +1,28 @@
+docs/quest-journal/claude-transport-tier1_2026-07-27.md
+  s_62e6b9a0cfdd22::t_0427e93945beab 9,92
+scripts/claude_bg_run.py
+  s_62e6b9a0cfdd22::t_0427e93945beab 66,911,914-918
+tests/unit/test_claude_bg_run.py
+  s_62e6b9a0cfdd22::t_dba72920b046d6 1472-1482,1484-1493
+  s_62e6b9a0cfdd22::t_305a79cffc8ceb 1483
+  s_62e6b9a0cfdd22::t_715c6ea02daada 1471
+  s_62e6b9a0cfdd22::t_4c119dde2d2114 1494-1495
+docs/quest-journal/celebrations/claude-transport-tier1_2026-07-27.md
+  s_62e6b9a0cfdd22::t_0427e93945beab 75,113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.18",
+  "base_commit_sha": "158d8eaa214e971b53f2a2dd013ca97b004e8d00",
+  "prompts": {},
+  "sessions": {
+    "s_62e6b9a0cfdd22": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fb66a-6477-7633-b350-1d8ef30ef140",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
