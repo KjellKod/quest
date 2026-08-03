@@ -104,9 +104,9 @@ def _validated_override(raw_role: object, raw_model: object) -> Override:
             "Re-enter overrides."
         )
     model = raw_model.strip()
-    if "," in model or "=" in model:
+    if "," in model or "=" in model or "\n" in model or "\r" in model:
         raise OverrideParseError(
-            f"Override model for {role} cannot contain ',' or '='. "
+            f"Override model for {role} cannot contain ',', '=', or line breaks. "
             "Re-enter overrides."
         )
     return Override(role=role, model=model)
@@ -125,21 +125,20 @@ def _append_unique_override(
 
 
 def parse_override_input(text: str) -> list[Override]:
-    """Parse JSON or comma-separated `role=model` overrides.
+    """Parse JSON or comma- or newline-separated `role=model` overrides.
 
     Contract (mirrors SKILL.md §8.5):
     - JSON input may be a direct role map, a top-level `models` object, or the
       copied `"models": {...}` fragment without outer braces.
     - JSON role names and model values use the same validation as pairs.
-    - Split on commas, trim each piece. Empty pieces are silently skipped
-      (a trailing comma is fine).
+    - Split pair input on commas, LF, or CRLF; trim each piece. Empty pieces
+      are silently skipped (trailing separators and blank lines are fine).
     - Each non-empty piece must contain exactly one `=`. Zero or two-or-more
       `=` characters raise OverrideParseError.
     - Role names are trimmed, lowercased, and matched against CANONICAL_ROLES.
       Unknown roles raise OverrideParseError.
-    - Model names are trimmed. Lexeme is `[^,=]+` non-empty. No further
-      character constraints (so `gpt-5.5`, `claude-opus-4.7`, `o1-mini`
-      all pass parsing).
+    - Model names are trimmed and cannot contain commas, equals signs, or line
+      breaks (so `gpt-5.5`, `claude-opus-4.7`, `o1-mini` all pass parsing).
     """
     stripped = text.strip()
     if stripped.startswith("{") or stripped.startswith('"models"'):
@@ -179,7 +178,8 @@ def parse_override_input(text: str) -> list[Override]:
             )
         return parsed_json
 
-    pieces = [piece.strip() for piece in text.split(",")]
+    lines = text.replace("\r\n", "\n").split("\n")
+    pieces = [piece.strip() for line in lines for piece in line.split(",")]
     parsed: list[Override] = []
     seen_roles: set[str] = set()
     for piece in pieces:

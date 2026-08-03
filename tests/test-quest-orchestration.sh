@@ -452,6 +452,7 @@ PY
 test_chooser_rejects_invalid_json_override_values() {
   python3 - <<PY
 ${PY_HELPER}
+import json
 from quest_runtime.orchestration import parse_override_line, OverrideParseError
 bad_inputs = (
     '{"models": {"planner": null}}',
@@ -461,6 +462,7 @@ bad_inputs = (
     '{"models": {"planner": "gpt-5.6-sol"}',
     '{"models": {"planner": "gpt-5.6,sol"}}',
     '{"models": {"planner": "gpt-5.6=sol"}}',
+    json.dumps({"models": {"planner": "gpt-5.6\nsol"}}),
 )
 for bad in bad_inputs:
     try:
@@ -478,6 +480,8 @@ from quest_runtime.orchestration import parse_override_input, OverrideParseError
 bad_inputs = (
     "planner=gpt-5.6-sol, planner=gpt-5.6-terra",
     "Planner=gpt-5.6-sol, PLANNER=gpt-5.6-terra",
+    "planner=gpt-5.6-sol\nplanner=gpt-5.6-terra",
+    "planner=gpt-5.6-sol,\nPlanner=gpt-5.6-terra",
     '{"planner":"gpt-5.6-sol","planner":"gpt-5.6-terra"}',
     '{"Planner":"gpt-5.6-sol","planner":"gpt-5.6-terra"}',
     '{"models":{"planner":"gpt-5.6-sol","planner":"gpt-5.6-terra"}}',
@@ -510,6 +514,9 @@ from quest_runtime.orchestration import (
 
 submissions = (
     "planner=gpt-5.6-terra, builder=claude-fake-model",
+    "planner=gpt-5.6-terra\nbuilder=claude-fake-model",
+    "planner=gpt-5.6-terra\r\n\r\nbuilder=claude-fake-model",
+    "planner=gpt-5.6-terra,\n\nbuilder=claude-fake-model",
     '{"planner":"gpt-5.6-terra","builder":"claude-fake-model"}',
     '{"models":{"planner":"gpt-5.6-terra","builder":"claude-fake-model"}}',
     '"models":{"planner":"gpt-5.6-terra","builder":"claude-fake-model"}',
@@ -567,6 +574,30 @@ assert json.loads(result.stdout) == {
     ],
 }, result.stdout
 
+expected = [
+    {"model": "claude-opus-5", "role": "plan-reviewer-b"},
+    {"model": "claude-opus-5", "role": "code-reviewer-a"},
+]
+for separator in ("\n", "\r\n"):
+    result = subprocess.run(
+        command,
+        input=separator.join(
+            (
+                "plan-reviewer-b=claude-opus-5",
+                "code-reviewer-a=claude-opus-5",
+            )
+        ),
+        text=True,
+        capture_output=True,
+        cwd=repo,
+        check=False,
+    )
+    assert result.returncode == 0, result
+    assert json.loads(result.stdout) == {
+        "ok": True,
+        "overrides": expected,
+    }, result.stdout
+
 bad = subprocess.run(
     command,
     input="planner=gpt-5.6-sol, planner=gpt-5.6-terra",
@@ -577,6 +608,28 @@ bad = subprocess.run(
 )
 assert bad.returncode == 2, bad
 assert json.loads(bad.stderr)["error"].startswith("Duplicate role: planner"), bad.stderr
+PY
+}
+
+test_override_parser_accepts_comma_and_newline_separators() {
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import Override, parse_override_input
+
+expected = [
+    Override("plan-reviewer-b", "claude-opus-5"),
+    Override("code-reviewer-a", "claude-opus-5"),
+]
+
+submissions = (
+    "plan-reviewer-b=claude-opus-5, code-reviewer-a=claude-opus-5",
+    "plan-reviewer-b=claude-opus-5\ncode-reviewer-a=claude-opus-5",
+    "plan-reviewer-b=claude-opus-5\r\ncode-reviewer-a=claude-opus-5",
+    "plan-reviewer-b=claude-opus-5\n\ncode-reviewer-a=claude-opus-5",
+    "plan-reviewer-b=claude-opus-5,\n\ncode-reviewer-a=claude-opus-5",
+)
+for submission in submissions:
+    assert parse_override_input(submission) == expected, submission
 PY
 }
 
@@ -1061,6 +1114,7 @@ run_test test_chooser_rejects_invalid_json_override_values
 run_test test_chooser_rejects_duplicate_roles_in_all_formats
 run_test test_override_formats_produce_identical_orchestration
 run_test test_override_parser_cli_reads_stdin
+run_test test_override_parser_accepts_comma_and_newline_separators
 run_test test_chooser_rejects_unknown_role
 run_test test_chooser_rejects_multiple_equals
 run_test test_chooser_skips_empty_pieces
