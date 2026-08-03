@@ -568,6 +568,7 @@ result = subprocess.run(
 assert result.returncode == 0, result
 assert json.loads(result.stdout) == {
     "ok": True,
+    "normalizations": [],
     "overrides": [
         {"model": "gpt-5.6-sol", "role": "planner"},
         {"model": "gpt-5.6-terra", "role": "fixer"},
@@ -595,6 +596,9 @@ for separator in ("\n", "\r\n"):
     assert result.returncode == 0, result
     assert json.loads(result.stdout) == {
         "ok": True,
+        "normalizations": [
+            "Normalized newline-separated overrides to comma-separated pairs."
+        ],
         "overrides": expected,
     }, result.stdout
 
@@ -630,6 +634,146 @@ submissions = (
 )
 for submission in submissions:
     assert parse_override_input(submission) == expected, submission
+PY
+}
+
+test_override_normalizer_accepts_newlines_and_reports_unique_role_corrections() {
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import (
+    Override,
+    OverrideParseError,
+    normalize_override_input,
+    parse_override_input,
+)
+
+for separator in ("\n", "\r\n", "\n\n"):
+    submission = separator.join(
+        ("planner=gpt-5.6-sol", "code-reviewr-b=claude-opus-5")
+    )
+    normalized, notes = normalize_override_input(submission)
+    assert normalized == (
+        "planner=gpt-5.6-sol, code-reviewer-b=claude-opus-5"
+    ), (normalized, notes)
+    assert notes == [
+        "Normalized newline-separated overrides to comma-separated pairs.",
+        "Corrected role 'code-reviewr-b' to 'code-reviewer-b'.",
+    ], notes
+    assert parse_override_input(normalized) == [
+        Override("planner", "gpt-5.6-sol"),
+        Override("code-reviewer-b", "claude-opus-5"),
+    ]
+
+canonical, notes = normalize_override_input("Planner=gpt-5.6-sol")
+assert canonical == "Planner=gpt-5.6-sol"
+assert notes == []
+
+ambiguous, notes = normalize_override_input("plan-reviewer-=gpt-5.6-sol")
+assert ambiguous == "plan-reviewer-=gpt-5.6-sol"
+assert notes == []
+try:
+    parse_override_input(ambiguous)
+except OverrideParseError as exc:
+    assert "Unknown role: plan-reviewer-" in str(exc), exc
+else:
+    raise AssertionError("ambiguous role must remain a parser rejection")
+
+larger, notes = normalize_override_input("code-reviwr-b=gpt-5.6-sol")
+assert larger == "code-reviwr-b=gpt-5.6-sol"
+assert notes == []
+try:
+    parse_override_input(larger)
+except OverrideParseError:
+    pass
+else:
+    raise AssertionError("larger typo must remain a parser rejection")
+PY
+}
+
+test_override_normalizer_preserves_parser_authority() {
+  python3 - <<PY
+${PY_HELPER}
+from quest_runtime.orchestration import OverrideParseError, normalize_override_input, parse_override_input
+
+json_submission = '{"models":{"code-reviewr-b":"model-with-code-reviewr-b"}}'
+normalized, notes = normalize_override_input(json_submission)
+assert normalized == json_submission
+assert notes == []
+try:
+    parse_override_input(normalized)
+except OverrideParseError as exc:
+    assert "Unknown role: code-reviewr-b" in str(exc), exc
+else:
+    raise AssertionError("JSON role keys must not be corrected")
+
+normalized, notes = normalize_override_input(
+    "code-reviewer-b=model-code-reviewr-b\ncode-reviewr-b=other-model"
+)
+assert "model-code-reviewr-b" in normalized
+assert notes[-1] == "Corrected role 'code-reviewr-b' to 'code-reviewer-b'."
+try:
+    parse_override_input(normalized)
+except OverrideParseError as exc:
+    assert "Duplicate role: code-reviewer-b" in str(exc), exc
+else:
+    raise AssertionError("duplicate after correction must remain a parser rejection")
+PY
+}
+
+test_override_parser_cli_reports_normalizations() {
+  python3 - <<PY
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+repo = Path("$REPO_ROOT")
+command = [sys.executable, str(repo / "scripts" / "quest_parse_overrides.py")]
+result = subprocess.run(
+    command,
+    input="planner=gpt-5.6-sol\ncode-reviewr-b=claude-opus-5",
+    text=True,
+    capture_output=True,
+    cwd=repo,
+    check=False,
+)
+assert result.returncode == 0, result
+payload = json.loads(result.stdout)
+assert payload["normalizations"] == [
+    "Normalized newline-separated overrides to comma-separated pairs.",
+    "Corrected role 'code-reviewr-b' to 'code-reviewer-b'.",
+]
+assert payload["overrides"] == [
+    {"model": "gpt-5.6-sol", "role": "planner"},
+    {"model": "claude-opus-5", "role": "code-reviewer-b"},
+]
+PY
+}
+
+test_override_parser_cli_reports_normalizations_before_reprompt() {
+  python3 - <<PY
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+repo = Path("$REPO_ROOT")
+result = subprocess.run(
+    [sys.executable, str(repo / "scripts" / "quest_parse_overrides.py")],
+    input="code-reviewer-b=first\ncode-reviewr-b=second",
+    text=True,
+    capture_output=True,
+    cwd=repo,
+    check=False,
+)
+assert result.returncode == 2, result
+payload = json.loads(result.stderr)
+assert payload["ok"] is False
+assert payload["normalizations"] == [
+    "Normalized newline-separated overrides to comma-separated pairs.",
+    "Corrected role 'code-reviewr-b' to 'code-reviewer-b'.",
+]
+assert payload["error"] == "Duplicate role: code-reviewer-b. Re-enter overrides."
 PY
 }
 
@@ -1115,6 +1259,10 @@ run_test test_chooser_rejects_duplicate_roles_in_all_formats
 run_test test_override_formats_produce_identical_orchestration
 run_test test_override_parser_cli_reads_stdin
 run_test test_override_parser_accepts_comma_and_newline_separators
+run_test test_override_normalizer_accepts_newlines_and_reports_unique_role_corrections
+run_test test_override_normalizer_preserves_parser_authority
+run_test test_override_parser_cli_reports_normalizations
+run_test test_override_parser_cli_reports_normalizations_before_reprompt
 run_test test_chooser_rejects_unknown_role
 run_test test_chooser_rejects_multiple_equals
 run_test test_chooser_skips_empty_pieces

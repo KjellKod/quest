@@ -124,6 +124,74 @@ def _append_unique_override(
     parsed.append(override)
 
 
+def _is_single_edit_apart(left: str, right: str) -> bool:
+    """Return whether two role names differ by exactly one edit."""
+    if left == right or abs(len(left) - len(right)) > 1:
+        return False
+    if len(left) > len(right):
+        left, right = right, left
+    if len(left) == len(right):
+        return sum(a != b for a, b in zip(left, right)) == 1
+
+    left_index = 0
+    right_index = 0
+    edits = 0
+    while left_index < len(left) and right_index < len(right):
+        if left[left_index] == right[right_index]:
+            left_index += 1
+        else:
+            edits += 1
+            if edits > 1:
+                return False
+        right_index += 1
+    return True
+
+
+def normalize_override_input(text: str) -> tuple[str, list[str]]:
+    """Normalize harmless pair-input formatting without changing parser authority.
+
+    JSON is returned byte-for-byte unchanged. Pair input may use non-empty LF or
+    CRLF-separated entries, and a pair's role is corrected only when its
+    lowercase spelling is exactly one edit from one canonical role. Model IDs,
+    ambiguous role spellings, and malformed pair syntax are never rewritten.
+    """
+    stripped = text.strip()
+    if stripped.startswith("{") or stripped.startswith('"models"'):
+        return text, []
+
+    notes: list[str] = []
+    normalized = text
+    if "\n" in text or "\r" in text:
+        lines = [line.strip() for line in text.replace("\r\n", "\n").split("\n")]
+        normalized = ", ".join(line.rstrip(",").strip() for line in lines if line)
+        notes.append("Normalized newline-separated overrides to comma-separated pairs.")
+
+    pieces = normalized.split(",")
+    corrected_pieces: list[str] = []
+    for piece in pieces:
+        trimmed = piece.strip()
+        if trimmed.count("=") != 1:
+            corrected_pieces.append(trimmed)
+            continue
+        raw_role, raw_model = trimmed.split("=", 1)
+        role = raw_role.strip().lower()
+        if role in CANONICAL_ROLES:
+            corrected_pieces.append(trimmed)
+            continue
+        candidates = [
+            candidate
+            for candidate in CANONICAL_ROLES
+            if _is_single_edit_apart(role, candidate)
+        ]
+        if len(candidates) != 1:
+            corrected_pieces.append(trimmed)
+            continue
+        corrected_role = candidates[0]
+        corrected_pieces.append(f"{corrected_role}={raw_model.strip()}")
+        notes.append(f"Corrected role {raw_role.strip()!r} to {corrected_role!r}.")
+    return ", ".join(corrected_pieces), notes
+
+
 def parse_override_input(text: str) -> list[Override]:
     """Parse JSON or comma- or newline-separated `role=model` overrides.
 

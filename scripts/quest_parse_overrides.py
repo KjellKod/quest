@@ -6,21 +6,31 @@ from __future__ import annotations
 import json
 import sys
 
-from quest_runtime.orchestration import OverrideParseError, parse_override_input
+from quest_runtime.orchestration import (
+    OverrideParseError,
+    normalize_override_input,
+    parse_override_input,
+)
 
 
 def main() -> int:
+    normalizations: list[str] = []
     try:
-        overrides = parse_override_input(sys.stdin.read())
+        normalized, normalizations = normalize_override_input(sys.stdin.read())
+        overrides = parse_override_input(normalized)
     except OverrideParseError as exc:
         print(
-            json.dumps({"ok": False, "error": str(exc)}, sort_keys=True),
+            json.dumps(
+                {"ok": False, "error": str(exc), "normalizations": normalizations},
+                sort_keys=True,
+            ),
             file=sys.stderr,
         )
         return 2
 
     payload = {
         "ok": True,
+        "normalizations": normalizations,
         "overrides": [
             {"role": override.role, "model": override.model} for override in overrides
         ],
