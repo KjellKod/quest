@@ -1,5 +1,6 @@
 .quest-checksums
   s_3e31a61493634a::t_7d2b678ace682f 81
+  s_3e31a61493634a::t_982f2227add063 54
 tests/test-quest-orchestration.sh
   s_3e31a61493634a::t_1b614680367a97 571,637-745,747-776,1259-1262
   s_40b3b01763fcbe::t_06f6cd0dfe54ba 746
