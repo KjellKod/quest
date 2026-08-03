@@ -1,0 +1,38 @@
+.quest-checksums
+  s_3e31a61493634a::t_7d2b678ace682f 54,81
+tests/test-quest-orchestration.sh
+  s_3e31a61493634a::t_1b614680367a97 564,584-692,694-723,1205-1208
+  s_40b3b01763fcbe::t_06f6cd0dfe54ba 693
+.skills/quest/SKILL.md
+  s_3e31a61493634a::t_0064e0afe6c350 254-263
+scripts/quest_parse_overrides.py
+  s_3e31a61493634a::t_0064e0afe6c350 9-13,17,19-20,23-26,33
+scripts/quest_runtime/__init__.py
+  s_3e31a61493634a::t_334a5c964809df 21,82
+scripts/quest_runtime/orchestration.py
+  s_3e31a61493634a::t_1fdf5cf7df5593 127-194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "f49eb86e402fd292e585e5dc53fe2f239b8f7715",
+  "prompts": {},
+  "sessions": {
+    "s_3e31a61493634a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fc8c2-05a8-7101-813f-be7eee853d87",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_40b3b01763fcbe": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fc966-2cee-7e22-8246-fbe9b19325a6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
