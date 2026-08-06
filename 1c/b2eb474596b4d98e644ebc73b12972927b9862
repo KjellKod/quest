@@ -1,0 +1,56 @@
+scripts/quest_runtime/state.py
+  s_10c8ed5a69b26e::t_0711a50d31ad27 262-263,266
+  s_10c8ed5a69b26e::t_137d24567b1e12 264-265,267,403-404
+tests/test-quest-orchestration.sh
+  s_10c8ed5a69b26e::t_06535eac5d00a6 1232
+scripts/quest_runtime/artifacts.py
+  s_10c8ed5a69b26e::t_137d24567b1e12 132
+scripts/quest_validate-quest-state.sh
+  s_10c8ed5a69b26e::t_137d24567b1e12 353-359
+tests/test-quest-runtime.sh
+  s_10c8ed5a69b26e::t_0711a50d31ad27 205,223,233,237,429,458,490,2499
+  s_10c8ed5a69b26e::t_37cefc176e7663 2472-2477
+scripts/quest_runtime/plan_iterations.py
+  s_10c8ed5a69b26e::t_137d24567b1e12 42-43,46-47,289-291,305-307
+tests/unit/test_artifacts.py
+  s_10c8ed5a69b26e::t_137d24567b1e12 12
+  s_10c8ed5a69b26e::t_06535eac5d00a6 269-291
+.quest-checksums
+  s_10c8ed5a69b26e::t_69f1a11ae843bc 56,64,80,83,85-86,88,92
+tests/unit/test_quest_state.py
+  s_10c8ed5a69b26e::t_37cefc176e7663 974,1040-1041
+  s_10c8ed5a69b26e::t_06535eac5d00a6 143-154,263,266,827-828,836-837,901-902,911-950,953,1017,1036,1038,1053,1069,1081,1099-1126,1138-1139,1181
+  s_10c8ed5a69b26e::t_a60f0b9239d0b6 951-952
+tests/unit/test_documentation_contracts.py
+  s_10c8ed5a69b26e::t_06535eac5d00a6 155-158
+.skills/quest/delegation/workflow.md
+  s_10c8ed5a69b26e::t_137d24567b1e12 7,323
+scripts/quest_state.py
+  s_10c8ed5a69b26e::t_137d24567b1e12 6-7,9,74,154-160,169-187,189
+  s_10c8ed5a69b26e::t_10dd6b1721b9bc 188,190
+.skills/quest/agents/arbiter.md
+  s_10c8ed5a69b26e::t_0711a50d31ad27 133
+tests/unit/test_plan_iteration_lifecycle.py
+  s_10c8ed5a69b26e::t_6b47128239f615 288,327-330
+  s_10c8ed5a69b26e::t_06535eac5d00a6 260,281-287,299-326,332-333,828-849
+  s_10c8ed5a69b26e::t_4f68a22e59bb80 331
+  s_10c8ed5a69b26e::t_5174fc40e53575 850-851
+scripts/quest_plan_iteration.py
+  s_10c8ed5a69b26e::t_137d24567b1e12 20-26,38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1cb2eb474596b4d98e644ebc73b12972927b9862",
+  "prompts": {},
+  "sessions": {
+    "s_10c8ed5a69b26e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fcd06-e796-7fb3-a484-5ecebbcb31af",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
