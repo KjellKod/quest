@@ -1,0 +1,21 @@
+scripts/quest_installer.sh
+  s_7a8047aa8776d6::t_c28e9f0a29974b 1373-1378,1380,1479-1484,1486
+tests/test-quest-runtime.sh
+  s_7a8047aa8776d6::t_f1d572e8908304 1517-1522,1524-1537,1539-1597,2936
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1b29695c0198ee8285f1e33ac279babb1f02e62c",
+  "prompts": {},
+  "sessions": {
+    "s_7a8047aa8776d6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fccfa-5493-7bf0-9221-9ca083d9b629",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
