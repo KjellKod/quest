@@ -90,6 +90,17 @@ def _migration_pairs(installer: Path = INSTALLER) -> set[tuple[str, str]]:
     return set(entries)
 
 
+def _source_only_migration_destinations(installer: Path = INSTALLER) -> set[str]:
+    text = installer.read_text(encoding="utf-8")
+    match = re.search(
+        r"^SOURCE_ONLY_RENAMED_SCRIPT_DESTINATIONS=\(\n(?P<body>.*?)^\)\n",
+        text,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    assert match, "SOURCE_ONLY_RENAMED_SCRIPT_DESTINATIONS registry is missing"
+    return set(re.findall(r'^\s*"([^"]+)"\s*$', match["body"], re.MULTILINE))
+
+
 def test_manifest_top_level_python_entrypoints_start_with_quest_prefix_and_exist() -> (
     None
 ):
@@ -127,6 +138,12 @@ def test_source_policy_rejects_unprefixed_symlink(tmp_path: Path) -> None:
 
 def test_migration_registry_contains_all_supported_pairs() -> None:
     assert _migration_pairs() == EXPECTED_MIGRATIONS
+
+
+def test_source_only_migration_destination_is_explicit() -> None:
+    assert _source_only_migration_destinations() == {
+        "scripts/quest_check_checksum_drift.py"
+    }
 
 
 def test_migration_registry_new_paths_resolve() -> None:

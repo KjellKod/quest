@@ -952,7 +952,7 @@ test_installer_pristine_renamed_script_requires_current_run_success() {
     cd "$tmpdir" || exit 1
     load_installer_functions
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=true
     INSTALLER_INTERACTIVE_MODE=false
@@ -963,7 +963,7 @@ test_installer_pristine_renamed_script_requires_current_run_success() {
     cleanup_renamed_scripts
     [ -f scripts/old.py ] && has_updated_checksum scripts/old.py || exit 1
 
-    mark_copy_as_is_success scripts/quest_new.py
+    mark_install_success scripts/quest_new.py
     cleanup_renamed_scripts
     [ ! -e scripts/old.py ] && ! has_updated_checksum scripts/old.py
   )
@@ -982,14 +982,14 @@ test_installer_pristine_rename_prompt_defaults_to_removal() {
     cd "$tmpdir" || exit 1
     load_installer_functions
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=false
     INSTALLER_INTERACTIVE_MODE=true
     LOCAL_CHECKSUM_FILES=("scripts/old.py")
     LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
     init_updated_checksums
-    mark_copy_as_is_success scripts/quest_new.py
+    mark_install_success scripts/quest_new.py
 
     local output
     output=$(cleanup_renamed_scripts <<< "" 2>&1)
@@ -1012,14 +1012,14 @@ test_installer_pristine_rename_decline_reprompts_and_retains_checksum() {
     cd "$tmpdir" || exit 1
     load_installer_functions
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=false
     INSTALLER_INTERACTIVE_MODE=true
     LOCAL_CHECKSUM_FILES=("scripts/old.py")
     LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
     init_updated_checksums
-    mark_copy_as_is_success scripts/quest_new.py
+    mark_install_success scripts/quest_new.py
 
     local first_output second_output
     first_output=$(cleanup_renamed_scripts <<< "n" 2>&1)
@@ -1045,7 +1045,7 @@ test_installer_force_and_non_tty_pristine_cleanup_never_call_prompt() {
       cd "$tmpdir" || exit 1
       load_installer_functions
       RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-      COPY_AS_IS_SUCCESS_FILES=()
+      INSTALL_SUCCESS_FILES=()
       DRY_RUN=false
       FORCE_MODE=false
       INSTALLER_INTERACTIVE_MODE=false
@@ -1056,7 +1056,7 @@ test_installer_force_and_non_tty_pristine_cleanup_never_call_prompt() {
       LOCAL_CHECKSUM_FILES=("scripts/old.py")
       LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
       init_updated_checksums
-      mark_copy_as_is_success scripts/quest_new.py
+      mark_install_success scripts/quest_new.py
       prompt_yn() { echo PROMPT_CALLED; return 1; }
 
       local output
@@ -1080,7 +1080,7 @@ test_installer_unsafe_rename_defaults_to_preservation_and_allows_explicit_remova
     cd "$tmpdir" || exit 1
     load_installer_functions
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=false
     INSTALLER_INTERACTIVE_MODE=true
@@ -1088,7 +1088,7 @@ test_installer_unsafe_rename_defaults_to_preservation_and_allows_explicit_remova
     LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
     init_updated_checksums
     printf 'modified\n' > scripts/old.py
-    mark_copy_as_is_success scripts/quest_new.py
+    mark_install_success scripts/quest_new.py
 
     local decline_output remove_output
     decline_output=$(cleanup_renamed_scripts <<< "" 2>&1)
@@ -1113,14 +1113,14 @@ test_installer_untracked_old_path_decline_preserves_without_checksum() {
     cd "$tmpdir" || exit 1
     load_installer_functions
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=false
     INSTALLER_INTERACTIVE_MODE=true
     LOCAL_CHECKSUM_FILES=()
     LOCAL_CHECKSUM_VALUES=()
     init_updated_checksums
-    mark_copy_as_is_success scripts/quest_new.py
+    mark_install_success scripts/quest_new.py
 
     local output
     output=$(cleanup_renamed_scripts <<< "" 2>&1)
@@ -1145,7 +1145,7 @@ test_installer_dry_run_predicts_create_and_pristine_rename_cleanup_without_promp
     cd "$tmpdir" || exit 1
     load_installer_functions
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=true
     FORCE_MODE=false
     INSTALLER_INTERACTIVE_MODE=false
@@ -1181,7 +1181,7 @@ test_installer_fetch_failure_preserves_old_path_even_when_new_exists() {
     load_installer_functions
     quiet_installer_logs
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=true
     INSTALLER_INTERACTIVE_MODE=false
@@ -1210,7 +1210,7 @@ test_installer_fetch_failure_preserves_old_path_when_new_is_absent() {
     load_installer_functions
     quiet_installer_logs
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=true
     INSTALLER_INTERACTIVE_MODE=false
@@ -1243,7 +1243,7 @@ test_installer_dry_run_host_owned_new_path_preserves_legacy_path() {
     cd "$tmpdir" || exit 1
     load_installer_functions
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=true
     FORCE_MODE=false
     INSTALLER_INTERACTIVE_MODE=false
@@ -1279,7 +1279,7 @@ test_installer_host_owned_new_path_skip_does_not_unlock_old_cleanup() {
     load_installer_functions
     quiet_installer_logs
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=true
     INSTALLER_INTERACTIVE_MODE=false
@@ -1317,7 +1317,7 @@ test_installer_modified_new_path_non_tty_and_interactive_skip_preserve_old() {
       load_installer_functions
       quiet_installer_logs
       RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-      COPY_AS_IS_SUCCESS_FILES=()
+      INSTALL_SUCCESS_FILES=()
       DRY_RUN=false
       FORCE_MODE=false
       INSTALLER_INTERACTIVE_MODE=false
@@ -1356,7 +1356,7 @@ test_installer_equal_new_payload_unlocks_old_cleanup() {
     load_installer_functions
     quiet_installer_logs
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=true
     INSTALLER_INTERACTIVE_MODE=false
@@ -1383,7 +1383,7 @@ test_installer_absent_old_path_prunes_checksum_but_dry_run_preserves_state() {
     cd "$tmpdir" || exit 1
     load_installer_functions
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     FORCE_MODE=true
     INSTALLER_INTERACTIVE_MODE=false
     LOCAL_CHECKSUM_FILES=("scripts/old.py")
@@ -1424,7 +1424,7 @@ test_installer_copy_as_is_non_regular_paths_do_not_unlock_legacy_cleanup() {
       cd "$tmpdir" || exit 1
       load_installer_functions
       RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-      COPY_AS_IS_SUCCESS_FILES=()
+      INSTALL_SUCCESS_FILES=()
       DRY_RUN=false
       FORCE_MODE=true
       INSTALLER_INTERACTIVE_MODE=false
@@ -1438,7 +1438,7 @@ test_installer_copy_as_is_non_regular_paths_do_not_unlock_legacy_cleanup() {
       [ -L scripts/quest_new.py ] &&
         [ -f scripts/old.py ] &&
         has_updated_checksum scripts/old.py &&
-        ! copy_as_is_succeeded scripts/quest_new.py &&
+        ! install_succeeded scripts/quest_new.py &&
         printf '%s' "$output" | grep -Fq 'Skipping non-regular or symlinked file: scripts/quest_new.py'
     ) || {
       rm -rf "$tmpdir"
@@ -1461,14 +1461,14 @@ test_installer_symlinked_parent_preserves_external_legacy_path() {
     load_installer_functions
     ln -s "$external_dir/scripts" scripts
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=true
     INSTALLER_INTERACTIVE_MODE=false
     LOCAL_CHECKSUM_FILES=("scripts/old.py")
     LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
     init_updated_checksums
-    mark_copy_as_is_success scripts/quest_new.py
+    mark_install_success scripts/quest_new.py
 
     local output
     output=$(cleanup_renamed_scripts 2>&1)
@@ -1492,7 +1492,7 @@ test_installer_source_only_migration_explains_manual_cleanup() {
     load_installer_functions
     RENAMED_SCRIPT_MIGRATIONS=("scripts/check_quest_checksum_drift.py|scripts/quest_check_checksum_drift.py")
     COPY_AS_IS=("scripts/quest_claude_bridge.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=true
     INSTALLER_INTERACTIVE_MODE=false
@@ -1512,6 +1512,41 @@ test_installer_source_only_migration_explains_manual_cleanup() {
   return $rc
 }
 
+test_installer_installed_rename_success_is_manifest_section_agnostic() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/old.py"
+  printf 'new payload\n' > "$tmpdir/upstream.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    SOURCE_ONLY_RENAMED_SCRIPT_DESTINATIONS=()
+    COPY_AS_IS=()
+    USER_CUSTOMIZED=("scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=true
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+    fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+
+    install_user_customized_file scripts/quest_new.py
+    cleanup_renamed_scripts
+    [ ! -e scripts/old.py ] &&
+      [ -f scripts/quest_new.py ] &&
+      ! has_updated_checksum scripts/old.py &&
+      has_updated_checksum scripts/quest_new.py
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
 test_installer_broken_symlink_is_unsafe_and_preserved_noninteractively() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -1523,14 +1558,14 @@ test_installer_broken_symlink_is_unsafe_and_preserved_noninteractively() {
     load_installer_functions
     quiet_installer_logs
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=true
     INSTALLER_INTERACTIVE_MODE=false
     LOCAL_CHECKSUM_FILES=("scripts/old.py")
     LOCAL_CHECKSUM_VALUES=("$(printf legacy | get_content_checksum)")
     init_updated_checksums
-    mark_copy_as_is_success scripts/quest_new.py
+    mark_install_success scripts/quest_new.py
 
     cleanup_renamed_scripts
     [ -L scripts/old.py ] && has_updated_checksum scripts/old.py
@@ -1580,7 +1615,7 @@ test_installer_new_path_checksum_survives_modified_old_preservation() {
     load_installer_functions
     quiet_installer_logs
     RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    COPY_AS_IS_SUCCESS_FILES=()
+    INSTALL_SUCCESS_FILES=()
     DRY_RUN=false
     FORCE_MODE=true
     INSTALLER_INTERACTIVE_MODE=false
@@ -2847,6 +2882,7 @@ run_test test_installer_copy_as_is_non_regular_paths_do_not_unlock_legacy_cleanu
 run_test test_installer_broken_symlink_is_unsafe_and_preserved_noninteractively
 run_test test_installer_symlinked_parent_preserves_external_legacy_path
 run_test test_installer_source_only_migration_explains_manual_cleanup
+run_test test_installer_installed_rename_success_is_manifest_section_agnostic
 run_test test_installer_generic_cleanup_defers_registered_rename_paths
 run_test test_installer_new_path_checksum_survives_modified_old_preservation
 run_test test_installer_updates_pristine_agents_file_in_place
