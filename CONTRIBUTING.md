@@ -28,6 +28,24 @@ python3 -m black .
 The local hook can be bypassed, so CI is the authoritative, non-bypassable
 formatting gate.
 
+### Running the Test Suite
+
+The `[dev]` extra above covers formatting only. Test dependencies are pinned
+inline at each point of use rather than resolved through `pyproject.toml`, so
+installing `.[dev]` alone is not enough to run the suite:
+
+```bash
+python3 -m pip install pytest==9.0.3 pyyaml==6.0.3
+python3 -m pytest tests/ -v
+```
+
+That arrangement is deliberate and enforced. `tests/unit/test_source_python_formatting.py`
+asserts the exact contents of the `[dev]` extra and the exact install commands in
+`.github/workflows/test-python.yml`, so pins cannot drift silently into
+`pyproject.toml`. The cost is that a pin bump touches every site: this file,
+`.github/workflows/test-python.yml`, and for `pyyaml` also
+`.github/workflows/security.yml`.
+
 ### Manual Validation
 
 Run validation without installing the hook:

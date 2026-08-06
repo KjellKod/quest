@@ -1344,7 +1344,7 @@ install_merge_carefully_file() {
   # Fetch upstream content to temp file
   local temp_file=".quest-temp.$$"
   if ! fetch_file_to_temp "$filepath" "$temp_file" 2>/dev/null; then
-    # File may not exist in upstream (e.g., settings.local.json)
+    # Defensive: upstream may not carry every merge-carefully entry.
     rm -f "$temp_file"
     return 0
   fi
