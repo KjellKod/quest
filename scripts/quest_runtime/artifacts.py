@@ -56,6 +56,13 @@ ROLE_ARTIFACTS: dict[str, tuple[str, tuple[str, ...]]] = {
     ),
 }
 
+ROLE_ARTIFACT_SUBSETS: dict[tuple[str, str], tuple[str, ...]] = {
+    (
+        "arbiter",
+        "findings-only",
+    ): ("review_findings.json.next", "handoff_arbiter.json"),
+}
+
 SOLO_DISABLED_AGENTS = frozenset(
     {"plan-reviewer-b", "code-reviewer-b", "arbiter", "review-arbiter"}
 )
@@ -84,6 +91,7 @@ def expected_artifacts_for_role(
     phase: str,
     agent: str,
     quest_mode: str = "workflow",
+    artifact_subset: str | None = None,
 ) -> list[Path]:
     """Return absolute artifact paths for the requested role invocation."""
 
@@ -95,6 +103,14 @@ def expected_artifacts_for_role(
         phase_dir, filenames = ROLE_ARTIFACTS[normalized_agent]
     except KeyError as exc:
         raise ValueError(f"Unsupported quest role: {agent}") from exc
+
+    if artifact_subset is not None:
+        try:
+            filenames = ROLE_ARTIFACT_SUBSETS[(normalized_agent, artifact_subset)]
+        except KeyError as exc:
+            raise ValueError(
+                f"Unsupported artifact subset {artifact_subset!r} for role {agent}"
+            ) from exc
 
     normalized_phase = phase.strip().lower().replace("-", "_")
     allowed_phases = ROLE_PHASE_ALIASES[normalized_agent]
@@ -108,8 +124,25 @@ def expected_artifacts_for_role(
     return [base_dir / filename for filename in filenames]
 
 
-def prepare_artifact_files(paths: list[Path]) -> list[Path]:
-    """Create or truncate the provided artifact files."""
+def prepare_artifact_files(
+    paths: list[Path], *, quest_dir: str | Path, role: str
+) -> list[Path]:
+    """Create or truncate role outputs after lifecycle preconditions pass."""
+
+    if role == "planner":
+        from .plan_iterations import verify_plan_iteration_snapshot
+        from .state import StateError, load_state
+
+        state = load_state(quest_dir)
+        iteration = state.get("plan_iteration")
+        if (
+            not isinstance(iteration, int)
+            or isinstance(iteration, bool)
+            or iteration < 1
+        ):
+            raise StateError("shape", Path(quest_dir) / "state.json")
+        if iteration > 1:
+            verify_plan_iteration_snapshot(quest_dir, iteration - 1)
 
     prepared: list[Path] = []
     for path in paths:

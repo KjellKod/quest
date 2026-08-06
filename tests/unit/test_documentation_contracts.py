@@ -136,3 +136,124 @@ def test_docs_contract_scope_excludes_history_and_journal_archives() -> None:
     assert all(
         not path.startswith("docs/implementation/history/") for path in ACTIVE_DOCS
     )
+
+
+def test_human_replan_entry_points_share_one_documented_contract() -> None:
+    workflow = _read(".skills/quest/delegation/workflow.md")
+    exact_commands = (
+        "python3 scripts/quest_plan_iteration.py snapshot --quest-dir .quest/<id> --iteration <N>",
+        "python3 scripts/quest_state.py --quest-dir .quest/<id> --record-user-replan-feedback",
+        "python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan --status in_progress --expect-phase <current>",
+    )
+    for command in exact_commands:
+        assert command in workflow
+    for source in ("walkthrough", "sharpen", "build_gate", "resume_instruction"):
+        assert source in workflow
+
+    assert "## Change Request (Iteration <N+1>)" in workflow
+    assert "## Sharpen Outcome (Iteration <N+1>)" in workflow
+    assert "### Resolved" in workflow
+    assert "### Open" in workflow
+    assert "### Next" in workflow
+    assert "The human path deliberately does not call `cleanup-current`" in workflow
+    assert "Current-generation identity checks prevent old handoffs" in workflow
+    assert workflow.index(exact_commands[0]) < workflow.index(exact_commands[1])
+    assert workflow.index(exact_commands[1]) < workflow.index(exact_commands[2])
+
+
+def test_plan_role_dispatches_inject_resolved_current_identity() -> None:
+    workflow = _read(".skills/quest/delegation/workflow.md")
+    identity = (
+        "Current plan identity: plan_iteration=<resolved integer>; "
+        "user_replan_generation=<resolved integer|null>"
+    )
+
+    assert workflow.count(identity) >= 5
+    assert (
+        "Current plan identity: `plan_iteration=<resolved integer>; "
+        "user_replan_generation=<resolved integer|null>`"
+    ) in workflow
+    assert "with actual JSON values, not expressions or example values" in workflow
+    for role in ("planner.md", "plan-reviewer.md", "arbiter.md"):
+        text = _read(f".skills/quest/agents/{role}")
+        assert "state.json.plan_iteration" in text
+        assert "state.json.user_replan.generation" in text
+        assert "Do not copy the literal example values below" in text
+
+
+def test_plan_roles_enforce_the_same_clear_value_scope_gate() -> None:
+    role_paths = (
+        ".skills/quest/agents/planner.md",
+        ".skills/quest/agents/plan-reviewer.md",
+        ".skills/quest/agents/arbiter.md",
+    )
+    required_phrases = (
+        "## Scope and Value Gate",
+        "KISS, YAGNI, SRP, and DRY",
+        "clear, concrete value",
+        "speculative future-proofing",
+        "nice-to-haves",
+        "leave it out",
+    )
+
+    for role_path in role_paths:
+        role_text = _read(role_path)
+        missing = [phrase for phrase in required_phrases if phrase not in role_text]
+        assert not missing, f"{role_path} is missing scope gate language: {missing}"
+
+
+def test_refinement_bug_report_separates_fact_from_unconfirmed_loss() -> None:
+    report = _read(
+        "ideas/2026-08-04-bug-reporting-automatic-plan-refinement-feedback-loss.md"
+    )
+    assert "## Confirmed Trigger" in report
+    assert "## Unconfirmed Broader Loss" in report
+    assert report.index("## Confirmed Trigger") < report.index(
+        "## Unconfirmed Broader Loss"
+    )
+
+
+def test_approval_configurations_keep_presentation_mandatory() -> None:
+    workflow = _read(".skills/quest/delegation/workflow.md")
+    for setting in (
+        "plan_creation",
+        "plan_review",
+        "plan_refinement",
+        "implementation",
+    ):
+        assert f"auto_approve_phases.{setting}" in workflow
+    assert "Interactive Plan Presentation (MANDATORY HUMAN GATE)" in workflow
+    assert (
+        'If false (default): You MUST ask the user "Plan approved. Proceed with implementation?"'
+        in workflow
+    )
+    assert "If true: You may proceed without asking" in workflow
+
+
+def test_solo_automatic_refinement_has_an_explicit_workflow_only_free_order() -> None:
+    workflow = _read(".skills/quest/delegation/workflow.md")
+    solo_start = workflow.index(
+        "In solo mode, Reviewer A's typed `next: planner` decision"
+    )
+    solo_end = workflow.index("- **UI work:**", solo_start)
+    solo_order = workflow[solo_start:solo_end]
+
+    assert "snapshot --quest-dir .quest/<id> --iteration <N>" in solo_order
+    assert "cleanup-current --quest-dir .quest/<id> --iteration <N>" in solo_order
+    assert "Increment state once from `N` to `N+1`" in solo_order
+    assert "Prepare Planner outputs" in solo_order
+    assert "Dispatch Planner" in solo_order
+    assert "skips `publish-refinement` and `verify-refinement`" in solo_order
+    assert "never requires Arbiter artifacts" in solo_order
+
+
+def test_artifact_preparation_docs_use_the_required_keyword_context() -> None:
+    workflow = _read(".skills/quest/delegation/workflow.md")
+    quest_docs = _read(".ai/quest.md")
+    call = "prepare_artifact_files(paths, quest_dir=quest_dir, role=agent)"
+
+    assert call in workflow
+    assert call in quest_docs
+    assert "prepare_artifact_files(paths)`" not in workflow
+    assert "sealed immediate predecessor" in workflow
+    assert "sealed immediate predecessor" in quest_docs

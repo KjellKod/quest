@@ -8,6 +8,7 @@ set/clear flags are contract, not convenience.
 from __future__ import annotations
 
 import json
+import hashlib
 import stat
 import subprocess
 import sys
@@ -256,6 +257,640 @@ def test_update_state_atomically_replaces_and_keeps_lock_file(tmp_path, monkeypa
     assert replacements[0][0].parent == quest_dir
     assert (quest_dir / "state.json.lock").exists()
     assert not replacements[0][0].exists()
+
+
+@pytest.mark.parametrize(
+    "phase", ["plan", "plan_reviewed", "presenting", "presentation_complete"]
+)
+def test_record_user_replan_feedback_owns_current_request(tmp_path, monkeypatch, phase):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "phase": phase,
+                "status": "complete",
+                "plan_iteration": 4,
+                "last_verdict": "approve",
+            }
+        ),
+        encoding="utf-8",
+    )
+    feedback_path = tmp_path / "prepared-feedback.md"
+    feedback_path.write_text(
+        "Please revise the cache invalidation plan.\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        state_runtime, "verify_plan_iteration_snapshot", lambda *_: None
+    )
+
+    state = state_runtime.record_user_replan_feedback(
+        quest_dir,
+        source="sharpen",
+        feedback_file=feedback_path,
+        expected_phase=phase,
+    )
+
+    request = state["user_replan"]
+    assert request["generation"] == 1
+    assert request["source_plan_iteration"] == 4
+    assert request["requested_plan_iteration"] == 5
+    assert request["source_phase"] == phase
+    assert request["lifecycle"] == "recorded"
+    assert (
+        request["feedback_sha256"]
+        == hashlib.sha256(feedback_path.read_bytes()).hexdigest()
+    )
+    assert state["last_verdict"] is None
+    assert state["approval_invalidated"] is True
+    canonical = quest_dir / "phase_01_plan" / "user_feedback.md"
+    assert canonical.read_text(encoding="utf-8") == feedback_path.read_text(
+        encoding="utf-8"
+    )
+
+
+@pytest.mark.parametrize(
+    ("source_phase", "forward_phase"),
+    [
+        ("plan", "plan_reviewed"),
+        ("plan_reviewed", "presenting"),
+        ("presenting", "presentation_complete"),
+        ("presentation_complete", "building"),
+    ],
+)
+def test_recorded_replan_blocks_forward_phase_drift_and_remains_consumable(
+    tmp_path,
+    monkeypatch,
+    source_phase,
+    forward_phase,
+):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "phase": source_phase,
+                "status": "complete",
+                "plan_iteration": 2,
+                "last_verdict": "approve",
+            }
+        ),
+        encoding="utf-8",
+    )
+    feedback = tmp_path / "feedback.md"
+    feedback.write_text("Revise the plan before advancing.\n", encoding="utf-8")
+    monkeypatch.setattr(
+        state_runtime, "verify_plan_iteration_snapshot", lambda *_: None
+    )
+    state_runtime.record_user_replan_feedback(
+        quest_dir,
+        source="resume_instruction",
+        feedback_file=feedback,
+        expected_phase=source_phase,
+    )
+    before = state_path.read_bytes()
+
+    with pytest.raises(state_runtime.ReplanError, match="pending_replan_unconsumed"):
+        state_runtime.transition_state(
+            quest_dir,
+            target_phase=forward_phase,
+            expected_phase=source_phase,
+            status="in_progress",
+        )
+
+    assert state_path.read_bytes() == before
+    replanning = state_runtime.transition_state(
+        quest_dir,
+        target_phase="plan",
+        expected_phase=source_phase,
+        status="in_progress",
+    )
+    assert replanning["phase"] == "plan"
+    assert replanning["user_replan"]["source_phase"] == source_phase
+    assert replanning["user_replan"]["lifecycle"] == "planning"
+
+
+def test_record_feedback_verifies_a_real_legacy_snapshot_before_replacement(
+    tmp_path,
+):
+    from quest_runtime.plan_iterations import snapshot_plan_iteration
+
+    quest_dir = tmp_path / "quest"
+    plan_dir = quest_dir / "phase_01_plan"
+    plan_dir.mkdir(parents=True)
+    state_path = quest_dir / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "phase": "presenting",
+                "status": "in_progress",
+                "quest_mode": "solo",
+                "plan_iteration": 1,
+                "last_verdict": "approve",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (plan_dir / "plan.md").write_text("# Legacy plan\n", encoding="utf-8")
+    (plan_dir / "review_plan-reviewer-a.md").write_text("Approved\n", encoding="utf-8")
+    for name, next_role in (
+        ("handoff.json", "plan_review"),
+        ("handoff_plan-reviewer-a.json", "builder"),
+    ):
+        (plan_dir / name).write_text(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "artifacts": ["plan.md"],
+                    "next": next_role,
+                    "summary": "legacy handoff",
+                }
+            ),
+            encoding="utf-8",
+        )
+    snapshot_plan_iteration(quest_dir, 1)
+    prepared = tmp_path / "prepared.md"
+    prepared.write_text("Revise the plan.\n", encoding="utf-8")
+
+    state_runtime.record_user_replan_feedback(
+        quest_dir,
+        source="walkthrough",
+        feedback_file=prepared,
+        expected_phase="presenting",
+    )
+
+    assert (plan_dir / "user_feedback.md").read_bytes() == prepared.read_bytes()
+
+
+def test_same_phase_feedback_supersession_increments_generation_and_keeps_invalidated(
+    tmp_path, monkeypatch
+):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "phase": "presenting",
+                "status": "complete",
+                "plan_iteration": 2,
+                "last_verdict": "approve",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        state_runtime, "verify_plan_iteration_snapshot", lambda *_: None
+    )
+    first = tmp_path / "first.md"
+    second = tmp_path / "second.md"
+    first.write_text("First request\n", encoding="utf-8")
+    second.write_text("Second request\n", encoding="utf-8")
+
+    state_runtime.record_user_replan_feedback(
+        quest_dir,
+        source="walkthrough",
+        feedback_file=first,
+        expected_phase="presenting",
+    )
+    result = state_runtime.record_user_replan_feedback(
+        quest_dir,
+        source="sharpen",
+        feedback_file=second,
+        expected_phase="presenting",
+    )
+
+    assert result["user_replan"]["generation"] == 2
+    assert result["user_replan_generation"] == 2
+    assert result["approval_invalidated"] is True
+    assert result["last_verdict"] is None
+    assert (quest_dir / "phase_01_plan" / "user_feedback.md").read_bytes() == (
+        second.read_bytes()
+    )
+
+
+def test_cross_phase_feedback_supersession_rejects_without_replacing_feedback(
+    tmp_path, monkeypatch
+):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    state_path.write_text(
+        json.dumps({"phase": "presenting", "status": "complete", "plan_iteration": 2}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        state_runtime, "verify_plan_iteration_snapshot", lambda *_: None
+    )
+    first = tmp_path / "first.md"
+    second = tmp_path / "second.md"
+    first.write_text("First request\n", encoding="utf-8")
+    second.write_text("Second request\n", encoding="utf-8")
+    state_runtime.record_user_replan_feedback(
+        quest_dir,
+        source="walkthrough",
+        feedback_file=first,
+        expected_phase="presenting",
+    )
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["phase"] = "presentation_complete"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    before_state = state_path.read_bytes()
+    canonical = quest_dir / "phase_01_plan" / "user_feedback.md"
+    before_feedback = canonical.read_bytes()
+
+    with pytest.raises(state_runtime.ReplanError, match="supersession_cross_phase"):
+        state_runtime.record_user_replan_feedback(
+            quest_dir,
+            source="resume_instruction",
+            feedback_file=second,
+            expected_phase="presentation_complete",
+        )
+
+    assert state_path.read_bytes() == before_state
+    assert canonical.read_bytes() == before_feedback
+
+
+def test_pending_replan_rejects_approval_revival_or_cancellation(tmp_path):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "phase": "plan",
+                "status": "replan_requested",
+                "approval_invalidated": True,
+                "last_verdict": None,
+                "user_replan": {"generation": 1, "lifecycle": "recorded"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    before = state_path.read_bytes()
+
+    with pytest.raises(state_runtime.ReplanError, match="approval_revival_forbidden"):
+        state_runtime.update_state(
+            quest_dir,
+            approval_invalidated=False,
+            last_verdict="approve",
+        )
+    assert state_path.read_bytes() == before
+
+    with pytest.raises(
+        state_runtime.ReplanError, match="replan_cancellation_forbidden"
+    ):
+        state_runtime.update_state(quest_dir, user_replan={})
+    assert state_path.read_bytes() == before
+
+
+@pytest.mark.parametrize("boundary", ["canonical", "history", "final_state"])
+def test_partial_feedback_recording_durably_blocks_build(
+    tmp_path,
+    monkeypatch,
+    boundary,
+):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "phase": "presentation_complete",
+                "status": "complete",
+                "plan_iteration": 2,
+                "last_verdict": "approve",
+                "approval_invalidated": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        state_runtime, "verify_plan_iteration_snapshot", lambda *_: None
+    )
+    feedback = tmp_path / "feedback.md"
+    feedback.write_text("Change the plan before Build.\n", encoding="utf-8")
+
+    if boundary == "canonical":
+
+        def fail_canonical(*_args, **_kwargs):
+            raise state_runtime.StateError("write", state_path)
+
+        monkeypatch.setattr(state_runtime, "_atomic_write_bytes", fail_canonical)
+    elif boundary == "history":
+
+        def fail_history(*_args, **_kwargs):
+            raise state_runtime.StateError("write", state_path)
+
+        monkeypatch.setattr(state_runtime, "_append_replan_history", fail_history)
+    else:
+        real_write_state = state_runtime._atomic_write_state
+        calls = 0
+
+        def fail_final(path, state):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise state_runtime.StateError("write", path)
+            real_write_state(path, state)
+
+        monkeypatch.setattr(state_runtime, "_atomic_write_state", fail_final)
+
+    with pytest.raises(state_runtime.StateError):
+        state_runtime.record_user_replan_feedback(
+            quest_dir,
+            source="build_gate",
+            feedback_file=feedback,
+            expected_phase="presentation_complete",
+        )
+
+    persisted = json.loads(state_path.read_text(encoding="utf-8"))
+    assert persisted["approval_invalidated"] is True
+    assert persisted["last_verdict"] is None
+    assert persisted["user_replan"]["lifecycle"] == "recording"
+    before_transition = state_path.read_bytes()
+    with pytest.raises(state_runtime.ReplanError, match="pending_replan_unconsumed"):
+        state_runtime.transition_state(
+            quest_dir,
+            target_phase="building",
+            expected_phase="presentation_complete",
+            status="in_progress",
+        )
+    assert state_path.read_bytes() == before_transition
+    validation = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "quest_validate-quest-state.sh"),
+            str(quest_dir),
+            "building",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert validation.returncode != 0
+
+
+@pytest.mark.parametrize("feedback", [b"", b"  \n\t"])
+def test_record_user_replan_feedback_rejects_empty_without_state_change(
+    tmp_path, monkeypatch, feedback
+):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    before = state_path.read_bytes()
+    feedback_path = tmp_path / "prepared-feedback.md"
+    feedback_path.write_bytes(feedback)
+    monkeypatch.setattr(
+        state_runtime, "verify_plan_iteration_snapshot", lambda *_: None
+    )
+
+    with pytest.raises(state_runtime.ReplanError, match="feedback_empty"):
+        state_runtime.record_user_replan_feedback(
+            quest_dir,
+            source="walkthrough",
+            feedback_file=feedback_path,
+            expected_phase="plan",
+        )
+
+    assert state_path.read_bytes() == before
+    assert not (quest_dir / "phase_01_plan" / "user_feedback.md").exists()
+
+
+@pytest.mark.parametrize(
+    ("field", "error"),
+    [
+        ("plan_iteration", "iteration_invalid"),
+        ("user_replan_generation", "generation_invalid"),
+    ],
+)
+def test_record_user_replan_feedback_rejects_boolean_identity_fields(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    error: str,
+) -> None:
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state.update({"plan_iteration": 1, "user_replan_generation": 0})
+    state[field] = True
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    before = state_path.read_bytes()
+    feedback = tmp_path / "feedback.md"
+    feedback.write_text("Revise plan.\n", encoding="utf-8")
+    monkeypatch.setattr(
+        state_runtime, "verify_plan_iteration_snapshot", lambda *_: None
+    )
+
+    with pytest.raises(state_runtime.ReplanError, match=error):
+        state_runtime.record_user_replan_feedback(
+            quest_dir,
+            source="walkthrough",
+            feedback_file=feedback,
+            expected_phase="plan",
+        )
+
+    assert state_path.read_bytes() == before
+
+
+def test_human_replan_transition_rejects_stale_feedback_without_state_change(
+    tmp_path,
+):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    feedback_path = quest_dir / "phase_01_plan" / "user_feedback.md"
+    feedback_path.parent.mkdir(parents=True)
+    feedback_path.write_text("old request\n", encoding="utf-8")
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state.update(
+        {
+            "plan_iteration": 2,
+            "user_replan_generation": 1,
+            "approval_invalidated": True,
+            "user_replan": {
+                "generation": 1,
+                "source_phase": "plan",
+                "source_plan_iteration": 2,
+                "requested_plan_iteration": 3,
+                "source": "walkthrough",
+                "feedback_sha256": hashlib.sha256(b"current request\n").hexdigest(),
+                "lifecycle": "recorded",
+            },
+        }
+    )
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    before = state_path.read_bytes()
+
+    with pytest.raises(state_runtime.ReplanError, match="feedback_stale"):
+        state_runtime.transition_state(
+            quest_dir,
+            target_phase="plan",
+            expected_phase="plan",
+            status="in_progress",
+        )
+
+    assert state_path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "null_generation",
+        "bool_generation",
+        "missing_source",
+        "invalid_source",
+        "approval_revived",
+        "bool_iteration",
+        "missing_request",
+        "erased_feedback",
+        "empty_feedback",
+        "replayed_request",
+        "stale_digest",
+    ],
+)
+def test_malformed_pending_replan_matrix_preserves_state_bytes(
+    tmp_path: Path,
+    case: str,
+) -> None:
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    feedback_path = quest_dir / "phase_01_plan" / "user_feedback.md"
+    feedback_path.parent.mkdir(parents=True)
+    feedback = b"Current helper-owned request\n"
+    feedback_path.write_bytes(feedback)
+    state = {
+        "phase": "presenting",
+        "status": "replan_requested",
+        "plan_iteration": 2,
+        "user_replan_generation": 1,
+        "approval_invalidated": True,
+        "user_replan": {
+            "generation": 1,
+            "source": "walkthrough",
+            "source_phase": "presenting",
+            "source_plan_iteration": 2,
+            "requested_plan_iteration": 3,
+            "feedback_sha256": hashlib.sha256(feedback).hexdigest(),
+            "lifecycle": "recorded",
+        },
+    }
+
+    if case == "null_generation":
+        state["user_replan_generation"] = None
+        state["user_replan"]["generation"] = None
+    elif case == "bool_generation":
+        state["user_replan_generation"] = True
+        state["user_replan"]["generation"] = True
+    elif case == "missing_source":
+        state["user_replan"].pop("source")
+    elif case == "invalid_source":
+        state["user_replan"]["source"] = "manual"
+    elif case == "approval_revived":
+        state["approval_invalidated"] = False
+    elif case == "bool_iteration":
+        state["plan_iteration"] = True
+        state["user_replan"]["source_plan_iteration"] = True
+        state["user_replan"]["requested_plan_iteration"] = 2
+    elif case == "missing_request":
+        state.pop("user_replan")
+    elif case == "erased_feedback":
+        feedback_path.unlink()
+    elif case == "empty_feedback":
+        feedback_path.write_text("  \n", encoding="utf-8")
+    elif case == "replayed_request":
+        state["user_replan"]["lifecycle"] = "planning"
+    elif case == "stale_digest":
+        state["user_replan"]["feedback_sha256"] = "0" * 64
+
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    before = state_path.read_bytes()
+
+    with pytest.raises(state_runtime.ReplanError):
+        state_runtime.transition_state(
+            quest_dir,
+            target_phase="plan",
+            expected_phase="presenting",
+            status="in_progress",
+        )
+
+    assert state_path.read_bytes() == before
+
+
+def test_raw_phase_change_cannot_bypass_human_replan_validation(tmp_path):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["phase"] = "presenting"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    before = state_path.read_bytes()
+
+    with pytest.raises(state_runtime.ReplanError, match="unvalidated_replan"):
+        state_runtime.update_state(quest_dir, phase="plan")
+
+    assert state_path.read_bytes() == before
+
+
+def test_replan_lifecycle_advances_only_through_review_and_presentation(tmp_path):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state.update(
+        {
+            "phase": "plan",
+            "plan_iteration": 3,
+            "approval_invalidated": True,
+            "user_replan_generation": 2,
+            "user_replan": {
+                "generation": 2,
+                "source_phase": "presenting",
+                "source_plan_iteration": 2,
+                "requested_plan_iteration": 3,
+                "source": "sharpen",
+                "feedback_sha256": "digest",
+                "lifecycle": "planning",
+            },
+        }
+    )
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    reviewed = state_runtime.transition_state(
+        quest_dir,
+        target_phase="plan_reviewed",
+        expected_phase="plan",
+        status="complete",
+    )
+    assert reviewed["user_replan"]["lifecycle"] == "reviewed"
+    state_runtime.transition_state(
+        quest_dir,
+        target_phase="presenting",
+        expected_phase="plan_reviewed",
+        status="in_progress",
+    )
+    approved = state_runtime.transition_state(
+        quest_dir,
+        target_phase="presentation_complete",
+        expected_phase="presenting",
+        status="complete",
+    )
+    assert approved["user_replan"]["lifecycle"] == "presentation_approved"
+    assert approved["approval_invalidated"] is False
+
+
+def test_transition_rejects_clear_parked_session_combination(tmp_path):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["parked_bg_session"] = PARKED
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    before = state_path.read_bytes()
+
+    result = _run(
+        "--quest-dir",
+        str(quest_dir),
+        "--transition",
+        "plan",
+        "--clear-parked-bg-session",
+    )
+
+    assert result.returncode == 1
+    assert "cannot be combined" in result.stderr
+    assert state_path.read_bytes() == before
 
 
 def test_update_state_clears_parked_session_in_single_replacement(

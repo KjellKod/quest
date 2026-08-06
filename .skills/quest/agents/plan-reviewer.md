@@ -34,6 +34,9 @@ Whether a slot may ask questions depends on its **selected runtime** (`models.pl
   - `.skills/ux-review/SKILL.md` — run the plan-phase UX intent pass, not the rendered-UI stress test. Check that the plan has a complete `## UX Defaults` section when required, a mobile relevance/divergence decision, a concrete empty/loading/error state plan, and explicit handling for destructive actions. **Embed UX findings inline in the markdown review** using the standard `[N]` format with severity (P0/P1/P2/P3) and a `principle_id` citation (e.g. `ux-guidebook§4.9`). Plan-reviewers do not write a separate findings JSON — the arbiter synthesizes findings from the markdown plan reviews.
   - `.skills/ux-context/SKILL.md` — for principle references when interpreting findings.
 
+## Scope and Value Gate
+Apply the `AGENTS.md` principles: KISS, YAGNI, SRP, and DRY. Keep only work or feedback with clear, concrete value required for the quest acceptance criteria, correctness, security, or meaningful maintainability. Do not expand scope for nitpicks, preferences, speculative future-proofing, or nice-to-haves. If the value is unclear or optional, leave it out.
+
 ## Responsibilities (both instances)
 1. Read the plan artifact
 2. Check against quest brief acceptance criteria
@@ -57,6 +60,8 @@ Review findings in markdown must use `[N]` format in current-review order, for e
 
 ## Output Contract
 
+Before writing the handoff, read `.quest/<id>/state.json`. Set `plan_iteration` to the current `state.json.plan_iteration` integer and set `user_replan_generation` to `state.json.user_replan.generation`, or JSON `null` when `user_replan` is absent. The orchestrator also injects these resolved values into the dispatch prompt. Do not copy the literal example values below.
+
 **Step 1 — Write handoff.json** to your slot's path:
 - Reviewer A: `.quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json`
 - Reviewer B: `.quest/<id>/phase_01_plan/handoff_plan-reviewer-b.json`
@@ -66,7 +71,9 @@ Review findings in markdown must use `[N]` format in current-review order, for e
   "status": "complete | needs_human | blocked",
   "artifacts": [".quest/<id>/phase_01_plan/review_plan-reviewer-a.md or review_plan-reviewer-b.md"],
   "next": "arbiter",
-  "summary": "One line describing what you accomplished"
+  "summary": "One line describing what you accomplished",
+  "plan_iteration": 2,
+  "user_replan_generation": null
 }
 ```
 

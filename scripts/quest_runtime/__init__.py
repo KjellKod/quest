@@ -45,6 +45,14 @@ from .quest_ids import (
     normalize_quest_id_format,
     parse_quest_id,
 )
+from .plan_iterations import (
+    PlanIterationError,
+    cleanup_current_plan_iteration,
+    publish_refinement,
+    snapshot_plan_iteration,
+    verify_plan_iteration_snapshot,
+    verify_refinement,
+)
 
 __all__ = [
     "CANONICAL_ROLES",
@@ -60,12 +68,14 @@ __all__ = [
     "ROLE_ARTIFACTS",
     "VALID_QUEST_ID_FORMATS",
     "ParsedQuestId",
+    "PlanIterationError",
     "active_roles_for_mode",
     "any_artifact_missing_or_empty",
     "apply_overrides",
     "build_default_models",
     "build_snapshot_models",
     "check_artifact_paths",
+    "cleanup_current_plan_iteration",
     "default_quest_dir",
     "expected_artifacts_for_role",
     "format_quest_id",
@@ -83,7 +93,11 @@ __all__ = [
     "parse_override_line",
     "parse_quest_id",
     "prepare_artifact_files",
+    "publish_refinement",
+    "snapshot_plan_iteration",
     "validate_or_remap_models_for_orchestrator",
     "write_default_from_allowlist",
     "write_orchestration_json",
+    "verify_plan_iteration_snapshot",
+    "verify_refinement",
 ]
