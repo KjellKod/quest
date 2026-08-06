@@ -1,0 +1,197 @@
+tests/unit/test_documentation_contracts.py
+  s_10c8ed5a69b26e::t_8fedfdc92c5ed9 214-225,227-230
+  s_10c8ed5a69b26e::t_a4f13044c50b7a 152-159,162-170,176-181
+  s_10c8ed5a69b26e::t_af509cee9b66a5 184-204
+  s_10c8ed5a69b26e::t_7eb20fc73a00af 248-259
+  s_10c8ed5a69b26e::t_49c8faf0a9a63d 231-247
+  s_10c8ed5a69b26e::t_1af485111370e3 139-151,182-183,205-213
+  s_10c8ed5a69b26e::t_219d1b07bd28f4 160-161
+  s_10c8ed5a69b26e::t_2d5061eff37940 171-175
+  s_10c8ed5a69b26e::t_112459287a7afe 226
+.quest-manifest
+  s_10c8ed5a69b26e::t_16e2c1aa217ce3 115,136
+.skills/quest/agents/arbiter.md
+  s_10c8ed5a69b26e::t_04cd2ee4782849 44,121-123
+  s_10c8ed5a69b26e::t_af509cee9b66a5 16-18
+  s_10c8ed5a69b26e::t_a4f13044c50b7a 110-111
+scripts/quest_plan_iteration.py
+  s_10c8ed5a69b26e::t_86f3109e7ae5a7 17,49
+  s_10c8ed5a69b26e::t_b53fb5a165eb0e 1-16,18-26,28-48,50-56
+  s_10c8ed5a69b26e::t_c06d021691b938 27
+ideas/2026-08-04-bug-reporting-automatic-plan-refinement-feedback-loss.md
+  s_10c8ed5a69b26e::t_23c65d673a573d 1-39
+docs/quest-journal/README.md
+  s_10c8ed5a69b26e::t_4e792950169128 9
+tests/unit/test_quest_runtime.py
+  s_10c8ed5a69b26e::t_3772265aedca67 31-37,542,656,727,1419,1480,1517,1566,1615
+  s_10c8ed5a69b26e::t_94ee10f4cc04c9 829,833-836,934,938-941,994,1826-1829,1892-1895
+.skills/quest/agents/planner.md
+  s_10c8ed5a69b26e::t_a4f13044c50b7a 66-67
+  s_10c8ed5a69b26e::t_04cd2ee4782849 23,74-78
+  s_10c8ed5a69b26e::t_af509cee9b66a5 26-28
+scripts/quest_runtime/__init__.py
+  s_10c8ed5a69b26e::t_16e2c1aa217ce3 48-55,71,78,96-97,101-102
+scripts/quest_runtime/claude_runner.py
+  s_10c8ed5a69b26e::t_e669caf66de53d 28-29,684-692
+  s_10c8ed5a69b26e::t_5b3376c0f66673 680-683,693,1153-1155,1239-1241
+tests/test-validate-handoff-contracts.sh
+  s_10c8ed5a69b26e::t_6bf2b5d4ea8adf 38-45,48
+tests/unit/test_quest_state.py
+  s_10c8ed5a69b26e::t_4b5d0b8b354bf1 607-615
+  s_10c8ed5a69b26e::t_203129c0a03481 373-606,616-629,873-893
+  s_10c8ed5a69b26e::t_862316d0d4dc04 705
+  s_10c8ed5a69b26e::t_342025918673ed 11,262-299,301,303-311,630-654,692-704,706-730,815-826
+  s_10c8ed5a69b26e::t_7c879c9a3508bb 312-372
+  s_10c8ed5a69b26e::t_b18da4ad55f0a3 731-814
+  s_10c8ed5a69b26e::t_f61e4fd255454e 655-658,660-691
+  s_10c8ed5a69b26e::t_8b23d09651d7fd 829-872,894-895
+  s_24ce1197e15afb::t_6d18008332f46b 300,302,659,827-828
+scripts/quest_validate-quest-state.sh
+  s_10c8ed5a69b26e::t_1b5e5a52269430 936,939
+  s_10c8ed5a69b26e::t_c9c16c0d8cbe99 350-386,943-950
+  s_10c8ed5a69b26e::t_35dea697fbdede 248-250,328-349,935,937-938,940-942,951-952
+.quest-checksums
+  s_10c8ed5a69b26e::t_1a732d32b37051 86
+  s_10c8ed5a69b26e::t_1b6b56ef9440c3 56-61
+  s_10c8ed5a69b26e::t_859e270e3573e1 64
+  s_10c8ed5a69b26e::t_ddc14a1b266730 83-85
+  s_10c8ed5a69b26e::t_7600e744b5e0d7 80
+  s_10c8ed5a69b26e::t_329bdef0187f3a 55
+  s_10c8ed5a69b26e::t_09eed647ef67d9 63
+  s_10c8ed5a69b26e::t_551da46f39f2fb 77-79
+  s_10c8ed5a69b26e::t_1facc64ffdede6 81-82
+  s_10c8ed5a69b26e::t_90cdcb6406bffe 87-89
+  s_10c8ed5a69b26e::t_007246d34b33e0 5-8,10,14,16,18-23,29,31,33-38,40-53,66-67,71-72,75-76,90-92
+scripts/quest_state.py
+  s_10c8ed5a69b26e::t_cc1a33e8c645a6 157-163,246
+  s_10c8ed5a69b26e::t_97e6cf09193d94 33,35-36,84-94,150,152,164-183,214,223-237,244
+  s_c24b6c3783688d::t_c39abe3624eaf3 245
+.skills/quest/agents/plan-reviewer.md
+  s_10c8ed5a69b26e::t_af509cee9b66a5 37-39
+  s_10c8ed5a69b26e::t_04cd2ee4782849 74-76
+  s_10c8ed5a69b26e::t_a4f13044c50b7a 63-64
+README.md
+  s_10c8ed5a69b26e::t_6f61793364a24f 166
+tests/test-quest-runtime.sh
+  s_10c8ed5a69b26e::t_2901cf0b68de0f 2171-2173,2178-2183,2187,2191,2251-2254,2262,2296-2303,2343-2345,2347,2350-2433,2485-2486
+  s_10c8ed5a69b26e::t_60ff48f094b96c 2269-2288
+  s_10c8ed5a69b26e::t_440e07565c41df 2149-2170,2174-2177,2184-2186,2188-2190,2192-2197,2222-2250,2255-2261,2263-2268,2289-2295,2305-2342,2346,2348-2349,2435-2484,2487-2492
+  s_10c8ed5a69b26e::t_5110a7d241d98d 2512
+  s_10c8ed5a69b26e::t_d687d4fb3ddca4 1878,1978,1982-1985,1996,2015,2028
+  s_10c8ed5a69b26e::t_54bb37f7313ff3 2198-2221,2304,2434
+scripts/quest_runtime/state.py
+  s_10c8ed5a69b26e::t_86f3109e7ae5a7 183-189,191-201,203-204
+  s_10c8ed5a69b26e::t_35dea697fbdede 215-226
+  s_10c8ed5a69b26e::t_86a573dccae318 6,34-57,121-159,173-182,190,202,205-214,227-255,261-264,270-271,276-293,295,297-299,307-328,336,361-369,397,399
+  s_10c8ed5a69b26e::t_b97c779eb6e982 329-335
+  s_10c8ed5a69b26e::t_0b628d6be04fd7 338-353
+  s_10c8ed5a69b26e::t_c9c16c0d8cbe99 354-360
+  s_10c8ed5a69b26e::t_6f85d1b772be38 398
+  s_10c8ed5a69b26e::t_cc1a33e8c645a6 161-172,272-275,294,296,300-306,400-405,407-409,411-412,414
+  s_10c8ed5a69b26e::t_93c7cfa1f39f9d 256-260,265-269
+  s_10c8ed5a69b26e::t_e8a07e7344c2eb 160
+  s_10c8ed5a69b26e::t_46fdc659025b61 337
+  s_10c8ed5a69b26e::t_0e9e9e0ba6eff1 406
+  s_10c8ed5a69b26e::t_d0126eed900664 410
+  s_10c8ed5a69b26e::t_e042096f3aecb5 413
+  s_10c8ed5a69b26e::t_2fad8c93d62314 415
+scripts/README.md
+  s_10c8ed5a69b26e::t_6f61793364a24f 19,40-46
+  s_10c8ed5a69b26e::t_9103cca816f621 21,54-55
+  s_10c8ed5a69b26e::t_64cd160785bad8 56
+.ai/quest.md
+  s_10c8ed5a69b26e::t_6f61793364a24f 66-77,115,118
+  s_10c8ed5a69b26e::t_9103cca816f621 122-123
+  s_10c8ed5a69b26e::t_0929e1d8065c4d 119
+scripts/quest_validate-handoff-contracts.sh
+  s_10c8ed5a69b26e::t_42fd1c39eb0367 121,141-149,154-155,157-159,161
+  s_10c8ed5a69b26e::t_a4f13044c50b7a 150-153,156,160
+  s_c24b6c3783688d::t_469503080b04c6 162-164
+scripts/quest_runtime/artifacts.py
+  s_10c8ed5a69b26e::t_86f3109e7ae5a7 136
+  s_10c8ed5a69b26e::t_cc1a33e8c645a6 59-65,94,107-113
+  s_10c8ed5a69b26e::t_5b3376c0f66673 127-133,135,137,144-145
+  s_10c8ed5a69b26e::t_03ce380a0e84ba 134,138-143
+  s_10c8ed5a69b26e::t_f54121fe483d3c 114
+tests/unit/test_plan_iteration_lifecycle.py
+  s_10c8ed5a69b26e::t_7eb20fc73a00af 578-651,829-855
+  s_10c8ed5a69b26e::t_4d6583ebc11e5b 1-6,10-13,15-25,29-289,440-493,530-575,702-719,782-828,856-864
+  s_10c8ed5a69b26e::t_203129c0a03481 9,290-308,312-316,336,339,344-439
+  s_10c8ed5a69b26e::t_e4b4bd25b5c8e9 7-8,14,26-28,309-311,317-335,337-338,340-343,494-529,576-577,652-679,683-701,736-781
+  s_10c8ed5a69b26e::t_93c7cfa1f39f9d 680-682,720-735
+tests/test-validate-quest-state.sh
+  s_10c8ed5a69b26e::t_13ee797ab98dd5 150,152-174,1674
+  s_10c8ed5a69b26e::t_b39aa8f94b9a3a 92-109,111-149,1672-1673
+  s_10c8ed5a69b26e::t_e721f6fc485393 110
+  s_10c8ed5a69b26e::t_751811498110ef 151
+scripts/quest_claude_runner.py
+  s_10c8ed5a69b26e::t_cc1a33e8c645a6 94-97,150
+  s_c24b6c3783688d::t_d1847354d0d60c 93
+tests/test-quest-orchestration.sh
+  s_10c8ed5a69b26e::t_494f85950398d7 1159-1211,1216-1256,1259-1264
+  s_10c8ed5a69b26e::t_89ab9af160b19b 16
+  s_10c8ed5a69b26e::t_c8061945905453 1095-1158,1212-1215,1257-1258,1265-1271,1312
+scripts/quest_runtime/plan_iterations.py
+  s_10c8ed5a69b26e::t_e669caf66de53d 14,257,265-267,299,310-311,468,471-473,478-479
+  s_10c8ed5a69b26e::t_93c7cfa1f39f9d 448,451-463
+  s_10c8ed5a69b26e::t_86f3109e7ae5a7 52-90,334-335,337,339,410-420,464-466,469-470,481-485,508-513,521
+  s_10c8ed5a69b26e::t_5bb0ab339515e2 176-185,188,237,285-287
+  s_10c8ed5a69b26e::t_cc1a33e8c645a6 5,13,132-175,187,216-236,238,264,273,280-284,290-298,301-307,319-333,336,338,341-358,360-379,381-389,392-403
+  s_10c8ed5a69b26e::t_03ce380a0e84ba 186,189-215,340,380,429-433,442-447,487-496
+  s_10c8ed5a69b26e::t_b53fb5a165eb0e 1-4,6-12,15-51,91-131,239-256,258-263,268-272,274-279,288-289,300,308-309,312-318,359,390-391,404-409,421-422,428,434-441,449-450,467,474-477,480,486,497-507,514-520,522-524
+  s_10c8ed5a69b26e::t_5b3376c0f66673 423-427
+.skills/quest/delegation/workflow.md
+  s_10c8ed5a69b26e::t_03ce380a0e84ba 159
+  s_10c8ed5a69b26e::t_17142f34f3d0ea 295-298,323-331,339,403,430,621,623,629,651-658,796-799,812
+  s_10c8ed5a69b26e::t_5f2f2b87b05e97 649
+  s_10c8ed5a69b26e::t_a4f13044c50b7a 299-322,332-333,401,424,471,491,521,543,604,622
+  s_10c8ed5a69b26e::t_49c8faf0a9a63d 650,659-666
+  s_24ce1197e15afb::t_6a9e4b9fe48463 402
+tests/unit/test_artifacts.py
+  s_10c8ed5a69b26e::t_72aed8e527b22a 5,581-584
+  s_10c8ed5a69b26e::t_7eb20fc73a00af 244-307
+  s_10c8ed5a69b26e::t_5d2b7dbbe83c71 6,164,175,180-181,187-189,206,219,225-227,243,308-337
+  s_10c8ed5a69b26e::t_203129c0a03481 77-98
+  s_10c8ed5a69b26e::t_b31a94927661bd 629-633,676-680,895-899
+  s_10c8ed5a69b26e::t_86f3109e7ae5a7 239
+  s_10c8ed5a69b26e::t_862316d0d4dc04 743-745,803-805
+  s_10c8ed5a69b26e::t_72182d8c9ff084 529-580,585-618
+  s_10c8ed5a69b26e::t_e4b4bd25b5c8e9 12,228-238,240-242
+  s_10c8ed5a69b26e::t_6e2f148585c471 338
+docs/quest-journal/celebrations/prebuild-replanning-contract-r2_2026-08-05.md
+  s_10c8ed5a69b26e::t_fb2743778c85a2 1-81
+docs/quest-journal/prebuild-replanning-contract-r2_2026-08-05.md
+  s_10c8ed5a69b26e::t_68634f9f0d0c6c 1-168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c4b986aa61f60d5cc4951d9a85f87c22be62de18",
+  "prompts": {},
+  "sessions": {
+    "s_10c8ed5a69b26e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fcd06-e796-7fb3-a484-5ecebbcb31af",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_24ce1197e15afb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "019fc8c2-05a8-7101-813f-be7eee853d87",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_c24b6c3783688d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "019fc8db-b36c-7031-82e5-a9aed10c92da",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
