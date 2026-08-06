@@ -398,7 +398,7 @@ def _archive_quest(quest_dir: Path) -> Path:
 
 def _sweep_parked_bg_sessions(quest_dir: Path) -> subprocess.CompletedProcess | None:
     """Best-effort cleanup for parked Claude background sessions before archive."""
-    runner = Path(__file__).resolve().parent / "claude_bg_run.py"
+    runner = Path(__file__).resolve().parent / "quest_claude_bg_run.py"
     if not runner.exists():
         print(f"Claude bg sweep skipped: runner not found at {runner}", file=sys.stderr)
         return None

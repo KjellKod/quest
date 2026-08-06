@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 
-import pr_shepherd_annotate_scope
-import pr_shepherd_checkout
-import pr_shepherd_collect_intake
-import pr_shepherd_fetch_failed_logs
-import pr_shepherd_post_reply
+import quest_pr_shepherd_annotate_scope
+import quest_pr_shepherd_checkout
+import quest_pr_shepherd_collect_intake
+import quest_pr_shepherd_fetch_failed_logs
+import quest_pr_shepherd_post_reply
 from quest_runtime.pr_shepherd import (
     ADDRESSED_MARKER,
     FOLLOWUP_MARKER,
@@ -255,8 +255,8 @@ def test_checkout_inspects_explicit_number_without_apply_even_when_dirty(
             )
         return _Result()
 
-    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
-    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=False)
+    monkeypatch.setattr(quest_pr_shepherd_checkout, "_run", fake_run)
+    code, payload = quest_pr_shepherd_checkout.inspect_checkout("12", apply=False)
 
     assert code == 0
     assert payload["action"] == "would_checkout"
@@ -289,8 +289,8 @@ def test_checkout_refuses_dirty_worktree_before_apply_checkout(
             )
         return _Result()
 
-    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
-    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=True)
+    monkeypatch.setattr(quest_pr_shepherd_checkout, "_run", fake_run)
+    code, payload = quest_pr_shepherd_checkout.inspect_checkout("12", apply=True)
 
     assert code == 1
     assert payload["reason"] == "dirty_worktree"
@@ -312,8 +312,8 @@ def test_checkout_noops_when_already_on_target_pr_branch(
             )
         raise AssertionError(f"unexpected call: {args}")
 
-    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
-    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=True)
+    monkeypatch.setattr(quest_pr_shepherd_checkout, "_run", fake_run)
+    code, payload = quest_pr_shepherd_checkout.inspect_checkout("12", apply=True)
 
     assert code == 0
     assert payload["action"] == "none"
@@ -342,8 +342,8 @@ def test_checkout_explicit_target_same_branch_checks_head_oid(
             return _Result(stdout="local-sha\n")
         raise AssertionError(f"unexpected call: {args}")
 
-    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
-    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=False)
+    monkeypatch.setattr(quest_pr_shepherd_checkout, "_run", fake_run)
+    code, payload = quest_pr_shepherd_checkout.inspect_checkout("12", apply=False)
 
     assert code == 0
     assert payload["action"] == "would_checkout"
@@ -373,8 +373,8 @@ def test_checkout_current_target_same_branch_checks_head_oid(
             return _Result(stdout="local-sha\n")
         raise AssertionError(f"unexpected call: {args}")
 
-    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
-    code, payload = pr_shepherd_checkout.inspect_checkout(None, apply=False)
+    monkeypatch.setattr(quest_pr_shepherd_checkout, "_run", fake_run)
+    code, payload = quest_pr_shepherd_checkout.inspect_checkout(None, apply=False)
 
     assert code == 0
     assert payload["action"] == "would_checkout"
@@ -413,8 +413,8 @@ def test_checkout_head_mismatch_apply_refuses_to_overwrite(
             return _Result()
         raise AssertionError(f"unexpected call: {args}")
 
-    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
-    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=True)
+    monkeypatch.setattr(quest_pr_shepherd_checkout, "_run", fake_run)
+    code, payload = quest_pr_shepherd_checkout.inspect_checkout("12", apply=True)
 
     assert code == 1
     assert payload["action"] == "none"
@@ -438,10 +438,10 @@ def test_checkout_refuses_worktree_branch_mismatch(
             )
         raise AssertionError(f"unexpected call: {args}")
 
-    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
-    monkeypatch.setattr(pr_shepherd_checkout, "_is_linked_worktree", lambda: True)
+    monkeypatch.setattr(quest_pr_shepherd_checkout, "_run", fake_run)
+    monkeypatch.setattr(quest_pr_shepherd_checkout, "_is_linked_worktree", lambda: True)
 
-    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=True)
+    code, payload = quest_pr_shepherd_checkout.inspect_checkout("12", apply=True)
 
     assert code == 1
     assert payload["ok"] is False
@@ -471,8 +471,8 @@ def test_checkout_branch_mismatch_uses_git_worktree_metadata(
             return _Result(stdout="/repo/.git\n")
         raise AssertionError(f"unexpected call: {args}")
 
-    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
-    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=True)
+    monkeypatch.setattr(quest_pr_shepherd_checkout, "_run", fake_run)
+    code, payload = quest_pr_shepherd_checkout.inspect_checkout("12", apply=True)
 
     assert code == 1
     assert payload["reason"] == "worktree_mismatch"
@@ -508,8 +508,8 @@ def test_checkout_verifies_head_oid_after_apply_checkout(
             return _Result(stdout="stale-sha\n")
         raise AssertionError(f"unexpected call: {args}")
 
-    monkeypatch.setattr(pr_shepherd_checkout, "_run", fake_run)
-    code, payload = pr_shepherd_checkout.inspect_checkout("12", apply=True)
+    monkeypatch.setattr(quest_pr_shepherd_checkout, "_run", fake_run)
+    code, payload = quest_pr_shepherd_checkout.inspect_checkout("12", apply=True)
 
     assert code == 1
     assert payload["reason"] == "head_mismatch"
@@ -526,12 +526,12 @@ def test_checkout_supports_target_option_alias(monkeypatch: pytest.MonkeyPatch) 
         seen["apply"] = apply
         return 0, {"ok": True}
 
-    monkeypatch.setattr(pr_shepherd_checkout, "inspect_checkout", fake_inspect)
+    monkeypatch.setattr(quest_pr_shepherd_checkout, "inspect_checkout", fake_inspect)
     monkeypatch.setattr(
-        "sys.argv", ["pr_shepherd_checkout.py", "--target", "123", "--apply"]
+        "sys.argv", ["quest_pr_shepherd_checkout.py", "--target", "123", "--apply"]
     )
 
-    assert pr_shepherd_checkout.main() == 0
+    assert quest_pr_shepherd_checkout.main() == 0
     assert seen == {"target": "123", "apply": True}
 
 
@@ -545,7 +545,7 @@ def test_scope_in_diff_for_added_line(tmp_path: Path) -> None:
     )
     findings.write_text(json.dumps([{"path": "a.py", "line": 2}]), encoding="utf-8")
 
-    annotated = pr_shepherd_annotate_scope.annotate(
+    annotated = quest_pr_shepherd_annotate_scope.annotate(
         json.loads(findings.read_text()), diff.read_text()
     )
     output.write_text(json.dumps(annotated), encoding="utf-8")
@@ -555,7 +555,7 @@ def test_scope_in_diff_for_added_line(tmp_path: Path) -> None:
 
 def test_scope_unknown_for_removed_old_line() -> None:
     diff_text = "diff --git a/a.py b/a.py\n+++ b/a.py\n@@ -1,2 +1,1 @@\n-old\n keep\n"
-    annotated = pr_shepherd_annotate_scope.annotate(
+    annotated = quest_pr_shepherd_annotate_scope.annotate(
         [{"path": "a.py", "line": 1}], diff_text
     )
     assert annotated[0]["scope"] == "unknown"
@@ -563,7 +563,7 @@ def test_scope_unknown_for_removed_old_line() -> None:
 
 def test_scope_unknown_for_context_line(tmp_path: Path) -> None:
     diff_text = "diff --git a/a.py b/a.py\n+++ b/a.py\n@@ -1,3 +1,4 @@\n one\n two\n+new\n three\n"
-    annotated = pr_shepherd_annotate_scope.annotate(
+    annotated = quest_pr_shepherd_annotate_scope.annotate(
         [{"path": "a.py", "line": 1}], diff_text
     )
     assert annotated[0]["scope"] == "unknown"
@@ -588,7 +588,7 @@ def test_scope_in_diff_for_deleted_file_after_another_file() -> None:
         ]
     )
 
-    annotated = pr_shepherd_annotate_scope.annotate(
+    annotated = quest_pr_shepherd_annotate_scope.annotate(
         [
             {"path": "deleted.py", "line": 1},
             {"path": "kept.py", "line": 1},
@@ -678,9 +678,9 @@ def test_collect_intake_emits_records_without_legacy_typed_lists(
             ], ""
         return [], ""
 
-    monkeypatch.setattr(pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
+    monkeypatch.setattr(quest_pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
 
-    payload = pr_shepherd_collect_intake.collect(12, page_cap=1)
+    payload = quest_pr_shepherd_collect_intake.collect(12, page_cap=1)
 
     assert "inline_comments" not in payload
     assert "general_comments" not in payload
@@ -720,9 +720,9 @@ def test_collect_intake_skips_successful_legacy_status_contexts(
             }, ""
         return [], ""
 
-    monkeypatch.setattr(pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
+    monkeypatch.setattr(quest_pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
 
-    payload = pr_shepherd_collect_intake.collect(12, page_cap=1)
+    payload = quest_pr_shepherd_collect_intake.collect(12, page_cap=1)
 
     check_records = [
         record for record in payload["records"] if record["source_kind"] == "check_run"
@@ -748,9 +748,9 @@ def test_collect_intake_treats_stale_check_as_failure_state(
             }, ""
         return [], ""
 
-    monkeypatch.setattr(pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
+    monkeypatch.setattr(quest_pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
 
-    payload = pr_shepherd_collect_intake.collect(12, page_cap=1)
+    payload = quest_pr_shepherd_collect_intake.collect(12, page_cap=1)
 
     check_records = [
         record for record in payload["records"] if record["source_kind"] == "check_run"
@@ -761,7 +761,7 @@ def test_collect_intake_treats_stale_check_as_failure_state(
 
 
 def test_collect_intake_ignores_human_authored_summary_markers() -> None:
-    record = pr_shepherd_collect_intake._issue_comment_record(
+    record = quest_pr_shepherd_collect_intake._issue_comment_record(
         {
             "id": 200,
             "body": "Looks good.\n\n" + SUMMARY_MARKER,
@@ -776,7 +776,7 @@ def test_collect_intake_ignores_human_authored_summary_markers() -> None:
 
 
 def test_collect_intake_ignores_unknown_authored_summary_markers() -> None:
-    record = pr_shepherd_collect_intake._issue_comment_record(
+    record = quest_pr_shepherd_collect_intake._issue_comment_record(
         {
             "id": 200,
             "body": "Looks good.\n\n" + SUMMARY_MARKER,
@@ -790,7 +790,7 @@ def test_collect_intake_ignores_unknown_authored_summary_markers() -> None:
 
 
 def test_collect_intake_trusts_current_user_summary_markers() -> None:
-    record = pr_shepherd_collect_intake._issue_comment_record(
+    record = quest_pr_shepherd_collect_intake._issue_comment_record(
         {
             "id": 200,
             "body": "PR shepherd status\n\n" + SUMMARY_MARKER,
@@ -806,7 +806,7 @@ def test_collect_intake_trusts_current_user_summary_markers() -> None:
 
 
 def test_collect_intake_trusts_bot_authored_summary_markers() -> None:
-    record = pr_shepherd_collect_intake._issue_comment_record(
+    record = quest_pr_shepherd_collect_intake._issue_comment_record(
         {
             "id": 200,
             "body": "PR shepherd status\n\n" + SUMMARY_MARKER,
@@ -821,7 +821,7 @@ def test_collect_intake_trusts_bot_authored_summary_markers() -> None:
 
 
 def test_collect_intake_skips_approved_review_bodies() -> None:
-    record = pr_shepherd_collect_intake._review_body_record(
+    record = quest_pr_shepherd_collect_intake._review_body_record(
         {
             "id": 300,
             "body": "LGTM",
@@ -841,7 +841,7 @@ def test_collect_intake_preserves_full_summary_comment_body() -> None:
         + ("| addressed | abc | https://example.test |\n" * 80)
         + SUMMARY_MARKER
     )
-    record = pr_shepherd_collect_intake._issue_comment_record(
+    record = quest_pr_shepherd_collect_intake._issue_comment_record(
         {
             "id": 200,
             "body": body,
@@ -877,9 +877,9 @@ def test_collect_intake_skips_pending_check_states(
             }, ""
         return [], ""
 
-    monkeypatch.setattr(pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
+    monkeypatch.setattr(quest_pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
 
-    payload = pr_shepherd_collect_intake.collect(12, page_cap=1)
+    payload = quest_pr_shepherd_collect_intake.collect(12, page_cap=1)
 
     check_records = [
         record for record in payload["records"] if record["source_kind"] == "check_run"
@@ -902,12 +902,12 @@ def test_collect_intake_reports_pagination_truncated_when_page_cap_reached(
             }, ""
         return [
             {"id": index, "body": "x"}
-            for index in range(pr_shepherd_collect_intake.PER_PAGE)
+            for index in range(quest_pr_shepherd_collect_intake.PER_PAGE)
         ], ""
 
-    monkeypatch.setattr(pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
+    monkeypatch.setattr(quest_pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
 
-    payload = pr_shepherd_collect_intake.collect(12, page_cap=1)
+    payload = quest_pr_shepherd_collect_intake.collect(12, page_cap=1)
 
     assert any(
         item["unavailable_reason"] == "pagination_truncated"
@@ -924,9 +924,11 @@ def test_collect_intake_uses_get_for_paginated_api_fields(
         seen.append(args)
         return [], ""
 
-    monkeypatch.setattr(pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
+    monkeypatch.setattr(quest_pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
 
-    pr_shepherd_collect_intake._gh_api_page("repos/{owner}/{repo}/pulls/12/comments", 2)
+    quest_pr_shepherd_collect_intake._gh_api_page(
+        "repos/{owner}/{repo}/pulls/12/comments", 2
+    )
 
     assert seen == [
         [
@@ -936,7 +938,7 @@ def test_collect_intake_uses_get_for_paginated_api_fields(
             "--method",
             "GET",
             "-F",
-            f"per_page={pr_shepherd_collect_intake.PER_PAGE}",
+            f"per_page={quest_pr_shepherd_collect_intake.PER_PAGE}",
             "-F",
             "page=2",
         ]
@@ -946,7 +948,7 @@ def test_collect_intake_uses_get_for_paginated_api_fields(
 def test_failed_log_summary_includes_records_with_bounded_lines_and_metadata() -> None:
     result = _Result(stdout="\n".join(f"line-{index}" for index in range(1, 8)))
 
-    payload = pr_shepherd_fetch_failed_logs.build_payload(
+    payload = quest_pr_shepherd_fetch_failed_logs.build_payload(
         run_id="999",
         result=result,
         head=2,
@@ -977,7 +979,7 @@ def test_failed_log_summary_includes_records_with_bounded_lines_and_metadata() -
 def test_failed_log_summary_reports_unavailable_with_metadata() -> None:
     result = _Result(returncode=1, stderr="external provider unavailable")
 
-    payload = pr_shepherd_fetch_failed_logs.build_payload(
+    payload = quest_pr_shepherd_fetch_failed_logs.build_payload(
         run_id="999",
         result=result,
         head=2,
@@ -1008,7 +1010,7 @@ def test_collect_intake_merges_failed_log_summary_records(
             }, ""
         return [], ""
 
-    monkeypatch.setattr(pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
+    monkeypatch.setattr(quest_pr_shepherd_collect_intake, "_gh_json", fake_gh_json)
     failed_summary = {
         "records": [
             {
@@ -1029,7 +1031,7 @@ def test_collect_intake_merges_failed_log_summary_records(
         ],
     }
 
-    payload = pr_shepherd_collect_intake.collect(
+    payload = quest_pr_shepherd_collect_intake.collect(
         12, page_cap=1, failed_log_summaries=[failed_summary]
     )
 
@@ -1048,7 +1050,7 @@ def test_collect_intake_failed_log_summary_parse_failure_becomes_unavailable(
     path = tmp_path / "failed-log.json"
     path.write_text("{not json", encoding="utf-8")
 
-    summary = pr_shepherd_collect_intake._load_failed_log_summary(str(path))
+    summary = quest_pr_shepherd_collect_intake._load_failed_log_summary(str(path))
 
     assert summary["records"] == []
     assert summary["unavailable"][0]["unavailable_reason"] == "parse_failed"
@@ -1060,7 +1062,7 @@ def test_collect_intake_failed_log_summary_read_failure_becomes_unavailable(
 ) -> None:
     path = tmp_path / "missing.json"
 
-    summary = pr_shepherd_collect_intake._load_failed_log_summary(str(path))
+    summary = quest_pr_shepherd_collect_intake._load_failed_log_summary(str(path))
 
     assert summary["records"] == []
     assert summary["unavailable"][0]["unavailable_reason"] == "read_failed"
@@ -1073,7 +1075,7 @@ def test_collect_intake_failed_log_summary_decode_failure_becomes_unavailable(
     path = tmp_path / "bad-encoding.json"
     path.write_bytes(b"\xff\xfe\x00")
 
-    summary = pr_shepherd_collect_intake._load_failed_log_summary(str(path))
+    summary = quest_pr_shepherd_collect_intake._load_failed_log_summary(str(path))
 
     assert summary["records"] == []
     assert summary["unavailable"][0]["unavailable_reason"] == "decode_failed"
@@ -1090,11 +1092,11 @@ def test_post_reply_live_thread_uses_pr_comment_reply_endpoint(
         calls.append((args, input_text))
         return _Result(stdout="{}")
 
-    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(quest_pr_shepherd_post_reply, "_run", fake_run)
     monkeypatch.setattr(
         "sys.argv",
         [
-            "pr_shepherd_post_reply.py",
+            "quest_pr_shepherd_post_reply.py",
             "--pr",
             "12",
             "--thread-id",
@@ -1104,7 +1106,7 @@ def test_post_reply_live_thread_uses_pr_comment_reply_endpoint(
         ],
     )
 
-    assert pr_shepherd_post_reply.main() == 0
+    assert quest_pr_shepherd_post_reply.main() == 0
     assert calls == [
         (
             [
@@ -1148,13 +1150,20 @@ def test_post_reply_summary_live_updates_existing_marker_comment(
             )
         return _Result(stdout="{}")
 
-    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(quest_pr_shepherd_post_reply, "_run", fake_run)
     monkeypatch.setattr(
         "sys.argv",
-        ["pr_shepherd_post_reply.py", "--summary", "--pr", "12", "--body", "status"],
+        [
+            "quest_pr_shepherd_post_reply.py",
+            "--summary",
+            "--pr",
+            "12",
+            "--body",
+            "status",
+        ],
     )
 
-    assert pr_shepherd_post_reply.main() == 0
+    assert quest_pr_shepherd_post_reply.main() == 0
     assert calls[-1] == (
         [
             "gh",
@@ -1201,13 +1210,20 @@ def test_post_reply_summary_scans_bounded_comment_pages(
             )
         return _Result(stdout="{}")
 
-    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(quest_pr_shepherd_post_reply, "_run", fake_run)
     monkeypatch.setattr(
         "sys.argv",
-        ["pr_shepherd_post_reply.py", "--summary", "--pr", "12", "--body", "status"],
+        [
+            "quest_pr_shepherd_post_reply.py",
+            "--summary",
+            "--pr",
+            "12",
+            "--body",
+            "status",
+        ],
     )
 
-    assert pr_shepherd_post_reply.main() == 0
+    assert quest_pr_shepherd_post_reply.main() == 0
     assert calls[-1] == (
         [
             "gh",
@@ -1239,11 +1255,11 @@ def test_post_reply_summary_allows_exactly_full_page_cap(
             return _Result(stdout=json.dumps([]))
         return _Result(stdout="{}")
 
-    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(quest_pr_shepherd_post_reply, "_run", fake_run)
     monkeypatch.setattr(
         "sys.argv",
         [
-            "pr_shepherd_post_reply.py",
+            "quest_pr_shepherd_post_reply.py",
             "--summary",
             "--pr",
             "12",
@@ -1254,7 +1270,7 @@ def test_post_reply_summary_allows_exactly_full_page_cap(
         ],
     )
 
-    assert pr_shepherd_post_reply.main() == 0
+    assert quest_pr_shepherd_post_reply.main() == 0
     assert json.loads(capsys.readouterr().out)["action"] == "create_summary"
 
 
@@ -1282,13 +1298,20 @@ def test_post_reply_summary_ignores_untrusted_human_marker_comment(
             )
         return _Result(stdout="{}")
 
-    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(quest_pr_shepherd_post_reply, "_run", fake_run)
     monkeypatch.setattr(
         "sys.argv",
-        ["pr_shepherd_post_reply.py", "--summary", "--pr", "12", "--body", "status"],
+        [
+            "quest_pr_shepherd_post_reply.py",
+            "--summary",
+            "--pr",
+            "12",
+            "--body",
+            "status",
+        ],
     )
 
-    assert pr_shepherd_post_reply.main() == 0
+    assert quest_pr_shepherd_post_reply.main() == 0
     assert calls[-1] == (
         ["gh", "pr", "comment", "12", "--body", f"status\n\n{SUMMARY_MARKER}\n"],
         None,
@@ -1304,7 +1327,7 @@ def test_post_reply_summary_foreign_bot_marker_is_not_owned() -> None:
     }
 
     assert (
-        pr_shepherd_post_reply._find_summary_comment(
+        quest_pr_shepherd_post_reply._find_summary_comment(
             [comment], trusted_marker_author="KjellKod"
         )
         is None
@@ -1327,7 +1350,7 @@ def test_post_reply_summary_unknown_or_empty_identity_is_not_owned(
     comment, current_login
 ) -> None:
     assert (
-        pr_shepherd_post_reply._find_summary_comment(
+        quest_pr_shepherd_post_reply._find_summary_comment(
             [comment], trusted_marker_author=current_login
         )
         is None
@@ -1353,7 +1376,7 @@ def test_post_reply_summary_skips_foreign_markers_to_find_owned_marker() -> None
         },
     ]
 
-    existing = pr_shepherd_post_reply._find_summary_comment(
+    existing = quest_pr_shepherd_post_reply._find_summary_comment(
         comments, trusted_marker_author="KjellKod"
     )
 
@@ -1395,11 +1418,11 @@ def test_post_reply_summary_missing_current_login_creates_without_patch(
             return login_result
         return _Result(stdout="{}")
 
-    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(quest_pr_shepherd_post_reply, "_run", fake_run)
     monkeypatch.setattr(
         "sys.argv",
         [
-            "pr_shepherd_post_reply.py",
+            "quest_pr_shepherd_post_reply.py",
             "--summary",
             "--pr",
             "12",
@@ -1410,7 +1433,7 @@ def test_post_reply_summary_missing_current_login_creates_without_patch(
         ],
     )
 
-    assert pr_shepherd_post_reply.main() == 0
+    assert quest_pr_shepherd_post_reply.main() == 0
     assert not any("PATCH" in call for call in calls)
     assert calls[-1][:3] == ["gh", "pr", "comment"]
     assert json.loads(capsys.readouterr().out)["action"] == "create_summary"
@@ -1468,11 +1491,11 @@ def test_post_reply_summary_dry_run_uses_current_login_without_mutating(
         assert args == ["gh", "api", "user"]
         return login_result
 
-    monkeypatch.setattr(pr_shepherd_post_reply, "_run", fake_run)
+    monkeypatch.setattr(quest_pr_shepherd_post_reply, "_run", fake_run)
     monkeypatch.setattr(
         "sys.argv",
         [
-            "pr_shepherd_post_reply.py",
+            "quest_pr_shepherd_post_reply.py",
             "--summary",
             "--body",
             "status",
@@ -1482,7 +1505,7 @@ def test_post_reply_summary_dry_run_uses_current_login_without_mutating(
         ],
     )
 
-    assert pr_shepherd_post_reply.main() == 0
+    assert quest_pr_shepherd_post_reply.main() == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["action"] == expected_action
     assert payload["comment_id"] == expected_id
@@ -1492,15 +1515,17 @@ def test_post_reply_summary_dry_run_uses_current_login_without_mutating(
 def test_post_reply_refuses_missing_target_without_summary_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("sys.argv", ["pr_shepherd_post_reply.py", "--body", "Fixed"])
+    monkeypatch.setattr(
+        "sys.argv", ["quest_pr_shepherd_post_reply.py", "--body", "Fixed"]
+    )
 
     with pytest.raises(ValueError, match="--pr and --thread-id"):
-        pr_shepherd_post_reply.main()
+        quest_pr_shepherd_post_reply.main()
 
 
 def test_bounded_tail_zero_returns_no_tail_lines() -> None:
     text = "\n".join(f"line-{i}" for i in range(10))
-    result = pr_shepherd_fetch_failed_logs._bounded(text, head=3, tail=0)
+    result = quest_pr_shepherd_fetch_failed_logs._bounded(text, head=3, tail=0)
     assert result[:3] == ["line-0", "line-1", "line-2"]
     assert result[3] == "... truncated 7 lines ..."
     assert len(result) == 4  # was: lines[-0:] appended the ENTIRE log
@@ -1508,5 +1533,5 @@ def test_bounded_tail_zero_returns_no_tail_lines() -> None:
 
 def test_bounded_negative_values_clamp_to_zero() -> None:
     text = "\n".join(f"line-{i}" for i in range(5))
-    result = pr_shepherd_fetch_failed_logs._bounded(text, head=-1, tail=-1)
+    result = quest_pr_shepherd_fetch_failed_logs._bounded(text, head=-1, tail=-1)
     assert result == ["... truncated 5 lines ..."]

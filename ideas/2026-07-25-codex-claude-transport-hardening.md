@@ -22,7 +22,7 @@ hard to attribute.
 
 Two transports let a Codex/GPT-led session dispatch a Claude-family role:
 
-- **background-agent** — `scripts/claude_bg_run.py` (~1416 lines), the default
+- **background-agent** — `scripts/quest_claude_bg_run.py` (~1416 lines), the default
   (`claude_role_transport: "auto"`). Runs `claude --bg`, bills the
   subscription pool.
 - **bridge** — `scripts/quest_claude_bridge.py` (~233 lines), the explicit
@@ -38,8 +38,8 @@ default: `scripts/quest_preflight.sh`.
 
 ### Tier 1 — do first (correctness / user-visible failure modes)
 
-**H1. `claude_bg_run.py` can crash-and-leak a live background session.**
-`agents_json()` (`claude_bg_run.py:386-392`) catches only
+**H1. `quest_claude_bg_run.py` can crash-and-leak a live background session.**
+`agents_json()` (`quest_claude_bg_run.py:386-392`) catches only
 `json.JSONDecodeError`/`ValueError`, but the underlying `_claude()`
 (`:377-384`) uses `subprocess.run(..., timeout=30.0)`, which raises
 `subprocess.TimeoutExpired` if the daemon hangs. The WAIT loop (`:1105`) and
@@ -63,7 +63,7 @@ item most directly tied to safely validating a model change — worth doing
 early in the validation phase.
 
 **T2. `--wait-for` success is a size-only check → partial artifact reported as
-success.** `_nonempty` (`claude_bg_run.py:880-885`) is
+success.** `_nonempty` (`quest_claude_bg_run.py:880-885`) is
 `stat().st_size > 0`, and the WAIT loop treats "all non-empty" as success
 (`:1091-1094`). An agent still streaming a file to disk yields a
 non-empty-but-incomplete artifact that satisfies the check. The handoff path
@@ -92,13 +92,13 @@ before it arms its own timer is unbounded — and preflight is the first thing
 that runs. (The main `run_claude_role` path is guarded via
 `communicate(timeout=…)`.)
 
-**T5. `--effort` is a hardcoded allow-list.** `claude_bg_run.py:1314`
+**T5. `--effort` is a hardcoded allow-list.** `quest_claude_bg_run.py:1314`
 pins `choices=["", "low", "medium", "high", "xhigh", "max"]`. If a future model
 generation renames/adds a reasoning tier, argparse hard-fails before dispatch.
 Verify the tier set stays in sync when the model family changes.
 
 **T6. pid-reuse race in teardown.** `stop_session`
-(`claude_bg_run.py:506-539`) reads `pid` from the roster then `os.kill`s it;
+(`quest_claude_bg_run.py:506-539`) reads `pid` from the roster then `os.kill`s it;
 between read and kill the OS can recycle the pid. The 6× re-read loop mitigates
 respawns but not reuse. *Fix:* verify the roster row still owns the pid before
 signalling.
@@ -125,10 +125,10 @@ incomplete sweep.
   text fallback, and logging in one body. The two transport branches and the
   classification block are natural extractions that would make the invariants
   unit-testable in isolation.
-- **`claude_bg_run.py run()` is ~295 lines** (`:967-1261`) with a 4–5-level
+- **`quest_claude_bg_run.py run()` is ~295 lines** (`:967-1261`) with a 4–5-level
   nested WAIT loop; extract `_dispatch_phase`/`_wait_phase`/
   `_classify_blocked_state`/`_teardown_phase`.
-- **~90 lines of self-test-only PTY demo code** (`claude_bg_run.py:151-241`,
+- **~90 lines of self-test-only PTY demo code** (`quest_claude_bg_run.py:151-241`,
   sole caller `_self_test` at `:1359`) inflate the largest script in the repo;
   move to a test/demo module. (`strip_ansi`/`distill` stay — they are live via
   `logs_tail`.)
@@ -138,7 +138,7 @@ incomplete sweep.
 - **Dead field:** `transport_downgraded` is declared `False` and never mutated
   (`quest_claude_runner.py:130`) — always emitted `false`. Wire it or drop it.
 - Minor: `logs_tail` parses the whole transcript for a tail
-  (`claude_bg_run.py:492-504`); `returncode or 1` masks a genuine 0
+  (`quest_claude_bg_run.py:492-504`); `returncode or 1` masks a genuine 0
   (`claude_runner.py:971`); raw child exit codes propagated as process exit can
   alias under `SystemExit` mod-256 (`quest_claude_probe.py:82`,
   `quest_claude_runner.py:231`).

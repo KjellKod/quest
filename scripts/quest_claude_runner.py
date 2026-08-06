@@ -4,7 +4,7 @@
 Transport (Codex-led Claude roles):
   --transport auto (default)   background-agent; startup preflight must prove
                                it or stop for a user decision.
-  --transport background-agent forced `claude --bg` via scripts/claude_bg_run.py.
+  --transport background-agent forced `claude --bg` via scripts/quest_claude_bg_run.py.
   --transport bridge           explicit `claude --print` via the bridge script.
 The resolved transport is echoed in the output JSON envelope and recorded on
 each context_health.log line.

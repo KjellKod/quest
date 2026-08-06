@@ -15,11 +15,11 @@ Generate a pull request title and description from the current branch, then crea
 Before pushing or running `gh pr create`, sync the PR branch with the remote
 default branch from the source worktree:
 
-1. Run `python3 scripts/pr_sync_default_branch.py --json`.
+1. Run `python3 scripts/quest_pr_sync_default_branch.py --json`.
 2. If the payload is `status: "up_to_date"`, continue with the normal PR
    creation flow.
 3. If the payload is `status: "clean"`, run
-   `python3 scripts/pr_sync_default_branch.py --apply --json`, parse the apply
+   `python3 scripts/quest_pr_sync_default_branch.py --apply --json`, parse the apply
    payload, and continue only when it reports `status: "synced"` or
    `status: "up_to_date"`. The inspect result is a best-effort merge-based
    estimate; the `--apply` result is the source of truth for the default rebase

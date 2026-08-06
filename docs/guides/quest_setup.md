@@ -274,7 +274,7 @@ When Codex orchestrates a quest, Claude-designated roles run through `scripts/qu
 
 | Transport | Mechanism | Billing | When |
 |---|---|---|---|
-| **background-agent** (preferred) | `scripts/claude_bg_run.py` → `claude --bg` daemon-hosted session | **subscription pool** | default on dev machines once the one-time setup below is done |
+| **background-agent** (preferred) | `scripts/quest_claude_bg_run.py` → `claude --bg` daemon-hosted session | **subscription pool** | default on dev machines once the one-time setup below is done |
 | **bridge** (explicit) | `scripts/quest_claude_bridge.py` → `claude --print` | **API-metered after June 15, 2026** | daemonless contexts (CI, containers), `ANTHROPIC_API_KEY` billing, or an explicit user/config opt-in |
 
 ### One-time machine setup for the background-agent transport
@@ -336,7 +336,7 @@ callers; its envelope is not part of the Quest runtime protocol.
 ### What Quest handles automatically
 
 - Probes the configured transport once per session and retains recent successful host probes (bg under `auto`; bridge only when explicitly configured/selected)
-- Sweeps orphaned `quest-<id>-*` background sessions and stale `quest-bg-probe-*` probe sessions at quest start/resume (`python3 scripts/claude_bg_run.py --sweep quest-<id>-` and `python3 scripts/claude_bg_run.py --sweep quest-bg-probe-`)
+- Sweeps orphaned `quest-<id>-*` background sessions and stale `quest-bg-probe-*` probe sessions at quest start/resume (`python3 scripts/quest_claude_bg_run.py --sweep quest-<id>-` and `python3 scripts/quest_claude_bg_run.py --sweep quest-bg-probe-`)
 - Routes every role whose saved model is Claude-family through `scripts/quest_claude_runner.py --model <models.<role>> --transport <resolved>` in the same host-visible context used for the probe/cache refresh
 - Keeps background-agent `needs_human` sessions parked for same-session resume, then resumes with `--resume <session_id> --answer-file <answer_file>` and updates the chained session id after Claude forks a continuation
 - Records the transport per role in `context_health.log` (`transport=background-agent|bridge`) and reports it in the quest end summary and celebration
@@ -354,7 +354,7 @@ If you want to test a transport before your first Codex-led quest, you can run t
 command -v claude
 claude auth status
 claude agents --json
-ls -la scripts/claude_bg_run.py
+ls -la scripts/quest_claude_bg_run.py
 python3 scripts/quest_claude_probe.py \
   --quest-dir .quest/<id> \
   --model claude \

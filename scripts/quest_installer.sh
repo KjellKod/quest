@@ -26,6 +26,11 @@ DRY_RUN=false
 FORCE_MODE=false
 SKIP_SELF_UPDATE=false
 SOURCE_EXPLICIT=false
+if [ -t 0 ]; then
+  INSTALLER_INTERACTIVE_MODE=true
+else
+  INSTALLER_INTERACTIVE_MODE=false
+fi
 
 # State variables (set during execution)
 IS_GIT_REPO=false
@@ -125,12 +130,20 @@ EXECUTABLE_FILES=(
   "scripts/quest_preflight.sh"
 )
 
-OLD_SCRIPT_NAMES=(
-  "scripts/claude_cli_bridge.py"
-  "scripts/validate-handoff-contracts.sh"
-  "scripts/validate-manifest.sh"
-  "scripts/validate-quest-config.sh"
-  "scripts/validate-quest-state.sh"
+RENAMED_SCRIPT_MIGRATIONS=(
+  "scripts/check_quest_checksum_drift.py|scripts/quest_check_checksum_drift.py"
+  "scripts/claude_bg_run.py|scripts/quest_claude_bg_run.py"
+  "scripts/pr_shepherd_annotate_scope.py|scripts/quest_pr_shepherd_annotate_scope.py"
+  "scripts/pr_shepherd_checkout.py|scripts/quest_pr_shepherd_checkout.py"
+  "scripts/pr_shepherd_collect_intake.py|scripts/quest_pr_shepherd_collect_intake.py"
+  "scripts/pr_shepherd_fetch_failed_logs.py|scripts/quest_pr_shepherd_fetch_failed_logs.py"
+  "scripts/pr_shepherd_post_reply.py|scripts/quest_pr_shepherd_post_reply.py"
+  "scripts/pr_sync_default_branch.py|scripts/quest_pr_sync_default_branch.py"
+  "scripts/claude_cli_bridge.py|scripts/quest_claude_bridge.py"
+  "scripts/validate-handoff-contracts.sh|scripts/quest_validate-handoff-contracts.sh"
+  "scripts/validate-manifest.sh|scripts/quest_validate-manifest.sh"
+  "scripts/validate-quest-config.sh|scripts/quest_validate-quest-config.sh"
+  "scripts/validate-quest-state.sh|scripts/quest_validate-quest-state.sh"
 )
 
 LEGACY_INSTALLED_TESTS=(
@@ -163,6 +176,11 @@ UPSTREAM_CHECKSUM_VALUES=()
 # Updated checksums (to be saved at end)
 UPDATED_CHECKSUM_FILES=()
 UPDATED_CHECKSUM_VALUES=()
+
+# New payloads fetched and accepted during this installer run. This is kept
+# separate from persisted checksums so pre-existing state cannot authorize
+# cleanup of a renamed legacy path.
+COPY_AS_IS_SUCCESS_FILES=()
 
 ###############################################################################
 # Color Output
@@ -521,6 +539,39 @@ is_safe_repo_relative_path() {
   return 0
 }
 
+is_safe_renamed_script_removal_path() {
+  local target="$1"
+  local parent
+  local component
+  local current="."
+  local repo_root
+  local resolved_parent
+  local path_parts=()
+
+  is_safe_repo_relative_path "$target" || return 1
+  parent=$(dirname "$target")
+  IFS='/' read -r -a path_parts <<< "$parent"
+  for component in "${path_parts[@]}"; do
+    [ "$component" = "." ] && continue
+    current="$current/$component"
+    [ ! -L "$current" ] || return 1
+  done
+
+  repo_root=$(pwd -P) || return 1
+  resolved_parent=$(cd -P "$parent" 2>/dev/null && pwd -P) || return 1
+  [ "$resolved_parent" = "$repo_root" ] || [[ "$resolved_parent" == "$repo_root/"* ]]
+}
+
+is_copy_as_is_path() {
+  local target="$1"
+  local filepath
+
+  for filepath in "${COPY_AS_IS[@]}"; do
+    [ "$filepath" = "$target" ] && return 0
+  done
+  return 1
+}
+
 # Load checksums from .quest-checksums file
 load_local_checksums() {
   LOCAL_CHECKSUM_FILES=()
@@ -599,6 +650,41 @@ remove_updated_checksum() {
 
   UPDATED_CHECKSUM_FILES=("${new_files[@]}")
   UPDATED_CHECKSUM_VALUES=("${new_values[@]}")
+}
+
+mark_copy_as_is_success() {
+  local target="$1"
+  local filepath
+  for filepath in "${COPY_AS_IS_SUCCESS_FILES[@]}"; do
+    if [ "$filepath" = "$target" ]; then
+      return 0
+    fi
+  done
+  COPY_AS_IS_SUCCESS_FILES+=("$target")
+}
+
+copy_as_is_succeeded() {
+  local target="$1"
+  local filepath
+  for filepath in "${COPY_AS_IS_SUCCESS_FILES[@]}"; do
+    if [ "$filepath" = "$target" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_registered_renamed_old_path() {
+  local target="$1"
+  local migration
+  local old_path
+  for migration in "${RENAMED_SCRIPT_MIGRATIONS[@]}"; do
+    old_path="${migration%%|*}"
+    if [ "$old_path" = "$target" ]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 # Initialize updated checksums from local checksums
@@ -754,6 +840,10 @@ cleanup_removed_managed_files() {
   local current_checksum
 
   for filepath in "${LOCAL_CHECKSUM_FILES[@]}"; do
+    if is_registered_renamed_old_path "$filepath"; then
+      continue
+    fi
+
     if ! is_safe_repo_relative_path "$filepath"; then
       remove_updated_checksum "$filepath"
       log_warn "Skipping unsafe checksum path outside repository: $filepath"
@@ -1077,8 +1167,9 @@ install_copy_as_is_file() {
   local upstream_checksum
   upstream_checksum=$(get_file_checksum "$temp_file")
 
-  # Case 1: File does not exist locally
-  if [ ! -f "$filepath" ]; then
+  # Case 1: File does not exist locally. Broken symlinks are existing,
+  # host-owned paths and must not be replaced as if absent.
+  if [ ! -e "$filepath" ] && [ ! -L "$filepath" ]; then
     ensure_parent_dir "$filepath"
     if $DRY_RUN; then
       log_action "Create: $filepath"
@@ -1089,6 +1180,14 @@ install_copy_as_is_file() {
     fi
     rm -f "$temp_file"
     set_updated_checksum "$filepath" "$upstream_checksum"
+    mark_copy_as_is_success "$filepath"
+    return 0
+  fi
+
+  if [ ! -f "$filepath" ] || [ -L "$filepath" ]; then
+    rm -f "$temp_file"
+    log_warn "Skipping non-regular or symlinked file: $filepath"
+    # Skipped paths deliberately do not authorize renamed-file cleanup.
     return 0
   fi
 
@@ -1100,6 +1199,7 @@ install_copy_as_is_file() {
     rm -f "$temp_file"
     # Already up to date - just ensure checksum is stored
     set_updated_checksum "$filepath" "$upstream_checksum"
+    mark_copy_as_is_success "$filepath"
     $DRY_RUN && ((DRY_RUN_UP_TO_DATE++))
     return 0
   fi
@@ -1115,6 +1215,7 @@ install_copy_as_is_file() {
     fi
     rm -f "$temp_file"
     set_updated_checksum "$filepath" "$upstream_checksum"
+    mark_copy_as_is_success "$filepath"
     return 0
   fi
 
@@ -1138,6 +1239,7 @@ install_copy_as_is_file() {
     cp "$filepath" "$backup_path"
     mv "$temp_file" "$filepath"
     set_updated_checksum "$filepath" "$upstream_checksum"
+    mark_copy_as_is_success "$filepath"
     log_warn "Overwrote $filepath with upstream; saved your previous copy as $backup_path (delete it if you made no manual edits)"
     return 0
   fi
@@ -1174,6 +1276,16 @@ install_copy_as_is_file() {
     return 0
   fi
 
+  if [ "$INSTALLER_INTERACTIVE_MODE" != "true" ]; then
+    rm -f "$temp_file"
+    log_warn "Skipping modified file without an interactive terminal: $filepath"
+    local existing
+    if existing=$(get_stored_checksum "$filepath"); then
+      set_updated_checksum "$filepath" "$existing"
+    fi
+    return 0
+  fi
+
   # Interactive mode - prompt user
   while true; do
     local action
@@ -1185,6 +1297,7 @@ install_copy_as_is_file() {
         mv "$temp_file" "$filepath"
         log_success "Overwrote: $filepath"
         set_updated_checksum "$filepath" "$upstream_checksum"
+        mark_copy_as_is_success "$filepath"
         return 0
         ;;
       s)
@@ -1445,35 +1558,112 @@ set_executable_bits() {
 }
 
 cleanup_renamed_scripts() {
-  local filepath
+  local migration
+  local old_path
+  local new_path
   local stored_checksum
   local current_checksum
+  local prompt
+  local removed
 
-  for filepath in "${OLD_SCRIPT_NAMES[@]}"; do
-    remove_updated_checksum "$filepath"
-    if [ ! -e "$filepath" ]; then
+  for migration in "${RENAMED_SCRIPT_MIGRATIONS[@]}"; do
+    old_path="${migration%%|*}"
+    new_path="${migration#*|}"
+
+    if ! is_safe_repo_relative_path "$old_path" || ! is_safe_repo_relative_path "$new_path"; then
+      log_warn "Skipping unsafe renamed-script migration: $old_path -> $new_path"
       continue
     fi
 
-    if ! stored_checksum=$(get_stored_checksum "$filepath"); then
-      log_warn "Leaving existing non-Quest script in place: $filepath"
+    if [ ! -e "$old_path" ] && [ ! -L "$old_path" ]; then
+      if has_updated_checksum_path "$old_path"; then
+        if $DRY_RUN; then
+          log_action "Prune stale Quest checksum entry: $old_path"
+        else
+          remove_updated_checksum "$old_path"
+          log_info "Pruned stale Quest checksum entry: $old_path"
+        fi
+      fi
       continue
     fi
 
-    current_checksum=$(get_file_checksum "$filepath")
-    if [ "$current_checksum" != "$stored_checksum" ]; then
-      log_warn "Leaving modified legacy Quest script in place for manual cleanup: $filepath"
+    if ! is_safe_renamed_script_removal_path "$old_path"; then
+      log_warn "Preserving $old_path because its parent is symlinked or resolves outside the Quest repository. Replacement: $new_path"
       continue
+    fi
+
+    if [ "${#COPY_AS_IS[@]}" -gt 0 ] && ! is_copy_as_is_path "$new_path"; then
+      log_warn "Quest does not install $new_path. Preserving $old_path for manual cleanup."
+      continue
+    fi
+
+    if ! copy_as_is_succeeded "$new_path"; then
+      log_warn "Quest renamed $old_path to $new_path, but the new path did not install successfully in this run. Preserving $old_path."
+      continue
+    fi
+
+    stored_checksum=$(get_stored_checksum "$old_path" 2>/dev/null || true)
+    current_checksum=""
+    if [ -f "$old_path" ] && [ ! -L "$old_path" ]; then
+      current_checksum=$(get_file_checksum "$old_path")
     fi
 
     if $DRY_RUN; then
-      log_action "Remove stale renamed script: $filepath"
+      if [ -n "$stored_checksum" ] && [ "$current_checksum" = "$stored_checksum" ]; then
+        log_action "Remove obsolete renamed script: $old_path"
+        log_action "Prune stale Quest checksum entry: $old_path"
+      else
+        log_warn "Quest renamed $old_path to $new_path. Preserving unsafe or modified $old_path for manual cleanup."
+      fi
       continue
     fi
 
-    rm -f "$filepath"
-    log_success "Removed stale renamed script: $filepath"
+    removed=false
+    prompt="Quest renamed $old_path to $new_path. Remove the obsolete $old_path file now, or leave it for manual cleanup?"
+
+    if [ -n "$stored_checksum" ] && [ "$current_checksum" = "$stored_checksum" ]; then
+      if $FORCE_MODE || [ "$INSTALLER_INTERACTIVE_MODE" != "true" ]; then
+        if rm -f "$old_path"; then
+          removed=true
+        fi
+      elif prompt_yn "$prompt" "y"; then
+        if rm -f "$old_path"; then
+          removed=true
+        fi
+      else
+        log_warn "Preserving obsolete $old_path for manual cleanup. Replacement: $new_path"
+      fi
+    elif $FORCE_MODE || [ "$INSTALLER_INTERACTIVE_MODE" != "true" ]; then
+      log_warn "Quest renamed $old_path to $new_path. Preserving unsafe or modified $old_path for manual cleanup."
+    else
+      log_warn "$old_path is modified, untracked, symlinked, or non-regular. Quest will preserve it unless you explicitly approve removal."
+      if prompt_yn "$prompt" "n"; then
+        if rm -f "$old_path"; then
+          removed=true
+        else
+          log_warn "Could not remove unsafe legacy path: $old_path"
+        fi
+      else
+        log_warn "Preserving obsolete $old_path for manual cleanup. Replacement: $new_path"
+      fi
+    fi
+
+    if [ "$removed" = "true" ]; then
+      remove_updated_checksum "$old_path"
+      log_success "Removed obsolete renamed script: $old_path"
+    fi
   done
+}
+
+has_updated_checksum_path() {
+  local target="$1"
+  local filepath
+  for filepath in "${UPDATED_CHECKSUM_FILES[@]}"; do
+    if [ "$filepath" = "$target" ]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 migrate_legacy_validation_hook() {

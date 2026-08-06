@@ -813,7 +813,7 @@ def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys
         permission_mode="bypassPermissions",
         transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
-        bg_runner_script="scripts/claude_bg_run.py",
+        bg_runner_script="scripts/quest_claude_bg_run.py",
         cwd=str(tmp_path),
         add_dir=[],
     )
@@ -863,7 +863,7 @@ def test_cli_quest_claude_probe_relative_non_dot_cwd_resolves_bridge_script(
         permission_mode="bypassPermissions",
         transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
-        bg_runner_script="scripts/claude_bg_run.py",
+        bg_runner_script="scripts/quest_claude_bg_run.py",
         cwd="repo",
     )
     captured: dict[str, object] = {}
@@ -914,7 +914,7 @@ def test_cli_quest_claude_runner_relative_non_dot_cwd_resolves_bridge_script(
         permission_mode="bypassPermissions",
         transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
-        bg_runner_script="scripts/claude_bg_run.py",
+        bg_runner_script="scripts/quest_claude_bg_run.py",
         cwd="repo",
         add_dir=[],
     )
@@ -970,7 +970,7 @@ def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
         permission_mode="bypassPermissions",
         transport="bridge",
         bridge_script="scripts/quest_claude_bridge.py",
-        bg_runner_script="scripts/claude_bg_run.py",
+        bg_runner_script="scripts/quest_claude_bg_run.py",
         cwd=str(tmp_path),
         add_dir=[],
     )
@@ -992,7 +992,7 @@ def test_quest_claude_runner_returns_structured_invocation_error_on_bad_phase(
 def test_build_bg_cmd_pins_argv_with_handoff_file_and_parks_needs_human(tmp_path):
     cmd = claude_runner_module.build_bg_cmd(
         cwd=tmp_path,
-        bg_runner_script=tmp_path / "claude_bg_run.py",
+        bg_runner_script=tmp_path / "quest_claude_bg_run.py",
         prompt_file=tmp_path / "prompt.txt",
         name="quest-q1-planner-i2",
         model="claude-opus-4-6",
@@ -1017,7 +1017,7 @@ def test_build_bg_cmd_pins_argv_with_handoff_file_and_parks_needs_human(tmp_path
 def test_build_bg_cmd_can_opt_into_needs_human_teardown(tmp_path):
     cmd = claude_runner_module.build_bg_cmd(
         cwd=tmp_path,
-        bg_runner_script=tmp_path / "claude_bg_run.py",
+        bg_runner_script=tmp_path / "quest_claude_bg_run.py",
         prompt_file=tmp_path / "prompt.txt",
         name="quest-q1-planner-i2",
         model="claude-opus-4-6",
@@ -1033,7 +1033,7 @@ def test_build_bg_cmd_can_opt_into_needs_human_teardown(tmp_path):
 def test_build_bg_cmd_omits_model_for_claude_sentinel(tmp_path):
     cmd = claude_runner_module.build_bg_cmd(
         cwd=tmp_path,
-        bg_runner_script=tmp_path / "claude_bg_run.py",
+        bg_runner_script=tmp_path / "quest_claude_bg_run.py",
         prompt_file=tmp_path / "prompt.txt",
         name="quest-q1-planner-i2",
         model="claude",
@@ -1061,7 +1061,7 @@ def test_build_bridge_cmd_omits_model_for_claude_sentinel(tmp_path):
 def test_concrete_claude_model_passthrough(tmp_path):
     bg_cmd = claude_runner_module.build_bg_cmd(
         cwd=tmp_path,
-        bg_runner_script=tmp_path / "claude_bg_run.py",
+        bg_runner_script=tmp_path / "quest_claude_bg_run.py",
         prompt_file=tmp_path / "prompt.txt",
         name="quest-q1-planner-i2",
         model="claude-opus-4-6",
@@ -1125,7 +1125,7 @@ print(json.dumps({{"status": "ok"}}))
 
 def test_run_bg_probe_requires_artifact_not_just_handoff(tmp_path):
     # Regression (PR #137 review): a handoff alone must NOT mark bg available.
-    # If claude_bg_run.py exits incomplete (artifact never written), the probe
+    # If quest_claude_bg_run.py exits incomplete (artifact never written), the probe
     # must report failure so bg is not cached/selected on a machine that never
     # proved the artifact-write contract.
     bg_runner = tmp_path / "fake_bg_runner.py"
@@ -1283,7 +1283,7 @@ print(json.dumps({"status": "ok"}))
 
 
 def test_run_claude_role_bg_waits_for_slow_teardown_without_killing(tmp_path):
-    # Regression (PR #137): bg mode must let claude_bg_run.py finish its own
+    # Regression (PR #137): bg mode must let quest_claude_bg_run.py finish its own
     # teardown instead of killing it after exit_grace_seconds — killing the child
     # does NOT stop the detached supervisor session, so racing it would orphan
     # the session. The fake child writes the handoff, sleeps PAST exit_grace,
@@ -2165,7 +2165,7 @@ print(json.dumps({{
 
 def test_resume_preserves_parked_artifacts(tmp_path):
     # AC10 intent: the parked agent's completed artifacts must survive a resume.
-    # claude_bg_run.py resume mode deliberately keeps --wait-for files; the
+    # quest_claude_bg_run.py resume mode deliberately keeps --wait-for files; the
     # quest layer must not truncate them first via prepare_artifact_files.
     bg_runner = tmp_path / "fake_bg_runner.py"
     _write_executable(
@@ -2322,7 +2322,7 @@ def test_default_helper_script_paths_are_absolute_and_resolve_off_package():
         assert os.path.isabs(path), f"{path} should be absolute"
         assert os.path.exists(path), f"{path} should exist next to the package"
     assert DEFAULT_BRIDGE_SCRIPT.endswith("scripts/quest_claude_bridge.py")
-    assert DEFAULT_BG_RUNNER_SCRIPT.endswith("scripts/claude_bg_run.py")
+    assert DEFAULT_BG_RUNNER_SCRIPT.endswith("scripts/quest_claude_bg_run.py")
 
 
 def test_cli_probe_requires_explicit_model_and_default_bridge_script_is_absolute():

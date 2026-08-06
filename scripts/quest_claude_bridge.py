@@ -6,7 +6,7 @@ structured JSON for non-interactive orchestration flows.
 
 Role in the transport pair: explicit API path. The default Quest
 transport for Codex-led Claude roles is the background-agent runner
-(scripts/claude_bg_run.py, `claude --bg`, subscription billing); this bridge
+(scripts/quest_claude_bg_run.py, `claude --bg`, subscription billing); this bridge
 remains the path for daemonless contexts (CI, containers), `ANTHROPIC_API_KEY`
 billing, and explicit user/config opt-ins. `claude --print` bills to the
 metered API pool after June 15, 2026. Selection lives in
