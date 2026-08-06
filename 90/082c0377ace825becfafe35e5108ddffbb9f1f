@@ -1,0 +1,24 @@
+CONTRIBUTING.md
+  s_85b8cf4de8645d::t_371da86c07b138 31-32,36-41,48
+  s_85b8cf4de8645d::t_80c7f0e8b1c46f 33-35,42-47
+.gitignore
+  s_85b8cf4de8645d::t_70658026ff44c3 9
+scripts/quest_installer.sh
+  s_85b8cf4de8645d::t_c161f7905c8964 1347
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "90082c0377ace825becfafe35e5108ddffbb9f1f",
+  "prompts": {},
+  "sessions": {
+    "s_85b8cf4de8645d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "96a025a0-3462-4a5e-a087-56c4c1b5fd08",
+        "model": "claude-opus-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
