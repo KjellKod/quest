@@ -130,7 +130,7 @@ Before writing the handoff, read `.quest/<id>/state.json`. Set `plan_iteration` 
 STATUS: complete | needs_human | blocked
 ARTIFACTS: .quest/<id>/phase_01_plan/arbiter_verdict.md.next, .quest/<id>/phase_01_plan/review_findings.json.next
 NEXT: planner | builder
-SUMMARY: Iteration <N>: <approve|iterate> — <reason>
+SUMMARY: Iteration <N>: <approve|iterate> - <reason>
 ```
 
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.

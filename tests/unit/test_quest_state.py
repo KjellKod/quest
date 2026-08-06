@@ -140,6 +140,18 @@ def test_empty_expect_phase_fails_closed_instead_of_bypassing_lock(tmp_path):
     assert state["phase"] == "plan"  # unmodified
 
 
+def test_transition_requires_expected_phase_and_preserves_state(tmp_path):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    before = state_path.read_bytes()
+
+    cp = _run("--quest-dir", str(quest_dir), "--transition", "plan")
+
+    assert cp.returncode == 1
+    assert "--transition requires --expect-phase" in cp.stderr
+    assert state_path.read_bytes() == before
+
+
 @pytest.mark.parametrize("payload", ["[]", '"state"', "1", "true", "null"])
 def test_load_state_rejects_non_object_top_level(tmp_path, payload):
     quest_dir = tmp_path / "quest"
@@ -248,10 +260,10 @@ def test_update_state_atomically_replaces_and_keeps_lock_file(tmp_path, monkeypa
     updated = state_runtime.update_state(
         quest_dir,
         expected_phase="plan",
-        phase="building",
+        status="building",
     )
 
-    assert updated["phase"] == "building"
+    assert updated["status"] == "building"
     assert len(replacements) == 1
     assert replacements[0][1] == state_path
     assert replacements[0][0].parent == quest_dir
@@ -812,7 +824,8 @@ def test_malformed_pending_replan_matrix_preserves_state_bytes(
     assert state_path.read_bytes() == before
 
 
-def test_raw_phase_change_cannot_bypass_human_replan_validation(tmp_path):
+@pytest.mark.parametrize("target_phase", ["plan", "building"])
+def test_raw_phase_change_cannot_bypass_transition_validation(tmp_path, target_phase):
     quest_dir = _make_quest_dir(tmp_path)
     state_path = quest_dir / "state.json"
     state = json.loads(state_path.read_text(encoding="utf-8"))
@@ -820,8 +833,8 @@ def test_raw_phase_change_cannot_bypass_human_replan_validation(tmp_path):
     state_path.write_text(json.dumps(state), encoding="utf-8")
     before = state_path.read_bytes()
 
-    with pytest.raises(state_runtime.ReplanError, match="unvalidated_replan"):
-        state_runtime.update_state(quest_dir, phase="plan")
+    with pytest.raises(state_runtime.ReplanError, match="unvalidated_phase_change"):
+        state_runtime.update_state(quest_dir, phase=target_phase)
 
     assert state_path.read_bytes() == before
 
@@ -885,11 +898,56 @@ def test_transition_rejects_clear_parked_session_combination(tmp_path):
         str(quest_dir),
         "--transition",
         "plan",
+        "--expect-phase",
+        "plan",
         "--clear-parked-bg-session",
     )
 
     assert result.returncode == 1
     assert "cannot be combined" in result.stderr
+    assert state_path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        ["--status", "ignored"],
+        ["--clear-parked-bg-session"],
+    ],
+)
+def test_record_feedback_rejects_unrelated_mutation_flags(
+    tmp_path, monkeypatch, capsys, extra_args
+):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    feedback = tmp_path / "feedback.md"
+    feedback.write_text("Revise the plan.\n", encoding="utf-8")
+    before = state_path.read_bytes()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "quest_state.py",
+            "--quest-dir",
+            str(quest_dir),
+            "--record-user-replan-feedback",
+            "--source",
+            "walkthrough",
+            "--feedback-file",
+            str(feedback),
+            "--expect-phase",
+            "plan",
+            *extra_args,
+        ],
+    )
+    monkeypatch.setattr(
+        quest_state,
+        "record_user_replan_feedback",
+        lambda *_args, **_kwargs: pytest.fail("recording must not start"),
+    )
+
+    assert quest_state.main() == 1
+    assert "cannot be combined" in capsys.readouterr().err
     assert state_path.read_bytes() == before
 
 
@@ -913,7 +971,7 @@ def test_update_state_clears_parked_session_in_single_replacement(
         quest_dir,
         expected_phase="plan",
         clear_parked_bg_session=True,
-        phase="building",
+        status="building",
     )
 
     assert "parked_bg_session" not in updated
@@ -956,7 +1014,7 @@ def test_update_state_holds_lock_through_atomic_replace(tmp_path, monkeypatch):
     monkeypatch.setattr(state_runtime.fcntl, "flock", record_flock)
     monkeypatch.setattr(state_runtime.os, "replace", record_replace)
 
-    state_runtime.update_state(quest_dir, phase="building")
+    state_runtime.update_state(quest_dir, status="building")
 
     assert events == ["lock", "replace", "unlock"]
 
@@ -975,11 +1033,12 @@ def test_update_state_does_not_report_failure_when_explicit_unlock_fails(
 
     monkeypatch.setattr(state_runtime.fcntl, "flock", fail_explicit_unlock)
 
-    updated = state_runtime.update_state(quest_dir, phase="building")
+    updated = state_runtime.update_state(quest_dir, status="building")
 
-    assert updated["phase"] == "building"
+    assert updated["status"] == "building"
     persisted = json.loads(state_path.read_text(encoding="utf-8"))
-    assert persisted["phase"] == "building"
+    assert persisted["phase"] == "plan"
+    assert persisted["status"] == "building"
 
 
 def test_update_state_classifies_lock_failure(tmp_path, monkeypatch):
@@ -991,7 +1050,7 @@ def test_update_state_classifies_lock_failure(tmp_path, monkeypatch):
 
     monkeypatch.setattr(state_runtime.fcntl, "flock", fail_lock)
     with pytest.raises(state_runtime.StateError) as exc_info:
-        state_runtime.update_state(quest_dir, phase="building")
+        state_runtime.update_state(quest_dir, status="building")
 
     assert str(exc_info.value) == f"state_error[lock]: {state_path.resolve()}"
     assert "platform lock detail" not in str(exc_info.value)
@@ -1007,7 +1066,7 @@ def test_update_state_classifies_write_failure_and_cleans_temp(tmp_path, monkeyp
 
     monkeypatch.setattr(state_runtime.os, "replace", fail_replace)
     with pytest.raises(state_runtime.StateError) as exc_info:
-        state_runtime.update_state(quest_dir, phase="building")
+        state_runtime.update_state(quest_dir, status="building")
 
     assert str(exc_info.value) == f"state_error[write]: {state_path.resolve()}"
     assert state_path.read_bytes() == before
@@ -1019,7 +1078,7 @@ def test_atomic_replace_preserves_existing_state_file_mode(tmp_path):
     state_path = quest_dir / "state.json"
     state_path.chmod(0o640)
 
-    state_runtime.update_state(quest_dir, phase="building")
+    state_runtime.update_state(quest_dir, status="building")
 
     assert stat.S_IMODE(state_path.stat().st_mode) == 0o640
 
@@ -1037,6 +1096,34 @@ def test_cli_invalid_state_has_readable_error_without_traceback(tmp_path):
     assert "Traceback" not in cp.stderr
 
 
+def test_record_feedback_maps_missing_snapshot_without_traceback(tmp_path):
+    quest_dir = _make_quest_dir(tmp_path)
+    state_path = quest_dir / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["plan_iteration"] = 1
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    feedback = tmp_path / "feedback.md"
+    feedback.write_text("Revise the plan.\n", encoding="utf-8")
+    before = state_path.read_bytes()
+
+    cp = _run(
+        "--quest-dir",
+        str(quest_dir),
+        "--record-user-replan-feedback",
+        "--source",
+        "walkthrough",
+        "--feedback-file",
+        str(feedback),
+        "--expect-phase",
+        "plan",
+    )
+
+    assert cp.returncode == 1
+    assert "replan_error[snapshot_invalid]" in cp.stderr
+    assert "Traceback" not in cp.stderr
+    assert state_path.read_bytes() == before
+
+
 def test_validator_rejection_does_not_read_state(tmp_path, monkeypatch, capsys):
     quest_dir = _make_quest_dir(tmp_path)
     monkeypatch.setattr(
@@ -1048,6 +1135,8 @@ def test_validator_rejection_does_not_read_state(tmp_path, monkeypatch, capsys):
             str(quest_dir),
             "--transition",
             "building",
+            "--expect-phase",
+            "plan",
         ],
     )
     monkeypatch.setattr(
@@ -1089,7 +1178,7 @@ def test_cli_translates_state_mutation_failures(
     monkeypatch.setattr(
         sys,
         "argv",
-        ["quest_state.py", "--quest-dir", str(quest_dir), "--phase", "building"],
+        ["quest_state.py", "--quest-dir", str(quest_dir), "--status", "building"],
     )
 
     def fail(*_args, **_kwargs):

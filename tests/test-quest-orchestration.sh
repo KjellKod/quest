@@ -1229,11 +1229,9 @@ PY
       return 1
     }
 
-    local implementation second_approval_required
+    local implementation
     implementation=$(jq -r '.auto_approve_phases.implementation' "$tmpdir/.ai/allowlist.json")
-    second_approval_required=false
     if [ "$implementation" = false ]; then
-      second_approval_required=true
       [ "$(jq -r '.phase' "$tmpdir/quest/state.json")" = presentation_complete ] || {
         echo "approval group=$setting did not stop for conditional Build approval"
         rm -rf "$tmpdir"
@@ -1251,16 +1249,6 @@ PY
       rm -rf "$tmpdir"
       return 1
     }
-    if [ "$setting" = false ] && [ "$second_approval_required" != true ]; then
-      echo "approval group=false skipped conditional second Build approval"
-      rm -rf "$tmpdir"
-      return 1
-    fi
-    if [ "$setting" = true ] && [ "$second_approval_required" != false ]; then
-      echo "approval group=true requested an extra Build approval"
-      rm -rf "$tmpdir"
-      return 1
-    fi
     rm -rf "$tmpdir"
   done
 

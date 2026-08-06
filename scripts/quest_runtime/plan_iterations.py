@@ -39,12 +39,12 @@ def _iteration_dir(quest_dir: Path, iteration: int) -> Path:
 def _fsync_dir(path: Path) -> None:
     try:
         descriptor = os.open(path, os.O_RDONLY)
-    except OSError:
-        return
+    except OSError as exc:
+        raise PlanIterationError(f"directory_fsync_failed:{path.name}") from exc
     try:
         os.fsync(descriptor)
-    except OSError:
-        pass
+    except OSError as exc:
+        raise PlanIterationError(f"directory_fsync_failed:{path.name}") from exc
     finally:
         os.close(descriptor)
 
@@ -286,6 +286,9 @@ def verify_plan_iteration_snapshot(quest_dir: str | Path, iteration: int) -> Non
             manifest.get("files"), dict
         ):
             raise PlanIterationError("snapshot_manifest_invalid")
+        manifest_iteration = manifest.get("iteration", manifest.get("plan_iteration"))
+        if manifest_iteration != iteration:
+            raise PlanIterationError("snapshot_iteration_mismatch")
         for archive_name, metadata in manifest["files"].items():
             if not isinstance(archive_name, str):
                 raise PlanIterationError("snapshot_manifest_invalid")
@@ -299,13 +302,11 @@ def verify_plan_iteration_snapshot(quest_dir: str | Path, iteration: int) -> Non
             if expected != _digest(data):
                 raise PlanIterationError(f"snapshot_file_mismatch:{archive_name}")
         try:
-            with seal_path.open("w", encoding="ascii") as handle:
-                handle.write(f"{_digest(manifest_bytes)}\n")
-                handle.flush()
-                os.fsync(handle.fileno())
+            _atomic_publish_bytes(
+                seal_path, f"{_digest(manifest_bytes)}\n".encode("ascii")
+            )
         except OSError as exc:
             raise PlanIterationError("snapshot_seal_write_failed") from exc
-        _fsync_dir(snapshot_dir)
     manifest = _verify_manifest(snapshot_dir)
     manifest_iteration = manifest.get("iteration", manifest.get("plan_iteration"))
     if manifest_iteration != iteration:

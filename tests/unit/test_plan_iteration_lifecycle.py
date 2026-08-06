@@ -257,6 +257,7 @@ def test_corrupt_sealed_snapshot_fails_without_repairing_history(
 
 def test_existing_legacy_manifest_is_verified_and_sealed_in_place(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     quest_dir = tmp_path / "quest"
     _write_state(quest_dir, iteration=1)
@@ -277,6 +278,14 @@ def test_existing_legacy_manifest_is_verified_and_sealed_in_place(
         "plan.md": archived_plan.read_bytes(),
         "snapshot.json": (snapshot_dir / "snapshot.json").read_bytes(),
     }
+    real_publish = plan_iterations_module._atomic_publish_bytes
+    published: list[Path] = []
+
+    def record_publish(path: Path, data: bytes) -> None:
+        published.append(path)
+        real_publish(path, data)
+
+    monkeypatch.setattr(plan_iterations_module, "_atomic_publish_bytes", record_publish)
 
     # Deliberately omit the new producer inventory from canonical paths. A
     # byte-valid legacy archive is its own identity and is never recaptured.
@@ -287,6 +296,41 @@ def test_existing_legacy_manifest_is_verified_and_sealed_in_place(
     assert (snapshot_dir / "snapshot.sha256").read_text().strip() == _sha256(
         before["snapshot.json"]
     )
+    assert published == [snapshot_dir / "snapshot.sha256"]
+
+
+def test_invalid_legacy_manifest_iteration_is_not_sealed(tmp_path: Path) -> None:
+    quest_dir = tmp_path / "quest"
+    _write_state(quest_dir, iteration=1)
+    snapshot_dir = quest_dir / "history" / "plan" / "iteration-0001"
+    snapshot_dir.mkdir(parents=True)
+    archived_plan = snapshot_dir / "plan.md"
+    archived_plan.write_bytes(b"# Wrong iteration\n")
+    _write_json(
+        snapshot_dir / "snapshot.json",
+        {
+            "plan_iteration": 2,
+            "files": {"plan.md": _sha256(archived_plan.read_bytes())},
+        },
+    )
+
+    with pytest.raises(PlanIterationError, match="snapshot_iteration_mismatch"):
+        verify_plan_iteration_snapshot(quest_dir, 1)
+
+    assert not (snapshot_dir / "snapshot.sha256").exists()
+
+
+@pytest.mark.parametrize("boundary", ["open", "fsync"])
+def test_directory_fsync_failures_are_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, boundary: str
+) -> None:
+    def fail(*_args, **_kwargs):
+        raise OSError(f"{boundary} failed")
+
+    monkeypatch.setattr(plan_iterations_module.os, boundary, fail)
+
+    with pytest.raises(PlanIterationError, match="directory_fsync_failed"):
+        plan_iterations_module._fsync_dir(tmp_path)
 
 
 @pytest.mark.parametrize("mode", ["workflow", "solo"])
@@ -779,6 +823,30 @@ def test_plan_iteration_cli_wraps_malformed_state_as_stable_error(
     assert result.returncode == 1
     assert result.stderr.startswith("plan_iteration_error: state_error[decode]")
     assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize("iteration", ["0", "-1"])
+def test_plan_iteration_cli_rejects_non_positive_iterations(
+    tmp_path: Path, iteration: str
+) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "quest_plan_iteration.py"),
+            "snapshot",
+            "--quest-dir",
+            str(tmp_path / "quest"),
+            "--iteration",
+            iteration,
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "positive integer" in result.stderr
 
 
 def test_real_workflow_iterate_round_completes_in_pinned_order(

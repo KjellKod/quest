@@ -3,13 +3,10 @@
 
 Supports two modes:
 
-  Raw setter (original):
-    python3 scripts/quest_state.py --quest-dir .quest/<id> --phase building --status in_progress
+  Metadata update without a phase change:
+    python3 scripts/quest_state.py --quest-dir .quest/<id> --status in_progress
 
-  Atomic validated transition (preferred):
-    python3 scripts/quest_state.py --quest-dir .quest/<id> --transition building --status in_progress
-
-  With an atomic expected-phase check (recommended for multi-agent):
+  Atomic validated transition with a required expected-phase check:
     python3 scripts/quest_state.py --quest-dir .quest/<id> --transition building --status in_progress --expect-phase plan_reviewed
 
 The --transition flag calls quest_validate-quest-state.sh before writing.
@@ -74,7 +71,7 @@ def parse_args() -> argparse.Namespace:
     phase_group = parser.add_mutually_exclusive_group()
     phase_group.add_argument(
         "--phase",
-        help="Set phase directly (no validation). Use --transition instead.",
+        help="Retain the current phase during a metadata update. Cannot transition.",
     )
     phase_group.add_argument(
         "--transition",
@@ -154,6 +151,13 @@ def main() -> int:
         )
         return 1
 
+    if args.transition and not args.expect_phase:
+        print(
+            "--transition requires --expect-phase.",
+            file=sys.stderr,
+        )
+        return 1
+
     if args.transition and args.clear_parked_bg_session:
         print(
             "--clear-parked-bg-session cannot be combined with --transition.",
@@ -162,6 +166,28 @@ def main() -> int:
         return 1
 
     if args.record_user_replan_feedback:
+        incompatible_mutation = (
+            any(
+                value is not None
+                for value in (
+                    args.status,
+                    args.last_role,
+                    args.last_verdict,
+                    args.quest_mode,
+                    args.plan_iteration,
+                    args.fix_iteration,
+                    args.parked_bg_session,
+                )
+            )
+            or args.clear_parked_bg_session
+        )
+        if incompatible_mutation:
+            print(
+                "State mutation flags cannot be combined with "
+                "--record-user-replan-feedback.",
+                file=sys.stderr,
+            )
+            return 1
         if not args.expect_phase or not args.source or not args.feedback_file:
             print(
                 "--record-user-replan-feedback requires --source, --feedback-file, and --expect-phase.",

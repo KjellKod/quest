@@ -152,6 +152,10 @@ def test_human_replan_entry_points_share_one_documented_contract() -> None:
 
     assert "## Change Request (Iteration <N+1>)" in workflow
     assert "## Sharpen Outcome (Iteration <N+1>)" in workflow
+    assert (
+        "Build-gate rejection and resumed instructions reuse the Walkthrough "
+        "template"
+    ) in workflow
     assert "### Resolved" in workflow
     assert "### Open" in workflow
     assert "### Next" in workflow

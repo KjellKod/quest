@@ -350,8 +350,13 @@ PY
 validate_current_replan_handoffs() {
   local quest_dir="$1"
   local required_lifecycle="$2"
-  local generation iteration lifecycle
-  if ! jq -e '.user_replan | type == "object"' "$quest_dir/state.json" >/dev/null 2>&1; then
+  local generation iteration lifecycle request_type
+  request_type=$(jq -r '.user_replan | type' "$quest_dir/state.json" 2>/dev/null)
+  if [ "$request_type" = "null" ]; then
+    return
+  fi
+  if [ "$request_type" != "object" ]; then
+    fail "Current replan request is malformed"
     return
   fi
   generation=$(jq -r '.user_replan.generation // empty' "$quest_dir/state.json")

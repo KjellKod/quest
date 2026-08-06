@@ -259,7 +259,12 @@ def record_user_replan_feedback(
             or iteration < 1
         ):
             raise ReplanError("iteration_invalid")
-        verify_plan_iteration_snapshot(root, iteration)
+        from .plan_iterations import PlanIterationError
+
+        try:
+            verify_plan_iteration_snapshot(root, iteration)
+        except PlanIterationError as exc:
+            raise ReplanError("snapshot_invalid") from exc
 
         previous_generation = state.get("user_replan_generation", 0)
         if (
@@ -395,8 +400,8 @@ def update_state(
                 raise PhaseMismatchError(expected_phase, actual_phase)
 
             requested_phase = updates.get("phase")
-            if requested_phase == "plan" and actual_phase != "plan":
-                raise ReplanError("unvalidated_replan")
+            if requested_phase is not None and requested_phase != actual_phase:
+                raise ReplanError("unvalidated_phase_change")
 
             active_request = state.get("user_replan")
             if isinstance(active_request, dict) and active_request.get("lifecycle") in {

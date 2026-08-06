@@ -129,7 +129,7 @@ def prepare_artifact_files(
 ) -> list[Path]:
     """Create or truncate role outputs after lifecycle preconditions pass."""
 
-    if role == "planner":
+    if role.strip() == "planner":
         from .plan_iterations import verify_plan_iteration_snapshot
         from .state import StateError, load_state
 

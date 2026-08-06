@@ -202,7 +202,7 @@ stub_installer_run_install_steps() {
   clear_progress() { :; }
 }
 
-test_quest_state_updates_phase_and_timestamp() {
+test_quest_state_updates_metadata_and_timestamp() {
   local tmpdir
   tmpdir=$(mktemp -d)
   cat > "$tmpdir/state.json" <<EOF
@@ -220,7 +220,7 @@ test_quest_state_updates_phase_and_timestamp() {
 EOF
 
   local output
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --phase plan_reviewed --status complete --plan-iteration 1 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --status complete --plan-iteration 1 2>&1)
   local rc=$?
   local phase status iter updated
   phase=$(jq -r '.phase' "$tmpdir/state.json")
@@ -230,11 +230,11 @@ EOF
   rm -rf "$tmpdir"
 
   [ "$rc" -eq 0 ] &&
-    [ "$phase" = "plan_reviewed" ] &&
+    [ "$phase" = "plan" ] &&
     [ "$status" = "complete" ] &&
     [ "$iter" = "1" ] &&
     [ "$updated" != "2026-01-01T00:00:00Z" ] &&
-    echo "$output" | grep -q '"phase": "plan_reviewed"'
+    echo "$output" | grep -q '"phase": "plan"'
 }
 
 test_quest_claude_runner_polls_handoff_and_logs_runtime() {
@@ -426,7 +426,7 @@ EOF
 EOF
 
   local output rc phase updated
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition presenting --status in_progress 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition presenting --status in_progress --expect-phase plan_reviewed 2>&1)
   rc=$?
   phase=$(jq -r '.phase' "$tmpdir/state.json")
   updated=$(jq -r '.updated_at' "$tmpdir/state.json")
@@ -455,7 +455,7 @@ test_quest_state_transition_invalid_leaves_state_unchanged() {
 EOF
 
   local output rc phase updated
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building --expect-phase building 2>&1)
   rc=$?
   phase=$(jq -r '.phase' "$tmpdir/state.json")
   updated=$(jq -r '.updated_at' "$tmpdir/state.json")
@@ -487,7 +487,7 @@ test_quest_state_transition_rejects_plan_reviewed_to_building() {
 EOF
 
   local output rc phase
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building --expect-phase plan_reviewed 2>&1)
   rc=$?
   phase=$(jq -r '.phase' "$tmpdir/state.json")
   rm -rf "$tmpdir"
@@ -2469,6 +2469,12 @@ print("SUMMARY: planner dispatched after stale resume")
         "--expect-phase",
         "presenting",
     )
+    approved_state = json.loads((quest_dir / "state.json").read_text())
+    malformed_state = {**approved_state, "user_replan": "malformed"}
+    write_json(quest_dir / "state.json", malformed_state)
+    malformed = run("bash", validator, quest_dir, "building", expected=1)
+    assert "Current replan request is malformed" in malformed.stdout, context
+    write_json(quest_dir / "state.json", approved_state)
     run(
         sys.executable,
         state_cli,
@@ -2490,7 +2496,7 @@ PY
   return $rc
 }
 
-run_test test_quest_state_updates_phase_and_timestamp
+run_test test_quest_state_updates_metadata_and_timestamp
 run_test test_quest_state_transition_valid
 run_test test_quest_state_transition_invalid_leaves_state_unchanged
 run_test test_quest_state_transition_rejects_plan_reviewed_to_building

@@ -4,7 +4,7 @@ When starting, say: "Now I understand the Quest." Then proceed directly with the
 
 Follow these steps in order. After each step that modifies state, update `.quest/<id>/state.json`.
 
-**State update helper:** Use `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition <phase> ...` for state mutations instead of hand-editing `state.json`. The `--transition` flag validates the transition against `quest_validate-quest-state.sh` before writing — if validation fails, state.json is not modified. Use `--phase` only for non-transition updates (e.g., setting status without changing phase). Add `--expect-phase <current>` for concurrent transitions: validation runs outside the lock, then the final read, expected-phase check, mutation, and atomic replacement happen under the persistent sibling `state.json.lock`. **Recommended for all Codex-orchestrated transitions.**
+**State update helper:** Use `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition <phase> ... --expect-phase <current>` for state mutations instead of hand-editing `state.json`. The `--transition` flag validates the transition against `quest_validate-quest-state.sh` before writing. If validation fails, state.json is not modified. `--expect-phase` is required for every transition. Use `--phase` only to retain the current phase during a non-transition update, for example setting status without changing phase. Validation runs outside the lock, then the final read, expected-phase check, mutation, and atomic replacement happen under the persistent sibling `state.json.lock`.
 
 ### Defaults (Opinionated)
 
@@ -320,6 +320,7 @@ Walkthrough changes, Sharpen revisions, Build-gate rejection, and resumed instru
      ### Next
      <requested revisions>
      ```
+   - Build-gate rejection and resumed instructions reuse the Walkthrough template, with the corresponding `build_gate` or `resume_instruction` source in step 3.
 2. Seal reviewed iteration `N`:
    `python3 scripts/quest_plan_iteration.py snapshot --quest-dir .quest/<id> --iteration <N>`
 3. Record feedback before changing phase:

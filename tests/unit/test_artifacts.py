@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 import quest_runtime.claude_runner as claude_runner_module
+from quest_runtime.plan_iterations import PlanIterationError
 from quest_runtime.state import StateError
 from quest_runtime.artifacts import (
     ROLE_ARTIFACTS,
@@ -262,6 +263,29 @@ class TestPrepareArtifactFiles:
 
         with pytest.raises(StateError, match=r"state_error\[shape\]"):
             prepare_artifact_files([plan, handoff], quest_dir=quest_dir, role="planner")
+
+        assert (plan.read_bytes(), handoff.read_bytes()) == before
+
+    def test_padded_planner_role_still_verifies_predecessor_before_truncation(
+        self, tmp_path: Path
+    ):
+        quest_dir = tmp_path / "quest"
+        plan_dir = quest_dir / "phase_01_plan"
+        plan_dir.mkdir(parents=True)
+        (quest_dir / "state.json").write_text(
+            json.dumps({"phase": "plan", "plan_iteration": 2}),
+            encoding="utf-8",
+        )
+        plan = plan_dir / "plan.md"
+        handoff = plan_dir / "handoff.json"
+        plan.write_bytes(b"CURRENT PLAN\n")
+        handoff.write_bytes(b"CURRENT HANDOFF\n")
+        before = (plan.read_bytes(), handoff.read_bytes())
+
+        with pytest.raises(PlanIterationError, match="snapshot_unsealed"):
+            prepare_artifact_files(
+                [plan, handoff], quest_dir=quest_dir, role=" planner "
+            )
 
         assert (plan.read_bytes(), handoff.read_bytes()) == before
 

@@ -17,6 +17,13 @@ from quest_runtime.plan_iterations import (
 from quest_runtime.state import StateError
 
 
+def positive_integer(value: str) -> int:
+    iteration = int(value)
+    if iteration < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return iteration
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -28,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     ):
         subparser = subparsers.add_parser(command)
         subparser.add_argument("--quest-dir", required=True)
-        subparser.add_argument("--iteration", required=True, type=int)
+        subparser.add_argument("--iteration", required=True, type=positive_integer)
     return parser.parse_args()
 
 
