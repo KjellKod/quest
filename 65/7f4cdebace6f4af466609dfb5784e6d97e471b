@@ -1,0 +1,28 @@
+tests/unit/test_script_prefix_policy.py
+  s_7a8047aa8776d6::t_d470fc4966a49c 93-103,143-146
+  s_7a8047aa8776d6::t_5f1d03749c43e6 147-148
+tests/test-quest-runtime.sh
+  s_7a8047aa8776d6::t_d470fc4966a49c 955,985,1015,1083,1116,1148,1184,1213,1246,1282,1359,1386,1464,1495,1515-1549,1561,1568,1618,2885
+  s_7a8047aa8776d6::t_30071ead987db7 966,992,1022,1048,1059,1091,1123,1320,1427,1441,1471
+ideas/2026-07-25-codex-claude-transport-hardening.md
+  s_7a8047aa8776d6::t_2867112fdb58e5 25
+  s_7a8047aa8776d6::t_3e60016d763450 66,95,128,132,141
+scripts/quest_installer.sh
+  s_7a8047aa8776d6::t_c0ff74ba7ca1b5 149-152,186-188,570,574,660,663,668,671,674,1188,1207,1223,1247,1305,1384,1399,1413,1483,1495,1535,1606,1611
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "657f4cdebace6f4af466609dfb5784e6d97e471b",
+  "prompts": {},
+  "sessions": {
+    "s_7a8047aa8776d6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fccfa-5493-7bf0-9221-9ca083d9b629",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
