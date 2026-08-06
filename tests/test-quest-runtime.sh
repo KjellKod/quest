@@ -1514,37 +1514,87 @@ test_installer_source_only_migration_explains_manual_cleanup() {
 
 test_installer_installed_rename_success_is_manifest_section_agnostic() {
   local tmpdir
-  tmpdir=$(mktemp -d)
-  mkdir -p "$tmpdir/scripts"
-  printf 'legacy\n' > "$tmpdir/scripts/old.py"
-  printf 'new payload\n' > "$tmpdir/upstream.py"
+  local section
+  for section in user_customized merge_carefully; do
+    tmpdir=$(mktemp -d)
+    mkdir -p "$tmpdir/scripts"
+    printf 'legacy\n' > "$tmpdir/scripts/old.py"
+    printf 'new payload\n' > "$tmpdir/upstream.py"
 
-  (
-    cd "$tmpdir" || exit 1
-    load_installer_functions
-    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
-    SOURCE_ONLY_RENAMED_SCRIPT_DESTINATIONS=()
-    COPY_AS_IS=()
-    USER_CUSTOMIZED=("scripts/quest_new.py")
-    INSTALL_SUCCESS_FILES=()
-    DRY_RUN=false
-    FORCE_MODE=true
-    INSTALLER_INTERACTIVE_MODE=false
-    LOCAL_CHECKSUM_FILES=("scripts/old.py")
-    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
-    init_updated_checksums
-    fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+    (
+      cd "$tmpdir" || exit 1
+      load_installer_functions
+      RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+      SOURCE_ONLY_RENAMED_SCRIPT_DESTINATIONS=()
+      COPY_AS_IS=()
+      INSTALL_SUCCESS_FILES=()
+      DRY_RUN=false
+      FORCE_MODE=true
+      INSTALLER_INTERACTIVE_MODE=false
+      LOCAL_CHECKSUM_FILES=("scripts/old.py")
+      LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+      init_updated_checksums
+      fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
 
-    install_user_customized_file scripts/quest_new.py
-    cleanup_renamed_scripts
-    [ ! -e scripts/old.py ] &&
-      [ -f scripts/quest_new.py ] &&
-      ! has_updated_checksum scripts/old.py &&
-      has_updated_checksum scripts/quest_new.py
-  )
-  local rc=$?
-  rm -rf "$tmpdir"
-  return $rc
+      if [ "$section" = "user_customized" ]; then
+        install_user_customized_file scripts/quest_new.py
+      else
+        install_merge_carefully_file scripts/quest_new.py
+      fi
+      cleanup_renamed_scripts
+      [ ! -e scripts/old.py ] &&
+        [ -f scripts/quest_new.py ] &&
+        ! has_updated_checksum scripts/old.py
+    ) || {
+      rm -rf "$tmpdir"
+      return 1
+    }
+    rm -rf "$tmpdir"
+  done
+}
+
+test_installer_customized_sections_symlinked_destination_does_not_unlock_cleanup() {
+  local tmpdir
+  local section
+  for section in user_customized merge_carefully; do
+    tmpdir=$(mktemp -d)
+    mkdir -p "$tmpdir/scripts"
+    printf 'legacy\n' > "$tmpdir/scripts/old.py"
+    printf 'host payload\n' > "$tmpdir/host-target.py"
+    ln -s ../host-target.py "$tmpdir/scripts/quest_new.py"
+    cp "$tmpdir/host-target.py" "$tmpdir/upstream.py"
+
+    (
+      cd "$tmpdir" || exit 1
+      load_installer_functions
+      quiet_installer_logs
+      RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+      SOURCE_ONLY_RENAMED_SCRIPT_DESTINATIONS=()
+      INSTALL_SUCCESS_FILES=()
+      DRY_RUN=false
+      FORCE_MODE=true
+      INSTALLER_INTERACTIVE_MODE=false
+      LOCAL_CHECKSUM_FILES=("scripts/old.py")
+      LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+      init_updated_checksums
+      fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+
+      if [ "$section" = "user_customized" ]; then
+        install_user_customized_file scripts/quest_new.py
+      else
+        install_merge_carefully_file scripts/quest_new.py
+      fi
+      cleanup_renamed_scripts
+      [ -L scripts/quest_new.py ] &&
+        [ -f scripts/old.py ] &&
+        has_updated_checksum scripts/old.py &&
+        ! install_succeeded scripts/quest_new.py
+    ) || {
+      rm -rf "$tmpdir"
+      return 1
+    }
+    rm -rf "$tmpdir"
+  done
 }
 
 test_installer_broken_symlink_is_unsafe_and_preserved_noninteractively() {
@@ -2883,6 +2933,7 @@ run_test test_installer_broken_symlink_is_unsafe_and_preserved_noninteractively
 run_test test_installer_symlinked_parent_preserves_external_legacy_path
 run_test test_installer_source_only_migration_explains_manual_cleanup
 run_test test_installer_installed_rename_success_is_manifest_section_agnostic
+run_test test_installer_customized_sections_symlinked_destination_does_not_unlock_cleanup
 run_test test_installer_generic_cleanup_defers_registered_rename_paths
 run_test test_installer_new_path_checksum_survives_modified_old_preservation
 run_test test_installer_updates_pristine_agents_file_in_place

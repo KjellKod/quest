@@ -1370,8 +1370,14 @@ install_user_customized_file() {
   local upstream_checksum
   upstream_checksum=$(get_file_checksum "$temp_file")
 
+  if [ -L "$filepath" ] || { [ -e "$filepath" ] && [ ! -f "$filepath" ]; }; then
+    rm -f "$temp_file"
+    log_warn "Skipping non-regular or symlinked file: $filepath"
+    return 0
+  fi
+
   # Case 1: File does not exist locally - create it
-  if [ ! -f "$filepath" ]; then
+  if [ ! -e "$filepath" ]; then
     ensure_parent_dir "$filepath"
     if $DRY_RUN; then
       log_action "Create: $filepath (customize after install)"
@@ -1470,8 +1476,14 @@ install_merge_carefully_file() {
     return 0
   fi
 
+  if [ -L "$filepath" ] || { [ -e "$filepath" ] && [ ! -f "$filepath" ]; }; then
+    rm -f "$temp_file"
+    log_warn "Skipping non-regular or symlinked file: $filepath"
+    return 0
+  fi
+
   # Case 1: File does not exist locally - create it
-  if [ ! -f "$filepath" ]; then
+  if [ ! -e "$filepath" ]; then
     ensure_parent_dir "$filepath"
     if $DRY_RUN; then
       log_action "Create: $filepath"
