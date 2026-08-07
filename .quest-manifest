@@ -112,6 +112,7 @@ scripts/quest_runtime/__init__.py
 scripts/quest_runtime/artifacts.py
 scripts/quest_runtime/claude_runner.py
 scripts/quest_runtime/orchestration.py
+scripts/quest_runtime/plan_iterations.py
 scripts/quest_runtime/pr_review_cycle.py
 scripts/quest_runtime/pr_shepherd.py
 scripts/quest_runtime/quest_ids.py
@@ -132,6 +133,7 @@ scripts/quest_backfill_journal.py
 scripts/quest_complete.py
 scripts/quest_preflight.sh
 scripts/quest_state.py
+scripts/quest_plan_iteration.py
 
 [user-customized]
 # These files preserve local customizations; AGENTS.md updates in place only when

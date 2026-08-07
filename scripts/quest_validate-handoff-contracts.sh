@@ -118,6 +118,7 @@ echo ""
 echo "6. Checking helper scripts referenced in workflow.md exist on disk..."
 HELPER_SCRIPTS=(
   "scripts/quest_state.py"
+  "scripts/quest_plan_iteration.py"
   "scripts/quest_claude_bridge.py"
   "scripts/quest_claude_runner.py"
   "scripts/quest_claude_probe.py"
@@ -134,6 +135,30 @@ if [ "$MISSING_HELPERS" -eq 0 ]; then
   echo "   ✅ All ${#HELPER_SCRIPTS[@]} referenced helper scripts exist"
 else
   echo "   ❌ $MISSING_HELPERS helper script(s) missing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
+echo "7. Checking plan roles document typed iteration identity..."
+PLAN_ROLE_FILES=(
+  ".skills/quest/agents/planner.md"
+  ".skills/quest/agents/plan-reviewer.md"
+  ".skills/quest/agents/arbiter.md"
+)
+TYPED_ROLE_COUNT=0
+for role_file in "${PLAN_ROLE_FILES[@]}"; do
+  if grep -q '"plan_iteration"' "$role_file" &&
+     grep -q '"user_replan_generation"' "$role_file" &&
+     grep -q 'Set `plan_iteration` to the current `state.json.plan_iteration` integer' "$role_file" &&
+     grep -q 'Do not copy the literal example values below' "$role_file"; then
+    TYPED_ROLE_COUNT=$((TYPED_ROLE_COUNT + 1))
+  else
+    echo "   ❌ Missing dynamic typed plan identity instructions: $role_file"
+  fi
+done
+if [ "$TYPED_ROLE_COUNT" -eq "${#PLAN_ROLE_FILES[@]}" ]; then
+  echo "   ✅ All plan roles derive typed iteration identity from current state"
+else
   ERRORS=$((ERRORS + 1))
 fi
 

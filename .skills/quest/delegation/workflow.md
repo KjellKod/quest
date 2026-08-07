@@ -4,7 +4,7 @@ When starting, say: "Now I understand the Quest." Then proceed directly with the
 
 Follow these steps in order. After each step that modifies state, update `.quest/<id>/state.json`.
 
-**State update helper:** Use `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition <phase> ...` for state mutations instead of hand-editing `state.json`. The `--transition` flag validates the transition against `quest_validate-quest-state.sh` before writing — if validation fails, state.json is not modified. Use `--phase` only for non-transition updates (e.g., setting status without changing phase). Add `--expect-phase <current>` for concurrent transitions: validation runs outside the lock, then the final read, expected-phase check, mutation, and atomic replacement happen under the persistent sibling `state.json.lock`. **Recommended for all Codex-orchestrated transitions.**
+**State update helper:** Use `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition <phase> ... --expect-phase <current>` for state mutations instead of hand-editing `state.json`. The `--transition` flag validates the transition against `quest_validate-quest-state.sh` before writing. If validation fails, state.json is not modified. `--expect-phase` is required for every transition. Use `--phase` only to retain the current phase during a non-transition update, for example setting status without changing phase. Validation runs outside the lock, then the final read, expected-phase check, mutation, and atomic replacement happen under the persistent sibling `state.json.lock`.
 
 ### Defaults (Opinionated)
 
@@ -156,7 +156,7 @@ After any subagent completes, the orchestrator reads the agent's `handoff.json` 
 5. **Artifact preparation (before every role invocation):**
    Before invoking any role, the orchestrator MUST:
    1. Resolve artifact paths: `expected_artifacts_for_role(quest_dir, phase, agent)`
-   2. Prepare files: `prepare_artifact_files(paths)` — creates parent directories and truncates every resolved role-output path. Canonical files that must survive failed attempts MUST NOT be returned by `expected_artifacts_for_role`; use scratch paths and publish after validation instead.
+   2. Prepare files: `prepare_artifact_files(paths, quest_dir=quest_dir, role=agent)`, which creates parent directories and truncates every resolved role-output path. Planner preparation first verifies the sealed immediate predecessor. Canonical files that must survive failed attempts MUST NOT be returned by `expected_artifacts_for_role`; use scratch paths and publish after validation instead.
    3. Include in the role prompt:
       ```
       Artifact files have been prepared for you. Overwrite these files directly:
@@ -292,11 +292,52 @@ Runtime attribution rule (authoritative):
 
 This log is how we measure whether the handoff.json pattern is working. It is displayed to the user at quest completion (Step 7). If you skip logging, the compliance report will be incomplete.
 
+### Human Replan Contract
+
+Walkthrough changes, Sharpen revisions, Build-gate rejection, and resumed instructions that request plan changes use one procedure. Human intent takes precedence over stale approval, review, verdict, findings, backlog, or handoff artifacts. Let `N` be locked `state.json.plan_iteration`, and let `<current>` be `plan`, `plan_reviewed`, `presenting`, or `presentation_complete`.
+
+1. Write the user's current, non-empty feedback to a prepared input file. Do not write canonical `user_feedback.md` directly. Use the source-specific shape below so the Planner receives iteration and decision context:
+   - Walkthrough:
+     ```markdown
+     ## Change Request (Iteration <N+1>)
+     Date: <UTC timestamp>
+     Source phase: <current>
+
+     <user request verbatim>
+     ```
+   - Sharpen:
+     ```markdown
+     ## Sharpen Outcome (Iteration <N+1>)
+     Date: <UTC timestamp>
+     Source phase: <current>
+
+     ### Resolved
+     <resolved decisions>
+
+     ### Open
+     <remaining questions or none>
+
+     ### Next
+     <requested revisions>
+     ```
+   - Build-gate rejection and resumed instructions reuse the Walkthrough template, with the corresponding `build_gate` or `resume_instruction` source in step 3.
+2. Seal reviewed iteration `N`:
+   `python3 scripts/quest_plan_iteration.py snapshot --quest-dir .quest/<id> --iteration <N>`
+3. Record feedback before changing phase:
+   `python3 scripts/quest_state.py --quest-dir .quest/<id> --record-user-replan-feedback --source <walkthrough|sharpen|build_gate|resume_instruction> --feedback-file <prepared-input-file> --expect-phase <current>`
+4. Perform the explicit validated transition:
+   `python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan --status in_progress --expect-phase <current>`
+
+Never use `--phase`, never hand-edit `state.json`, and never treat a pre-existing `user_feedback.md` as authorization. The helper owns canonical feedback, generation, approval invalidation, and audit history. A human request is allowed when `plan_iteration` equals the automatic cap. The cap still stops another automatic Arbiter-driven iteration.
+
+The human path deliberately does not call `cleanup-current`. Current-generation identity checks prevent old handoffs from satisfying a gate. Planner, reviewer, and Arbiter preparation replace their own canonical outputs, while decision-specific findings, backlog, or refinement binding are republished before the next snapshot can require them. The automatic path still uses `cleanup-current` because it immediately re-enters Planner without a human lifecycle marker.
+
 ### Step 0: Resume Check
 
 If the user provides a quest ID matching either supported Quest ID format (`<slug>_YYYY-MM-DD__HHMM` or `YYYY-MM-DD_HHMM__<slug>`):
 
 1. Check if `.quest/<id>/state.json` exists
+1a. Before artifact-derived routing, inspect current user instructions and `state.user_replan`. A new resumed plan-change instruction uses the Human Replan Contract with `--source resume_instruction`. A pending request must be completed or rejected safely before any approval or Build route is considered.
 2. If yes, read it and resume from the recorded phase
 2a. **Parked-session check (cold restart):** if `state.json` contains `parked_bg_session`, a Claude role is still waiting on a human answer from a previous session. Before any other routing, re-present the pending questions (read them from that phase's handoff file) and continue the relay: collect the answer, then resume via `python3 scripts/quest_claude_runner.py ... --resume <session_id> --answer-file <answer_file>` per the needs_human relay steps. Do not fresh-dispatch that role, and do not sweep the parked session, while the marker is present.
 3. If the user also provided an instruction, route it (Step 2)
@@ -358,7 +399,9 @@ gates.max_plan_iterations (default: 4)
 
 **Loop:**
 
-0. **Clear stale handoff and scratch files:** If `plan_iteration >= 1` (i.e., any refinement pass after the first), delete any existing `handoff*.json` files in `.quest/<id>/phase_01_plan/` to prevent stale data from a previous iteration being read. Also delete stale arbiter scratch files (`arbiter_verdict.md.next`, `review_findings.json.next`, `review_backlog.json.next`) before each arbiter attempt. Do **not** truncate last-known-good canonical files (`arbiter_verdict.md`, `review_findings.json`, `review_backlog.json`) during cleanup.
+Before every Planner, Plan Reviewer, or Arbiter dispatch, read `.quest/<id>/state.json` and resolve the current plan identity. Inject this exact line into the prompt with actual JSON values, not expressions or example values: `Current plan identity: plan_iteration=<integer>; user_replan_generation=<integer|null>`. Each role must copy those resolved values into its handoff.
+
+0. **Verify before destructive preparation:** A completed predecessor must already be sealed. For human replans, run the Human Replan Contract before entering this loop. For automatic workflow refinement, use the seven-step order in item 6. `prepare_artifact_files(..., quest_dir=<quest>, role="planner")` verifies sealed `state.plan_iteration - 1` before truncating Planner outputs. Initial iteration 1 is the only predecessor exemption.
 
 1. **Update state:** `plan_iteration += 1`, `status: in_progress`, `last_role: planner_agent`
 
@@ -379,12 +422,13 @@ gates.max_plan_iterations (default: 4)
      - Deferred backlog matches (if present): `.quest/<id>/phase_01_plan/deferred_backlog_matches.json`
      - Arbiter verdict (iteration 2+): `.quest/<id>/phase_01_plan/arbiter_verdict.md`
      - User feedback (if present): `.quest/<id>/phase_01_plan/user_feedback.md`
+     - Current plan identity: `plan_iteration=<resolved integer>; user_replan_generation=<resolved integer|null>`
    - Require the prompt to include:
      - Artifact files have been prepared. Overwrite them directly:
        - `.quest/<id>/phase_01_plan/plan.md`
        - `.quest/<id>/phase_01_plan/handoff.json`
      - Do not create Quest artifacts via shell redirection, heredocs, or echo.
-     - handoff.json schema: `{"status", "artifacts", "next", "summary"}`
+     - handoff.json schema: `{"status", "artifacts", "next", "summary", "plan_iteration", "user_replan_generation"}`
      - End with: `---HANDOFF--- STATUS/ARTIFACTS/NEXT/SUMMARY`
      - `NEXT: plan_review`
    - Wait for the selected runtime to complete
@@ -425,6 +469,7 @@ gates.max_plan_iterations (default: 4)
 
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
+     Current plan identity: plan_iteration=<resolved integer>; user_replan_generation=<resolved integer|null>
 
      Artifact files have been prepared for you. Overwrite these files directly:
      - .quest/<id>/phase_01_plan/review_plan-reviewer-a.md
@@ -444,6 +489,7 @@ gates.max_plan_iterations (default: 4)
 
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
+     Current plan identity: plan_iteration=<resolved integer>; user_replan_generation=<resolved integer|null>
 
      List up to 5 issues, highest severity first.
 
@@ -473,6 +519,7 @@ gates.max_plan_iterations (default: 4)
 
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
+     Current plan identity: plan_iteration=<resolved integer>; user_replan_generation=<resolved integer|null>
 
      Write ONLY to these review artifact files (do NOT modify any source code):
      - .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
@@ -494,6 +541,7 @@ gates.max_plan_iterations (default: 4)
 
      Quest brief: .quest/<id>/quest_brief.md
      Plan to review: .quest/<id>/phase_01_plan/plan.md
+     Current plan identity: plan_iteration=<resolved integer>; user_replan_generation=<resolved integer|null>
 
      List up to 5 issues, highest severity first.
 
@@ -554,6 +602,7 @@ gates.max_plan_iterations (default: 4)
      Plan: .quest/<id>/phase_01_plan/plan.md
      Review A: .quest/<id>/phase_01_plan/review_plan-reviewer-a.md
      Review B: .quest/<id>/phase_01_plan/review_plan-reviewer-b.md
+     Current plan identity: plan_iteration=<resolved integer>; user_replan_generation=<resolved integer|null>
 
      Artifact files have been prepared for you. Overwrite these files directly:
      - .quest/<id>/phase_01_plan/arbiter_verdict.md.next
@@ -570,19 +619,15 @@ gates.max_plan_iterations (default: 4)
    - Immediately validate findings:
      - `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_01_plan/review_findings.json.next`
    - If findings validation fails:
-     - Retry arbiter exactly once with the validator stderr/stdout embedded in the retry prompt.
+     - Preserve the valid `arbiter_verdict.md.next` bytes and digest.
+     - Prepare and retry only `review_findings.json.next` and `handoff_arbiter.json`, with validator stderr/stdout embedded in the retry prompt. Runner-dispatched Claude retries must pass `--artifact-subset findings-only`; native or local role dispatch prepares the same declared two-file subset explicitly.
+     - Reject the retry if the preserved verdict bytes or digest changed.
      - Re-run `validate-findings` on the second attempt.
      - If validation still fails, STOP route:
        - Do **not** call `quest_state.py --transition plan_reviewed`.
        - Surface validator output in orchestrator logs/user message.
        - Keep canonical artifacts untouched; keep `.next` files for debugging.
-   - If arbiter handoff says `next: planner`:
-     - Skip `build-backlog` and skip review findings/backlog publish.
-     - Publish the validated verdict scratch artifact:
-       - `os.replace(".quest/<id>/phase_01_plan/arbiter_verdict.md.next", ".quest/<id>/phase_01_plan/arbiter_verdict.md")`
-     - Clean `review_findings.json.next` / `review_backlog.json.next` scratch files.
-     - Preserve canonical `review_findings.json` / `review_backlog.json`.
-     - Return control to planner refinement loop.
+   - If arbiter handoff says `next: planner`, do not promote transient findings or build a backlog. Item 6 owns refinement publication, snapshot, cleanup, increment, Planner preparation, and exact binding verification.
    - If arbiter handoff says `next: builder` and findings validation passed:
      - Build backlog from validated findings:
        - `python3 scripts/quest_review_intelligence.py build-backlog --phase plan --findings .quest/<id>/phase_01_plan/review_findings.json.next --output .quest/<id>/phase_01_plan/review_backlog.json.next`
@@ -602,7 +647,24 @@ gates.max_plan_iterations (default: 4)
    - If `NEXT: planner` → Check iteration count
      - If `plan_iteration >= max_plan_iterations`: Warn user, ask to proceed anyway or review manually
      - If `auto_approve_phases.plan_refinement` is false: Ask user to approve refinement
-     - Otherwise: Loop back to step 0 (stale handoff/scratch cleanup)
+     - At this workflow-mode gate, complete the refinement round or run `publish-refinement` before using the Human Replan Contract. Its snapshot, record, and transition commands fail closed until reviewed iteration `N` has a published refinement binding.
+     - Otherwise, in workflow mode while state still names reviewed iteration `N`, run exactly:
+       1. `python3 scripts/quest_plan_iteration.py publish-refinement --quest-dir .quest/<id> --iteration <N>`
+       2. `python3 scripts/quest_plan_iteration.py snapshot --quest-dir .quest/<id> --iteration <N>`
+       3. `python3 scripts/quest_plan_iteration.py cleanup-current --quest-dir .quest/<id> --iteration <N>`
+       4. Increment state once from `N` to `N+1` through `quest_state.py --plan-iteration <N+1>`.
+       5. Prepare Planner outputs with explicit quest and role context. This verifies sealed predecessor `N` before truncation.
+       6. `python3 scripts/quest_plan_iteration.py verify-refinement --quest-dir .quest/<id> --iteration <N+1>`
+       7. Dispatch Planner with the verified binding. Its handoff must echo the source iteration and verdict digest.
+
+     - In solo mode, Reviewer A's typed `next: planner` decision replaces the Arbiter decision. Run exactly:
+       1. `python3 scripts/quest_plan_iteration.py snapshot --quest-dir .quest/<id> --iteration <N>`
+       2. `python3 scripts/quest_plan_iteration.py cleanup-current --quest-dir .quest/<id> --iteration <N>`
+       3. Increment state once from `N` to `N+1` through `quest_state.py --plan-iteration <N+1>`.
+       4. Prepare Planner outputs with explicit quest and role context. This verifies sealed predecessor `N` before truncation.
+       5. Dispatch Planner with current Reviewer A input and typed plan identity.
+
+       Solo mode skips `publish-refinement` and `verify-refinement`. It never requires Arbiter artifacts or `refinement_binding.json`.
 
 - **UI work:** see [UI Work Propagation](#ui-work-propagation-cross-cutting--applies-to-every-phase) at the top of this file — the rule is uniform across phases.
 
@@ -732,32 +794,10 @@ After plan approval, present the plan interactively before proceeding to build.
    - **Sharpen entry** (from substep 3's option 2 when sharpen surfaced revisions): the structured sharpen output is the change request.
 
    Steps:
-   a. (Walkthrough entry only) Prompt the user: "Please describe the changes you'd like:" and record their response verbatim.
-   b. Append to `.quest/<id>/phase_01_plan/user_feedback.md`:
-      - **Walkthrough format:**
-        ```
-        ## Change Request (Iteration <plan_iteration + 1>)
-        Date: <timestamp>
-        Phase: <current phase number or "General">
-        Request: <user's change request verbatim>
-        ```
-      - **Sharpen format:**
-        ```
-        ## Sharpen Outcome (Iteration <plan_iteration + 1>)
-        Date: <timestamp>
-
-        Resolved:
-        <sharpen "Resolved" block verbatim>
-
-        Open:
-        <sharpen "Open" block verbatim>
-
-        Next:
-        <sharpen "Next" block verbatim>
-        ```
-   c. **Update state:** `phase: plan`, `status: in_progress`
-   d. Display: "Re-running plan with your feedback..."
-   e. Return to Step 3, item 1:
+   a. Walkthrough only: prompt "Please describe the changes you'd like:" and record the response verbatim in a prepared input file. Sharpen writes its Resolved, Open, and Next blocks to that same kind of prepared input.
+   b. Run the Human Replan Contract. Use `--source walkthrough` or `--source sharpen`. The helper records canonical feedback before the validated transition.
+   c. Display: "Re-running plan with your feedback..."
+   d. Return to Step 3, item 1:
       - Planner will be invoked with user_feedback.md referenced (per Step 3, item 2 — Planner invocation above)
       - plan_iteration increments as normal
       - Full review cycle (Claude slot A + Codex slot B + Arbiter) runs
@@ -770,6 +810,7 @@ After plan approval, present the plan interactively before proceeding to build.
 - If false (default): You MUST ask the user "Plan approved. Proceed with implementation?" and then STOP and wait for the human to respond. Do not proceed until the human explicitly says yes. Do not assume approval. Do not auto-approve.
 - If true: You may proceed without asking
 - **If you have not received explicit human approval from Step 3.5 or this gate, STOP NOW and ask.**
+- If the human rejects Build with requested plan changes, run the Human Replan Contract with `--source build_gate`. If implementation is auto-approved, a late change from `presentation_complete` is a resumed instruction and uses `--source resume_instruction`.
 
 **Build:**
 

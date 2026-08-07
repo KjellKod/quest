@@ -91,6 +91,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cwd", default=".")
     parser.add_argument("--add-dir", action="append", default=[])
     parser.add_argument(
+        "--artifact-subset",
+        choices=["findings-only"],
+        help="Prepare only the declared role output subset for a focused retry.",
+    )
+    parser.add_argument(
         "--resume", help="background-agent session id/short id/name to resume"
     )
     parser.add_argument(
@@ -142,6 +147,7 @@ def main() -> int:
             quest_dir=args.quest_dir,
             phase=args.phase,
             agent=args.agent,
+            artifact_subset=args.artifact_subset,
         )
     except ValueError as exc:
         payload = {

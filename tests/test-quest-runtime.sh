@@ -202,7 +202,7 @@ stub_installer_run_install_steps() {
   clear_progress() { :; }
 }
 
-test_quest_state_updates_phase_and_timestamp() {
+test_quest_state_updates_metadata_and_timestamp() {
   local tmpdir
   tmpdir=$(mktemp -d)
   cat > "$tmpdir/state.json" <<EOF
@@ -220,7 +220,7 @@ test_quest_state_updates_phase_and_timestamp() {
 EOF
 
   local output
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --phase plan_reviewed --status complete --plan-iteration 1 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --status complete --plan-iteration 1 2>&1)
   local rc=$?
   local phase status iter updated
   phase=$(jq -r '.phase' "$tmpdir/state.json")
@@ -230,11 +230,11 @@ EOF
   rm -rf "$tmpdir"
 
   [ "$rc" -eq 0 ] &&
-    [ "$phase" = "plan_reviewed" ] &&
+    [ "$phase" = "plan" ] &&
     [ "$status" = "complete" ] &&
     [ "$iter" = "1" ] &&
     [ "$updated" != "2026-01-01T00:00:00Z" ] &&
-    echo "$output" | grep -q '"phase": "plan_reviewed"'
+    echo "$output" | grep -q '"phase": "plan"'
 }
 
 test_quest_claude_runner_polls_handoff_and_logs_runtime() {
@@ -426,7 +426,7 @@ EOF
 EOF
 
   local output rc phase updated
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition presenting --status in_progress 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition presenting --status in_progress --expect-phase plan_reviewed 2>&1)
   rc=$?
   phase=$(jq -r '.phase' "$tmpdir/state.json")
   updated=$(jq -r '.updated_at' "$tmpdir/state.json")
@@ -455,7 +455,7 @@ test_quest_state_transition_invalid_leaves_state_unchanged() {
 EOF
 
   local output rc phase updated
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building --expect-phase building 2>&1)
   rc=$?
   phase=$(jq -r '.phase' "$tmpdir/state.json")
   updated=$(jq -r '.updated_at' "$tmpdir/state.json")
@@ -487,7 +487,7 @@ test_quest_state_transition_rejects_plan_reviewed_to_building() {
 EOF
 
   local output rc phase
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building --expect-phase plan_reviewed 2>&1)
   rc=$?
   phase=$(jq -r '.phase' "$tmpdir/state.json")
   rm -rf "$tmpdir"
@@ -2624,9 +2624,8 @@ attempt_file.write_text(str(attempt), encoding="utf-8")
 verdict_path = phase_dir / "arbiter_verdict.md.next"
 findings_path = phase_dir / "review_findings.json.next"
 handoff_path = phase_dir / "handoff_arbiter.json"
-verdict_path.write_text(f"arbiter attempt {attempt}\n", encoding="utf-8")
-
 if attempt == 1:
+    verdict_path.write_text(f"arbiter attempt {attempt}\n", encoding="utf-8")
     findings_path.write_text('[{"id":"bad-shape"}]\n', encoding="utf-8")
 else:
     findings_path.write_text(
@@ -2726,9 +2725,14 @@ PY
   backlog_snapshot_before=$(stat_snapshot "$backlog_file")
 
   local attempts=0 retries=0 validated=false
+  local verdict_retry_snapshot=""
   local published=false
   while [ "$attempts" -lt 3 ]; do
     local output runner_rc result_kind
+    local subset_args=()
+    if [ "$attempts" -gt 0 ]; then
+      subset_args=(--artifact-subset findings-only)
+    fi
     output=$(python3 "$CLAUDE_RUNNER" \
       --quest-dir "$tmpdir" \
       --phase plan_review \
@@ -2739,6 +2743,7 @@ PY
       --model claude \
       --transport bridge \
       --bridge-script "$tmpdir/fake_arbiter_bridge.py" \
+      "${subset_args[@]}" \
       --cwd "$REPO_ROOT" 2>&1)
     runner_rc=$?
     result_kind=$(printf '%s' "$output" | jq -r '.result_kind')
@@ -2757,6 +2762,7 @@ PY
       break
     fi
     record_event validate result=fail attempt="$attempts"
+    verdict_retry_snapshot=$(stat_snapshot "$verdict_next")
 
     retries=$((retries + 1))
     [ "$(cat "$verdict_file")" = "$canonical_verdict_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
@@ -2769,6 +2775,7 @@ PY
   [ "$attempts" -eq 2 ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   [ "$retries" -eq 1 ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   [ "$(cat "$phase_dir/arbiter_attempt.txt")" = "2" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  [ "$(stat_snapshot "$verdict_next")" = "$verdict_retry_snapshot" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
 
   python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" build-backlog --phase plan --findings "$findings_next" --output "$backlog_next" >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-backlog --input "$backlog_next" --expected-phase plan --strict-plan-defaults >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
@@ -2889,7 +2896,357 @@ PY
   return $rc
 }
 
-run_test test_quest_state_updates_phase_and_timestamp
+test_human_replan_sources_require_current_identity_before_build() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  PYTHONPATH="$REPO_ROOT/scripts" python3 - "$tmpdir" "$REPO_ROOT" <<'PY'
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+repo = Path(sys.argv[2])
+state_cli = repo / "scripts" / "quest_state.py"
+iteration_cli = repo / "scripts" / "quest_plan_iteration.py"
+validator = repo / "scripts" / "quest_validate-quest-state.sh"
+
+
+def write_json(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+
+
+context = "uninitialized"
+
+
+def run(*args, expected=0):
+    result = subprocess.run(
+        [str(arg) for arg in args], cwd=repo, capture_output=True, text=True
+    )
+    assert result.returncode == expected, (
+        context,
+        args,
+        result.stdout,
+        result.stderr,
+    )
+    return result
+
+
+def handoff(iteration, generation, next_role="builder"):
+    return {
+        "status": "complete",
+        "artifacts": ["artifact.md"],
+        "next": next_role,
+        "summary": "fixture",
+        "plan_iteration": iteration,
+        "user_replan_generation": generation,
+    }
+
+
+def empty_backlog():
+    return {
+        "version": 1,
+        "generated_at": "2026-08-04T00:00:00Z",
+        "phase": "plan",
+        "at_loop_cap": False,
+        "allowed_decisions": [
+            "fix_now",
+            "verify_first",
+            "defer",
+            "drop",
+            "needs_human_decision",
+        ],
+        "counts": {
+            "fix_now": 0,
+            "verify_first": 0,
+            "defer": 0,
+            "drop": 0,
+            "needs_human_decision": 0,
+        },
+        "items": [],
+    }
+
+
+def seal_iteration(quest_dir):
+    history = quest_dir / "history" / "plan" / "iteration-0004"
+    history.mkdir(parents=True)
+    plan = b"# Sealed plan\n"
+    (history / "plan.md").write_bytes(plan)
+    manifest = {
+        "version": 1,
+        "iteration": 4,
+        "files": {
+            "plan.md": {
+                "source": "plan.md",
+                "size": len(plan),
+                "sha256": hashlib.sha256(plan).hexdigest(),
+            }
+        },
+    }
+    manifest_bytes = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
+    (history / "snapshot.json").write_bytes(manifest_bytes)
+    (history / "snapshot.sha256").write_text(
+        hashlib.sha256(manifest_bytes).hexdigest() + "\n", encoding="ascii"
+    )
+
+
+scenarios = (
+    ("walkthrough", "presenting"),
+    ("sharpen", "presenting"),
+    ("build_gate", "presentation_complete"),
+    ("resume_instruction", "plan_reviewed"),
+)
+for mode in ("workflow", "solo"):
+  for source, phase in scenarios:
+    context = f"mode={mode}, source={source}, phase={phase}"
+    quest_dir = root / mode / source
+    plan_dir = quest_dir / "phase_01_plan"
+    plan_dir.mkdir(parents=True)
+    write_json(
+        quest_dir / "state.json",
+        {
+            "phase": phase,
+            "status": "complete",
+            "quest_mode": mode,
+            "plan_iteration": 4,
+            "fix_iteration": 0,
+            "last_verdict": "approve",
+            "approval_invalidated": False,
+        },
+    )
+    write_json(
+        quest_dir / "orchestration.json",
+        {
+            "version": 1,
+            "models": {
+                "planner": "gpt-5.6-sol",
+                "plan-reviewer-a": "claude-opus-5",
+                "plan-reviewer-b": "gpt-5.6-terra",
+                "arbiter": "claude-opus-5",
+                "builder": "gpt-5.6-sol",
+                "code-reviewer-a": "claude-opus-5",
+                "code-reviewer-b": "gpt-5.6-terra",
+                "review-arbiter": "claude-opus-5",
+                "fixer": "gpt-5.6-terra",
+            },
+            "source": "default",
+            "overridden_roles": [],
+            "preflight_validated_at": "2026-08-04T00:00:00Z",
+        },
+    )
+    seal_iteration(quest_dir)
+    (plan_dir / "plan.md").write_text("# Old plan\n", encoding="utf-8")
+    (plan_dir / "review_plan-reviewer-a.md").write_text(
+        "Approved\n", encoding="utf-8"
+    )
+    write_json(plan_dir / "handoff.json", handoff(4, None))
+    write_json(plan_dir / "handoff_plan-reviewer-a.json", handoff(4, None))
+    if mode == "workflow":
+        (plan_dir / "review_plan-reviewer-b.md").write_text(
+            "Approved\n", encoding="utf-8"
+        )
+        write_json(plan_dir / "handoff_plan-reviewer-b.json", handoff(4, None))
+        (plan_dir / "arbiter_verdict.md").write_text("APPROVE\n", encoding="utf-8")
+        write_json(plan_dir / "handoff_arbiter.json", handoff(4, None))
+        write_json(plan_dir / "review_findings.json", [])
+        write_json(plan_dir / "review_backlog.json", empty_backlog())
+    feedback = quest_dir / "prepared.md"
+    feedback.write_text(f"Revise through {source}.\n", encoding="utf-8")
+
+    run(
+        sys.executable,
+        iteration_cli,
+        "snapshot",
+        "--quest-dir",
+        quest_dir,
+        "--iteration",
+        4,
+    )
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--record-user-replan-feedback",
+        "--source",
+        source,
+        "--feedback-file",
+        feedback,
+        "--expect-phase",
+        phase,
+    )
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--transition",
+        "plan",
+        "--status",
+        "in_progress",
+        "--expect-phase",
+        phase,
+    )
+    state = json.loads((quest_dir / "state.json").read_text())
+    assert state["phase"] == "plan" and state["plan_iteration"] == 4, context
+    assert state["user_replan"]["lifecycle"] == "planning", context
+    assert state["approval_invalidated"] is True, context
+    stale = run("bash", validator, quest_dir, "plan_reviewed", expected=1)
+    assert "missing or stale" in stale.stdout, context
+
+    run(sys.executable, state_cli, "--quest-dir", quest_dir, "--plan-iteration", 5)
+    if source == "resume_instruction" and mode == "workflow":
+        prompt = plan_dir / "planner_prompt.txt"
+        bridge = quest_dir / "fake_planner_bridge.py"
+        marker = quest_dir / "planner_dispatched"
+        prompt.write_text("Dispatch revised Planner.\n", encoding="utf-8")
+        bridge.write_text(
+            """#!/usr/bin/env python3
+import json
+import pathlib
+import sys
+
+args = sys.argv[1:]
+prompt = pathlib.Path(args[args.index("--prompt-file") + 1])
+plan_dir = prompt.parent
+(plan_dir / "plan.md").write_text("# Revised resumed plan\\n", encoding="utf-8")
+(plan_dir / "handoff.json").write_text(
+    json.dumps({
+        "status": "complete",
+        "artifacts": [str(plan_dir / "plan.md")],
+        "next": "plan_review",
+        "summary": "planner dispatched after stale resume",
+        "plan_iteration": 5,
+        "user_replan_generation": 1,
+    }),
+    encoding="utf-8",
+)
+(plan_dir.parent / "planner_dispatched").write_text("yes", encoding="utf-8")
+print("---HANDOFF---")
+print("STATUS: complete")
+print(f"ARTIFACTS: {plan_dir / 'plan.md'}")
+print("NEXT: plan_review")
+print("SUMMARY: planner dispatched after stale resume")
+""",
+            encoding="utf-8",
+        )
+        bridge.chmod(0o755)
+        dispatch = run(
+            sys.executable,
+            repo / "scripts" / "quest_claude_runner.py",
+            "--quest-dir",
+            quest_dir,
+            "--phase",
+            "plan",
+            "--agent",
+            "planner",
+            "--iter",
+            "5",
+            "--prompt-file",
+            prompt,
+            "--handoff-file",
+            plan_dir / "handoff.json",
+            "--model",
+            "claude",
+            "--transport",
+            "bridge",
+            "--bridge-script",
+            bridge,
+            "--cwd",
+            repo,
+        )
+        assert marker.read_text(encoding="utf-8") == "yes", context
+        assert json.loads(dispatch.stdout)["exit_code"] == 0, context
+    else:
+        write_json(plan_dir / "handoff.json", handoff(5, 1, "plan_review"))
+    reviewer_a_next = "builder" if mode == "solo" else "arbiter"
+    write_json(
+        plan_dir / "handoff_plan-reviewer-a.json",
+        handoff(5, 1, reviewer_a_next),
+    )
+    (plan_dir / "review_plan-reviewer-a.md").write_text(
+        "Revised plan approved\n", encoding="utf-8"
+    )
+    if mode == "workflow":
+        write_json(
+            plan_dir / "handoff_plan-reviewer-b.json", handoff(5, 1, "arbiter")
+        )
+        (plan_dir / "review_plan-reviewer-b.md").write_text(
+            "Revised plan approved\n", encoding="utf-8"
+        )
+        write_json(plan_dir / "handoff_arbiter.json", handoff(5, 1, "builder"))
+        (plan_dir / "arbiter_verdict.md").write_text(
+            "VERDICT: APPROVE\n", encoding="utf-8"
+        )
+        write_json(plan_dir / "review_findings.json", [])
+        write_json(plan_dir / "review_backlog.json", empty_backlog())
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--transition",
+        "plan_reviewed",
+        "--status",
+        "complete",
+        "--expect-phase",
+        "plan",
+    )
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--transition",
+        "presenting",
+        "--status",
+        "in_progress",
+        "--expect-phase",
+        "plan_reviewed",
+    )
+    run("bash", validator, quest_dir, "building", expected=1)
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--transition",
+        "presentation_complete",
+        "--status",
+        "complete",
+        "--expect-phase",
+        "presenting",
+    )
+    approved_state = json.loads((quest_dir / "state.json").read_text())
+    malformed_state = {**approved_state, "user_replan": "malformed"}
+    write_json(quest_dir / "state.json", malformed_state)
+    malformed = run("bash", validator, quest_dir, "building", expected=1)
+    assert "Current replan request is malformed" in malformed.stdout, context
+    write_json(quest_dir / "state.json", approved_state)
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--transition",
+        "building",
+        "--status",
+        "in_progress",
+        "--expect-phase",
+        "presentation_complete",
+    )
+    final = json.loads((quest_dir / "state.json").read_text())
+    assert final["phase"] == "building", context
+    assert final["user_replan"]["lifecycle"] == "presentation_approved", context
+PY
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+run_test test_quest_state_updates_metadata_and_timestamp
 run_test test_quest_state_transition_valid
 run_test test_quest_state_transition_invalid_leaves_state_unchanged
 run_test test_quest_state_transition_rejects_plan_reviewed_to_building
@@ -2908,6 +3265,7 @@ run_test test_quest_startup_branch_invalid_slug_preserves_requested_mode
 run_test test_quest_startup_branch_exception_handler_tolerates_missing_git
 run_test test_plan_review_retry_harness_preserves_canonical_artifacts_until_publish
 run_test test_plan_review_retry_via_runner_preserves_canonical_artifacts_until_publish
+run_test test_human_replan_sources_require_current_identity_before_build
 run_test test_workflow_documents_no_vcs_review_path
 run_test test_workflow_documents_arbiter_validate_build_publish_contract
 run_test test_installer_update_branch_uses_base_name_when_free

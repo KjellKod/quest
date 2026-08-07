@@ -89,6 +89,89 @@ EOF
   fi
 }
 
+write_current_replan() {
+  local dir="$1"
+  local phase="$2"
+  local mode="${3:-workflow}"
+  local feedback="${4:-Please revise the plan.}"
+  create_state_json "$dir" "$phase" 4 0 "$mode"
+  mkdir -p "$dir/phase_01_plan"
+  printf '%s\n' "$feedback" > "$dir/phase_01_plan/user_feedback.md"
+  python3 - "$dir/state.json" "$phase" "$feedback" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+state = json.loads(path.read_text())
+feedback = (sys.argv[3] + "\n").encode()
+state["user_replan_generation"] = 3
+state["approval_invalidated"] = True
+state["user_replan"] = {
+    "generation": 3,
+    "source": "walkthrough",
+    "source_phase": sys.argv[2],
+    "source_plan_iteration": 4,
+    "requested_plan_iteration": 5,
+    "feedback_sha256": hashlib.sha256(feedback).hexdigest(),
+    "lifecycle": "recorded",
+}
+path.write_text(json.dumps(state))
+PY
+}
+
+test_supported_human_replan_edges_require_current_feedback() {
+  local phase mode tmpdir output rc
+  for mode in workflow solo; do
+    for phase in plan_reviewed presenting presentation_complete; do
+      tmpdir=$(mktemp -d)
+      write_current_replan "$tmpdir" "$phase" "$mode"
+      output=$(bash "$SCRIPT" "$tmpdir" plan 2>&1)
+      rc=$?
+      rm -rf "$tmpdir"
+      if [ "$rc" -ne 0 ] || ! echo "$output" | grep -q "feedback belongs to the current request"; then
+        echo "mode=$mode phase=$phase: $output"
+        return 1
+      fi
+    done
+  done
+}
+
+test_human_replan_rejects_stale_feedback() {
+  local tmpdir output rc
+  tmpdir=$(mktemp -d)
+  write_current_replan "$tmpdir" presenting workflow
+  printf '%s\n' "A different old request." > "$tmpdir/phase_01_plan/user_feedback.md"
+  output=$(bash "$SCRIPT" "$tmpdir" plan 2>&1)
+  rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "feedback_stale"
+}
+
+test_revised_build_rejects_stale_approval_artifacts() {
+  local tmpdir output rc
+  tmpdir=$(mktemp -d)
+  write_current_replan "$tmpdir" presentation_complete workflow
+  mkdir -p "$tmpdir/phase_01_plan"
+  printf '%s\n' "# Revised plan" > "$tmpdir/phase_01_plan/plan.md"
+  printf '%s\n' '{"status":"complete","next":"builder"}' > "$tmpdir/phase_01_plan/handoff_arbiter.json"
+  python3 - "$tmpdir/state.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+state = json.loads(path.read_text())
+state["user_replan"]["lifecycle"] = "reviewed"
+path.write_text(json.dumps(state))
+PY
+  output=$(bash "$SCRIPT" "$tmpdir" building 2>&1)
+  rc=$?
+  rm -rf "$tmpdir"
+  [ "$rc" -eq 1 ] && echo "$output" | grep -q "expected 'presentation_approved'"
+}
+
 write_valid_review_findings() {
   local filepath="$1"
   cat > "$filepath" <<EOF
@@ -1586,6 +1669,9 @@ echo ""
 
 run_test test_missing_state_json
 run_test test_invalid_json
+run_test test_supported_human_replan_edges_require_current_feedback
+run_test test_human_replan_rejects_stale_feedback
+run_test test_revised_build_rejects_stale_approval_artifacts
 run_test test_valid_plan_to_plan_reviewed
 run_test test_valid_plan_to_plan_reviewed_solo_without_findings
 run_test test_missing_artifact_plan_to_plan_reviewed

@@ -25,7 +25,8 @@ from quest_runtime.artifacts import (
     prepare_artifact_files,
 )
 from quest_runtime.orchestration import runtime_for_model
-from quest_runtime.state import utc_now_iso
+from quest_runtime.plan_iterations import PlanIterationError
+from quest_runtime.state import StateError, utc_now_iso
 
 
 @dataclass
@@ -676,7 +677,20 @@ def run_claude_role(
     # and turns a successfully answered relay into handoff_missing/incomplete.
     if resolved_artifact_paths and not permission_escalation and resume is None:
         try:
-            prepare_artifact_files(resolved_artifact_paths)
+            prepare_artifact_files(
+                resolved_artifact_paths,
+                quest_dir=resolved_quest_dir,
+                role=agent,
+            )
+        except (PlanIterationError, StateError) as exc:
+            return RunResult(
+                exit_code=1,
+                handoff_state="missing",
+                result_kind="invocation_error",
+                source=None,
+                stdout="",
+                stderr=str(exc),
+            )
         except OSError as exc:
             failure_kind = (
                 "write_boundary"
@@ -1136,7 +1150,9 @@ def run_bridge_probe(
     prompt_file = probe_dir / "probe_prompt.txt"
     artifact_file = probe_dir / "probe_artifact.txt"
     handoff_file = probe_dir / "probe_handoff.json"
-    prepare_artifact_files([artifact_file, handoff_file])
+    prepare_artifact_files(
+        [artifact_file, handoff_file], quest_dir=resolved_quest_dir, role="probe"
+    )
     _write_probe_prompt(prompt_file, artifact_file, handoff_file)
 
     cmd = build_bridge_cmd(
@@ -1220,7 +1236,9 @@ def run_bg_probe(
     prompt_file = probe_dir / "probe_prompt.txt"
     artifact_file = probe_dir / "probe_artifact.txt"
     handoff_file = probe_dir / "probe_handoff.json"
-    prepare_artifact_files([artifact_file, handoff_file])
+    prepare_artifact_files(
+        [artifact_file, handoff_file], quest_dir=resolved_quest_dir, role="probe"
+    )
     _write_probe_prompt(prompt_file, artifact_file, handoff_file)
 
     cmd = build_bg_cmd(
