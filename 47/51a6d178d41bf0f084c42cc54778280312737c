@@ -1,0 +1,26 @@
+ideas/quest-policy-canonicalization-and-enforcement-roadmap.md
+  s_7a8047aa8776d6::t_0967bc1d684102 77
+.skills/quest/SKILL.md
+  s_7a8047aa8776d6::t_0967bc1d684102 291
+.quest-checksums
+  s_7a8047aa8776d6::t_2fe3b1c3adb886 54
+tests/unit/test_script_prefix_policy.py
+  s_7a8047aa8776d6::t_0967bc1d684102 118-124,126,134-135,138-141
+  s_7a8047aa8776d6::t_39f0eca8cf278e 10-22,117,125,127-133,136-137,142-151,216-220
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "4751a6d178d41bf0f084c42cc54778280312737c",
+  "prompts": {},
+  "sessions": {
+    "s_7a8047aa8776d6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fccfa-5493-7bf0-9221-9ca083d9b629",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
