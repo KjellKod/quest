@@ -1,0 +1,81 @@
+.ai/quest.md
+  s_7a8047aa8776d6::t_31f04f52d82ad5 66-77,115,118-119,122-123
+.quest-checksums
+  s_7a8047aa8776d6::t_2dcdc3aefe0f54 5-8,10,14,16,18-23,29,31,33-38,40-51,55-61,63-64,66-67,71-72,75,78,80,82-89,91-92
+.quest-manifest
+  s_7a8047aa8776d6::t_29150240fe4d94 115,136
+.skills/quest/agents/arbiter.md
+  s_7a8047aa8776d6::t_c6e91ec868ac54 16-18,44,110-111,121-123,133
+.skills/quest/agents/plan-reviewer.md
+  s_7a8047aa8776d6::t_c4d15e116602c3 37-39,63-64,74-76
+.skills/quest/agents/planner.md
+  s_7a8047aa8776d6::t_d54725f213880b 23,26-28,66-67,74-78
+.skills/quest/delegation/workflow.md
+  s_7a8047aa8776d6::t_6bec13fba5a1c0 7,159,295-334,340,402-404,425,431,472,492,522,544,605,622-624,630,650-667,797-800,813
+README.md
+  s_7a8047aa8776d6::t_5254e8f6c05f65 166
+docs/quest-journal/README.md
+  s_7a8047aa8776d6::t_c0d501546e0328 9
+docs/quest-journal/celebrations/prebuild-replanning-contract-r2_2026-08-05.md
+  s_7a8047aa8776d6::t_dd28c6c290b090 1-81
+docs/quest-journal/prebuild-replanning-contract-r2_2026-08-05.md
+  s_7a8047aa8776d6::t_5a146d6050644f 1-168
+ideas/2026-08-04-bug-reporting-automatic-plan-refinement-feedback-loss.md
+  s_7a8047aa8776d6::t_6a293db9a3d1b4 1-39
+scripts/README.md
+  s_7a8047aa8776d6::t_5d831ad5f24184 19,21,40-46,54-56
+scripts/quest_claude_runner.py
+  s_7a8047aa8776d6::t_66caa817864deb 93-97,150
+scripts/quest_plan_iteration.py
+  s_7a8047aa8776d6::t_42ec4273ae9ccf 1-63
+scripts/quest_runtime/__init__.py
+  s_7a8047aa8776d6::t_4b7ac2edf08b36 48-55,71,78,96-97,101-102
+scripts/quest_runtime/artifacts.py
+  s_7a8047aa8776d6::t_fa3b11786399e5 59-65,94,107-114,127-145
+scripts/quest_runtime/claude_runner.py
+  s_7a8047aa8776d6::t_4be7a0d39dab17 28-29,680-693,1153-1155,1239-1241
+scripts/quest_runtime/plan_iterations.py
+  s_7a8047aa8776d6::t_6c73b90b8aa031 1-525
+scripts/quest_runtime/state.py
+  s_7a8047aa8776d6::t_ecceb9442463f2 6,34-57,121-374,402-420
+scripts/quest_state.py
+  s_7a8047aa8776d6::t_932d250f98d8ba 6-7,9,30,32-33,74,81-91,147-154,156,161-209,240,249-263,270-272
+scripts/quest_validate-handoff-contracts.sh
+  s_7a8047aa8776d6::t_a080e533a2229c 121,141-164
+scripts/quest_validate-quest-state.sh
+  s_7a8047aa8776d6::t_fe511796875c8c 248-250,328-391,940-957
+tests/test-quest-orchestration.sh
+  s_7a8047aa8776d6::t_bc4f8596871a87 16,1095-1259,1300
+tests/test-quest-runtime.sh
+  s_7a8047aa8776d6::t_86ee0dd97f9e83 205,223,233,237,429,458,490,2628,2728,2732-2735,2746,2765,2778,2899-3249,3268
+tests/test-validate-handoff-contracts.sh
+  s_7a8047aa8776d6::t_1808e7043dabb6 38-45,48
+tests/test-validate-quest-state.sh
+  s_7a8047aa8776d6::t_2636f753ec331a 92-174,1672-1674
+tests/unit/test_artifacts.py
+  s_7a8047aa8776d6::t_695999fb4fa18f 5-6,12-13,78-99,165,176,181-182,188-190,207,220,226-362,553-642,653-657,700-704,767-769,827-829,919-923
+tests/unit/test_documentation_contracts.py
+  s_7a8047aa8776d6::t_5c593dbce95af1 139-263
+tests/unit/test_plan_iteration_lifecycle.py
+  s_7a8047aa8776d6::t_12102c3a0ea2a5 1-932
+tests/unit/test_quest_runtime.py
+  s_7a8047aa8776d6::t_c5b3f028824d71 31-37,542,656,727,829,833-836,934,938-941,994,1419,1480,1517,1566,1615,1826-1829,1892-1895
+tests/unit/test_quest_state.py
+  s_7a8047aa8776d6::t_a6326b4ca8c113 11,143-154,263,266,274-953,974,1017,1036,1038,1040-1041,1053,1069,1081,1099-1126,1138-1139,1181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "ba6602a286a98b32ae4847be4363b9d919b586be",
+  "prompts": {},
+  "sessions": {
+    "s_7a8047aa8776d6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fccfa-5493-7bf0-9221-9ca083d9b629",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
