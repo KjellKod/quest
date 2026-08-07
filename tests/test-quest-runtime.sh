@@ -1845,8 +1845,9 @@ test_installer_overwrites_modified_quest_manifest_and_backs_up_local_copy() {
     # Even in force mode, a locally modified manifest is overwritten with
     # upstream (so target validation passes), and the old copy is preserved.
     [ "$(cat .quest-manifest)" = "new manifest" ] &&
-      [ -e .quest-manifest.quest_updated ] &&
-      [ "$(cat .quest-manifest.quest_updated)" = "old manifest" ]
+      [ -e .quest-manifest.quest_local_backup ] &&
+      [ ! -e .quest-manifest.quest_updated ] &&
+      [ "$(cat .quest-manifest.quest_local_backup)" = "old manifest" ]
   )
   local rc=$?
   rm -rf "$tmpdir"
@@ -1883,6 +1884,7 @@ test_installer_updates_pristine_quest_manifest_without_sidecar() {
 
     # Pristine manifest updates in place with no sidecar litter.
     [ "$(cat .quest-manifest)" = "new manifest" ] &&
+      [ ! -e .quest-manifest.quest_local_backup ] &&
       [ ! -e .quest-manifest.quest_updated ]
   )
   local rc=$?

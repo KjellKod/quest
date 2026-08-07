@@ -1229,10 +1229,11 @@ install_copy_as_is_file() {
   # Special case: .quest-manifest is bookkeeping that must always match the
   # installed file set — a stale copy makes manifest validation fail in the
   # target repo. Overwrite it with upstream unconditionally (no prompt), but
-  # first preserve the local copy as a .quest_updated sidecar so an intentional
-  # customization stays recoverable.
+  # first preserve the local copy as a .quest_local_backup sidecar so an
+  # intentional customization stays recoverable. Unlike .quest_updated files,
+  # this sidecar contains the previous local content, not upstream content.
   if [ "$filepath" = ".quest-manifest" ]; then
-    local backup_path="${filepath}.quest_updated"
+    local backup_path="${filepath}.quest_local_backup"
     # Clear progress line before logging
     printf "\r%-80s\r" "" >&2
     if $DRY_RUN; then
