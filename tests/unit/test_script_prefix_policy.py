@@ -7,6 +7,19 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = REPO_ROOT / ".quest-manifest"
 INSTALLER = REPO_ROOT / "scripts" / "quest_installer.sh"
 
+LEGACY_REFERENCE_ALLOWED_FILES = {
+    PurePosixPath("scripts/quest_installer.sh"),
+    PurePosixPath("scripts/quest_validate-quest-config.sh"),
+    PurePosixPath("tests/test-quest-runtime.sh"),
+    PurePosixPath("tests/unit/test_script_prefix_policy.py"),
+}
+HISTORICAL_REFERENCE_ROOTS = {
+    PurePosixPath(".quest"),
+    PurePosixPath("docs/implementation/history"),
+    PurePosixPath("docs/quest-journal"),
+    PurePosixPath("ideas/archive"),
+}
+
 EXPECTED_MIGRATIONS = {
     (
         "scripts/check_quest_checksum_drift.py",
@@ -101,6 +114,41 @@ def _source_only_migration_destinations(installer: Path = INSTALLER) -> set[str]
     return set(re.findall(r'^\s*"([^"]+)"\s*$', match["body"], re.MULTILINE))
 
 
+def _active_legacy_filename_references() -> list[str]:
+    legacy_patterns = []
+    for old_path, _ in EXPECTED_MIGRATIONS:
+        path = PurePosixPath(old_path)
+        if path.suffix == ".py":
+            legacy_patterns.append(rf"{re.escape(path.stem)}(?:\.py)?")
+        else:
+            legacy_patterns.append(re.escape(path.name))
+    pattern = re.compile(
+        rf"(?<![A-Za-z0-9_-])(?:{'|'.join(legacy_patterns)})(?![A-Za-z0-9_.-])"
+    )
+    references: list[str] = []
+
+    for path in REPO_ROOT.rglob("*"):
+        if not path.is_file():
+            continue
+        relative = PurePosixPath(path.relative_to(REPO_ROOT).as_posix())
+        if {"__pycache__", ".pytest_cache"}.intersection(relative.parts):
+            continue
+        if relative in LEGACY_REFERENCE_ALLOWED_FILES:
+            continue
+        if any(
+            root == relative or root in relative.parents
+            for root in HISTORICAL_REFERENCE_ROOTS
+        ):
+            continue
+
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if pattern.search(line):
+                references.append(f"{relative}:{line_number}:{line.strip()}")
+
+    return references
+
+
 def test_manifest_top_level_python_entrypoints_start_with_quest_prefix_and_exist() -> (
     None
 ):
@@ -165,3 +213,8 @@ def test_migration_registry_new_paths_resolve() -> None:
     assert (
         not unresolved
     ), f"manifested migration destinations missing from source: {unresolved}"
+
+
+def test_active_files_do_not_reference_legacy_script_names() -> None:
+    references = _active_legacy_filename_references()
+    assert not references, "active legacy script references:\n" + "\n".join(references)
