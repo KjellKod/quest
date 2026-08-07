@@ -6,6 +6,7 @@ Permanent record of quest runs. Each entry captures what was attempted, what shi
 
 | Date | Quest | Outcome |
 |------|-------|---------|
+| 2026-08-05 | [prebuild-replanning-contract-r2](prebuild-replanning-contract-r2_2026-08-05.md) | Fix Quest's pre-build replanning contract so every human-requested plan change before Build returns safely to plannin... |
 | 2026-07-27 | [claude-transport-tier1](claude-transport-tier1_2026-07-27.md) | In the KjellKod/quest repo, on a fresh branch off main: in `.skills/quest/SKILL.md` (~line 259), replace `claude-opus... |
 | 2026-07-15 | [source-python-formatting](source-python-formatting_2026-07-15.md) | Implement Workstream D — Source-repository Python formatting from `ideas/2026-07-11-quest-hardening.md`. Precondition... |
 | 2026-07-14 | [installed-docs](installed-docs_2026-07-14.md) | Implement Workstream C — Installed documentation accuracy from `ideas/2026-07-11-quest-hardening.md` using the comple... |

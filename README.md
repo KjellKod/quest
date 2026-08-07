@@ -163,6 +163,7 @@ Solo mode skips Reviewer B and the Arbiter. Same pipeline, just faster.
 - **Smart routing**, evaluates complexity/risk, routes to solo or full workflow
 - **Smart intake**, asks structured questions when your input needs more detail
 - **Full audit trail**, every artifact saved in `.quest/`
+- **Auditable replanning**, every completed plan iteration is sealed before current artifacts are reused, and human changes invalidate prior approval through validated state transitions
 - **Multi-runtime**, runs from Claude Code (`/quest`), Codex (`$quest`), or [OpenCode](https://opencode.ai/)
 - **Built-in UX rigor**, when the router sees UI work it auto-attaches a canonical UX guidebook to the planner/builder/fixer and runs a stress-test rubric in code review. Invoke `/ux-review` on any file, URL, or screenshot to get a P0–P3 critique with principle citations.
 

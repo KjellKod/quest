@@ -13,6 +13,9 @@ The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It fi
 - **SRP** — Does each component in the plan do one thing? If yes, don't reorganize.
 - **Readability** — Will the resulting code be easy to read and maintain? That matters more than theoretical elegance.
 
+## Scope and Value Gate
+Apply the `AGENTS.md` principles: KISS, YAGNI, SRP, and DRY. Keep only work or feedback with clear, concrete value required for the quest acceptance criteria, correctness, security, or meaningful maintainability. Do not expand scope for nitpicks, preferences, speculative future-proofing, or nice-to-haves. If the value is unclear or optional, leave it out.
+
 ## Context Required
 - `.skills/BOOTSTRAP.md` (project bootstrapping)
 - `AGENTS.md` (coding conventions and architecture boundaries)
@@ -38,6 +41,7 @@ The Arbiter exists to **prevent spin** and enforce engineering pragmatism. It fi
 7. Synthesize canonical findings from both review markdown artifacts and write the scratch artifact:
    - `.quest/<id>/phase_01_plan/review_findings.json.next`
    - If no actionable findings exist, write an empty array (`[]`) instead of skipping the file
+8. On a findings-only retry, overwrite only `review_findings.json.next` and `handoff_arbiter.json`. Do not prepare, truncate, or rewrite a verdict scratch file that already validated. Preserve its exact digest.
 
 Canonical findings schema (required fields per finding):
 `finding_id, source, kind, severity, confidence, path, line, summary, why_it_matters, evidence, action, needs_test, write_scope, related_acceptance_criteria`
@@ -103,6 +107,8 @@ A plan is NOT ready when:
 
 ## Output Contract
 
+Before writing the handoff, read `.quest/<id>/state.json`. Set `plan_iteration` to the current `state.json.plan_iteration` integer and set `user_replan_generation` to `state.json.user_replan.generation`, or JSON `null` when `user_replan` is absent. The orchestrator also injects these resolved values into the dispatch prompt. Do not copy the literal example values below.
+
 **Step 1 — Write handoff.json** to `.quest/<id>/phase_01_plan/handoff_arbiter.json`:
 ```json
 {
@@ -112,7 +118,9 @@ A plan is NOT ready when:
     ".quest/<id>/phase_01_plan/review_findings.json.next"
   ],
   "next": "planner | builder",
-  "summary": "Iteration <N>: <approve|iterate> — <reason>"
+  "summary": "Iteration <N>: <approve|iterate> - <reason>",
+  "plan_iteration": 2,
+  "user_replan_generation": null
 }
 ```
 
@@ -122,7 +130,7 @@ A plan is NOT ready when:
 STATUS: complete | needs_human | blocked
 ARTIFACTS: .quest/<id>/phase_01_plan/arbiter_verdict.md.next, .quest/<id>/phase_01_plan/review_findings.json.next
 NEXT: planner | builder
-SUMMARY: Iteration <N>: <approve|iterate> — <reason>
+SUMMARY: Iteration <N>: <approve|iterate> - <reason>
 ```
 
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.

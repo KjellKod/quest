@@ -16,8 +16,9 @@ Build and utility scripts for the Quest repository.
 | `quest_preflight.sh` | Checks second-model readiness before quest routing. Codex-led Claude probes now retain a recent successful host probe under `.quest/cache/` so later quest starts can reuse it. |
 | `quest_claude_probe.py` | Probes a Claude transport by requiring a real artifact write and `handoff.json` under the quest logs directory. |
 | `quest_state.py` | Updates `.quest/<id>/state.json` consistently and refreshes `updated_at`. |
+| `quest_plan_iteration.py` | Seals immutable plan iterations, guards cleanup, and binds automatic refinement verdicts to the next Planner run. |
 | `quest_startup_branch.py` | Creates the startup branch or worktree for a new quest from `.ai/allowlist.json` and returns machine-readable branch context JSON. |
-| `quest_claude_runner.py` | Runs Claude-designated Quest roles through the additive Codex-host Claude adapter, using background-agent or explicit bridge transport plus `bypassPermissions`, explicit `--add-dir` access, handoff polling, and `context_health.log` updates. Native Claude-led Quest behavior stays on `Task(...)`. |
+| `quest_claude_runner.py` | Runs Claude-designated Quest roles through the additive Codex-host Claude adapter, using background-agent or explicit bridge transport plus `bypassPermissions`, explicit `--add-dir` access, declared `--artifact-subset findings-only` Arbiter retries, handoff polling, and `context_health.log` updates. Native Claude-led Quest behavior stays on `Task(...)`. |
 | `quest_review_intelligence.py` | CLI wrapper around review-intelligence helpers (`validate-findings`, `merge-findings`, `build-backlog`, `append-deferred`, `scan-backlog`, `normalize-pr-intake`, `select-batch-validation`, `build-fix-batches`, `classify-pr-stop`). |
 | `pr_shepherd_checkout.py` | Inspection-first PR target helper; reports current/target branch state and only runs `gh pr checkout` with `--apply`. |
 | `pr_shepherd_collect_intake.py` | Collects compact records-shaped PR shepherd intake for normalization. |
@@ -36,14 +37,22 @@ Build and utility scripts for the Quest repository.
 # Build the Quest Dashboard
 python3 scripts/quest_dashboard/build_quest_dashboard.py
 
-# Update quest state without hand-editing JSON
-python3 scripts/quest_state.py --quest-dir .quest/<id> --phase plan_reviewed --status complete
+# Perform a validated state transition without hand-editing JSON
+python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan_reviewed --status complete --expect-phase plan
+
+# Human-requested replanning before Build, run in this exact order
+python3 scripts/quest_plan_iteration.py snapshot --quest-dir .quest/<id> --iteration <N>
+python3 scripts/quest_state.py --quest-dir .quest/<id> --record-user-replan-feedback --source <walkthrough|sharpen|build_gate|resume_instruction> --feedback-file <prepared-input-file> --expect-phase <current>
+python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan --status in_progress --expect-phase <current>
 
 # Prepare startup branch/worktree context for a new quest
 python3 scripts/quest_startup_branch.py --slug feature-x --mode branch
 
 # Run a Claude-designated role via the configured Claude transport with file polling
 python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase plan_review --agent plan-reviewer-a --iter 1 --prompt-file .quest/<id>/phase_01_plan/reviewer_a_prompt.txt --handoff-file .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json --model claude --transport background-agent
+
+# Retry only invalid Arbiter findings without truncating a valid verdict scratch file
+python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase plan_review --agent arbiter --iter <N> --prompt-file <retry-prompt> --handoff-file .quest/<id>/phase_01_plan/handoff_arbiter.json --artifact-subset findings-only --model <model> --transport background-agent
 
 # Probe the Claude background-agent transport with a real artifact + handoff write
 python3 scripts/quest_claude_probe.py --quest-dir .quest/<id> --model claude --transport background-agent

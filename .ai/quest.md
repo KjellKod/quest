@@ -63,6 +63,18 @@ Max iterations controlled by `gates.max_plan_iterations` in allowlist.
 
 After plan approval, Quest presents a concise executive summary before build starts. You can ask for a phase-by-phase walkthrough, proceed directly, or sharpen the plan. Sharpening is an adversarial Q&A pass: Quest challenges assumptions and tradeoffs one question at a time, records what is settled, and either proceeds or sends concrete revisions back into planning. This improves the plan and also gives the orchestrator a more exact understanding of what will be built before implementation begins.
 
+### Human-requested replanning before Build
+
+Walkthrough changes, Sharpen revisions, Build-gate rejection, and resumed plan-change instructions use one validated contract. With `N` equal to current `state.json.plan_iteration`:
+
+```bash
+python3 scripts/quest_plan_iteration.py snapshot --quest-dir .quest/<id> --iteration <N>
+python3 scripts/quest_state.py --quest-dir .quest/<id> --record-user-replan-feedback --source <walkthrough|sharpen|build_gate|resume_instruction> --feedback-file <prepared-input-file> --expect-phase <current>
+python3 scripts/quest_state.py --quest-dir .quest/<id> --transition plan --status in_progress --expect-phase <current>
+```
+
+`<current>` may be `plan`, `plan_reviewed`, `presenting`, or `presentation_complete`. The helper records current non-empty feedback before transition, invalidates prior approval, and binds the request to iteration `N+1`. Do not write canonical `user_feedback.md`, hand-edit state, or use `--phase`. The normal review, arbitration in workflow mode, presentation, and human approval gates run again. Solo mode does not require workflow-only Arbiter artifacts.
+
 ## Full Flow
 
 ```
@@ -100,10 +112,14 @@ Use `default_quest_dir(workspace_root, quest_id)` from `quest_runtime.artifacts`
 
 Before each role invocation, the orchestrator prepares that role's expected artifact files:
 1. Resolve paths via `expected_artifacts_for_role(quest_dir, phase, agent)`
-2. Create directories and truncate files via `prepare_artifact_files(paths)`
+2. Create directories and truncate files via `prepare_artifact_files(paths, quest_dir=quest_dir, role=agent)`
 3. Instruct the agent to overwrite the prepared files directly (no shell redirection or heredocs)
 
+Planner preparation verifies the sealed immediate predecessor before truncating canonical plan outputs. Completed iterations are immutable under `.quest/<id>/history/plan/iteration-NNNN/`. Canonical `phase_01_plan/` always remains the current working set, and history is audit-only.
+
 This is runtime-neutral — the same preparation runs whether the orchestrator is Claude or Codex.
+
+When only Arbiter findings are invalid, the public Claude runner retry uses `--artifact-subset findings-only`. That declared subset prepares only `review_findings.json.next` and `handoff_arbiter.json`, preserving the valid verdict scratch bytes.
 
 ### Fallback Ladder
 

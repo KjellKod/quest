@@ -35,8 +35,17 @@ test_validate_handoff_contracts_checks_transport_runtime_dispatch() {
   [ "$rc" -eq 0 ] && echo "$output" | grep -q "Workflow documents transport probing (bg preferred, explicit bridge) and runtime-based dispatch"
 }
 
+test_validate_handoff_contracts_requires_dynamic_plan_identity() {
+  local output
+  output=$(bash "$SCRIPT" 2>&1)
+  local rc=$?
+  [ "$rc" -eq 0 ] &&
+    echo "$output" | grep -q "All plan roles derive typed iteration identity from current state"
+}
+
 run_test test_validate_handoff_contracts_passes
 run_test test_validate_handoff_contracts_checks_transport_runtime_dispatch
+run_test test_validate_handoff_contracts_requires_dynamic_plan_identity
 
 echo ""
 echo "Tests run: $TESTS_RUN"
