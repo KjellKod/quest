@@ -6,14 +6,28 @@ cd "$repo_root" || exit 1
 
 ./scripts/quest_validate-quest-config.sh || exit $?
 
-if python3 -m black --check .; then
+# Prefer the project virtualenv when present so venv-based workflows commit
+# without PATH juggling; otherwise use python3 from PATH.
+python3_bin="python3"
+if [ -x ".venv/bin/python3" ]; then
+  python3_bin=".venv/bin/python3"
+fi
+
+if ! "$python3_bin" -m black --version >/dev/null 2>&1; then
+  cat >&2 <<EOF
+black is not installed for ${python3_bin}.
+Install the pinned development dependencies:
+  ${python3_bin} -m pip install -e '.[dev]'
+EOF
+  exit 1
+fi
+
+if "$python3_bin" -m black --check .; then
   exit 0
 fi
 
 cat >&2 <<'EOF'
 Python formatting check failed.
-Install the pinned development dependency:
-  python3 -m pip install -e '.[dev]'
 Format the repository, then retry the commit:
   python3 -m black .
 EOF

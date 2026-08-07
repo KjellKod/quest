@@ -15,6 +15,7 @@
 # Python
 __pycache__/
 *.egg-info/
+.venv/
 
 # OS files
 .DS_Store

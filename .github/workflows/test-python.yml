@@ -41,16 +41,15 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Black
-        run: python3 -m pip install black==26.3.1
+      - name: Create virtual environment
+        run: python3 -m venv .venv
+
+      - name: Install development dependencies
+        run: .venv/bin/python3 -m pip install -e '.[dev]'
 
       - name: Check Python formatting
-        run: python3 -m black --check .
-
-      - name: Install test dependencies
-        if: steps.check-tests.outputs.has_tests == 'true'
-        run: python3 -m pip install pytest==9.0.3 pyyaml==6.0.3
+        run: .venv/bin/python3 -m black --check .
 
       - name: Run tests
         if: steps.check-tests.outputs.has_tests == 'true'
-        run: python3 -m pytest tests/ -v
+        run: .venv/bin/python3 -m pytest tests/ -v
