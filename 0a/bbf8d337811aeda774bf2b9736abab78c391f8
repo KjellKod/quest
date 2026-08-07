@@ -1,0 +1,19 @@
+tests/unit/test_script_prefix_policy.py
+  s_7a8047aa8776d6::t_51b565662aad32 4,131-140,142-144,154-157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "0abbf8d337811aeda774bf2b9736abab78c391f8",
+  "prompts": {},
+  "sessions": {
+    "s_7a8047aa8776d6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fccfa-5493-7bf0-9221-9ca083d9b629",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
