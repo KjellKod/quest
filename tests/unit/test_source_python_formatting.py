@@ -119,8 +119,8 @@ def test_source_hook_is_executable_and_check_only() -> None:
     assert hook.stat().st_mode & stat.S_IXUSR
     assert "./scripts/quest_validate-quest-config.sh" in hook_text
     assert hook_text.count('"$python3_bin" -m black --check .') == 1
-    assert hook_text.count(FORMAT_REMEDIATION) == 1
-    assert f"  {FORMAT_REMEDIATION}" in hook_text
+    assert hook_text.count("${python3_bin} -m black .") == 1
+    assert "  ${python3_bin} -m black ." in hook_text
 
 
 def test_source_hook_resolves_root_and_runs_validation_before_black(
@@ -211,7 +211,10 @@ def test_source_hook_prefers_project_virtualenv_python(tmp_path: Path) -> None:
         fixture_root / ".venv" / "bin" / "python3",
         """#!/bin/sh
 printf 'venv-python3|%s|%s\n' "$PWD" "$*" >> "$CALL_LOG"
-exit 0
+case "$*" in
+  *--version*) exit "${BLACK_PROBE_EXIT:-0}" ;;
+esac
+exit "${BLACK_EXIT:-0}"
 """,
     )
 
@@ -230,6 +233,38 @@ exit 0
         f"venv-python3|{fixture_root}|-m black --version",
         f"venv-python3|{fixture_root}|-m black --check .",
     ]
+
+
+def test_source_hook_venv_failure_remediation_names_the_venv_interpreter(
+    tmp_path: Path,
+) -> None:
+    hook, call_log, nested_directory = _hook_fixture(tmp_path)
+    fixture_root = hook.parents[1]
+    _write_executable(
+        fixture_root / ".venv" / "bin" / "python3",
+        """#!/bin/sh
+printf 'venv-python3|%s|%s\n' "$PWD" "$*" >> "$CALL_LOG"
+case "$*" in
+  *--version*) exit "${BLACK_PROBE_EXIT:-0}" ;;
+esac
+exit "${BLACK_EXIT:-0}"
+""",
+    )
+    environment = _hook_environment(fixture_root, call_log)
+    environment["BLACK_EXIT"] = "1"
+
+    result = subprocess.run(
+        [str(hook.resolve())],
+        cwd=nested_directory,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "  .venv/bin/python3 -m black ." in result.stderr
+    assert f"  {FORMAT_REMEDIATION}" not in result.stderr
 
 
 def test_source_hook_stops_before_black_when_configuration_is_invalid(

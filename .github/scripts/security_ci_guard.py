@@ -599,7 +599,10 @@ _PIP_HTTP_URL_RE = re.compile(r"^https?://", re.IGNORECASE)
 
 def _strip_shell_quotes(token: str) -> str:
     """Classify specs as pip receives them: the shell strips matching
-    surrounding quotes, so `'.[dev]'` reaches pip as `.[dev]`."""
+    surrounding quotes, so `'.[dev]'` reaches pip as `.[dev]`. Stripping
+    only converges on pip's view — it can reclassify a token as a local
+    path only when the shell would have handed pip that path anyway, so
+    quoting can never smuggle a remote spec into the local-path exemption."""
     while len(token) >= 2 and token[0] == token[-1] and token[0] in {"'", '"'}:
         token = token[1:-1]
     return token

@@ -26,9 +26,9 @@ if "$python3_bin" -m black --check .; then
   exit 0
 fi
 
-cat >&2 <<'EOF'
+cat >&2 <<EOF
 Python formatting check failed.
 Format the repository, then retry the commit:
-  python3 -m black .
+  ${python3_bin} -m black .
 EOF
 exit 1
