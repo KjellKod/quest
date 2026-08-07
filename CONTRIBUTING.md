@@ -19,7 +19,7 @@ existing Quest configuration validation followed by `black --check .`. It is
 check-only and never rewrites files during a commit. If a `.venv/` virtualenv
 exists at the repository root the hook uses its interpreter, so venv-based
 workflows commit without PATH juggling; otherwise it uses `python3` from your
-`PATH`.
+`PATH` — so any activated virtualenv works too, whatever its name.
 
 Check or format the source repository directly with:
 
@@ -29,7 +29,8 @@ python3 -m black .
 ```
 
 The local hook can be bypassed, so CI is the authoritative, non-bypassable
-formatting gate.
+formatting gate. The hook checks that black is present, not which version; if
+a stale local black ever disagrees with CI, CI wins.
 
 ### Running the Test Suite
 
