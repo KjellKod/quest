@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path, PurePosixPath
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -127,11 +128,20 @@ def _active_legacy_filename_references() -> list[str]:
     )
     references: list[str] = []
 
-    for path in REPO_ROOT.rglob("*"):
-        if not path.is_file():
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=REPO_ROOT,
+        check=True,
+        stdout=subprocess.PIPE,
+        text=True,
+    ).stdout.split("\0")
+
+    for tracked_path in tracked:
+        if not tracked_path:
             continue
-        relative = PurePosixPath(path.relative_to(REPO_ROOT).as_posix())
-        if {"__pycache__", ".pytest_cache"}.intersection(relative.parts):
+        relative = PurePosixPath(tracked_path)
+        path = REPO_ROOT / relative
+        if not path.is_file():
             continue
         if relative in LEGACY_REFERENCE_ALLOWED_FILES:
             continue
@@ -141,7 +151,10 @@ def _active_legacy_filename_references() -> list[str]:
         ):
             continue
 
-        text = path.read_text(encoding="utf-8", errors="ignore")
+        content = path.read_bytes()
+        if b"\0" in content:
+            continue
+        text = content.decode("utf-8", errors="ignore")
         for line_number, line in enumerate(text.splitlines(), start=1):
             if pattern.search(line):
                 references.append(f"{relative}:{line_number}:{line.strip()}")
