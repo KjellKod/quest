@@ -2667,3 +2667,79 @@ def test_cli_rejects_empty_or_whitespace_model():
                 raise AssertionError("Expected empty --model to be rejected")
     finally:
         sys.argv = saved
+
+
+def test_explicit_antigravity_family_name_routes_to_the_antigravity_runner():
+    # The docstring promises a runtime family name is accepted. `antigravity`
+    # is not a Gemini model ID, so without normalization it fell through
+    # runtime_for_model() to Codex and dispatched to the wrong backend.
+    selection = select_role_runtime(
+        orchestrator="claude",
+        target_runtime="antigravity",
+        antigravity_available=True,
+    )
+    assert selection.runtime == "antigravity"
+    assert selection.entrypoint == "scripts/quest_antigravity_runner.py"
+
+    # The other two family names keep working as before.
+    assert (
+        select_role_runtime(orchestrator="claude", target_runtime="codex").runtime
+        == "codex"
+    )
+    assert (
+        select_role_runtime(orchestrator="claude", target_runtime="claude").runtime
+        == "claude"
+    )
+
+
+def test_default_allowlist_write_can_persist_a_gemini_role(tmp_path):
+    # write_default_from_allowlist validates before writing. Without the probe
+    # result forwarded, every Gemini-backed role would be rejected and a repo
+    # that configured one could never persist it.
+    from quest_runtime.orchestration import write_default_from_allowlist
+
+    models = dict.fromkeys(
+        (
+            "planner",
+            "plan-reviewer-a",
+            "plan-reviewer-b",
+            "arbiter",
+            "builder",
+            "code-reviewer-a",
+            "code-reviewer-b",
+            "review-arbiter",
+            "fixer",
+        ),
+        "claude",
+    )
+    models["code-reviewer-b"] = "gemini-3.6-flash-high"
+    target = tmp_path / "orchestration.json"
+
+    write_default_from_allowlist(
+        target,
+        models,
+        orchestrator="claude",
+        codex_available=False,
+        claude_available=True,
+        antigravity_available=True,
+        quest_mode="full",
+    )
+
+    written = json.loads(target.read_text(encoding="utf-8"))
+    assert written["models"]["code-reviewer-b"] == "gemini-3.6-flash-high"
+
+    # And with the probe red it is still refused rather than silently written.
+    try:
+        write_default_from_allowlist(
+            tmp_path / "second.json",
+            models,
+            orchestrator="claude",
+            codex_available=False,
+            claude_available=True,
+            antigravity_available=False,
+            quest_mode="full",
+        )
+    except ValueError as exc:
+        assert "code-reviewer-b" in str(exc)
+    else:
+        raise AssertionError("Expected an unprobed Gemini role to be rejected")

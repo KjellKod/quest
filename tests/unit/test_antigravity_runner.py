@@ -5,10 +5,12 @@ from __future__ import annotations
 import stat
 from pathlib import Path
 
+import json
+
 from quest_runtime.antigravity_runner import (
     AGY_MODE_READ_ONLY,
     AGY_MODE_WRITE,
-    MAX_PROMPT_ARGV_CHARS,
+    MAX_PROMPT_ARGV_BYTES,
     agy_mode_for_agent,
     build_agy_cmd,
     classify_agy_result_kind,
@@ -93,7 +95,7 @@ def test_build_agy_cmd_omits_model_flag_for_the_sentinel():
 def test_build_agy_cmd_rejects_a_prompt_too_large_for_argv():
     try:
         build_agy_cmd(
-            prompt="x" * (MAX_PROMPT_ARGV_CHARS + 1),
+            prompt="x" * (MAX_PROMPT_ARGV_BYTES + 1),
             model="gemini-3.6-flash-low",
             timeout=60,
             mode=AGY_MODE_WRITE,
@@ -371,3 +373,132 @@ def test_run_role_reports_invocation_error_for_an_unreadable_prompt(tmp_path):
 
     assert result.result_kind == "invocation_error"
     assert "could not read prompt file" in result.stderr
+
+
+def test_prompt_guard_measures_utf8_bytes_not_characters():
+    # argv limits are byte limits: a multibyte prompt that passes a character
+    # count would still fail exec with an unstructured E2BIG.
+    multibyte = "日" * (MAX_PROMPT_ARGV_BYTES // 2)  # 3 bytes each
+    assert len(multibyte) < MAX_PROMPT_ARGV_BYTES
+    try:
+        build_agy_cmd(
+            prompt=multibyte,
+            model="gemini-3.6-flash-low",
+            timeout=60,
+            mode=AGY_MODE_WRITE,
+        )
+    except ValueError as exc:
+        assert "UTF-8 bytes" in str(exc)
+    else:
+        raise AssertionError("Expected a multibyte prompt over the byte limit to raise")
+
+
+def test_generator_add_dirs_still_reaches_the_command(tmp_path):
+    # A generator would be drained by the containment check, leaving the
+    # dispatch with no --add-dir despite having just validated one.
+    quest_dir = tmp_path / ".quest" / "demo"
+    quest_dir.mkdir(parents=True)
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("do the thing", encoding="utf-8")
+    captured = {}
+
+    agy = _fake_agy(
+        tmp_path / "fake_agy.py",
+        "#!/usr/bin/env python3\n"
+        "import json, sys, pathlib\n"
+        f"pathlib.Path({str(quest_dir / 'argv.json')!r}).write_text(json.dumps(sys.argv))\n"
+        f"pathlib.Path({str(quest_dir / 'handoff.json')!r}).write_text("
+        'json.dumps({"status": "complete"}))\n'
+        'print(json.dumps({"status": "SUCCESS", "response": "done"}))\n',
+    )
+
+    result = run_antigravity_role(
+        cwd=tmp_path,
+        quest_dir=quest_dir,
+        phase="Plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=quest_dir / "handoff.json",
+        model="gemini-3.6-flash-low",
+        timeout=30,
+        add_dirs=(d for d in [quest_dir]),  # generator, deliberately
+        agy_binary=agy,
+    )
+
+    assert result.result_kind == "handoff_json"
+    captured = json.loads((quest_dir / "argv.json").read_text())
+    assert "--add-dir" in captured, "generator was exhausted before dispatch"
+
+
+def test_handoff_without_its_declared_artifacts_is_not_success(tmp_path):
+    # A handoff alone is not completion: later stages read the declared
+    # artifacts, so an empty artifact must not be reported as handoff_json.
+    quest_dir = tmp_path / ".quest" / "demo"
+    review_dir = quest_dir / "phase_03_review"
+    review_dir.mkdir(parents=True)
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("do the thing", encoding="utf-8")
+    handoff = review_dir / "handoff_code-reviewer-b.json"
+    artifact = review_dir / "review_code-reviewer-b.md"
+
+    agy = _fake_agy(
+        tmp_path / "fake_agy.py",
+        "#!/usr/bin/env python3\n"
+        "import json, pathlib\n"
+        f"pathlib.Path({str(handoff)!r}).write_text("
+        'json.dumps({"status": "complete"}))\n'
+        'print(json.dumps({"status": "SUCCESS", "response": "done"}))\n',
+    )
+
+    result = run_antigravity_role(
+        cwd=tmp_path,
+        quest_dir=quest_dir,
+        phase="code_review",
+        agent="code-reviewer-b",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff,
+        model="gemini-3.6-flash-low",
+        timeout=30,
+        artifact_paths=[artifact],
+        add_dirs=[quest_dir],
+        agy_binary=agy,
+    )
+
+    assert result.handoff_state == "found"
+    assert result.result_kind == "artifact_missing"
+
+
+def test_recovered_text_handoff_reports_a_distinct_result_kind(tmp_path):
+    # Consumers routing on result_kind must be able to tell a recovered
+    # ---HANDOFF--- block apart from a real handoff.json, as Claude does.
+    quest_dir = tmp_path / ".quest" / "demo"
+    quest_dir.mkdir(parents=True)
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("do the thing", encoding="utf-8")
+
+    response = "preamble\n---HANDOFF---\nSTATUS: complete\nSUMMARY: ok\n"
+    agy = _fake_agy(
+        tmp_path / "fake_agy.py",
+        "#!/usr/bin/env python3\n"
+        "import json\n"
+        f"print(json.dumps({{'status': 'SUCCESS', 'response': {response!r}}}))\n",
+    )
+
+    result = run_antigravity_role(
+        cwd=tmp_path,
+        quest_dir=quest_dir,
+        phase="Plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=quest_dir / "handoff.json",
+        model="gemini-3.6-flash-low",
+        timeout=30,
+        add_dirs=[quest_dir],
+        agy_binary=agy,
+    )
+
+    assert result.source == "text_fallback"
+    assert result.result_kind == "text_fallback"

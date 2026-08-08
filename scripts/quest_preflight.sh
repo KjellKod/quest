@@ -884,7 +884,10 @@ probe_antigravity() {
       warning_lines="${warning_lines}    \"  agy authenticates via the OS keyring on first run; run it once interactively.\",\n"
     fi
     if [ "$probe_script_exists" = "false" ]; then
-      warning_lines="${warning_lines}    \"  quest_antigravity_probe.py not found at $AGY_PROBE_SCRIPT\",\n"
+      # Quote rather than interpolate: an overridden probe-script path
+      # containing a quote or backslash would otherwise make the whole
+      # unavailable payload unparsable, hiding the very error it reports.
+      warning_lines="${warning_lines}    $(json_quote_or_null "  quest_antigravity_probe.py not found at $AGY_PROBE_SCRIPT"),\n"
     fi
     warning_lines="${warning_lines}    \"Reassign Gemini roles or fix agy, then rerun preflight.\"\n"
   fi
@@ -922,6 +925,14 @@ EOJSON
 ###############################################################################
 
 if [ -n "$PROBE_RUNTIME" ]; then
+  # Reject the combination rather than silently running only the probe: a
+  # caller passing both would otherwise get a probe-only payload and believe
+  # the orchestrator check had also run.
+  if [ -n "$ORCHESTRATOR" ]; then
+    echo "ERROR: --probe and --orchestrator are separate modes and cannot be combined" >&2
+    echo "$USAGE" >&2
+    exit 2
+  fi
   case "$PROBE_RUNTIME" in
     antigravity)
       probe_antigravity

@@ -45,8 +45,9 @@ DEFAULT_AGY_BINARY = "agy"
 # `agy` has no --prompt-file, so the whole role prompt travels on argv. Guard
 # it rather than letting exec() fail with a bare E2BIG that surfaces as an
 # unexplained invocation error. macOS allows ~1MB total / 256KB per argument;
-# this leaves generous headroom for the rest of the command line.
-MAX_PROMPT_ARGV_CHARS = 100_000
+# this leaves generous headroom for the rest of the command line. Counted in
+# UTF-8 bytes because the OS limit is a byte limit, not a character one.
+MAX_PROMPT_ARGV_BYTES = 100_000
 
 # Roles that only ever write their own review/verdict artifacts under
 # `.quest/**`, never source. They are dispatched in `--mode plan`.
@@ -119,10 +120,15 @@ def build_agy_cmd(
     agy_binary: str = DEFAULT_AGY_BINARY,
 ) -> list[str]:
     """Build the `agy` argv for one role dispatch."""
-    if len(prompt) > MAX_PROMPT_ARGV_CHARS:
+    # Measured in UTF-8 bytes, not characters: the OS argv limit is a byte
+    # limit, so a multibyte prompt could pass a character count and still fail
+    # exec with a bare E2BIG that surfaces as an unexplained invocation error.
+    prompt_bytes = len(prompt.encode("utf-8"))
+    if prompt_bytes > MAX_PROMPT_ARGV_BYTES:
         raise ValueError(
-            f"prompt is {len(prompt)} chars, over the {MAX_PROMPT_ARGV_CHARS} "
-            "argv limit for agy (it has no --prompt-file equivalent)"
+            f"prompt is {prompt_bytes} UTF-8 bytes, over the "
+            f"{MAX_PROMPT_ARGV_BYTES}-byte argv limit for agy "
+            "(it has no --prompt-file equivalent)"
         )
     cmd = [
         agy_binary,
@@ -278,8 +284,12 @@ def run_antigravity_role(
     resolved_prompt_file = resolve_path(cwd, prompt_file)
     resolved_handoff_file = resolve_path(cwd, handoff_file)
     resolved_artifact_paths = [resolve_path(cwd, path) for path in artifact_paths or []]
+    # Materialize once: add_dirs is typed Iterable, and a generator would be
+    # drained by the containment check, leaving build_agy_cmd to dispatch with
+    # no --add-dir at all — losing the very boundary we just validated.
+    resolved_add_dirs = list(add_dirs or [])
 
-    containment_error = check_containment(resolved_handoff_file, add_dirs)
+    containment_error = check_containment(resolved_handoff_file, resolved_add_dirs)
     if containment_error:
         return RunResult(
             exit_code=1,
@@ -321,7 +331,7 @@ def run_antigravity_role(
             model=model,
             timeout=timeout,
             mode=agy_mode_for_agent(agent),
-            add_dirs=add_dirs,
+            add_dirs=resolved_add_dirs,
             json_schema=json_schema,
             agy_binary=agy_binary,
         )
@@ -386,6 +396,22 @@ def run_antigravity_role(
         handoff_state=handoff_state,
         stderr=stderr,
     )
+
+    # A handoff alone is not completion. Later Quest stages read the role's
+    # declared artifacts, so accepting a handoff while those are missing or
+    # still empty hands the next stage files with nothing in them. The Claude
+    # runner requires the artifact write too; this keeps the contract uniform.
+    if (
+        source
+        and resolved_artifact_paths
+        and any_artifact_missing_or_empty(resolved_artifact_paths)
+    ):
+        result_kind = "artifact_missing"
+    elif source == "text_fallback":
+        # Distinct kind so routing keyed on result_kind can tell a recovered
+        # ---HANDOFF--- block apart from a real handoff.json on disk, matching
+        # the Claude runner rather than reporting both as handoff_json.
+        result_kind = "text_fallback"
 
     append_context_health_log(
         resolved_quest_dir,
@@ -522,16 +548,23 @@ def run_antigravity_probe(
     source = "handoff_json" if probe_ok else None
     exit_code = 0 if probe_ok else returncode or 1
 
-    result_kind = (
-        "handoff_json"
-        if probe_ok
-        else classify_agy_result_kind(
+    if probe_ok:
+        result_kind = "handoff_json"
+    elif handoff_state == "found" and not artifact_present:
+        # Distinct from handoff_missing (handoff never written): agy responded
+        # and wrote a handoff, only the artifact write failed. Mirrors
+        # run_bridge_probe/run_bg_probe so preflight's artifact_missing branch
+        # applies to this runtime too. Without it a handoff alone would report
+        # handoff_json and appear to green-light a runtime that never proved
+        # the write.
+        result_kind = "artifact_missing"
+    else:
+        result_kind = classify_agy_result_kind(
             exit_code=returncode,
             envelope=envelope,
             handoff_state=handoff_state,
             stderr=stderr,
         )
-    )
 
     return RunResult(
         exit_code=exit_code,

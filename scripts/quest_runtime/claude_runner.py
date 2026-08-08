@@ -28,6 +28,9 @@ from quest_runtime.orchestration import runtime_for_model
 from quest_runtime.plan_iterations import PlanIterationError
 from quest_runtime.state import StateError, utc_now_iso
 
+# Runtime family names accepted by select_role_runtime in place of a model ID.
+RUNTIME_FAMILIES: frozenset[str] = frozenset({"claude", "codex", "antigravity"})
+
 
 @dataclass
 class RuntimeSelection:
@@ -156,7 +159,17 @@ def select_role_runtime(
     """
 
     normalized_orchestrator = orchestrator.strip().lower()
-    normalized_target = runtime_for_model(target_runtime)
+    # An explicit runtime-family name is accepted as well as a model ID, which
+    # the docstring above promises. `claude` and `codex` happen to survive
+    # runtime_for_model() unchanged, but `antigravity` would not — it is not a
+    # Gemini model ID, so it would fall through to the Codex branch and
+    # dispatch the role to entirely the wrong backend.
+    _raw_target = target_runtime.strip().lower()
+    normalized_target = (
+        _raw_target
+        if _raw_target in RUNTIME_FAMILIES
+        else runtime_for_model(target_runtime)
+    )
 
     if normalized_orchestrator not in {"claude", "codex"}:
         raise ValueError(f"Unsupported orchestrator: {orchestrator}")

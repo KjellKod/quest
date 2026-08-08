@@ -504,12 +504,18 @@ def write_default_from_allowlist(
     orchestrator: str | None = None,
     codex_available: bool = True,
     claude_available: bool = True,
+    antigravity_available: bool = False,
     quest_mode: str = "workflow",
     remap_unavailable: bool = False,
     claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
     claude_transport_resolved: str | None = None,
 ) -> None:
-    """Default-path writer: copy allowlist models into orchestration.json."""
+    """Default-path writer: copy allowlist models into orchestration.json.
+
+    `antigravity_available` must be forwarded from the preflight probe result.
+    Without it the validation below rejects every Gemini-backed role, so a
+    repo that configured one in its allowlist could never persist it.
+    """
     defaults = build_default_models(allowlist_models)
     if orchestrator is not None:
         defaults, _ = validate_or_remap_models_for_orchestrator(
@@ -517,6 +523,7 @@ def write_default_from_allowlist(
             orchestrator=orchestrator,
             codex_available=codex_available,
             claude_available=claude_available,
+            antigravity_available=antigravity_available,
             quest_mode=quest_mode,
             remap_unavailable=remap_unavailable,
         )
