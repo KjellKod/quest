@@ -1,0 +1,136 @@
+scripts/quest_installer.sh
+  s_7a8047aa8776d6::t_f1750f72443637 29-33,133-150,184-189,547-579,660-694,848-851,1175-1177,1188-1195,1207,1223,1232-1234,1236,1248,1285-1294,1306,1374-1379,1381,1391,1406,1420,1480-1485,1487,1496,1508,1548,1585-1587,1590-1591,1593-1610,1614-1615,1619-1620,1624-1634,1636-1641,1645-1678,1682-1691
+  s_7a8047aa8776d6::t_972ea2ab2a7a76 1692
+.ai/quest.md
+  s_7a8047aa8776d6::t_17075757d075b6 66-77,94,100,115,118-119,122-123
+.quest-checksums
+  s_7a8047aa8776d6::t_e5ee5c328c8fd8 5-8,10,14,16,18-23,29,31,33-38,40-61,63-64,66-67,71-72,75-92
+.quest-manifest
+  s_7a8047aa8776d6::t_ef06993a6370ab 94,103-108,115,136
+.skills/pr-assistant/SKILL.md
+  s_7a8047aa8776d6::t_976b21d98994d7 18,22
+.skills/pr-shepherd/SKILL.md
+  s_7a8047aa8776d6::t_b19bc710c03829 31,41,66,107,110,112-113,125,129
+.skills/quest/SKILL.md
+  s_7a8047aa8776d6::t_ef0f71ed901c58 291
+.skills/quest/agents/arbiter.md
+  s_7a8047aa8776d6::t_285b5b583104ca 16-18,44,110-111,121-123,133
+.skills/quest/agents/plan-reviewer.md
+  s_7a8047aa8776d6::t_f06b3ebbd9f308 37-39,63-64,74-76
+.skills/quest/agents/planner.md
+  s_7a8047aa8776d6::t_6fb200734239de 23,26-28,66-67,74-78
+.skills/quest/delegation/workflow.md
+  s_7a8047aa8776d6::t_981e073eeef2e3 7,41,81,88,159,194,227,295-334,340,402-404,425,431,472,492,522,544,605,622-624,630,650-667,797-800,813,1311,1321,1426
+README.md
+  s_7a8047aa8776d6::t_18a828bad03e7b 166
+docs/guides/quest_presentation.md
+  s_7a8047aa8776d6::t_b52a155fb59daa 147,161
+docs/guides/quest_setup.md
+  s_7a8047aa8776d6::t_b7c0b89f9945b7 277,339,357
+docs/implementation/README.md
+  s_7a8047aa8776d6::t_9864b4c44afbb7 23
+docs/quest-journal/README.md
+  s_7a8047aa8776d6::t_4252751aa5750f 9
+docs/quest-journal/celebrations/prebuild-replanning-contract-r2_2026-08-05.md
+  s_7a8047aa8776d6::t_ff5b8370a1a550 1-81
+docs/quest-journal/prebuild-replanning-contract-r2_2026-08-05.md
+  s_7a8047aa8776d6::t_85e5b286442803 1-168
+ideas/2026-06-15-bug-report-for-branch-claude/bg-transport-step2.md
+  s_7a8047aa8776d6::t_71c80cbd65f30a 16,45,173,188,217,241,278
+ideas/2026-07-25-codex-claude-transport-hardening.md
+  s_7a8047aa8776d6::t_fff77f444fb016 25,41-42,66,95,101,128,131-132,141
+ideas/2026-07-25-pr-shepherd-github-access-portability.md
+  s_7a8047aa8776d6::t_c15e05e749ec07 29-34
+ideas/2026-08-04-bug-reporting-automatic-plan-refinement-feedback-loss.md
+  s_7a8047aa8776d6::t_a94237aaaad7c2 1-39
+ideas/quest-policy-canonicalization-and-enforcement-roadmap.md
+  s_7a8047aa8776d6::t_058589913e6ffd 77
+scripts/README.md
+  s_7a8047aa8776d6::t_6d1f377c00b58a 14,19,21,23-27,40-46,54-56,82-86,88-89
+scripts/quest_claude_bg_run.py
+  s_7a8047aa8776d6::t_0f8c7d9901a65b 2,53,779,1315,1449
+scripts/quest_claude_bridge.py
+  s_7a8047aa8776d6::t_0b379e9a53d8c0 9
+scripts/quest_claude_probe.py
+  s_7a8047aa8776d6::t_ef50662bea3cb1 5
+scripts/quest_claude_runner.py
+  s_7a8047aa8776d6::t_ff9946a34a8dd6 7,93-97,150
+scripts/quest_complete.py
+  s_7a8047aa8776d6::t_e349477b754314 401
+scripts/quest_plan_iteration.py
+  s_7a8047aa8776d6::t_e5952ec27098bb 1-63
+scripts/quest_pr_shepherd_collect_intake.py
+  s_7a8047aa8776d6::t_aae932fdf18d2f 450
+scripts/quest_preflight.sh
+  s_7a8047aa8776d6::t_ab8f895e8eaf8e 40
+scripts/quest_runtime/__init__.py
+  s_7a8047aa8776d6::t_ecf985b7567d58 48-55,71,78,96-97,101-102
+scripts/quest_runtime/artifacts.py
+  s_7a8047aa8776d6::t_17a506ed768518 59-65,94,107-114,127-145
+scripts/quest_runtime/claude_runner.py
+  s_7a8047aa8776d6::t_1438662665af36 5,28-29,78,81,86,295,420,674,680-693,814,1153-1155,1185,1229,1239-1241,1274
+scripts/quest_runtime/plan_iterations.py
+  s_7a8047aa8776d6::t_b793977a10db04 1-525
+scripts/quest_runtime/state.py
+  s_7a8047aa8776d6::t_ac2b0b5c44424c 6,34-57,121-374,402-420
+scripts/quest_state.py
+  s_7a8047aa8776d6::t_2519df34d0aeab 6-7,9,30,32-33,74,81-91,147-154,156,161-209,240,249-263,270-272
+scripts/quest_validate-handoff-contracts.sh
+  s_7a8047aa8776d6::t_7455dd9e0f0eea 74,92,121,141-164
+scripts/quest_validate-manifest.sh
+  s_7a8047aa8776d6::t_bbb69987cd6efa 99,106-111
+scripts/quest_validate-quest-state.sh
+  s_7a8047aa8776d6::t_7d50ddd89817bd 248-250,328-391,940-957
+tests/test-quest-orchestration.sh
+  s_7a8047aa8776d6::t_f38de09e5c6729 16,1095-1259,1300
+tests/test-quest-preflight.sh
+  s_7a8047aa8776d6::t_7721b5c03e5336 88
+tests/test-quest-runtime.sh
+  s_7a8047aa8776d6::t_108cd10e578f6e 205,223,233,237,429,458,490,926-1687,1848-1850,1887,2630,2730,2734-2737,2748,2767,2780,2901-3251,3270,3277-3298
+tests/test-validate-handoff-contracts.sh
+  s_7a8047aa8776d6::t_ff5ea7a3d4a468 38-45,48
+tests/test-validate-quest-state.sh
+  s_7a8047aa8776d6::t_9fb7b083db39e8 92-174,1672-1674
+tests/unit/test_artifacts.py
+  s_7a8047aa8776d6::t_b7e7ecf112763a 5-6,12-13,78-99,165,176,181-182,188-190,207,220,226-362,553-642,653-657,700-704,767-769,827-829,919-923
+tests/unit/test_documentation_contracts.py
+  s_7a8047aa8776d6::t_1a7b7130d4b222 52,139-263
+tests/unit/test_plan_iteration_lifecycle.py
+  s_7a8047aa8776d6::t_fa6450ea8a12dd 1-932
+tests/unit/test_pr_shepherd.py
+  s_7a8047aa8776d6::t_63a233e64de62b 8-12,258-259,292-293,315-316,345-346,376-377,416-417,441-442,444,474-475,511-512,529,531,534,548,558,566,591,681,683,723,725,751,753,764,779,793,809,824,844,880,882,905,908,910,927,929-931,941,951,982,1013,1034,1053,1065,1078,1095,1099,1109,1153,1156-1163,1166,1213,1216-1223,1226,1258,1262,1273,1301,1304-1311,1314,1330,1353,1379,1421,1425,1436,1494,1498,1508,1518-1520,1523,1528,1536
+tests/unit/test_quest_check_checksum_drift.py
+  s_7a8047aa8776d6::t_330d14ba8069dc 16,18,42,63
+tests/unit/test_quest_claude_bg_run.py
+  s_7a8047aa8776d6::t_239e5b1030ffbc 25
+tests/unit/test_quest_claude_bridge.py
+  s_7a8047aa8776d6::t_329feef47e2406 8
+tests/unit/test_quest_complete.py
+  s_7a8047aa8776d6::t_754b628e4ca27c 603
+tests/unit/test_quest_dispatch_guardrails.py
+  s_7a8047aa8776d6::t_e266a6a46a62bd 236,263
+tests/unit/test_quest_pr_sync_default_branch.py
+  s_7a8047aa8776d6::t_38ab928e5db98f 3,20,56-59,82-85,117,131,142,156,168,181,185,200,217,253,271,287,302,317,332,347,368,394,418,441,461,489,508
+tests/unit/test_quest_runtime.py
+  s_7a8047aa8776d6::t_b89eeadea65df8 31-37,542,656,727,826,829,833-836,880,931,934,938-941,991,994,1014,1039,1055,1083,1147,1305,1419,1480,1517,1566,1615,1826-1829,1892-1895,2198,2355
+tests/unit/test_quest_state.py
+  s_7a8047aa8776d6::t_d6b2274455a227 11,143-154,263,266,274-953,974,1017,1036,1038,1040-1041,1053,1069,1081,1099-1126,1138-1139,1181
+tests/unit/test_script_prefix_policy.py
+  s_7a8047aa8776d6::t_ae2d31efbfe98e 1-233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "23b9492ce115acd9d36600766461c993f895e1da",
+  "prompts": {},
+  "sessions": {
+    "s_7a8047aa8776d6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fccfa-5493-7bf0-9221-9ca083d9b629",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
