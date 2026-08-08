@@ -1,15 +1,16 @@
-<!--
-CI requires the two headings below (Summary, Changes). Keep them.
-Everything else is optional. Using an AI agent? /pr-assistant
-(.skills/pr-assistant/SKILL.md) generates a compliant body.
--->
+> [!NOTE]
+> The _italic hints_ below are for you, the author. Replace them with real content and delete this note.
+> CI requires the three headings (Summary, Changes, Validation). Keep them.
+> Using an AI agent? `/pr-assistant` (`.skills/pr-assistant/SKILL.md`) generates a compliant body.
 
 ## Summary
 
-<!-- One or two sentences: what this PR does and why. -->
+_One or two sentences: what this PR does and why._
 
 ## Changes
 
-<!-- Bullet list of what changed. File references welcome. -->
+- _Bullet list of what changed. File references welcome._
 
-<!-- Optional: how you verified it (commands run, tests passed). -->
+## Validation
+
+- _How you verified it: commands run, tests passed, what a reviewer can check._
