@@ -134,6 +134,31 @@ class TestExpectedArtifactsForRole:
         with pytest.raises(ValueError, match="not valid for phase"):
             expected_artifacts_for_role(tmp_path, "build", "planner")
 
+    def test_every_role_accepts_its_own_artifact_directory_as_the_phase(
+        self, tmp_path: Path
+    ):
+        # The directory name is what a caller sees on disk, so passing it is
+        # the natural mistake. It must resolve to the same paths as the alias.
+        for agent, (phase_dir, _) in ROLE_ARTIFACTS.items():
+            by_dir = expected_artifacts_for_role(tmp_path, phase_dir, agent)
+            assert by_dir, f"{agent} resolved no artifacts via {phase_dir}"
+            assert all(p.parent.name == phase_dir for p in by_dir)
+
+        # Equivalence with the canonical alias, spot-checked on one role.
+        assert expected_artifacts_for_role(
+            tmp_path, "phase_03_review", "code-reviewer-b"
+        ) == expected_artifacts_for_role(tmp_path, "code_review", "code-reviewer-b")
+
+    def test_another_roles_directory_is_still_rejected(self, tmp_path: Path):
+        # Accepting the *own* directory must not turn into accepting any
+        # directory — a planner asked to run in the review phase is still wrong.
+        with pytest.raises(ValueError, match="not valid for phase"):
+            expected_artifacts_for_role(tmp_path, "phase_03_review", "planner")
+
+    def test_rejection_message_lists_the_directory_alias(self, tmp_path: Path):
+        with pytest.raises(ValueError, match="phase_01_plan"):
+            expected_artifacts_for_role(tmp_path, "nonsense_phase", "planner")
+
     def test_all_roles_in_mapping_resolve(self, tmp_path: Path):
         valid_phases = {
             "planner": "plan",

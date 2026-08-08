@@ -113,7 +113,12 @@ def expected_artifacts_for_role(
             ) from exc
 
     normalized_phase = phase.strip().lower().replace("-", "_")
-    allowed_phases = ROLE_PHASE_ALIASES[normalized_agent]
+    # The role's own artifact directory is accepted as a phase alias. It is the
+    # name a caller actually sees on disk (`.quest/<id>/phase_03_review/`), so
+    # passing it is the natural mistake; rejecting it cost real debugging time.
+    # Derived from ROLE_ARTIFACTS rather than hardcoded so renaming a phase
+    # directory cannot leave a stale alias behind.
+    allowed_phases = ROLE_PHASE_ALIASES[normalized_agent] | {phase_dir}
     if normalized_phase not in allowed_phases:
         allowed = ", ".join(sorted(allowed_phases))
         raise ValueError(
