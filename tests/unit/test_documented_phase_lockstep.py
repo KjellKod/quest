@@ -35,10 +35,15 @@ WORKFLOW_DOC = (
     / "workflow.md"
 )
 
-# Matches the context_health.log-style examples the doc uses to teach dispatch,
-# e.g. "phase=plan_review | agent=plan-reviewer-a".
+# Matches phase/agent examples in both forms the doc uses:
+#   context_health.log style  -- "phase=plan_review | agent=plan-reviewer-a"
+#   role-instance-list style  -- "(phase=plan, agent=planner)"
+# The second form is the doc's own authoritative per-role dispatch list (the
+# "Split by role instance" block), so missing it would have left the exact
+# pairing this PR claims to pin unchecked -- caught in review, not written
+# blind: an earlier version of this pattern matched only the first form.
 _PHASE_PATTERN = re.compile(r"phase=([a-z_0-9]+)")
-_PAIR_PATTERN = re.compile(r"phase=([a-z_0-9]+) \| agent=([a-z0-9-]+)")
+_PAIR_PATTERN = re.compile(r"phase=([a-z_0-9]+)[ |,]+agent=([a-z0-9-]+)")
 
 
 def _doc_text() -> str:
