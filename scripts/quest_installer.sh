@@ -1141,7 +1141,7 @@ install_copy_as_is() {
   local count=0
   local total=${#COPY_AS_IS[@]}
   for filepath in "${COPY_AS_IS[@]}"; do
-    ((count++))
+    ((count++)) || true
     install_copy_as_is_file "$filepath" "$count" "$total"
   done
   # Clear progress line (stderr for immediate flush)
@@ -1178,7 +1178,7 @@ install_copy_as_is_file() {
     ensure_parent_dir "$filepath"
     if $DRY_RUN; then
       log_action "Create: $filepath"
-      ((DRY_RUN_WOULD_CREATE++))
+      ((DRY_RUN_WOULD_CREATE++)) || true
     else
       mv "$temp_file" "$filepath"
       log_success "Created: $filepath"
@@ -1205,7 +1205,7 @@ install_copy_as_is_file() {
     # Already up to date - just ensure checksum is stored
     set_updated_checksum "$filepath" "$upstream_checksum"
     mark_install_success "$filepath"
-    $DRY_RUN && ((DRY_RUN_UP_TO_DATE++))
+    $DRY_RUN && ((DRY_RUN_UP_TO_DATE++)) || true
     return 0
   fi
 
@@ -1213,7 +1213,7 @@ install_copy_as_is_file() {
   if is_file_pristine "$filepath"; then
     if $DRY_RUN; then
       log_action "Update: $filepath"
-      ((DRY_RUN_WOULD_UPDATE++))
+      ((DRY_RUN_WOULD_UPDATE++)) || true
     else
       mv "$temp_file" "$filepath"
       log_success "Updated: $filepath"
@@ -1239,7 +1239,7 @@ install_copy_as_is_file() {
     if $DRY_RUN; then
       rm -f "$temp_file"
       log_action "Overwrite $filepath with upstream (backing up local copy to $backup_path)"
-      ((DRY_RUN_WOULD_UPDATE++))
+      ((DRY_RUN_WOULD_UPDATE++)) || true
       return 0
     fi
     cp "$filepath" "$backup_path"
@@ -1255,7 +1255,7 @@ install_copy_as_is_file() {
     # Clear progress line before warning
     printf "\r%-80s\r" "" >&2
     log_warn "Modified: $filepath (would prompt to overwrite/skip)"
-    ((DRY_RUN_MODIFIED++))
+    ((DRY_RUN_MODIFIED++)) || true
     return 0
   fi
 
@@ -1341,7 +1341,7 @@ install_user_customized() {
   local count=0
   local total=${#USER_CUSTOMIZED[@]}
   for filepath in "${USER_CUSTOMIZED[@]}"; do
-    ((count++))
+    ((count++)) || true
     install_user_customized_file "$filepath" "$count" "$total"
   done
   # Clear progress line (stderr for immediate flush)
@@ -1450,7 +1450,7 @@ install_merge_carefully() {
   local count=0
   local total=${#MERGE_CAREFULLY[@]}
   for filepath in "${MERGE_CAREFULLY[@]}"; do
-    ((count++))
+    ((count++)) || true
     install_merge_carefully_file "$filepath" "$count" "$total"
   done
   # Clear progress line (stderr for immediate flush)

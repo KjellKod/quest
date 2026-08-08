@@ -6,6 +6,7 @@
 .claude/worktrees/
 
 .claude/scheduled_tasks.lock
+.claude/settings.local.json
 
 # Workspace scratch
 .ws/
@@ -14,6 +15,7 @@
 # Python
 __pycache__/
 *.egg-info/
+.venv/
 
 # OS files
 .DS_Store

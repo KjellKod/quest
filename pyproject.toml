@@ -5,7 +5,7 @@ description = "Static HTML dashboard generator for Quest"
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
-dev = ["black==26.3.1"]
+dev = ["black==26.3.1", "pytest==9.0.3", "pyyaml==6.0.3"]
 
 [project.scripts]
 quest-checks = "quest_checks.cli:main"
@@ -15,7 +15,6 @@ where = ["scripts"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-asyncio_default_fixture_loop_scope = "function"
 
 [tool.black]
 target-version = ["py310"]
