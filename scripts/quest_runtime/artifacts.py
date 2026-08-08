@@ -123,9 +123,10 @@ def expected_artifacts_for_role(
             ) from exc
 
     normalized_phase = _normalize_phase(phase)
-    # The role's own artifact directory is accepted as a phase alias. It is the
-    # name a caller actually sees on disk (`.quest/<id>/phase_03_review/`), so
-    # passing it is the natural mistake; rejecting it cost real debugging time.
+    # The role's own artifact directory is accepted as a phase alias. The
+    # aliases below appear nowhere in the tree, while the directory name is
+    # visible both on disk (`.quest/<id>/phase_03_review/`) and in
+    # ROLE_ARTIFACTS right beside the filenames — so it is the natural guess.
     # Derived from ROLE_ARTIFACTS rather than hardcoded so renaming a phase
     # directory cannot leave a stale alias behind — and normalized through the
     # same helper as the input, so a rename that introduced hyphens or case
