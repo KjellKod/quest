@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-import claude_bg_run as bg
+import quest_claude_bg_run as bg
 import quest_claude_bridge as bridge
 
 EXACT_PROMPT = "  indented\nline\n\n"

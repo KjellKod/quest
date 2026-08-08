@@ -71,7 +71,7 @@ fi
 echo ""
 echo "4. Checking workflow documents Claude transport probe and runtime dispatch..."
 BRIDGE_SCRIPT_COUNT=$(grep -c "scripts/quest_claude_bridge.py" .skills/quest/delegation/workflow.md || true)
-BG_RUNNER_SCRIPT_COUNT=$(grep -c "scripts/claude_bg_run.py" .skills/quest/delegation/workflow.md || true)
+BG_RUNNER_SCRIPT_COUNT=$(grep -c "scripts/quest_claude_bg_run.py" .skills/quest/delegation/workflow.md || true)
 TRANSPORT_CONFIG_COUNT=$(grep -c "claude_role_transport" .skills/quest/delegation/workflow.md || true)
 TRANSPORT_AVAILABLE_COUNT=$(grep -c "claude_transport_available" .skills/quest/delegation/workflow.md || true)
 TRANSPORT_RESOLVED_COUNT=$(grep -c "claude_transport_resolved" .skills/quest/delegation/workflow.md || true)
@@ -89,7 +89,7 @@ if [ "$BRIDGE_SCRIPT_COUNT" -gt 0 ] && [ "$BG_RUNNER_SCRIPT_COUNT" -gt 0 ] && [ 
 else
   echo "   ❌ Workflow is missing transport probing or runtime-selection guidance"
   echo "      scripts/quest_claude_bridge.py refs: $BRIDGE_SCRIPT_COUNT"
-  echo "      scripts/claude_bg_run.py refs: $BG_RUNNER_SCRIPT_COUNT"
+  echo "      scripts/quest_claude_bg_run.py refs: $BG_RUNNER_SCRIPT_COUNT"
   echo "      claude_role_transport refs: $TRANSPORT_CONFIG_COUNT"
   echo "      claude_transport_available refs: $TRANSPORT_AVAILABLE_COUNT"
   echo "      claude_transport_resolved refs: $TRANSPORT_RESOLVED_COUNT"

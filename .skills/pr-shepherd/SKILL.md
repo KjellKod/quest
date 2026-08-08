@@ -28,7 +28,7 @@ Accepted targets:
 
 Use inspection-first checkout:
 ```
-python3 scripts/pr_shepherd_checkout.py [<target>] --json
+python3 scripts/quest_pr_shepherd_checkout.py [<target>] --json
 ```
 
 This command must not mutate the current worktree unless `--apply` is supplied.
@@ -38,7 +38,7 @@ If the current branch already matches the PR head branch, it returns
 Only use mutation when the user explicitly targets a different PR and the
 worktree is clean:
 ```
-python3 scripts/pr_shepherd_checkout.py <target> --apply --json
+python3 scripts/quest_pr_shepherd_checkout.py <target> --apply --json
 ```
 
 Dirty worktrees block mutation paths, not read-only inspection.
@@ -63,7 +63,7 @@ workspace still matches the PR branch:
    over those edits; finish and validate the fix commit first, then rerun this
    guard before pushing:
    - For normal shepherding of an already-open PR, run
-     `python3 scripts/pr_sync_default_branch.py --strategy merge --apply --json`.
+     `python3 scripts/quest_pr_sync_default_branch.py --strategy merge --apply --json`.
      Merge is the default shepherd strategy because it avoids rewriting an
      under-review PR's commit SHAs and preserves inline review-thread anchoring.
    - If the payload is `status: "up_to_date"` or `status: "synced"`, continue.
@@ -104,13 +104,13 @@ Loop:
 
 ### Step 4: Check PR Comments
 1. Collect compact records-shaped intake:
-   - `python3 scripts/pr_shepherd_collect_intake.py --pr <PR_NUMBER> --output <intake.json>`
+   - `python3 scripts/quest_pr_shepherd_collect_intake.py --pr <PR_NUMBER> --output <intake.json>`
 2. Normalize and annotate:
    - `python3 scripts/quest_review_intelligence.py normalize-pr-intake --input <intake.json> --output <review_findings.json>`
-   - `python3 scripts/pr_shepherd_annotate_scope.py --pr <PR_NUMBER> --findings <review_findings.json> --output <review_findings_scoped.json>`
+   - `python3 scripts/quest_pr_shepherd_annotate_scope.py --pr <PR_NUMBER> --findings <review_findings.json> --output <review_findings_scoped.json>`
 3. For each comment, respond **on the comment itself** (threaded reply), never move an inline discussion to the general PR thread:
-   - **Inline review comments** → use `python3 scripts/pr_shepherd_post_reply.py --pr <PR_NUMBER> --thread-id <id> --body "..."`
-   - **Fingerprint-only/general summaries** → use the marker-owned summary mode in `pr_shepherd_post_reply.py`
+   - **Inline review comments** → use `python3 scripts/quest_pr_shepherd_post_reply.py --pr <PR_NUMBER> --thread-id <id> --body "..."`
+   - **Fingerprint-only/general summaries** → use the marker-owned summary mode in `quest_pr_shepherd_post_reply.py`
 4. Decision per comment:
    - **Agree?** → Fix the code, commit, push. Reply on the comment acknowledging the fix.
    - **Disagree?** → Reply on the comment with clear reasoning explaining why.
@@ -122,11 +122,11 @@ Run the review loop through the canonical review-intelligence pipeline. **Order 
 1. Collect one intake payload per cycle:
    - `records`
    - compact unavailable diagnostics, if any
-   - for failed checks with an inspectable run id, first run `python3 scripts/pr_shepherd_fetch_failed_logs.py --run-id <RUN_ID> --check-name "<check>" --raw-log-url <url> --output <failed-log.json>`, then pass it to the collector with `--failed-log-summary <failed-log.json>`
+   - for failed checks with an inspectable run id, first run `python3 scripts/quest_pr_shepherd_fetch_failed_logs.py --run-id <RUN_ID> --check-name "<check>" --raw-log-url <url> --output <failed-log.json>`, then pass it to the collector with `--failed-log-summary <failed-log.json>`
 2. Normalize intake to canonical findings:
    - `python3 scripts/quest_review_intelligence.py normalize-pr-intake --input <intake.json> --output <review_findings.json>`
 3. Annotate changed-line scope:
-   - `python3 scripts/pr_shepherd_annotate_scope.py --pr <PR_NUMBER> --findings <review_findings.json> --output <review_findings_scoped.json>`
+   - `python3 scripts/quest_pr_shepherd_annotate_scope.py --pr <PR_NUMBER> --findings <review_findings.json> --output <review_findings_scoped.json>`
 4. Build decision backlog with shared policy:
    - `python3 scripts/quest_review_intelligence.py build-backlog --findings <review_findings_scoped.json> --output <review_backlog.json>`
 5. Select concrete validation per actionable finding and persist onto the backlog:

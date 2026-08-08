@@ -85,7 +85,7 @@ write_allowlist() {
   printf '{"claude_role_transport": "%s"}\n' "$transport" > "$path"
 }
 
-# Fake scripts/claude_bg_run.py: writes the probe artifact + handoff next to
+# Fake scripts/quest_claude_bg_run.py: writes the probe artifact + handoff next to
 # the prompt file (same contract as the success bridge shim) and exits 0.
 write_success_bg_runner() {
   local path="$1"

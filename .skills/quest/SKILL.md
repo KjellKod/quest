@@ -288,7 +288,7 @@ Before creating the quest folder, present the routing classification to the user
      "updated_at": "<timestamp>"
    }
    ```
-   Set `quest_mode` to the user's final selection: `"workflow"` (default) or `"solo"`. This field is read by `workflow.md` to determine agent dispatch and by `validate-quest-state.sh` for artifact checks.
+   Set `quest_mode` to the user's final selection: `"workflow"` (default) or `"solo"`. This field is read by `workflow.md` to determine agent dispatch and by `quest_validate-quest-state.sh` for artifact checks.
    `vcs_available` must be copied directly from `scripts/quest_startup_branch.py` output. Do not infer it from `branch_mode`.
    `branch_mode` records the actual startup mode used for this quest run after no-op handling. If Quest starts on an existing feature branch, set `branch_mode` to `"none"` and record that branch in `branch`.
    `quest_symlink` must be copied directly from `scripts/quest_startup_branch.py` output. Do not infer it from `branch_mode` or `worktree_path`.

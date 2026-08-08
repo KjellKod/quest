@@ -20,6 +20,6 @@ proposals live in `ideas/` until they are implementation-ready.
 Recently completed and archived to [`history/`](history/): the three
 claude-bg-transport specs (Step-1 runner, migration rationale, Step-2 wiring)
 — implemented and hardened via PR #136/#137/#141/#142. Their empirical
-findings live on in `scripts/claude_bg_run.py`'s module docstring and the
+findings live on in `scripts/quest_claude_bg_run.py`'s module docstring and the
 transport test suites; the archived specs remain the record of *why* the
 design is shaped the way it is.

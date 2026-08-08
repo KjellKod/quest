@@ -26,12 +26,12 @@ The `gh` dependency lives in **two layers**:
   PR #157).
 - **Layer B — the Python scripts in `scripts/`** (not in the skill directory;
   the skill orchestrates repo-shared scripts):
-  - `pr_shepherd_checkout.py` → `gh pr view` / `gh pr checkout`
-  - `pr_shepherd_collect_intake.py` → `gh api user`, `gh …`
-  - `pr_shepherd_annotate_scope.py` → `gh pr diff --patch`
-  - `pr_shepherd_post_reply.py` → `gh api`, `gh pr comment`
-  - `pr_shepherd_fetch_failed_logs.py` → `gh run view --log-failed`
-  - `pr_sync_default_branch.py` → `gh` (this one already has a `git ls-remote`
+  - `quest_pr_shepherd_checkout.py` → `gh pr view` / `gh pr checkout`
+  - `quest_pr_shepherd_collect_intake.py` → `gh api user`, `gh …`
+  - `quest_pr_shepherd_annotate_scope.py` → `gh pr diff --patch`
+  - `quest_pr_shepherd_post_reply.py` → `gh api`, `gh pr comment`
+  - `quest_pr_shepherd_fetch_failed_logs.py` → `gh run view --log-failed`
+  - `quest_pr_sync_default_branch.py` → `gh` (this one already has a `git ls-remote`
     fallback)
 
 ## Key architectural constraint

@@ -49,7 +49,7 @@ def test_user_facing_docs_explain_transport_pair_and_runner() -> None:
         )
     )
 
-    assert "scripts/claude_bg_run.py" in combined
+    assert "scripts/quest_claude_bg_run.py" in combined
     assert "background-agent" in combined
     assert "bridge" in combined
     assert "subscription" in combined

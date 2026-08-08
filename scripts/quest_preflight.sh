@@ -37,7 +37,7 @@ fi
 
 # Helper scripts: default next to this script (env overrides win). Absolute.
 CLAUDE_BRIDGE_SCRIPT="${QUEST_CLAUDE_BRIDGE_SCRIPT:-$SCRIPT_DIR/quest_claude_bridge.py}"
-CLAUDE_BG_RUNNER_SCRIPT="${QUEST_CLAUDE_BG_RUNNER_SCRIPT:-$SCRIPT_DIR/claude_bg_run.py}"
+CLAUDE_BG_RUNNER_SCRIPT="${QUEST_CLAUDE_BG_RUNNER_SCRIPT:-$SCRIPT_DIR/quest_claude_bg_run.py}"
 CLAUDE_PROBE_SCRIPT="${QUEST_CLAUDE_PROBE_SCRIPT:-$SCRIPT_DIR/quest_claude_probe.py}"
 # Project state stays cwd-relative on purpose (it lives in the target repo).
 CLAUDE_BRIDGE_CACHE_FILE="${QUEST_PREFLIGHT_CACHE_FILE:-.quest/cache/claude_bridge_codex.json}"

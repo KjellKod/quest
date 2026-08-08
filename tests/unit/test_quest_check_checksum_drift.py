@@ -13,9 +13,9 @@ def _repo_root() -> Path:
 
 
 def _load_module():
-    module_path = _repo_root() / "scripts" / "check_quest_checksum_drift.py"
+    module_path = _repo_root() / "scripts" / "quest_check_checksum_drift.py"
     spec = importlib.util.spec_from_file_location(
-        "check_quest_checksum_drift", module_path
+        "quest_check_checksum_drift", module_path
     )
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -39,7 +39,7 @@ def test_main_reports_no_drift_for_matching_repo_file(
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(sys, "argv", ["check_quest_checksum_drift.py", str(repo)])
+    monkeypatch.setattr(sys, "argv", ["quest_check_checksum_drift.py", str(repo)])
 
     assert module.main() == 0
     assert capsys.readouterr().out.strip() == "OK: no checksum drift"
@@ -60,7 +60,7 @@ def test_main_reports_unsafe_path_without_hashing_outside_repo(
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(sys, "argv", ["check_quest_checksum_drift.py", str(repo)])
+    monkeypatch.setattr(sys, "argv", ["quest_check_checksum_drift.py", str(repo)])
 
     assert module.main() == 1
     captured = capsys.readouterr().out
