@@ -134,7 +134,11 @@ def expected_artifacts_for_role(
         _normalize_phase(phase_dir)
     }
     if normalized_phase not in allowed_phases:
-        allowed = ", ".join(sorted(allowed_phases))
+        # Hint from the RAW directory, not its normalized form. The point of
+        # listing it is to name something the caller can actually see in the
+        # tree; under a hyphenated rename the normalized value would name a
+        # directory that does not exist. Normalization is for matching only.
+        allowed = ", ".join(sorted(ROLE_PHASE_ALIASES[normalized_agent] | {phase_dir}))
         raise ValueError(
             f"Quest role {agent} is not valid for phase {phase!r}. Allowed: {allowed}"
         )

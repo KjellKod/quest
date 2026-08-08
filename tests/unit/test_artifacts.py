@@ -169,6 +169,27 @@ class TestExpectedArtifactsForRole:
         assert paths
         assert all(p.parent.name == "phase-03-review" for p in paths)
 
+    def test_rejection_hint_names_the_real_directory_not_its_normalized_form(
+        self, tmp_path: Path, monkeypatch
+    ):
+        # The hint exists so a wrong guess points at something on disk. Under a
+        # hyphenated rename the normalized form would name a directory that
+        # does not exist, so matching and display must not share a value.
+        import quest_runtime.artifacts as artifacts_module
+
+        patched = dict(artifacts_module.ROLE_ARTIFACTS)
+        _, filenames = patched["code-reviewer-b"]
+        patched["code-reviewer-b"] = ("phase-03-review", filenames)
+        monkeypatch.setattr(artifacts_module, "ROLE_ARTIFACTS", patched)
+
+        with pytest.raises(ValueError) as excinfo:
+            artifacts_module.expected_artifacts_for_role(
+                tmp_path, "nonsense_phase", "code-reviewer-b"
+            )
+        message = str(excinfo.value)
+        assert "phase-03-review" in message
+        assert "phase_03_review" not in message
+
     def test_another_roles_directory_is_still_rejected(self, tmp_path: Path):
         # Accepting the *own* directory must not turn into accepting any
         # directory — a planner asked to run in the review phase is still wrong.
