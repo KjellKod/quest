@@ -342,7 +342,11 @@ def run_antigravity_role(
 
     if resolved_artifact_paths:
         try:
-            prepare_artifact_files(resolved_artifact_paths)
+            prepare_artifact_files(
+                resolved_artifact_paths,
+                quest_dir=resolved_quest_dir,
+                role=agent,
+            )
         except OSError as exc:
             return RunResult(
                 exit_code=1,
@@ -523,7 +527,14 @@ def run_antigravity_probe(
     prompt_file = probe_dir / "probe_prompt.txt"
     artifact_file = probe_dir / "probe_artifact.txt"
     handoff_file = probe_dir / "probe_handoff.json"
-    prepare_artifact_files([artifact_file, handoff_file])
+    # role="probe", not a canonical role name: the probe writes to its own
+    # logs/agy_probe directory, so it must not trip the planner plan-iteration
+    # snapshot precondition that prepare_artifact_files enforces.
+    prepare_artifact_files(
+        [artifact_file, handoff_file],
+        quest_dir=resolved_quest_dir,
+        role="probe",
+    )
     prompt = _write_probe_prompt(prompt_file, artifact_file, handoff_file)
 
     try:
