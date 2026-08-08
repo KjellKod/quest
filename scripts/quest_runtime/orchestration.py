@@ -211,12 +211,24 @@ def is_claude_model(model: str) -> bool:
     return model == "claude" or model.startswith("claude-")
 
 
+def is_antigravity_model(model: str) -> bool:
+    """Return True for model names that run on the Antigravity runtime.
+
+    Mirrors `is_claude_model`. The bare `gemini` sentinel means "use the
+    Antigravity CLI's own default model" (the runner omits `--model`);
+    concrete slugs such as `gemini-3.6-flash-high` pass through verbatim, so
+    a newly released slug works without a Quest change.
+    """
+    return model == "gemini" or model.startswith("gemini-")
+
+
 def runtime_for_model(model: str) -> str:
     """Map a persisted `models.<role>` model ID to its runtime family.
 
     `models.*` stores model IDs (for example `claude`, `claude-opus-4-6`,
-    `gpt-5.5`), not runtime names. The Quest contract is binary: Claude-family
-    IDs run on the Claude runtime; every other ID runs on Codex tooling.
+    `gemini-3.6-flash-high`, `gpt-5.5`), not runtime names. Claude-family IDs
+    run on the Claude runtime, Gemini-family IDs run on the Antigravity
+    runtime (the `agy` CLI), and every other ID runs on Codex tooling.
     Provider-qualified IDs (for example `opencode/claude-opus-4-6`) are
     classified on the segment after the final `/`.
     """
@@ -226,10 +238,19 @@ def runtime_for_model(model: str) -> str:
     unqualified = normalized.rsplit("/", 1)[-1]
     if not unqualified:
         raise ValueError(f"model ID has no name after provider prefix: {model!r}")
-    return "claude" if is_claude_model(unqualified) else "codex"
+    if is_claude_model(unqualified):
+        return "claude"
+    if is_antigravity_model(unqualified):
+        return "antigravity"
+    return "codex"
 
 
-def is_model_available(model: str, *, codex_available: bool) -> bool:
+def is_model_available(
+    model: str,
+    *,
+    codex_available: bool,
+    antigravity_available: bool = False,
+) -> bool:
     """Return True if the requested model can run with the current preflight.
 
     Backward-compatible wrapper for Claude-led availability checks.
@@ -239,6 +260,7 @@ def is_model_available(model: str, *, codex_available: bool) -> bool:
         orchestrator="claude",
         codex_available=codex_available,
         claude_available=True,
+        antigravity_available=antigravity_available,
     )
 
 
@@ -248,14 +270,24 @@ def is_model_available_for_orchestrator(
     orchestrator: str,
     codex_available: bool,
     claude_available: bool,
+    antigravity_available: bool = False,
 ) -> bool:
-    """Return True if the model can run in the active orchestrator session."""
+    """Return True if the model can run in the active orchestrator session.
+
+    `antigravity_available` defaults to False so that a caller predating the
+    Antigravity runtime rejects Gemini-backed roles at chooser time rather
+    than persisting config that could only fail later at dispatch.
+    """
     normalized_orchestrator = orchestrator.strip().lower()
     if normalized_orchestrator not in {"claude", "codex"}:
         raise ValueError(f"Unknown orchestrator: {orchestrator!r}")
     # Classify through the same canonical mapping dispatch uses, so
     # provider-qualified IDs (opencode/claude-*) gate consistently.
     model_runtime = runtime_for_model(model)
+    if model_runtime == "antigravity":
+        # Antigravity is never an orchestrator, only ever a dispatched
+        # runtime, so the probe result gates it for either orchestrator.
+        return antigravity_available
     if normalized_orchestrator == "claude":
         return True if model_runtime == "claude" else codex_available
     return claude_available if model_runtime == "claude" else True
@@ -276,6 +308,7 @@ def validate_or_remap_models_for_orchestrator(
     claude_available: bool,
     quest_mode: str,
     remap_unavailable: bool = False,
+    antigravity_available: bool = False,
 ) -> tuple[dict[str, str | None], list[str]]:
     """Validate active role models against the preflight result.
 
@@ -312,6 +345,7 @@ def validate_or_remap_models_for_orchestrator(
             orchestrator=normalized_orchestrator,
             codex_available=codex_available,
             claude_available=claude_available,
+            antigravity_available=antigravity_available,
         ):
             continue
         if remap_unavailable:
