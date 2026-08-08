@@ -72,6 +72,58 @@ the repository's current role defaults. If the probe fails, startup pauses for
 remediation or an explicit single-model choice; Quest does not silently change
 the role map.
 
+### Optional: Antigravity CLI (for Gemini-backed roles)
+
+Quest can assign any role to a Gemini model running on Google's Antigravity CLI (`agy`).
+This gives you a third model family alongside Claude and GPT, which matters most for the
+reviewer slots — independent families disagree in useful ways.
+
+**Requires:**
+- [Antigravity CLI](https://antigravity.google/docs/cli/install) on your PATH:
+  ```bash
+  curl -fsSL https://antigravity.google/cli/install.sh | bash
+  ```
+- An authenticated session. `agy` authenticates through your OS keyring on first run, so run
+  it once interactively before using it from Quest. Verify with `agy models`, which lists the
+  slugs you can assign.
+
+There is **no MCP server and no registration step** — Quest invokes `agy --print` as a
+subprocess, the same shape as the Claude bridge.
+
+Assign Gemini models by putting a slug from `agy models` in `models.<role>`:
+
+```json
+{
+  "models": {
+    "code-reviewer-b": "gemini-3.6-flash-high",
+    "plan-reviewer-b": "gemini-3.1-pro-high"
+  }
+}
+```
+
+Slugs pass through to the CLI verbatim and are never checked against a hardcoded list, so a
+newly released model works as soon as `agy models` lists it. The bare `gemini` sentinel means
+"use the agy default model" (Quest omits `--model`), mirroring the `claude` sentinel. An
+unrecognised slug is reported as `model_rejected` rather than silently downgraded.
+
+Verify the runtime before your first Gemini-backed quest:
+
+```bash
+./scripts/quest_preflight.sh --probe antigravity
+```
+
+This runs a real probe — `agy` must actually write an artifact and a handoff, not merely
+answer — so a green result means a role can do real work. Successful probes are cached with a
+TTL, so repeat runs are near-instant; a cached success is only reused for the same model.
+
+**Two behaviours worth knowing before you debug:**
+
+- `agy` reads workspace context on its own, so a Gemini role starts with more context than the
+  orchestrator handed it. This is a weaker isolation story than the Claude path.
+- Writes outside the runner's `--add-dir` scope are **not refused** — `agy` redirects them to
+  `~/.gemini/antigravity-cli/scratch/` and still reports success. If a Gemini role reports a
+  missing handoff, suspect scoping before you suspect the model.
+
 ### Optional: jq (for validation)
 
 ```bash
@@ -298,6 +350,8 @@ Quest sends the initial background prompt on stdin, not as a trailing argv argum
 `models.<role> = "claude"` is a sentinel for the Claude CLI/account default model. Quest passes the sentinel into its own runner, but the runner omits the CLI `--model` flag. If Claude rejects a concrete model, Quest reports `model_rejected` instead of downgrading or guessing. Because the sentinel does not identify the account-default model, rejection results omit `rejected_model` for it.
 
 To pin a **specific Claude model** for a role, put its full `claude-`-prefixed model ID in `models.<role>` (in `.ai/allowlist.json`, or per quest via the orchestration chooser override, e.g. `planner=claude-fable-5`): `claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`, and so on. The ID passes verbatim to the CLI's `--model`. **Do not use bare CLI aliases like `opus` or `sonnet` in `models.<role>`** — Quest classifies the role's runtime by the `claude`/`claude-*` shape, so a bare alias would route the role to the Codex runtime. (Bare aliases are fine only when invoking `scripts/quest_claude_runner.py`/`quest_claude_probe.py` directly with `--model`.) To preflight a concrete model instead of the account default, set `QUEST_CLAUDE_PROBE_MODEL=claude-fable-5`.
+
+The same shape rule applies to Gemini: a `gemini`/`gemini-*` ID routes the role to the Antigravity runtime, and anything else falls through to Codex. Override the runtime's probe model with `QUEST_AGY_PROBE_MODEL=gemini-3.1-pro-high`, or point Quest at a different binary with `QUEST_AGY_BINARY`.
 
 **Prerequisites (both transports):** Claude CLI installed and authenticated (`claude auth status` should show a valid session).
 

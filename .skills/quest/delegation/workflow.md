@@ -31,7 +31,7 @@ Phase-specific notes (just pointers — the propagation rule itself does not var
 ### Runtime And Entrypoint Selection (Run Once Per Session)
 
 Quest dispatch separates **runtime** from **entrypoint**:
-- `runtime` is the backend family **derived from** the role's `models.<role>` model ID in `.quest/<id>/orchestration.json`: `claude` / `claude-*` IDs select the Claude runtime; every other model ID (for example `gpt-5.5`) selects the Codex runtime. `models.*` stores model IDs, not runtime names — `runtime_for_model()` in `scripts/quest_runtime/orchestration.py` is the canonical mapping.
+- `runtime` is the backend family **derived from** the role's `models.<role>` model ID in `.quest/<id>/orchestration.json`: `claude` / `claude-*` IDs select the Claude runtime; `gemini` / `gemini-*` IDs select the Antigravity runtime; every other model ID (for example `gpt-5.5`) selects the Codex runtime. `models.*` stores model IDs, not runtime names — `runtime_for_model()` in `scripts/quest_runtime/orchestration.py` is the canonical mapping.
 - `entrypoint` is how the current orchestrator invokes that runtime.
 - The selected model/runtime value chooses the backend family only; it does not choose the transport or tool entrypoint.
 
@@ -41,6 +41,7 @@ Quest dispatch separates **runtime** from **entrypoint**:
 | Codex-led | Claude | `python3 scripts/quest_claude_runner.py` when `claude_transport_available` is true | The runner owns the transport underneath: background-agent (`scripts/quest_claude_bg_run.py`, `claude --bg`, subscription billing) when preflight proved it, or the bridge (`scripts/quest_claude_bridge.py`, `claude --print`) only when bridge was explicitly configured/selected. Pass `--model <models.<role> from .quest/<id>/orchestration.json>` and `--transport <claude_transport_resolved from orchestration.json>`. The exact `claude` model sentinel means use the Claude CLI/account default and must not be sent to the CLI as `--model claude`; concrete configured model strings pass through unchanged. Block with transport guidance if unavailable and no explicit Codex fallback exists. |
 | Claude-led | Codex | Codex MCP (`mcp__codex-cli__codex`, `codex_codex`, or the platform's registered Codex MCP tool) | MCP is the cross-runtime path only from Claude-led sessions. |
 | Claude-led | Claude | native `Task(...)` | Use the orchestrator's native Claude task path. |
+| Either orchestrator | Antigravity | `python3 scripts/quest_antigravity_runner.py` when `antigravity_available` is true | Selected by Gemini-family model IDs. Antigravity is never an orchestrator, only ever a dispatched runtime, so one runner serves both session types — there is no MCP path and no transport choice. Pass `--model <models.<role> from .quest/<id>/orchestration.json>`; the exact `gemini` sentinel means use the agy default model and must not be sent to the CLI as `--model gemini`. **Always pass `--add-dir` covering the quest directory** — see the Antigravity containment rule below. Block with the preflight `warning` lines if unavailable. |
 
 **Orchestration violation:** If a Codex-led Quest attempts to dispatch a Codex runtime role through Codex MCP, treat it as an entrypoint violation, not a model-selection or model/account failure. Correct it by dispatching the role through local Codex subagents that inherit the active Codex model. Codex MCP is only for Claude-led sessions dispatching Codex roles.
 
@@ -70,9 +71,26 @@ If the preflight result was already cached by SKILL.md Step 2b, use the cached v
 6. If an older in-flight artifact has `transport_downgraded: true`, surface the preflight `warning` lines to the user once. New `auto` runs block instead of downgrading.
 7. Codex runtime roles use local Codex subagents. Do not probe, call, configure, or retry Codex MCP for Codex-led Codex roles.
 
+**Antigravity-backed roles (applies to both session types):**
+1. If no active role carries a Gemini-family model ID, skip this probe entirely — it costs a real model call.
+2. Run `scripts/quest_preflight.sh --probe antigravity` and parse the JSON output.
+3. Cache the `available` field as `antigravity_available` (boolean) for the rest of the session. The probe is cache-first with a TTL, so repeat runs are near-instant; a cached success is valid only for the same `probe_model`.
+4. If `antigravity_available` is false while an active role still carries a Gemini-family model ID: pause startup and surface the preflight `warning` lines. Do not remap roles automatically. Ask the human to fix the agy setup and rerun preflight, explicitly reassign those roles to another runtime, or cancel.
+
 **This rule is global.** Individual steps name the target runtime and artifact contract; the orchestrator chooses the entrypoint from the matrix above. Role labels, model names, and runtime names are not tool names.
 
 **Why:** MCP servers are loaded at session startup. If the Codex MCP server failed to connect in a Claude-led session (binary not on PATH, server crash, etc.), it cannot be recovered mid-session. Probing once avoids repeated failed invocations and misleading error messages. In Codex-led sessions, Codex is already active and uses local subagents instead of MCP.
+
+### Antigravity Containment Rule (Applies to every Gemini-designated role dispatch)
+
+`--add-dir` is the **only** write boundary the Antigravity CLI enforces. Two measured behaviours make this non-negotiable:
+
+- **`--mode plan` is not a write barrier.** In plan mode `agy` still writes files that fall inside `--add-dir` scope. The runner selects plan mode for review and arbitration roles as a posture, not as a permission. Never describe it as read-only.
+- **An out-of-scope write is not refused, it is redirected.** When a target path falls outside `--add-dir`, `agy` writes to its own scratch directory (`~/.gemini/antigravity-cli/scratch/`) and still reports `status: SUCCESS`, claiming it wrote the requested path. The role then looks like it simply failed to produce a handoff.
+
+Therefore, every dispatch **must** pass `--add-dir` values that cover the quest directory and any other location the role's declared artifacts live in. `scripts/quest_antigravity_runner.py` refuses to dispatch and returns `invocation_error` when `--add-dir` is absent or does not cover the handoff directory — that refusal is a scoping bug in the dispatch, not a model failure, and must be fixed by correcting the `--add-dir` values rather than retried.
+
+**Context expectations differ from the other runtimes.** `agy` ingests workspace context on its own, so a Gemini-designated role does not start from only the artifacts the orchestrator handed it. The Context Retention Rule still governs what the *orchestrator* retains; it cannot constrain what this runtime reads.
 
 ### Claude Transport Probe And Runtime Dispatch (Run Once Per Session — Applies to Claude-designated roles when orchestrator is Codex)
 
