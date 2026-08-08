@@ -20,6 +20,7 @@ docs. Three published claims did not hold:
 
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 from pathlib import Path
@@ -77,9 +78,36 @@ READ_ONLY_ROLES = frozenset(
 AGY_MODE_READ_ONLY = "plan"
 AGY_MODE_WRITE = "accept-edits"
 
+# Handoff statuses that legitimately carry no finished artifacts. A role that
+# stopped to ask a question or reported a blocker did its job; requiring
+# artifacts from it would route a terminal outcome into the failure path.
+TERMINAL_STATUSES_WITHOUT_ARTIFACTS = frozenset({"needs_human", "blocked"})
+
+# Upper bound for --timeout. Anything beyond this is a config error rather
+# than an intent, and rejecting it early keeps absurd values away from the
+# subprocess and from agy's own --print-timeout parsing.
+MAX_TIMEOUT_SECONDS = 2_147_483_647
+
 # The bare `gemini` sentinel means "let agy choose its own default model", so
 # the runner omits --model entirely. Mirrors the `claude` sentinel.
 AGY_DEFAULT_MODEL_SENTINEL = "gemini"
+
+
+def positive_finite_timeout(value: str) -> float:
+    """Parse a --timeout argument, rejecting values a subprocess cannot use.
+
+    Shared by both CLI entrypoints so the policy cannot drift between them.
+    `type=float` alone accepts "inf", which reaches int(timeout) in
+    build_agy_cmd and crashes the process instead of returning the structured
+    failure envelope callers parse.
+    """
+    parsed = float(value)
+    if parsed != parsed or not 0 < parsed <= MAX_TIMEOUT_SECONDS:
+        raise argparse.ArgumentTypeError(
+            "timeout must be a finite positive number of seconds "
+            f"no greater than {MAX_TIMEOUT_SECONDS} (got {value!r})"
+        )
+    return parsed
 
 
 def agy_mode_for_agent(agent: str) -> str:
@@ -401,8 +429,14 @@ def run_antigravity_role(
     # declared artifacts, so accepting a handoff while those are missing or
     # still empty hands the next stage files with nothing in them. The Claude
     # runner requires the artifact write too; this keeps the contract uniform.
+    # `needs_human` and `blocked` are legitimate terminal outcomes, not
+    # failures: a role that stopped to ask a question or reported a blocker is
+    # SUPPOSED to have no finished artifacts. Flagging those as
+    # artifact_missing would route them into retry/failure instead of the
+    # human/blocked path, burying the question the role actually asked.
     if (
         source
+        and status not in TERMINAL_STATUSES_WITHOUT_ARTIFACTS
         and resolved_artifact_paths
         and any_artifact_missing_or_empty(resolved_artifact_paths)
     ):

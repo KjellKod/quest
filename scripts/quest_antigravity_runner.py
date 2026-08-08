@@ -15,23 +15,9 @@ import json
 from quest_runtime.antigravity_runner import (
     DEFAULT_AGY_BINARY,
     run_antigravity_role,
+    positive_finite_timeout,
 )
 from quest_runtime.artifacts import expected_artifacts_for_role
-
-
-def _positive_finite_timeout(value: str) -> float:
-    """Parse --timeout, rejecting nan/inf so the JSON envelope always wins.
-
-    `type=float` happily accepts "inf", which later reaches int(timeout) in
-    build_agy_cmd and raises OverflowError -- crashing the process instead of
-    returning the structured failure envelope callers parse.
-    """
-    parsed = float(value)
-    if parsed != parsed or parsed in (float("inf"), float("-inf")) or parsed <= 0:
-        raise argparse.ArgumentTypeError(
-            f"timeout must be a finite positive number of seconds (got {value!r})"
-        )
-    return parsed
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--timeout",
-        type=_positive_finite_timeout,
+        type=positive_finite_timeout,
         default=1800.0,
         help="Command timeout seconds (default: 1800)",
     )

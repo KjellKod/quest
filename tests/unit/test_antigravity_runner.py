@@ -5,17 +5,20 @@ from __future__ import annotations
 import stat
 from pathlib import Path
 
+import argparse
 import json
 
 from quest_runtime.antigravity_runner import (
     AGY_MODE_READ_ONLY,
     AGY_MODE_WRITE,
     MAX_PROMPT_ARGV_BYTES,
+    MAX_TIMEOUT_SECONDS,
     agy_mode_for_agent,
     build_agy_cmd,
     classify_agy_result_kind,
     normalize_agy_cli_model,
     parse_agy_envelope,
+    positive_finite_timeout,
     rejected_model_for,
     run_antigravity_role,
 )
@@ -502,3 +505,85 @@ def test_recovered_text_handoff_reports_a_distinct_result_kind(tmp_path):
 
     assert result.source == "text_fallback"
     assert result.result_kind == "text_fallback"
+
+
+def _handoff_with_status(tmp_path, quest_dir, handoff, status):
+    return _fake_agy(
+        tmp_path / f"fake_agy_{status}.py",
+        "#!/usr/bin/env python3\n"
+        "import json, pathlib\n"
+        f"pathlib.Path({str(handoff)!r}).write_text("
+        f'json.dumps({{"status": "{status}"}}))\n'
+        'print(json.dumps({"status": "SUCCESS", "response": "done"}))\n',
+    )
+
+
+def test_terminal_statuses_are_exempt_from_the_artifact_requirement(tmp_path):
+    # needs_human and blocked are legitimate outcomes: a role that stopped to
+    # ask a question is SUPPOSED to have no finished artifacts. Reporting
+    # artifact_missing would route it to retry instead of the human path.
+    for status in ("needs_human", "blocked"):
+        quest_dir = tmp_path / ".quest" / status
+        review_dir = quest_dir / "phase_03_review"
+        review_dir.mkdir(parents=True)
+        prompt_file = tmp_path / f"prompt_{status}.txt"
+        prompt_file.write_text("do the thing", encoding="utf-8")
+        handoff = review_dir / "handoff_code-reviewer-b.json"
+        artifact = review_dir / "review_code-reviewer-b.md"
+
+        result = run_antigravity_role(
+            cwd=tmp_path,
+            quest_dir=quest_dir,
+            phase="code_review",
+            agent="code-reviewer-b",
+            iteration=1,
+            prompt_file=prompt_file,
+            handoff_file=handoff,
+            model="gemini-3.6-flash-low",
+            timeout=30,
+            artifact_paths=[artifact],
+            add_dirs=[quest_dir],
+            agy_binary=_handoff_with_status(tmp_path, quest_dir, handoff, status),
+        )
+
+        assert result.status == status
+        assert (
+            result.result_kind == "handoff_json"
+        ), f"{status} must not be reported as artifact_missing"
+
+    # A `complete` handoff with no artifacts is still a failure.
+    quest_dir = tmp_path / ".quest" / "complete"
+    review_dir = quest_dir / "phase_03_review"
+    review_dir.mkdir(parents=True)
+    prompt_file = tmp_path / "prompt_complete.txt"
+    prompt_file.write_text("do the thing", encoding="utf-8")
+    handoff = review_dir / "handoff_code-reviewer-b.json"
+    result = run_antigravity_role(
+        cwd=tmp_path,
+        quest_dir=quest_dir,
+        phase="code_review",
+        agent="code-reviewer-b",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=handoff,
+        model="gemini-3.6-flash-low",
+        timeout=30,
+        artifact_paths=[review_dir / "review_code-reviewer-b.md"],
+        add_dirs=[quest_dir],
+        agy_binary=_handoff_with_status(tmp_path, quest_dir, handoff, "complete"),
+    )
+    assert result.result_kind == "artifact_missing"
+
+
+def test_timeout_parser_rejects_nonfinite_and_absurd_values():
+    for bad in ("inf", "-inf", "nan", "0", "-5", str(MAX_TIMEOUT_SECONDS + 1)):
+        try:
+            positive_finite_timeout(bad)
+        except argparse.ArgumentTypeError:
+            continue
+        raise AssertionError(f"Expected {bad!r} to be rejected")
+
+    assert positive_finite_timeout("1800") == 1800.0
+    assert positive_finite_timeout(str(MAX_TIMEOUT_SECONDS)) == float(
+        MAX_TIMEOUT_SECONDS
+    )
