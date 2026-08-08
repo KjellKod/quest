@@ -17,6 +17,8 @@ except ModuleNotFoundError:  # Python 3.10
 
 
 BLACK_PIN = "black==26.3.1"
+PYTEST_PIN = "pytest==9.0.3"
+PYYAML_PIN = "pyyaml==6.0.3"
 INSTALL_REMEDIATION = "python3 -m pip install -e '.[dev]'"
 FORMAT_REMEDIATION = "python3 -m black ."
 
@@ -49,6 +51,9 @@ exit "${VALIDATOR_EXIT:-0}"
         fixture_root / "fake-bin" / "python3",
         """#!/bin/sh
 printf 'python3|%s|%s\n' "$PWD" "$*" >> "$CALL_LOG"
+case "$*" in
+  *--version*) exit "${BLACK_PROBE_EXIT:-0}" ;;
+esac
 exit "${BLACK_EXIT:-0}"
 """,
     )
@@ -92,11 +97,15 @@ def _checksum_entries() -> set[str]:
     return entries
 
 
-def test_pyproject_declares_exact_black_development_policy() -> None:
+def test_pyproject_declares_exact_pinned_development_dependencies() -> None:
     with (_repo_root() / "pyproject.toml").open("rb") as pyproject_file:
         pyproject = tomllib.load(pyproject_file)
 
-    assert pyproject["project"]["optional-dependencies"]["dev"] == [BLACK_PIN]
+    assert pyproject["project"]["optional-dependencies"]["dev"] == [
+        BLACK_PIN,
+        PYTEST_PIN,
+        PYYAML_PIN,
+    ]
     assert pyproject["tool"]["black"] == {
         "target-version": ["py310"],
         "line-length": 88,
@@ -109,9 +118,9 @@ def test_source_hook_is_executable_and_check_only() -> None:
 
     assert hook.stat().st_mode & stat.S_IXUSR
     assert "./scripts/quest_validate-quest-config.sh" in hook_text
-    assert hook_text.count("python3 -m black --check .") == 1
-    assert hook_text.count(FORMAT_REMEDIATION) == 1
-    assert f"  {FORMAT_REMEDIATION}" in hook_text
+    assert hook_text.count('"$python3_bin" -m black --check .') == 1
+    assert hook_text.count("${python3_bin} -m black .") == 1
+    assert "  ${python3_bin} -m black ." in hook_text
 
 
 def test_source_hook_resolves_root_and_runs_validation_before_black(
@@ -132,6 +141,7 @@ def test_source_hook_resolves_root_and_runs_validation_before_black(
     assert result.returncode == 0, result.stderr
     assert call_log.read_text(encoding="utf-8").splitlines() == [
         f"validator|{fixture_root}",
+        f"python3|{fixture_root}|-m black --version",
         f"python3|{fixture_root}|-m black --check .",
     ]
 
@@ -158,12 +168,103 @@ def test_source_hook_failure_is_non_mutating_and_prints_exact_remediation(
 
     assert result.returncode != 0
     assert unformatted_file.read_bytes() == before
-    assert INSTALL_REMEDIATION in result.stderr
     assert FORMAT_REMEDIATION in result.stderr
+    assert INSTALL_REMEDIATION not in result.stderr
     assert call_log.read_text(encoding="utf-8").splitlines() == [
         f"validator|{fixture_root}",
+        f"python3|{fixture_root}|-m black --version",
         f"python3|{fixture_root}|-m black --check .",
     ]
+
+
+def test_source_hook_reports_missing_black_without_formatting_noise(
+    tmp_path: Path,
+) -> None:
+    hook, call_log, nested_directory = _hook_fixture(tmp_path)
+    fixture_root = hook.parents[1]
+    environment = _hook_environment(fixture_root, call_log)
+    environment["BLACK_PROBE_EXIT"] = "1"
+
+    result = subprocess.run(
+        [str(hook.resolve())],
+        cwd=nested_directory,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "black is not installed" in result.stderr
+    assert INSTALL_REMEDIATION in result.stderr
+    assert FORMAT_REMEDIATION not in result.stderr
+    assert call_log.read_text(encoding="utf-8").splitlines() == [
+        f"validator|{fixture_root}",
+        f"python3|{fixture_root}|-m black --version",
+    ]
+
+
+def test_source_hook_prefers_project_virtualenv_python(tmp_path: Path) -> None:
+    hook, call_log, nested_directory = _hook_fixture(tmp_path)
+    fixture_root = hook.parents[1]
+    _write_executable(
+        fixture_root / ".venv" / "bin" / "python3",
+        """#!/bin/sh
+printf 'venv-python3|%s|%s\n' "$PWD" "$*" >> "$CALL_LOG"
+case "$*" in
+  *--version*) exit "${BLACK_PROBE_EXIT:-0}" ;;
+esac
+exit "${BLACK_EXIT:-0}"
+""",
+    )
+
+    result = subprocess.run(
+        [str(hook.resolve())],
+        cwd=nested_directory,
+        env=_hook_environment(fixture_root, call_log),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert call_log.read_text(encoding="utf-8").splitlines() == [
+        f"validator|{fixture_root}",
+        f"venv-python3|{fixture_root}|-m black --version",
+        f"venv-python3|{fixture_root}|-m black --check .",
+    ]
+
+
+def test_source_hook_venv_failure_remediation_names_the_venv_interpreter(
+    tmp_path: Path,
+) -> None:
+    hook, call_log, nested_directory = _hook_fixture(tmp_path)
+    fixture_root = hook.parents[1]
+    _write_executable(
+        fixture_root / ".venv" / "bin" / "python3",
+        """#!/bin/sh
+printf 'venv-python3|%s|%s\n' "$PWD" "$*" >> "$CALL_LOG"
+case "$*" in
+  *--version*) exit "${BLACK_PROBE_EXIT:-0}" ;;
+esac
+exit "${BLACK_EXIT:-0}"
+""",
+    )
+    environment = _hook_environment(fixture_root, call_log)
+    environment["BLACK_EXIT"] = "1"
+
+    result = subprocess.run(
+        [str(hook.resolve())],
+        cwd=nested_directory,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "  .venv/bin/python3 -m black ." in result.stderr
+    assert f"  {FORMAT_REMEDIATION}" not in result.stderr
 
 
 def test_source_hook_stops_before_black_when_configuration_is_invalid(
@@ -196,20 +297,24 @@ def test_python_ci_keeps_tests_and_enforces_pinned_black_unconditionally() -> No
     steps_by_name = {step["name"]: step for step in steps}
 
     assert "if" not in steps_by_name["Set up Python"]
-    assert (
-        steps_by_name["Install Black"]["run"] == f"python3 -m pip install {BLACK_PIN}"
+    assert steps_by_name["Create virtual environment"]["run"] == (
+        "python3 -m venv .venv"
+    )
+    assert steps_by_name["Install development dependencies"]["run"] == (
+        ".venv/bin/python3 -m pip install -e '.[dev]'"
     )
     assert steps_by_name["Check Python formatting"]["run"] == (
-        "python3 -m black --check ."
+        ".venv/bin/python3 -m black --check ."
     )
-    for step_name in ("Install Black", "Check Python formatting"):
+    for step_name in (
+        "Create virtual environment",
+        "Install development dependencies",
+        "Check Python formatting",
+    ):
         assert "if" not in steps_by_name[step_name]
         assert "continue-on-error" not in steps_by_name[step_name]
 
-    assert steps_by_name["Install test dependencies"]["run"] == (
-        "python3 -m pip install pytest==9.0.3 pyyaml==6.0.3"
-    )
-    assert steps_by_name["Run tests"]["run"] == "python3 -m pytest tests/ -v"
+    assert steps_by_name["Run tests"]["run"] == ".venv/bin/python3 -m pytest tests/ -v"
 
 
 def test_source_formatting_files_remain_outside_installer_ownership() -> None:

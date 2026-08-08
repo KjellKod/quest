@@ -6,9 +6,6 @@
 .claude/worktrees/
 
 .claude/scheduled_tasks.lock
-
-# Per-developer Claude Code settings. Ignored for everyone rather than relying
-# on each contributor having a global ignore rule for it.
 .claude/settings.local.json
 
 # Workspace scratch
@@ -18,6 +15,7 @@
 # Python
 __pycache__/
 *.egg-info/
+.venv/
 
 # OS files
 .DS_Store

@@ -528,6 +528,55 @@ jobs:
     assert any("pip install" in failure for failure in failures)
 
 
+def test_pip_install_quoted_local_editable_extra_is_allowed(tmp_path: Path) -> None:
+    """`pip install -e '.[dev]'` is a local-path install; the shell strips the
+    quotes before pip sees the spec, so the guard must classify it the same
+    way as the unquoted form."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pip_local_editable.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: python3 -m pip install -e '.[dev]'
+      - run: pip install -e .[dev]
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert failures == []
+
+
+def test_pip_install_quoted_unpinned_package_is_still_flagged(tmp_path: Path) -> None:
+    """Quoting must not smuggle an unpinned PyPI spec past the guard."""
+    module = _load_module()
+    workflow_path = _write_workflow(
+        tmp_path,
+        "pip_quoted_unpinned.yml",
+        """\
+name: Example
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install 'requests'
+""",
+    )
+    failures = module.scan_workflow(workflow_path)
+    assert any("disallowed installer pattern" in failure for failure in failures)
+
+
 def test_pip3_install_unpinned_is_flagged(tmp_path: Path) -> None:
     """The pip-install matcher must also catch versioned `pip3 install` invocations."""
     module = _load_module()

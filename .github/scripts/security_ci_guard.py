@@ -597,6 +597,17 @@ _PIP_VCS_SCHEME_RE = re.compile(r"^(?:git|hg|svn|bzr)\+", re.IGNORECASE)
 _PIP_HTTP_URL_RE = re.compile(r"^https?://", re.IGNORECASE)
 
 
+def _strip_shell_quotes(token: str) -> str:
+    """Classify specs as pip receives them: the shell strips matching
+    surrounding quotes, so `'.[dev]'` reaches pip as `.[dev]`. Stripping
+    only converges on pip's view — it can reclassify a token as a local
+    path only when the shell would have handed pip that path anyway, so
+    quoting can never smuggle a remote spec into the local-path exemption."""
+    while len(token) >= 2 and token[0] == token[-1] and token[0] in {"'", '"'}:
+        token = token[1:-1]
+    return token
+
+
 def _is_pip_install_unpinned(line: str) -> bool:
     match = re.search(r"\b(?:python3?\s+-m\s+)?pip[0-9.]*\s+install\b(.*)$", line)
     if match is None:
@@ -609,7 +620,7 @@ def _is_pip_install_unpinned(line: str) -> bool:
     tokens = args_str.split()
     i = 0
     while i < len(tokens):
-        token = tokens[i]
+        token = _strip_shell_quotes(tokens[i])
         if token.startswith("-"):
             # `--requirement=req.txt` is a single token; nothing more to skip.
             if "=" in token:
