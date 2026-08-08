@@ -148,6 +148,35 @@ def build_agy_cmd(
     return cmd
 
 
+def check_containment(
+    handoff_file: str | Path, add_dirs: Iterable[str | Path] | None
+) -> str | None:
+    """Return an error string when a dispatch would run without containment.
+
+    `--add-dir` is agy's only write boundary (see READ_ONLY_ROLES). Dispatching
+    with none of it, or with scoping that does not cover where the handoff must
+    land, is never correct: agy does not refuse an out-of-scope write, it
+    redirects it to its own scratch directory and still reports SUCCESS. The
+    role then looks like it simply failed to write a handoff, which sends you
+    debugging the model instead of the scoping. Fail loudly up front instead.
+    """
+    resolved_dirs = [Path(d).resolve() for d in add_dirs or []]
+    if not resolved_dirs:
+        return (
+            "refusing to dispatch with no --add-dir: agy would redirect "
+            "out-of-scope writes to its scratch directory and still report "
+            "success, surfacing later as an unexplained missing handoff"
+        )
+    handoff_parent = Path(handoff_file).resolve().parent
+    if not any(handoff_parent.is_relative_to(d) for d in resolved_dirs):
+        return (
+            f"refusing to dispatch: --add-dir scoping {[str(d) for d in resolved_dirs]} "
+            f"does not cover the handoff directory {handoff_parent}, so the "
+            "handoff write would be silently redirected out of the workspace"
+        )
+    return None
+
+
 def parse_agy_envelope(stdout: str) -> dict | None:
     """Return agy's JSON envelope, or None when stdout is not a JSON object."""
     text = stdout.strip()
@@ -249,6 +278,17 @@ def run_antigravity_role(
     resolved_prompt_file = resolve_path(cwd, prompt_file)
     resolved_handoff_file = resolve_path(cwd, handoff_file)
     resolved_artifact_paths = [resolve_path(cwd, path) for path in artifact_paths or []]
+
+    containment_error = check_containment(resolved_handoff_file, add_dirs)
+    if containment_error:
+        return RunResult(
+            exit_code=1,
+            handoff_state="missing",
+            result_kind="invocation_error",
+            source=None,
+            stdout="",
+            stderr=containment_error,
+        )
 
     try:
         prompt = resolved_prompt_file.read_text(encoding="utf-8")

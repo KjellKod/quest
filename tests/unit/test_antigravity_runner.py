@@ -195,6 +195,7 @@ def test_run_role_records_a_handoff_and_tags_the_runtime_in_context_health(tmp_p
         handoff_file=handoff_file,
         model="gemini-3.6-flash-high",
         timeout=30,
+        add_dirs=[quest_dir],
         agy_binary=agy,
     )
 
@@ -234,6 +235,7 @@ def test_run_role_reports_model_rejection_with_the_slug(tmp_path):
         handoff_file=quest_dir / "handoff.json",
         model="gemini-nope",
         timeout=30,
+        add_dirs=[quest_dir],
         agy_binary=agy,
     )
 
@@ -266,6 +268,7 @@ def test_run_role_recovers_a_text_handoff_when_no_file_was_written(tmp_path):
         handoff_file=quest_dir / "handoff.json",
         model="gemini-3.6-flash-low",
         timeout=30,
+        add_dirs=[quest_dir],
         agy_binary=agy,
     )
 
@@ -290,11 +293,63 @@ def test_run_role_reports_invocation_error_when_the_binary_is_missing(tmp_path):
         handoff_file=quest_dir / "handoff.json",
         model="gemini-3.6-flash-low",
         timeout=30,
+        add_dirs=[quest_dir],
         agy_binary=str(tmp_path / "definitely-not-here"),
     )
 
     assert result.result_kind == "invocation_error"
     assert result.exit_code == 1
+
+
+def test_run_role_refuses_to_dispatch_with_no_scoping(tmp_path):
+    # agy does not refuse an out-of-scope write, it redirects it to its own
+    # scratch dir and reports SUCCESS. Dispatching unscoped would surface as
+    # an unexplained handoff_missing, so refuse up front instead.
+    quest_dir = tmp_path / ".quest" / "demo"
+    quest_dir.mkdir(parents=True)
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("do the thing", encoding="utf-8")
+
+    result = run_antigravity_role(
+        cwd=tmp_path,
+        quest_dir=quest_dir,
+        phase="Plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=quest_dir / "handoff.json",
+        model="gemini-3.6-flash-low",
+        timeout=30,
+        add_dirs=[],
+    )
+
+    assert result.result_kind == "invocation_error"
+    assert "no --add-dir" in result.stderr
+
+
+def test_run_role_refuses_scoping_that_excludes_the_handoff_directory(tmp_path):
+    quest_dir = tmp_path / ".quest" / "demo"
+    quest_dir.mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("do the thing", encoding="utf-8")
+
+    result = run_antigravity_role(
+        cwd=tmp_path,
+        quest_dir=quest_dir,
+        phase="Plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=quest_dir / "handoff.json",
+        model="gemini-3.6-flash-low",
+        timeout=30,
+        add_dirs=[elsewhere],
+    )
+
+    assert result.result_kind == "invocation_error"
+    assert "does not cover the handoff directory" in result.stderr
 
 
 def test_run_role_reports_invocation_error_for_an_unreadable_prompt(tmp_path):
@@ -311,6 +366,7 @@ def test_run_role_reports_invocation_error_for_an_unreadable_prompt(tmp_path):
         handoff_file=quest_dir / "handoff.json",
         model="gemini-3.6-flash-low",
         timeout=30,
+        add_dirs=[quest_dir],
     )
 
     assert result.result_kind == "invocation_error"
