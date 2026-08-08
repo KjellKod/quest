@@ -80,6 +80,16 @@ ROLE_PHASE_ALIASES: dict[str, frozenset[str]] = {
 }
 
 
+def _normalize_phase(value: str) -> str:
+    """Normalize a phase name for comparison.
+
+    Both sides of the phase check go through this, so an accepted alias and a
+    caller's input can never be compared under different rules.
+    """
+
+    return value.strip().lower().replace("-", "_")
+
+
 def default_quest_dir(workspace_root: str | Path, quest_id: str) -> Path:
     """Return the default repo-local quest directory for a run."""
 
@@ -112,13 +122,17 @@ def expected_artifacts_for_role(
                 f"Unsupported artifact subset {artifact_subset!r} for role {agent}"
             ) from exc
 
-    normalized_phase = phase.strip().lower().replace("-", "_")
+    normalized_phase = _normalize_phase(phase)
     # The role's own artifact directory is accepted as a phase alias. It is the
     # name a caller actually sees on disk (`.quest/<id>/phase_03_review/`), so
     # passing it is the natural mistake; rejecting it cost real debugging time.
     # Derived from ROLE_ARTIFACTS rather than hardcoded so renaming a phase
-    # directory cannot leave a stale alias behind.
-    allowed_phases = ROLE_PHASE_ALIASES[normalized_agent] | {phase_dir}
+    # directory cannot leave a stale alias behind — and normalized through the
+    # same helper as the input, so a rename that introduced hyphens or case
+    # could not silently stop matching.
+    allowed_phases = ROLE_PHASE_ALIASES[normalized_agent] | {
+        _normalize_phase(phase_dir)
+    }
     if normalized_phase not in allowed_phases:
         allowed = ", ".join(sorted(allowed_phases))
         raise ValueError(

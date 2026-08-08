@@ -149,6 +149,26 @@ class TestExpectedArtifactsForRole:
             tmp_path, "phase_03_review", "code-reviewer-b"
         ) == expected_artifacts_for_role(tmp_path, "code_review", "code-reviewer-b")
 
+    def test_directory_alias_survives_a_hyphenated_phase_directory(
+        self, tmp_path: Path, monkeypatch
+    ):
+        # The alias is derived from ROLE_ARTIFACTS precisely so a rename cannot
+        # leave a stale entry behind. That guarantee only holds while both sides
+        # of the comparison normalize the same way: a rename introducing hyphens
+        # would otherwise reject the very name the feature exists to accept.
+        import quest_runtime.artifacts as artifacts_module
+
+        patched = dict(artifacts_module.ROLE_ARTIFACTS)
+        _, filenames = patched["code-reviewer-b"]
+        patched["code-reviewer-b"] = ("phase-03-review", filenames)
+        monkeypatch.setattr(artifacts_module, "ROLE_ARTIFACTS", patched)
+
+        paths = artifacts_module.expected_artifacts_for_role(
+            tmp_path, "phase-03-review", "code-reviewer-b"
+        )
+        assert paths
+        assert all(p.parent.name == "phase-03-review" for p in paths)
+
     def test_another_roles_directory_is_still_rejected(self, tmp_path: Path):
         # Accepting the *own* directory must not turn into accepting any
         # directory — a planner asked to run in the review phase is still wrong.
