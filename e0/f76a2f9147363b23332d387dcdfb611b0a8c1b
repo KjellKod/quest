@@ -1,0 +1,20 @@
+.github/PULL_REQUEST_TEMPLATE.md
+  s_227cc56149583e::t_d1e4046c3db856 1-4,8,12,16
+  s_227cc56149583e::t_43c1b5c6002100 14-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "e0f76a2f9147363b23332d387dcdfb611b0a8c1b",
+  "prompts": {},
+  "sessions": {
+    "s_227cc56149583e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2d8dc889-a1b9-473c-bb99-d2edf678d4f6",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
