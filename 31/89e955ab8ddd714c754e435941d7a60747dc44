@@ -1,0 +1,35 @@
+.githooks/pre-commit
+  s_227cc56149583e::t_3abcaa7acb506c 9-25,29,32
+.github/scripts/security_ci_guard.py
+  s_227cc56149583e::t_df35a0be0de6ba 600-610,623
+.github/workflows/test-python.yml
+  s_227cc56149583e::t_ee4efd9660e9d6 44-45,47-48,50-51,55
+CONTRIBUTING.md
+  s_227cc56149583e::t_3d5d2d67769bb6 11,18-22,32-49
+pyproject.toml
+  s_227cc56149583e::t_598f4ad7a2d036 8
+scripts/quest_installer.sh
+  s_227cc56149583e::t_68c44a3e56dcdb 1144,1181,1208,1216,1242,1258,1344,1453
+tests/test_security_ci_guard.py
+  s_227cc56149583e::t_73feddf16796c3 531-579
+tests/unit/test_source_python_formatting.py
+  s_227cc56149583e::t_c3128d742ee8be 20-21,54-56,100,104-108,121-123,144,172,175,180-269,300-304,307,309-313,317
+.gitignore
+  s_227cc56149583e::t_2e450fafd3dd5b 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "3189e955ab8ddd714c754e435941d7a60747dc44",
+  "prompts": {},
+  "sessions": {
+    "s_227cc56149583e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2d8dc889-a1b9-473c-bb99-d2edf678d4f6",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
