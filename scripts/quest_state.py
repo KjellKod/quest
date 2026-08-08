@@ -3,13 +3,10 @@
 
 Supports two modes:
 
-  Raw setter (original):
-    python3 scripts/quest_state.py --quest-dir .quest/<id> --phase building --status in_progress
+  Metadata update without a phase change:
+    python3 scripts/quest_state.py --quest-dir .quest/<id> --status in_progress
 
-  Atomic validated transition (preferred):
-    python3 scripts/quest_state.py --quest-dir .quest/<id> --transition building --status in_progress
-
-  With an atomic expected-phase check (recommended for multi-agent):
+  Atomic validated transition with a required expected-phase check:
     python3 scripts/quest_state.py --quest-dir .quest/<id> --transition building --status in_progress --expect-phase plan_reviewed
 
 The --transition flag calls quest_validate-quest-state.sh before writing.
@@ -30,7 +27,10 @@ from pathlib import Path
 
 from quest_runtime.state import (
     PhaseMismatchError,
+    ReplanError,
     StateError,
+    record_user_replan_feedback,
+    transition_state,
     update_state,
 )
 
@@ -71,13 +71,24 @@ def parse_args() -> argparse.Namespace:
     phase_group = parser.add_mutually_exclusive_group()
     phase_group.add_argument(
         "--phase",
-        help="Set phase directly (no validation). Use --transition instead.",
+        help="Retain the current phase during a metadata update. Cannot transition.",
     )
     phase_group.add_argument(
         "--transition",
         metavar="PHASE",
         help="Validate then transition to PHASE atomically.",
     )
+    phase_group.add_argument(
+        "--record-user-replan-feedback",
+        action="store_true",
+        help="Record current human feedback before a validated return to plan.",
+    )
+
+    parser.add_argument(
+        "--source",
+        choices=("walkthrough", "sharpen", "build_gate", "resume_instruction"),
+    )
+    parser.add_argument("--feedback-file")
 
     parser.add_argument("--status")
     parser.add_argument(
@@ -133,12 +144,68 @@ def main() -> int:
         )
         return 1
 
-    if args.expect_phase and not args.transition:
+    if args.expect_phase and not (args.transition or args.record_user_replan_feedback):
         print(
-            "--expect-phase requires --transition (ignored with --phase).",
+            "--expect-phase requires --transition or --record-user-replan-feedback.",
             file=sys.stderr,
         )
         return 1
+
+    if args.transition and not args.expect_phase:
+        print(
+            "--transition requires --expect-phase.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if args.transition and args.clear_parked_bg_session:
+        print(
+            "--clear-parked-bg-session cannot be combined with --transition.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if args.record_user_replan_feedback:
+        incompatible_mutation = (
+            any(
+                value is not None
+                for value in (
+                    args.status,
+                    args.last_role,
+                    args.last_verdict,
+                    args.quest_mode,
+                    args.plan_iteration,
+                    args.fix_iteration,
+                    args.parked_bg_session,
+                )
+            )
+            or args.clear_parked_bg_session
+        )
+        if incompatible_mutation:
+            print(
+                "State mutation flags cannot be combined with "
+                "--record-user-replan-feedback.",
+                file=sys.stderr,
+            )
+            return 1
+        if not args.expect_phase or not args.source or not args.feedback_file:
+            print(
+                "--record-user-replan-feedback requires --source, --feedback-file, and --expect-phase.",
+                file=sys.stderr,
+            )
+            return 1
+        try:
+            state = record_user_replan_feedback(
+                quest_dir,
+                source=args.source,
+                feedback_file=args.feedback_file,
+                expected_phase=args.expect_phase,
+            )
+        except (PhaseMismatchError, ReplanError, StateError) as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(state, indent=2))
+        return 0
 
     if args.transition:
         # Validation is intentionally outside the filesystem lock. The final
@@ -170,11 +237,7 @@ def main() -> int:
             return 1
 
     try:
-        state = update_state(
-            quest_dir,
-            expected_phase=args.expect_phase,
-            clear_parked_bg_session=args.clear_parked_bg_session,
-            phase=target_phase,
+        mutation = dict(
             status=args.status,
             last_role=args.last_role,
             last_verdict=args.last_verdict,
@@ -183,10 +246,28 @@ def main() -> int:
             fix_iteration=args.fix_iteration,
             parked_bg_session=parked_bg_session,
         )
+        if args.transition:
+            state = transition_state(
+                quest_dir,
+                target_phase=args.transition,
+                expected_phase=args.expect_phase,
+                **mutation,
+            )
+        else:
+            state = update_state(
+                quest_dir,
+                expected_phase=args.expect_phase,
+                clear_parked_bg_session=args.clear_parked_bg_session,
+                phase=target_phase,
+                **mutation,
+            )
     except PhaseMismatchError as exc:
         print(f"{exc}. Another agent modified state concurrently.", file=sys.stderr)
         return 1
     except StateError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    except ReplanError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(state, indent=2))

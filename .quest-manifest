@@ -91,7 +91,7 @@ scripts/quest_validate-quest-config.sh
 scripts/quest_validate-quest-state.sh
 scripts/quest_validate-manifest.sh
 scripts/quest_validate-handoff-contracts.sh
-scripts/claude_bg_run.py
+scripts/quest_claude_bg_run.py
 scripts/quest_claude_bridge.py
 scripts/quest_claude_probe.py
 scripts/quest_claude_runner.py
@@ -100,18 +100,19 @@ scripts/quest_review_intelligence.py
 scripts/quest_parse_overrides.py
 scripts/quest_select_tests.py
 scripts/quest_startup_branch.py
-scripts/pr_shepherd_annotate_scope.py
-scripts/pr_shepherd_checkout.py
-scripts/pr_shepherd_collect_intake.py
-scripts/pr_shepherd_fetch_failed_logs.py
-scripts/pr_shepherd_post_reply.py
-scripts/pr_sync_default_branch.py
+scripts/quest_pr_shepherd_annotate_scope.py
+scripts/quest_pr_shepherd_checkout.py
+scripts/quest_pr_shepherd_collect_intake.py
+scripts/quest_pr_shepherd_fetch_failed_logs.py
+scripts/quest_pr_shepherd_post_reply.py
+scripts/quest_pr_sync_default_branch.py
 scripts/quest_checks/__init__.py
 scripts/quest_checks/cli.py
 scripts/quest_runtime/__init__.py
 scripts/quest_runtime/artifacts.py
 scripts/quest_runtime/claude_runner.py
 scripts/quest_runtime/orchestration.py
+scripts/quest_runtime/plan_iterations.py
 scripts/quest_runtime/pr_review_cycle.py
 scripts/quest_runtime/pr_shepherd.py
 scripts/quest_runtime/quest_ids.py
@@ -132,6 +133,7 @@ scripts/quest_backfill_journal.py
 scripts/quest_complete.py
 scripts/quest_preflight.sh
 scripts/quest_state.py
+scripts/quest_plan_iteration.py
 
 [user-customized]
 # These files preserve local customizations; AGENTS.md updates in place only when

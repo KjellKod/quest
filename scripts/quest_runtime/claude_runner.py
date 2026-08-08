@@ -2,7 +2,7 @@
 
 Codex-led Claude roles run through one of two transports, both invoked as
 subprocesses speaking the same file contract (poll handoff.json + artifacts):
-  * background-agent (default via "auto"): scripts/claude_bg_run.py —
+  * background-agent (default via "auto"): scripts/quest_claude_bg_run.py —
     `claude --bg` sessions billed to the subscription pool.
   * bridge (explicit API path): scripts/quest_claude_bridge.py —
     `claude --print`, works without the background-agent daemon.
@@ -25,7 +25,8 @@ from quest_runtime.artifacts import (
     prepare_artifact_files,
 )
 from quest_runtime.orchestration import runtime_for_model
-from quest_runtime.state import utc_now_iso
+from quest_runtime.plan_iterations import PlanIterationError
+from quest_runtime.state import StateError, utc_now_iso
 
 
 @dataclass
@@ -74,15 +75,15 @@ CODEX_LED_CODEX_VIOLATION_GUIDANCE = (
 # ideas/2026-06-15-bug-report-for-branch-claude/bg-transport-step2.md).
 _SCRIPTS_DIR = Path(__file__).resolve().parent.parent  # …/scripts
 DEFAULT_BRIDGE_SCRIPT = str(_SCRIPTS_DIR / "quest_claude_bridge.py")
-DEFAULT_BG_RUNNER_SCRIPT = str(_SCRIPTS_DIR / "claude_bg_run.py")
+DEFAULT_BG_RUNNER_SCRIPT = str(_SCRIPTS_DIR / "quest_claude_bg_run.py")
 
 # Background-agent teardown can take several signal attempts after the child's
-# own --timeout fires. Wait this much BEYOND `timeout` for claude_bg_run.py to
+# own --timeout fires. Wait this much BEYOND `timeout` for quest_claude_bg_run.py to
 # finish (including teardown) before terminating it — killing the child does not
 # stop the detached supervisor session, so racing it would orphan the session.
 _BG_TEARDOWN_MARGIN_SECONDS = 30.0
 
-# scripts/claude_bg_run.py exit codes → quest result kinds, used only when the
+# scripts/quest_claude_bg_run.py exit codes → quest result kinds, used only when the
 # handoff contract was NOT satisfied (a found handoff always wins).
 # 2 precondition / 3 dispatch_failed / 4 blocked: daemon, auth, or bypass
 # problems — Tier B (permission escalation) cannot fix those, so they classify
@@ -291,7 +292,7 @@ def build_bg_cmd(
     resume: str | None = None,
     answer_file: str | Path | None = None,
 ) -> list[str]:
-    """argv for the background-agent transport (scripts/claude_bg_run.py).
+    """argv for the background-agent transport (scripts/quest_claude_bg_run.py).
 
     Passes --handoff-file so a needs_human handoff is recognized promptly. By
     default Quest leaves background-agent needs_human sessions parked so the
@@ -416,7 +417,7 @@ def _run_result_fields_from_bg(stdout: str) -> dict:
 
 
 def sweep_left_survivor(returncode: int, stdout: str) -> bool:
-    """True when a `claude_bg_run.py --sweep` did NOT verifiably clean up.
+    """True when a `quest_claude_bg_run.py --sweep` did NOT verifiably clean up.
 
     Single owner of the sweep-output vocabulary (nonzero exit, teardown_failed
     survivors, "sweep skipped:" when the CLI/roster is unavailable, and
@@ -670,13 +671,26 @@ def run_claude_role(
         workspace_root,
     )
     # NEVER truncate artifacts on a resume: the parked agent may have written
-    # them before asking its question, and claude_bg_run.py's resume mode
+    # them before asking its question, and quest_claude_bg_run.py's resume mode
     # deliberately preserves --wait-for files ("the resumed agent will not
     # rewrite work it believes is done"). Truncating here destroys that work
     # and turns a successfully answered relay into handoff_missing/incomplete.
     if resolved_artifact_paths and not permission_escalation and resume is None:
         try:
-            prepare_artifact_files(resolved_artifact_paths)
+            prepare_artifact_files(
+                resolved_artifact_paths,
+                quest_dir=resolved_quest_dir,
+                role=agent,
+            )
+        except (PlanIterationError, StateError) as exc:
+            return RunResult(
+                exit_code=1,
+                handoff_state="missing",
+                result_kind="invocation_error",
+                source=None,
+                stdout="",
+                stderr=str(exc),
+            )
         except OSError as exc:
             failure_kind = (
                 "write_boundary"
@@ -797,7 +811,7 @@ def run_claude_role(
     timed_out = False
 
     if transport == "background-agent":
-        # The child (claude_bg_run.py) owns confirm -> wait -> teardown and exits
+        # The child (quest_claude_bg_run.py) owns confirm -> wait -> teardown and exits
         # with a meaningful code (ok / needs_human / timeout / bg error). Killing
         # the child does NOT stop the detached supervisor session, so we must not
         # race it the way we poll-and-kill the bridge. Wait for it to finish (its
@@ -1136,7 +1150,9 @@ def run_bridge_probe(
     prompt_file = probe_dir / "probe_prompt.txt"
     artifact_file = probe_dir / "probe_artifact.txt"
     handoff_file = probe_dir / "probe_handoff.json"
-    prepare_artifact_files([artifact_file, handoff_file])
+    prepare_artifact_files(
+        [artifact_file, handoff_file], quest_dir=resolved_quest_dir, role="probe"
+    )
     _write_probe_prompt(prompt_file, artifact_file, handoff_file)
 
     cmd = build_bridge_cmd(
@@ -1166,7 +1182,7 @@ def run_bridge_probe(
     # Deliberately UNLIKE run_bg_probe, the exit code is NOT required: the
     # bridge wrapper may timeout-kill the process after the work completed
     # (handoff + artifact written), and its exit code is not a structured
-    # contract the way claude_bg_run.py's envelope exit codes are — pinned by
+    # contract the way quest_claude_bg_run.py's envelope exit codes are — pinned by
     # test_run_bridge_probe_treats_found_handoff_as_success_even_on_nonzero_exit.
     artifact_present = not any_artifact_missing_or_empty([artifact_file])
     probe_ok = handoff_state == "found" and artifact_present
@@ -1210,7 +1226,7 @@ def run_bg_probe(
     """Live background-agent probe: dispatch a trivial bg task end-to-end.
 
     Same artifact/handoff contract as run_bridge_probe, but through
-    scripts/claude_bg_run.py — exercising dispatch confirmation, supervisor
+    scripts/quest_claude_bg_run.py — exercising dispatch confirmation, supervisor
     liveness, bypass acceptance, and a real file write in one shot.
     """
     resolved_quest_dir = resolve_path(cwd, quest_dir)
@@ -1220,7 +1236,9 @@ def run_bg_probe(
     prompt_file = probe_dir / "probe_prompt.txt"
     artifact_file = probe_dir / "probe_artifact.txt"
     handoff_file = probe_dir / "probe_handoff.json"
-    prepare_artifact_files([artifact_file, handoff_file])
+    prepare_artifact_files(
+        [artifact_file, handoff_file], quest_dir=resolved_quest_dir, role="probe"
+    )
     _write_probe_prompt(prompt_file, artifact_file, handoff_file)
 
     cmd = build_bg_cmd(
@@ -1253,7 +1271,7 @@ def run_bg_probe(
     # Success requires the FULL contract: the bg child reported ok (exit 0), the
     # handoff parsed, AND the declared artifact was actually written. A handoff
     # alone must not cache/select background-agent on a machine that never proved
-    # the artifact write — claude_bg_run.py exits non-zero (e.g. incomplete) then.
+    # the artifact write — quest_claude_bg_run.py exits non-zero (e.g. incomplete) then.
     probe_ok = cp.returncode == 0 and handoff_state == "found" and artifact_present
     source = "handoff_json" if probe_ok else None
     exit_code = 0 if probe_ok else cp.returncode or 1

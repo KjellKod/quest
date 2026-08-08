@@ -233,7 +233,7 @@ def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
 
     assert "--model <models.<role> from .quest/<id>/orchestration.json>" in workflow
     assert "must not be sent to the CLI as `--model claude`" in workflow
-    assert "python3 scripts/claude_bg_run.py --sweep quest-bg-probe-" in workflow
+    assert "python3 scripts/quest_claude_bg_run.py --sweep quest-bg-probe-" in workflow
     assert (
         "python3 scripts/quest_claude_probe.py --model claude --transport background-agent"
         in workflow
@@ -260,7 +260,7 @@ def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
     assert "--clear-parked-bg-session" in workflow
     assert "Cap repeated questions" in workflow  # anchor, not exact prose
     assert (
-        "For abandon/manual cleanup, run `python3 scripts/claude_bg_run.py --sweep quest-<id>-`"
+        "For abandon/manual cleanup, run `python3 scripts/quest_claude_bg_run.py --sweep quest-<id>-`"
         in workflow
     )
     assert "**`rate_limited`:** Do NOT blind retry" in workflow

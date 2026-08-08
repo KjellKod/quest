@@ -2,7 +2,7 @@
 """Probe a Quest Claude transport by requiring a real artifact and handoff write.
 
 --transport bridge (default): scripts/quest_claude_bridge.py (claude --print).
---transport background-agent: scripts/claude_bg_run.py (claude --bg).
+--transport background-agent: scripts/quest_claude_bg_run.py (claude --bg).
 """
 
 from __future__ import annotations

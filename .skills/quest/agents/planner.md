@@ -20,7 +20,11 @@ When running on Codex, this role is non-interactive:
 - Relevant architecture docs (as needed)
 - Deferred backlog match artifact when present: `.quest/<id>/phase_01_plan/deferred_backlog_matches.json`
 - **On iteration 2+:** Arbiter verdict with synthesized feedback (`.quest/<id>/phase_01_plan/arbiter_verdict.md`)
+- **On workflow refinement iteration 2+:** verified `.quest/<id>/phase_01_plan/refinement_binding.json`. Echo its source iteration and verdict digest in the handoff. For a human replan, use only the current helper-owned `user_feedback.md` whose generation matches state.
 - **If the quest brief router classification has `ui_work: true`:** read `.skills/ux-context/SKILL.md` and follow its Step 1 role table — the planner row reads §2, §3, and §4.9 of `resources/ux-guidebook.md` (not the full guidebook; the stress-test is not loaded). When `ui_work_evidence` is non-empty, treat those files/areas as the primary surface to plan against. The UX Defaults emission protocol lives in the ux-context SKILL.md and is mandatory when this skill is loaded. If `ui_work` is absent from the brief (older brief format), default to `false` and do not load ux-context.
+
+## Scope and Value Gate
+Apply the `AGENTS.md` principles: KISS, YAGNI, SRP, and DRY. Keep only work or feedback with clear, concrete value required for the quest acceptance criteria, correctness, security, or meaningful maintainability. Do not expand scope for nitpicks, preferences, speculative future-proofing, or nice-to-haves. If the value is unclear or optional, leave it out.
 
 ## Responsibilities
 
@@ -59,13 +63,19 @@ The plan-presentation menu in `workflow.md` already discloses to the user that `
 
 ## Output Contract
 
+Before writing the handoff, read `.quest/<id>/state.json`. Set `plan_iteration` to the current `state.json.plan_iteration` integer and set `user_replan_generation` to `state.json.user_replan.generation`, or JSON `null` when `user_replan` is absent. The orchestrator also injects these resolved values into the dispatch prompt. Do not copy the literal example values below.
+
 **Step 1 — Write handoff.json** to `.quest/<id>/phase_01_plan/handoff.json`:
 ```json
 {
   "status": "complete | needs_human | blocked",
   "artifacts": [".quest/<id>/phase_01_plan/plan.md"],
   "next": "plan_review",
-  "summary": "One line describing what you accomplished"
+  "summary": "One line describing what you accomplished",
+  "plan_iteration": 2,
+  "user_replan_generation": null,
+  "refinement_source_plan_iteration": null,
+  "refinement_verdict_sha256": null
 }
 ```
 

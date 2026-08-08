@@ -447,7 +447,7 @@ def parse_args() -> argparse.Namespace:
         "--failed-log-summary",
         action="append",
         default=[],
-        help="JSON output from pr_shepherd_fetch_failed_logs.py to merge into records",
+        help="JSON output from quest_pr_shepherd_fetch_failed_logs.py to merge into records",
     )
     parser.add_argument("--output")
     return parser.parse_args()

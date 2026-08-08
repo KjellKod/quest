@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""claude_bg_run — standalone runner for one Claude background-agent task.
+"""quest_claude_bg_run — standalone runner for one Claude background-agent task.
 
 Step 1 of the bg-transport migration; the original spec and its empirical
 findings are archived at docs/implementation/history/claude-bg-run-script.md.
@@ -50,7 +50,7 @@ Transport facts this encodes (observed across Claude Code 2.1.x):
     under a NEW sessionId (daemon roster: launch.mode=resume, fork=true).
 
 Run the built-in firewall demo (no `claude` needed):
-    python3 scripts/claude_bg_run.py --self-test
+    python3 scripts/quest_claude_bg_run.py --self-test
 """
 
 from __future__ import annotations
@@ -776,7 +776,7 @@ class BgRunner:
                             f"name={same_name_stop.survivor_name} "
                             f"session_id={same_name_stop.survivor_session_id}. "
                             "Wait for it to finish, or stop it deliberately with: "
-                            f"python3 scripts/claude_bg_run.py --sweep {self.a.name} "
+                            f"python3 scripts/quest_claude_bg_run.py --sweep {self.a.name} "
                             "--sweep-include-active"
                         )
                     else:
@@ -1312,7 +1312,7 @@ class BgRunner:
             env.message = (
                 f"{env.message} WARNING: session teardown failed; "
                 f"survivor {env.teardown_survivor_id or env.short_id} is still "
-                f"live — stop it with: python3 scripts/claude_bg_run.py "
+                f"live — stop it with: python3 scripts/quest_claude_bg_run.py "
                 f"--sweep {self.a.name} --sweep-include-active"
             ).strip()
         return env
@@ -1446,7 +1446,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"interrupted during dispatch/teardown; cleaning up sessions named "
             f"{args.name!r} best-effort before exit. If one remains and it is "
-            f"yours, stop it with: python3 scripts/claude_bg_run.py --sweep "
+            f"yours, stop it with: python3 scripts/quest_claude_bg_run.py --sweep "
             f"{args.name} --sweep-include-active",
             file=sys.stderr,
         )

@@ -600,7 +600,7 @@ def test_quest_complete_reports_incomplete_bg_sweep_but_archives(
     # The command must be runnable from ANY cwd (absolute runner path) and
     # asserted contiguously so a truncated/reordered command cannot pass.
     expected_runner = (
-        Path(quest_complete.__file__).resolve().parent / "claude_bg_run.py"
+        Path(quest_complete.__file__).resolve().parent / "quest_claude_bg_run.py"
     )
     assert (
         f"run: python3 {expected_runner} --sweep quest-{quest_dir.name}- --sweep-include-active"

@@ -13,6 +13,7 @@
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 WORKFLOW_MD="$REPO_ROOT/.skills/quest/delegation/workflow.md"
 OPENCODE_QUEST_MD="$REPO_ROOT/.opencode/agents/quest.md"
+STATE_SCRIPT="$REPO_ROOT/scripts/quest_state.py"
 PY_HELPER='import sys, pathlib; sys.path.insert(0, str(pathlib.Path("'"$REPO_ROOT"'/scripts").resolve()));'
 
 TESTS_RUN=0
@@ -1091,6 +1092,171 @@ test_opencode_dispatch_uses_orchestration_json() {
   return 0
 }
 
+test_all_true_and_all_false_approval_groups_keep_presentation_mandatory() {
+  local setting tmpdir output rc
+  for setting in true false; do
+    tmpdir=$(mktemp -d)
+    git -C "$tmpdir" init -q || { rm -rf "$tmpdir"; return 1; }
+    mkdir -p "$tmpdir/scripts" "$tmpdir/.ai" "$tmpdir/quest"
+    cp "$REPO_ROOT/scripts/quest_validate-quest-state.sh" "$tmpdir/scripts/" || {
+      rm -rf "$tmpdir"
+      return 1
+    }
+    python3 - "$tmpdir" "$setting" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+enabled = sys.argv[2] == "true"
+approval_keys = (
+    "plan_creation",
+    "plan_review",
+    "plan_refinement",
+    "implementation",
+    "code_review",
+    "fix_loop",
+)
+(root / ".ai" / "allowlist.json").write_text(
+    json.dumps({"auto_approve_phases": {key: enabled for key in approval_keys}}),
+    encoding="utf-8",
+)
+quest = root / "quest"
+(quest / "state.json").write_text(
+    json.dumps(
+        {
+            "phase": "plan_reviewed",
+            "status": "complete",
+            "quest_mode": "workflow",
+            "plan_iteration": 1,
+            "fix_iteration": 0,
+        }
+    ),
+    encoding="utf-8",
+)
+(quest / "orchestration.json").write_text(
+    json.dumps(
+        {
+            "version": 1,
+            "models": {
+                "planner": "gpt-5.6-sol",
+                "plan-reviewer-a": "claude-opus-5",
+                "plan-reviewer-b": "gpt-5.6-terra",
+                "arbiter": "claude-opus-5",
+                "builder": "gpt-5.6-sol",
+                "code-reviewer-a": "claude-opus-5",
+                "code-reviewer-b": "gpt-5.6-terra",
+                "review-arbiter": "claude-opus-5",
+                "fixer": "gpt-5.6-terra",
+            },
+            "source": "default",
+            "overridden_roles": [],
+            "preflight_validated_at": "2026-08-04T00:00:00Z",
+        }
+    ),
+    encoding="utf-8",
+)
+plan_dir = quest / "phase_01_plan"
+plan_dir.mkdir()
+(plan_dir / "plan.md").write_text("# Approved plan\n", encoding="utf-8")
+(plan_dir / "review_plan-reviewer-a.md").write_text("Approved\n", encoding="utf-8")
+(plan_dir / "review_plan-reviewer-b.md").write_text("Approved\n", encoding="utf-8")
+(plan_dir / "arbiter_verdict.md").write_text("VERDICT: APPROVE\n", encoding="utf-8")
+
+
+def handoff(next_role):
+    return {
+        "status": "complete",
+        "artifacts": ["artifact.md"],
+        "next": next_role,
+        "summary": "approval matrix fixture",
+        "plan_iteration": 1,
+        "user_replan_generation": None,
+    }
+
+
+for name, next_role in (
+    ("handoff.json", "plan_review"),
+    ("handoff_plan-reviewer-a.json", "arbiter"),
+    ("handoff_plan-reviewer-b.json", "arbiter"),
+    ("handoff_arbiter.json", "builder"),
+):
+    (plan_dir / name).write_text(json.dumps(handoff(next_role)), encoding="utf-8")
+(plan_dir / "review_findings.json").write_text("[]\n", encoding="utf-8")
+(plan_dir / "review_backlog.json").write_text(
+    json.dumps(
+        {
+            "version": 1,
+            "generated_at": "2026-08-04T00:00:00Z",
+            "phase": "plan",
+            "at_loop_cap": False,
+            "allowed_decisions": [
+                "fix_now",
+                "verify_first",
+                "defer",
+                "drop",
+                "needs_human_decision",
+            ],
+            "counts": {
+                "fix_now": 0,
+                "verify_first": 0,
+                "defer": 0,
+                "drop": 0,
+                "needs_human_decision": 0,
+            },
+            "items": [],
+        }
+    ),
+    encoding="utf-8",
+)
+PY
+    output=$(cd "$tmpdir" && bash scripts/quest_validate-quest-state.sh quest building 2>&1)
+    rc=$?
+    if [ "$rc" -eq 0 ] || ! printf '%s' "$output" | grep -q 'Invalid transition: plan_reviewed -> building'; then
+      echo "approval group=$setting phase=plan_reviewed bypassed mandatory presentation"
+      rm -rf "$tmpdir"
+      return 1
+    fi
+
+    python3 "$STATE_SCRIPT" --quest-dir "$tmpdir/quest" --transition presenting --status in_progress --expect-phase plan_reviewed >/dev/null || {
+      echo "approval group=$setting failed mandatory presentation entry"
+      rm -rf "$tmpdir"
+      return 1
+    }
+    python3 "$STATE_SCRIPT" --quest-dir "$tmpdir/quest" --transition presentation_complete --status complete --expect-phase presenting >/dev/null || {
+      echo "approval group=$setting failed explicit presentation approval"
+      rm -rf "$tmpdir"
+      return 1
+    }
+
+    local implementation
+    implementation=$(jq -r '.auto_approve_phases.implementation' "$tmpdir/.ai/allowlist.json")
+    if [ "$implementation" = false ]; then
+      [ "$(jq -r '.phase' "$tmpdir/quest/state.json")" = presentation_complete ] || {
+        echo "approval group=$setting did not stop for conditional Build approval"
+        rm -rf "$tmpdir"
+        return 1
+      }
+    fi
+
+    python3 "$STATE_SCRIPT" --quest-dir "$tmpdir/quest" --transition building --status in_progress --expect-phase presentation_complete >/dev/null || {
+      echo "approval group=$setting failed Build after required approvals"
+      rm -rf "$tmpdir"
+      return 1
+    }
+    [ "$(jq -r '.phase' "$tmpdir/quest/state.json")" = building ] || {
+      echo "approval group=$setting did not enter Build"
+      rm -rf "$tmpdir"
+      return 1
+    }
+    rm -rf "$tmpdir"
+  done
+
+  grep -Fq 'If false (default): You MUST ask the user "Plan approved. Proceed with implementation?"' "$WORKFLOW_MD" || return 1
+  grep -Fq 'If true: You may proceed without asking' "$WORKFLOW_MD" || return 1
+  grep -Fq 'Interactive Plan Presentation (MANDATORY HUMAN GATE)' "$WORKFLOW_MD" || return 1
+}
+
 # ---- Run all tests ----
 
 echo "=== Quest Orchestration Tests ==="
@@ -1131,6 +1297,7 @@ run_test test_workflow_defaults_are_not_dispatch_fallbacks
 run_test test_orchestration_docs_do_not_duplicate_model_defaults
 run_test test_chooser_default_prompt_is_affirmative
 run_test test_opencode_dispatch_uses_orchestration_json
+run_test test_all_true_and_all_false_approval_groups_keep_presentation_mandatory
 
 echo ""
 echo "=== Results ==="

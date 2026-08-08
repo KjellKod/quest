@@ -74,7 +74,7 @@ These files all contain behavior rules. Some are source-of-truth, some are mirro
 
 5. Quest completion gate:
 - Fail completion if handoff contracts, phase-state transitions, or gate evidence are incomplete.
-- Reuse/extend existing validation scripts (`validate-quest-state`, `validate-handoff-contracts`, `validate-manifest`).
+- Reuse/extend existing validation scripts (`quest_validate-quest-state.sh`, `quest_validate-handoff-contracts.sh`, `quest_validate-manifest.sh`).
 
 ## Test Strategy
 - Add unit tests for each new validator with positive and negative fixtures.

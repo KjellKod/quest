@@ -13,7 +13,7 @@ Claude role dispatch still breaks in the same topology. Four additions:
 1. **Same defect on the hot path.** `scripts/quest_claude_runner.py` and
    `scripts/quest_claude_probe.py` default `--bridge-script` to the cwd-relative
    `scripts/quest_claude_bridge.py`, and `--bg-runner-script` to
-   `DEFAULT_BG_RUNNER_SCRIPT = "scripts/claude_bg_run.py"` (defined in
+   `DEFAULT_BG_RUNNER_SCRIPT = "scripts/quest_claude_bg_run.py"` (defined in
    `scripts/quest_runtime/claude_runner.py`). `workflow.md` invokes the runner
    (`python3 scripts/quest_claude_runner.py --transport …`) for **real role
    execution** without passing an absolute `--bridge-script`. So even after the
@@ -42,7 +42,7 @@ The sections below are the original report, kept as-is; the **Proposed Fix**,
 
 Codex-led Quest preflight can falsely report Claude transport unavailable when Quest is installed outside the target repo and the preflight script is invoked from inside that target repo.
 
-The root issue is that `/Users/kjell/ws/scripts/quest_preflight.sh` is executable by absolute path, but it resolves its helper scripts with cwd-relative defaults such as `scripts/quest_claude_bridge.py`, `scripts/claude_bg_run.py`, and a hard-coded `python3 scripts/quest_claude_probe.py`.
+The root issue is that `/Users/kjell/ws/scripts/quest_preflight.sh` is executable by absolute path, but it resolves its helper scripts with cwd-relative defaults such as `scripts/quest_claude_bridge.py`, `scripts/quest_claude_bg_run.py`, and a hard-coded `python3 scripts/quest_claude_probe.py`.
 
 When the active project is `/Users/kjell/ws/diffly`, those helper paths resolve under `/Users/kjell/ws/diffly/scripts/`, which does not exist. Preflight then records Claude bridge unavailable even though the bridge works when run from the Quest install root.
 
@@ -170,7 +170,7 @@ So there are two distinct outcomes:
 
 ```sh
 CLAUDE_BRIDGE_SCRIPT="${QUEST_CLAUDE_BRIDGE_SCRIPT:-scripts/quest_claude_bridge.py}"
-CLAUDE_BG_RUNNER_SCRIPT="${QUEST_CLAUDE_BG_RUNNER_SCRIPT:-scripts/claude_bg_run.py}"
+CLAUDE_BG_RUNNER_SCRIPT="${QUEST_CLAUDE_BG_RUNNER_SCRIPT:-scripts/quest_claude_bg_run.py}"
 ```
 
 It also invokes the probe helper with a cwd-relative hard-coded path:
@@ -185,7 +185,7 @@ This is wrong when the preflight script is installed outside the target repo and
 
 The preflight script should distinguish:
 
-- **Quest install root / helper script root**: where `quest_preflight.sh`, `quest_claude_probe.py`, `quest_claude_bridge.py`, and `claude_bg_run.py` live.
+- **Quest install root / helper script root**: where `quest_preflight.sh`, `quest_claude_probe.py`, `quest_claude_bridge.py`, and `quest_claude_bg_run.py` live.
 - **Project cwd**: where `.quest/`, `.ai/allowlist.json`, repo files, and quest artifacts should be read/written.
 
 Running this from a target repo should work:
@@ -214,7 +214,7 @@ In `quest_preflight.sh`:
 
    ```sh
    CLAUDE_BRIDGE_SCRIPT="${QUEST_CLAUDE_BRIDGE_SCRIPT:-$SCRIPT_DIR/quest_claude_bridge.py}"
-   CLAUDE_BG_RUNNER_SCRIPT="${QUEST_CLAUDE_BG_RUNNER_SCRIPT:-$SCRIPT_DIR/claude_bg_run.py}"
+   CLAUDE_BG_RUNNER_SCRIPT="${QUEST_CLAUDE_BG_RUNNER_SCRIPT:-$SCRIPT_DIR/quest_claude_bg_run.py}"
    CLAUDE_PROBE_SCRIPT="${QUEST_CLAUDE_PROBE_SCRIPT:-$SCRIPT_DIR/quest_claude_probe.py}"
    ```
 
@@ -238,7 +238,7 @@ In the Python helpers (so real role execution, not just preflight, is fixed):
    ```python
    _SCRIPTS_DIR = Path(__file__).resolve().parent.parent  # scripts/
    DEFAULT_BRIDGE_SCRIPT = str(_SCRIPTS_DIR / "quest_claude_bridge.py")
-   DEFAULT_BG_RUNNER_SCRIPT = str(_SCRIPTS_DIR / "claude_bg_run.py")
+   DEFAULT_BG_RUNNER_SCRIPT = str(_SCRIPTS_DIR / "quest_claude_bg_run.py")
    # DEFAULT_BG_CACHE_FILE stays project-relative: ".quest/cache/claude_bg_codex.json"
    ```
 
@@ -275,7 +275,7 @@ It should report a path or invocation diagnostic, for example:
 
   ```sh
   QUEST_CLAUDE_BRIDGE_SCRIPT=/custom/quest_claude_bridge.py \
-  QUEST_CLAUDE_BG_RUNNER_SCRIPT=/custom/claude_bg_run.py \
+  QUEST_CLAUDE_BG_RUNNER_SCRIPT=/custom/quest_claude_bg_run.py \
   QUEST_CLAUDE_PROBE_SCRIPT=/custom/quest_claude_probe.py \
   scripts/quest_preflight.sh --orchestrator codex
   ```

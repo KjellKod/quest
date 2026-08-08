@@ -202,7 +202,7 @@ stub_installer_run_install_steps() {
   clear_progress() { :; }
 }
 
-test_quest_state_updates_phase_and_timestamp() {
+test_quest_state_updates_metadata_and_timestamp() {
   local tmpdir
   tmpdir=$(mktemp -d)
   cat > "$tmpdir/state.json" <<EOF
@@ -220,7 +220,7 @@ test_quest_state_updates_phase_and_timestamp() {
 EOF
 
   local output
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --phase plan_reviewed --status complete --plan-iteration 1 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --status complete --plan-iteration 1 2>&1)
   local rc=$?
   local phase status iter updated
   phase=$(jq -r '.phase' "$tmpdir/state.json")
@@ -230,11 +230,11 @@ EOF
   rm -rf "$tmpdir"
 
   [ "$rc" -eq 0 ] &&
-    [ "$phase" = "plan_reviewed" ] &&
+    [ "$phase" = "plan" ] &&
     [ "$status" = "complete" ] &&
     [ "$iter" = "1" ] &&
     [ "$updated" != "2026-01-01T00:00:00Z" ] &&
-    echo "$output" | grep -q '"phase": "plan_reviewed"'
+    echo "$output" | grep -q '"phase": "plan"'
 }
 
 test_quest_claude_runner_polls_handoff_and_logs_runtime() {
@@ -426,7 +426,7 @@ EOF
 EOF
 
   local output rc phase updated
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition presenting --status in_progress 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition presenting --status in_progress --expect-phase plan_reviewed 2>&1)
   rc=$?
   phase=$(jq -r '.phase' "$tmpdir/state.json")
   updated=$(jq -r '.updated_at' "$tmpdir/state.json")
@@ -455,7 +455,7 @@ test_quest_state_transition_invalid_leaves_state_unchanged() {
 EOF
 
   local output rc phase updated
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building --expect-phase building 2>&1)
   rc=$?
   phase=$(jq -r '.phase' "$tmpdir/state.json")
   updated=$(jq -r '.updated_at' "$tmpdir/state.json")
@@ -487,7 +487,7 @@ test_quest_state_transition_rejects_plan_reviewed_to_building() {
 EOF
 
   local output rc phase
-  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building 2>&1)
+  output=$(python3 "$STATE_SCRIPT" --quest-dir "$tmpdir" --transition building --expect-phase plan_reviewed 2>&1)
   rc=$?
   phase=$(jq -r '.phase' "$tmpdir/state.json")
   rm -rf "$tmpdir"
@@ -923,18 +923,768 @@ test_installer_update_branch_selection_respects_skip_gates() {
   return $rc
 }
 
-test_installer_cleans_up_renamed_scripts() {
-  grep -q 'OLD_SCRIPT_NAMES=(' "$INSTALLER_SCRIPT" &&
-    grep -q 'scripts/claude_cli_bridge.py' "$INSTALLER_SCRIPT" &&
-    grep -q 'scripts/validate-handoff-contracts.sh' "$INSTALLER_SCRIPT" &&
-    grep -q 'scripts/validate-manifest.sh' "$INSTALLER_SCRIPT" &&
-    grep -q 'scripts/validate-quest-config.sh' "$INSTALLER_SCRIPT" &&
-    grep -q 'scripts/validate-quest-state.sh' "$INSTALLER_SCRIPT" &&
-    grep -q 'get_stored_checksum' "$INSTALLER_SCRIPT" &&
-    grep -q 'Leaving existing non-Quest script in place' "$INSTALLER_SCRIPT" &&
-    grep -q 'Leaving modified legacy Quest script in place for manual cleanup' "$INSTALLER_SCRIPT" &&
-    grep -q 'migrate_legacy_validation_hook' "$INSTALLER_SCRIPT" &&
-    grep -q 'cleanup_renamed_scripts' "$INSTALLER_SCRIPT"
+has_updated_checksum() {
+  local target="$1"
+  local i
+  for i in "${!UPDATED_CHECKSUM_FILES[@]}"; do
+    if [ "${UPDATED_CHECKSUM_FILES[$i]}" = "$target" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+quiet_installer_logs() {
+  log_info() { :; }
+  log_warn() { :; }
+  log_success() { :; }
+  log_action() { :; }
+  clear_progress() { :; }
+}
+
+test_installer_pristine_renamed_script_requires_current_run_success() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/old.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=true
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+
+    cleanup_renamed_scripts
+    [ -f scripts/old.py ] && has_updated_checksum scripts/old.py || exit 1
+
+    mark_install_success scripts/quest_new.py
+    cleanup_renamed_scripts
+    [ ! -e scripts/old.py ] && ! has_updated_checksum scripts/old.py
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_pristine_rename_prompt_defaults_to_removal() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/old.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=false
+    INSTALLER_INTERACTIVE_MODE=true
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+    mark_install_success scripts/quest_new.py
+
+    local output
+    output=$(cleanup_renamed_scripts <<< "" 2>&1)
+    [ ! -e scripts/old.py ] &&
+      printf '%s' "$output" | grep -Fq 'Quest renamed scripts/old.py to scripts/quest_new.py. Remove the obsolete scripts/old.py file now, or leave it for manual cleanup? [Y/n]' &&
+      [ "$(printf '%s' "$output" | grep -oF '[Y/n]' | wc -l | tr -d ' ')" = "1" ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_pristine_rename_decline_reprompts_and_retains_checksum() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/old.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=false
+    INSTALLER_INTERACTIVE_MODE=true
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+    mark_install_success scripts/quest_new.py
+
+    local first_output second_output
+    first_output=$(cleanup_renamed_scripts <<< "n" 2>&1)
+    second_output=$(cleanup_renamed_scripts <<< "n" 2>&1)
+    [ -f scripts/old.py ] &&
+      has_updated_checksum scripts/old.py &&
+      [ "$(printf '%s%s' "$first_output" "$second_output" | grep -oF '[Y/n]' | wc -l | tr -d ' ')" = "2" ]
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_force_and_non_tty_pristine_cleanup_never_call_prompt() {
+  local tmpdir
+  local mode
+  for mode in force non_tty; do
+    tmpdir=$(mktemp -d)
+    mkdir -p "$tmpdir/scripts"
+    printf 'legacy\n' > "$tmpdir/scripts/old.py"
+
+    (
+      cd "$tmpdir" || exit 1
+      load_installer_functions
+      RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+      INSTALL_SUCCESS_FILES=()
+      DRY_RUN=false
+      FORCE_MODE=false
+      INSTALLER_INTERACTIVE_MODE=false
+      if [ "$mode" = "force" ]; then
+        FORCE_MODE=true
+        INSTALLER_INTERACTIVE_MODE=true
+      fi
+      LOCAL_CHECKSUM_FILES=("scripts/old.py")
+      LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+      init_updated_checksums
+      mark_install_success scripts/quest_new.py
+      prompt_yn() { echo PROMPT_CALLED; return 1; }
+
+      local output
+      output=$(cleanup_renamed_scripts </dev/null 2>&1)
+      [ ! -e scripts/old.py ] && ! printf '%s' "$output" | grep -q PROMPT_CALLED
+    ) || {
+      rm -rf "$tmpdir"
+      return 1
+    }
+    rm -rf "$tmpdir"
+  done
+}
+
+test_installer_unsafe_rename_defaults_to_preservation_and_allows_explicit_removal() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'managed\n' > "$tmpdir/scripts/old.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=false
+    INSTALLER_INTERACTIVE_MODE=true
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+    printf 'modified\n' > scripts/old.py
+    mark_install_success scripts/quest_new.py
+
+    local decline_output remove_output
+    decline_output=$(cleanup_renamed_scripts <<< "" 2>&1)
+    [ -f scripts/old.py ] || exit 1
+    printf '%s' "$decline_output" | grep -Fq '[y/N]' || exit 1
+
+    remove_output=$(cleanup_renamed_scripts <<< "y" 2>&1)
+    [ ! -e scripts/old.py ] && printf '%s' "$remove_output" | grep -Fq '[y/N]'
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_untracked_old_path_decline_preserves_without_checksum() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'host owned\n' > "$tmpdir/scripts/old.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=false
+    INSTALLER_INTERACTIVE_MODE=true
+    LOCAL_CHECKSUM_FILES=()
+    LOCAL_CHECKSUM_VALUES=()
+    init_updated_checksums
+    mark_install_success scripts/quest_new.py
+
+    local output
+    output=$(cleanup_renamed_scripts <<< "" 2>&1)
+    [ -f scripts/old.py ] &&
+      ! has_updated_checksum scripts/old.py &&
+      printf '%s' "$output" | grep -Fq '[y/N]'
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_dry_run_predicts_create_and_pristine_rename_cleanup_without_prompt() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/old.py"
+  printf 'new payload\n' > "$tmpdir/upstream.py"
+  printf 'original checksum file\n' > "$tmpdir/.quest-checksums"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=true
+    FORCE_MODE=false
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+    fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+
+    local output
+    output=$(install_copy_as_is_file scripts/quest_new.py 2>&1; cleanup_renamed_scripts 2>&1)
+    [ -f scripts/old.py ] &&
+      [ ! -e scripts/quest_new.py ] &&
+      [ "$(cat .quest-checksums)" = "original checksum file" ] &&
+      printf '%s' "$output" | grep -Fq 'Would: Create: scripts/quest_new.py' &&
+      printf '%s' "$output" | grep -Fq 'Would: Remove obsolete renamed script: scripts/old.py' &&
+      printf '%s' "$output" | grep -Fq 'Would: Prune stale Quest checksum entry: scripts/old.py' &&
+      ! printf '%s' "$output" | grep -Eq '\[[Yy]/[Nn]\]'
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_fetch_failure_preserves_old_path_even_when_new_exists() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/old.py"
+  printf 'previous new\n' > "$tmpdir/scripts/quest_new.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    quiet_installer_logs
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=true
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py" "scripts/quest_new.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)" "$(get_file_checksum scripts/quest_new.py)")
+    init_updated_checksums
+    fetch_file_to_temp() { return 1; }
+
+    install_copy_as_is_file scripts/quest_new.py
+    cleanup_renamed_scripts
+    [ -f scripts/old.py ] && has_updated_checksum scripts/old.py
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_fetch_failure_preserves_old_path_when_new_is_absent() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/old.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    quiet_installer_logs
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=true
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+    fetch_file_to_temp() { return 1; }
+
+    install_copy_as_is_file scripts/quest_new.py
+    cleanup_renamed_scripts
+    [ -f scripts/old.py ] &&
+      [ ! -e scripts/quest_new.py ] &&
+      has_updated_checksum scripts/old.py
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_dry_run_host_owned_new_path_preserves_legacy_path() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/old.py"
+  printf 'host new\n' > "$tmpdir/scripts/quest_new.py"
+  printf 'upstream new\n' > "$tmpdir/upstream.py"
+  printf 'original checksum file\n' > "$tmpdir/.quest-checksums"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=true
+    FORCE_MODE=false
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+    fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+
+    local output
+    output=$(install_copy_as_is_file scripts/quest_new.py 2>&1; cleanup_renamed_scripts 2>&1)
+    [ "$(cat scripts/old.py)" = "legacy" ] &&
+      [ "$(cat scripts/quest_new.py)" = "host new" ] &&
+      [ "$(cat .quest-checksums)" = "original checksum file" ] &&
+      has_updated_checksum scripts/old.py &&
+      printf '%s' "$output" | grep -Fq 'Preserving scripts/old.py' &&
+      ! printf '%s' "$output" | grep -Eq '\[[Yy]/[Nn]\]'
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_host_owned_new_path_skip_does_not_unlock_old_cleanup() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/old.py"
+  printf 'host new\n' > "$tmpdir/scripts/quest_new.py"
+  printf 'upstream new\n' > "$tmpdir/upstream.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    quiet_installer_logs
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=true
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+    fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+
+    install_copy_as_is_file scripts/quest_new.py
+    cleanup_renamed_scripts
+    [ -f scripts/old.py ] &&
+      [ "$(cat scripts/quest_new.py)" = "host new" ] &&
+      has_updated_checksum scripts/old.py
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_modified_new_path_non_tty_and_interactive_skip_preserve_old() {
+  local tmpdir
+  local mode
+  local old_new_checksum
+  for mode in non_tty interactive_skip; do
+    tmpdir=$(mktemp -d)
+    mkdir -p "$tmpdir/scripts"
+    printf 'legacy\n' > "$tmpdir/scripts/old.py"
+    printf 'installed new\n' > "$tmpdir/scripts/quest_new.py"
+    old_new_checksum=$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$tmpdir/scripts/quest_new.py")
+    printf 'modified new\n' > "$tmpdir/scripts/quest_new.py"
+    printf 'upstream new\n' > "$tmpdir/upstream.py"
+
+    (
+      cd "$tmpdir" || exit 1
+      load_installer_functions
+      quiet_installer_logs
+      RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+      INSTALL_SUCCESS_FILES=()
+      DRY_RUN=false
+      FORCE_MODE=false
+      INSTALLER_INTERACTIVE_MODE=false
+      if [ "$mode" = "interactive_skip" ]; then
+        INSTALLER_INTERACTIVE_MODE=true
+        prompt_file_action() { echo s; }
+      fi
+      LOCAL_CHECKSUM_FILES=("scripts/old.py" "scripts/quest_new.py")
+      LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)" "$old_new_checksum")
+      init_updated_checksums
+      fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+
+      install_copy_as_is_file scripts/quest_new.py </dev/null
+      cleanup_renamed_scripts </dev/null
+      [ -f scripts/old.py ] &&
+        [ "$(cat scripts/quest_new.py)" = "modified new" ] &&
+        has_updated_checksum scripts/old.py
+    ) || {
+      rm -rf "$tmpdir"
+      return 1
+    }
+    rm -rf "$tmpdir"
+  done
+}
+
+test_installer_equal_new_payload_unlocks_old_cleanup() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/old.py"
+  printf 'new payload\n' > "$tmpdir/scripts/quest_new.py"
+  cp "$tmpdir/scripts/quest_new.py" "$tmpdir/upstream.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    quiet_installer_logs
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=true
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+    fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+
+    install_copy_as_is_file scripts/quest_new.py
+    cleanup_renamed_scripts
+    [ ! -e scripts/old.py ] && has_updated_checksum scripts/quest_new.py
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_absent_old_path_prunes_checksum_but_dry_run_preserves_state() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    FORCE_MODE=true
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(printf legacy | get_content_checksum)")
+    init_updated_checksums
+
+    DRY_RUN=true
+    local output
+    output=$(cleanup_renamed_scripts 2>&1)
+    has_updated_checksum scripts/old.py &&
+      printf '%s' "$output" | grep -Fq 'Would: Prune stale Quest checksum entry: scripts/old.py' || exit 1
+
+    DRY_RUN=false
+    cleanup_renamed_scripts
+    ! has_updated_checksum scripts/old.py
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_copy_as_is_non_regular_paths_do_not_unlock_legacy_cleanup() {
+  local tmpdir
+  local fixture
+  for fixture in symlink broken_symlink; do
+    tmpdir=$(mktemp -d)
+    mkdir -p "$tmpdir/scripts"
+    printf 'legacy\n' > "$tmpdir/scripts/old.py"
+    if [ "$fixture" = "symlink" ]; then
+      printf 'host target\n' > "$tmpdir/host-target.py"
+      ln -s ../host-target.py "$tmpdir/scripts/quest_new.py"
+    else
+      ln -s missing-target.py "$tmpdir/scripts/quest_new.py"
+    fi
+    printf 'upstream new\n' > "$tmpdir/upstream.py"
+
+    (
+      cd "$tmpdir" || exit 1
+      load_installer_functions
+      RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+      INSTALL_SUCCESS_FILES=()
+      DRY_RUN=false
+      FORCE_MODE=true
+      INSTALLER_INTERACTIVE_MODE=false
+      LOCAL_CHECKSUM_FILES=("scripts/old.py")
+      LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+      init_updated_checksums
+      fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+
+      local output
+      output=$(install_copy_as_is_file scripts/quest_new.py 2>&1; cleanup_renamed_scripts 2>&1)
+      [ -L scripts/quest_new.py ] &&
+        [ -f scripts/old.py ] &&
+        has_updated_checksum scripts/old.py &&
+        ! install_succeeded scripts/quest_new.py &&
+        printf '%s' "$output" | grep -Fq 'Skipping non-regular or symlinked file: scripts/quest_new.py'
+    ) || {
+      rm -rf "$tmpdir"
+      return 1
+    }
+    rm -rf "$tmpdir"
+  done
+}
+
+test_installer_symlinked_parent_preserves_external_legacy_path() {
+  local tmpdir
+  local external_dir
+  tmpdir=$(mktemp -d)
+  external_dir=$(mktemp -d)
+  mkdir -p "$tmpdir/repo" "$external_dir/scripts"
+  printf 'legacy\n' > "$external_dir/scripts/old.py"
+
+  (
+    cd "$tmpdir/repo" || exit 1
+    load_installer_functions
+    ln -s "$external_dir/scripts" scripts
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=true
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+    mark_install_success scripts/quest_new.py
+
+    local output
+    output=$(cleanup_renamed_scripts 2>&1)
+    [ -f "$external_dir/scripts/old.py" ] &&
+      has_updated_checksum scripts/old.py &&
+      printf '%s' "$output" | grep -Fq 'Preserving scripts/old.py'
+  )
+  local rc=$?
+  rm -rf "$tmpdir" "$external_dir"
+  return $rc
+}
+
+test_installer_source_only_migration_explains_manual_cleanup() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/check_quest_checksum_drift.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/check_quest_checksum_drift.py|scripts/quest_check_checksum_drift.py")
+    COPY_AS_IS=("scripts/quest_claude_bridge.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=true
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/check_quest_checksum_drift.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/check_quest_checksum_drift.py)")
+    init_updated_checksums
+
+    local output
+    output=$(cleanup_renamed_scripts 2>&1)
+    [ -f scripts/check_quest_checksum_drift.py ] &&
+      has_updated_checksum scripts/check_quest_checksum_drift.py &&
+      printf '%s' "$output" | grep -Fq 'Quest does not install scripts/quest_check_checksum_drift.py' &&
+      ! printf '%s' "$output" | grep -Fq 'did not install successfully in this run'
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_installed_rename_success_is_manifest_section_agnostic() {
+  local tmpdir
+  local section
+  for section in user_customized merge_carefully; do
+    tmpdir=$(mktemp -d)
+    mkdir -p "$tmpdir/scripts"
+    printf 'legacy\n' > "$tmpdir/scripts/old.py"
+    printf 'new payload\n' > "$tmpdir/upstream.py"
+
+    (
+      cd "$tmpdir" || exit 1
+      load_installer_functions
+      RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+      SOURCE_ONLY_RENAMED_SCRIPT_DESTINATIONS=()
+      COPY_AS_IS=()
+      INSTALL_SUCCESS_FILES=()
+      DRY_RUN=false
+      FORCE_MODE=true
+      INSTALLER_INTERACTIVE_MODE=false
+      LOCAL_CHECKSUM_FILES=("scripts/old.py")
+      LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+      init_updated_checksums
+      fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+
+      if [ "$section" = "user_customized" ]; then
+        install_user_customized_file scripts/quest_new.py
+      else
+        install_merge_carefully_file scripts/quest_new.py
+      fi
+      cleanup_renamed_scripts
+      [ ! -e scripts/old.py ] &&
+        [ -f scripts/quest_new.py ] &&
+        ! has_updated_checksum scripts/old.py
+    ) || {
+      rm -rf "$tmpdir"
+      return 1
+    }
+    rm -rf "$tmpdir"
+  done
+}
+
+test_installer_customized_sections_symlinked_destination_does_not_unlock_cleanup() {
+  local tmpdir
+  local section
+  for section in user_customized merge_carefully; do
+    tmpdir=$(mktemp -d)
+    mkdir -p "$tmpdir/scripts"
+    printf 'legacy\n' > "$tmpdir/scripts/old.py"
+    printf 'host payload\n' > "$tmpdir/host-target.py"
+    ln -s ../host-target.py "$tmpdir/scripts/quest_new.py"
+    cp "$tmpdir/host-target.py" "$tmpdir/upstream.py"
+
+    (
+      cd "$tmpdir" || exit 1
+      load_installer_functions
+      quiet_installer_logs
+      RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+      SOURCE_ONLY_RENAMED_SCRIPT_DESTINATIONS=()
+      INSTALL_SUCCESS_FILES=()
+      DRY_RUN=false
+      FORCE_MODE=true
+      INSTALLER_INTERACTIVE_MODE=false
+      LOCAL_CHECKSUM_FILES=("scripts/old.py")
+      LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+      init_updated_checksums
+      fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+
+      if [ "$section" = "user_customized" ]; then
+        install_user_customized_file scripts/quest_new.py
+      else
+        install_merge_carefully_file scripts/quest_new.py
+      fi
+      cleanup_renamed_scripts
+      [ -L scripts/quest_new.py ] &&
+        [ -f scripts/old.py ] &&
+        has_updated_checksum scripts/old.py &&
+        ! install_succeeded scripts/quest_new.py
+    ) || {
+      rm -rf "$tmpdir"
+      return 1
+    }
+    rm -rf "$tmpdir"
+  done
+}
+
+test_installer_broken_symlink_is_unsafe_and_preserved_noninteractively() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  ln -s missing-target "$tmpdir/scripts/old.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    quiet_installer_logs
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=true
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(printf legacy | get_content_checksum)")
+    init_updated_checksums
+    mark_install_success scripts/quest_new.py
+
+    cleanup_renamed_scripts
+    [ -L scripts/old.py ] && has_updated_checksum scripts/old.py
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_generic_cleanup_defers_registered_rename_paths() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'legacy\n' > "$tmpdir/scripts/old.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    quiet_installer_logs
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    COPY_AS_IS=()
+    USER_CUSTOMIZED=()
+    MERGE_CAREFULLY=()
+    DRY_RUN=false
+    FORCE_MODE=true
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+
+    cleanup_removed_managed_files
+    [ -f scripts/old.py ] && has_updated_checksum scripts/old.py
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+test_installer_new_path_checksum_survives_modified_old_preservation() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/scripts"
+  printf 'managed\n' > "$tmpdir/scripts/old.py"
+  printf 'new payload\n' > "$tmpdir/upstream.py"
+
+  (
+    cd "$tmpdir" || exit 1
+    load_installer_functions
+    quiet_installer_logs
+    RENAMED_SCRIPT_MIGRATIONS=("scripts/old.py|scripts/quest_new.py")
+    INSTALL_SUCCESS_FILES=()
+    DRY_RUN=false
+    FORCE_MODE=true
+    INSTALLER_INTERACTIVE_MODE=false
+    LOCAL_CHECKSUM_FILES=("scripts/old.py")
+    LOCAL_CHECKSUM_VALUES=("$(get_file_checksum scripts/old.py)")
+    init_updated_checksums
+    printf 'modified\n' > scripts/old.py
+    fetch_file_to_temp() { cp "$tmpdir/upstream.py" "$2"; }
+
+    install_copy_as_is_file scripts/quest_new.py
+    cleanup_renamed_scripts
+    [ -f scripts/old.py ] &&
+      [ -f scripts/quest_new.py ] &&
+      has_updated_checksum scripts/old.py &&
+      has_updated_checksum scripts/quest_new.py
+  )
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
 }
 
 test_installer_updates_pristine_agents_file_in_place() {
@@ -1095,8 +1845,9 @@ test_installer_overwrites_modified_quest_manifest_and_backs_up_local_copy() {
     # Even in force mode, a locally modified manifest is overwritten with
     # upstream (so target validation passes), and the old copy is preserved.
     [ "$(cat .quest-manifest)" = "new manifest" ] &&
-      [ -e .quest-manifest.quest_updated ] &&
-      [ "$(cat .quest-manifest.quest_updated)" = "old manifest" ]
+      [ -e .quest-manifest.quest_local_backup ] &&
+      [ ! -e .quest-manifest.quest_updated ] &&
+      [ "$(cat .quest-manifest.quest_local_backup)" = "old manifest" ]
   )
   local rc=$?
   rm -rf "$tmpdir"
@@ -1133,6 +1884,7 @@ test_installer_updates_pristine_quest_manifest_without_sidecar() {
 
     # Pristine manifest updates in place with no sidecar litter.
     [ "$(cat .quest-manifest)" = "new manifest" ] &&
+      [ ! -e .quest-manifest.quest_local_backup ] &&
       [ ! -e .quest-manifest.quest_updated ]
   )
   local rc=$?
@@ -1874,9 +2626,8 @@ attempt_file.write_text(str(attempt), encoding="utf-8")
 verdict_path = phase_dir / "arbiter_verdict.md.next"
 findings_path = phase_dir / "review_findings.json.next"
 handoff_path = phase_dir / "handoff_arbiter.json"
-verdict_path.write_text(f"arbiter attempt {attempt}\n", encoding="utf-8")
-
 if attempt == 1:
+    verdict_path.write_text(f"arbiter attempt {attempt}\n", encoding="utf-8")
     findings_path.write_text('[{"id":"bad-shape"}]\n', encoding="utf-8")
 else:
     findings_path.write_text(
@@ -1976,9 +2727,14 @@ PY
   backlog_snapshot_before=$(stat_snapshot "$backlog_file")
 
   local attempts=0 retries=0 validated=false
+  local verdict_retry_snapshot=""
   local published=false
   while [ "$attempts" -lt 3 ]; do
     local output runner_rc result_kind
+    local subset_args=()
+    if [ "$attempts" -gt 0 ]; then
+      subset_args=(--artifact-subset findings-only)
+    fi
     output=$(python3 "$CLAUDE_RUNNER" \
       --quest-dir "$tmpdir" \
       --phase plan_review \
@@ -1989,6 +2745,7 @@ PY
       --model claude \
       --transport bridge \
       --bridge-script "$tmpdir/fake_arbiter_bridge.py" \
+      "${subset_args[@]}" \
       --cwd "$REPO_ROOT" 2>&1)
     runner_rc=$?
     result_kind=$(printf '%s' "$output" | jq -r '.result_kind')
@@ -2007,6 +2764,7 @@ PY
       break
     fi
     record_event validate result=fail attempt="$attempts"
+    verdict_retry_snapshot=$(stat_snapshot "$verdict_next")
 
     retries=$((retries + 1))
     [ "$(cat "$verdict_file")" = "$canonical_verdict_before" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
@@ -2019,6 +2777,7 @@ PY
   [ "$attempts" -eq 2 ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   [ "$retries" -eq 1 ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   [ "$(cat "$phase_dir/arbiter_attempt.txt")" = "2" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+  [ "$(stat_snapshot "$verdict_next")" = "$verdict_retry_snapshot" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
 
   python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" build-backlog --phase plan --findings "$findings_next" --output "$backlog_next" >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
   python3 "$REPO_ROOT/scripts/quest_review_intelligence.py" validate-backlog --input "$backlog_next" --expected-phase plan --strict-plan-defaults >/dev/null 2>&1 || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
@@ -2139,7 +2898,357 @@ PY
   return $rc
 }
 
-run_test test_quest_state_updates_phase_and_timestamp
+test_human_replan_sources_require_current_identity_before_build() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  PYTHONPATH="$REPO_ROOT/scripts" python3 - "$tmpdir" "$REPO_ROOT" <<'PY'
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+repo = Path(sys.argv[2])
+state_cli = repo / "scripts" / "quest_state.py"
+iteration_cli = repo / "scripts" / "quest_plan_iteration.py"
+validator = repo / "scripts" / "quest_validate-quest-state.sh"
+
+
+def write_json(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+
+
+context = "uninitialized"
+
+
+def run(*args, expected=0):
+    result = subprocess.run(
+        [str(arg) for arg in args], cwd=repo, capture_output=True, text=True
+    )
+    assert result.returncode == expected, (
+        context,
+        args,
+        result.stdout,
+        result.stderr,
+    )
+    return result
+
+
+def handoff(iteration, generation, next_role="builder"):
+    return {
+        "status": "complete",
+        "artifacts": ["artifact.md"],
+        "next": next_role,
+        "summary": "fixture",
+        "plan_iteration": iteration,
+        "user_replan_generation": generation,
+    }
+
+
+def empty_backlog():
+    return {
+        "version": 1,
+        "generated_at": "2026-08-04T00:00:00Z",
+        "phase": "plan",
+        "at_loop_cap": False,
+        "allowed_decisions": [
+            "fix_now",
+            "verify_first",
+            "defer",
+            "drop",
+            "needs_human_decision",
+        ],
+        "counts": {
+            "fix_now": 0,
+            "verify_first": 0,
+            "defer": 0,
+            "drop": 0,
+            "needs_human_decision": 0,
+        },
+        "items": [],
+    }
+
+
+def seal_iteration(quest_dir):
+    history = quest_dir / "history" / "plan" / "iteration-0004"
+    history.mkdir(parents=True)
+    plan = b"# Sealed plan\n"
+    (history / "plan.md").write_bytes(plan)
+    manifest = {
+        "version": 1,
+        "iteration": 4,
+        "files": {
+            "plan.md": {
+                "source": "plan.md",
+                "size": len(plan),
+                "sha256": hashlib.sha256(plan).hexdigest(),
+            }
+        },
+    }
+    manifest_bytes = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
+    (history / "snapshot.json").write_bytes(manifest_bytes)
+    (history / "snapshot.sha256").write_text(
+        hashlib.sha256(manifest_bytes).hexdigest() + "\n", encoding="ascii"
+    )
+
+
+scenarios = (
+    ("walkthrough", "presenting"),
+    ("sharpen", "presenting"),
+    ("build_gate", "presentation_complete"),
+    ("resume_instruction", "plan_reviewed"),
+)
+for mode in ("workflow", "solo"):
+  for source, phase in scenarios:
+    context = f"mode={mode}, source={source}, phase={phase}"
+    quest_dir = root / mode / source
+    plan_dir = quest_dir / "phase_01_plan"
+    plan_dir.mkdir(parents=True)
+    write_json(
+        quest_dir / "state.json",
+        {
+            "phase": phase,
+            "status": "complete",
+            "quest_mode": mode,
+            "plan_iteration": 4,
+            "fix_iteration": 0,
+            "last_verdict": "approve",
+            "approval_invalidated": False,
+        },
+    )
+    write_json(
+        quest_dir / "orchestration.json",
+        {
+            "version": 1,
+            "models": {
+                "planner": "gpt-5.6-sol",
+                "plan-reviewer-a": "claude-opus-5",
+                "plan-reviewer-b": "gpt-5.6-terra",
+                "arbiter": "claude-opus-5",
+                "builder": "gpt-5.6-sol",
+                "code-reviewer-a": "claude-opus-5",
+                "code-reviewer-b": "gpt-5.6-terra",
+                "review-arbiter": "claude-opus-5",
+                "fixer": "gpt-5.6-terra",
+            },
+            "source": "default",
+            "overridden_roles": [],
+            "preflight_validated_at": "2026-08-04T00:00:00Z",
+        },
+    )
+    seal_iteration(quest_dir)
+    (plan_dir / "plan.md").write_text("# Old plan\n", encoding="utf-8")
+    (plan_dir / "review_plan-reviewer-a.md").write_text(
+        "Approved\n", encoding="utf-8"
+    )
+    write_json(plan_dir / "handoff.json", handoff(4, None))
+    write_json(plan_dir / "handoff_plan-reviewer-a.json", handoff(4, None))
+    if mode == "workflow":
+        (plan_dir / "review_plan-reviewer-b.md").write_text(
+            "Approved\n", encoding="utf-8"
+        )
+        write_json(plan_dir / "handoff_plan-reviewer-b.json", handoff(4, None))
+        (plan_dir / "arbiter_verdict.md").write_text("APPROVE\n", encoding="utf-8")
+        write_json(plan_dir / "handoff_arbiter.json", handoff(4, None))
+        write_json(plan_dir / "review_findings.json", [])
+        write_json(plan_dir / "review_backlog.json", empty_backlog())
+    feedback = quest_dir / "prepared.md"
+    feedback.write_text(f"Revise through {source}.\n", encoding="utf-8")
+
+    run(
+        sys.executable,
+        iteration_cli,
+        "snapshot",
+        "--quest-dir",
+        quest_dir,
+        "--iteration",
+        4,
+    )
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--record-user-replan-feedback",
+        "--source",
+        source,
+        "--feedback-file",
+        feedback,
+        "--expect-phase",
+        phase,
+    )
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--transition",
+        "plan",
+        "--status",
+        "in_progress",
+        "--expect-phase",
+        phase,
+    )
+    state = json.loads((quest_dir / "state.json").read_text())
+    assert state["phase"] == "plan" and state["plan_iteration"] == 4, context
+    assert state["user_replan"]["lifecycle"] == "planning", context
+    assert state["approval_invalidated"] is True, context
+    stale = run("bash", validator, quest_dir, "plan_reviewed", expected=1)
+    assert "missing or stale" in stale.stdout, context
+
+    run(sys.executable, state_cli, "--quest-dir", quest_dir, "--plan-iteration", 5)
+    if source == "resume_instruction" and mode == "workflow":
+        prompt = plan_dir / "planner_prompt.txt"
+        bridge = quest_dir / "fake_planner_bridge.py"
+        marker = quest_dir / "planner_dispatched"
+        prompt.write_text("Dispatch revised Planner.\n", encoding="utf-8")
+        bridge.write_text(
+            """#!/usr/bin/env python3
+import json
+import pathlib
+import sys
+
+args = sys.argv[1:]
+prompt = pathlib.Path(args[args.index("--prompt-file") + 1])
+plan_dir = prompt.parent
+(plan_dir / "plan.md").write_text("# Revised resumed plan\\n", encoding="utf-8")
+(plan_dir / "handoff.json").write_text(
+    json.dumps({
+        "status": "complete",
+        "artifacts": [str(plan_dir / "plan.md")],
+        "next": "plan_review",
+        "summary": "planner dispatched after stale resume",
+        "plan_iteration": 5,
+        "user_replan_generation": 1,
+    }),
+    encoding="utf-8",
+)
+(plan_dir.parent / "planner_dispatched").write_text("yes", encoding="utf-8")
+print("---HANDOFF---")
+print("STATUS: complete")
+print(f"ARTIFACTS: {plan_dir / 'plan.md'}")
+print("NEXT: plan_review")
+print("SUMMARY: planner dispatched after stale resume")
+""",
+            encoding="utf-8",
+        )
+        bridge.chmod(0o755)
+        dispatch = run(
+            sys.executable,
+            repo / "scripts" / "quest_claude_runner.py",
+            "--quest-dir",
+            quest_dir,
+            "--phase",
+            "plan",
+            "--agent",
+            "planner",
+            "--iter",
+            "5",
+            "--prompt-file",
+            prompt,
+            "--handoff-file",
+            plan_dir / "handoff.json",
+            "--model",
+            "claude",
+            "--transport",
+            "bridge",
+            "--bridge-script",
+            bridge,
+            "--cwd",
+            repo,
+        )
+        assert marker.read_text(encoding="utf-8") == "yes", context
+        assert json.loads(dispatch.stdout)["exit_code"] == 0, context
+    else:
+        write_json(plan_dir / "handoff.json", handoff(5, 1, "plan_review"))
+    reviewer_a_next = "builder" if mode == "solo" else "arbiter"
+    write_json(
+        plan_dir / "handoff_plan-reviewer-a.json",
+        handoff(5, 1, reviewer_a_next),
+    )
+    (plan_dir / "review_plan-reviewer-a.md").write_text(
+        "Revised plan approved\n", encoding="utf-8"
+    )
+    if mode == "workflow":
+        write_json(
+            plan_dir / "handoff_plan-reviewer-b.json", handoff(5, 1, "arbiter")
+        )
+        (plan_dir / "review_plan-reviewer-b.md").write_text(
+            "Revised plan approved\n", encoding="utf-8"
+        )
+        write_json(plan_dir / "handoff_arbiter.json", handoff(5, 1, "builder"))
+        (plan_dir / "arbiter_verdict.md").write_text(
+            "VERDICT: APPROVE\n", encoding="utf-8"
+        )
+        write_json(plan_dir / "review_findings.json", [])
+        write_json(plan_dir / "review_backlog.json", empty_backlog())
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--transition",
+        "plan_reviewed",
+        "--status",
+        "complete",
+        "--expect-phase",
+        "plan",
+    )
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--transition",
+        "presenting",
+        "--status",
+        "in_progress",
+        "--expect-phase",
+        "plan_reviewed",
+    )
+    run("bash", validator, quest_dir, "building", expected=1)
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--transition",
+        "presentation_complete",
+        "--status",
+        "complete",
+        "--expect-phase",
+        "presenting",
+    )
+    approved_state = json.loads((quest_dir / "state.json").read_text())
+    malformed_state = {**approved_state, "user_replan": "malformed"}
+    write_json(quest_dir / "state.json", malformed_state)
+    malformed = run("bash", validator, quest_dir, "building", expected=1)
+    assert "Current replan request is malformed" in malformed.stdout, context
+    write_json(quest_dir / "state.json", approved_state)
+    run(
+        sys.executable,
+        state_cli,
+        "--quest-dir",
+        quest_dir,
+        "--transition",
+        "building",
+        "--status",
+        "in_progress",
+        "--expect-phase",
+        "presentation_complete",
+    )
+    final = json.loads((quest_dir / "state.json").read_text())
+    assert final["phase"] == "building", context
+    assert final["user_replan"]["lifecycle"] == "presentation_approved", context
+PY
+  local rc=$?
+  rm -rf "$tmpdir"
+  return $rc
+}
+
+run_test test_quest_state_updates_metadata_and_timestamp
 run_test test_quest_state_transition_valid
 run_test test_quest_state_transition_invalid_leaves_state_unchanged
 run_test test_quest_state_transition_rejects_plan_reviewed_to_building
@@ -2158,13 +3267,35 @@ run_test test_quest_startup_branch_invalid_slug_preserves_requested_mode
 run_test test_quest_startup_branch_exception_handler_tolerates_missing_git
 run_test test_plan_review_retry_harness_preserves_canonical_artifacts_until_publish
 run_test test_plan_review_retry_via_runner_preserves_canonical_artifacts_until_publish
+run_test test_human_replan_sources_require_current_identity_before_build
 run_test test_workflow_documents_no_vcs_review_path
 run_test test_workflow_documents_arbiter_validate_build_publish_contract
 run_test test_installer_update_branch_uses_base_name_when_free
 run_test test_installer_update_branch_uses_suffix_when_date_branch_exists
 run_test test_installer_update_branch_skips_occupied_suffixes
 run_test test_installer_update_branch_selection_respects_skip_gates
-run_test test_installer_cleans_up_renamed_scripts
+run_test test_installer_pristine_renamed_script_requires_current_run_success
+run_test test_installer_pristine_rename_prompt_defaults_to_removal
+run_test test_installer_pristine_rename_decline_reprompts_and_retains_checksum
+run_test test_installer_force_and_non_tty_pristine_cleanup_never_call_prompt
+run_test test_installer_unsafe_rename_defaults_to_preservation_and_allows_explicit_removal
+run_test test_installer_untracked_old_path_decline_preserves_without_checksum
+run_test test_installer_dry_run_predicts_create_and_pristine_rename_cleanup_without_prompt
+run_test test_installer_fetch_failure_preserves_old_path_even_when_new_exists
+run_test test_installer_fetch_failure_preserves_old_path_when_new_is_absent
+run_test test_installer_dry_run_host_owned_new_path_preserves_legacy_path
+run_test test_installer_host_owned_new_path_skip_does_not_unlock_old_cleanup
+run_test test_installer_modified_new_path_non_tty_and_interactive_skip_preserve_old
+run_test test_installer_equal_new_payload_unlocks_old_cleanup
+run_test test_installer_absent_old_path_prunes_checksum_but_dry_run_preserves_state
+run_test test_installer_copy_as_is_non_regular_paths_do_not_unlock_legacy_cleanup
+run_test test_installer_broken_symlink_is_unsafe_and_preserved_noninteractively
+run_test test_installer_symlinked_parent_preserves_external_legacy_path
+run_test test_installer_source_only_migration_explains_manual_cleanup
+run_test test_installer_installed_rename_success_is_manifest_section_agnostic
+run_test test_installer_customized_sections_symlinked_destination_does_not_unlock_cleanup
+run_test test_installer_generic_cleanup_defers_registered_rename_paths
+run_test test_installer_new_path_checksum_survives_modified_old_preservation
 run_test test_installer_updates_pristine_agents_file_in_place
 run_test test_installer_records_checksum_for_new_agents_file
 run_test test_installer_preserves_customized_agents_file_with_sidecar

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import pr_sync_default_branch
+import quest_pr_sync_default_branch
 
 
 class _Result:
@@ -17,7 +17,7 @@ def _install_runner(monkeypatch, handler):
         calls.append(args)
         return handler(args)
 
-    monkeypatch.setattr(pr_sync_default_branch, "_run", fake_run)
+    monkeypatch.setattr(quest_pr_sync_default_branch, "_run", fake_run)
     return calls
 
 
@@ -53,7 +53,10 @@ def test_detects_default_branch_via_remote_head(monkeypatch) -> None:
         ),
     )
 
-    assert pr_sync_default_branch.detect_default_branch() == ("trunk", "ls-remote")
+    assert quest_pr_sync_default_branch.detect_default_branch() == (
+        "trunk",
+        "ls-remote",
+    )
     assert ["git", "symbolic-ref", "refs/remotes/origin/HEAD"] not in calls
     assert [
         "gh",
@@ -76,7 +79,10 @@ def test_falls_back_to_symbolic_ref_when_remote_head_fails(monkeypatch) -> None:
 
     calls = _install_runner(monkeypatch, fake_run)
 
-    assert pr_sync_default_branch.detect_default_branch() == ("trunk", "symbolic-ref")
+    assert quest_pr_sync_default_branch.detect_default_branch() == (
+        "trunk",
+        "symbolic-ref",
+    )
     assert [
         "gh",
         "repo",
@@ -108,7 +114,7 @@ def test_falls_back_to_gh_when_git_default_detection_fails(monkeypatch) -> None:
 
     _install_runner(monkeypatch, fake_run)
 
-    assert pr_sync_default_branch.detect_default_branch() == ("develop", "gh")
+    assert quest_pr_sync_default_branch.detect_default_branch() == ("develop", "gh")
 
 
 def test_up_to_date_is_noop_no_rebase(monkeypatch) -> None:
@@ -122,7 +128,7 @@ def test_up_to_date_is_noop_no_rebase(monkeypatch) -> None:
         raise AssertionError(f"unexpected call: {args}")
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync(apply=True)
+    code, payload = quest_pr_sync_default_branch.sync(apply=True)
 
     assert code == 0
     assert payload["status"] == "up_to_date"
@@ -133,7 +139,7 @@ def test_up_to_date_is_noop_no_rebase(monkeypatch) -> None:
 
 def test_clean_inspect_reports_would_rebase_without_mutating(monkeypatch) -> None:
     calls = _install_runner(monkeypatch, _standard_success)
-    code, payload = pr_sync_default_branch.sync(apply=False)
+    code, payload = quest_pr_sync_default_branch.sync(apply=False)
 
     assert code == 0
     assert payload["status"] == "clean"
@@ -147,7 +153,7 @@ def test_clean_apply_rebase_sets_force_with_lease_true(monkeypatch) -> None:
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync("rebase", apply=True)
+    code, payload = quest_pr_sync_default_branch.sync("rebase", apply=True)
 
     assert code == 0
     assert payload["status"] == "synced"
@@ -159,7 +165,7 @@ def test_clean_apply_rebase_sets_force_with_lease_true(monkeypatch) -> None:
 
 def test_clean_apply_merge_sets_force_with_lease_false(monkeypatch) -> None:
     calls = _install_runner(monkeypatch, _standard_success)
-    code, payload = pr_sync_default_branch.sync("merge", apply=True)
+    code, payload = quest_pr_sync_default_branch.sync("merge", apply=True)
 
     assert code == 0
     assert payload["status"] == "synced"
@@ -172,11 +178,11 @@ def test_clean_apply_merge_sets_force_with_lease_false(monkeypatch) -> None:
 def test_apply_dirty_worktree_reports_error_without_rebase(monkeypatch) -> None:
     def fake_run(args: list[str]) -> _Result:
         if args == ["git", "status", "--porcelain"]:
-            return _Result(stdout=" M scripts/pr_sync_default_branch.py\n")
+            return _Result(stdout=" M scripts/quest_pr_sync_default_branch.py\n")
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync("rebase", apply=True)
+    code, payload = quest_pr_sync_default_branch.sync("rebase", apply=True)
 
     assert code == 1
     assert payload["status"] == "error"
@@ -191,7 +197,7 @@ def test_apply_in_progress_merge_reports_error_without_merge(monkeypatch) -> Non
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync("merge", apply=True)
+    code, payload = quest_pr_sync_default_branch.sync("merge", apply=True)
 
     assert code == 1
     assert payload["status"] == "error"
@@ -208,7 +214,7 @@ def test_rebase_apply_refuses_when_upstream_not_contained(monkeypatch) -> None:
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync("rebase", apply=True)
+    code, payload = quest_pr_sync_default_branch.sync("rebase", apply=True)
 
     assert code == 1
     assert payload["status"] == "error"
@@ -244,7 +250,7 @@ def test_rebase_apply_refuses_when_same_named_remote_branch_not_contained(
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync("rebase", apply=True)
+    code, payload = quest_pr_sync_default_branch.sync("rebase", apply=True)
 
     assert code == 1
     assert payload["status"] == "error"
@@ -262,7 +268,7 @@ def test_conflict_lists_files_and_exits_nonzero(monkeypatch) -> None:
         return _standard_success(args)
 
     _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync(apply=False)
+    code, payload = quest_pr_sync_default_branch.sync(apply=False)
 
     assert code == 1
     assert payload["status"] == "conflict"
@@ -278,7 +284,7 @@ def test_apply_rebase_runs_even_when_advisory_probe_would_conflict(monkeypatch) 
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync(apply=True)
+    code, payload = quest_pr_sync_default_branch.sync(apply=True)
 
     assert code == 0
     assert payload["status"] == "synced"
@@ -293,7 +299,7 @@ def test_apply_merge_runs_even_when_advisory_probe_would_conflict(monkeypatch) -
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync("merge", apply=True)
+    code, payload = quest_pr_sync_default_branch.sync("merge", apply=True)
 
     assert code == 0
     assert payload["status"] == "synced"
@@ -308,7 +314,7 @@ def test_conflict_never_uses_strategy_theirs_or_ours(monkeypatch) -> None:
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    pr_sync_default_branch.sync(apply=True)
+    quest_pr_sync_default_branch.sync(apply=True)
 
     flattened = " ".join(part for call in calls for part in call)
     assert "-X theirs" not in flattened
@@ -323,7 +329,7 @@ def test_inspect_merge_tree_failure_reports_error_not_conflict(monkeypatch) -> N
         return _standard_success(args)
 
     _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync(apply=False)
+    code, payload = quest_pr_sync_default_branch.sync(apply=False)
 
     assert code == 1
     assert payload["status"] == "error"
@@ -338,7 +344,7 @@ def test_apply_runs_when_advisory_probe_would_fail(monkeypatch) -> None:
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync(apply=True)
+    code, payload = quest_pr_sync_default_branch.sync(apply=True)
 
     assert code == 0
     assert payload["status"] == "synced"
@@ -359,7 +365,7 @@ def test_apply_time_rebase_conflict_aborts_and_reports_conflict(monkeypatch) -> 
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync("rebase", apply=True)
+    code, payload = quest_pr_sync_default_branch.sync("rebase", apply=True)
 
     assert code == 1
     assert payload["status"] == "conflict"
@@ -385,7 +391,7 @@ def test_apply_time_merge_conflict_aborts_and_reports_conflict(monkeypatch) -> N
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync("merge", apply=True)
+    code, payload = quest_pr_sync_default_branch.sync("merge", apply=True)
 
     assert code == 1
     assert payload["status"] == "conflict"
@@ -409,7 +415,7 @@ def test_rebase_failure_without_conflicted_files_aborts_and_reports_error(
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync("rebase", apply=True)
+    code, payload = quest_pr_sync_default_branch.sync("rebase", apply=True)
 
     assert code == 1
     assert payload["status"] == "error"
@@ -432,7 +438,7 @@ def test_merge_failure_without_conflicted_files_aborts_and_reports_error(
         return _standard_success(args)
 
     calls = _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync("merge", apply=True)
+    code, payload = quest_pr_sync_default_branch.sync("merge", apply=True)
 
     assert code == 1
     assert payload["status"] == "error"
@@ -452,7 +458,7 @@ def test_fetch_failure_reports_error(monkeypatch) -> None:
         ),
     )
 
-    code, payload = pr_sync_default_branch.sync()
+    code, payload = quest_pr_sync_default_branch.sync()
 
     assert code == 1
     assert payload["status"] == "error"
@@ -480,7 +486,7 @@ def test_default_branch_undetected_reports_error(monkeypatch) -> None:
         raise AssertionError(f"unexpected call: {args}")
 
     _install_runner(monkeypatch, fake_run)
-    code, payload = pr_sync_default_branch.sync()
+    code, payload = quest_pr_sync_default_branch.sync()
 
     assert code == 1
     assert payload["status"] == "error"
@@ -499,7 +505,7 @@ def test_conflict_parser_skips_tree_oid_and_message_lines() -> None:
         ]
     )
 
-    assert pr_sync_default_branch._parse_conflict_files(output) == [
+    assert quest_pr_sync_default_branch._parse_conflict_files(output) == [
         "src/app.py",
         "docs/notes.md",
     ]
