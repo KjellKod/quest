@@ -145,7 +145,6 @@ AGENTS.md
 [merge-carefully]
 # These files prompt for merge if they exist locally
 .claude/settings.json
-.claude/settings.local.json
 
 [directories]
 # These directories are created if missing
