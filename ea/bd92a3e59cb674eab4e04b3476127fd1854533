@@ -1,0 +1,21 @@
+tests/unit/test_antigravity_runner.py
+  s_227cc56149583e::t_8fe9f7ded2d4c1 89-91
+scripts/quest_runtime/antigravity_runner.py
+  s_227cc56149583e::t_0646f924ea9087 173-179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "eabd92a3e59cb674eab4e04b3476127fd1854533",
+  "prompts": {},
+  "sessions": {
+    "s_227cc56149583e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2d8dc889-a1b9-473c-bb99-d2edf678d4f6",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
