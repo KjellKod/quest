@@ -360,6 +360,36 @@ def test_run_role_refuses_scoping_that_excludes_the_handoff_directory(tmp_path):
     assert "does not cover the handoff directory" in result.stderr
 
 
+def test_run_role_reports_planner_lifecycle_failures_as_invocation_error(tmp_path):
+    # prepare_artifact_files enforces planner lifecycle preconditions and
+    # raises StateError/PlanIterationError when they fail. Those must come
+    # back as a structured envelope, not an uncaught traceback — parity with
+    # run_claude_role. state.json without plan_iteration triggers StateError
+    # before any subprocess runs, so no agy binary is needed.
+    quest_dir = tmp_path / ".quest" / "demo"
+    quest_dir.mkdir(parents=True)
+    (quest_dir / "state.json").write_text('{"phase": "plan"}', encoding="utf-8")
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("do the thing", encoding="utf-8")
+
+    result = run_antigravity_role(
+        cwd=tmp_path,
+        quest_dir=quest_dir,
+        phase="Plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=prompt_file,
+        handoff_file=quest_dir / "handoff.json",
+        model="gemini-3.6-flash-low",
+        timeout=30,
+        artifact_paths=[quest_dir / "plan.md", quest_dir / "handoff.json"],
+        add_dirs=[quest_dir],
+    )
+
+    assert result.result_kind == "invocation_error"
+    assert result.exit_code == 1
+
+
 def test_run_role_reports_invocation_error_for_an_unreadable_prompt(tmp_path):
     quest_dir = tmp_path / ".quest" / "demo"
     quest_dir.mkdir(parents=True)

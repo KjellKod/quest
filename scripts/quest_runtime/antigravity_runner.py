@@ -40,6 +40,9 @@ from quest_runtime.claude_runner import (
     resolve_path,
     unique_dirs,
 )
+from quest_runtime.plan_iterations import PlanIterationError
+from quest_runtime.state import StateError
+
 DEFAULT_AGY_BINARY = "agy"
 
 # `agy` has no --prompt-file, so the whole role prompt travels on argv. Guard
@@ -352,6 +355,19 @@ def run_antigravity_role(
                 resolved_artifact_paths,
                 quest_dir=resolved_quest_dir,
                 role=agent,
+            )
+        except (PlanIterationError, StateError) as exc:
+            # Planner lifecycle preconditions (malformed plan_iteration,
+            # missing sealed snapshot) must come back as a structured
+            # envelope, not an uncaught traceback — parity with
+            # run_claude_role.
+            return RunResult(
+                exit_code=1,
+                handoff_state="missing",
+                result_kind="invocation_error",
+                source=None,
+                stdout="",
+                stderr=str(exc),
             )
         except OSError as exc:
             return RunResult(
