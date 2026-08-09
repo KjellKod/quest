@@ -28,6 +28,9 @@ from quest_runtime.orchestration import runtime_for_model
 from quest_runtime.plan_iterations import PlanIterationError
 from quest_runtime.state import StateError, utc_now_iso
 
+# Runtime family names accepted by select_role_runtime in place of a model ID.
+RUNTIME_FAMILIES: frozenset[str] = frozenset({"claude", "codex", "antigravity"})
+
 
 @dataclass
 class RuntimeSelection:
@@ -135,17 +138,19 @@ def select_role_runtime(
     target_runtime: str,
     native_claude_available: bool = True,
     claude_bridge_available: bool = False,
+    antigravity_available: bool = False,
 ) -> RuntimeSelection:
     """Select the additive runtime path for a Quest role.
 
     Runtime names describe the backend family. Entrypoints describe how the
     current orchestrator invokes that backend.
 
-    `target_runtime` accepts either a runtime family (`claude`/`codex`) or a
-    persisted `models.<role>` model ID (for example `gpt-5.5` or
-    `claude-opus-4-6`) — model IDs are normalized through the canonical
-    `runtime_for_model()` mapping before entrypoint selection, so callers do
-    not need their own model-to-runtime translation.
+    `target_runtime` accepts either a runtime family
+    (`claude`/`codex`/`antigravity`) or a persisted `models.<role>` model ID
+    (for example `gpt-5.5`, `claude-opus-4-6` or `gemini-3.6-flash-high`) —
+    model IDs are normalized through the canonical `runtime_for_model()`
+    mapping before entrypoint selection, so callers do not need their own
+    model-to-runtime translation.
 
     This is the reference implementation of the dispatch matrix in
     `.skills/quest/delegation/workflow.md`. Orchestrators follow that
@@ -154,7 +159,17 @@ def select_role_runtime(
     """
 
     normalized_orchestrator = orchestrator.strip().lower()
-    normalized_target = runtime_for_model(target_runtime)
+    # An explicit runtime-family name is accepted as well as a model ID, which
+    # the docstring above promises. `claude` and `codex` happen to survive
+    # runtime_for_model() unchanged, but `antigravity` would not — it is not a
+    # Gemini model ID, so it would fall through to the Codex branch and
+    # dispatch the role to entirely the wrong backend.
+    _raw_target = target_runtime.strip().lower()
+    normalized_target = (
+        _raw_target
+        if _raw_target in RUNTIME_FAMILIES
+        else runtime_for_model(target_runtime)
+    )
 
     if normalized_orchestrator not in {"claude", "codex"}:
         raise ValueError(f"Unsupported orchestrator: {orchestrator}")
@@ -180,6 +195,32 @@ def select_role_runtime(
                 "dispatch Codex roles through Codex MCP."
             ),
             requires_probe=False,
+        )
+
+    if normalized_target == "antigravity":
+        if antigravity_available:
+            return RuntimeSelection(
+                runtime="antigravity",
+                entrypoint="scripts/quest_antigravity_runner.py",
+                reason=(
+                    "runtime=antigravity "
+                    "entrypoint=scripts/quest_antigravity_runner.py: Gemini "
+                    "roles run on the Antigravity CLI (agy) through the Quest "
+                    "runner. Antigravity is never an orchestrator, so one "
+                    "runner serves both Claude-led and Codex-led sessions."
+                ),
+                requires_probe=True,
+            )
+        return RuntimeSelection(
+            runtime="blocked",
+            entrypoint="",
+            reason=(
+                "runtime=antigravity entrypoint=blocked: Gemini role requires "
+                "the Antigravity runner (scripts/quest_antigravity_runner.py), "
+                "but the agy probe is unavailable. Re-run the host-context "
+                "Antigravity probe or reassign this role."
+            ),
+            requires_probe=True,
         )
 
     if normalized_orchestrator == "codex":
@@ -596,6 +637,7 @@ def append_context_health_log(
     source: str,
     status: str | None = None,
     transport: str | None = None,
+    runtime: str = "claude",
 ) -> None:
     """Append one context-health line.
 
@@ -607,13 +649,17 @@ def append_context_health_log(
     `transport` (background-agent|bridge) is set for Codex-led Claude roles —
     this module is their only writer, so the field's presence is what the quest
     end summary and celebration key on. Other runtimes never set it.
+
+    `runtime` names the backend family for the line. It defaults to `claude`
+    so every existing caller is unchanged; the Antigravity runner passes
+    `antigravity`.
     """
     log_dir = Path(quest_dir) / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     status_field = f" | status={status}" if status else ""
     transport_field = f" | transport={transport}" if transport else ""
     log_line = (
-        f"{utc_now_iso()} | phase={phase} | agent={agent} | runtime=claude | "
+        f"{utc_now_iso()} | phase={phase} | agent={agent} | runtime={runtime} | "
         f"iter={iteration} | handoff_json={handoff_state} | source={source}"
         f"{status_field}{transport_field}\n"
     )

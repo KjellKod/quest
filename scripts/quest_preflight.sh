@@ -17,6 +17,7 @@ set -euo pipefail
 ###############################################################################
 
 ORCHESTRATOR=""
+PROBE_RUNTIME=""
 CACHE_TTL_SECONDS="${QUEST_PREFLIGHT_CACHE_TTL_SECONDS:-43200}"
 case "$CACHE_TTL_SECONDS" in
   ''|*[!0-9]*) CACHE_TTL_SECONDS=43200 ;;  # fallback on non-integer input
@@ -48,6 +49,18 @@ CLAUDE_PROBE_MODEL=$(python3 -c \
   "${QUEST_CLAUDE_PROBE_MODEL:-claude}")
 if [ -z "$CLAUDE_PROBE_MODEL" ]; then
   CLAUDE_PROBE_MODEL="claude"
+fi
+
+# Antigravity (agy) runtime. Never an orchestrator, only ever a dispatched
+# runtime, so it is probed on demand rather than as a per-orchestrator step.
+AGY_PROBE_SCRIPT="${QUEST_AGY_PROBE_SCRIPT:-$SCRIPT_DIR/quest_antigravity_probe.py}"
+AGY_CACHE_FILE="${QUEST_PREFLIGHT_AGY_CACHE_FILE:-.quest/cache/antigravity.json}"
+AGY_BINARY="${QUEST_AGY_BINARY:-agy}"
+AGY_PROBE_MODEL=$(python3 -c \
+  'import sys; print(sys.argv[1].strip())' \
+  "${QUEST_AGY_PROBE_MODEL:-gemini-3.6-flash-low}")
+if [ -z "$AGY_PROBE_MODEL" ]; then
+  AGY_PROBE_MODEL="gemini-3.6-flash-low"
 fi
 CURRENT_BG_PROBE_NAME=""
 
@@ -95,25 +108,37 @@ trap 'cleanup_bg_probes; trap - EXIT; exit 143' TERM
 # Argument Parsing
 ###############################################################################
 
+USAGE="Usage: quest_preflight.sh --orchestrator claude|codex | --probe antigravity"
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --orchestrator)
       if [ $# -lt 2 ] || [ -z "$2" ]; then
-        echo "Usage: quest_preflight.sh --orchestrator claude|codex" >&2
+        echo "$USAGE" >&2
         exit 2
       fi
       ORCHESTRATOR="$2"
       shift 2
       ;;
+    --probe)
+      # Probe one dispatched runtime directly. Independent of --orchestrator
+      # because Antigravity is never an orchestrator, only ever a target.
+      if [ $# -lt 2 ] || [ -z "$2" ]; then
+        echo "$USAGE" >&2
+        exit 2
+      fi
+      PROBE_RUNTIME="$2"
+      shift 2
+      ;;
     *)
-      echo "Usage: quest_preflight.sh --orchestrator claude|codex" >&2
+      echo "$USAGE" >&2
       exit 2
       ;;
   esac
 done
 
-if [ -z "$ORCHESTRATOR" ]; then
-  echo "Usage: quest_preflight.sh --orchestrator claude|codex" >&2
+if [ -z "$ORCHESTRATOR" ] && [ -z "$PROBE_RUNTIME" ]; then
+  echo "$USAGE" >&2
   exit 2
 fi
 
@@ -788,9 +813,137 @@ probe_claude_transport() {
   printf '%s\n' "$bg_payload"
 }
 
+probe_antigravity() {
+  # Probe the agy runtime by requiring a real artifact + handoff write, the
+  # same contract the Claude probes use: a green probe must mean the runtime
+  # can do a role's work, not merely that the binary answered.
+  local agy_installed="false"
+  local probe_script_exists="false"
+  local available="false"
+  local source="live_probe"
+  local cache_hit="false"
+  local probe_result_kind=""
+  local probe_message=""
+  local cache_cached_at=""
+  local cache_expires_at=""
+
+  if has_cmd "$AGY_BINARY"; then
+    agy_installed="true"
+  fi
+  if [ -f "$AGY_PROBE_SCRIPT" ]; then
+    probe_script_exists="true"
+  fi
+
+  # Cache is consulted BEFORE the live probe here, unlike the Claude probes
+  # where it is only a fallback after a failure. Deliberate: an agy probe is a
+  # real ~40s model call costing ~76k tokens, so re-proving a runtime that
+  # passed minutes ago would tax every quest start. The TTL still bounds
+  # staleness, and a cached entry is only reusable for the same probe model.
+  if [ "$agy_installed" = "true" ]; then
+    local cache_json=""
+    cache_json=$(load_success_cache "$AGY_CACHE_FILE" "$CACHE_TTL_SECONDS" 2>/dev/null || true)
+    local cached_probe_model=""
+    if [ -n "$cache_json" ]; then
+      cached_probe_model=$(printf '%s' "$cache_json" | json_get "payload.probe_model" 2>/dev/null || true)
+    fi
+    if [ -n "$cache_json" ] && [ "$cached_probe_model" = "$AGY_PROBE_MODEL" ]; then
+      cache_hit="true"
+      source="success_cache"
+      available="true"
+      cache_cached_at=$(printf '%s' "$cache_json" | json_get "cached_at" 2>/dev/null || true)
+      cache_expires_at=$(printf '%s' "$cache_json" | json_get "expires_at" 2>/dev/null || true)
+    fi
+  fi
+
+  if [ "$available" = "false" ] && [ "$agy_installed" = "true" ] && [ "$probe_script_exists" = "true" ]; then
+    local probe_dir
+    local probe_json=""
+    local probe_exit_code=""
+    probe_dir=$(mktemp -d 2>/dev/null || mktemp -d -t quest_preflight)
+    probe_json=$(python3 "$AGY_PROBE_SCRIPT" --quest-dir "$probe_dir" \
+      --model "$AGY_PROBE_MODEL" --agy-binary "$AGY_BINARY" 2>/dev/null || true)
+    if [ -n "$probe_json" ]; then
+      probe_exit_code=$(printf '%s' "$probe_json" | json_get "exit_code" 2>/dev/null || true)
+      probe_result_kind=$(printf '%s' "$probe_json" | json_get "result_kind" 2>/dev/null || true)
+      probe_message=$(printf '%s' "$probe_json" | json_get "stderr" 2>/dev/null || true)
+    fi
+    if [ "${probe_exit_code:-1}" = "0" ]; then
+      available="true"
+      probe_message=""
+    fi
+    rm -rf "$probe_dir"
+  fi
+
+  local warning_lines=""
+  if [ "$available" = "false" ]; then
+    warning_lines="${warning_lines}    \"Antigravity (agy) is unavailable -- Gemini-backed roles cannot run.\",\n"
+    if [ "$agy_installed" = "false" ]; then
+      warning_lines="${warning_lines}    \"  curl -fsSL https://antigravity.google/cli/install.sh | bash  # install agy\",\n"
+    else
+      warning_lines="${warning_lines}    \"  agy models   # verify the CLI is authenticated and can list models\",\n"
+      warning_lines="${warning_lines}    \"  agy authenticates via the OS keyring on first run; run it once interactively.\",\n"
+    fi
+    if [ "$probe_script_exists" = "false" ]; then
+      # Quote rather than interpolate: an overridden probe-script path
+      # containing a quote or backslash would otherwise make the whole
+      # unavailable payload unparsable, hiding the very error it reports.
+      warning_lines="${warning_lines}    $(json_quote_or_null "  quest_antigravity_probe.py not found at $AGY_PROBE_SCRIPT"),\n"
+    fi
+    warning_lines="${warning_lines}    \"Reassign Gemini roles or fix agy, then rerun preflight.\"\n"
+  fi
+
+  local payload
+  payload=$(cat <<EOJSON
+{
+  "runtime": "antigravity",
+  "available": ${available},
+  "source": "${source}",
+  "cache_hit": ${cache_hit},
+  "probe_model": $(json_quote_or_null "$AGY_PROBE_MODEL"),
+  "agy_installed": ${agy_installed},
+  "probe_script_exists": ${probe_script_exists},
+  "probe_result_kind": $(json_quote_or_null "$probe_result_kind"),
+  "probe_message": $(json_quote_or_null "$probe_message"),
+  "cached_at": $(json_quote_or_null "$cache_cached_at"),
+  "expires_at": $(json_quote_or_null "$cache_expires_at"),
+  "warning": $(if [ -n "$warning_lines" ]; then printf '[\n%b\n  ]' "$warning_lines"; else echo 'null'; fi)
+}
+EOJSON
+)
+
+  if [ "$source" = "live_probe" ] && [ "$available" = "true" ]; then
+    write_success_cache "$AGY_CACHE_FILE" "$CACHE_TTL_SECONDS" "$payload"
+  fi
+
+  printf '%s\n' "$payload"
+
+  return 0
+}
+
 ###############################################################################
 # Main
 ###############################################################################
+
+if [ -n "$PROBE_RUNTIME" ]; then
+  # Reject the combination rather than silently running only the probe: a
+  # caller passing both would otherwise get a probe-only payload and believe
+  # the orchestrator check had also run.
+  if [ -n "$ORCHESTRATOR" ]; then
+    echo "ERROR: --probe and --orchestrator are separate modes and cannot be combined" >&2
+    echo "$USAGE" >&2
+    exit 2
+  fi
+  case "$PROBE_RUNTIME" in
+    antigravity)
+      probe_antigravity
+      exit 0
+      ;;
+    *)
+      echo "Unknown probe runtime: $PROBE_RUNTIME (expected: antigravity)" >&2
+      exit 2
+      ;;
+  esac
+fi
 
 case "$ORCHESTRATOR" in
   claude)

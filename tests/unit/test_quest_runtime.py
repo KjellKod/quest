@@ -18,8 +18,11 @@ from quest_runtime.claude_runner import (
     select_role_runtime,
 )
 from quest_runtime.orchestration import (
+    is_antigravity_model,
+    is_model_available,
     is_model_available_for_orchestrator,
     runtime_for_model,
+    validate_or_remap_models_for_orchestrator,
 )
 
 
@@ -191,6 +194,171 @@ def test_model_availability_classifies_provider_qualified_ids_like_dispatch():
         )
         is False
     )
+
+
+def test_is_antigravity_model_accepts_sentinel_and_concrete_slugs():
+    assert is_antigravity_model("gemini") is True
+    assert is_antigravity_model("gemini-3.6-flash-high") is True
+    # Unreleased slugs must classify without a code change (see plan D1).
+    assert is_antigravity_model("gemini-3.5-pro-high") is True
+
+    assert is_antigravity_model("claude-opus-5") is False
+    assert is_antigravity_model("gpt-5.6-sol") is False
+    # Substring, not prefix: must not capture an unrelated family.
+    assert is_antigravity_model("not-gemini-3.6") is False
+
+
+def test_runtime_for_model_maps_gemini_ids_to_antigravity():
+    assert runtime_for_model("gemini") == "antigravity"
+    assert runtime_for_model("gemini-3.6-flash-high") == "antigravity"
+    assert runtime_for_model("Gemini-3.6-Flash-High") == "antigravity"
+    assert runtime_for_model("antigravity/gemini-3.6-flash-low") == "antigravity"
+    # A slug that does not exist yet still routes correctly.
+    assert runtime_for_model("gemini-3.5-pro-high") == "antigravity"
+
+    # Existing families keep their mapping.
+    assert runtime_for_model("claude-opus-5") == "claude"
+    assert runtime_for_model("gpt-5.6-sol") == "codex"
+
+
+def test_antigravity_availability_is_gated_on_the_probe_for_both_orchestrators():
+    for orchestrator in ("claude", "codex"):
+        assert (
+            is_model_available_for_orchestrator(
+                "gemini-3.6-flash-high",
+                orchestrator=orchestrator,
+                codex_available=True,
+                claude_available=True,
+                antigravity_available=True,
+            )
+            is True
+        )
+        assert (
+            is_model_available_for_orchestrator(
+                "gemini-3.6-flash-high",
+                orchestrator=orchestrator,
+                codex_available=True,
+                claude_available=True,
+                antigravity_available=False,
+            )
+            is False
+        )
+
+
+def test_antigravity_defaults_to_unavailable_for_callers_predating_it():
+    # Callers that never pass the new flag must reject Gemini roles at chooser
+    # time rather than persisting config that can only fail at dispatch.
+    assert (
+        is_model_available_for_orchestrator(
+            "gemini-3.6-flash-high",
+            orchestrator="claude",
+            codex_available=True,
+            claude_available=True,
+        )
+        is False
+    )
+    assert is_model_available("gemini-3.6-flash-high", codex_available=True) is False
+    # The legacy wrapper still answers unchanged for the original families.
+    assert is_model_available("claude-opus-5", codex_available=False) is True
+    assert is_model_available("gpt-5.6-sol", codex_available=False) is False
+
+
+def test_validate_or_remap_rejects_unprobed_gemini_role():
+    models = dict.fromkeys(
+        (
+            "planner",
+            "plan-reviewer-a",
+            "plan-reviewer-b",
+            "arbiter",
+            "builder",
+            "code-reviewer-a",
+            "code-reviewer-b",
+            "review-arbiter",
+            "fixer",
+        ),
+        "claude",
+    )
+    models["code-reviewer-b"] = "gemini-3.6-flash-high"
+
+    try:
+        validate_or_remap_models_for_orchestrator(
+            models,
+            orchestrator="claude",
+            codex_available=False,
+            claude_available=True,
+            quest_mode="full",
+            antigravity_available=False,
+        )
+    except ValueError as exc:
+        assert "code-reviewer-b" in str(exc)
+    else:
+        raise AssertionError("Expected an unprobed Gemini role to be rejected")
+
+    # With the probe green the same map validates untouched.
+    validated, remapped = validate_or_remap_models_for_orchestrator(
+        models,
+        orchestrator="claude",
+        codex_available=False,
+        claude_available=True,
+        quest_mode="full",
+        antigravity_available=True,
+    )
+    assert validated["code-reviewer-b"] == "gemini-3.6-flash-high"
+    assert remapped == []
+
+
+def test_validate_or_remap_falls_back_to_native_model_for_gemini_role():
+    models = dict.fromkeys(
+        (
+            "planner",
+            "plan-reviewer-a",
+            "plan-reviewer-b",
+            "arbiter",
+            "builder",
+            "code-reviewer-a",
+            "code-reviewer-b",
+            "review-arbiter",
+            "fixer",
+        ),
+        "claude",
+    )
+    models["code-reviewer-b"] = "gemini-3.6-flash-high"
+
+    validated, remapped = validate_or_remap_models_for_orchestrator(
+        models,
+        orchestrator="claude",
+        codex_available=False,
+        claude_available=True,
+        quest_mode="full",
+        remap_unavailable=True,
+        antigravity_available=False,
+    )
+    assert validated["code-reviewer-b"] == "claude"
+    assert remapped == ["code-reviewer-b"]
+
+
+def test_select_role_runtime_routes_gemini_through_the_antigravity_runner():
+    for orchestrator in ("claude", "codex"):
+        selection = select_role_runtime(
+            orchestrator=orchestrator,
+            target_runtime="gemini-3.6-flash-high",
+            antigravity_available=True,
+        )
+        assert selection.runtime == "antigravity"
+        assert selection.entrypoint == "scripts/quest_antigravity_runner.py"
+        assert selection.requires_probe is True
+
+
+def test_select_role_runtime_blocks_gemini_when_the_probe_is_unavailable():
+    selection = select_role_runtime(
+        orchestrator="claude",
+        target_runtime="gemini-3.6-flash-high",
+        antigravity_available=False,
+    )
+    assert selection.runtime == "blocked"
+    assert selection.entrypoint == ""
+    assert "quest_antigravity_runner.py" in selection.reason
+    assert selection.requires_probe is True
 
 
 def test_select_role_runtime_accepts_persisted_model_ids():
@@ -2499,3 +2667,79 @@ def test_cli_rejects_empty_or_whitespace_model():
                 raise AssertionError("Expected empty --model to be rejected")
     finally:
         sys.argv = saved
+
+
+def test_explicit_antigravity_family_name_routes_to_the_antigravity_runner():
+    # The docstring promises a runtime family name is accepted. `antigravity`
+    # is not a Gemini model ID, so without normalization it fell through
+    # runtime_for_model() to Codex and dispatched to the wrong backend.
+    selection = select_role_runtime(
+        orchestrator="claude",
+        target_runtime="antigravity",
+        antigravity_available=True,
+    )
+    assert selection.runtime == "antigravity"
+    assert selection.entrypoint == "scripts/quest_antigravity_runner.py"
+
+    # The other two family names keep working as before.
+    assert (
+        select_role_runtime(orchestrator="claude", target_runtime="codex").runtime
+        == "codex"
+    )
+    assert (
+        select_role_runtime(orchestrator="claude", target_runtime="claude").runtime
+        == "claude"
+    )
+
+
+def test_default_allowlist_write_can_persist_a_gemini_role(tmp_path):
+    # write_default_from_allowlist validates before writing. Without the probe
+    # result forwarded, every Gemini-backed role would be rejected and a repo
+    # that configured one could never persist it.
+    from quest_runtime.orchestration import write_default_from_allowlist
+
+    models = dict.fromkeys(
+        (
+            "planner",
+            "plan-reviewer-a",
+            "plan-reviewer-b",
+            "arbiter",
+            "builder",
+            "code-reviewer-a",
+            "code-reviewer-b",
+            "review-arbiter",
+            "fixer",
+        ),
+        "claude",
+    )
+    models["code-reviewer-b"] = "gemini-3.6-flash-high"
+    target = tmp_path / "orchestration.json"
+
+    write_default_from_allowlist(
+        target,
+        models,
+        orchestrator="claude",
+        codex_available=False,
+        claude_available=True,
+        antigravity_available=True,
+        quest_mode="full",
+    )
+
+    written = json.loads(target.read_text(encoding="utf-8"))
+    assert written["models"]["code-reviewer-b"] == "gemini-3.6-flash-high"
+
+    # And with the probe red it is still refused rather than silently written.
+    try:
+        write_default_from_allowlist(
+            tmp_path / "second.json",
+            models,
+            orchestrator="claude",
+            codex_available=False,
+            claude_available=True,
+            antigravity_available=False,
+            quest_mode="full",
+        )
+    except ValueError as exc:
+        assert "code-reviewer-b" in str(exc)
+    else:
+        raise AssertionError("Expected an unprobed Gemini role to be rejected")
