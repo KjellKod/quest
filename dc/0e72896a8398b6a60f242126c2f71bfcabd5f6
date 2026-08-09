@@ -1,0 +1,19 @@
+.skills/quest/SKILL.md
+  s_c4589a38f94ade::t_40d7c9f6db3cb5 261
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "dc0e72896a8398b6a60f242126c2f71bfcabd5f6",
+  "prompts": {},
+  "sessions": {
+    "s_c4589a38f94ade": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72c1def5-4029-4c9b-b93e-b5669d41e01e",
+        "model": "claude-fable-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
