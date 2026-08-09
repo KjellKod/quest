@@ -40,7 +40,6 @@ from quest_runtime.claude_runner import (
     resolve_path,
     unique_dirs,
 )
-
 DEFAULT_AGY_BINARY = "agy"
 
 # `agy` has no --prompt-file, so the whole role prompt travels on argv. Guard
@@ -171,6 +170,13 @@ def build_agy_cmd(
         f"{int(timeout)}s",
         "--mode",
         mode,
+        # Headless mode auto-denies tool permissions it cannot prompt for
+        # (write_file among them), which silently breaks every artifact write
+        # on a default install: measured on agy 1.1.11, the preflight probe
+        # fails and the envelope error points at exactly this flag. Mirrors
+        # the Claude runner's bypassPermissions; --add-dir remains the only
+        # write boundary either way (see READ_ONLY_ROLES).
+        "--dangerously-skip-permissions",
     ]
     cli_model = normalize_agy_cli_model(model)
     if cli_model is not None:

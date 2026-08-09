@@ -86,6 +86,9 @@ def test_build_agy_cmd_sets_the_flags_the_role_contract_depends_on():
     assert cmd[cmd.index("--json-schema") + 1] == "/schema.json"
     # Prompt content must not be able to expand agy slash commands/skills.
     assert "--disable-slash-commands" in cmd
+    # Headless mode auto-denies tool permissions it cannot prompt for; without
+    # this flag no artifact write ever lands on a default install (agy 1.1.11).
+    assert "--dangerously-skip-permissions" in cmd
     # Duplicate directories collapse to a single --add-dir.
     assert cmd.count("--add-dir") == 1
 
