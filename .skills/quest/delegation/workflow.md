@@ -83,12 +83,9 @@ If the preflight result was already cached by SKILL.md Step 2b, use the cached v
 
 ### Antigravity Containment Rule (Applies to every Gemini-designated role dispatch)
 
-`--add-dir` is the **only** write boundary the Antigravity CLI enforces. Two measured behaviours make this non-negotiable:
+`--add-dir` is the **only** write boundary the Antigravity CLI enforces: `--mode plan` is posture, not permission (never describe it as read-only), and an out-of-scope write is not refused but silently redirected to agy's own scratch directory while still reporting `status: SUCCESS`. The measured behaviour behind both claims lives in the `scripts/quest_runtime/antigravity_runner.py` module docstring and `READ_ONLY_ROLES` comment — that is the canonical copy.
 
-- **`--mode plan` is not a write barrier.** In plan mode `agy` still writes files that fall inside `--add-dir` scope. The runner selects plan mode for review and arbitration roles as a posture, not as a permission. Never describe it as read-only.
-- **An out-of-scope write is not refused, it is redirected.** When a target path falls outside `--add-dir`, `agy` writes to its own scratch directory (`~/.gemini/antigravity-cli/scratch/`) and still reports `status: SUCCESS`, claiming it wrote the requested path. The role then looks like it simply failed to produce a handoff.
-
-Therefore, every dispatch **must** pass `--add-dir` values that cover the quest directory and any other location the role's declared artifacts live in. `scripts/quest_antigravity_runner.py` refuses to dispatch and returns `invocation_error` when `--add-dir` is absent or does not cover the handoff directory — that refusal is a scoping bug in the dispatch, not a model failure, and must be fixed by correcting the `--add-dir` values rather than retried.
+Therefore, every dispatch **must** pass `--add-dir` values that cover the quest directory. `scripts/quest_antigravity_runner.py` refuses to dispatch and returns `invocation_error` when `--add-dir` is absent or does not cover the handoff directory — that refusal is a scoping bug in the dispatch, not a model failure, and must be fixed by correcting the `--add-dir` values rather than retried.
 
 **Context expectations differ from the other runtimes.** `agy` ingests workspace context on its own, so a Gemini-designated role does not start from only the artifacts the orchestrator handed it. The Context Retention Rule still governs what the *orchestrator* retains; it cannot constrain what this runtime reads.
 
