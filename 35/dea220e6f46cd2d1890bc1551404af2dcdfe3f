@@ -1,0 +1,25 @@
+scripts/quest_antigravity_runner.py
+  s_de3fd946957b55::t_ff24eadb0e61c7 54
+  s_de3fd946957b55::t_0eec33e45eb91e 52-53,55,73
+tests/unit/test_antigravity_runner.py
+  s_de3fd946957b55::t_1d83b22b893603 10-11,627,660,662-665,687-689,692-693,704-705,707-710,728-730,733-734
+  s_de3fd946957b55::t_d572c1db91f369 625-626,628-659,661,666-686,690-691,694-703,706,711-727,731-732,735-739
+.skills/quest/delegation/workflow.md
+  s_de3fd946957b55::t_0eec33e45eb91e 638
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "35dea220e6f46cd2d1890bc1551404af2dcdfe3f",
+  "prompts": {},
+  "sessions": {
+    "s_de3fd946957b55": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a02602-74cb-7b32-bc5d-6f109d698a97",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
