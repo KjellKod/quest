@@ -49,6 +49,10 @@ def parse_args() -> argparse.Namespace:
         "--json-schema",
         help="Optional JSON schema path enforced on agy's structured output",
     )
+    parser.add_argument(
+        "--artifact-subset",
+        help="Optional declared role output subset (for example findings-only).",
+    )
     parser.add_argument("--agy-binary", default=DEFAULT_AGY_BINARY)
     args = parser.parse_args()
     if not args.model.strip():
@@ -66,6 +70,7 @@ def main() -> int:
             quest_dir=args.quest_dir,
             phase=args.phase,
             agent=args.agent,
+            artifact_subset=args.artifact_subset,
         )
     except ValueError as exc:
         payload = {

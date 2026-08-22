@@ -635,7 +635,7 @@ Before every Planner, Plan Reviewer, or Arbiter dispatch, read `.quest/<id>/stat
      - `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_01_plan/review_findings.json.next`
    - If findings validation fails:
      - Preserve the valid `arbiter_verdict.md.next` bytes and digest.
-     - Prepare and retry only `review_findings.json.next` and `handoff_arbiter.json`, with validator stderr/stdout embedded in the retry prompt. Runner-dispatched Claude retries must pass `--artifact-subset findings-only`; native or local role dispatch prepares the same declared two-file subset explicitly.
+     - Prepare and retry only `review_findings.json.next` and `handoff_arbiter.json`, with validator stderr/stdout embedded in the retry prompt. Runner-dispatched Claude and Antigravity retries must pass `--artifact-subset findings-only`; native or local role dispatch prepares the same declared two-file subset explicitly.
      - Reject the retry if the preserved verdict bytes or digest changed.
      - Re-run `validate-findings` on the second attempt.
      - If validation still fails, STOP route:
