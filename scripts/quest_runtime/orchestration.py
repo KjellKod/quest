@@ -37,13 +37,13 @@ CANONICAL_ROLES: tuple[str, ...] = (
 DEFAULT_MODELS: dict[str, str] = {
     "planner": "gpt-5.6-sol",
     "plan-reviewer-a": "claude-opus-5",
-    "plan-reviewer-b": "gpt-5.6-terra",
+    "plan-reviewer-b": "gpt-5.6-sol",
     "arbiter": "claude-opus-5",
     "builder": "gpt-5.6-sol",
     "code-reviewer-a": "claude-opus-5",
-    "code-reviewer-b": "gpt-5.6-terra",
+    "code-reviewer-b": "gpt-5.6-sol",
     "review-arbiter": "claude-opus-5",
-    "fixer": "gpt-5.6-terra",
+    "fixer": "gpt-5.6-sol",
 }
 
 # Roles added after early snapshots/existing orchestration files were already
