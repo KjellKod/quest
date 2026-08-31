@@ -217,11 +217,11 @@ result = build_default_models({"planner": "gpt-5.5", "builder": "claude"})
 assert result["planner"] == "gpt-5.5", result
 assert result["builder"] == "claude", result
 assert result["plan-reviewer-a"] == "claude-opus-5", result
-assert result["plan-reviewer-b"] == "gpt-5.6-terra", result
+assert result["plan-reviewer-b"] == "gpt-5.6-sol", result
 assert result["arbiter"] == "claude-opus-5", result
 assert result["code-reviewer-a"] == "claude-opus-5", result
-assert result["code-reviewer-b"] == "gpt-5.6-terra", result
-assert result["fixer"] == "gpt-5.6-terra", result
+assert result["code-reviewer-b"] == "gpt-5.6-sol", result
+assert result["fixer"] == "gpt-5.6-sol", result
 PY
 }
 
@@ -235,13 +235,13 @@ from quest_runtime.orchestration import CODEX_NATIVE_FALLBACK_MODEL, DEFAULT_MOD
 expected = {
     "planner": "gpt-5.6-sol",
     "plan-reviewer-a": "claude-opus-5",
-    "plan-reviewer-b": "gpt-5.6-terra",
+    "plan-reviewer-b": "gpt-5.6-sol",
     "arbiter": "claude-opus-5",
     "builder": "gpt-5.6-sol",
     "code-reviewer-a": "claude-opus-5",
-    "code-reviewer-b": "gpt-5.6-terra",
+    "code-reviewer-b": "gpt-5.6-sol",
     "review-arbiter": "claude-opus-5",
-    "fixer": "gpt-5.6-terra",
+    "fixer": "gpt-5.6-sol",
 }
 allowlist = json.loads(Path(".ai/allowlist.json").read_text())
 assert DEFAULT_MODELS == expected, DEFAULT_MODELS
@@ -1141,13 +1141,13 @@ quest = root / "quest"
             "models": {
                 "planner": "gpt-5.6-sol",
                 "plan-reviewer-a": "claude-opus-5",
-                "plan-reviewer-b": "gpt-5.6-terra",
+                "plan-reviewer-b": "gpt-5.6-sol",
                 "arbiter": "claude-opus-5",
                 "builder": "gpt-5.6-sol",
                 "code-reviewer-a": "claude-opus-5",
-                "code-reviewer-b": "gpt-5.6-terra",
+                "code-reviewer-b": "gpt-5.6-sol",
                 "review-arbiter": "claude-opus-5",
-                "fixer": "gpt-5.6-terra",
+                "fixer": "gpt-5.6-sol",
             },
             "source": "default",
             "overridden_roles": [],
