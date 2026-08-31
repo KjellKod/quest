@@ -1,0 +1,25 @@
+.ai/allowlist.json
+  s_92203a4e5e4a4e::t_b9b00b000bf937 26,30,32
+tests/test-quest-orchestration.sh
+  s_92203a4e5e4a4e::t_b9b00b000bf937 220,223-224,238,242,244,1144,1148,1150
+scripts/quest_runtime/orchestration.py
+  s_92203a4e5e4a4e::t_b9b00b000bf937 40,44,46
+tests/test-quest-runtime.sh
+  s_92203a4e5e4a4e::t_b9b00b000bf937 3028,3032,3034
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "ede727b087be5cbe83f4772f601b5d75bed03863",
+  "prompts": {},
+  "sessions": {
+    "s_92203a4e5e4a4e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0594c-d3d0-71e1-b3df-96cf925707e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
