@@ -1,0 +1,30 @@
+.skills/quest/agents/arbiter.md
+  s_20219e7dd43e62::t_cd116e13d5f7b2 44-45,51,55-56
+  s_f47033c2e2b65a::t_5c49dce85ecad8 57
+tests/unit/test_ux_findings_schema.py
+  s_20219e7dd43e62::t_8f6248987c800e 58-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "a577ccf2dae43865423b0e6cfb4e4a6c908e9ee9",
+  "prompts": {},
+  "sessions": {
+    "s_20219e7dd43e62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05618-6c92-73f3-bd8b-c4b0dc1a7ddb",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_f47033c2e2b65a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04fed-0cc5-79c3-864a-08f485c47d31",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
