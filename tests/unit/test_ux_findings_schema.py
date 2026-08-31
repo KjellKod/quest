@@ -55,3 +55,21 @@ def test_ux_example_finding_validates_against_canonical_schema() -> None:
 
     errors = validate_finding(finding)
     assert errors == [], f"ux-review example finding does not validate: {errors}"
+
+
+def test_arbiter_contract_documents_canonical_finding_rules() -> None:
+    sys.path.insert(0, str(_repo_root() / "scripts"))
+    from quest_runtime.review_intelligence import ALLOWED_KINDS  # noqa: E402
+
+    arbiter_text = (
+        _repo_root() / ".skills" / "quest" / "agents" / "arbiter.md"
+    ).read_text(encoding="utf-8")
+    allowed_kinds = ", ".join(f"`{kind}`" for kind in ALLOWED_KINDS)
+
+    assert f"- `kind`: {allowed_kinds}" in arbiter_text
+    assert "`principle_id` is required when `kind` is `ux`" in arbiter_text
+    assert "`ux-guidebook§<section_number>`" in arbiter_text
+    assert (
+        "python3 scripts/quest_review_intelligence.py validate-findings "
+        "--input .quest/<id>/phase_01_plan/review_findings.json.next" in arbiter_text
+    )

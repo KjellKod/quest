@@ -41,14 +41,19 @@ Apply the `AGENTS.md` principles: KISS, YAGNI, SRP, and DRY. Keep only work or f
 7. Synthesize canonical findings from both review markdown artifacts and write the scratch artifact:
    - `.quest/<id>/phase_01_plan/review_findings.json.next`
    - If no actionable findings exist, write an empty array (`[]`) instead of skipping the file
-8. On a findings-only retry, overwrite only `review_findings.json.next` and `handoff_arbiter.json`. Do not prepare, truncate, or rewrite a verdict scratch file that already validated. Preserve its exact digest.
+8. Before handoff, validate the scratch findings with `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_01_plan/review_findings.json.next` and correct every reported contract error.
+9. On a findings-only retry, overwrite only `review_findings.json.next` and `handoff_arbiter.json`. Do not prepare, truncate, or rewrite a verdict scratch file that already validated. Preserve its exact digest.
 
 Canonical findings schema (required fields per finding):
 `finding_id, source, kind, severity, confidence, path, line, summary, why_it_matters, evidence, action, needs_test, write_scope, related_acceptance_criteria`
 
 Allowed enum values:
+- `kind`: `code`, `plan`, `ux`, `regression-risk`, `review_comment`, `ci`, `correctness`, `plan_review`, `edge-case`, `test_failure`, `build_failure`, `shared_infrastructure`, `cross_cutting`
 - `severity`: `critical`, `high`, `medium`, `low`, `info`
 - `confidence`: `high`, `medium`, `low`
+
+Conditional UX field:
+- `principle_id` is required when `kind` is `ux` and must match the exact form `ux-guidebook§<section_number>` (for example, `ux-guidebook§4.8`).
 
 Minimal valid finding example:
 ```json
