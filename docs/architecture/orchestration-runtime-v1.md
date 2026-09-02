@@ -152,7 +152,7 @@ Required behavior:
 - repeated identical failure trips adapter circuit breaker
 - circuit breaker emits explicit event
 - when a rejected artifact is retry input, it remains immutable
-- that repair attempt writes separate scratch artifacts, validates them, then atomically promotes them
+- that repair attempt writes separate scratch artifacts, validates the findings candidate, then atomically promotes only that candidate while keeping the original handoff immutable
 - failed repair dispatch or validation retains both the rejected input and retry scratch for diagnosis
 
 ## 8) MCP Policy

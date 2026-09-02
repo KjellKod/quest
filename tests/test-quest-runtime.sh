@@ -704,7 +704,10 @@ test_workflow_documents_arbiter_validate_build_publish_contract() {
     grep -Fq 'review_backlog.json.next' "$WORKFLOW_FILE" &&
     grep -Fq 'validate-findings --input .quest/<id>/phase_01_plan/review_findings.json.next' "$WORKFLOW_FILE" &&
     grep -Fq 'validate-findings --input .quest/<id>/phase_01_plan/review_findings.retry.json.next' "$WORKFLOW_FILE" &&
+    grep -Fq 'Require the original JSON handoff to be present and parseable before starting this scoped retry' "$WORKFLOW_FILE" &&
+    grep -Fq 'original handoff bytes and digest changed' "$WORKFLOW_FILE" &&
     grep -Fq 'os.replace(".quest/<id>/phase_01_plan/review_findings.retry.json.next", ".quest/<id>/phase_01_plan/review_findings.json.next")' "$WORKFLOW_FILE" &&
+    grep -Fq 'Keep the original `handoff_arbiter.json` byte-identical' "$WORKFLOW_FILE" &&
     grep -Fq 'build-backlog --phase plan --findings .quest/<id>/phase_01_plan/review_findings.json.next --output .quest/<id>/phase_01_plan/review_backlog.json.next' "$WORKFLOW_FILE" &&
     grep -Fq 'validate-backlog --input .quest/<id>/phase_01_plan/review_backlog.json.next --expected-phase plan --strict-plan-defaults' "$WORKFLOW_FILE" &&
     grep -Fq 'Canonical `arbiter_verdict.md` is not prepared or truncated; publish `arbiter_verdict.md.next` only after validation succeeds.' "$WORKFLOW_FILE" &&
@@ -2634,35 +2637,61 @@ findings_path = phase_dir / "review_findings.json.next"
 handoff_path = phase_dir / "handoff_arbiter.json"
 retry_findings_path = phase_dir / "review_findings.retry.json.next"
 retry_handoff_path = phase_dir / "handoff_arbiter.retry.json"
+rejected_findings = [
+    {
+        "finding_id": "runner-preserved-1",
+        "source": "arbiter",
+        "kind": "correctness",
+        "severity": "low",
+        "confidence": "high",
+        "path": "scripts/preserved.py",
+        "line": 3,
+        "summary": "Unrelated valid finding.",
+        "why_it_matters": "Its evidence must survive a focused repair.",
+        "evidence": ["preserve this evidence"],
+        "action": "keep unchanged",
+        "needs_test": False,
+        "write_scope": ["scripts/preserved.py"],
+        "related_acceptance_criteria": ["B4"],
+    },
+    {
+        "finding_id": "runner-repaired-1",
+        "source": "arbiter",
+        "kind": "unsupported-kind",
+        "severity": "high",
+        "confidence": "high",
+        "path": "scripts/new_runner.py",
+        "line": 7,
+        "summary": "Finding with one invalid field.",
+        "why_it_matters": "The retry must repair only the rejected field.",
+        "evidence": ["runner"],
+        "action": "fix now",
+        "needs_test": True,
+        "write_scope": ["scripts/new_runner.py"],
+        "related_acceptance_criteria": ["B5"],
+    },
+]
 if attempt == 1:
     verdict_path.write_text(f"arbiter attempt {attempt}\n", encoding="utf-8")
-    findings_path.write_text('[{"id":"bad-shape"}]\n', encoding="utf-8")
+    findings_path.write_text(
+        json.dumps(rejected_findings, indent=2) + "\n", encoding="utf-8"
+    )
 else:
-    assert findings_path.read_text(encoding="utf-8") == '[{"id":"bad-shape"}]\n'
+    repair_input = json.loads(findings_path.read_text(encoding="utf-8"))
+    assert repair_input == rejected_findings
     assert handoff_path.read_text(encoding="utf-8")
+    repaired_findings = json.loads(json.dumps(repair_input))
+    repaired_findings[1]["kind"] = "regression-risk"
+    assert repaired_findings[0] == rejected_findings[0]
+    assert {
+        key: value
+        for key, value in repaired_findings[1].items()
+        if key != "kind"
+    } == {
+        key: value for key, value in rejected_findings[1].items() if key != "kind"
+    }
     retry_findings_path.write_text(
-        json.dumps(
-            [
-                {
-                    "finding_id": "runner-new-1",
-                    "source": "arbiter",
-                    "kind": "regression-risk",
-                    "severity": "high",
-                    "confidence": "high",
-                    "path": "scripts/new_runner.py",
-                    "line": 7,
-                    "summary": "Valid findings after retry.",
-                    "why_it_matters": "Validates runner/orchestrator retry path.",
-                    "evidence": ["runner"],
-                    "action": "fix now",
-                    "needs_test": True,
-                    "write_scope": ["scripts/new_runner.py"],
-                    "related_acceptance_criteria": ["B5"],
-                }
-            ],
-            indent=2,
-        )
-        + "\n",
+        json.dumps(repaired_findings, indent=2) + "\n",
         encoding="utf-8",
     )
     handoff_path = retry_handoff_path
@@ -2780,7 +2809,8 @@ PY
         [ "$(stat_snapshot "$findings_next")" = "$rejected_findings_snapshot" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
         [ "$(stat_snapshot "$handoff_file")" = "$rejected_handoff_snapshot" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
         mv "$retry_findings" "$findings_next" || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
-        mv "$retry_handoff" "$handoff_file" || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+        [ "$(stat_snapshot "$handoff_file")" = "$rejected_handoff_snapshot" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
+        [ -s "$retry_handoff" ] || { unset QUEST_RUNNER_TELEMETRY_LOG; rm -rf "$tmpdir"; return 1; }
       fi
       validated=true
       break

@@ -634,13 +634,14 @@ Before every Planner, Plan Reviewer, or Arbiter dispatch, read `.quest/<id>/stat
    - Immediately validate findings:
      - `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_01_plan/review_findings.json.next`
    - If findings validation fails:
-     - Preserve the exact bytes and digests of the valid `arbiter_verdict.md.next`, rejected `review_findings.json.next`, and original `handoff_arbiter.json` when present.
+     - Require the original JSON handoff to be present and parseable before starting this scoped retry. A text-only fallback cannot safely enter findings-only repair; STOP and preserve the failed artifacts instead.
+     - Preserve the exact bytes and digests of the valid `arbiter_verdict.md.next`, rejected `review_findings.json.next`, and original `handoff_arbiter.json`.
      - Keep those three files in place as immutable retry inputs and diagnostic evidence.
      - Prepare only `review_findings.retry.json.next` and `handoff_arbiter.retry.json`. Runner-dispatched Claude and Antigravity retries must pass `--artifact-subset findings-only` and `--handoff-file .quest/<id>/phase_01_plan/handoff_arbiter.retry.json`; native or local role dispatch prepares the same declared two-file subset explicitly.
      - Tell the retry Arbiter to read rejected findings from `review_findings.json.next`, repair only the reported validation errors, write repaired findings to `review_findings.retry.json.next`, and write the retry handoff to `handoff_arbiter.retry.json`. Embed validator stderr/stdout in the retry prompt.
-     - Reject the retry if the preserved verdict or rejected findings changed, or if the original handoff changed from its prior present or absent state.
+     - Reject the retry if the preserved verdict, rejected findings, or original handoff bytes and digest changed.
      - Validate the retry scratch with `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_01_plan/review_findings.retry.json.next`.
-     - If validation passes, atomically promote the retry artifacts with `os.replace(".quest/<id>/phase_01_plan/review_findings.retry.json.next", ".quest/<id>/phase_01_plan/review_findings.json.next")` and `os.replace(".quest/<id>/phase_01_plan/handoff_arbiter.retry.json", ".quest/<id>/phase_01_plan/handoff_arbiter.json")`, then continue using the ordinary `.next` findings path.
+     - If validation passes, atomically promote only the repaired findings with `os.replace(".quest/<id>/phase_01_plan/review_findings.retry.json.next", ".quest/<id>/phase_01_plan/review_findings.json.next")`, then continue using the ordinary `.next` findings path. Keep the original `handoff_arbiter.json` byte-identical because it already names the ordinary findings path and remains authoritative. Retain `handoff_arbiter.retry.json` as execution evidence, not as a published handoff.
      - If validation still fails, STOP route:
        - Do **not** call `quest_state.py --transition plan_reviewed`.
        - Surface validator output in orchestrator logs/user message.
