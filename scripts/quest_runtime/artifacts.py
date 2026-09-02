@@ -57,10 +57,12 @@ ROLE_ARTIFACTS: dict[str, tuple[str, tuple[str, ...]]] = {
 }
 
 ROLE_ARTIFACT_SUBSETS: dict[tuple[str, str], tuple[str, ...]] = {
+    # A findings repair reads the rejected ordinary .next artifacts, so its
+    # writable outputs must use distinct paths until validation succeeds.
     (
         "arbiter",
         "findings-only",
-    ): ("review_findings.json.next", "handoff_arbiter.json"),
+    ): ("review_findings.retry.json.next", "handoff_arbiter.retry.json"),
 }
 
 SOLO_DISABLED_AGENTS = frozenset(

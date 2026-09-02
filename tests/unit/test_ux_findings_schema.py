@@ -69,7 +69,18 @@ def test_arbiter_contract_documents_canonical_finding_rules() -> None:
     assert f"- `kind`: {allowed_kinds}" in arbiter_text
     assert "`principle_id` is required when `kind` is `ux`" in arbiter_text
     assert "`ux-guidebook§<section_number>`" in arbiter_text
+    assert "read rejected findings from `review_findings.json.next`" in arbiter_text
+    assert "repair only the reported validation errors" in arbiter_text
+    assert (
+        "write repaired findings to `review_findings.retry.json.next`" in arbiter_text
+    )
+    assert "write the retry handoff to `handoff_arbiter.retry.json`" in arbiter_text
     assert (
         "python3 scripts/quest_review_intelligence.py validate-findings "
         "--input .quest/<id>/phase_01_plan/review_findings.json.next" in arbiter_text
+    )
+    assert (
+        "python3 scripts/quest_review_intelligence.py validate-findings "
+        "--input .quest/<id>/phase_01_plan/review_findings.retry.json.next"
+        in arbiter_text
     )
