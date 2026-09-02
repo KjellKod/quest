@@ -1,0 +1,25 @@
+tests/test-quest-runtime.sh
+  s_0d9d22ed2d3ff6::t_2224deebf65e56 2640-2673,2676-2678,2680-2681,2683-2692,2694,2812-2813
+  s_0d9d22ed2d3ff6::t_2a804c81ebec71 707-708,710
+docs/architecture/orchestration-runtime-v1.md
+  s_0d9d22ed2d3ff6::t_2224deebf65e56 155
+.skills/quest/delegation/workflow.md
+  s_0d9d22ed2d3ff6::t_04cec3fd82f871 638
+  s_0d9d22ed2d3ff6::t_2224deebf65e56 637,642,644
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "837856931dc326d4e7f0f20563032c7064a80afb",
+  "prompts": {},
+  "sessions": {
+    "s_0d9d22ed2d3ff6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a059d5-4575-7cc1-93db-11adadd67412",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
