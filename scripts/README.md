@@ -51,8 +51,8 @@ python3 scripts/quest_startup_branch.py --slug feature-x --mode branch
 # Run a Claude-designated role via the configured Claude transport with file polling
 python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase plan_review --agent plan-reviewer-a --iter 1 --prompt-file .quest/<id>/phase_01_plan/reviewer_a_prompt.txt --handoff-file .quest/<id>/phase_01_plan/handoff_plan-reviewer-a.json --model claude --transport background-agent
 
-# Retry only invalid Arbiter findings without truncating a valid verdict scratch file
-python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase plan_review --agent arbiter --iter <N> --prompt-file <retry-prompt> --handoff-file .quest/<id>/phase_01_plan/handoff_arbiter.json --artifact-subset findings-only --model <model> --transport background-agent
+# Retry invalid Arbiter findings into separate scratch files, preserving the rejected findings and valid verdict as inputs
+python3 scripts/quest_claude_runner.py --quest-dir .quest/<id> --phase plan_review --agent arbiter --iter <N> --prompt-file <retry-prompt> --handoff-file .quest/<id>/phase_01_plan/handoff_arbiter.retry.json --artifact-subset findings-only --model <model> --transport background-agent
 
 # Probe the Claude background-agent transport with a real artifact + handoff write
 python3 scripts/quest_claude_probe.py --quest-dir .quest/<id> --model claude --transport background-agent

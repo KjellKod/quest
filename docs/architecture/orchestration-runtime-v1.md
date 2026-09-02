@@ -5,7 +5,7 @@ audience: Runtime implementers and adapter maintainers
 scope: Execution lifecycle, events, adapters, retries, and question propagation
 status: active
 owner: maintainers
-last_updated: 2026-03-04
+last_updated: 2026-09-02
 related:
   - docs/architecture/quest-platform-constellations.md
   - docs/guides/opencode-model-observations.md
@@ -151,6 +151,9 @@ Required behavior:
 - retries use idempotency key
 - repeated identical failure trips adapter circuit breaker
 - circuit breaker emits explicit event
+- when a rejected artifact is retry input, it remains immutable
+- that repair attempt writes separate scratch artifacts, validates the findings candidate, then atomically promotes only that candidate while keeping the original handoff immutable
+- failed repair dispatch or validation retains both the rejected input and retry scratch for diagnosis
 
 ## 8) MCP Policy
 
@@ -187,4 +190,3 @@ v1 intentionally excludes:
 - autonomous recursive swarm planning.
 
 Add only after measured pain and explicit acceptance criteria.
-

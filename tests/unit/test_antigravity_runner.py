@@ -624,23 +624,26 @@ def test_timeout_parser_rejects_nonfinite_and_absurd_values():
     )
 
 
-def test_cli_findings_only_arbiter_retry_preserves_verdict(tmp_path):
+def test_cli_findings_only_arbiter_retry_preserves_repair_inputs(tmp_path):
     quest_dir = tmp_path / ".quest" / "demo"
     plan_dir = quest_dir / "phase_01_plan"
     plan_dir.mkdir(parents=True)
     verdict = plan_dir / "arbiter_verdict.md.next"
     findings = plan_dir / "review_findings.json.next"
     handoff = plan_dir / "handoff_arbiter.json"
+    retry_findings = plan_dir / "review_findings.retry.json.next"
+    retry_handoff = plan_dir / "handoff_arbiter.retry.json"
     prompt = plan_dir / "retry_prompt.md"
     verdict.write_bytes(b"\x00VALID VERDICT\xff\n")
-    findings.write_text("stale findings\n", encoding="utf-8")
-    handoff.write_text("stale handoff\n", encoding="utf-8")
+    findings.write_bytes(b"INVALID FINDINGS\n")
+    handoff.write_bytes(b"ORIGINAL HANDOFF\n")
+    retry_findings.write_text("stale retry findings\n", encoding="utf-8")
+    retry_handoff.write_text("stale retry handoff\n", encoding="utf-8")
     prompt.write_text("Retry only the findings.\n", encoding="utf-8")
-    verdict_before = (
-        verdict.read_bytes(),
-        verdict.stat().st_ino,
-        verdict.stat().st_mtime_ns,
-    )
+    preserved = {
+        path: (path.read_bytes(), path.stat().st_ino, path.stat().st_mtime_ns)
+        for path in (verdict, findings, handoff)
+    }
 
     agy = _fake_agy(
         tmp_path / "fake_agy.py",
@@ -649,11 +652,15 @@ def test_cli_findings_only_arbiter_retry_preserves_verdict(tmp_path):
         f"verdict = pathlib.Path({str(verdict)!r})\n"
         f"findings = pathlib.Path({str(findings)!r})\n"
         f"handoff = pathlib.Path({str(handoff)!r})\n"
+        f"retry_findings = pathlib.Path({str(retry_findings)!r})\n"
+        f"retry_handoff = pathlib.Path({str(retry_handoff)!r})\n"
         'assert verdict.read_bytes() == b"\\x00VALID VERDICT\\xff\\n"\n'
-        'assert findings.read_bytes() == b""\n'
-        'assert handoff.read_bytes() == b""\n'
-        'findings.write_text("[]")\n'
-        'handoff.write_text(json.dumps({"status": "complete"}))\n'
+        'assert findings.read_bytes() == b"INVALID FINDINGS\\n"\n'
+        'assert handoff.read_bytes() == b"ORIGINAL HANDOFF\\n"\n'
+        'assert retry_findings.read_bytes() == b""\n'
+        'assert retry_handoff.read_bytes() == b""\n'
+        'retry_findings.write_text("[]")\n'
+        'retry_handoff.write_text(json.dumps({"status": "complete"}))\n'
         'print(json.dumps({"status": "SUCCESS", "response": "done"}))\n',
     )
 
@@ -674,7 +681,7 @@ def test_cli_findings_only_arbiter_retry_preserves_verdict(tmp_path):
             "--prompt-file",
             str(prompt),
             "--handoff-file",
-            str(handoff),
+            str(retry_handoff),
             "--model",
             "gemini-3.6-flash-low",
             "--artifact-subset",
@@ -692,13 +699,14 @@ def test_cli_findings_only_arbiter_retry_preserves_verdict(tmp_path):
     assert completed.returncode == 0, completed.stderr
     payload = json.loads(completed.stdout)
     assert payload["result_kind"] == "handoff_json"
-    assert findings.read_bytes() == b"[]"
-    assert json.loads(handoff.read_text(encoding="utf-8"))["status"] == "complete"
-    assert (
-        verdict.read_bytes(),
-        verdict.stat().st_ino,
-        verdict.stat().st_mtime_ns,
-    ) == verdict_before
+    assert retry_findings.read_bytes() == b"[]"
+    assert json.loads(retry_handoff.read_text(encoding="utf-8"))["status"] == "complete"
+    for path, before in preserved.items():
+        assert (
+            path.read_bytes(),
+            path.stat().st_ino,
+            path.stat().st_mtime_ns,
+        ) == before
 
 
 def test_cli_findings_only_subset_reuses_role_contract(tmp_path):

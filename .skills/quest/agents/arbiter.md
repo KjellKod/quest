@@ -41,8 +41,14 @@ Apply the `AGENTS.md` principles: KISS, YAGNI, SRP, and DRY. Keep only work or f
 7. Synthesize canonical findings from both review markdown artifacts and write the scratch artifact:
    - `.quest/<id>/phase_01_plan/review_findings.json.next`
    - If no actionable findings exist, write an empty array (`[]`) instead of skipping the file
-8. Before handoff, validate the scratch findings with `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_01_plan/review_findings.json.next` and correct every reported contract error.
-9. On a findings-only retry, overwrite only `review_findings.json.next` and `handoff_arbiter.json`. Do not prepare, truncate, or rewrite a verdict scratch file that already validated. Preserve its exact digest.
+8. On the initial attempt, validate the scratch findings with `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_01_plan/review_findings.json.next` and correct every reported contract error.
+9. On a findings-only retry:
+   - read rejected findings from `review_findings.json.next`
+   - repair only the reported validation errors, preserving unrelated findings and fields
+   - write repaired findings to `review_findings.retry.json.next`
+   - write the retry handoff to `handoff_arbiter.retry.json`
+   - validate with `python3 scripts/quest_review_intelligence.py validate-findings --input .quest/<id>/phase_01_plan/review_findings.retry.json.next` and correct every reported contract error
+   - do not prepare, truncate, or rewrite `arbiter_verdict.md.next`, `review_findings.json.next`, or `handoff_arbiter.json`; preserve their exact bytes and digests
 
 Canonical findings schema (required fields per finding):
 `finding_id, source, kind, severity, confidence, path, line, summary, why_it_matters, evidence, action, needs_test, write_scope, related_acceptance_criteria`
@@ -139,6 +145,11 @@ SUMMARY: Iteration <N>: <approve|iterate> - <reason>
 ```
 
 Both steps are required. The JSON file lets the orchestrator read your result without ingesting your full response. The text block is the backward-compatible fallback.
+
+On a findings-only retry, apply these path substitutions in both handoffs:
+- Write the JSON handoff to `.quest/<id>/phase_01_plan/handoff_arbiter.retry.json`.
+- Replace the findings artifact path with `.quest/<id>/phase_01_plan/review_findings.retry.json.next`.
+- Keep the existing verdict artifact path in the artifact list, but do not write or modify that file.
 
 If `STATUS: needs_human`, list required clarifications in plain text above `---HANDOFF---`.
 `STATUS: needs_human` is only valid when this role's selected runtime (`models.arbiter` in `.quest/<id>/orchestration.json`) is Claude (it may enter the human Q&A loop natively or through the bridge). On the Codex runtime, `needs_human` is non-compliant with Quest runtime policy — make explicit assumptions or return `blocked`.

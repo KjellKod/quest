@@ -84,8 +84,8 @@ class TestExpectedArtifactsForRole:
         )
 
         assert [path.name for path in paths] == [
-            "review_findings.json.next",
-            "handoff_arbiter.json",
+            "review_findings.retry.json.next",
+            "handoff_arbiter.retry.json",
         ]
 
     def test_findings_only_subset_is_rejected_for_other_roles(self, tmp_path: Path):
@@ -329,36 +329,125 @@ class TestPrepareArtifactFiles:
         assert "state_error[shape]" in result.stderr
         assert (plan.read_bytes(), handoff.read_bytes()) == before
 
-    def test_findings_only_arbiter_retry_preserves_verdict_scratch(
-        self, tmp_path: Path
-    ):
+    def test_findings_only_arbiter_retry_preserves_repair_inputs(self, tmp_path: Path):
         quest_dir = tmp_path / "quest"
         plan_dir = quest_dir / "phase_01_plan"
         plan_dir.mkdir(parents=True)
         verdict_next = plan_dir / "arbiter_verdict.md.next"
         findings_next = plan_dir / "review_findings.json.next"
         handoff = plan_dir / "handoff_arbiter.json"
+        retry_findings = plan_dir / "review_findings.retry.json.next"
+        retry_handoff = plan_dir / "handoff_arbiter.retry.json"
         verdict_next.write_bytes(b"VALID VERDICT\n")
-        findings_next.write_text("stale findings\n", encoding="utf-8")
-        handoff.write_text("stale handoff\n", encoding="utf-8")
+        findings_next.write_bytes(b"INVALID FINDINGS\n")
+        handoff.write_bytes(b"ORIGINAL HANDOFF\n")
+        retry_findings.write_bytes(b"STALE RETRY FINDINGS\n")
+        retry_handoff.write_bytes(b"STALE RETRY HANDOFF\n")
 
-        before = (
-            verdict_next.read_bytes(),
-            verdict_next.stat().st_ino,
-            verdict_next.stat().st_mtime_ns,
+        preserved = {
+            path: (path.read_bytes(), path.stat().st_ino, path.stat().st_mtime_ns)
+            for path in (verdict_next, findings_next, handoff)
+        }
+        artifacts = expected_artifacts_for_role(
+            quest_dir,
+            "plan_review",
+            "arbiter",
+            artifact_subset="findings-only",
         )
         prepared = prepare_artifact_files(
-            [findings_next, handoff], quest_dir=quest_dir, role="arbiter"
+            artifacts, quest_dir=quest_dir, role="arbiter"
         )
 
-        assert prepared == [findings_next.resolve(), handoff.resolve()]
-        assert findings_next.read_bytes() == b""
-        assert handoff.read_bytes() == b""
-        assert (
-            verdict_next.read_bytes(),
-            verdict_next.stat().st_ino,
-            verdict_next.stat().st_mtime_ns,
-        ) == before
+        assert prepared == [retry_findings.resolve(), retry_handoff.resolve()]
+        assert retry_findings.read_bytes() == b""
+        assert retry_handoff.read_bytes() == b""
+        for path, before in preserved.items():
+            assert (
+                path.read_bytes(),
+                path.stat().st_ino,
+                path.stat().st_mtime_ns,
+            ) == before
+
+    def test_failed_findings_only_background_dispatch_preserves_repair_inputs(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        quest_dir = tmp_path / "quest"
+        plan_dir = quest_dir / "phase_01_plan"
+        plan_dir.mkdir(parents=True)
+        prompt = plan_dir / "retry_prompt.md"
+        prompt.write_text("Repair the rejected findings.\n", encoding="utf-8")
+        verdict_next = plan_dir / "arbiter_verdict.md.next"
+        findings_next = plan_dir / "review_findings.json.next"
+        handoff = plan_dir / "handoff_arbiter.json"
+        retry_findings = plan_dir / "review_findings.retry.json.next"
+        retry_handoff = plan_dir / "handoff_arbiter.retry.json"
+        verdict_next.write_bytes(b"VALID VERDICT\n")
+        findings_next.write_bytes(b"INVALID FINDINGS\n")
+        handoff.write_bytes(b"ORIGINAL HANDOFF\n")
+        preserved = {
+            path: (path.read_bytes(), path.stat().st_ino, path.stat().st_mtime_ns)
+            for path in (verdict_next, findings_next, handoff)
+        }
+
+        class FailedDispatch:
+            returncode = 3
+
+            def communicate(self, timeout: float | None = None):
+                return (
+                    json.dumps(
+                        {
+                            "status": "dispatch_failed",
+                            "message": "live same-name background session is actively working",
+                        }
+                    ),
+                    "",
+                )
+
+            def poll(self):
+                return self.returncode
+
+            def terminate(self):
+                return None
+
+            def kill(self):
+                return None
+
+        monkeypatch.setattr(
+            claude_runner_module.subprocess,
+            "Popen",
+            lambda *args, **kwargs: FailedDispatch(),
+        )
+
+        result = run_claude_role(
+            cwd=tmp_path,
+            quest_dir=quest_dir,
+            phase="plan_review",
+            agent="arbiter",
+            iteration=1,
+            prompt_file=prompt,
+            handoff_file=retry_handoff,
+            bridge_script=tmp_path / "unused_bridge.py",
+            model="claude",
+            timeout=1.0,
+            permission_mode="bypassPermissions",
+            artifact_paths=expected_artifacts_for_role(
+                quest_dir,
+                "plan_review",
+                "arbiter",
+                artifact_subset="findings-only",
+            ),
+            transport="background-agent",
+        )
+
+        assert result.result_kind == "invocation_error"
+        assert retry_findings.read_bytes() == b""
+        assert retry_handoff.read_bytes() == b""
+        for path, before in preserved.items():
+            assert (
+                path.read_bytes(),
+                path.stat().st_ino,
+                path.stat().st_mtime_ns,
+            ) == before
 
 
 # ---------------------------------------------------------------------------
