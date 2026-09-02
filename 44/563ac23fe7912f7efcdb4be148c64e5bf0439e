@@ -1,0 +1,53 @@
+.skills/quest/delegation/workflow.md
+  s_0d9d22ed2d3ff6::t_7100930c386981 601,638-639,642-643,647
+  s_0d9d22ed2d3ff6::t_89f594ee31e6f6 637,640-641
+scripts/quest_runtime/artifacts.py
+  s_0d9d22ed2d3ff6::t_7100930c386981 65
+  s_0d9d22ed2d3ff6::t_75cb09c1e77512 60-61
+scripts/README.md
+  s_0d9d22ed2d3ff6::t_7100930c386981 54-55
+tests/unit/test_ux_findings_schema.py
+  s_0d9d22ed2d3ff6::t_89f594ee31e6f6 73
+  s_013cf0dcbfedb1::t_68099918fbb28c 74-76,86
+  s_0d9d22ed2d3ff6::t_79b57b9253dfb5 72,77,82-85
+docs/architecture/orchestration-runtime-v1.md
+  s_0d9d22ed2d3ff6::t_89f594ee31e6f6 154-156
+  s_0d9d22ed2d3ff6::t_75cb09c1e77512 8
+tests/unit/test_antigravity_runner.py
+  s_0d9d22ed2d3ff6::t_75cb09c1e77512 627
+  s_0d9d22ed2d3ff6::t_79b57b9253dfb5 634-635,638-641,643-646,655-656,658-663,684,702-709
+tests/unit/test_artifacts.py
+  s_0d9d22ed2d3ff6::t_79b57b9253dfb5 87-88,339-372,377-378,382-383,385-390,392-418,420-439,442-450
+  s_013cf0dcbfedb1::t_68099918fbb28c 332
+  s_013cf0dcbfedb1::t_a452b3367d2374 333-338
+.skills/quest/agents/arbiter.md
+  s_0d9d22ed2d3ff6::t_89f594ee31e6f6 47
+  s_0d9d22ed2d3ff6::t_7100930c386981 44-46,48-51,149-152
+  s_0d9d22ed2d3ff6::t_f646328c2d0656 153
+tests/test-quest-runtime.sh
+  s_0d9d22ed2d3ff6::t_49e6e163da0ef9 702-703,706-707,2542,2550,2554,2635-2636,2641-2643,2668-2669,2742,2745,2747-2748,2751-2752,2760,2777,2779-2784,2790-2791
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "44563ac23fe7912f7efcdb4be148c64e5bf0439e",
+  "prompts": {},
+  "sessions": {
+    "s_013cf0dcbfedb1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a059d5-4575-7cc1-93db-11adadd67412",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_0d9d22ed2d3ff6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a059d5-4575-7cc1-93db-11adadd67412",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
