@@ -1,0 +1,79 @@
+.ai/allowlist.json
+  s_30d43bcf1478ff::t_58bbd2eeaaac65 23-24,26,28,30,32,34
+.ai/quest.md
+  s_30d43bcf1478ff::t_1e569e31127f07 41-52,57
+.ai/schemas/allowlist.schema.json
+  s_30d43bcf1478ff::t_5031024a501fdd 34-43
+.opencode/agents/arbiter.md
+  s_1a70f9e342f607::t_d40dff83729875 18
+.opencode/agents/builder.md
+  s_1a70f9e342f607::t_6f2789186be81f 21
+.opencode/agents/code-reviewer.md
+  s_1a70f9e342f607::t_b7e78667d78c3a 22
+.opencode/agents/fixer.md
+  s_1a70f9e342f607::t_196df3171cff66 22
+.opencode/agents/plan-reviewer.md
+  s_1a70f9e342f607::t_15bb4387eb1fcf 23
+.opencode/agents/planner.md
+  s_1a70f9e342f607::t_9cbfa623b9ee73 23
+.opencode/agents/quest.md
+  s_1a70f9e342f607::t_0d570207ff56ca 42
+.opencode/agents/review-arbiter.md
+  s_1a70f9e342f607::t_9657a3a494ae6b 18
+.opencode/opencode.json
+  s_1a70f9e342f607::t_3f87fb5d50f9b2 6-11,44,57,70,83,96,119,121,139,157,170
+.quest-manifest
+  s_1a70f9e342f607::t_ab6f1fd96e65ed 139
+.skills/SKILLS.md
+  s_1a70f9e342f607::t_86b992f13f6eae 93
+.skills/gpt/SKILL.md
+  s_30d43bcf1478ff::t_e44fe0fd844b05 19,39-40,46-50,59,62,72-73,117
+.skills/quest/SKILL.md
+  s_1a70f9e342f607::t_739e0b999aa487 229,231,235,245-247,260,262,269
+.skills/quest/delegation/workflow.md
+  s_1a70f9e342f607::t_56faa19510f614 34,40,46-50,254,1506,1574
+README.md
+  s_30d43bcf1478ff::t_b5750833774d62 90,118-128,132-134,139,145-146,153-159,161
+docs/guides/quest_setup.md
+  s_1a70f9e342f607::t_7470ce9a6c9d5a 352
+scripts/quest_runtime/orchestration.py
+  s_30d43bcf1478ff::t_4fc6100f05d140 37,39,41,43,45,47,49-50,143,230-231,234,465-479,489,499-500,513-514,534,561,588-589,652-653,657
+scripts/quest_sync_model_defaults.py
+  s_30d43bcf1478ff::t_1cccf15ec8eb4c 1-86
+scripts/quest_validate-quest-state.sh
+  s_30d43bcf1478ff::t_5195da9efb589c 212-221
+tests/test-quest-orchestration.sh
+  s_30d43bcf1478ff::t_28422d049bc3c1 150-152,220,223-224,236,238,240,242,244,249,1142,1144,1146,1148,1150
+tests/test-quest-runtime.sh
+  s_1a70f9e342f607::t_159b3b94618d33 3080,3082,3084,3086,3088
+tests/test-validate-quest-state.sh
+  s_30d43bcf1478ff::t_d988fce2a0a876 1540-1557,1570-1571,1756
+tests/unit/test_canonical_role_lockstep.py
+  s_30d43bcf1478ff::t_306b90a5846039 136-235
+tests/unit/test_quest_dispatch_guardrails.py
+  s_30d43bcf1478ff::t_948c566e6a2ca5 286-290
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "2e9c86aeae1a8e7d7913cdeb173bb55b60fccc29",
+  "prompts": {},
+  "sessions": {
+    "s_1a70f9e342f607": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a07cb4-7dc8-7a40-8ef1-8d6dd06e70ed",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_30d43bcf1478ff": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07cb4-7dc8-7a40-8ef1-8d6dd06e70ed",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
