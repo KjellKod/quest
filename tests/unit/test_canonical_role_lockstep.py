@@ -233,3 +233,43 @@ def test_resume_preserves_snapshot_effort_and_rejects_invalid_effort(
     with pytest.raises(ValueError, match="codex_reasoning_effort"):
         migrate_from_snapshot(tmp_path)
     assert path.read_bytes() == before
+
+
+def test_generator_rejects_invalid_policy_before_writing(tmp_path: Path) -> None:
+    import shutil
+    import pytest
+    from quest_sync_model_defaults import sync
+
+    paths = [
+        ".ai/allowlist.json",
+        "scripts/quest_runtime/orchestration.py",
+        ".opencode/opencode.json",
+    ]
+    for relative in paths:
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(_repo_root() / relative, target)
+    allowlist_path = tmp_path / paths[0]
+    original = json.loads(allowlist_path.read_text())
+    generated_before = [(tmp_path / relative).read_bytes() for relative in paths[1:]]
+    policies = []
+    for fallback in [
+        "opencode/claude-fake-model",
+        "provider/gemini-fake-model",
+        " Claude-fake-model",
+        " codex-fake-model ",
+    ]:
+        policies.append({**original, "codex_fallback_model": fallback})
+    missing_role = dict(original["models"])
+    missing_role.pop("fixer")
+    policies.append({**original, "models": missing_role})
+    policies.append(
+        {**original, "models": {**original["models"], "builder": " codex-fake-model "}}
+    )
+    for policy in policies:
+        allowlist_path.write_text(json.dumps(policy))
+        with pytest.raises(ValueError):
+            sync(tmp_path, check=False)
+        assert [
+            (tmp_path / relative).read_bytes() for relative in paths[1:]
+        ] == generated_before

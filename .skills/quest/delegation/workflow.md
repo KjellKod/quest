@@ -266,8 +266,10 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 
 **Format:**
 ```
-<timestamp> | phase=<phase> | agent=<agent_name> | runtime=claude|codex | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback[ | status=complete|needs_human|blocked][ | transport=background-agent|bridge]
+<timestamp> | phase=<phase> | agent=<agent_name> | runtime=claude|codex | iter=<plan_iteration or fix_iteration> | handoff_json=found|missing|unparsable | source=handoff_json|text_fallback[ | status=complete|needs_human|blocked][ | transport=background-agent|bridge][ | model=<effective-model-id> | effort=<effective-effort-or-runtime-default>]
 ```
+
+**Model and effort fields (Codex roles):** append the effective model ID and selected effort, using `runtime-default` when effort was not pinned. These fields are optional for legacy entries and absent for Claude runner entries; do not infer values from a role name.
 
 **Status field (whenever the handoff status is known — any runtime):** record the handoff's own `status` verbatim as `status=complete|needs_human|blocked`. Include it on orchestrator-written lines (native `Task(...)`, Codex roles) whenever you read a parsable handoff or a text-fallback `STATUS:` line; `python3 scripts/quest_claude_runner.py` appends it automatically. **Omit the field — never guess — when the handoff is missing, unparsable, or carries an unknown value.** Counting contract: consumers (the quest-end needs_human rollup in `scripts/quest_complete.py`, and the measurement gate in `ideas/2026-07-05-bg-claude-ask-policy-relaxation.md`) count only lines that explicitly carry `status=`; lines without it are excluded from both numerator and denominator, so legacy logs that predate the field never skew the statistics.
 
@@ -300,7 +302,7 @@ Runtime attribution rule (authoritative):
 2026-02-15T00:12:00Z | phase=plan | agent=planner | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=needs_human | transport=background-agent
 2026-02-15T00:13:30Z | phase=plan | agent=planner | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
 2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
-2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-b | runtime=codex | iter=1 | handoff_json=missing | source=text_fallback | status=complete
+2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-b | runtime=codex | iter=1 | handoff_json=missing | source=text_fallback | status=complete | model=<effective-model-id> | effort=runtime-default
 2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
 2026-02-15T00:25:00Z | phase=plan | agent=planner | runtime=claude | iter=2 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
 2026-02-15T00:28:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=2 | handoff_json=found | source=handoff_json | status=complete | transport=bridge

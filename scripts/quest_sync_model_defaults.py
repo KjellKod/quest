@@ -10,6 +10,8 @@ import argparse
 import json
 from pathlib import Path
 
+from quest_runtime.orchestration import CANONICAL_ROLES, runtime_for_model
+
 BEGIN = "# BEGIN GENERATED MODEL DEFAULTS"
 END = "# END GENERATED MODEL DEFAULTS"
 
@@ -19,18 +21,21 @@ def sync(root: Path, *, check: bool) -> bool:
     models = allowlist["models"]
     if (
         not isinstance(models, dict)
-        or not models
+        or set(models) != set(CANONICAL_ROLES)
         or not all(
-            isinstance(role, str) and isinstance(model, str) and model.strip()
+            isinstance(model, str) and model.strip() and model == model.strip()
             for role, model in models.items()
         )
     ):
-        raise ValueError("allowlist models must contain nonempty model strings")
+        raise ValueError(
+            "allowlist models must contain all canonical roles with nonempty, trimmed model strings"
+        )
     fallback = allowlist["codex_fallback_model"]
     if (
         not isinstance(fallback, str)
         or not fallback.strip()
-        or fallback.startswith(("claude", "gemini"))
+        or fallback != fallback.strip()
+        or runtime_for_model(fallback) != "codex"
     ):
         raise ValueError("codex_fallback_model must be a Codex model ID")
     runtime = root / "scripts/quest_runtime/orchestration.py"
