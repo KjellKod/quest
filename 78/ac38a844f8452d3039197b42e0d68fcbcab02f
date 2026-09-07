@@ -1,0 +1,23 @@
+.skills/quest/delegation/workflow.md
+  s_30d43bcf1478ff::t_272b300345558e 269,272-273,305
+scripts/quest_sync_model_defaults.py
+  s_30d43bcf1478ff::t_b9471bbf594d3e 13-14,24,26,30-32,37-38
+tests/unit/test_canonical_role_lockstep.py
+  s_30d43bcf1478ff::t_d63f026ef3bed3 236-275
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "78ac38a844f8452d3039197b42e0d68fcbcab02f",
+  "prompts": {},
+  "sessions": {
+    "s_30d43bcf1478ff": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07cb4-7dc8-7a40-8ef1-8d6dd06e70ed",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
