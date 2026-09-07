@@ -31,19 +31,23 @@ Phase-specific notes (just pointers — the propagation rule itself does not var
 ### Runtime And Entrypoint Selection (Run Once Per Session)
 
 Quest dispatch separates **runtime** from **entrypoint**:
-- `runtime` is the backend family **derived from** the role's `models.<role>` model ID in `.quest/<id>/orchestration.json`: `claude` / `claude-*` IDs select the Claude runtime; `gemini` / `gemini-*` IDs select the Antigravity runtime; every other model ID (for example `gpt-5.5`) selects the Codex runtime. `models.*` stores model IDs, not runtime names — `runtime_for_model()` in `scripts/quest_runtime/orchestration.py` is the canonical mapping.
+- `runtime` is the backend family **derived from** the role's `models.<role>` model ID in `.quest/<id>/orchestration.json`: `claude` / `claude-*` IDs select the Claude runtime; `gemini` / `gemini-*` IDs select the Antigravity runtime; every other model ID selects the Codex runtime. `models.*` stores model IDs, not runtime names — `runtime_for_model()` in `scripts/quest_runtime/orchestration.py` is the canonical mapping.
 - `entrypoint` is how the current orchestrator invokes that runtime.
 - The selected model/runtime value chooses the backend family only; it does not choose the transport or tool entrypoint.
 
 | Orchestrator | Selected role runtime | Entrypoint | Rule |
 |--------------|-----------------------|------------|------|
-| Codex-led | Codex | local Codex subagent (the `spawn_agent` tool family — versioned namespace such as `multi_agent_v2` varies by Codex CLI release — or repo-supported equivalent) | Inherit the active Codex model by default. Do not set a Codex model name unless the user explicitly requested one or the repo has a tested reason. Do not use Codex MCP. |
+| Codex-led | Codex | local Codex subagent (the `spawn_agent` tool family — versioned namespace such as `multi_agent_v2` varies by Codex CLI release — or repo-supported equivalent) | Use the saved model and Codex effort according to the explicit-selection contract below. Do not use Codex MCP. |
 | Codex-led | Claude | `python3 scripts/quest_claude_runner.py` when `claude_transport_available` is true | The runner owns the transport underneath: background-agent (`scripts/quest_claude_bg_run.py`, `claude --bg`, subscription billing) when preflight proved it, or the bridge (`scripts/quest_claude_bridge.py`, `claude --print`) only when bridge was explicitly configured/selected. Pass `--model <models.<role> from .quest/<id>/orchestration.json>` and `--transport <claude_transport_resolved from orchestration.json>`. The exact `claude` model sentinel means use the Claude CLI/account default and must not be sent to the CLI as `--model claude`; concrete configured model strings pass through unchanged. Block with transport guidance if unavailable and no explicit Codex fallback exists. |
 | Claude-led | Codex | Codex MCP (`mcp__codex-cli__codex`, `codex_codex`, or the platform's registered Codex MCP tool) | MCP is the cross-runtime path only from Claude-led sessions. |
 | Claude-led | Claude | native `Task(...)` | Use the orchestrator's native Claude task path. |
 | Either orchestrator | Antigravity | `python3 scripts/quest_antigravity_runner.py` when `antigravity_available` is true | Selected by Gemini-family model IDs. Antigravity is never an orchestrator, only ever a dispatched runtime, so one runner serves both session types — there is no MCP path and no transport choice. Pass `--model <models.<role> from .quest/<id>/orchestration.json>`; the exact `gemini` sentinel means use the agy default model and must not be sent to the CLI as `--model gemini`. **Always pass `--add-dir` covering the quest directory** — see the Antigravity containment rule below. Block with the preflight `warning` lines if unavailable. |
 
-**Orchestration violation:** If a Codex-led Quest attempts to dispatch a Codex runtime role through Codex MCP, treat it as an entrypoint violation, not a model-selection or model/account failure. Correct it by dispatching the role through local Codex subagents that inherit the active Codex model. Codex MCP is only for Claude-led sessions dispatching Codex roles.
+**Explicit model and effort selection:** Before every Codex role dispatch, read `models.<role>` and optional `codex_reasoning_effort` from the active quest's `orchestration.json`. Do not substitute defaults from this skill, the GPT skill, or the current allowlist. For local subagents, pass the exact `model` and, when set, `reasoning_effort` through the tool's exposed controls. This repository configuration authorizes explicit selection. When the tool requires a fresh or bounded context fork for overrides, use that mode and include the role instructions and artifact paths in the prompt. If the controls are unavailable, inherit only after verifying the parent matches the saved model and any pinned effort; otherwise stop and report the mismatch. Never substitute MCP for Codex-led dispatch.
+
+For Claude-led Codex MCP calls, pass the model as `model` and the optional saved effort as `config: { model_reasoning_effort: <saved effort> }`, including calls illustrated below. Omit the effort config for legacy quests without the key. Check the model and effort against the current tool surface; unsupported settings block dispatch rather than silently falling back. Record the effective model and effort (or `runtime-default` when unset) in the role's `context_health.log` entry.
+
+**Orchestration violation:** If a Codex-led Quest attempts to dispatch a Codex runtime role through Codex MCP, treat it as an entrypoint violation, not a model-selection or model/account failure. Correct it by dispatching the role through local Codex subagents using the saved model and effort. Codex MCP is only for Claude-led sessions dispatching Codex roles.
 
 Tool naming for Claude-led Codex MCP remains platform-specific:
 - Claude Code: `mcp__codex-cli__codex` (server name `codex-cli`, registered via `claude mcp add`)
@@ -247,7 +251,7 @@ The orchestrator NEVER reads full review files, plan content, or build output fo
 - Codex must not ask the user questions and must not return `STATUS: needs_human`.
 - If context is incomplete, Codex makes explicit assumptions in the artifact and continues.
 - If it cannot proceed safely, Codex returns `STATUS: blocked` with a concrete reason.
-- Codex-led Codex roles must run through local Codex subagents and inherit the active Codex model. Do not use Codex MCP or Codex CLI model aliases to create another Codex role.
+- Codex-led Codex roles must run through local Codex subagents with the saved model and effort. Do not use Codex MCP or Codex CLI model aliases to create another Codex role.
 - Orchestrator handling for Codex failures follows the **three-tier fallback ladder** (see Handoff File Polling):
   - **Tier B** (write-boundary/permission): Same Codex runtime, `sandbox_permissions: "danger-full-access"` only with explicit user approval or an equivalent persisted approval.
   - **Tier C** (timeout, model, or Tier B exhausted):
@@ -1499,7 +1503,7 @@ Every pass through this loop produces its own `context_health.log` line carrying
 | Review Arbiter | `models.review-arbiter` | Claude runtime or Codex per config |
 | Fixer | `models.fixer` | Codex or Claude runtime per config |
 
-All role-to-model assignments are read from `.quest/<id>/orchestration.json` → `models` for the active quest. `.ai/allowlist.json` → `models` is consulted only at quest startup as the repo-configured default source the chooser pre-fills; omitted keys are filled by `DEFAULT_MODELS` in `scripts/quest_runtime/orchestration.py`. Once `orchestration.json` exists, dispatch must stop on missing active-role model keys or active-role model keys that are not non-empty strings instead of falling back. **Model diversity** in review phases gives independent perspectives from different model families. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
+All role-to-model assignments are read from `.quest/<id>/orchestration.json` → `models` for the active quest. `.ai/allowlist.json` → `models` is consulted only at quest startup as the repo-configured default source the chooser pre-fills; omitted keys are filled by the generated `DEFAULT_MODELS` in `scripts/quest_runtime/orchestration.py`. Once `orchestration.json` exists, dispatch must stop on missing active-role model keys or active-role model keys that are not non-empty strings instead of falling back. **Model diversity** in review phases gives independent perspectives from different model families. If roles are executed through Codex-backed tools, runtime attribution in `context_health.log` must record `codex`.
 
 ### Codex Runtime Prompt Pattern
 
@@ -1567,7 +1571,7 @@ mcp__codex__codex(
 )
 ```
 
-In a Codex-led session, use the same short prompt with the local Codex subagent entrypoint instead of the MCP wrapper, and inherit the current Codex model by default.
+In a Codex-led session, use the same short prompt with the local Codex subagent entrypoint instead of the MCP wrapper, and apply the saved model and effort.
 
 **Tradeoff:** Simpler prompts = faster but less thorough review.
 

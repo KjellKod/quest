@@ -283,7 +283,11 @@ def test_gpt_skill_excludes_codex_led_quest_dispatch() -> None:
     assert "Not for Codex-Led Quest Role Dispatch" in skill
     assert "If you are already Codex" in skill
     assert "use local Codex subagents" in skill
-    assert "inherit the active Codex model" in skill
+    assert "using the saved model and effort" in skill
+    workflow = _read(".skills/quest/delegation/workflow.md")
+    assert "codex_reasoning_effort" in workflow
+    assert "inherit only after verifying the parent matches" in workflow
+    assert "otherwise stop and report the mismatch" in workflow
     assert (
         "Codex MCP is only the cross-runtime path when the orchestrator is Claude-led"
         in skill

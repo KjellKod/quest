@@ -31,6 +31,16 @@
         "safe_mode": { "type": "string" }
       }
     },
+    "codex_fallback_model": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Default for standalone Codex delegation; also generates the shipped fallback for explicitly approved single-runtime continuation."
+    },
+    "codex_reasoning_effort": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
+      "description": "Reasoning effort pinned for Codex roles in new quests. Must be supported by the selected model and dispatch surface."
+    },
     "models": {
       "type": "object",
       "propertyNames": {

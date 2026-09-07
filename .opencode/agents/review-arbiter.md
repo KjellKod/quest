@@ -15,7 +15,7 @@ You MUST NOT ask questions. Judge the two code-review findings sets provided and
 Begin the **Markdown verdict** (`review_arbiter_verdict.md`) with a metadata header:
 ```
 **Agent:** review-arbiter
-**Model:** <your actual model name, e.g. claude-opus-4-6, gpt-5.4>
+**Model:** <your actual model ID>
 **Date:** <YYYY-MM-DD>
 **Quest ID:** <quest_id>
 ```

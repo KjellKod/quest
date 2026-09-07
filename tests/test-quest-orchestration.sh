@@ -147,9 +147,9 @@ write_default_from_allowlist(
     preflight_validated_at="2026-05-18T05:42:13Z",
 )
 orch = json.loads(Path(sys.argv[1]).read_text())
-assert orch["models"]["plan-reviewer-a"] == "gpt-5.6-sol", orch
-assert orch["models"]["arbiter"] == "gpt-5.6-sol", orch
-assert orch["models"]["code-reviewer-a"] == "gpt-5.6-sol", orch
+assert orch["models"]["plan-reviewer-a"] == "gpt-6-astra", orch
+assert orch["models"]["arbiter"] == "gpt-6-astra", orch
+assert orch["models"]["code-reviewer-a"] == "gpt-6-astra", orch
 assert orch["models"]["builder"] == "gpt-5.5", orch
 PY
   local rc=$?
@@ -217,11 +217,11 @@ result = build_default_models({"planner": "gpt-5.5", "builder": "claude"})
 assert result["planner"] == "gpt-5.5", result
 assert result["builder"] == "claude", result
 assert result["plan-reviewer-a"] == "claude-opus-5", result
-assert result["plan-reviewer-b"] == "gpt-5.6-sol", result
+assert result["plan-reviewer-b"] == "gpt-6-astra", result
 assert result["arbiter"] == "claude-opus-5", result
 assert result["code-reviewer-a"] == "claude-opus-5", result
-assert result["code-reviewer-b"] == "gpt-5.6-sol", result
-assert result["fixer"] == "gpt-5.6-sol", result
+assert result["code-reviewer-b"] == "gpt-6-astra", result
+assert result["fixer"] == "gpt-6-astra", result
 PY
 }
 
@@ -233,20 +233,20 @@ from pathlib import Path
 from quest_runtime.orchestration import CODEX_NATIVE_FALLBACK_MODEL, DEFAULT_MODELS
 
 expected = {
-    "planner": "gpt-5.6-sol",
+    "planner": "gpt-6-astra",
     "plan-reviewer-a": "claude-opus-5",
-    "plan-reviewer-b": "gpt-5.6-sol",
+    "plan-reviewer-b": "gpt-6-astra",
     "arbiter": "claude-opus-5",
-    "builder": "gpt-5.6-sol",
+    "builder": "gpt-6-astra",
     "code-reviewer-a": "claude-opus-5",
-    "code-reviewer-b": "gpt-5.6-sol",
+    "code-reviewer-b": "gpt-6-astra",
     "review-arbiter": "claude-opus-5",
-    "fixer": "gpt-5.6-sol",
+    "fixer": "gpt-6-astra",
 }
 allowlist = json.loads(Path(".ai/allowlist.json").read_text())
 assert DEFAULT_MODELS == expected, DEFAULT_MODELS
 assert allowlist["models"] == expected, allowlist["models"]
-assert CODEX_NATIVE_FALLBACK_MODEL == "gpt-5.6-sol", CODEX_NATIVE_FALLBACK_MODEL
+assert CODEX_NATIVE_FALLBACK_MODEL == "gpt-6-astra", CODEX_NATIVE_FALLBACK_MODEL
 PY
 }
 
@@ -1139,15 +1139,15 @@ quest = root / "quest"
         {
             "version": 1,
             "models": {
-                "planner": "gpt-5.6-sol",
+                "planner": "gpt-6-astra",
                 "plan-reviewer-a": "claude-opus-5",
-                "plan-reviewer-b": "gpt-5.6-sol",
+                "plan-reviewer-b": "gpt-6-astra",
                 "arbiter": "claude-opus-5",
-                "builder": "gpt-5.6-sol",
+                "builder": "gpt-6-astra",
                 "code-reviewer-a": "claude-opus-5",
-                "code-reviewer-b": "gpt-5.6-sol",
+                "code-reviewer-b": "gpt-6-astra",
                 "review-arbiter": "claude-opus-5",
-                "fixer": "gpt-5.6-sol",
+                "fixer": "gpt-6-astra",
             },
             "source": "default",
             "overridden_roles": [],

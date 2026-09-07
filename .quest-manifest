@@ -136,6 +136,7 @@ scripts/quest_backfill_journal.py
 scripts/quest_complete.py
 scripts/quest_preflight.sh
 scripts/quest_state.py
+scripts/quest_sync_model_defaults.py
 scripts/quest_plan_iteration.py
 
 [user-customized]

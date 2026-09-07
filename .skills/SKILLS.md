@@ -90,7 +90,7 @@ This directory contains specialized skills for AI agents working in this reposit
 **Location:** `.skills/review-decisions/SKILL.md`
 
 ### gpt
-**Purpose:** Delegate tasks to OpenAI Codex (GPT-5.4) via MCP from Claude-led sessions. Provides structured invocation with sensible defaults for sandbox, model, and reasoning effort.
+**Purpose:** Delegate tasks to OpenAI Codex via MCP from Claude-led sessions. Provides structured invocation with sensible defaults for sandbox, model, and reasoning effort.
 
 **Use when:** The user invokes `/gpt`, asks to "use codex" or "ask codex", wants a second opinion from a different model, or a Claude-led Quest workflow routes a role to Codex.
 
