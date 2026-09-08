@@ -38,22 +38,23 @@ The Quest Agent interprets your intent, matches brief references, and routes to 
 
 ## Roles
 
-| Role | File | Tool | Purpose |
-|------|------|------|---------|
-| Quest Agent | (Claude Code itself) | Claude Opus (`opus`) | Orchestration, gating |
-| Planner | `.skills/quest/agents/planner.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Write and refine plan artifacts |
-| Plan Reviewer (Claude) | `.skills/quest/agents/plan-reviewer.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Review plans (read-only) |
-| Plan Reviewer (Codex) | `.skills/quest/agents/plan-reviewer.md` | Codex (`gpt-5.5`) | Review plans (read-only) |
-| Arbiter | `.skills/quest/agents/arbiter.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Synthesize reviews, approve or iterate |
-| Builder | `.skills/quest/agents/builder.md` | Codex (`gpt-5.5`) by default; Claude runtime fallback | Implement changes |
-| Code Reviewer (Claude) | `.skills/quest/agents/code-reviewer.md` | Claude runtime (`Task(...)` natively, bridge in Codex-led runs) | Review code (read-only) |
-| Code Reviewer (Codex) | `.skills/quest/agents/code-reviewer.md` | Codex (`gpt-5.5`) | Review code (read-only) |
-| Fixer | `.skills/quest/agents/fixer.md` | Codex (`gpt-5.5`) by default; Claude runtime fallback | Fix review issues |
+Role models come from `.ai/allowlist.json` at startup and the saved `.quest/<id>/orchestration.json` thereafter. The canonical dispatch matrix in `.skills/quest/delegation/workflow.md` selects the runtime and transport; role names do not imply a fixed model.
+
+| Role | Instructions | Purpose |
+|------|--------------|---------|
+| Quest Agent | `.skills/quest/SKILL.md` | Orchestration and gating in the active session |
+| Planner | `.skills/quest/agents/planner.md` | Write and refine plan artifacts |
+| Plan Reviewer A / B | `.skills/quest/agents/plan-reviewer.md` | Independently review plans |
+| Arbiter | `.skills/quest/agents/arbiter.md` | Synthesize reviews, approve or iterate |
+| Builder | `.skills/quest/agents/builder.md` | Implement changes |
+| Code Reviewer A / B | `.skills/quest/agents/code-reviewer.md` | Independently review code |
+| Review Arbiter | `.skills/quest/agents/review-arbiter.md` | Adjudicate code-review findings |
+| Fixer | `.skills/quest/agents/fixer.md` | Fix review issues |
 
 ## Plan Phase Flow
 
 ```
-Planner -> [Review Claude + Review Codex] -> Arbiter -> approve? -> Builder
+Planner -> [Review A + Review B] -> Arbiter -> approve? -> Builder
                                                   \-> iterate? -> Planner (loop)
 ```
 

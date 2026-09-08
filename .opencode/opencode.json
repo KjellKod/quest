@@ -3,7 +3,12 @@
   "mcp": {
     "codex": {
       "type": "local",
-      "command": ["npx", "-y", "codex", "mcp-server"],
+      "command": [
+        "npx",
+        "-y",
+        "codex",
+        "mcp-server"
+      ],
       "enabled": true,
       "timeout": 5000
     }
@@ -12,7 +17,6 @@
     "quest": {
       "description": "Quest orchestration agent - coordinates plan/review/build/fix workflow",
       "mode": "primary",
-      "model": "opencode/kimi-k2.5",
       "steps": 35,
       "prompt": "{file:agents/quest.md}",
       "permission": {
@@ -37,7 +41,7 @@
     "planner": {
       "description": "Creates implementation plans from quest briefs",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/gpt-6-astra",
       "prompt": "{file:agents/planner.md}",
       "permission": {
         "edit": {
@@ -50,7 +54,7 @@
     "plan-reviewer-a": {
       "description": "Reviews implementation plans (Reviewer A - local subagent)",
       "mode": "subagent",
-      "model": "opencode/kimi-k2.5",
+      "model": "opencode/claude-opus-5",
       "prompt": "{file:agents/plan-reviewer.md}",
       "permission": {
         "edit": {
@@ -63,7 +67,7 @@
     "plan-reviewer-b": {
       "description": "Reviews implementation plans (Reviewer B - Codex)",
       "mode": "subagent",
-      "model": "opencode/gpt-5.4",
+      "model": "opencode/gpt-6-astra",
       "prompt": "{file:agents/plan-reviewer.md}",
       "permission": {
         "edit": {
@@ -76,7 +80,7 @@
     "arbiter": {
       "description": "Synthesizes dual reviews, renders APPROVE or ITERATE verdict",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/claude-opus-5",
       "prompt": "{file:agents/arbiter.md}",
       "permission": {
         "edit": {
@@ -89,7 +93,7 @@
     "builder": {
       "description": "Implements approved plans (local subagent)",
       "mode": "subagent",
-      "model": "opencode/kimi-k2.5",
+      "model": "opencode/gpt-6-astra",
       "prompt": "{file:agents/builder.md}",
       "permission": {
         "edit": {
@@ -112,9 +116,9 @@
       }
     },
     "code-reviewer-a": {
-      "description": "Reviews code changes (Reviewer A - KiMi)",
+      "description": "Reviews code changes (Reviewer A - local subagent)",
       "mode": "subagent",
-      "model": "opencode/kimi-k2.5",
+      "model": "opencode/claude-opus-5",
       "prompt": "{file:agents/code-reviewer.md}",
       "permission": {
         "edit": {
@@ -132,7 +136,7 @@
     "code-reviewer-b": {
       "description": "Reviews code changes (Reviewer B - Codex)",
       "mode": "subagent",
-      "model": "opencode/gpt-5.4",
+      "model": "opencode/gpt-6-astra",
       "prompt": "{file:agents/code-reviewer.md}",
       "permission": {
         "edit": {
@@ -150,7 +154,7 @@
     "review-arbiter": {
       "description": "Impartial judge for the code-review phase; adjudicates A/B findings against the diff and emits canonical review_findings.json",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/claude-opus-5",
       "prompt": "{file:agents/review-arbiter.md}",
       "permission": {
         "edit": {
@@ -163,7 +167,7 @@
     "fixer": {
       "description": "Addresses code review feedback",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/gpt-6-astra",
       "prompt": "{file:agents/fixer.md}",
       "permission": {
         "edit": {

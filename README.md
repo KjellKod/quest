@@ -87,7 +87,7 @@ Say **"just go with it"** anytime to skip questions and proceed with assumptions
 # Resume, redirect, swap models
 /quest feature-x_2026-02-04__1430
 /quest feature-x_2026-02-04__1430 "re-plan using only claude"
-/quest feature-x_2026-02-04__1430 "re-plan using gpt-5.2"
+/quest feature-x_2026-02-04__1430 "re-plan using <model-id>"
 /quest 2026-02-04_1430__feature-x "Don't resume from building-phase, read <doc> and let's re-plan with this insight"
 
 # Point to specs, tickets, or docs
@@ -115,42 +115,50 @@ For advanced patterns (phased execution, plan comparison, model mixing), see the
 
 ## The Agents
 
-| Role | Default model | What it does |
-|------|--------------|-------------|
-| **Planner** | GPT-5.6 Sol | Explores the codebase and writes the implementation plan |
-| **Plan Reviewer A** | Claude Opus 5 | Challenges the plan from a different model family |
-| **Plan Reviewer B** | GPT-5.6 Terra | Adds a fast, independent second review |
-| **Arbiter** | Claude Opus 5 | Synthesizes plan reviews and decides approve or iterate |
-| **Builder** | GPT-5.6 Sol | Implements the approved plan and runs validation |
-| **Code Reviewer A** | Claude Opus 5 | Reviews Sol-produced code across model families |
-| **Code Reviewer B** | GPT-5.6 Terra | Adds a second code-review perspective |
-| **Review Arbiter** | Claude Opus 5 | Converts review findings into canonical decisions |
-| **Fixer** | GPT-5.6 Terra | Applies bounded fixes before the next review pass |
+| Role | What it does |
+|------|-------------|
+| **Planner** | Explores the codebase and writes the implementation plan |
+| **Plan Reviewer A / B** | Independently challenge the plan |
+| **Arbiter** | Synthesizes plan reviews and decides approve or iterate |
+| **Builder** | Implements the approved plan and runs validation |
+| **Code Reviewer A / B** | Independently review the implementation |
+| **Review Arbiter** | Converts review findings into canonical decisions |
+| **Fixer** | Applies bounded fixes before the next review pass |
+
+See `.ai/allowlist.json` for the current role models and Codex reasoning effort.
 
 ### Choosing and overriding models
 
-Model selection has three layers. `DEFAULT_MODELS` in `scripts/quest_runtime/orchestration.py` is the shipped fallback used only to fill canonical role keys omitted from configuration. The `models` block in `.ai/allowlist.json` is the repo-configured startup default for new quests. At startup, Quest expands that block, shows the active assignments, applies any per-quest overrides, and writes the accepted selection to `.quest/<id>/orchestration.json`. That file is the effective source of truth for that quest, so changing the allowlist does not rewrite an in-flight run.
+Edit model policy in `.ai/allowlist.json`. In the Quest source repository, run `python3 scripts/quest_sync_model_defaults.py` after changing `models` or `codex_fallback_model`; this generates the compatibility `DEFAULT_MODELS` block in `scripts/quest_runtime/orchestration.py` and the static OpenCode role assignments. CI checks for drift. Do not hand-edit these generated model assignments. Installed projects may customize their allowlist independently; shipped fallbacks still fill omitted roles.
+
+At startup, Quest expands the allowlist, applies per-quest overrides, and saves models and `codex_reasoning_effort` in `.quest/<id>/orchestration.json`. That file is the effective source of truth for that quest, so changing the allowlist does not rewrite an in-flight run.
 
 Choose **Customize for this quest only** at startup to change one or more roles without editing repo defaults. The chooser accepts either format:
 
 ```text
-planner=gpt-5.6-sol, builder=claude-opus-5
+planner=<codex-model-id>, builder=<claude-model-id>
 ```
 
 ```json
 {
   "models": {
-    "planner": "gpt-5.6-sol",
-    "builder": "claude-opus-5"
+    "planner": "<codex-model-id>",
+    "builder": "<claude-model-id>"
   }
 }
 ```
 
 A direct JSON role map and a copied `"models": {...}` fragment are accepted too. Omitted roles keep their defaults. The chooser sends the submission to Quest's deterministic parser CLI instead of interpreting it conversationally. Quest rejects duplicate roles and applies the same model-token rules to both formats, then validates runtime-family availability and whether a role is used in the selected solo/full mode. A concrete model ID can still be rejected later by its provider if that account or client does not support it.
 
-Model IDs select the runtime family: `claude` and `claude-*` use Claude; other IDs use Codex. In Claude-led runs, Codex MCP receives the configured Codex model. In Codex-led runs, local Codex subagents currently inherit the active Codex model by default, so a per-role Sol/Terra distinction is recorded but may not be enforceable without explicit model-aware local dispatch. Concrete Claude model IDs are passed through by the Claude runner.
+Model IDs select the runtime family: `claude` and `claude-*` use Claude; `gemini` and `gemini-*` use Antigravity; other IDs use Codex. Replace the example placeholders above with model IDs supported by your account. Runtime preflight does not prove access to every concrete model.
 
-Quest currently overrides **models only**, not per-role reasoning effort. Codex supports `model_reasoning_effort` values such as `low`, `medium`, `high`, `xhigh`, `max`, and `ultra` when the selected model supports them, but the available levels and behavior vary by model and surface. Configure reasoning in Codex itself or in a Codex agent definition for now; it is not stored in Quest's `orchestration.json`. Ultra is not simply a stronger spelling of High: on supported accounts/models it can also enable proactive subagent delegation. See the [Codex subagent model and reasoning guidance](https://learn.chatgpt.com/docs/agent-configuration/subagents#choosing-models-and-reasoning).
+Claude-led Codex dispatch passes the saved model and effort through MCP. Codex-led dispatch passes them to local subagents using the controls exposed by the session. If explicit selection is unavailable, inheritance is acceptable only when the parent settings match; otherwise stop with the mismatch instead of silently using a different model. See the canonical [dispatch contract](.skills/quest/delegation/workflow.md#runtime-and-entrypoint-selection-run-once-per-session).
+
+`codex_fallback_model` supplies standalone `/gpt` defaults and the generated compatibility fallback for explicitly approved single-runtime continuation.
+
+`codex_reasoning_effort` applies to all Codex roles. Set it in the allowlist for new quests, or explicitly edit the saved quest setting to change effort for subsequent dispatches. Supported levels depend on the selected model and runtime. Legacy quests with no setting retain runtime-default effort; resume never imports the current allowlist effort. Claude reasoning remains controlled by its runtime.
+
+OpenCode uses generated static role models with its existing `opencode/` provider prefix. Verify those IDs with your provider before use. Its static configuration does not automatically apply per-quest overrides or Codex effort; reconcile supported runtime settings with the saved quest configuration before dispatch, or stop on a mismatch. The primary orchestrator uses the model selected by the user.
 
 Solo mode skips Reviewer B and the Arbiter. Same pipeline, just faster.
 

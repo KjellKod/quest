@@ -1537,6 +1537,24 @@ test_validate_accepts_null_unused_role_solo() {
   [ "$rc" -eq 0 ]
 }
 
+test_validate_rejects_invalid_codex_effort() {
+  local tmpdir effort output rc
+  tmpdir=$(mktemp -d)
+  create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
+  for effort in '"typo"' 'null' '[]' 'false'; do
+    write_orchestration_json "$tmpdir/orchestration.json"
+    jq --argjson effort "$effort" '.codex_reasoning_effort = $effort' "$tmpdir/orchestration.json" > "$tmpdir/updated.json"
+    mv "$tmpdir/updated.json" "$tmpdir/orchestration.json"
+    output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
+    rc=$?
+    if [ "$rc" -ne 1 ] || ! echo "$output" | grep -q "codex_reasoning_effort is invalid"; then
+      rm -rf "$tmpdir"
+      return 1
+    fi
+  done
+  rm -rf "$tmpdir"
+}
+
 test_validate_accepts_workflow_default_block() {
   local tmpdir
   tmpdir=$(mktemp -d)
@@ -1549,6 +1567,8 @@ test_validate_accepts_workflow_default_block() {
   write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
   write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
   write_orchestration_json "$tmpdir/orchestration.json"
+  jq '.codex_reasoning_effort = "medium"' "$tmpdir/orchestration.json" > "$tmpdir/updated.json"
+  mv "$tmpdir/updated.json" "$tmpdir/orchestration.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
   local rc=$?
@@ -1733,6 +1753,7 @@ run_test test_validate_rejects_bad_source_orchestration
 run_test test_validate_rejects_unset_active_role_model
 run_test test_validate_rejects_non_string_active_role_model
 run_test test_validate_accepts_null_unused_role_solo
+run_test test_validate_rejects_invalid_codex_effort
 run_test test_validate_accepts_workflow_default_block
 run_test test_validate_state_compat_legacy_does_not_skip_orchestration_check
 run_test test_validate_state_compat_unknown_value_does_not_skip

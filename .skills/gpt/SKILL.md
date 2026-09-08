@@ -16,7 +16,7 @@ Delegate tasks to OpenAI Codex via the `mcp__codex-cli__codex` MCP tool from Cla
 
 ## Not for Codex-Led Quest Role Dispatch
 
-If you are already Codex and a Quest role is assigned to Codex, do not call Codex MCP to create another Codex role. Codex-led Quest dispatch must use local Codex subagents (the `spawn_agent` tool family — versioned namespace varies by Codex CLI release — or the repo-supported equivalent) and inherit the active Codex model unless the user explicitly requested a model override.
+If you are already Codex and a Quest role is assigned to Codex, do not call Codex MCP to create another Codex role. Codex-led Quest dispatch must use local Codex subagents (the `spawn_agent` tool family — versioned namespace varies by Codex CLI release — or the repo-supported equivalent) using the saved model and effort, following the canonical dispatch contract in `.skills/quest/delegation/workflow.md`.
 
 Codex MCP is only the cross-runtime path when the orchestrator is Claude-led and needs to dispatch a Codex runtime role. A Codex-led attempt to use `mcp__codex*`, `codex_codex`, `codex mcp-server`, or Codex CLI model aliases for a Codex role is an orchestration violation, not a model-selection problem.
 
@@ -36,20 +36,18 @@ Before invoking Codex from a Claude-led session, **always tell the user what you
 
 ```
 I'll delegate this to Codex with:
-- **Model:** gpt-5.5
-- **Reasoning:** high
+- **Model:** <resolved model>
+- **Reasoning:** <resolved effort or runtime default>
 - **Sandbox:** workspace-write
 
 Continue? (y/n)
 ```
 
-Adjust the defaults based on task complexity:
-- Simple question/hello world → `low` reasoning, `read-only` sandbox
-- Code review/analysis → `high` reasoning, `workspace-write` sandbox
-- Complex architecture/refactor → `xhigh` reasoning, `workspace-write` sandbox
-- Needs network/system access → `danger-full-access` sandbox (**always call this out explicitly**)
-
-If the user specifies reasoning or model in their request, use what they asked for.
+Resolve settings before displaying the preview:
+- Quest role: use `models.<role>` and optional `codex_reasoning_effort` from the saved `orchestration.json`. Follow the Quest gate authorization already given.
+- Standalone `/gpt`: use an explicit user selection first; otherwise use `.ai/allowlist.json` `codex_fallback_model` and optional `codex_reasoning_effort`. If no repo configuration exists, omit these parameters and disclose that the runtime defaults apply.
+- Validate availability against the current tool/account. Do not maintain a model catalog or presume an unlisted model works.
+- Choose sandbox from task needs and the role's permissions.
 
 ## Step 2: Call via MCP From Claude
 
@@ -58,28 +56,21 @@ For this Claude-led skill, use the MCP tool. **Never shell out to `codex exec`.*
 ```
 mcp__codex-cli__codex({
   prompt: "<task description>",
-  model: "gpt-5.5",
+  model: "<resolved model>",
   sandbox: "workspace-write",
   fullAuto: true,
-  config: { model_reasoning_effort: "high" }   // low | medium | high | xhigh
+  config: { model_reasoning_effort: "<resolved effort>" } // omit when unset
 })
 ```
 
 > Reasoning effort is **not** a top-level `reasoningEffort` param — the MCP schema doesn't accept one. It must be passed inside `config` as `model_reasoning_effort`. Passing `reasoningEffort` at top level is silently ignored.
 
-## Available Models
-
-Use `gpt-5.5` unless the user requests otherwise. The MCP tool schema may lag behind — `gpt-5.5` works even if not listed in the schema's enum.
-
-Known working models:
-`gpt-5.5`, `gpt-5.4`, `gpt-5.3-codex`
-
 ## Parameters
 
 | Parameter | Default | When to change |
 |-----------|---------|----------------|
-| `model` | `gpt-5.5` | Only if user requests a specific model |
-| `config.model_reasoning_effort` | `high` | `low`/`medium` for simple tasks, `xhigh` for complex architecture. Pass inside `config`, not as a top-level `reasoningEffort` |
+| `model` | Resolved configuration | Explicit user override or saved Quest role assignment |
+| `config.model_reasoning_effort` | Resolved configuration, omitted when unset | Explicit effort change supported by the model; pass inside `config` |
 | `sandbox` | `workspace-write` | `read-only` for pure Q&A with no file output. `danger-full-access` **only with explicit user permission** — needed for network access, system commands, or out-of-workspace writes |
 | `fullAuto` | `true` | Leave true unless user wants approval prompts |
 | `sessionId` | (none) | Set to continue a previous Codex conversation within the same task |
@@ -123,7 +114,7 @@ mcp__codex-cli__codex({ prompt: "Now refactor the issues you found", sessionId: 
 ## Interpreting Results
 
 - Summarize findings for the user — don't dump raw output
-- If Codex's response seems incomplete, retry with higher `reasoningEffort` or a more specific prompt
+- If Codex's response seems incomplete, retry with an explicitly selected, supported higher `config.model_reasoning_effort` or a more specific prompt
 - If Codex returns an error, report it clearly — MCP gives structured errors, no guessing needed
 
 ## What This Skill Does NOT Cover

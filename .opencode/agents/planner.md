@@ -20,7 +20,7 @@ and document them in the plan. If you cannot proceed safely, return
 Begin every artifact you write with a metadata header:
 ```
 **Agent:** planner
-**Model:** <your actual model name, e.g. claude-opus-4-6, gpt-5.4>
+**Model:** <your actual model ID>
 **Date:** <YYYY-MM-DD>
 **Quest ID:** <quest_id>
 ```

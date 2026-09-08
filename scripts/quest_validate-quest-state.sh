@@ -209,6 +209,16 @@ validate_orchestration_json() {
     *) fail "orchestration.json claude_role_transport must be auto|background-agent|bridge (got '$transport')"; return ;;
   esac
 
+  # Optional for legacy quests; present values must be valid effort strings.
+  if ! jq -e 'if has("codex_reasoning_effort") then
+      (.codex_reasoning_effort | type == "string") and
+      (.codex_reasoning_effort as $effort |
+      ["low", "medium", "high", "xhigh", "max", "ultra"] | index($effort) != null)
+    else true end' "$orch_file" >/dev/null 2>&1; then
+    fail "orchestration.json codex_reasoning_effort is invalid"
+    return
+  fi
+
   # Required roles depend on quest_mode.
   # Keep this list in sync with workflow.md dispatch sites
   # (planner, plan-reviewer-a, plan-reviewer-b, arbiter, builder,

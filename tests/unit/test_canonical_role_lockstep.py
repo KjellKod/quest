@@ -133,3 +133,143 @@ def test_workflow_md_documents_every_role() -> None:
     assert (
         not missing
     ), f".skills/quest/delegation/workflow.md does not mention role(s): {missing}"
+
+
+def test_shipped_model_defaults_are_generated_from_allowlist() -> None:
+    import subprocess
+
+    result = subprocess.run(
+        ["python3", "scripts/quest_sync_model_defaults.py", "--check"],
+        cwd=_repo_root(),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_codex_effort_is_pinned_and_legacy_snapshot_stays_unset(tmp_path: Path) -> None:
+    from quest_runtime.orchestration import (
+        write_default_from_allowlist,
+        migrate_from_snapshot,
+    )
+
+    path = tmp_path / "new" / "orchestration.json"
+    write_default_from_allowlist(path, DEFAULT_MODELS, codex_reasoning_effort="medium")
+    assert json.loads(path.read_text())["codex_reasoning_effort"] == "medium"
+    legacy = tmp_path / "legacy"
+    (legacy / "logs").mkdir(parents=True)
+    (legacy / "logs" / "allowlist_snapshot.json").write_text(
+        json.dumps({"models": DEFAULT_MODELS})
+    )
+    migrate_from_snapshot(legacy)
+    assert "codex_reasoning_effort" not in json.loads(
+        (legacy / "orchestration.json").read_text()
+    )
+
+
+def test_invalid_codex_effort_does_not_write_orchestration(tmp_path: Path) -> None:
+    import pytest
+    from quest_runtime.orchestration import write_default_from_allowlist
+
+    path = tmp_path / "orchestration.json"
+    with pytest.raises(ValueError, match="codex_reasoning_effort"):
+        write_default_from_allowlist(
+            path, DEFAULT_MODELS, codex_reasoning_effort="typo"
+        )
+    assert not path.exists()
+
+
+def test_generator_updates_policy_without_changing_permissions(tmp_path: Path) -> None:
+    import shutil
+    from quest_sync_model_defaults import sync
+
+    paths = [
+        ".ai/allowlist.json",
+        "scripts/quest_runtime/orchestration.py",
+        ".opencode/opencode.json",
+    ]
+    for relative in paths:
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(_repo_root() / relative, target)
+    config_path = tmp_path / ".opencode/opencode.json"
+    original = json.loads(config_path.read_text())
+    allowlist_path = tmp_path / ".ai/allowlist.json"
+    allowlist = json.loads(allowlist_path.read_text())
+    allowlist["models"]["builder"] = "claude-fake-model"
+    allowlist_path.write_text(json.dumps(allowlist))
+    assert not sync(tmp_path, check=True)
+    assert json.loads(config_path.read_text()) == original
+    assert sync(tmp_path, check=False)
+    updated = json.loads(config_path.read_text())
+    assert updated["agent"]["builder"]["model"] == "opencode/claude-fake-model"
+    for role, config in original["agent"].items():
+        assert updated["agent"][role]["permission"] == config["permission"]
+    runtime = (tmp_path / paths[1]).read_text()
+    assert (
+        f'CODEX_NATIVE_FALLBACK_MODEL = "{allowlist["codex_fallback_model"]}"'
+        in runtime
+    )
+    assert sync(tmp_path, check=True)
+
+
+def test_resume_preserves_snapshot_effort_and_rejects_invalid_effort(
+    tmp_path: Path,
+) -> None:
+    import pytest
+    from quest_runtime.orchestration import migrate_from_snapshot
+
+    (tmp_path / "logs").mkdir()
+    snapshot = {"models": DEFAULT_MODELS, "codex_reasoning_effort": "high"}
+    (tmp_path / "logs/allowlist_snapshot.json").write_text(json.dumps(snapshot))
+    assert migrate_from_snapshot(tmp_path)
+    path = tmp_path / "orchestration.json"
+    saved = json.loads(path.read_text())
+    assert saved["codex_reasoning_effort"] == "high"
+    assert not migrate_from_snapshot(tmp_path)
+    saved["codex_reasoning_effort"] = "typo"
+    path.write_text(json.dumps(saved))
+    before = path.read_bytes()
+    with pytest.raises(ValueError, match="codex_reasoning_effort"):
+        migrate_from_snapshot(tmp_path)
+    assert path.read_bytes() == before
+
+
+def test_generator_rejects_invalid_policy_before_writing(tmp_path: Path) -> None:
+    import shutil
+    import pytest
+    from quest_sync_model_defaults import sync
+
+    paths = [
+        ".ai/allowlist.json",
+        "scripts/quest_runtime/orchestration.py",
+        ".opencode/opencode.json",
+    ]
+    for relative in paths:
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(_repo_root() / relative, target)
+    allowlist_path = tmp_path / paths[0]
+    original = json.loads(allowlist_path.read_text())
+    generated_before = [(tmp_path / relative).read_bytes() for relative in paths[1:]]
+    policies = []
+    for fallback in [
+        "opencode/claude-fake-model",
+        "provider/gemini-fake-model",
+        " Claude-fake-model",
+        " codex-fake-model ",
+    ]:
+        policies.append({**original, "codex_fallback_model": fallback})
+    missing_role = dict(original["models"])
+    missing_role.pop("fixer")
+    policies.append({**original, "models": missing_role})
+    policies.append(
+        {**original, "models": {**original["models"], "builder": " codex-fake-model "}}
+    )
+    for policy in policies:
+        allowlist_path.write_text(json.dumps(policy))
+        with pytest.raises(ValueError):
+            sync(tmp_path, check=False)
+        assert [
+            (tmp_path / relative).read_bytes() for relative in paths[1:]
+        ] == generated_before

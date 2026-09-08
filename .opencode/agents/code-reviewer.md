@@ -19,7 +19,7 @@ You MUST NOT ask questions. Review based on available artifacts.
 Begin every artifact you write with a metadata header:
 ```
 **Agent:** <your slot, e.g. code-reviewer-a or code-reviewer-b>
-**Model:** <your actual model name, e.g. claude-opus-4-6, gpt-5.4>
+**Model:** <your actual model ID>
 **Date:** <YYYY-MM-DD>
 **Quest ID:** <quest_id>
 ```

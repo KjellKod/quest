@@ -34,17 +34,20 @@ CANONICAL_ROLES: tuple[str, ...] = (
     "fixer",
 )
 
+# BEGIN GENERATED MODEL DEFAULTS (edit .ai/allowlist.json, then run scripts/quest_sync_model_defaults.py)
 DEFAULT_MODELS: dict[str, str] = {
-    "planner": "gpt-5.6-sol",
+    "planner": "gpt-6-astra",
     "plan-reviewer-a": "claude-opus-5",
-    "plan-reviewer-b": "gpt-5.6-sol",
+    "plan-reviewer-b": "gpt-6-astra",
     "arbiter": "claude-opus-5",
-    "builder": "gpt-5.6-sol",
+    "builder": "gpt-6-astra",
     "code-reviewer-a": "claude-opus-5",
-    "code-reviewer-b": "gpt-5.6-sol",
+    "code-reviewer-b": "gpt-6-astra",
     "review-arbiter": "claude-opus-5",
-    "fixer": "gpt-5.6-sol",
+    "fixer": "gpt-6-astra",
 }
+CODEX_NATIVE_FALLBACK_MODEL = "gpt-6-astra"
+# END GENERATED MODEL DEFAULTS
 
 # Roles added after early snapshots/existing orchestration files were already
 # written. These keys may be backfilled from DEFAULT_MODELS during resume.
@@ -56,7 +59,6 @@ SOLO_UNUSED_ROLES: frozenset[str] = frozenset(
 )
 
 ORCHESTRATION_VERSION = 1
-CODEX_NATIVE_FALLBACK_MODEL = "gpt-5.6-sol"
 
 # Transport for Codex-led Claude roles (.ai/allowlist.json claude_role_transport).
 # "auto" resolves to background-agent when the preflight bg probe succeeds.
@@ -138,7 +140,7 @@ def parse_override_input(text: str) -> list[Override]:
     - Role names are trimmed, lowercased, and matched against CANONICAL_ROLES.
       Unknown roles raise OverrideParseError.
     - Model names are trimmed and cannot contain commas, equals signs, or line
-      breaks (so `gpt-5.5`, `claude-opus-4.7`, `o1-mini` all pass parsing).
+      breaks (so `codex-fake-model`, `claude-fake-model`, `gemini-fake-model` all pass parsing).
     """
     stripped = text.strip()
     if stripped.startswith("{") or stripped.startswith('"models"'):
@@ -225,11 +227,11 @@ def is_antigravity_model(model: str) -> bool:
 def runtime_for_model(model: str) -> str:
     """Map a persisted `models.<role>` model ID to its runtime family.
 
-    `models.*` stores model IDs (for example `claude`, `claude-opus-4-6`,
-    `gemini-3.6-flash-high`, `gpt-5.5`), not runtime names. Claude-family IDs
+    `models.*` stores model IDs (for example `claude`, `claude-fake-model`,
+    `gemini-fake-model`, `codex-fake-model`), not runtime names. Claude-family IDs
     run on the Claude runtime, Gemini-family IDs run on the Antigravity
     runtime (the `agy` CLI), and every other ID runs on Codex tooling.
-    Provider-qualified IDs (for example `opencode/claude-opus-4-6`) are
+    Provider-qualified IDs (for example `opencode/claude-fake-model`) are
     classified on the segment after the final `/`.
     """
     normalized = model.strip().lower()
@@ -460,6 +462,21 @@ def apply_overrides(
     return merged, overridden, ignored_unused
 
 
+def validate_codex_reasoning_effort(effort: str) -> None:
+    """Validate syntax; the dispatch surface must also support the chosen level."""
+    if effort not in (
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra",
+    ):
+        raise ValueError(
+            "codex_reasoning_effort must be low|medium|high|xhigh|max|ultra"
+        )
+
+
 def write_orchestration_json(
     path: Path,
     *,
@@ -469,6 +486,7 @@ def write_orchestration_json(
     preflight_validated_at: str | None = None,
     claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
     claude_transport_resolved: str | None = None,
+    codex_reasoning_effort: str | None = None,
 ) -> None:
     """Write the orchestration.json artifact with canonical key order."""
     if source not in {"default", "overridden"}:
@@ -478,6 +496,8 @@ def write_orchestration_json(
             f"claude_role_transport must be one of {CLAUDE_ROLE_TRANSPORTS} "
             f"(got {claude_role_transport!r})"
         )
+    if codex_reasoning_effort is not None:
+        validate_codex_reasoning_effort(codex_reasoning_effort)
     payload = {
         "version": ORCHESTRATION_VERSION,
         "models": {role: models.get(role) for role in CANONICAL_ROLES},
@@ -490,6 +510,8 @@ def write_orchestration_json(
         "overridden_roles": list(overridden_roles),
         "preflight_validated_at": preflight_validated_at or _now_iso(),
     }
+    if codex_reasoning_effort is not None:
+        payload["codex_reasoning_effort"] = codex_reasoning_effort
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
@@ -509,6 +531,7 @@ def write_default_from_allowlist(
     remap_unavailable: bool = False,
     claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
     claude_transport_resolved: str | None = None,
+    codex_reasoning_effort: str | None = None,
 ) -> None:
     """Default-path writer: copy allowlist models into orchestration.json.
 
@@ -535,6 +558,7 @@ def write_default_from_allowlist(
         preflight_validated_at=preflight_validated_at,
         claude_role_transport=claude_role_transport,
         claude_transport_resolved=claude_transport_resolved,
+        codex_reasoning_effort=codex_reasoning_effort,
     )
 
 
@@ -561,6 +585,8 @@ def migrate_from_snapshot(
         existing_models = existing.get("models")
         if not isinstance(existing_models, dict):
             return False
+        if "codex_reasoning_effort" in existing:
+            validate_codex_reasoning_effort(existing["codex_reasoning_effort"])
         merged_models, backfilled = _backfill_legacy_compatible_roles(existing_models)
         # Transport keys were introduced after early quests; backfill in place
         # (same legacy-compat contract as newly-introduced roles).
@@ -623,9 +649,12 @@ def migrate_from_snapshot(
         raise ValueError(
             f"Snapshot at {snapshot_path} does not contain a 'models' object"
         )
+    if "codex_reasoning_effort" in snapshot:
+        validate_codex_reasoning_effort(snapshot["codex_reasoning_effort"])
     write_orchestration_json(
         orch_path,
         models=build_snapshot_models(models),
+        codex_reasoning_effort=snapshot.get("codex_reasoning_effort"),
         source="default",
         overridden_roles=[],
         preflight_validated_at=preflight_validated_at,
