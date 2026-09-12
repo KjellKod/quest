@@ -1,0 +1,46 @@
+scripts/quest_runtime/codex_runner.py
+  s_ab94ac4ab142cc::t_a55a078b6ad93b 11,106-117,126,466-472,475-477,511,651-652,658,812
+  s_ab94ac4ab142cc::t_ef0da347cd6b54 473-474,503-508,518-520,648-650
+  s_ab94ac4ab142cc::t_07f57d5a814d36 741,823-830
+  s_ab94ac4ab142cc::t_fd0002bd216861 478-479,831-832
+tests/unit/test_codex_runner.py
+  s_ab94ac4ab142cc::t_9daaa0958354ab 7,66,658,662-670,674-687,691-707,711-713,733-734,736-750
+  s_ab94ac4ab142cc::t_65e7471be63462 481-489,492-504,514-528,659-661,671-673,688-690,708-710,714-732,735,751-774
+  s_ab94ac4ab142cc::t_2675f9716e8c98 775-784
+.ai/schemas/allowlist.schema.json
+  s_ab94ac4ab142cc::t_78488382d85b9d 39-44
+.opencode/agents/quest.md
+  s_ab94ac4ab142cc::t_29fa88bee565ec 57
+.skills/gpt/SKILL.md
+  s_ab94ac4ab142cc::t_2a948c0ba82b1a 24,27,42
+.skills/quest/SKILL.md
+  s_ab94ac4ab142cc::t_226e43f84dc1b2 55
+.skills/quest/delegation/workflow.md
+  s_ab94ac4ab142cc::t_b842fc320906e9 308
+scripts/quest_codex_runner.py
+  s_ab94ac4ab142cc::t_e77b503ecd4e5a 56-61,68-70,79-96
+scripts/quest_installer.sh
+  s_ab94ac4ab142cc::t_2ee950c0639740 1847-1850,1872-1879
+scripts/quest_preflight.sh
+  s_ab94ac4ab142cc::t_778f5f66f4ee10 301-309,316-319,321,323-325,330-331
+tests/integration/test_allowlist_schema.py
+  s_ab94ac4ab142cc::t_0222da7c2e5d98 1-53
+tests/integration/test_codex_installed_distribution.py
+  s_ab94ac4ab142cc::t_10a28e2aba6808 265-346
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7564e4f99f3136f225299681c25a06b7d04b0774",
+  "prompts": {},
+  "sessions": {
+    "s_ab94ac4ab142cc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09641-0b17-73e1-abaa-266b81b43d7b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
