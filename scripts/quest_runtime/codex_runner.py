@@ -303,8 +303,14 @@ def build_codex_command(
         command += ["-c", "model_reasoning_effort=" + json.dumps(effort)]
     method = "chatgpt" if credentials.kind == "chatgpt" else "api"
     command += ["-c", "forced_login_method=" + json.dumps(method)]
-    for name in disabled:
-        command += ["-c", "mcp_servers." + json.dumps(name) + ".enabled=false"]
+    if disabled:
+        # CLI override keys split on dots without TOML quoting. The table value
+        # is parsed as TOML and deep-merged, preserving transports and other tools.
+        overrides = ",".join(
+            json.dumps(name, ensure_ascii=False) + "={enabled=false}"
+            for name in disabled
+        )
+        command += ["-c", "mcp_servers={" + overrides + "}"]
     for directory in add_dirs:
         command += ["--add-dir", str(directory)]
     if allow_non_git:

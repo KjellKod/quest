@@ -605,8 +605,9 @@ def test_known_self_servers_are_disabled_without_changing_other_tools(cli, monke
     assert result["result_kind"] == "complete"
     assert result["disabled_self_servers"] == ["odd.name"]
     args = json.loads((cli / "CAPTURE").read_text())["args"]
-    assert 'mcp_servers."odd.name".enabled=false' in args
-    assert not any('mcp_servers."codex-cli"' in arg for arg in args)
+    assert 'mcp_servers={"odd.name"={enabled=false}}' in args
+    assert not any('"codex-cli"' in arg for arg in args)
+    assert "secret" not in " ".join(args)
     monkeypatch.setenv("INVENTORY", "invalid")
     assert task(cli)["result_kind"] == "precondition_failed"
 
