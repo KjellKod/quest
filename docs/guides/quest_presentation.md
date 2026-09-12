@@ -112,7 +112,7 @@ Quest fixes this with **specialized roles** (planner, reviewer, builder), **clea
 
 ## Under the Hood
 
-Quest leverages each runtime's native capabilities: Claude Code's Task tool for clean subagent spawning, MCP for Codex integration, and a purpose-built **Claude CLI bridge** for cross-model orchestration. The bridge gives Quest per-invocation control that MCP can't match: filesystem scoping per role, permission modes, tool restrictions, support for budget caps, and a complete audit trail of every cross-model call. It's also [Quest-agnostic and reusable](#why-the-bridge-not-mcp).
+Quest uses Claude Code's Task tool and Codex native subagents for same-runtime delegation. Claude-to-Codex calls use `scripts/quest_codex_runner.py` around `codex exec`; Codex-to-Claude calls use the existing Claude runner. Both preserve artifact contracts and record runtime evidence. The Claude bridge is also [Quest-agnostic and reusable](#why-the-bridge-not-mcp).
 
 ### How `/quest` Executes
 
@@ -126,8 +126,8 @@ Quest leverages each runtime's native capabilities: Claude Code's Task tool for 
    Follows numbered procedure:
    1. Create quest folder + brief
    2. Spawn planner (Task tool → clean context)
-   3. Spawn reviewers (Task + MCP → clean context)
-   4. Spawn arbiter (MCP → clean context)
+   3. Spawn reviewers (native tasks or runtime runners, fresh role context)
+   4. Spawn arbiter (selected runtime entrypoint, fresh role context)
    5. Check verdict, loop or proceed
    6. Gate: ask human before building
    7. Spawn builder, reviewer, fixer as needed
@@ -140,13 +140,13 @@ Each agent invocation starts fresh:
 
 **Claude agents** (planner, builder, fixer): spawned via Task tool with `subagent_type: general-purpose`. New conversation, prompt includes BOOTSTRAP.md + AGENTS.md + role instructions + artifacts. No history from the orchestrator.
 
-**Codex agents** (reviewers, arbiter): called via `mcp__codex-cli__codex`. Completely separate model (GPT 5.x), prompt assembled by orchestrator.
+**Codex agents** (any assigned role): Claude-led sessions call the Quest Codex runner; Codex-led sessions use native subagents. Saved model and reasoning settings apply to each role. A model claim in prose is not runtime proof.
 
 ### Why the Bridge, Not MCP
 
 When Codex orchestrates a quest, Claude-designated roles run through `scripts/quest_claude_runner.py` instead of an MCP server. The runner selects either the preferred background-agent transport (`scripts/quest_claude_bg_run.py`, `claude --bg`, subscription billing) or the explicit bridge transport (`scripts/quest_claude_bridge.py`, `claude --print`, API-metered) from config and preflight.
 
-MCP is a persistent connection with static configuration. Every call goes through the same server with the same permissions. That's fine for Codex reviews where every call needs the same access. But Quest roles have different trust levels, and the bridge gives **per-invocation control**:
+Quest roles have different permissions and artifact paths. The Claude bridge provides **per-invocation control**:
 
 - **Filesystem scoping** (`--add-dir`), each role gets access to only the directories it needs. A planner sees different paths than a builder.
 - **Permission modes** (`--permission-mode`), `bypassPermissions` for a trusted builder, `plan` for read-only exploration.
@@ -174,7 +174,7 @@ python3 scripts/quest_claude_bridge.py \
   --timeout 120
 ```
 
-**Why no bridge for Codex?** Codex roles are all reviews with uniform access, so MCP's static configuration is the right fit. If Codex roles ever diversify in trust level (e.g., Codex as builder vs reviewer), a similar bridge would make sense.
+**Claude-to-Codex runner:** `scripts/quest_codex_runner.py` supplies per-call cwd, sandbox, artifact directories, saved model/effort and explicit auth. It validates current-attempt completion and reaps its process tree on timeout/cancellation. The default deadline is 1800 seconds; silence alone is not failure. It never silently switches runtime or billing.
 
 ### Parallel Review Execution
 
@@ -294,7 +294,7 @@ logs/
 
 ## Performance Considerations
 
-Codex MCP calls are slower than Claude Task calls because Codex must read multiple files, analyze content, and write output. A direct Claude call is near-instant; a Codex review call takes 30-60 seconds.
+Role latency depends on runtime, model and task. CLI startup, reading context, analysis and artifact writes all contribute; measure the actual run rather than assuming a fixed duration.
 
 **Tuning options** (edit `.skills/quest/SKILL.md`):
 
@@ -310,7 +310,7 @@ Codex MCP calls are slower than Claude Task calls because Codex must read multip
 
 | Aspect | How Quest Handles It |
 |--------|---------------------|
-| Context pollution | Task tool + MCP = clean context per agent |
+| Context pollution | Native subagents and runtime runners create separate role contexts |
 | Review quality | Dual-model review (Claude + Codex) |
 | Nitpick spin | Arbiter filters with KISS/YAGNI/SRP |
 | Human oversight | Gates at implementation, commit, push |

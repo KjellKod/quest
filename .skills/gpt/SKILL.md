@@ -1,126 +1,61 @@
 ---
 name: gpt
-description: Delegate a task to OpenAI Codex via MCP from Claude-led sessions. Use when the user invokes /gpt, asks to "use codex", "ask codex", "have codex do X", or when a second opinion or parallel implementation from a different model would be valuable.
+description: Delegate a task to OpenAI Codex through the Quest CLI runner from Claude-led sessions. Use when the user invokes /gpt, asks to use codex, or wants a second opinion from a different model.
 ---
 
 # Skill: GPT (Codex)
 
-Delegate tasks to OpenAI Codex via the `mcp__codex-cli__codex` MCP tool from Claude-led sessions.
-
-## When to Use
-
-- User types `/gpt` or `/gpt <task>`
-- User asks to "use codex", "ask codex", "have codex review/write/analyze..."
-- User wants a second opinion from a different model
-- Claude-led Quest workflow routes a role to Codex (builder, fixer, code-reviewer-b, plan-reviewer-b)
+Claude-led sessions use the installed `scripts/quest_codex_runner.py` helper around `codex exec`. Quest roles use its `role` mode and canonical `.skills/quest/delegation/workflow.md` instructions; standalone `/gpt` uses `task` mode below.
 
 ## Not for Codex-Led Quest Role Dispatch
 
-If you are already Codex and a Quest role is assigned to Codex, do not call Codex MCP to create another Codex role. Codex-led Quest dispatch must use local Codex subagents (the `spawn_agent` tool family — versioned namespace varies by Codex CLI release — or the repo-supported equivalent) using the saved model and effort, following the canonical dispatch contract in `.skills/quest/delegation/workflow.md`.
+If you are already Codex, Codex-led Codex roles must use local Codex subagents using the saved model and effort. Never substitute MCP or nested `codex exec`. If native controls are missing, inherit only after verifying that parent settings match; otherwise block. This skill does not override Quest Build gates or authorize a runtime switch.
 
-Codex MCP is only the cross-runtime path when the orchestrator is Claude-led and needs to dispatch a Codex runtime role. A Codex-led attempt to use `mcp__codex*`, `codex_codex`, `codex mcp-server`, or Codex CLI model aliases for a Codex role is an orchestration violation, not a model-selection problem.
+## Prerequisites and authentication
 
-## Prerequisites
+Install Codex CLI and prefer `codex login`, then `codex login status` reporting ChatGPT. No MCP server, shim or plugin is required. The runner checks required exec capabilities before invoking the CLI.
 
-Codex MCP server must be registered. Run once globally:
+Resolve authentication explicitly: user selection first, otherwise `.ai/allowlist.json` `codex_auth_mode`, otherwise `cached`. Quest roles instead use the saved orchestration setting. `cached` uses the CLI's saved identity and excludes ambient `CODEX_API_KEY` and `OPENAI_API_KEY`; report the detected identity kind. Explicit `api-key` uses `CODEX_API_KEY`, otherwise `OPENAI_API_KEY`, from the existing environment and does not require or mutate cached login. Never read keys from `.env`, request secrets in chat, print keys, or silently switch billing/authentication. Codex manages token refresh.
+
+Run a no-inference setup probe using the installed helper:
+
 ```bash
-claude mcp add --scope user codex-cli -- codex mcp-server
-```
-If Codex isn't connecting, also run `claude mcp add codex-cli -- codex mcp-server` inside the repo.
-
-If the tool `mcp__codex-cli__codex` is not available, tell the user to add the config above and restart Claude Code.
-
-## Step 1: Confirm Before Calling From Claude
-
-Before invoking Codex from a Claude-led session, **always tell the user what you're about to do** and wait for confirmation:
-
-```
-I'll delegate this to Codex with:
-- **Model:** <resolved model>
-- **Reasoning:** <resolved effort or runtime default>
-- **Sandbox:** workspace-write
-
-Continue? (y/n)
+python3 "<installation-root>/scripts/quest_codex_runner.py" probe \
+  --cwd "<target-workspace>" --auth cached
 ```
 
-Resolve settings before displaying the preview:
-- Quest role: use `models.<role>` and optional `codex_reasoning_effort` from the saved `orchestration.json`. Follow the Quest gate authorization already given.
-- Standalone `/gpt`: use an explicit user selection first; otherwise use `.ai/allowlist.json` `codex_fallback_model` and optional `codex_reasoning_effort`. If no repo configuration exists, omit these parameters and disclose that the runtime defaults apply.
-- Validate availability against the current tool/account. Do not maintain a model catalog or presume an unlisted model works.
-- Choose sandbox from task needs and the role's permissions.
+Use `--auth api-key` only when that mode was explicitly selected. Setup readiness does not prove successful inference or model availability.
 
-## Step 2: Call via MCP From Claude
+## Step 1: Resolve and disclose settings
 
-For this Claude-led skill, use the MCP tool. **Never shell out to `codex exec`.** Do not use this step for Codex-led Quest role dispatch; use local Codex subagents there.
+Before dispatch, state the task, resolved model/effort, auth mode and sandbox. Follow authorization already supplied by the user or Quest gates; do not ask again for an already-authorized task. Any change of runtime, model, auth/billing or broader permissions requires an explicit choice.
 
-```
-mcp__codex-cli__codex({
-  prompt: "<task description>",
-  model: "<resolved model>",
-  sandbox: "workspace-write",
-  fullAuto: true,
-  config: { model_reasoning_effort: "<resolved effort>" } // omit when unset
-})
-```
+For standalone `/gpt`, explicit model/effort choices win; otherwise read `.ai/allowlist.json` `codex_fallback_model` and optional `codex_reasoning_effort`. When unset, omit the corresponding option and disclose runtime defaults. Do not invent a model catalog or replace a rejected model automatically.
 
-> Reasoning effort is **not** a top-level `reasoningEffort` param — the MCP schema doesn't accept one. It must be passed inside `config` as `model_reasoning_effort`. Passing `reasoningEffort` at top level is silently ignored.
+## Step 2: Invoke the shared runner
 
-## Parameters
+Write a UTF-8 prompt file with the host's file-writing tool. Include the task, absolute context paths, constraints and expected output. Invoke the installed runner, keeping installation root, target cwd and output root independent:
 
-| Parameter | Default | When to change |
-|-----------|---------|----------------|
-| `model` | Resolved configuration | Explicit user override or saved Quest role assignment |
-| `config.model_reasoning_effort` | Resolved configuration, omitted when unset | Explicit effort change supported by the model; pass inside `config` |
-| `sandbox` | `workspace-write` | `read-only` for pure Q&A with no file output. `danger-full-access` **only with explicit user permission** — needed for network access, system commands, or out-of-workspace writes |
-| `fullAuto` | `true` | Leave true unless user wants approval prompts |
-| `sessionId` | (none) | Set to continue a previous Codex conversation within the same task |
-
-## Sandbox Discipline
-
-- **`workspace-write`** (default) — Codex can read everything, write within the project. Covers reviews, implementation, refactoring, test writing.
-- **`read-only`** — Pure analysis, explanation, Q&A. No file writes at all.
-- **`danger-full-access`** — Full system access. **Always ask the user before using this.** Needed when: installing dependencies, network calls, accessing files outside the workspace.
-
-When called from Claude-led Quest orchestration, match the sandbox to the role:
-- Builder/Fixer: `workspace-write`
-- Reviewers: `workspace-write` (may write review artifacts)
-- Analysis-only: `read-only`
-
-## Crafting the Prompt
-
-Be specific. Codex runs non-interactively — it can't ask clarifying questions.
-
-Include:
-- What to do (clear task description)
-- Where to look (file paths, directories)
-- What constraints apply (don't modify X, follow pattern Y)
-- What output to produce (write to file, return analysis, make changes)
-
-Bad: `"Review this code"`
-Good: `"Review src/auth/middleware.ts for security issues. Focus on session handling and input validation. Write findings to .quest/<id>/reviews/codex-review.md"`
-
-## Session Continuity
-
-Use `sessionId` to maintain conversation context across multiple calls:
-
-```
-// First call
-mcp__codex-cli__codex({ prompt: "Analyze the auth module...", sessionId: "auth-review-1" })
-
-// Follow-up
-mcp__codex-cli__codex({ prompt: "Now refactor the issues you found", sessionId: "auth-review-1" })
+```bash
+python3 "<installation-root>/scripts/quest_codex_runner.py" task \
+  --cwd "<target-workspace>" --prompt-file "<absolute-prompt-file>" \
+  --output-dir "<absolute-output-directory>" --auth cached \
+  --model "<resolved-model>" --effort "<resolved-effort>" \
+  --sandbox workspace-write --timeout 1800
 ```
 
-## Interpreting Results
+Omit `--model` or `--effort` when that setting is unspecified. The helper passes prompt bytes on stdin and constructs CLI argument arrays. Paths may contain spaces; use absolute paths and quote each argument. Add `--allow-non-git` only for intentional non-Git execution. The runner adds external artifact directories to the child write scope. Never initialize a repository or broaden permissions as an implicit workaround.
 
-- Summarize findings for the user — don't dump raw output
-- If Codex's response seems incomplete, retry with an explicitly selected, supported higher `config.model_reasoning_effort` or a more specific prompt
-- If Codex returns an error, report it clearly — MCP gives structured errors, no guessing needed
+Use `workspace-write` for implementation and artifact-producing reviews, `read-only` for analysis with no child file writes. `danger-full-access` requires explicit permission or equivalent persisted approval. Actual host permissions still apply; surface a denied runner command for scoped remediation, never install wildcard Bash/MCP permissions.
 
-## What This Skill Does NOT Cover
+## Prompts and follow-ups
 
-- **Arbitration between Claude and Codex** — handled by Quest's arbiter role
-- **Critical evaluation of Codex output** — handled by Quest's review pipeline
-- **Model routing for Quest phases** — handled by `allowlist.json` and `workflow.md`
+Codex runs non-interactively. Include enough context to proceed with explicit assumptions; if unsafe to proceed, it returns blocked. For follow-ups, create a fresh task that references the prior output files and states the new work. This helper does not provide a session-resume contract.
 
-This skill is the transport and invocation layer. Quest orchestration handles the judgment layer.
+## Results and failures
+
+Wait for the full invocation, normally up to 1800 seconds. Silence alone is not failure. Read the result envelope and output files; summarize useful results without dumping raw events or credentials. Effective model/effort requires runtime metadata, not model self-identification. Unknown values remain unknown.
+
+Exit 0 alone is insufficient: task success requires current-attempt valid events, a completed turn and a nonempty final response. Verify any user-requested file output directly. Quest `role` mode additionally validates canonical handoff and required artifacts, including planner lifecycle and findings contracts.
+
+Only `malformed_output` or `artifact_missing` with `retry_eligible: true` permits one same-settings artifact-first retry after clean teardown. All other failures block with the specific result kind. Timeout/cancellation terminate and reap the process tree; `teardown_failed` blocks retry and further dispatch. Never replace missing artifacts with prose, silently raise effort, or fall back to another runtime/authentication mode.

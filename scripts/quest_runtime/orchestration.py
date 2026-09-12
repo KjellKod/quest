@@ -477,6 +477,12 @@ def validate_codex_reasoning_effort(effort: str) -> None:
         )
 
 
+def validate_codex_auth_mode(mode: str) -> None:
+    """Validate an explicit billing choice; absence defaults to cached."""
+    if mode not in ("cached", "api-key"):
+        raise ValueError("codex_auth_mode must be cached|api-key")
+
+
 def write_orchestration_json(
     path: Path,
     *,
@@ -487,6 +493,7 @@ def write_orchestration_json(
     claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
     claude_transport_resolved: str | None = None,
     codex_reasoning_effort: str | None = None,
+    codex_auth_mode: str = "cached",
 ) -> None:
     """Write the orchestration.json artifact with canonical key order."""
     if source not in {"default", "overridden"}:
@@ -498,8 +505,10 @@ def write_orchestration_json(
         )
     if codex_reasoning_effort is not None:
         validate_codex_reasoning_effort(codex_reasoning_effort)
+    validate_codex_auth_mode(codex_auth_mode)
     payload = {
         "version": ORCHESTRATION_VERSION,
+        "codex_auth_mode": codex_auth_mode,
         "models": {role: models.get(role) for role in CANONICAL_ROLES},
         "claude_role_transport": claude_role_transport,
         "claude_transport_resolved": claude_transport_resolved,
@@ -532,6 +541,7 @@ def write_default_from_allowlist(
     claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
     claude_transport_resolved: str | None = None,
     codex_reasoning_effort: str | None = None,
+    codex_auth_mode: str = "cached",
 ) -> None:
     """Default-path writer: copy allowlist models into orchestration.json.
 
@@ -559,6 +569,7 @@ def write_default_from_allowlist(
         claude_role_transport=claude_role_transport,
         claude_transport_resolved=claude_transport_resolved,
         codex_reasoning_effort=codex_reasoning_effort,
+        codex_auth_mode=codex_auth_mode,
     )
 
 
@@ -587,6 +598,7 @@ def migrate_from_snapshot(
             return False
         if "codex_reasoning_effort" in existing:
             validate_codex_reasoning_effort(existing["codex_reasoning_effort"])
+        validate_codex_auth_mode(existing.get("codex_auth_mode", "cached"))
         merged_models, backfilled = _backfill_legacy_compatible_roles(existing_models)
         # Transport keys were introduced after early quests; backfill in place
         # (same legacy-compat contract as newly-introduced roles).
@@ -655,6 +667,7 @@ def migrate_from_snapshot(
         orch_path,
         models=build_snapshot_models(models),
         codex_reasoning_effort=snapshot.get("codex_reasoning_effort"),
+        codex_auth_mode=snapshot.get("codex_auth_mode", "cached"),
         source="default",
         overridden_roles=[],
         preflight_validated_at=preflight_validated_at,

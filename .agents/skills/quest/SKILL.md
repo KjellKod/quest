@@ -5,6 +5,6 @@ description: Multi-agent quest orchestration. Plans, reviews, builds, and fixes 
 
 ## Codex Runtime Policy
 
-Codex-led Codex roles use local Codex subagents and never use Codex MCP. The canonical dispatch matrix (runtime + entrypoint per orchestrator) is `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection); this wrapper intentionally does not restate it.
+Codex-led Codex roles use local Codex subagents and never use Codex MCP or nested `codex exec`. The canonical dispatch matrix (runtime + entrypoint per orchestrator) is `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection); this wrapper intentionally does not restate it.
 
 Read and follow the instructions in `.skills/quest/SKILL.md`.

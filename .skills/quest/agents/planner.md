@@ -4,7 +4,7 @@
 Creates and refines implementation plans from quest briefs. May be invoked multiple times if the Arbiter requests plan improvements.
 
 ## Tool
-Runtime is derived from `models.planner` in `.quest/<id>/orchestration.json`; the entrypoint (local Codex subagent, Codex MCP, native `Task(...)`, or the bridge runner) follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection). That matrix is the single source of truth — do not restate or override it here.
+Runtime is derived from `models.planner` in `.quest/<id>/orchestration.json`; the entrypoint (local Codex subagent, Quest Codex CLI runner, native `Task(...)`, or the bridge runner) follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection). That matrix is the single source of truth — do not restate or override it here.
 
 When running on Codex, this role is non-interactive:
 - Do not ask questions.
