@@ -298,24 +298,37 @@ try:
     if mode not in ("cached", "api-key"):
         raise ValueError("Invalid codex_auth_mode (expected cached or api-key)")
 except (OSError, ValueError) as exc:
-    print(str(exc), file=sys.stderr)
-    raise SystemExit(2)
+    print(json.dumps({"available": False, "inference_verified": False,
+        "orchestrator": "claude", "second_model": "codex", "checks": {
+            "codex_cli_installed": shutil.which("codex") is not None,
+            "codex_exec_supported": False, "codex_runner_available": False,
+            "codex_auth_ready": False, "codex_auth_kind": "unknown",
+            "codex_auth_reason": "invalid_configuration"},
+        "warning": ["Invalid allowlist configuration. Check JSON and codex_auth_mode (cached or api-key)."]}))
+    raise SystemExit(0)
+diagnostic = "Codex runner probe failed. Check the installed helper and Python runtime."
 try:
     result = subprocess.run(
         [sys.executable, str(Path(script_dir) / "quest_codex_runner.py"),
          "probe", "--cwd", os.getcwd(), "--auth", mode],
         capture_output=True, text=True, timeout=30, check=False,
     )
-    payload = json.loads(result.stdout)
-    if result.returncode or not isinstance(payload.get("checks"), dict):
+    if result.returncode:
+        diagnostic = f"Codex runner probe exited with exit {result.returncode}. Check the installed helper and Python runtime."
         raise ValueError("runner probe failed")
-except (OSError, ValueError, subprocess.TimeoutExpired):
+    diagnostic = "Codex runner probe returned invalid JSON output. Check the installed helper version."
+    payload = json.loads(result.stdout)
+    if not isinstance(payload, dict) or not isinstance(payload.get("checks"), dict):
+        raise ValueError("runner probe failed")
+except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+    if isinstance(exc, subprocess.TimeoutExpired):
+        diagnostic = "Codex runner probe timed out after 30 seconds. Check CLI setup and retry the selected auth mode."
     payload = {"available": False, "inference_verified": False, "checks": {
         "codex_cli_installed": shutil.which("codex") is not None, "codex_exec_supported": False,
         "codex_runner_available": False, "codex_auth_mode": mode,
         "codex_auth_ready": False, "codex_auth_kind": "unknown",
-        "codex_auth_reason": "not_checked"},
-        "warning": ["Codex runner unavailable. Reinstall Quest and rerun preflight."]}
+        "codex_auth_reason": "probe_failed"},
+        "warning": [diagnostic]}
 payload["orchestrator"] = "claude"
 payload["second_model"] = "codex"
 payload["warning"] = payload.pop("warnings", payload.get("warning")) or None

@@ -52,7 +52,7 @@ Run the preflight script from the installation root, or invoke it by absolute in
 
 The script is under the **installation root** (`scripts/quest_preflight.sh`), NOT inside the skill directory. Target cwd remains the intended workspace.
 
-1. Parse the JSON output. Cache `available` as a boolean for the session. For Claude-led probes, retain the resolved `checks.codex_auth_mode` for Step 3, together with these exact checks: `codex_cli_installed`, `codex_exec_supported`, `codex_runner_available`, `codex_auth_mode`, `codex_auth_ready`, `codex_auth_kind`, `codex_auth_reason`. `available` requires CLI, exec, helper and selected-auth readiness; `inference_verified: false` means no model call was made. API-key readiness does not prove key validity. MCP registration does not contribute to readiness.
+1. Parse the JSON output. Cache `available` as a boolean for the session. For Claude-led probes, retain the resolved `checks.codex_auth_mode` through routing for the per-quest orchestration chooser (Quest Folder Creation, step 8.5), together with these exact checks: `codex_cli_installed`, `codex_exec_supported`, `codex_runner_available`, `codex_auth_mode`, `codex_auth_ready`, `codex_auth_kind`, `codex_auth_reason`. `available` requires CLI, exec, helper and selected-auth readiness; `inference_verified: false` means no model call was made. API-key readiness does not prove key validity. MCP registration does not contribute to readiness.
 2. If `available` is false:
    - Display **every line** of the `warning` array from the JSON output as a blockquote before route options. The array contains the heading, setup commands, and instructions — show them all.
    - Then pause quest startup and offer these choices:

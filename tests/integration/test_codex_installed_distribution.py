@@ -262,3 +262,85 @@ def test_actual_installer_upgrade_preserves_custom_opencode_and_global_config(
         == "allow"
     )
     assert global_config.read_bytes() == global_before
+
+
+@pytest.mark.parametrize("config", ["{", '{"codex_auth_mode":"typo"}'])
+def test_invalid_auth_configuration_returns_parseable_unavailable(tmp_path, config):
+    allowlist = tmp_path / "allowlist.json"
+    allowlist.write_text(config)
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts/quest_preflight.sh"), "--orchestrator", "claude"],
+        cwd=tmp_path,
+        env={**os.environ, "QUEST_ALLOWLIST_FILE": str(allowlist)},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["available"] is False
+    assert payload["checks"]["codex_auth_reason"] == "invalid_configuration"
+    assert "allowlist" in " ".join(payload["warning"]).lower()
+
+
+def test_optional_legacy_scan_without_python_does_not_abort(tmp_path):
+    source = (
+        (ROOT / "scripts/quest_installer.sh")
+        .read_text()
+        .split("# Store original args for re-exec after self-update")[0]
+    )
+    script = tmp_path / "installer-functions.sh"
+    script.write_text(
+        source
+        + "\nSCAN_PATH=$PATH\nPATH=/nonexistent\nreport_legacy_codex_config\nPATH=$SCAN_PATH\necho SCAN_COMPLETED\n"
+    )
+    result = subprocess.run(
+        ["bash", str(script)], cwd=tmp_path, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert "SCAN_COMPLETED" in result.stdout
+
+
+def test_unrelated_opencode_mcp_does_not_trigger_codex_migration_warning(tmp_path):
+    config = tmp_path / ".opencode/opencode.json"
+    config.parent.mkdir()
+    config.write_text(
+        json.dumps({"mcp": {"other": {"command": ["other", "mcp-server"]}}})
+    )
+    source = (
+        (ROOT / "scripts/quest_installer.sh")
+        .read_text()
+        .split("# Store original args for re-exec after self-update")[0]
+    )
+    script = tmp_path / "installer-functions.sh"
+    script.write_text(source + "\nreport_legacy_codex_config\n")
+    result = subprocess.run(
+        ["bash", str(script)],
+        cwd=tmp_path,
+        env={**os.environ, "HOME": str(tmp_path)},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "manually remove only mcp.codex" not in result.stdout
+
+
+def test_runner_probe_crash_has_sanitized_actionable_diagnostic(tmp_path):
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    shutil.copy2(ROOT / "scripts/quest_preflight.sh", scripts / "quest_preflight.sh")
+    (scripts / "quest_codex_runner.py").write_text(
+        "import sys\nsys.stderr.write('private-credential-do-not-log')\nsys.exit(3)\n"
+    )
+    result = subprocess.run(
+        ["bash", str(scripts / "quest_preflight.sh"), "--orchestrator", "claude"],
+        cwd=tmp_path,
+        env={**os.environ, "QUEST_ALLOWLIST_FILE": str(tmp_path / "absent")},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["available"] is False
+    assert payload["checks"]["codex_auth_reason"] == "probe_failed"
+    assert "exit 3" in " ".join(payload["warning"])
+    assert "private-credential" not in result.stdout + result.stderr

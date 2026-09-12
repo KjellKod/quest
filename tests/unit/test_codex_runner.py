@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import runpy
 import subprocess
 import sys
 import time
@@ -62,6 +63,7 @@ else:
     print(json.dumps({"type":"thread.started", "thread_id":"fixture-thread"}))
     print(json.dumps({"type":"turn.completed", "usage":{"input_tokens":1,"output_tokens":1}}))
     if mode != "empty_final": pathlib.Path(a[a.index("-o")+1]).write_text("done\n")
+    if mode == "receipt_denied": (pathlib.Path(a[a.index("-o")+1]).parent / "receipt.json").mkdir()
     if os.environ.get("ROLE_OUTPUTS") and mode != "missing":
         for name, text in json.loads(os.environ["ROLE_OUTPUTS"]).items():
             pathlib.Path(name).write_text(text)
@@ -476,18 +478,30 @@ def test_saved_api_identity_and_openai_key_mapping_are_explicit(cli, monkeypatch
     assert capture["key"] == "openai-boundary-key" and capture["openai_key"] is None
 
 
+def cleanup_fixture_process_group(cli):
+    capture = cli / "CAPTURE"
+    if capture.exists():
+        try:
+            os.killpg(json.loads(capture.read_text())["pid"], signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
 def test_term_resistant_parent_and_child_are_killed_and_reaped(cli, monkeypatch):
     monkeypatch.setenv("MODE", "ignore_term")
-    result = task(cli, "--timeout", "0.3")
-    assert result["result_kind"] == "timeout" and result["cleanup"] == "complete"
-    parent = json.loads((cli / "CAPTURE").read_text())["pid"]
-    child = int((cli / "CHILD").read_text())
-    for pid in (parent, child):
-        check = subprocess.run(
-            ["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True
-        )
-        assert not check.stdout.strip() or check.stdout.strip().startswith("Z")
-    assert result["retry_eligible"] is False
+    try:
+        result = task(cli, "--timeout", "0.3")
+        assert result["result_kind"] == "timeout" and result["cleanup"] == "complete"
+        parent = json.loads((cli / "CAPTURE").read_text())["pid"]
+        child = int((cli / "CHILD").read_text())
+        for pid in (parent, child):
+            check = subprocess.run(
+                ["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True
+            )
+            assert not check.stdout.strip() or check.stdout.strip().startswith("Z")
+        assert result["retry_eligible"] is False
+    finally:
+        cleanup_fixture_process_group(cli)
 
 
 def test_unverifiable_cleanup_blocks_retry(cli, monkeypatch):
@@ -497,16 +511,21 @@ def test_unverifiable_cleanup_blocks_retry(cli, monkeypatch):
     ps.write_text("#!" + sys.executable + "\nimport sys; sys.exit(1)\n")
     ps.chmod(0o755)
     monkeypatch.setenv("MODE", "ignore_term")
-    result = task(cli, "--timeout", "0.3")
-    assert result["result_kind"] == "teardown_failed"
-    assert result["cleanup"] == "failed" and result["retry_eligible"] is False
-    parent = json.loads((cli / "CAPTURE").read_text())["pid"]
-    child = int((cli / "CHILD").read_text())
-    for pid in (parent, child):
-        check = subprocess.run(
-            ["/bin/ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True
-        )
-        assert not check.stdout.strip() or check.stdout.strip().startswith("Z")
+    try:
+        result = task(cli, "--timeout", "0.3")
+        assert result["result_kind"] == "teardown_failed"
+        assert result["cleanup"] == "failed" and result["retry_eligible"] is False
+        parent = json.loads((cli / "CAPTURE").read_text())["pid"]
+        child = int((cli / "CHILD").read_text())
+        for pid in (parent, child):
+            check = subprocess.run(
+                ["/bin/ps", "-o", "stat=", "-p", str(pid)],
+                capture_output=True,
+                text=True,
+            )
+            assert not check.stdout.strip() or check.stdout.strip().startswith("Z")
+    finally:
+        cleanup_fixture_process_group(cli)
 
 
 def test_auth_mode_selects_only_requested_credentials(cli, monkeypatch):
@@ -634,6 +653,133 @@ def test_recovered_stderr_does_not_reject_valid_role(cli, monkeypatch):
     result = run_role(cli, quest)
     assert result["result_kind"] == "complete"
     assert result["exit_code"] == 0
+
+
+@pytest.mark.parametrize("timeout", ["invalid", "nan", "inf", "-inf", "0", "-1"])
+def test_invalid_login_timeout_returns_structured_probe_failure(
+    cli, monkeypatch, timeout
+):
+    monkeypatch.setenv("QUEST_CODEX_LOGIN_TIMEOUT_SECONDS", timeout)
+    result = invoke(cli, "probe")
+    assert result["available"] is False
+    assert "finite positive" in " ".join(result["warnings"])
+    assert not (cli / "CALLS").exists()
+
+
+@pytest.mark.parametrize("timeout", ["nan", "inf", "-inf", "0"])
+@pytest.mark.parametrize("operation", ["task", "role"])
+def test_invalid_execution_timeout_blocks_dispatch(
+    cli, monkeypatch, timeout, operation
+):
+    if operation == "task":
+        result = task(cli, "--timeout=" + timeout)
+    else:
+        quest, _, _ = role_fixture(cli, monkeypatch)
+        result = run_role(cli, quest, "builder", "building", "--timeout=" + timeout)
+    assert result["result_kind"] == "precondition_failed"
+    assert not (cli / "CAPTURE").exists()
+
+
+@pytest.mark.parametrize("operation", ["task", "role"])
+def test_receipt_write_failure_retains_execution_metadata(cli, monkeypatch, operation):
+    monkeypatch.setenv("MODE", "receipt_denied")
+    if operation == "task":
+        monkeypatch.setenv("CODEX_API_KEY", "fixture-key")
+        result = task(
+            cli, "--auth", "api-key", "--model", "gpt-saved", "--effort", "high"
+        )
+    else:
+        quest, _, _ = role_fixture(cli, monkeypatch)
+        result = run_role(cli, quest)
+    assert result["result_kind"] == "invocation_error"
+    assert result["auth_mode"] == "api-key"
+    assert result["auth_kind"] == "api-key"
+    assert result["requested_model"] == "gpt-saved"
+    assert result["requested_effort"] == "high"
+    assert result["effective_model"] is None
+    assert result["cleanup"] == "complete"
+    assert result["session_id"] == "fixture-thread"
+    assert result["attempt_dir"]
+    assert "receipt" in result["message"].lower()
+    assert "prompt" not in result["message"].lower()
+    assert result["exit_code"] == 1 and result["retry_eligible"] is False
+
+
+def test_wrapper_runtime_error_preserves_selected_task_settings(
+    cli, monkeypatch, capsys
+):
+    main = runpy.run_path(str(RUNNER))["main"]
+    prompt = cli / "prompt.txt"
+    prompt.write_text("already loaded")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            str(RUNNER),
+            "task",
+            "--auth",
+            "api-key",
+            "--model",
+            "gpt-saved",
+            "--effort",
+            "high",
+            "--prompt-file",
+            str(prompt),
+            "--output-dir",
+            str(cli / "out"),
+        ],
+    )
+
+    def fail(**kwargs):
+        raise OSError("private error detail")
+
+    monkeypatch.setitem(main.__globals__, "run_codex", fail)
+    assert main() == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["result_kind"] == "invocation_error"
+    assert result["auth_mode"] == "api-key"
+    assert result["requested_model"] == "gpt-saved"
+    assert result["requested_effort"] == "high"
+    assert "prompt" not in result["message"].lower()
+    assert "private error" not in result["message"]
+
+
+def test_whitespace_model_rejected_without_dispatch(cli):
+    result = task(cli, "--model", " gpt-saved ")
+    assert result["result_kind"] == "precondition_failed"
+    assert not (cli / "CAPTURE").exists()
+
+
+def test_role_log_write_failure_retains_execution_metadata(cli, monkeypatch):
+    from quest_runtime.codex_runner import run_codex_role
+
+    quest, _, _ = role_fixture(cli, monkeypatch)
+    original_open = Path.open
+
+    def fail_log_open(path, *args, **kwargs):
+        if path.name == "context_health.log":
+            raise PermissionError("private log detail")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", fail_log_open)
+    result = run_codex_role(
+        cwd=cli,
+        quest_dir=quest,
+        phase="building",
+        agent="builder",
+        iteration=1,
+        prompt="hello",
+        allow_non_git=True,
+    )
+    assert result.result_kind == "invocation_error"
+    assert result.auth_mode == "api-key" and result.auth_kind == "api-key"
+    assert result.requested_model == "gpt-saved"
+    assert result.requested_effort == "high"
+    assert result.session_id == "fixture-thread"
+    assert result.cleanup == "complete" and result.attempt_dir
+    assert result.exit_code == 1 and result.retry_eligible is False
+    assert "private log detail" not in result.message
+    assert "log" in result.message.lower()
 
 
 @pytest.mark.parametrize(

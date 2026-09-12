@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -102,6 +103,18 @@ class CodexResult:
 def _bounded_cli(
     executable: str, args: list[str], cwd: Path, env: dict[str, str]
 ) -> subprocess.CompletedProcess[str]:
+    timeout = 10.0
+    if args == ["login", "status"]:
+        try:
+            timeout = float(env.get("QUEST_CODEX_LOGIN_TIMEOUT_SECONDS", "10"))
+        except ValueError as exc:
+            raise CodexError(
+                "precondition_failed", "Login timeout must be a finite positive number."
+            ) from exc
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise CodexError(
+                "precondition_failed", "Login timeout must be a finite positive number."
+            )
     try:
         return subprocess.run(
             [executable, *args],
@@ -110,11 +123,7 @@ def _bounded_cli(
             stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
-            timeout=(
-                max(0.1, float(env.get("QUEST_CODEX_LOGIN_TIMEOUT_SECONDS", "10")))
-                if args == ["login", "status"]
-                else 10
-            ),
+            timeout=timeout,
         )
     except subprocess.TimeoutExpired as exc:
         raise CodexError(
@@ -454,6 +463,20 @@ def validate_codex_result(
     return "complete", session_id
 
 
+def _write_receipt(result: CodexResult) -> None:
+    if result.attempt_dir:
+        try:
+            (Path(result.attempt_dir) / "receipt.json").write_text(
+                json.dumps(result.payload(), indent=2) + "\n", encoding="utf-8"
+            )
+        except (OSError, UnicodeError):
+            if result.result_kind == "complete":
+                result.result_kind = "invocation_error"
+            result.exit_code = 1
+            result.retry_eligible = False
+            result.message = "Cannot write Codex attempt receipt; execution may already have occurred."
+
+
 def run_codex(
     *,
     cwd: str | Path,
@@ -477,17 +500,24 @@ def run_codex(
     )
     try:
         root = Path(cwd).resolve()
-        if os.name != "posix" or not root.is_dir() or timeout <= 0:
+        if (
+            os.name != "posix"
+            or not root.is_dir()
+            or not math.isfinite(timeout)
+            or timeout <= 0
+        ):
             raise CodexError(
                 "precondition_failed",
-                "Requires POSIX, an existing cwd and a positive timeout.",
+                "Requires POSIX, an existing cwd and a finite positive timeout.",
             )
         if sandbox not in {"read-only", "workspace-write", "danger-full-access"}:
             raise CodexError("precondition_failed", "Invalid sandbox selection.")
         if not re.fullmatch(r"[a-z][a-z0-9-]*", agent) or iteration < 1:
             raise CodexError("precondition_failed", "Invalid agent or iteration.")
         if model is not None and (
-            not model.strip() or runtime_for_model(model) != "codex"
+            not model.strip()
+            or model != model.strip()
+            or runtime_for_model(model) != "codex"
         ):
             raise CodexError(
                 "precondition_failed", "The selected model is not a Codex model."
@@ -615,15 +645,17 @@ def run_codex(
         result.result_kind, result.message = exc.kind, str(exc)
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         # Filesystem/config errors may contain credential-bearing content; expose category only.
+        result.result_kind = (
+            "invocation_error" if result.attempt_dir else "precondition_failed"
+        )
+        result.exit_code = 1
+        result.retry_eligible = False
         result.message = (
             "Codex setup/output error: "
             + type(exc).__name__
             + ". Check paths and selected settings."
         )
-    if result.attempt_dir:
-        (Path(result.attempt_dir) / "receipt.json").write_text(
-            json.dumps(result.payload(), indent=2) + "\n", encoding="utf-8"
-        )
+    _write_receipt(result)
     return result
 
 
@@ -706,6 +738,7 @@ def run_codex_role(
     artifact_subset: str | None = None,
 ) -> CodexResult:
     root, quest = Path(cwd).resolve(), Path(quest_dir).resolve()
+    result: CodexResult | None = None
     try:
         saved = json.loads((quest / "orchestration.json").read_text(encoding="utf-8"))
         model = saved["models"][agent]
@@ -776,10 +809,7 @@ def run_codex_role(
             ),
             runtime="codex",
         )
-        if result.attempt_dir:
-            (Path(result.attempt_dir) / "receipt.json").write_text(
-                json.dumps(result.payload(), indent=2) + "\n", encoding="utf-8"
-            )
+        _write_receipt(result)
         return result
     except (
         ValueError,
@@ -790,6 +820,16 @@ def run_codex_role(
         PlanIterationError,
         CodexError,
     ):
+        if result is not None:
+            if result.result_kind == "complete":
+                result.result_kind = "invocation_error"
+            result.exit_code = 1
+            result.retry_eligible = False
+            result.message = (
+                "Codex role output/log error; execution may already have occurred."
+            )
+            _write_receipt(result)
+            return result
         return CodexResult(
             "precondition_failed",
             message="Saved role settings, phase or planner lifecycle precondition failed; no fallback dispatched.",

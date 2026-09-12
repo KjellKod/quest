@@ -54,7 +54,7 @@ OpenCode is the actual host even when its provider model is named GPT or Claude.
 All subagents invoked via Task tool MUST operate non-interactively:
 - Subagents do NOT ask questions back to the user
 - If a subagent cannot proceed, it returns `STATUS: blocked` with a reason
-- Failures block without automatic runtime, model or billing changes; only malformed or missing artifacts permit one same-settings retry after clean teardown
+- Apply the selected runtime's failure policy in the canonical workflow. Codex permits one same-settings retry only for malformed or missing artifacts after clean teardown; runner-invoked Claude also permits its documented timeout retry. Never change runtime, model or billing automatically.
 - Treat any subagent question as a workflow defect
 
 ## Runtime Telemetry

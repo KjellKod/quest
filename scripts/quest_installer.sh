@@ -1844,6 +1844,10 @@ offer_codex_setup() {
 }
 
 report_legacy_codex_config() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    log_warn "Legacy Codex scan skipped: install Python 3 before running Quest."
+    return 0
+  fi
   # Read only known registration locations; never emit env/header values.
   python3 - <<'PYCODEX'
 import json
@@ -1865,10 +1869,15 @@ for path, scope in paths:
                 and server.get("args") == ["mcp-server"]):
             print(f"Legacy Quest registration in {path}. After reviewing that entry, remove only it: claude mcp remove --scope {scope} codex-cli")
             print("Existing global permissions were preserved. Review the obsolete mcp__codex-cli__* permission manually.")
+try:
+    data = json.loads(Path(".opencode/opencode.json").read_text())
+except (OSError, ValueError):
+    data = {}
+servers = data.get("mcp", {}) if isinstance(data, dict) else {}
+server = servers.get("codex", {}) if isinstance(servers, dict) else {}
+if isinstance(server, dict) and server.get("command") == ["npx", "-y", "codex", "mcp-server"]:
+    print("Preserved OpenCode config: manually remove only mcp.codex with command [npx,-y,codex,mcp-server]. Keep unrelated MCP tools and native task permissions.")
 PYCODEX
-  if [ -f .opencode/opencode.json ] && grep -q 'mcp-server' .opencode/opencode.json; then
-    log_warn "Preserved OpenCode config: manually remove only mcp.codex if its command is [npx,-y,codex,mcp-server]. Keep unrelated MCP tools and native task permissions."
-  fi
 }
 
 ###############################################################################

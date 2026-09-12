@@ -305,7 +305,7 @@ Runtime attribution rule (authoritative):
 2026-02-15T00:12:00Z | phase=plan | agent=planner | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=needs_human | transport=background-agent
 2026-02-15T00:13:30Z | phase=plan | agent=planner | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
 2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
-2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-b | runtime=codex | iter=1 | handoff_json=missing | source=text_fallback | status=complete | model=<effective-model-id> | effort=runtime-default
+2026-02-15T00:15:00Z | phase=plan_review | agent=plan-reviewer-b | runtime=codex | iter=1 | handoff_json=missing | source=text_fallback | status=complete | model=<effective-model-id> | effort=unknown
 2026-02-15T00:18:00Z | phase=plan_review | agent=arbiter | runtime=claude | iter=1 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
 2026-02-15T00:25:00Z | phase=plan | agent=planner | runtime=claude | iter=2 | handoff_json=found | source=handoff_json | status=complete | transport=background-agent
 2026-02-15T00:28:00Z | phase=plan_review | agent=plan-reviewer-a | runtime=claude | iter=2 | handoff_json=found | source=handoff_json | status=complete | transport=bridge

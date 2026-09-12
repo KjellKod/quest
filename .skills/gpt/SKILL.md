@@ -21,10 +21,10 @@ Run a no-inference setup probe using the installed helper:
 
 ```bash
 python3 "<installation-root>/scripts/quest_codex_runner.py" probe \
-  --cwd "<target-workspace>" --auth cached
+  --cwd "<target-workspace>" --auth "<resolved-auth-mode>"
 ```
 
-Use `--auth api-key` only when that mode was explicitly selected. Setup readiness does not prove successful inference or model availability.
+Use the same resolved auth mode for probe and task execution; `api-key` requires explicit selection. Setup readiness does not prove successful inference or model availability.
 
 ## Step 1: Resolve and disclose settings
 
@@ -39,7 +39,7 @@ Write a UTF-8 prompt file with the host's file-writing tool. Include the task, a
 ```bash
 python3 "<installation-root>/scripts/quest_codex_runner.py" task \
   --cwd "<target-workspace>" --prompt-file "<absolute-prompt-file>" \
-  --output-dir "<absolute-output-directory>" --auth cached \
+  --output-dir "<absolute-output-directory>" --auth "<resolved-auth-mode>" \
   --model "<resolved-model>" --effort "<resolved-effort>" \
   --sandbox workspace-write --timeout 1800
 ```

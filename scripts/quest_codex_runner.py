@@ -53,12 +53,21 @@ def main() -> int:
         payload = probe_codex(args.cwd, args.auth)
         print(json.dumps(payload))
         return 0
+    result = CodexResult(
+        "precondition_failed",
+        auth_mode=args.auth if args.operation == "task" else "unknown",
+        requested_model=args.model if args.operation == "task" else None,
+        requested_effort=args.effort if args.operation == "task" else None,
+    )
     try:
         prompt = (
             sys.stdin.read()
             if args.prompt_file in (None, "-")
             else Path(args.prompt_file).read_text(encoding="utf-8")
         )
+    except (OSError, UnicodeError):
+        result.message = "Cannot read UTF-8 prompt input."
+    else:
         shared = dict(
             cwd=args.cwd,
             output_dir=args.output_dir,
@@ -67,23 +76,25 @@ def main() -> int:
             timeout=args.timeout,
             allow_non_git=args.allow_non_git,
         )
-        if args.operation == "role":
-            result = run_codex_role(
-                **shared,
-                quest_dir=args.quest_dir,
-                phase=args.phase,
-                agent=args.agent,
-                iteration=args.iter,
-                artifact_subset=args.artifact_subset,
+        try:
+            if args.operation == "role":
+                result = run_codex_role(
+                    **shared,
+                    quest_dir=args.quest_dir,
+                    phase=args.phase,
+                    agent=args.agent,
+                    iteration=args.iter,
+                    artifact_subset=args.artifact_subset,
+                )
+            else:
+                result = run_codex(
+                    **shared, auth=args.auth, model=args.model, effort=args.effort
+                )
+        except (OSError, UnicodeError):
+            result.result_kind = "invocation_error"
+            result.message = (
+                "Codex runtime/output error; execution may already have occurred."
             )
-        else:
-            result = run_codex(
-                **shared, auth=args.auth, model=args.model, effort=args.effort
-            )
-    except (OSError, UnicodeError):
-        result = CodexResult(
-            "precondition_failed", message="Cannot read UTF-8 prompt input."
-        )
     print(json.dumps(result.payload()))
     return result.exit_code
 
