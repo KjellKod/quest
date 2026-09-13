@@ -1,0 +1,23 @@
+tests/unit/test_codex_runner.py
+  s_ab94ac4ab142cc::t_6e61cf8f88a48f 219-254
+scripts/quest_runtime/codex_runner.py
+  s_ab94ac4ab142cc::t_e682452f576413 515
+.skills/quest/delegation/workflow.md
+  s_ab94ac4ab142cc::t_e682452f576413 293
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ddf94260f2671adfa8e4ec556b275a5939538ad7",
+  "prompts": {},
+  "sessions": {
+    "s_ab94ac4ab142cc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09641-0b17-73e1-abaa-266b81b43d7b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
