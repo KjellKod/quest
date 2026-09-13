@@ -216,6 +216,42 @@ def test_role_requires_current_valid_outputs(cli, monkeypatch):
     assert run_role(cli, quest)["result_kind"] == "blocked"
 
 
+@pytest.mark.parametrize("agent", ["code-reviewer-a", "code-reviewer-b"])
+def test_initial_reviewer_iteration_zero_validates_fresh_outputs_and_logs(
+    cli, monkeypatch, agent
+):
+    quest, paths, outputs = role_fixture(cli, monkeypatch, agent, "code_review")
+    state = json.loads((quest / "state.json").read_text())
+    state["fix_iteration"] = 0
+    (quest / "state.json").write_text(json.dumps(state))
+    for path in paths:
+        path.parent.mkdir(exist_ok=True)
+        path.write_text("stale output")
+    result = run_role(cli, quest, agent, "code_review", "--iter", "0")
+    assert result["result_kind"] == "complete"
+    assert result["exit_code"] == 0 and result["cleanup"] == "complete"
+    assert all(path.read_text() == outputs[str(path)] for path in paths)
+    attempt = Path(result["attempt_dir"])
+    assert attempt.parent.name == "iter-0"
+    receipt = json.loads((attempt / "receipt.json").read_text())
+    assert receipt["result_kind"] == "complete"
+    assert receipt["attempt_dir"] == str(attempt)
+    assert " | iter=0 | " in (quest / "logs/context_health.log").read_text()
+    monkeypatch.setenv("MODE", "missing")
+    failed = run_role(cli, quest, agent, "code_review", "--iter", "0")
+    assert failed["result_kind"] == "artifact_missing"
+    assert failed["attempt_dir"] != result["attempt_dir"]
+    assert all(path.read_text() == "" for path in paths)
+
+
+def test_negative_reviewer_iteration_rejected_before_dispatch(cli, monkeypatch):
+    quest, _, _ = role_fixture(cli, monkeypatch, "code-reviewer-a", "code_review")
+    result = run_role(cli, quest, "code-reviewer-a", "code_review", "--iter=-1")
+    assert result["result_kind"] == "precondition_failed"
+    assert result["exit_code"] == 1
+    assert not (cli / "CAPTURE").exists()
+
+
 def test_planner_predecessor_prevents_truncation_and_dispatch(cli, monkeypatch):
     quest, paths, outputs = role_fixture(cli, monkeypatch, "planner", "plan")
     for path in paths:

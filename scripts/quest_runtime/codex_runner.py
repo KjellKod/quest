@@ -512,7 +512,7 @@ def run_codex(
             )
         if sandbox not in {"read-only", "workspace-write", "danger-full-access"}:
             raise CodexError("precondition_failed", "Invalid sandbox selection.")
-        if not re.fullmatch(r"[a-z][a-z0-9-]*", agent) or iteration < 1:
+        if not re.fullmatch(r"[a-z][a-z0-9-]*", agent) or iteration < 0:
             raise CodexError("precondition_failed", "Invalid agent or iteration.")
         if model is not None and (
             not model.strip()

@@ -290,7 +290,7 @@ Findings-compliance vocabulary:
 
 Omit the `findings=` field for non-reviewer agents; it has no meaning for them.
 
-Use `plan_iteration` for plan/plan_review phases, `fix_iteration` for code_review/fix phases, and `1` for build (single pass).
+Use `plan_iteration` for plan/plan_review phases, `fix_iteration` for code_review/fix phases, and `1` for build (single pass). The initial code review uses `fix_iteration=0`; pass `--iter 0` without incrementing or substituting `1`.
 Set `runtime` to the runtime actually used for that invocation (`claude` or `codex`).
 Never infer runtime from the agent label/name (for example `plan-reviewer-a`); labels are role identifiers, not backend evidence.
 
