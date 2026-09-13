@@ -131,7 +131,7 @@ See `.ai/allowlist.json` for the current role models and Codex reasoning effort.
 
 Edit model policy in `.ai/allowlist.json`. In the Quest source repository, run `python3 scripts/quest_sync_model_defaults.py` after changing `models` or `codex_fallback_model`; this generates the compatibility `DEFAULT_MODELS` block in `scripts/quest_runtime/orchestration.py` and the static OpenCode role assignments. CI checks for drift. Do not hand-edit these generated model assignments. Installed projects may customize their allowlist independently; shipped fallbacks still fill omitted roles.
 
-At startup, Quest expands the allowlist, applies per-quest overrides, and saves models and `codex_reasoning_effort` in `.quest/<id>/orchestration.json`. That file is the effective source of truth for that quest, so changing the allowlist does not rewrite an in-flight run.
+At startup, Quest expands the allowlist, applies per-quest overrides, and saves models, `codex_reasoning_effort` and the selected `codex_auth_mode` in `.quest/<id>/orchestration.json`. That file is the effective source of truth for that quest, so changing the allowlist does not rewrite an in-flight run.
 
 Choose **Customize for this quest only** at startup to change one or more roles without editing repo defaults. The chooser accepts either format:
 
@@ -152,7 +152,9 @@ A direct JSON role map and a copied `"models": {...}` fragment are accepted too.
 
 Model IDs select the runtime family: `claude` and `claude-*` use Claude; `gemini` and `gemini-*` use Antigravity; other IDs use Codex. Replace the example placeholders above with model IDs supported by your account. Runtime preflight does not prove access to every concrete model.
 
-Claude-led Codex dispatch passes the saved model and effort through MCP. Codex-led dispatch passes them to local subagents using the controls exposed by the session. If explicit selection is unavailable, inheritance is acceptable only when the parent settings match; otherwise stop with the mismatch instead of silently using a different model. See the canonical [dispatch contract](.skills/quest/delegation/workflow.md#runtime-and-entrypoint-selection-run-once-per-session).
+Claude-led Codex dispatch uses `scripts/quest_codex_runner.py`, which reads the saved model, effort and authentication mode. Codex-led dispatch passes them to local subagents using the controls exposed by the session. If explicit selection is unavailable, inheritance is acceptable only when the parent settings match; otherwise stop with the mismatch instead of silently using a different model. See the canonical [dispatch contract](.skills/quest/delegation/workflow.md#runtime-and-entrypoint-selection-run-once-per-session).
+
+`codex_auth_mode` defaults to `cached`, with ChatGPT login preferred. Explicit `api-key` mode uses an existing environment key without requiring cached login. Auth readiness is checked before the chooser and saved for resume; failures never silently switch billing.
 
 `codex_fallback_model` supplies standalone `/gpt` defaults and the generated compatibility fallback for explicitly approved single-runtime continuation.
 
@@ -205,7 +207,7 @@ Read the [full philosophy](docs/guides/philosophy.md).
 
 ## Documentation
 
-- **[Setup Guide](docs/guides/quest_setup.md)**, prerequisites, Codex MCP, allowlist customization, one-time background-agent transport setup (subscription vs API billing)
+- **[Setup Guide](docs/guides/quest_setup.md)**, prerequisites, Codex CLI authentication, allowlist customization, one-time background-agent transport setup (subscription vs API billing)
 - **[Quest Presentation](docs/guides/quest_presentation.md)**, how it works with diagrams
 - **[Input Routing Guide](docs/guides/quest_input_routing.md)**, complexity/risk evaluation and solo vs full workflow
 - **[Philosophy](docs/guides/philosophy.md)**, the full manifesto

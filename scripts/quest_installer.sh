@@ -1824,149 +1824,60 @@ check_self_update() {
 }
 
 ###############################################################################
-# Codex MCP Setup (Optional Second Model)
+# Codex CLI Setup (Optional Second Model)
 ###############################################################################
 
-# Ensure mcp__codex-cli__* is in the Claude Code user-level permissions allow list.
-# Without this, Claude Code prompts for approval on every Codex MCP tool call.
-ensure_codex_permission() {
-  local settings_file="$HOME/.claude/settings.json"
-  local perm_pattern="mcp__codex-cli__"
-
-  # If settings file doesn't exist, create minimal structure
-  if [ ! -f "$settings_file" ]; then
-    mkdir -p "$HOME/.claude"
-    cat > "$settings_file" <<'SETTINGS'
-{
-  "permissions": {
-    "allow": [
-      "mcp__codex-cli__*"
-    ]
-  }
-}
-SETTINGS
-    log_success "Created $settings_file with Codex MCP permission"
-    return 0
-  fi
-
-  # Check if permission already exists
-  if grep -q "$perm_pattern" "$settings_file" 2>/dev/null; then
-    log_success "Codex MCP permission already in settings"
-    return 0
-  fi
-
-  # Add permission using jq if available, otherwise instruct manually
-  if command -v jq &>/dev/null; then
-    local tmp_file
-    tmp_file=$(mktemp)
-    if jq '.permissions.allow += ["mcp__codex-cli__*"]' "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"; then
-      log_success "Added mcp__codex-cli__* permission to $settings_file"
-    else
-      rm -f "$tmp_file"
-      log_warn "Could not update $settings_file automatically — please add \"mcp__codex-cli__*\" to permissions.allow"
-    fi
-  else
-    log_warn "jq not found — please add \"mcp__codex-cli__*\" to permissions.allow in $settings_file"
-  fi
-}
-
 offer_codex_setup() {
-  # Skip in non-interactive or dry-run modes
-  if $DRY_RUN || $FORCE_MODE || [ ! -t 0 ] || [ ! -t 1 ]; then
-    return 0
-  fi
-
-  echo ""
-  log_info "Checking for Codex MCP (optional second model for Quest)..."
-
-  # Check if codex CLI is already installed
-  if command -v codex &>/dev/null; then
-    log_success "Codex CLI found: $(command -v codex)"
-  else
-    echo ""
-    echo "  Quest can use OpenAI Codex as a second model for reviews and"
-    echo "  implementation, giving you dual-model coverage (Claude + Codex)."
-    echo ""
-    echo "  This is optional — Quest works fine with Claude only."
-    echo ""
+  # No config writes or prompts in unattended installs.
+  $DRY_RUN && return 0
+  log_info "Claude-to-Codex uses the installed Quest CLI runner. No MCP registration is needed."
+  log_info "Host permission: allow the intended invocation of python3 \"$(pwd)/scripts/quest_codex_runner.py\" task (or role), with its explicit arguments."
+  log_info "Cached ChatGPT login is preferred: codex login; then codex login status."
+  log_info "API billing is explicit: select codex_auth_mode=api-key and supply CODEX_API_KEY (preferred) or OPENAI_API_KEY in the environment. No .env is sourced."
+  report_legacy_codex_config
+  if $FORCE_MODE || [ ! -t 0 ] || [ ! -t 1 ]; then return 0; fi
+  if ! command -v codex >/dev/null 2>&1; then
     if prompt_yn "Install Codex CLI? (npm i -g @openai/codex)" "n"; then
-      echo ""
-      log_info "Installing Codex CLI..."
-      if npm i -g @openai/codex 2>&1; then
-        log_success "Codex CLI installed"
-      else
-        log_warn "Codex CLI installation failed — you can install it later with: npm i -g @openai/codex"
-        return 0
-      fi
-    else
-      log_info "Skipping Codex CLI — install later with: npm i -g @openai/codex"
-      return 0
+      npm i -g @openai/codex || log_warn "Install failed. Retry npm i -g @openai/codex when ready."
     fi
   fi
-
-  # Codex CLI is available — check if MCP server is registered
-  log_info "Validating agent configurations, please stand by..."
-  # Try to detect if claude CLI is available for MCP registration
-  if ! command -v claude &>/dev/null; then
-    log_warn "Claude CLI not found — cannot register Codex MCP server automatically"
-    echo "  After installing Claude CLI, run:"
-    echo "    claude mcp add --scope user codex-cli -- codex mcp-server"
-    return 0
-  fi
-
-  # Check if codex-cli MCP is already registered (user scope)
-  local mcp_list
-  mcp_list=$(claude mcp list 2>/dev/null || echo "")
-  if echo "$mcp_list" | grep -q "codex-cli"; then
-    log_success "Codex MCP server already registered"
-    ensure_codex_permission
-    check_openai_auth
-    return 0
-  fi
-
-  echo ""
-  echo "  The Codex MCP server needs to be registered with Claude Code so"
-  echo "  Quest can delegate tasks to Codex during reviews and builds."
-  echo ""
-  echo "  This will run:"
-  echo "    claude mcp add --scope user codex-cli -- codex mcp-server"
-  echo ""
-  if prompt_yn "Register Codex MCP server?" "y"; then
-    if claude mcp add --scope user codex-cli -- codex mcp-server 2>&1; then
-      log_success "Codex MCP server registered (user scope)"
-      # Add permission so Claude Code won't prompt for each Codex MCP call
-      ensure_codex_permission
-    else
-      log_warn "MCP registration failed — you can do it manually:"
-      echo "    claude mcp add --scope user codex-cli -- codex mcp-server"
-      return 0
-    fi
-  else
-    log_info "Skipping MCP registration — run later:"
-    echo "    claude mcp add --scope user codex-cli -- codex mcp-server"
-    return 0
-  fi
-
-  check_openai_auth
 }
 
-# Check if OpenAI authentication is set up
-check_openai_auth() {
-  if [ -n "${OPENAI_API_KEY:-}" ]; then
+report_legacy_codex_config() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    log_warn "Legacy Codex scan skipped: install Python 3 before running Quest."
     return 0
   fi
+  # Read only known registration locations; never emit env/header values.
+  python3 - <<'PYCODEX'
+import json
+from pathlib import Path
 
-  # Check .env file
-  if [ -f ".env" ] && grep -q "OPENAI_API_KEY" ".env"; then
-    return 0
-  fi
-
-  echo ""
-  log_warn "OpenAI API key not detected"
-  echo "  Codex needs an OpenAI API key to work. Either:"
-  echo "    1. Run: codex auth       (interactive login)"
-  echo "    2. Set: export OPENAI_API_KEY=<your-key>"
-  echo "    3. Add OPENAI_API_KEY to your .env file"
+paths = [(Path.home() / ".claude.json", "user"), (Path(".mcp.json"), "project")]
+for path, scope in paths:
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        continue
+    servers = data.get("mcpServers", {}) if isinstance(data, dict) else {}
+    if not isinstance(servers, dict):
+        continue
+    for name, server in servers.items():
+        if not isinstance(server, dict):
+            continue
+        if (name == "codex-cli" and server.get("command") == "codex"
+                and server.get("args") == ["mcp-server"]):
+            print(f"Legacy Quest registration in {path}. After reviewing that entry, remove only it: claude mcp remove --scope {scope} codex-cli")
+            print("Existing global permissions were preserved. Review the obsolete mcp__codex-cli__* permission manually.")
+try:
+    data = json.loads(Path(".opencode/opencode.json").read_text())
+except (OSError, ValueError):
+    data = {}
+servers = data.get("mcp", {}) if isinstance(data, dict) else {}
+server = servers.get("codex", {}) if isinstance(servers, dict) else {}
+if isinstance(server, dict) and server.get("command") == ["npx", "-y", "codex", "mcp-server"]:
+    print("Preserved OpenCode config: manually remove only mcp.codex with command [npx,-y,codex,mcp-server]. Keep unrelated MCP tools and native task permissions.")
+PYCODEX
 }
 
 ###############################################################################
@@ -2161,7 +2072,7 @@ run_install() {
   # Run validation
   run_validation
 
-  # Offer Codex MCP setup (optional second model)
+  # Offer Codex CLI setup (optional second model)
   offer_codex_setup
 
   # Print next steps

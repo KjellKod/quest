@@ -66,7 +66,7 @@ def test_select_role_runtime_uses_subagent_for_codex_led_codex_roles():
     assert "local Codex subagents" in selection.reason
     assert "inherits the active Codex model" in selection.reason
     assert "runtime=codex entrypoint=subagent" in selection.reason
-    assert "Codex MCP is only valid for Claude-led sessions" in selection.reason
+    assert "Never substitute CLI or MCP" in selection.reason
     # A correct selection must not log violation language, or the log line
     # itself becomes the misdiagnosis trap this contract exists to prevent.
     assert "Orchestration violation" not in selection.reason
@@ -76,23 +76,24 @@ def test_select_role_runtime_uses_subagent_for_codex_led_codex_roles():
 def test_codex_led_codex_violation_guidance_names_the_correction():
     assert CODEX_LED_CODEX_VIOLATION_GUIDANCE.startswith("Orchestration violation")
     assert "local Codex subagents" in CODEX_LED_CODEX_VIOLATION_GUIDANCE
-    assert "inherit the active Codex model" in CODEX_LED_CODEX_VIOLATION_GUIDANCE
+    assert "matching saved model/effort" in CODEX_LED_CODEX_VIOLATION_GUIDANCE
     assert "Claude-led sessions" in CODEX_LED_CODEX_VIOLATION_GUIDANCE
 
 
-def test_select_role_runtime_uses_codex_mcp_for_claude_led_codex_roles():
+def test_select_role_runtime_uses_codex_runner_for_claude_led_codex_roles():
     selection = select_role_runtime(
         orchestrator="claude",
         target_runtime="codex",
         native_claude_available=True,
         claude_bridge_available=False,
+        codex_runner_available=True,
     )
 
     assert selection.runtime == "codex"
-    assert selection.entrypoint == "codex_mcp"
-    assert selection.requires_probe is False
-    assert "Claude-led session" in selection.reason
-    assert "runtime=codex entrypoint=codex_mcp" in selection.reason
+    assert selection.entrypoint == "scripts/quest_codex_runner.py"
+    assert selection.requires_probe is True
+    assert "Claude-led Codex roles" in selection.reason
+    assert "runtime=codex entrypoint=scripts/quest_codex_runner.py" in selection.reason
 
 
 def test_select_role_runtime_uses_bridge_runner_for_codex_led_claude_roles():
@@ -2683,7 +2684,9 @@ def test_explicit_antigravity_family_name_routes_to_the_antigravity_runner():
 
     # The other two family names keep working as before.
     assert (
-        select_role_runtime(orchestrator="claude", target_runtime="codex").runtime
+        select_role_runtime(
+            orchestrator="claude", target_runtime="codex", codex_runner_available=True
+        ).runtime
         == "codex"
     )
     assert (

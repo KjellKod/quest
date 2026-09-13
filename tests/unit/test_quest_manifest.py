@@ -147,7 +147,7 @@ def test_installed_setup_guide_relative_links_resolve_to_manifest_owned_files(
     ]
 
     assert local_targets, "expected at least one installed-guide local link"
-    assert "#optional-codex-mcp-for-dual-model-reviews" in local_targets
+    assert "#optional-codex-cli-for-codex-backed-roles" in local_targets
 
     resolved_targets: list[str] = []
     for target in local_targets:

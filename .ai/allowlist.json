@@ -21,6 +21,7 @@
   },
   "claude_role_transport": "auto",
   "codex_fallback_model": "gpt-6-astra",
+  "codex_auth_mode": "cached",
   "codex_reasoning_effort": "medium",
   "models": {
     "planner": "gpt-6-astra",

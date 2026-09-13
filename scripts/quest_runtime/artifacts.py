@@ -57,6 +57,15 @@ ROLE_ARTIFACTS: dict[str, tuple[str, tuple[str, ...]]] = {
 }
 
 ROLE_ARTIFACT_SUBSETS: dict[tuple[str, str], tuple[str, ...]] = {
+    # Reviewer repairs replace findings and handoff, preserving their prose input.
+    ("code-reviewer-a", "findings-only"): (
+        "review_findings_code-reviewer-a.json",
+        "handoff_code-reviewer-a.json",
+    ),
+    ("code-reviewer-b", "findings-only"): (
+        "review_findings_code-reviewer-b.json",
+        "handoff_code-reviewer-b.json",
+    ),
     # A findings repair reads the rejected ordinary .next artifacts, so its
     # writable outputs must use distinct paths until validation succeeds.
     (

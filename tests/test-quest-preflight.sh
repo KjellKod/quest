@@ -233,7 +233,7 @@ write_codex_preflight_claude() {
 #!/usr/bin/env bash
 if [ "\$1" = "mcp" ] && [ "\$2" = "list" ]; then
   if [ "$registered" = "true" ]; then
-    echo "codex-cli: codex mcp-server"
+    echo "codex-cli: codex mcp-server - Failed to connect"
   fi
   exit 0
 fi
@@ -247,9 +247,17 @@ write_codex_login_cli() {
   local mode="$2"
   cat > "$path" <<EOF
 #!/usr/bin/env bash
+if [ "\$1" = "exec" ] && [ "\$2" = "--help" ]; then
+  [ "$mode" = "unsupported" ] && exit 1
+  echo '--json --cd --sandbox --model --config --output-last-message --add-dir --skip-git-repo-check'
+  exit 0
+fi
+if [ "\$1" = "--help" ]; then echo '--ask-for-approval'; exit 0; fi
+if [ "\$1" = "mcp" ]; then echo '[]'; exit 0; fi
 if [ "\$1" = "login" ] && [ "\$2" = "status" ]; then
+  if [ -n "\${CODEX_TEST_LOGIN_LOG:-}" ]; then touch "\$CODEX_TEST_LOGIN_LOG"; fi
   case "$mode" in
-    authenticated) echo "Logged in"; exit 0 ;;
+    authenticated|unsupported) echo "Logged in using ChatGPT"; exit 0 ;;
     unauthenticated) echo "Not logged in" >&2; exit 1 ;;
     timeout) sleep 2; exit 0 ;;
   esac
@@ -263,7 +271,7 @@ run_claude_codex_probe() {
   local tmpdir="$1"
   PATH="$tmpdir/bin:$PATH" \
     QUEST_CODEX_LOGIN_TIMEOUT_SECONDS=1 \
-    "$PREFLIGHT_SCRIPT" --orchestrator claude 2>/dev/null
+    "$PREFLIGHT_SCRIPT" --orchestrator claude "${@:2}" 2>/dev/null
 }
 
 test_claude_preflight_requires_authenticated_codex() {
@@ -276,7 +284,7 @@ test_claude_preflight_requires_authenticated_codex() {
   rm -rf "$tmpdir"
 
   [ "$(printf '%s' "$output" | jq -r '.available')" = "true" ] &&
-    [ "$(printf '%s' "$output" | jq -r '.checks.codex_authenticated')" = "true" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_auth_ready')" = "true" ] &&
     [ "$(printf '%s' "$output" | jq -r '.checks.codex_auth_reason')" = "authenticated" ]
 }
 
@@ -293,7 +301,7 @@ test_claude_preflight_reports_login_failure_without_crashing() {
 
   [ "$rc" -eq 0 ] &&
     [ "$(printf '%s' "$output" | jq -r '.available')" = "false" ] &&
-    [ "$(printf '%s' "$output" | jq -r '.checks.codex_authenticated')" = "false" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_auth_ready')" = "false" ] &&
     [ "$(printf '%s' "$output" | jq -r '.checks.codex_auth_reason')" = "unauthenticated" ] &&
     printf '%s' "$warning" | grep -q "codex login" &&
     ! printf '%s' "$warning" | grep -q "codex auth"
@@ -324,11 +332,11 @@ test_claude_preflight_does_not_treat_api_key_as_login() {
   rm -rf "$tmpdir"
 
   [ "$(printf '%s' "$output" | jq -r '.available')" = "false" ] &&
-    [ "$(printf '%s' "$output" | jq -r '.checks.openai_auth')" = "true" ] &&
-    [ "$(printf '%s' "$output" | jq -r '.checks.codex_authenticated')" = "false" ]
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_auth_mode')" = "cached" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_auth_ready')" = "false" ]
 }
 
-test_claude_preflight_requires_codex_mcp_registration() {
+test_claude_preflight_requires_no_codex_mcp_registration() {
   local tmpdir output
   tmpdir=$(mktemp -d)
   mkdir -p "$tmpdir/bin"
@@ -337,9 +345,49 @@ test_claude_preflight_requires_codex_mcp_registration() {
   output=$(run_claude_codex_probe "$tmpdir")
   rm -rf "$tmpdir"
 
-  [ "$(printf '%s' "$output" | jq -r '.available')" = "false" ] &&
-    [ "$(printf '%s' "$output" | jq -r '.checks.codex_mcp_registered')" = "false" ] &&
-    [ "$(printf '%s' "$output" | jq -r '.checks.codex_authenticated')" = "true" ]
+  [ "$(printf '%s' "$output" | jq -r '.available')" = "true" ]
+}
+
+test_claude_preflight_failed_registration_cannot_hide_missing_exec() {
+  local tmpdir output
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_codex_preflight_claude "$tmpdir/bin/claude" true
+  write_codex_login_cli "$tmpdir/bin/codex" unsupported
+  output=$(run_claude_codex_probe "$tmpdir")
+  rm -rf "$tmpdir"
+  [ "$(printf '%s' "$output" | jq -r '.available')" = "false" ]
+}
+
+test_claude_preflight_api_key_mode_and_schema() {
+  local tmpdir output override
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_codex_login_cli "$tmpdir/bin/codex" unauthenticated
+  printf '{"codex_auth_mode":"api-key"}' > "$tmpdir/allowlist.json"
+  output=$(QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" OPENAI_API_KEY=test-only run_claude_codex_probe "$tmpdir")
+  override=$(QUEST_ALLOWLIST_FILE="$tmpdir/allowlist.json" OPENAI_API_KEY=test-only run_claude_codex_probe "$tmpdir" --codex-auth cached)
+  rm -rf "$tmpdir"
+  printf '%s' "$output" | jq -e '
+    .available == true and .inference_verified == false and
+    .checks.codex_auth_mode == "api-key" and .checks.codex_auth_ready == true and
+    .checks.codex_auth_kind == "api-key" and
+    (.checks | keys == ["codex_auth_kind","codex_auth_mode","codex_auth_ready","codex_auth_reason","codex_cli_installed","codex_exec_supported","codex_runner_available"]) and
+    ([.checks.codex_cli_installed,.checks.codex_exec_supported,.checks.codex_runner_available,.checks.codex_auth_ready] | all(type == "boolean"))' >/dev/null &&
+    [ "$(printf '%s' "$override" | jq -r '.available')" = "false" ] &&
+    [ "$(printf '%s' "$override" | jq -r '.checks.codex_auth_mode')" = "cached" ]
+}
+
+test_claude_preflight_explicit_key_without_cached_login() {
+  local tmpdir output
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_codex_login_cli "$tmpdir/bin/codex" unauthenticated
+  output=$(CODEX_TEST_LOGIN_LOG="$tmpdir/login-called" CODEX_API_KEY=test-only run_claude_codex_probe "$tmpdir" --codex-auth api-key)
+  [ ! -e "$tmpdir/login-called" ] || return 1
+  rm -rf "$tmpdir"
+  [ "$(printf '%s' "$output" | jq -r '.available')" = "true" ] &&
+    [ "$(printf '%s' "$output" | jq -r '.checks.codex_auth_mode')" = "api-key" ]
 }
 
 test_claude_preflight_reports_missing_codex_cli() {
@@ -888,11 +936,14 @@ test_quest_preflight_reports_missing_probe_helper_diagnostic() {
 run_test test_quest_preflight_resolves_helpers_by_absolute_path_from_foreign_cwd
 run_test test_quest_preflight_resolves_helpers_through_symlinked_entrypoint
 run_test test_quest_preflight_reports_missing_probe_helper_diagnostic
+run_test test_claude_preflight_api_key_mode_and_schema
+run_test test_claude_preflight_explicit_key_without_cached_login
 run_test test_claude_preflight_requires_authenticated_codex
 run_test test_claude_preflight_reports_login_failure_without_crashing
 run_test test_claude_preflight_reports_bounded_login_timeout
 run_test test_claude_preflight_does_not_treat_api_key_as_login
-run_test test_claude_preflight_requires_codex_mcp_registration
+run_test test_claude_preflight_requires_no_codex_mcp_registration
+run_test test_claude_preflight_failed_registration_cannot_hide_missing_exec
 run_test test_claude_preflight_reports_missing_codex_cli
 run_test test_quest_preflight_caches_successful_codex_bridge_probe
 run_test test_quest_preflight_uses_cached_success_when_live_probe_fails

@@ -220,12 +220,12 @@ def test_claude_led_unavailable_preflight_requires_human_routing_decision() -> N
     assert "using Claude runtime fallback for all roles" not in clause
     assert "| Codex-led | Codex | local Codex subagent" in workflow
     assert "| Codex-led | Claude | `python3 scripts/quest_claude_runner.py`" in workflow
-    assert "| Claude-led | Codex | Codex MCP" in workflow
-    assert "| Claude-led | Claude | native `Task(...)`" in workflow
     assert (
-        "entrypoint violation, not a model-selection or model/account failure"
+        "| Claude-led | Codex | `python3 <installation-root>/scripts/quest_codex_runner.py role`"
         in workflow
     )
+    assert "| Claude-led | Claude | native `Task(...)`" in workflow
+    assert "Missing native controls or mismatched parent settings block" in workflow
 
 
 def test_workflow_documents_bg_transport_model_and_resume_contracts() -> None:
@@ -288,10 +288,7 @@ def test_gpt_skill_excludes_codex_led_quest_dispatch() -> None:
     assert "codex_reasoning_effort" in workflow
     assert "inherit only after verifying the parent matches" in workflow
     assert "otherwise stop and report the mismatch" in workflow
-    assert (
-        "Codex MCP is only the cross-runtime path when the orchestrator is Claude-led"
-        in skill
-    )
+    assert "Never substitute MCP or nested `codex exec`" in skill
 
 
 def test_skills_index_scopes_gpt_to_claude_led_dispatch() -> None:
@@ -301,7 +298,7 @@ def test_skills_index_scopes_gpt_to_claude_led_dispatch() -> None:
     assert "or Quest routes a role to Codex" not in index
     assert "**Not for:** Codex-led Quest role dispatch" in index
     assert "use local Codex subagents" in index
-    assert "Codex MCP is only for Claude-led dispatch to Codex" in index
+    assert "the CLI runner is only for Claude-led dispatch to Codex" in index
 
 
 def test_codex_wrapper_and_entrypoint_point_at_canonical_matrix() -> None:
@@ -478,14 +475,15 @@ def test_opencode_agent_descriptions_do_not_advertise_mcp_dispatch() -> None:
         )
 
 
-def test_opencode_quest_doc_scopes_codex_mcp_to_claude_led_sessions() -> None:
+def test_opencode_quest_doc_keeps_native_host_routing() -> None:
     content = _read(".opencode/agents/quest.md")
 
     assert (
         "canonical dispatch matrix in `.skills/quest/delegation/workflow.md`" in content
     )
     assert "local `task` subagent" in content
-    assert "orchestration violation" in content
+    assert "OpenCode is the actual host" in content
+    assert "Do not infer a Claude or Codex host from the provider model name" in content
     assert "Codex-backed model names use the `codex_codex` MCP tool" not in content
 
 

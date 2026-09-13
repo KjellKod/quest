@@ -41,7 +41,7 @@ Sequential fan-out is acceptable. True parallelism is not required.
 
 Resolve each role's model from `.quest/<id>/orchestration.json` before dispatch; do not use a fixed role list for runtime selection. Entrypoint selection follows the canonical dispatch matrix in `.skills/quest/delegation/workflow.md` (Runtime And Entrypoint Selection) — that matrix is the single source of truth and this file intentionally does not restate it. Model assignments in `.opencode/opencode.json` are generated from `.ai/allowlist.json` by `scripts/quest_sync_model_defaults.py`; do not hand-edit them in the Quest source repository. Static model assignments do not automatically implement per-quest overrides or effort. Verify the actual task model and runtime effort match the saved quest before dispatch; stop on a mismatch. In this OpenCode setup, every Quest role is wired as a local `task` subagent in `opencode.json`, so role dispatch does not use Codex MCP.
 
-OpenCode platform notes for the matrix's Claude-led Codex MCP path: the MCP server is the official Codex CLI MCP server (`codex mcp-server`), configured as `codex` in opencode.json; its tools surface as `codex_codex` (start session) and `codex_codex-reply` (continue, passing the `threadId` from the previous response). If the orchestrating session itself runs a Codex/GPT-backed model, using those tools for a Codex role is an orchestration violation — use the local `task` subagent instead.
+OpenCode is the actual host even when its provider model is named GPT or Claude. Keep native OpenCode `task` routing and verify saved model/effort controls. Do not infer a Claude or Codex host from the provider model name. No Codex MCP server is shipped. The Quest Codex CLI runner is for actual Claude-led dispatch; native Codex-led roles must remain native subagents.
 
 ## Iteration Loop Guardrails
 
@@ -54,7 +54,7 @@ OpenCode platform notes for the matrix's Claude-led Codex MCP path: the MCP serv
 All subagents invoked via Task tool MUST operate non-interactively:
 - Subagents do NOT ask questions back to the user
 - If a subagent cannot proceed, it returns `STATUS: blocked` with a reason
-- Only after Codex retry + Claude fallback chain may `needs_human` propagate to user
+- Apply the selected runtime's failure policy in the canonical workflow. Codex permits one same-settings retry only for malformed or missing artifacts after clean teardown; runner-invoked Claude also permits its documented timeout retry. Never change runtime, model or billing automatically.
 - Treat any subagent question as a workflow defect
 
 ## Runtime Telemetry

@@ -210,6 +210,13 @@ validate_orchestration_json() {
   esac
 
   # Optional for legacy quests; present values must be valid effort strings.
+  if ! jq -e 'if has("codex_auth_mode") then
+      (.codex_auth_mode == "cached" or .codex_auth_mode == "api-key")
+    else true end' "$orch_file" >/dev/null 2>&1; then
+    fail "orchestration.json codex_auth_mode must be cached|api-key"
+    return
+  fi
+
   if ! jq -e 'if has("codex_reasoning_effort") then
       (.codex_reasoning_effort | type == "string") and
       (.codex_reasoning_effort as $effort |
