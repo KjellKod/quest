@@ -124,6 +124,7 @@ load_manifest() {
 # Files that need executable bit set
 EXECUTABLE_FILES=(
   ".claude/hooks/enforce-allowlist.sh"
+  ".claude/hooks/session-start.sh"
   "scripts/quest_validate-quest-config.sh"
   "scripts/quest_installer.sh"
   "scripts/quest_celebrate/quest-celebrate.sh"

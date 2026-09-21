@@ -1545,7 +1545,7 @@ Review <quest-dir>/phase_01_plan/plan.md against <quest-dir>/quest_brief.md.
 Current plan identity: plan_iteration=<integer>; user_replan_generation=<integer|null>.
 List any issues (max 5 bullets). Write review_plan-reviewer-b.md and
 handoff_plan-reviewer-b.json in <quest-dir>/phase_01_plan/.
-End with: ---HANDOFF--- STATUS: <actual-status> ARTIFACTS: <quest-dir>/phase_01_plan/review_plan-reviewer-b.md NEXT: <arbiter-if-complete-or-null-if-blocked> SUMMARY: <one-line-result>
+End with: ---HANDOFF--- STATUS: <actual-status> ARTIFACTS: <quest-dir>/phase_01_plan/review_plan-reviewer-b.md NEXT: arbiter SUMMARY: <one-line-result>
 ```
 
 In a Codex-led session, use the same short prompt with the local Codex subagent entrypoint and apply the saved model and effort.
