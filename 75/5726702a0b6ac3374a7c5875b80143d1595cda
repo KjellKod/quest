@@ -1,0 +1,24 @@
+tests/unit/test_source_python_formatting.py
+  s_6fa64cfc724ddb::t_484c8665421f72 391-393,397-399
+  s_6fa64cfc724ddb::t_7af9300d651a6d 380-390,394-396
+scripts/quest_installer.sh
+  s_6fa64cfc724ddb::t_7af9300d651a6d 127
+.skills/quest/delegation/workflow.md
+  s_6fa64cfc724ddb::t_7af9300d651a6d 1548
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "755726702a0b6ac3374a7c5875b80143d1595cda",
+  "prompts": {},
+  "sessions": {
+    "s_6fa64cfc724ddb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc5d2870-69b6-4bdd-b071-7f7dcadf333e",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
