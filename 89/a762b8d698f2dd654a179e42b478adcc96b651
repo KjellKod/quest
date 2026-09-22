@@ -1,0 +1,101 @@
+scripts/quest_runtime/orchestration.py
+  s_fb0c7c931ff87d::t_9a558d9ca04c35 636
+  s_fb0c7c931ff87d::t_aab8a56c4ac631 484,490-537
+  s_fb0c7c931ff87d::t_1fbba90187216c 77-79
+  s_fb0c7c931ff87d::t_01992ce03d7428 666-670
+  s_fb0c7c931ff87d::t_8a4c9549da31f1 740
+  s_fb0c7c931ff87d::t_3a93a074fda49e 40,42,44,46
+  s_fb0c7c931ff87d::t_aee370c68897b9 607
+  s_fb0c7c931ff87d::t_99bab525613fbe 74-76
+  s_fb0c7c931ff87d::t_90da446f67563d 49-59
+  s_fb0c7c931ff87d::t_4fcdd0c85f940f 556
+  s_fb0c7c931ff87d::t_e41ac14ac20cc0 569,575
+  s_fb0c7c931ff87d::t_9580eba7c1bd64 538-539
+.ai/quest.md
+  s_fb0c7c931ff87d::t_53e8ae20644cdd 149
+.claude/agents/plan-reviewer.md
+  s_fb0c7c931ff87d::t_4562b08104986b 6
+scripts/quest_runtime/claude_runner.py
+  s_fb0c7c931ff87d::t_855bb3065b1ce1 336,339
+  s_fb0c7c931ff87d::t_ba02ceca6fc871 740
+  s_fb0c7c931ff87d::t_84664012f384a2 377
+  s_fb0c7c931ff87d::t_4069c265086ebe 868,881,884-885
+  s_fb0c7c931ff87d::t_3f94035c06c376 354-355
+  s_fb0c7c931ff87d::t_36b38b7e93c684 126-145
+  s_fb0c7c931ff87d::t_1cb2d4c73f97ee 387
+  s_fb0c7c931ff87d::t_2d1ce17a3c3552 27
+  s_fb0c7c931ff87d::t_448eef639c52ff 411-412
+.claude/agents/arbiter.md
+  s_fb0c7c931ff87d::t_4562b08104986b 6
+scripts/quest_claude_bridge.py
+  s_fb0c7c931ff87d::t_235168e6d35236 252
+  s_fb0c7c931ff87d::t_ba3ae0711e44d9 81-85
+  s_fb0c7c931ff87d::t_4cd23eb4914e58 169
+  s_fb0c7c931ff87d::t_4f008b0c512d36 177-178
+  s_fb0c7c931ff87d::t_a12ff5e4f12451 80
+.claude/agents/review-arbiter.md
+  s_fb0c7c931ff87d::t_4562b08104986b 6
+scripts/quest_validate-quest-state.sh
+  s_fb0c7c931ff87d::t_57c3d8062d9c68 229-239
+.ai/allowlist.json
+  s_fb0c7c931ff87d::t_fa414d66d8e73c 28,30,32,34,54,267
+  s_fb0c7c931ff87d::t_8eaf9ec3ceb7ce 37-47
+.skills/quest/delegation/workflow.md
+  s_fb0c7c931ff87d::t_f0125cccbaf2ae 46
+  s_fb0c7c931ff87d::t_f9d437750245fb 43
+  s_fb0c7c931ff87d::t_7d0c16deed8104 41
+  s_fb0c7c931ff87d::t_dad5b6c52b6726 48
+.skills/quest/SKILL.md
+  s_fb0c7c931ff87d::t_7d520ab65f98e5 239-240
+  s_fb0c7c931ff87d::t_ff160cc706c478 275
+.claude/agents/fixer.md
+  s_fb0c7c931ff87d::t_4562b08104986b 6
+.claude/agents/builder.md
+  s_fb0c7c931ff87d::t_4562b08104986b 6
+.ai/schemas/allowlist.schema.json
+  s_fb0c7c931ff87d::t_e63925feb53d8f 48-59
+scripts/quest_claude_runner.py
+  s_fb0c7c931ff87d::t_5968be5970c1db 182-184
+  s_fb0c7c931ff87d::t_5566d7efc04c68 83-90
+  s_fb0c7c931ff87d::t_1fcb85dc6057b1 139-159
+  s_fb0c7c931ff87d::t_35c9a1b3e76a2f 23
+  s_fb0c7c931ff87d::t_49a3b95a9306d9 220
+scripts/quest_sync_model_defaults.py
+  s_fb0c7c931ff87d::t_d434006b7926b5 50
+  s_fb0c7c931ff87d::t_9b8683a5a4f7a6 95-97,99-101
+  s_fb0c7c931ff87d::t_606fbab03f0c31 98
+  s_fb0c7c931ff87d::t_9fb166eb725614 67-71
+  s_fb0c7c931ff87d::t_cae6092eba37f8 13-17,22-35
+  s_fb0c7c931ff87d::t_6bc4f104bb44e0 116-122
+  s_fb0c7c931ff87d::t_1eef7c0ecd23c3 38-49,51
+  s_fb0c7c931ff87d::t_1aaba919294449 36-37
+.opencode/opencode.json
+  s_fb0c7c931ff87d::t_3a93a074fda49e 44,70,108,144
+scripts/quest_runtime/codex_runner.py
+  s_fb0c7c931ff87d::t_b1aad86794562c 34-38
+  s_fb0c7c931ff87d::t_c84397e9cc021a 749
+.claude/agents/code-reviewer.md
+  s_fb0c7c931ff87d::t_4562b08104986b 6
+tests/unit/test_quest_effort.py
+  s_fb0c7c931ff87d::t_a32a6d13d4f04f 1-104
+tests/test-quest-orchestration.sh
+  s_fb0c7c931ff87d::t_62abd621fcdda1 219,221-222,237,239,241,243,794,857
+.claude/agents/planner.md
+  s_fb0c7c931ff87d::t_4562b08104986b 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "89a762b8d698f2dd654a179e42b478adcc96b651",
+  "prompts": {},
+  "sessions": {
+    "s_fb0c7c931ff87d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c6965a68-0300-4261-ad83-b3d65e637231",
+        "model": "claude-opus-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
