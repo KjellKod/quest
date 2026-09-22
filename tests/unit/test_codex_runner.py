@@ -428,9 +428,11 @@ def test_parallel_review_roles_use_separate_attempts(cli, monkeypatch):
 
 
 def test_api_only_preflight_selection_is_persisted_and_dispatched(cli, monkeypatch):
-    from quest_runtime.orchestration import (DEFAULT_MODELS,
-                                             migrate_from_snapshot,
-                                             write_default_from_allowlist)
+    from quest_runtime.orchestration import (
+        DEFAULT_MODELS,
+        migrate_from_snapshot,
+        write_default_from_allowlist,
+    )
 
     quest, _, _ = role_fixture(cli, monkeypatch)
     monkeypatch.setenv("LOGIN", "none")

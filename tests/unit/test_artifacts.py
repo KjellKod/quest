@@ -8,14 +8,22 @@ from pathlib import Path
 
 import pytest
 import quest_runtime.claude_runner as claude_runner_module
-from quest_runtime.artifacts import (ROLE_ARTIFACTS, SOLO_DISABLED_AGENTS,
-                                     any_artifact_missing_or_empty,
-                                     check_artifact_paths, default_quest_dir,
-                                     expected_artifacts_for_role,
-                                     is_workspace_local,
-                                     prepare_artifact_files)
-from quest_runtime.claude_runner import (RunResult, classify_failure_kind,
-                                         classify_result_kind, run_claude_role)
+from quest_runtime.artifacts import (
+    ROLE_ARTIFACTS,
+    SOLO_DISABLED_AGENTS,
+    any_artifact_missing_or_empty,
+    check_artifact_paths,
+    default_quest_dir,
+    expected_artifacts_for_role,
+    is_workspace_local,
+    prepare_artifact_files,
+)
+from quest_runtime.claude_runner import (
+    RunResult,
+    classify_failure_kind,
+    classify_result_kind,
+    run_claude_role,
+)
 from quest_runtime.plan_iterations import PlanIterationError
 from quest_runtime.state import StateError
 

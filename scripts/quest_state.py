@@ -25,9 +25,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-from quest_runtime.state import (PhaseMismatchError, ReplanError, StateError,
-                                 record_user_replan_feedback, transition_state,
-                                 update_state)
+from quest_runtime.state import (
+    PhaseMismatchError,
+    ReplanError,
+    StateError,
+    record_user_replan_feedback,
+    transition_state,
+    update_state,
+)
 
 
 def find_validator() -> Path:

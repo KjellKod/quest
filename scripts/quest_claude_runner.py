@@ -20,10 +20,13 @@ import time
 from pathlib import Path
 
 from quest_runtime.artifacts import expected_artifacts_for_role
-from quest_runtime.claude_runner import (DEFAULT_BG_RUNNER_SCRIPT,
-                                         DEFAULT_BRIDGE_SCRIPT,
-                                         resolve_claude_transport,
-                                         resolve_path, run_claude_role)
+from quest_runtime.claude_runner import (
+    DEFAULT_BG_RUNNER_SCRIPT,
+    DEFAULT_BRIDGE_SCRIPT,
+    resolve_claude_transport,
+    resolve_path,
+    run_claude_role,
+)
 
 _TELEMETRY_ENV = "QUEST_RUNNER_TELEMETRY_LOG"
 

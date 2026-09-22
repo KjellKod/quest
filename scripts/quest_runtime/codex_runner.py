@@ -19,11 +19,18 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from .artifacts import (ROLE_PHASE_ALIASES, any_artifact_missing_or_empty,
-                        expected_artifacts_for_role, is_workspace_local,
-                        prepare_artifact_files)
-from .claude_runner import (append_context_health_log, classify_handoff_file,
-                            read_handoff_status)
+from .artifacts import (
+    ROLE_PHASE_ALIASES,
+    any_artifact_missing_or_empty,
+    expected_artifacts_for_role,
+    is_workspace_local,
+    prepare_artifact_files,
+)
+from .claude_runner import (
+    append_context_health_log,
+    classify_handoff_file,
+    read_handoff_status,
+)
 from .orchestration import runtime_for_model, validate_codex_reasoning_effort
 from .plan_iterations import PlanIterationError, verify_refinement
 from .review_intelligence import validate_findings

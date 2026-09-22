@@ -6,8 +6,11 @@ import shutil
 import subprocess
 
 import pytest
-from quest_runtime.codex_runner import (Credentials, build_codex_command,
-                                        disabled_self_servers)
+from quest_runtime.codex_runner import (
+    Credentials,
+    build_codex_command,
+    disabled_self_servers,
+)
 
 
 @pytest.mark.parametrize("names", [("codex-cli",), ("odd.name", "codex-cli")])

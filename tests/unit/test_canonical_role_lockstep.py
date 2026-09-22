@@ -22,10 +22,16 @@ import json
 import re
 from pathlib import Path
 
-from quest_runtime.artifacts import (ROLE_ARTIFACTS, ROLE_PHASE_ALIASES,
-                                     SOLO_DISABLED_AGENTS)
-from quest_runtime.orchestration import (CANONICAL_ROLES, DEFAULT_MODELS,
-                                         SOLO_UNUSED_ROLES)
+from quest_runtime.artifacts import (
+    ROLE_ARTIFACTS,
+    ROLE_PHASE_ALIASES,
+    SOLO_DISABLED_AGENTS,
+)
+from quest_runtime.orchestration import (
+    CANONICAL_ROLES,
+    DEFAULT_MODELS,
+    SOLO_UNUSED_ROLES,
+)
 
 CANONICAL = set(CANONICAL_ROLES)
 
@@ -142,8 +148,10 @@ def test_shipped_model_defaults_are_generated_from_allowlist() -> None:
 
 
 def test_codex_effort_is_pinned_and_legacy_snapshot_stays_unset(tmp_path: Path) -> None:
-    from quest_runtime.orchestration import (migrate_from_snapshot,
-                                             write_default_from_allowlist)
+    from quest_runtime.orchestration import (
+        migrate_from_snapshot,
+        write_default_from_allowlist,
+    )
 
     path = tmp_path / "new" / "orchestration.json"
     write_default_from_allowlist(path, DEFAULT_MODELS, codex_reasoning_effort="medium")

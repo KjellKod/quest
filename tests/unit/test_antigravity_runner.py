@@ -9,18 +9,20 @@ import subprocess
 import sys
 from pathlib import Path
 
-from quest_runtime.antigravity_runner import (AGY_MODE_READ_ONLY,
-                                              AGY_MODE_WRITE,
-                                              MAX_PROMPT_ARGV_BYTES,
-                                              MAX_TIMEOUT_SECONDS,
-                                              agy_mode_for_agent,
-                                              build_agy_cmd,
-                                              classify_agy_result_kind,
-                                              normalize_agy_cli_model,
-                                              parse_agy_envelope,
-                                              positive_finite_timeout,
-                                              rejected_model_for,
-                                              run_antigravity_role)
+from quest_runtime.antigravity_runner import (
+    AGY_MODE_READ_ONLY,
+    AGY_MODE_WRITE,
+    MAX_PROMPT_ARGV_BYTES,
+    MAX_TIMEOUT_SECONDS,
+    agy_mode_for_agent,
+    build_agy_cmd,
+    classify_agy_result_kind,
+    normalize_agy_cli_model,
+    parse_agy_envelope,
+    positive_finite_timeout,
+    rejected_model_for,
+    run_antigravity_role,
+)
 
 
 def _fake_agy(path: Path, body: str) -> str:

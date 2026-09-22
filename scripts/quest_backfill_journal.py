@@ -10,18 +10,20 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 try:
-    from quest_celebrate.quest_data import (extract_metadata_value,
-                                            load_quest_data)
-    from quest_complete import (build_celebration_data_section,
-                                build_celebration_section,
-                                build_quest_brief_section)
+    from quest_celebrate.quest_data import extract_metadata_value, load_quest_data
+    from quest_complete import (
+        build_celebration_data_section,
+        build_celebration_section,
+        build_quest_brief_section,
+    )
 except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from quest_celebrate.quest_data import (extract_metadata_value,
-                                            load_quest_data)
-    from quest_complete import (build_celebration_data_section,
-                                build_celebration_section,
-                                build_quest_brief_section)
+    from quest_celebrate.quest_data import extract_metadata_value, load_quest_data
+    from quest_complete import (
+        build_celebration_data_section,
+        build_celebration_section,
+        build_quest_brief_section,
+    )
 
 
 UTC = timezone.utc

@@ -12,12 +12,14 @@ from pathlib import Path
 import pytest
 import quest_runtime.plan_iterations as plan_iterations_module
 from quest_runtime.artifacts import prepare_artifact_files
-from quest_runtime.plan_iterations import (PlanIterationError,
-                                           cleanup_current_plan_iteration,
-                                           publish_refinement,
-                                           snapshot_plan_iteration,
-                                           verify_plan_iteration_snapshot,
-                                           verify_refinement)
+from quest_runtime.plan_iterations import (
+    PlanIterationError,
+    cleanup_current_plan_iteration,
+    publish_refinement,
+    snapshot_plan_iteration,
+    verify_plan_iteration_snapshot,
+    verify_refinement,
+)
 from quest_runtime.state import update_state
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

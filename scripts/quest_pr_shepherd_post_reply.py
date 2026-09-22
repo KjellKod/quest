@@ -10,9 +10,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from quest_runtime.pr_shepherd import (ADDRESSED_MARKER, FOLLOWUP_MARKER,
-                                       SUMMARY_MARKER, append_marker,
-                                       compact_summary_body, has_marker)
+from quest_runtime.pr_shepherd import (
+    ADDRESSED_MARKER,
+    FOLLOWUP_MARKER,
+    SUMMARY_MARKER,
+    append_marker,
+    compact_summary_body,
+    has_marker,
+)
 
 PER_PAGE = 100
 

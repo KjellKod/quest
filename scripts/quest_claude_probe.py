@@ -10,9 +10,13 @@ from __future__ import annotations
 import argparse
 import json
 
-from quest_runtime.claude_runner import (DEFAULT_BG_RUNNER_SCRIPT,
-                                         DEFAULT_BRIDGE_SCRIPT, resolve_path,
-                                         run_bg_probe, run_bridge_probe)
+from quest_runtime.claude_runner import (
+    DEFAULT_BG_RUNNER_SCRIPT,
+    DEFAULT_BRIDGE_SCRIPT,
+    resolve_path,
+    run_bg_probe,
+    run_bridge_probe,
+)
 
 
 def parse_args() -> argparse.Namespace:

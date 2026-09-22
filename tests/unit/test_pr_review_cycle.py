@@ -9,12 +9,13 @@ import sys
 from pathlib import Path
 
 import pytest
-from quest_runtime.pr_review_cycle import (build_fix_batches,
-                                           classify_pr_loop_stop,
-                                           classify_pr_operational_state,
-                                           normalize_pr_review_intake)
-from quest_runtime.review_intelligence import (build_review_backlog,
-                                               validate_findings)
+from quest_runtime.pr_review_cycle import (
+    build_fix_batches,
+    classify_pr_loop_stop,
+    classify_pr_operational_state,
+    normalize_pr_review_intake,
+)
+from quest_runtime.review_intelligence import build_review_backlog, validate_findings
 
 
 def _validation_step(target: str, *, level: int = 1) -> list[dict[str, object]]:

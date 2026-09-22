@@ -11,36 +11,60 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from quest_celebrate.animations import (QuestStats, celebrate,
-                                        load_quest_stats, render_end_credits,
-                                        render_epic, render_minimal,
-                                        render_silly, render_standard)
-from quest_celebrate.ascii_art import (ansi_shadow_title, block_letter_title,
-                                       box_banner, get_credits_lines,
-                                       get_movie_credits_lines,
-                                       gremlin_battle_art,
-                                       gremlin_retirement_art,
-                                       render_achievements,
-                                       render_impact_metrics,
-                                       render_quality_score, rocket_launch_art,
-                                       trophy_art)
+from quest_celebrate.animations import (
+    QuestStats,
+    celebrate,
+    load_quest_stats,
+    render_end_credits,
+    render_epic,
+    render_minimal,
+    render_silly,
+    render_standard,
+)
+from quest_celebrate.ascii_art import (
+    ansi_shadow_title,
+    block_letter_title,
+    box_banner,
+    get_credits_lines,
+    get_movie_credits_lines,
+    gremlin_battle_art,
+    gremlin_retirement_art,
+    render_achievements,
+    render_impact_metrics,
+    render_quality_score,
+    rocket_launch_art,
+    trophy_art,
+)
 from quest_celebrate.config import CelebrationConfig, load_config
-from quest_celebrate.persist import (extract_what_started_this,
-                                     render_persisted_celebration,
-                                     select_quest_quote,
-                                     write_celebration_file)
-from quest_celebrate.progress import (render_phase_progress,
-                                      render_progress_bar, scroll_credits)
-from quest_celebrate.quest_data import (QUALITY_TIERS, Achievement, AgentInfo,
-                                        CarryoverFindings, QuestData,
-                                        _load_allowlist_quality_defaults,
-                                        compute_quality_tier,
-                                        extract_celebration_data_from_journal,
-                                        friendly_model_name, load_quest_data,
-                                        load_quest_data_from_journal)
-from quest_celebrate.terminal import (TerminalCaps,
-                                      detect_terminal_capabilities,
-                                      is_safe_mode)
+from quest_celebrate.persist import (
+    extract_what_started_this,
+    render_persisted_celebration,
+    select_quest_quote,
+    write_celebration_file,
+)
+from quest_celebrate.progress import (
+    render_phase_progress,
+    render_progress_bar,
+    scroll_credits,
+)
+from quest_celebrate.quest_data import (
+    QUALITY_TIERS,
+    Achievement,
+    AgentInfo,
+    CarryoverFindings,
+    QuestData,
+    _load_allowlist_quality_defaults,
+    compute_quality_tier,
+    extract_celebration_data_from_journal,
+    friendly_model_name,
+    load_quest_data,
+    load_quest_data_from_journal,
+)
+from quest_celebrate.terminal import (
+    TerminalCaps,
+    detect_terminal_capabilities,
+    is_safe_mode,
+)
 
 
 class TestRenderMinimal:

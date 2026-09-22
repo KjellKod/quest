@@ -12,9 +12,11 @@ from __future__ import annotations
 import argparse
 import json
 
-from quest_runtime.antigravity_runner import (DEFAULT_AGY_BINARY,
-                                              positive_finite_timeout,
-                                              run_antigravity_role)
+from quest_runtime.antigravity_runner import (
+    DEFAULT_AGY_BINARY,
+    positive_finite_timeout,
+    run_antigravity_role,
+)
 from quest_runtime.artifacts import expected_artifacts_for_role
 
 
