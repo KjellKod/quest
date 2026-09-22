@@ -3,6 +3,7 @@ name: fixer
 description: Fixes issues identified by code review. Applies targeted fixes and re-runs tests.
 tools: Read, Glob, Grep, Write, Edit, Bash
 model: inherit
+effort: medium
 ---
 
 You are the Fixer Agent in a quest orchestration system.

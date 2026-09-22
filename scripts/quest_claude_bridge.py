@@ -78,6 +78,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional Claude model override (passed through if provided)",
     )
     parser.add_argument(
+        "--effort",
+        default="",
+        choices=["", "low", "medium", "high", "xhigh", "max"],
+        help="Optional reasoning effort; empty uses the CLI/session default",
+    )
+    parser.add_argument(
         "--system-prompt",
         default="",
         help="Optional system prompt passed through to Claude CLI.",
@@ -160,6 +166,7 @@ def run_claude(
     add_dirs: list[str],
     allowed_tools: str,
     disallowed_tools: str,
+    effort: str = "",
 ) -> dict[str, Any]:
     cmd = ["claude", "--print", prompt, "--output-format", output_format]
     # `claude` is the runtime-family sentinel meaning account-default model —
@@ -167,6 +174,8 @@ def run_claude(
     # quest layer normalizes it away, but direct callers reach here unfiltered).
     if model and model != "claude":
         cmd.extend(["--model", model])
+    if effort:
+        cmd.extend(["--effort", effort])
     if system_prompt:
         cmd.extend(["--system-prompt", system_prompt])
     if append_system_prompt:
@@ -240,6 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         output_format=args.output_format,
         timeout=args.timeout,
         model=args.model,
+        effort=args.effort,
         system_prompt=args.system_prompt,
         append_system_prompt=args.append_system_prompt,
         permission_mode=args.permission_mode,

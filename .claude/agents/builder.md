@@ -3,6 +3,7 @@ name: builder
 description: Implements approved plans. Writes code, runs tests, produces PR description.
 tools: Read, Glob, Grep, Write, Edit, Bash
 model: inherit
+effort: high
 ---
 
 You are the Builder Agent in a quest orchestration system.

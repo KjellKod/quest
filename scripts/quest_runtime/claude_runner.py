@@ -24,7 +24,7 @@ from quest_runtime.artifacts import (
     check_artifact_paths,
     prepare_artifact_files,
 )
-from quest_runtime.orchestration import runtime_for_model
+from quest_runtime.orchestration import CLAUDE_EFFORT_LEVELS, runtime_for_model
 from quest_runtime.plan_iterations import PlanIterationError
 from quest_runtime.state import StateError, utc_now_iso
 
@@ -120,6 +120,26 @@ def normalize_claude_cli_model(model: str) -> str | None:
         )
     if normalized == "claude":
         return None
+    return normalized
+
+
+def normalize_claude_cli_effort(effort: str | None) -> str | None:
+    """Validate an effort level for `claude --effort`; None omits the flag.
+
+    `ultra` is a Codex-only level. It is valid in the shared per-role `effort`
+    map but unreachable here, so a Claude role pinned to it fails loudly rather
+    than silently running at the CLI default.
+    """
+    if effort is None:
+        return None
+    normalized = effort.strip()
+    if not normalized:
+        return None
+    if normalized not in CLAUDE_EFFORT_LEVELS:
+        raise ValueError(
+            f"Claude effort must be one of {'|'.join(CLAUDE_EFFORT_LEVELS)} "
+            f"(got {effort!r})"
+        )
     return normalized
 
 
@@ -313,8 +333,10 @@ def build_bridge_cmd(
     timeout: float,
     permission_mode: str,
     add_dirs: Iterable[str | Path] | None = None,
+    effort: str | None = None,
 ) -> list[str]:
     cli_model = normalize_claude_cli_model(model)
+    cli_effort = normalize_claude_cli_effort(effort)
     cmd = [
         sys.executable,
         str(bridge_script),
@@ -329,6 +351,8 @@ def build_bridge_cmd(
     ]
     if cli_model is not None:
         cmd.extend(["--model", cli_model])
+    if cli_effort is not None:
+        cmd.extend(["--effort", cli_effort])
     if add_dirs:
         for directory in unique_dirs(add_dirs):
             cmd.extend(["--add-dir", directory])
@@ -350,6 +374,7 @@ def build_bg_cmd(
     teardown_on_needs_human: bool = False,
     resume: str | None = None,
     answer_file: str | Path | None = None,
+    effort: str | None = None,
 ) -> list[str]:
     """argv for the background-agent transport (scripts/quest_claude_bg_run.py).
 
@@ -359,6 +384,7 @@ def build_bg_cmd(
     Direct callers with no relay can opt into --teardown-on-needs-human.
     """
     cli_model = normalize_claude_cli_model(model)
+    cli_effort = normalize_claude_cli_effort(effort)
     cmd = [
         sys.executable,
         str(bg_runner_script),
@@ -382,6 +408,8 @@ def build_bg_cmd(
         cmd.extend(["--prompt-file", str(prompt_file)])
     if cli_model is not None:
         cmd.extend(["--model", cli_model])
+    if cli_effort is not None:
+        cmd.extend(["--effort", cli_effort])
     if teardown_on_needs_human:
         cmd.append("--teardown-on-needs-human")
     for path in wait_for:
@@ -709,6 +737,7 @@ def run_claude_role(
     teardown_on_needs_human: bool = False,
     resume: str | None = None,
     answer_file: str | Path | None = None,
+    effort: str | None = None,
 ) -> RunResult:
     if transport not in {"bridge", "background-agent"}:
         raise ValueError(
@@ -836,6 +865,7 @@ def run_claude_role(
                 teardown_on_needs_human=teardown_on_needs_human,
                 resume=resume,
                 answer_file=resolve_path(cwd, answer_file) if answer_file else None,
+                effort=effort,
             )
         else:
             cmd = build_bridge_cmd(
@@ -848,9 +878,11 @@ def run_claude_role(
                     permission_mode, permission_escalation
                 ),
                 add_dirs=default_add_dirs,
+                effort=effort,
             )
     except ValueError as exc:
-        # e.g. an empty models.<role> value reaching normalize_claude_cli_model:
+        # e.g. an empty models.<role> value, or a Codex-only `ultra` effort,
+        # reaching the normalizers:
         # library callers get a structured invocation_error, never a traceback.
         return RunResult(
             exit_code=1,

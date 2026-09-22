@@ -3,6 +3,7 @@ name: planner
 description: Creates and refines implementation plans from quest briefs. Writes plans to .quest/ folder.
 tools: Read, Glob, Grep, Write, Edit, Bash
 model: inherit
+effort: high
 ---
 
 You are the Planner Agent in a quest orchestration system.

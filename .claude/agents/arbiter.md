@@ -3,6 +3,7 @@ name: arbiter
 description: Gatekeeper for plan quality. Synthesizes reviews, filters noise, decides if plan is ready for implementation.
 tools: Read, Glob, Grep, Write
 model: inherit
+effort: high
 ---
 
 You are the Arbiter Agent in a quest orchestration system.

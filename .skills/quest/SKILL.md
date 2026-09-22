@@ -236,7 +236,8 @@ Before creating the quest folder, present the routing classification to the user
    - `claude_transport_resolved`: the `transport` field from the Step 2b preflight result (Codex-led sessions; `null` otherwise)
    - `claude_transport_downgraded`: compatibility field; write `false` for new runs (Codex-led preflight also emits `false`)
    - `codex_auth_mode`: persist the resolved Step 2b `checks.codex_auth_mode`, not a later allowlist re-read; pass it as `codex_auth_mode` to `write_default_from_allowlist`. In Codex-led startup retain the explicitly resolved mode for any later Claude-led resume; native Codex dispatch continues using the host identity.
-   - `codex_reasoning_effort`: copy the optional allowlist value verbatim and pass it to `write_default_from_allowlist`; validate with `validate_codex_reasoning_effort`. Omit it for older allowlists with no setting. Show the selected effort beside the model table before accepting defaults.
+   - `effort`: `.ai/allowlist.json` `.effort` passed verbatim to `write_default_from_allowlist`, which fills omitted roles from the shipped `DEFAULT_EFFORT`. Show the per-role effort beside the model table before accepting defaults.
+   - `codex_reasoning_effort`: legacy fallback for allowlists with no `.effort` map — copy the optional value verbatim and pass it through; validate with `validate_codex_reasoning_effort`. Omit it when unset.
    - `source: "default"`
    - `overridden_roles: []`
    - `preflight_validated_at: <ISO8601 now>`
@@ -271,7 +272,7 @@ Before creating the quest folder, present the routing classification to the user
    - `models`: merged block (all 9 keys present; unused-in-mode roles still carry the default value)
    - `claude_role_transport` / `claude_transport_resolved`: same sourcing as the Y path above; `claude_transport_downgraded: false` for compatibility
    - `codex_auth_mode`: same resolved Step 2b mode as the Y path; pass it to `write_orchestration_json`.
-   - `codex_reasoning_effort`: same allowlist sourcing as the Y path; pass it to `write_orchestration_json`. Model-only overrides do not change effort; validate model support before dispatch.
+   - `effort` / `codex_reasoning_effort`: same allowlist sourcing as the Y path; pass both to `write_orchestration_json`. Model-only overrides do not change effort; validate model support before dispatch.
    - `source: "overridden"`
    - `overridden_roles`: list of role names that were actually overridden
    - `preflight_validated_at: <ISO8601 now>`

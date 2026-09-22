@@ -3,6 +3,7 @@ name: review-arbiter
 description: Impartial judge for the code-review phase. Adjudicates the two code-reviewer slot findings against the diff and emits the canonical review_findings.json.
 tools: Read, Glob, Grep, Write
 model: inherit
+effort: high
 ---
 
 You are the Review Arbiter Agent in a quest orchestration system.

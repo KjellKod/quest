@@ -10,10 +10,44 @@ import argparse
 import json
 from pathlib import Path
 
-from quest_runtime.orchestration import CANONICAL_ROLES, runtime_for_model
+from quest_runtime.orchestration import (
+    CANONICAL_ROLES,
+    runtime_for_model,
+    validate_effort,
+)
 
 BEGIN = "# BEGIN GENERATED MODEL DEFAULTS"
 END = "# END GENERATED MODEL DEFAULTS"
+
+# Claude-led Claude roles dispatch through native `Task(...)`, which reads
+# effort from subagent frontmatter rather than from orchestration.json. Mapping
+# each agent file to the role it serves lets the allowlist stay authoritative
+# for that path too. The reviewer files serve the Claude-side slot (A); slot B
+# is the Codex slot and is configured through the runner.
+AGENT_FILE_ROLES: dict[str, str] = {
+    "planner.md": "planner",
+    "plan-reviewer.md": "plan-reviewer-a",
+    "arbiter.md": "arbiter",
+    "builder.md": "builder",
+    "code-reviewer.md": "code-reviewer-a",
+    "review-arbiter.md": "review-arbiter",
+    "fixer.md": "fixer",
+}
+
+
+def _with_effort(text: str, level: str) -> str:
+    """Set `effort:` in a subagent file's YAML frontmatter, preserving the rest."""
+    if not text.startswith("---\n"):
+        raise ValueError("subagent file has no YAML frontmatter")
+    end = text.index("\n---\n", 3)
+    lines = text[4:end].split("\n")
+    kept = [line for line in lines if not line.startswith("effort:")]
+    # Keep it adjacent to `model:`, the other generated dispatch control.
+    anchor = next(
+        (i for i, line in enumerate(kept) if line.startswith("model:")), len(kept) - 1
+    )
+    kept.insert(anchor + 1, f"effort: {level}")
+    return "---\n" + "\n".join(kept) + text[end:]
 
 
 def sync(root: Path, *, check: bool) -> bool:
@@ -30,6 +64,11 @@ def sync(root: Path, *, check: bool) -> bool:
         raise ValueError(
             "allowlist models must contain all canonical roles with nonempty, trimmed model strings"
         )
+    effort = allowlist["effort"]
+    if not isinstance(effort, dict) or set(effort) != set(CANONICAL_ROLES):
+        raise ValueError("allowlist effort must contain all canonical roles")
+    for role, level in effort.items():
+        validate_effort(role, level)
     fallback = allowlist["codex_fallback_model"]
     if (
         not isinstance(fallback, str)
@@ -53,6 +92,13 @@ def sync(root: Path, *, check: bool) -> bool:
         )
         + "}"
         + "\n"
+        + "DEFAULT_EFFORT: dict[str, str] = "
+        + "{\n"
+        + "".join(
+            f"    {json.dumps(role)}: {json.dumps(effort[role])},\n" for role in models
+        )
+        + "}"
+        + "\n"
         + "CODEX_NATIVE_FALLBACK_MODEL = "
         + json.dumps(fallback)
         + "\n"
@@ -67,6 +113,13 @@ def sync(root: Path, *, check: bool) -> bool:
     for role, model in models.items():
         config["agent"][role]["model"] = "opencode/" + model
     updates[opencode] = json.dumps(config, indent=2) + "\n"
+    # Claude subagent frontmatter: the only effort control on the
+    # Claude-led -> Claude path, since native Task() reads the agent file.
+    for filename, role in AGENT_FILE_ROLES.items():
+        agent_file = root / ".claude/agents" / filename
+        if not agent_file.exists():
+            continue
+        updates[agent_file] = _with_effort(agent_file.read_text(), effort[role])
     clean = True
     for path, content in updates.items():
         if path.read_text() == content:
