@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 import quest_startup_branch
 from quest_startup_branch import apply_quest_symlink, ensure_shared_quest_symlink
 

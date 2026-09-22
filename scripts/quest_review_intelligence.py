@@ -11,8 +11,8 @@ from typing import Any
 from quest_runtime.pr_review_cycle import (
     allowlist_path_from_context,
     build_fix_batches,
-    classify_pr_operational_state,
     classify_pr_loop_stop,
+    classify_pr_operational_state,
     normalize_pr_review_intake,
     retag_backlog_at_cap,
     select_validation_steps,
@@ -23,9 +23,9 @@ from quest_runtime.review_intelligence import (
     merge_and_dedupe,
     scan_deferred_backlog,
     utc_now_iso,
+    validate_findings,
     validate_plan_phase_defaults,
     validate_review_backlog,
-    validate_findings,
 )
 
 

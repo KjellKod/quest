@@ -3,7 +3,7 @@
 # Probes second-model availability before quest routing.
 # Called by SKILL.md Step 2b — output is JSON to stdout.
 #
-# Usage: scripts/quest_preflight.sh [--orchestrator claude|codex]
+# Usage: scripts/quest_preflight.sh --orchestrator claude|codex [--codex-auth cached|api-key]
 #
 # Exit codes:
 #   0 — probe completed (check JSON "available" field for result)
@@ -18,13 +18,10 @@ set -euo pipefail
 
 ORCHESTRATOR=""
 PROBE_RUNTIME=""
+CODEX_AUTH_MODE=""
 CACHE_TTL_SECONDS="${QUEST_PREFLIGHT_CACHE_TTL_SECONDS:-43200}"
 case "$CACHE_TTL_SECONDS" in
   ''|*[!0-9]*) CACHE_TTL_SECONDS=43200 ;;  # fallback on non-integer input
-esac
-CODEX_LOGIN_TIMEOUT_SECONDS="${QUEST_CODEX_LOGIN_TIMEOUT_SECONDS:-5}"
-case "$CODEX_LOGIN_TIMEOUT_SECONDS" in
-  ''|*[!0-9]*|0) CODEX_LOGIN_TIMEOUT_SECONDS=5 ;;
 esac
 
 # Resolve THIS script's real directory so helper scripts are found regardless of
@@ -108,7 +105,7 @@ trap 'cleanup_bg_probes; trap - EXIT; exit 143' TERM
 # Argument Parsing
 ###############################################################################
 
-USAGE="Usage: quest_preflight.sh --orchestrator claude|codex | --probe antigravity"
+USAGE="Usage: quest_preflight.sh --orchestrator claude|codex [--codex-auth cached|api-key] | --probe antigravity"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -118,6 +115,12 @@ while [ $# -gt 0 ]; do
         exit 2
       fi
       ORCHESTRATOR="$2"
+      shift 2
+      ;;
+    --codex-auth)
+      if [ $# -lt 2 ]; then echo "$USAGE" >&2; exit 2; fi
+      CODEX_AUTH_MODE="$2"
+      case "$CODEX_AUTH_MODE" in cached|api-key) ;; *) echo "Invalid --codex-auth (expected cached or api-key)" >&2; exit 2 ;; esac
       shift 2
       ;;
     --probe)
@@ -277,110 +280,60 @@ cache_fallback_allowed() {
 # Claude-led session: probe for Codex
 ###############################################################################
 
-codex_login_status_bounded() {
-  python3 - "$CODEX_LOGIN_TIMEOUT_SECONDS" <<'PY'
+probe_codex() {
+  python3 - "$SCRIPT_DIR" "$ALLOWLIST_FILE" "$CODEX_AUTH_MODE" <<'PYCODEX'
+import json
+import os
+from pathlib import Path
+import shutil
 import subprocess
 import sys
 
+script_dir, allowlist_file, override = sys.argv[1:]
+try:
+    config = json.loads(Path(allowlist_file).read_text()) if Path(allowlist_file).exists() else {}
+    if not isinstance(config, dict):
+        raise ValueError("Allowlist must be a JSON object")
+    mode = override or config.get("codex_auth_mode", "cached")
+    if mode not in ("cached", "api-key"):
+        raise ValueError("Invalid codex_auth_mode (expected cached or api-key)")
+except (OSError, ValueError) as exc:
+    print(json.dumps({"available": False, "inference_verified": False,
+        "orchestrator": "claude", "second_model": "codex", "checks": {
+            "codex_cli_installed": shutil.which("codex") is not None,
+            "codex_exec_supported": False, "codex_runner_available": False,
+            "codex_auth_ready": False, "codex_auth_kind": "unknown",
+            "codex_auth_reason": "invalid_configuration"},
+        "warning": ["Invalid allowlist configuration. Check JSON and codex_auth_mode (cached or api-key)."]}))
+    raise SystemExit(0)
+diagnostic = "Codex runner probe failed. Check the installed helper and Python runtime."
 try:
     result = subprocess.run(
-        ["codex", "login", "status"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        timeout=int(sys.argv[1]),
-        check=False,
+        [sys.executable, str(Path(script_dir) / "quest_codex_runner.py"),
+         "probe", "--cwd", os.getcwd(), "--auth", mode],
+        capture_output=True, text=True, timeout=30, check=False,
     )
-except subprocess.TimeoutExpired:
-    raise SystemExit(124)
-except OSError:
-    raise SystemExit(1)
-raise SystemExit(0 if result.returncode == 0 else 1)
-PY
-}
-
-probe_codex() {
-  local codex_cli_installed="false"
-  local codex_mcp_registered="false"
-  local codex_authenticated="false"
-  local codex_auth_reason="not_checked"
-  local openai_auth="false"
-  local available="false"
-  local warning=""
-
-  # Check Codex CLI
-  if has_cmd codex; then
-    codex_cli_installed="true"
-    local login_rc=0
-    if codex_login_status_bounded; then
-      codex_authenticated="true"
-      codex_auth_reason="authenticated"
-    else
-      login_rc=$?
-      if [ "$login_rc" -eq 124 ]; then
-        codex_auth_reason="timeout"
-      else
-        codex_auth_reason="unauthenticated"
-      fi
-    fi
-  else
-    codex_auth_reason="missing_cli"
-  fi
-
-  # Check MCP registration (requires claude CLI)
-  if has_cmd claude; then
-    if claude mcp list 2>/dev/null | grep -q "codex-cli"; then
-      codex_mcp_registered="true"
-    fi
-  fi
-
-  # Check OpenAI auth
-  if [ -n "${OPENAI_API_KEY:-}" ]; then
-    openai_auth="true"
-  elif [ -f ".env" ] && grep -q "OPENAI_API_KEY" ".env" 2>/dev/null; then
-    openai_auth="true"
-  fi
-
-  # Determine overall availability
-  if [ "$codex_cli_installed" = "true" ] && \
-     [ "$codex_mcp_registered" = "true" ] && \
-     [ "$codex_authenticated" = "true" ]; then
-    available="true"
-  fi
-
-  # Build warning lines if not available
-  local warning_lines=""
-  if [ "$available" = "false" ]; then
-    warning_lines="    \"Codex is unavailable -- quest startup is paused for your decision.\",\n"
-    warning_lines="${warning_lines}    \"To enable dual-model mode (Claude + Codex), run:\",\n"
-    if [ "$codex_cli_installed" = "false" ]; then
-      warning_lines="${warning_lines}    \"  npm i -g @openai/codex          # install Codex CLI\",\n"
-    fi
-    if [ "$codex_authenticated" = "false" ]; then
-      warning_lines="${warning_lines}    \"  codex login                      # login to OpenAI\",\n"
-    fi
-    if [ "$codex_mcp_registered" = "false" ]; then
-      warning_lines="${warning_lines}    \"  claude mcp add --scope user codex-cli -- codex mcp-server\",\n"
-    fi
-    warning_lines="${warning_lines}    \"Then restart this Claude Code session.\""
-  fi
-
-  cat <<EOJSON
-{
-  "orchestrator": "claude",
-  "second_model": "codex",
-  "available": ${available},
-  "checks": {
-    "codex_cli_installed": ${codex_cli_installed},
-    "codex_mcp_registered": ${codex_mcp_registered},
-    "codex_authenticated": ${codex_authenticated},
-    "codex_auth_reason": "${codex_auth_reason}",
-    "openai_auth": ${openai_auth}
-  },
-  "warning": $(if [ -n "$warning_lines" ]; then printf '[\n%b\n  ]' "$warning_lines"; else echo 'null'; fi)
-}
-EOJSON
-
-  return 0
+    if result.returncode:
+        diagnostic = f"Codex runner probe exited with exit {result.returncode}. Check the installed helper and Python runtime."
+        raise ValueError("runner probe failed")
+    diagnostic = "Codex runner probe returned invalid JSON output. Check the installed helper version."
+    payload = json.loads(result.stdout)
+    if not isinstance(payload, dict) or not isinstance(payload.get("checks"), dict):
+        raise ValueError("runner probe failed")
+except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+    if isinstance(exc, subprocess.TimeoutExpired):
+        diagnostic = "Codex runner probe timed out after 30 seconds. Check CLI setup and retry the selected auth mode."
+    payload = {"available": False, "inference_verified": False, "checks": {
+        "codex_cli_installed": shutil.which("codex") is not None, "codex_exec_supported": False,
+        "codex_runner_available": False, "codex_auth_mode": mode,
+        "codex_auth_ready": False, "codex_auth_kind": "unknown",
+        "codex_auth_reason": "probe_failed"},
+        "warning": [diagnostic]}
+payload["orchestrator"] = "claude"
+payload["second_model"] = "codex"
+payload["warning"] = payload.pop("warnings", payload.get("warning")) or None
+print(json.dumps(payload))
+PYCODEX
 }
 
 ###############################################################################

@@ -377,3 +377,23 @@ def test_temporary_installed_consumer_has_no_source_formatting_policy(
 
     for source_only_path in forbidden_paths:
         assert source_only_path not in installer_text
+
+
+def test_installer_marks_every_manifest_hook_executable() -> None:
+    """Hooks under .claude/hooks are invoked directly by settings.json, so the
+    installer must restore their executable bit after overwriting them."""
+    installer_text = (_repo_root() / "scripts" / "quest_installer.sh").read_text(
+        encoding="utf-8"
+    )
+    block_start = installer_text.index("EXECUTABLE_FILES=(")
+    block = installer_text[block_start : installer_text.index(")", block_start)]
+    manifest_hooks = {
+        entry
+        for entry in _manifest_file_entries()
+        if entry.startswith(".claude/hooks/")
+    }
+    assert manifest_hooks
+    missing = {hook for hook in manifest_hooks if f'"{hook}"' not in block}
+    assert (
+        not missing
+    ), f"Add to EXECUTABLE_FILES in quest_installer.sh: {sorted(missing)}"

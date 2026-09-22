@@ -12,8 +12,8 @@ import json
 
 from quest_runtime.antigravity_runner import (
     DEFAULT_AGY_BINARY,
-    run_antigravity_probe,
     positive_finite_timeout,
+    run_antigravity_probe,
 )
 
 

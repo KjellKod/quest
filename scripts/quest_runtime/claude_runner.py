@@ -67,8 +67,9 @@ class RunResult:
 # "Orchestration violation", or the log itself becomes a misdiagnosis trap.
 CODEX_LED_CODEX_VIOLATION_GUIDANCE = (
     "Orchestration violation: Codex-led Codex roles must use local Codex "
-    "subagents that inherit the active Codex model. Codex MCP is only valid "
-    "for Claude-led sessions dispatching Codex roles."
+    "subagents with matching saved model/effort or explicit controls. "
+    "Claude-led sessions use scripts/quest_codex_runner.py; never substitute "
+    "nested Codex CLI or MCP for native Codex delegation."
 )
 
 
@@ -139,6 +140,9 @@ def select_role_runtime(
     native_claude_available: bool = True,
     claude_bridge_available: bool = False,
     antigravity_available: bool = False,
+    codex_runner_available: bool = False,
+    native_codex_available: bool = True,
+    native_codex_settings_match: bool = True,
 ) -> RuntimeSelection:
     """Select the additive runtime path for a Quest role.
 
@@ -176,25 +180,39 @@ def select_role_runtime(
 
     if normalized_target == "codex":
         if normalized_orchestrator == "codex":
+            if not native_codex_available or not native_codex_settings_match:
+                return RuntimeSelection(
+                    runtime="blocked",
+                    entrypoint="",
+                    requires_probe=False,
+                    reason="Native Codex delegation unavailable or saved settings cannot be honored. No CLI or MCP substitution is permitted.",
+                )
             return RuntimeSelection(
                 runtime="codex",
                 entrypoint="subagent",
                 reason=(
                     "runtime=codex entrypoint=subagent: Codex-led Codex role "
                     "uses local Codex subagents and inherits the active Codex "
-                    "model. Codex MCP is only valid for Claude-led sessions "
-                    "dispatching Codex roles."
+                    "model only when saved settings match, or uses explicit "
+                    "model/effort controls. Never substitute CLI or MCP."
                 ),
                 requires_probe=False,
             )
+        if not codex_runner_available:
+            return RuntimeSelection(
+                runtime="blocked",
+                entrypoint="",
+                requires_probe=True,
+                reason="Claude-led Codex roles require the Quest Codex runner and selected-mode CLI readiness. Run startup preflight.",
+            )
         return RuntimeSelection(
             runtime="codex",
-            entrypoint="codex_mcp",
+            entrypoint="scripts/quest_codex_runner.py",
             reason=(
-                "runtime=codex entrypoint=codex_mcp: Claude-led session may "
-                "dispatch Codex roles through Codex MCP."
+                "runtime=codex entrypoint=scripts/quest_codex_runner.py: "
+                "Claude-led Codex roles use the installed Quest CLI runner."
             ),
-            requires_probe=False,
+            requires_probe=True,
         )
 
     if normalized_target == "antigravity":

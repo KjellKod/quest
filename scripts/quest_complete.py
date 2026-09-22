@@ -26,12 +26,8 @@ from pathlib import Path
 # Add scripts/ to path so we can import quest_celebrate
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from quest_celebrate.quest_data import (
-    QuestData,
-    friendly_model_name,
-    load_quest_data,
-)
 from quest_celebrate.persist import CelebrationWriteResult, write_celebration_file
+from quest_celebrate.quest_data import QuestData, friendly_model_name, load_quest_data
 from quest_runtime.claude_runner import sweep_left_survivor
 from quest_runtime.quest_ids import parse_quest_id
 from quest_runtime.state import StateError, load_state

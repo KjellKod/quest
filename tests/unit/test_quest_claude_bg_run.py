@@ -21,7 +21,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 import quest_claude_bg_run as bg
 
 # Captured at import, BEFORE the autouse `kills` fixture patches bg.os.kill:

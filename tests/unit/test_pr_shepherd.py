@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 import quest_pr_shepherd_annotate_scope
 import quest_pr_shepherd_checkout
 import quest_pr_shepherd_collect_intake
@@ -14,8 +13,8 @@ from quest_runtime.pr_shepherd import (
     ADDRESSED_MARKER,
     FOLLOWUP_MARKER,
     SUMMARY_MARKER,
-    append_marker,
     activity_state,
+    append_marker,
     classify_operational_state,
     compact_summary_body,
     stable_fingerprint,

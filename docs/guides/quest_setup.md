@@ -20,57 +20,38 @@ claude auth
 
 **Documentation:** https://docs.anthropic.com/en/docs/claude-code
 
-### Optional: Codex MCP (for dual-model reviews)
+### Optional: Codex CLI (for Codex-backed roles)
 
-Quest can use Codex as a second reviewer. This gives you two different model families reviewing your code (different blind spots).
+Claude-led Quest and `/gpt` use the installed `scripts/quest_codex_runner.py` helper. Codex-led Codex roles use native subagents. Neither path requires a Codex MCP server, shim or plugin.
 
-**Requires:**
-- [Codex CLI](https://developers.openai.com/codex/cli/) installed globally (`npm i -g @openai/codex`)
-- A CLI-confirmed Codex login: run `codex login`, then verify that
-  `codex login status` succeeds. `OPENAI_API_KEY` is diagnostic-only in Quest
-  preflight and does not replace the CLI login.
-
-Register the Codex MCP server globally (one-time setup):
+Install [Codex CLI](https://developers.openai.com/codex/cli/) (`npm i -g @openai/codex`), then prefer cached ChatGPT authentication:
 
 ```bash
-claude mcp add --scope user codex-cli -- codex mcp-server
+codex login
+codex login status
+./scripts/quest_preflight.sh --orchestrator claude --codex-auth cached
 ```
 
-> **Note:** If a repo has its own `.claude/mcp.json`, it shadows the global config. In that case, also run `claude mcp add codex-cli -- codex mcp-server` inside that repo so the project-level config includes it too. If Codex isn't connecting for any reason, running the per-repo command is a safe first troubleshooting step.
+Expected: login status reports ChatGPT and preflight reports `available: true`. The probe verifies CLI capabilities and selected credential readiness without inference (`inference_verified: false`). A model or credential can still be rejected during actual execution.
 
-**Verify it's registered:** `claude mcp list` should show `codex-cli` as a configured server.
+For explicitly selected API billing, provide `CODEX_API_KEY` or `OPENAI_API_KEY` through the existing environment and select `.ai/allowlist.json` `codex_auth_mode: "api-key"`, or request API-key mode at Quest startup. `--codex-auth api-key` overrides the allowlist for that probe; startup saves the resolved selection in `orchestration.json`. `CODEX_API_KEY` takes precedence when both keys exist. This mode does not require or modify cached login. Never paste keys into prompts or logs. Quest does not read `.env` for credentials.
 
-**Add the permission** so Claude Code won't prompt on every Codex call:
+The default `cached` mode excludes ambient API keys and uses the CLI's saved identity. Setup prefers ChatGPT; a deliberately cached API identity is reported as such. Codex manages token refresh. Failures never silently change authentication, model or billing.
+
+**Host permissions:** Permit the actual installed command used by the task, with its concrete paths, through the host's normal permission flow:
 
 ```bash
-# If you have jq installed:
-jq '.permissions.allow += ["mcp__codex-cli__*"]' ~/.claude/settings.json > /tmp/cs.json && mv /tmp/cs.json ~/.claude/settings.json
+python3 "/absolute/installation/scripts/quest_codex_runner.py" role \
+  --cwd "/absolute/target workspace" --quest-dir "/absolute/quest artifacts/id" \
+  --phase build --agent builder --iter 1 --prompt-file "/absolute/prompt.txt" \
+  --output-dir "/absolute/run receipts" --sandbox workspace-write --timeout 1800
 ```
 
-Or manually add `"mcp__codex-cli__*"` to the `permissions.allow` array in `~/.claude/settings.json`.
+The builder command is used only after explicit Build approval. `/gpt` uses `task` mode; see the [GPT skill](../../.skills/gpt/SKILL.md) for its exact options. Installation, target cwd and artifact directories may be separate and contain spaces. Intentional non-Git execution requires `--allow-non-git`. No broad Bash/MCP wildcard permission or automatic full-access escalation is installed.
 
-> **Why `codex-cli` not `codex`?** The MCP server self-identifies as `codex-cli` at startup, so Claude Code names the tools `mcp__codex-cli__codex`, `mcp__codex-cli__review`, etc. — regardless of what you called it in your config.
+**Legacy configuration:** The installer stops registering `codex mcp-server`. It reports recognized old registrations rather than deleting global configuration. Inspect the named registration and follow its scoped removal guidance only for the confirmed obsolete entry; preserve unrelated tools and custom servers. Child invocations disable recognized Codex self-delegation commands per run, without rewriting user files. Custom OpenCode configuration may need a targeted merge removing only the obsolete shipped server. Do not remove all MCP tools or ignore inherited configuration to make a run pass.
 
-If the MCP server isn't showing up, you can manually add it to `.claude/mcp.json` as a last resort:
-
-```json
-{
-  "mcpServers": {
-    "codex-cli": {
-      "command": "codex",
-      "args": ["mcp-server"]
-    }
-  }
-}
-```
-
-**Documentation:** https://platform.openai.com/docs/quickstart
-
-In a Claude-led Quest, Codex-backed role selections require this MCP runtime.
-Before the per-quest chooser, preflight probes the second runtime regardless of
-the repository's current role defaults. If the probe fails, startup pauses for
-remediation or an explicit single-model choice; Quest does not silently change
-the role map.
+Before the per-quest chooser, preflight checks the second runtime regardless of current role defaults. A failed probe pauses for remediation or an explicit single-model choice; it never silently changes the role map.
 
 ### Optional: Antigravity CLI (for Gemini-backed roles)
 
@@ -254,6 +235,7 @@ Key sections to customize:
 | `models.<role>` | Set a model ID for each canonical role: `planner`, `plan-reviewer-a`, `plan-reviewer-b`, `arbiter`, `builder`, `code-reviewer-a`, `code-reviewer-b`, `review-arbiter`, and `fixer` |
 | `claude_role_transport` | Codex-led Claude transport policy: `auto` (default), `background-agent`, or `bridge` |
 | `quest_id_format` | `slug-first` (default) or `date-first`; affects only new Quest folder names |
+| `codex_auth_mode` | Codex runner authentication: `cached` (default, prefer ChatGPT login) or explicitly selected `api-key`; saved per quest, never inferred from key presence |
 | `review_mode` | `auto` (default), `fast`, or `full` for Codex reviews |
 | `fast_review_thresholds` | File/LOC thresholds used when `review_mode: auto` |
 
@@ -277,13 +259,9 @@ Add to `.gitignore`:
 
 The `.quest/` folder contains ephemeral run state and should not be committed.
 
-## One-Time MCP Setup (if using Codex)
+## Codex Runtime Readiness
 
-If you want a Claude-led Quest to assign any role to a Codex-backed model, add
-the config to `.claude/mcp.json` (see
-[Prerequisites](#optional-codex-mcp-for-dual-model-reviews) above).
-
-This enables the `mcp__codex-cli__codex` tool for spawning Codex agents.
+Use the [Codex CLI prerequisites](#optional-codex-cli-for-codex-backed-roles) above. No registration step is required.
 
 Quest runs preflight before creating a new quest. Use the command matching the
 current orchestrator:
@@ -293,7 +271,7 @@ current orchestrator:
 ./scripts/quest_preflight.sh --orchestrator codex
 ```
 
-Claude-led preflight always probes the Codex CLI and MCP runtime; Codex-led
+Claude-led preflight checks the installed Codex runner, exec capabilities and selected auth mode; Codex-led
 preflight always probes the configured Claude transport. This second-runtime
 probe happens before the role-model chooser and is independent of the current
 `models` defaults. The chooser then validates its active role selections against
@@ -475,7 +453,7 @@ For every role, Quest reads `models.<role>` from the active quest's
 the entrypoint for the current orchestrator:
 
 - Claude-led + Claude-family: native isolated task
-- Claude-led + Codex-backed: Codex MCP
+- Claude-led + Codex-backed: `scripts/quest_codex_runner.py role`, using saved model, effort and auth
 - Codex-led + Codex-backed: local Codex subagent
 - Codex-led + Claude-family: `scripts/quest_claude_runner.py` with the resolved
   `background-agent` or explicitly selected `bridge` transport
@@ -527,7 +505,7 @@ If you have Codex installed but it's not being used:
    reported availability warning.
 2. Inspect `.quest/<id>/orchestration.json` and verify the affected
    `models.<role>` entries select the intended Codex-backed model.
-3. For Claude-led quests, check that MCP is configured with `claude mcp list`.
+3. For Claude-led quests, rerun `scripts/quest_preflight.sh --orchestrator claude --codex-auth <saved-mode>` and follow its selected-auth/CLI warning. Legacy quests without `codex_auth_mode` use `cached`.
 4. To change repository defaults for future quests, update the corresponding
    `.ai/allowlist.json` `models.<role>` values. Existing quests continue using
    their saved orchestration file.

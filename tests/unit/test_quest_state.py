@@ -7,15 +7,14 @@ set/clear flags are contract, not convenience.
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import stat
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
-
 import quest_state
 from quest_runtime import state as state_runtime
 

@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import random
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
-
 from quest_runtime.pr_review_cycle import (
     build_fix_batches,
-    classify_pr_operational_state,
     classify_pr_loop_stop,
+    classify_pr_operational_state,
     normalize_pr_review_intake,
 )
 from quest_runtime.review_intelligence import build_review_backlog, validate_findings

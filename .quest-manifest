@@ -95,6 +95,7 @@ scripts/quest_antigravity_probe.py
 scripts/quest_antigravity_runner.py
 scripts/quest_claude_bg_run.py
 scripts/quest_claude_bridge.py
+scripts/quest_codex_runner.py
 scripts/quest_claude_probe.py
 scripts/quest_claude_runner.py
 scripts/quest_allowlist_matcher.py
@@ -114,6 +115,7 @@ scripts/quest_runtime/__init__.py
 scripts/quest_runtime/antigravity_runner.py
 scripts/quest_runtime/artifacts.py
 scripts/quest_runtime/claude_runner.py
+scripts/quest_runtime/codex_runner.py
 scripts/quest_runtime/orchestration.py
 scripts/quest_runtime/plan_iterations.py
 scripts/quest_runtime/pr_review_cycle.py

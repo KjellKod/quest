@@ -10,7 +10,6 @@ import threading
 from pathlib import Path
 
 import pytest
-
 import quest_runtime.plan_iterations as plan_iterations_module
 from quest_runtime.artifacts import prepare_artifact_files
 from quest_runtime.plan_iterations import (

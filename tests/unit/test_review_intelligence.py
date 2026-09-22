@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -30,9 +30,9 @@ from quest_runtime.review_intelligence import (
     select_decision,
     synthesize_findings_from_review_markdown,
     synthesize_plan_review_findings,
+    validate_findings,
     validate_plan_phase_defaults,
     validate_review_backlog,
-    validate_findings,
 )
 
 

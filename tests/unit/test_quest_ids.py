@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
-
 from quest_runtime.quest_ids import (
     DATE_FIRST,
     DEFAULT_QUEST_ID_FORMAT,

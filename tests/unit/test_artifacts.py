@@ -7,10 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
-
 import quest_runtime.claude_runner as claude_runner_module
-from quest_runtime.plan_iterations import PlanIterationError
-from quest_runtime.state import StateError
 from quest_runtime.artifacts import (
     ROLE_ARTIFACTS,
     SOLO_DISABLED_AGENTS,
@@ -27,6 +24,8 @@ from quest_runtime.claude_runner import (
     classify_result_kind,
     run_claude_role,
 )
+from quest_runtime.plan_iterations import PlanIterationError
+from quest_runtime.state import StateError
 
 # ---------------------------------------------------------------------------
 # Artifact resolution

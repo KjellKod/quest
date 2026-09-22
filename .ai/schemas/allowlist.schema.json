@@ -36,6 +36,12 @@
       "minLength": 1,
       "description": "Default for standalone Codex delegation; also generates the shipped fallback for explicitly approved single-runtime continuation."
     },
+    "codex_auth_mode": {
+      "type": "string",
+      "enum": ["cached", "api-key"],
+      "default": "cached",
+      "description": "Authentication for Claude-led Codex execution: cached CLI identity by default, or explicitly selected API-key billing. Saved per quest after preflight."
+    },
     "codex_reasoning_effort": {
       "type": "string",
       "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],

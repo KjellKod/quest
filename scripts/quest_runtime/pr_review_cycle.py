@@ -6,6 +6,11 @@ import copy
 import json
 from pathlib import Path, PurePosixPath
 
+from quest_runtime.pr_shepherd import (
+    classify_operational_state,
+    merge_activity_state,
+    stable_fingerprint,
+)
 from quest_runtime.review_intelligence import (
     ALLOWED_DECISIONS,
     _batch_from_finding,
@@ -13,11 +18,6 @@ from quest_runtime.review_intelligence import (
     review_local_index_from_value,
     select_decision,
     validate_findings,
-)
-from quest_runtime.pr_shepherd import (
-    classify_operational_state,
-    merge_activity_state,
-    stable_fingerprint,
 )
 
 INTAKE_SOURCES = (
