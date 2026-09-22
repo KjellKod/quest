@@ -19,11 +19,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable
 
-from quest_runtime.artifacts import (
-    any_artifact_missing_or_empty,
-    check_artifact_paths,
-    prepare_artifact_files,
-)
+from quest_runtime.artifacts import (any_artifact_missing_or_empty,
+                                     check_artifact_paths,
+                                     prepare_artifact_files)
 from quest_runtime.orchestration import runtime_for_model
 from quest_runtime.plan_iterations import PlanIterationError
 from quest_runtime.state import StateError, utc_now_iso

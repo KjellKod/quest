@@ -1,16 +1,15 @@
 """Unit tests for quest_complete journal rendering."""
 
-from datetime import date
 import json
-from pathlib import Path
 import sys
+from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
 import quest_complete
-from quest_complete import build_journal_entry
 from quest_celebrate.quest_data import QuestData
+from quest_complete import build_journal_entry
 
 
 def test_generate_journal_entry_prefers_full_original_prompt():

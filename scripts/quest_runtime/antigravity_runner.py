@@ -26,20 +26,14 @@ import subprocess
 from pathlib import Path
 from typing import Iterable
 
-from quest_runtime.artifacts import (
-    any_artifact_missing_or_empty,
-    prepare_artifact_files,
-)
-from quest_runtime.claude_runner import (
-    RunResult,
-    append_context_health_log,
-    classify_handoff_file,
-    extract_text_handoff,
-    extract_text_status,
-    read_handoff_status,
-    resolve_path,
-    unique_dirs,
-)
+from quest_runtime.artifacts import (any_artifact_missing_or_empty,
+                                     prepare_artifact_files)
+from quest_runtime.claude_runner import (RunResult, append_context_health_log,
+                                         classify_handoff_file,
+                                         extract_text_handoff,
+                                         extract_text_status,
+                                         read_handoff_status, resolve_path,
+                                         unique_dirs)
 from quest_runtime.plan_iterations import PlanIterationError
 from quest_runtime.state import StateError
 

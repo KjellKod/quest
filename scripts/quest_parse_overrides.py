@@ -6,7 +6,8 @@ from __future__ import annotations
 import json
 import sys
 
-from quest_runtime.orchestration import OverrideParseError, parse_override_input
+from quest_runtime.orchestration import (OverrideParseError,
+                                         parse_override_input)
 
 
 def main() -> int:

@@ -4,22 +4,17 @@ import json
 from pathlib import Path
 
 import pytest
-
 import quest_pr_shepherd_annotate_scope
 import quest_pr_shepherd_checkout
 import quest_pr_shepherd_collect_intake
 import quest_pr_shepherd_fetch_failed_logs
 import quest_pr_shepherd_post_reply
-from quest_runtime.pr_shepherd import (
-    ADDRESSED_MARKER,
-    FOLLOWUP_MARKER,
-    SUMMARY_MARKER,
-    append_marker,
-    activity_state,
-    classify_operational_state,
-    compact_summary_body,
-    stable_fingerprint,
-)
+from quest_runtime.pr_shepherd import (ADDRESSED_MARKER, FOLLOWUP_MARKER,
+                                       SUMMARY_MARKER, activity_state,
+                                       append_marker,
+                                       classify_operational_state,
+                                       compact_summary_body,
+                                       stable_fingerprint)
 
 
 class _Result:

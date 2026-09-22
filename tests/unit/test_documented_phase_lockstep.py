@@ -23,7 +23,6 @@ import re
 from pathlib import Path
 
 import pytest
-
 from quest_runtime.artifacts import expected_artifacts_for_role
 from quest_runtime.orchestration import CANONICAL_ROLES
 

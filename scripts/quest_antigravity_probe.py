@@ -10,11 +10,9 @@ from __future__ import annotations
 import argparse
 import json
 
-from quest_runtime.antigravity_runner import (
-    DEFAULT_AGY_BINARY,
-    run_antigravity_probe,
-    positive_finite_timeout,
-)
+from quest_runtime.antigravity_runner import (DEFAULT_AGY_BINARY,
+                                              positive_finite_timeout,
+                                              run_antigravity_probe)
 
 
 def parse_args() -> argparse.Namespace:

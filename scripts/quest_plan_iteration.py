@@ -7,13 +7,10 @@ import argparse
 import json
 import sys
 
-from quest_runtime.plan_iterations import (
-    PlanIterationError,
-    cleanup_current,
-    publish_refinement,
-    snapshot_plan_iteration,
-    verify_refinement,
-)
+from quest_runtime.plan_iterations import (PlanIterationError, cleanup_current,
+                                           publish_refinement,
+                                           snapshot_plan_iteration,
+                                           verify_refinement)
 from quest_runtime.state import StateError
 
 
