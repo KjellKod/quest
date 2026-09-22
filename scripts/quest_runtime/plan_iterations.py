@@ -10,8 +10,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from .state import _lock_file, load_state
 from .review_intelligence import validate_findings
+from .state import _lock_file, load_state
 
 
 class PlanIterationError(Exception):

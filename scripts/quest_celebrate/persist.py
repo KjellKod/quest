@@ -8,7 +8,8 @@ from datetime import date
 from pathlib import Path
 
 from quest_celebrate.ascii_art import ansi_shadow_title, render_quality_score
-from quest_celebrate.quest_data import QUALITY_TIERS, QuestData, friendly_model_name
+from quest_celebrate.quest_data import (QUALITY_TIERS, QuestData,
+                                        friendly_model_name)
 
 
 @dataclass(frozen=True)

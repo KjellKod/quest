@@ -2,12 +2,12 @@
 
 import json
 import os
-from pathlib import Path
-import signal
 import runpy
+import signal
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import pytest
 
@@ -428,11 +428,9 @@ def test_parallel_review_roles_use_separate_attempts(cli, monkeypatch):
 
 
 def test_api_only_preflight_selection_is_persisted_and_dispatched(cli, monkeypatch):
-    from quest_runtime.orchestration import (
-        DEFAULT_MODELS,
-        write_default_from_allowlist,
-        migrate_from_snapshot,
-    )
+    from quest_runtime.orchestration import (DEFAULT_MODELS,
+                                             migrate_from_snapshot,
+                                             write_default_from_allowlist)
 
     quest, _, _ = role_fixture(cli, monkeypatch)
     monkeypatch.setenv("LOGIN", "none")

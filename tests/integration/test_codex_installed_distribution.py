@@ -1,11 +1,11 @@
 """Installer boundary regressions, without fetching or running live models."""
 
-import json
 import hashlib
+import json
 import os
-from pathlib import Path
-import subprocess
 import shutil
+import subprocess
+from pathlib import Path
 
 import pytest
 

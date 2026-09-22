@@ -7,17 +7,10 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
-
-from quest_runtime.quest_ids import (
-    DATE_FIRST,
-    DEFAULT_QUEST_ID_FORMAT,
-    SLUG_FIRST,
-    format_quest_id,
-    is_quest_id,
-    load_quest_id_format,
-    normalize_quest_id_format,
-    parse_quest_id,
-)
+from quest_runtime.quest_ids import (DATE_FIRST, DEFAULT_QUEST_ID_FORMAT,
+                                     SLUG_FIRST, format_quest_id, is_quest_id,
+                                     load_quest_id_format,
+                                     normalize_quest_id_format, parse_quest_id)
 
 
 def test_format_quest_id_defaults_to_slug_first() -> None:

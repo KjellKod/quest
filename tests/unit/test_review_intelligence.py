@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -17,23 +17,13 @@ if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
 import quest_review_intelligence
-from quest_runtime.pr_review_cycle import (
-    normalize_pr_review_intake,
-    retag_backlog_at_cap,
-)
+from quest_runtime.pr_review_cycle import (normalize_pr_review_intake,
+                                           retag_backlog_at_cap)
 from quest_runtime.review_intelligence import (
-    ALLOWED_BACKLOG_PHASES,
-    append_deferred_findings,
-    build_review_backlog,
-    merge_and_dedupe,
-    scan_deferred_backlog,
-    select_decision,
-    synthesize_findings_from_review_markdown,
-    synthesize_plan_review_findings,
-    validate_plan_phase_defaults,
-    validate_review_backlog,
-    validate_findings,
-)
+    ALLOWED_BACKLOG_PHASES, append_deferred_findings, build_review_backlog,
+    merge_and_dedupe, scan_deferred_backlog, select_decision,
+    synthesize_findings_from_review_markdown, synthesize_plan_review_findings,
+    validate_findings, validate_plan_phase_defaults, validate_review_backlog)
 
 
 def _finding(

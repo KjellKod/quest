@@ -10,12 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from quest_runtime.pr_shepherd import (
-    SUMMARY_MARKER,
-    activity_state,
-    has_marker,
-    stable_fingerprint,
-)
+from quest_runtime.pr_shepherd import (SUMMARY_MARKER, activity_state,
+                                       has_marker, stable_fingerprint)
 
 PER_PAGE = 100
 CHECK_FAILURE_STATES = {

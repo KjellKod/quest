@@ -22,16 +22,10 @@ import json
 import re
 from pathlib import Path
 
-from quest_runtime.artifacts import (
-    ROLE_ARTIFACTS,
-    ROLE_PHASE_ALIASES,
-    SOLO_DISABLED_AGENTS,
-)
-from quest_runtime.orchestration import (
-    CANONICAL_ROLES,
-    DEFAULT_MODELS,
-    SOLO_UNUSED_ROLES,
-)
+from quest_runtime.artifacts import (ROLE_ARTIFACTS, ROLE_PHASE_ALIASES,
+                                     SOLO_DISABLED_AGENTS)
+from quest_runtime.orchestration import (CANONICAL_ROLES, DEFAULT_MODELS,
+                                         SOLO_UNUSED_ROLES)
 
 CANONICAL = set(CANONICAL_ROLES)
 
@@ -148,10 +142,8 @@ def test_shipped_model_defaults_are_generated_from_allowlist() -> None:
 
 
 def test_codex_effort_is_pinned_and_legacy_snapshot_stays_unset(tmp_path: Path) -> None:
-    from quest_runtime.orchestration import (
-        write_default_from_allowlist,
-        migrate_from_snapshot,
-    )
+    from quest_runtime.orchestration import (migrate_from_snapshot,
+                                             write_default_from_allowlist)
 
     path = tmp_path / "new" / "orchestration.json"
     write_default_from_allowlist(path, DEFAULT_MODELS, codex_reasoning_effort="medium")
@@ -181,6 +173,7 @@ def test_invalid_codex_effort_does_not_write_orchestration(tmp_path: Path) -> No
 
 def test_generator_updates_policy_without_changing_permissions(tmp_path: Path) -> None:
     import shutil
+
     from quest_sync_model_defaults import sync
 
     paths = [
@@ -237,6 +230,7 @@ def test_resume_preserves_snapshot_effort_and_rejects_invalid_effort(
 
 def test_generator_rejects_invalid_policy_before_writing(tmp_path: Path) -> None:
     import shutil
+
     import pytest
     from quest_sync_model_defaults import sync
 

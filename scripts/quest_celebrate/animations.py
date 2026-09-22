@@ -7,24 +7,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, TextIO, Tuple
 
-from quest_celebrate.ascii_art import (
-    block_letter_title,
-    get_credits_lines,
-    get_movie_credits_lines,
-    gremlin_battle_art,
-    gremlin_retirement_art,
-    render_achievements,
-    render_quality_score,
-    rocket_launch_art,
-    trophy_art,
-)
+from quest_celebrate.ascii_art import (block_letter_title, get_credits_lines,
+                                       get_movie_credits_lines,
+                                       gremlin_battle_art,
+                                       gremlin_retirement_art,
+                                       render_achievements,
+                                       render_quality_score, rocket_launch_art,
+                                       trophy_art)
 from quest_celebrate.config import CelebrationConfig
-from quest_celebrate.progress import (
-    animate_progress_bars,
-    render_phase_progress,
-    scroll_credits,
-)
-from quest_celebrate.quest_data import QUALITY_TIERS, QuestData, load_quest_data
+from quest_celebrate.progress import (animate_progress_bars,
+                                      render_phase_progress, scroll_credits)
+from quest_celebrate.quest_data import (QUALITY_TIERS, QuestData,
+                                        load_quest_data)
 from quest_runtime.quest_ids import parse_quest_id
 
 

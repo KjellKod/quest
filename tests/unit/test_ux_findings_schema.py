@@ -34,7 +34,8 @@ def _extract_example_finding() -> dict:
 
 def test_ux_example_finding_validates_against_canonical_schema() -> None:
     sys.path.insert(0, str(_repo_root() / "scripts"))
-    from quest_runtime.review_intelligence import validate_finding  # noqa: E402
+    from quest_runtime.review_intelligence import \
+        validate_finding  # noqa: E402
 
     finding = _extract_example_finding()
     # Coerce any placeholder strings into valid example values.

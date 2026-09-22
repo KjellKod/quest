@@ -5,15 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
-from quest_runtime.codex_runner import (
-    CodexResult,
-    probe_codex,
-    run_codex,
-    run_codex_role,
-)
+from quest_runtime.codex_runner import (CodexResult, probe_codex, run_codex,
+                                        run_codex_role)
 
 
 def main() -> int:

@@ -2,28 +2,22 @@
 
 from __future__ import annotations
 
+import json
 import stat
 import subprocess
-import json
 from argparse import Namespace
 from pathlib import Path
 
 import quest_claude_probe
 import quest_claude_runner
 import quest_runtime.claude_runner as claude_runner_module
-from quest_runtime.claude_runner import (
-    CODEX_LED_CODEX_VIOLATION_GUIDANCE,
-    run_bridge_probe,
-    run_claude_role,
-    select_role_runtime,
-)
+from quest_runtime.claude_runner import (CODEX_LED_CODEX_VIOLATION_GUIDANCE,
+                                         run_bridge_probe, run_claude_role,
+                                         select_role_runtime)
 from quest_runtime.orchestration import (
-    is_antigravity_model,
-    is_model_available,
-    is_model_available_for_orchestrator,
-    runtime_for_model,
-    validate_or_remap_models_for_orchestrator,
-)
+    is_antigravity_model, is_model_available,
+    is_model_available_for_orchestrator, runtime_for_model,
+    validate_or_remap_models_for_orchestrator)
 
 
 def _write_executable(path: Path, body: str) -> None:
@@ -2472,7 +2466,8 @@ def test_bridge_never_passes_model_claude_sentinel(monkeypatch, tmp_path):
 
 
 def test_validate_or_remap_treats_unset_active_model_as_unavailable():
-    from quest_runtime.orchestration import validate_or_remap_models_for_orchestrator
+    from quest_runtime.orchestration import \
+        validate_or_remap_models_for_orchestrator
 
     models = {"planner": None, "builder": "", "arbiter": "claude"}
 
@@ -2512,10 +2507,8 @@ def test_default_helper_script_paths_are_absolute_and_resolve_off_package():
     # ideas/2026-06-15-bug-report-... bg-transport-step2.
     import os
 
-    from quest_runtime.claude_runner import (
-        DEFAULT_BG_RUNNER_SCRIPT,
-        DEFAULT_BRIDGE_SCRIPT,
-    )
+    from quest_runtime.claude_runner import (DEFAULT_BG_RUNNER_SCRIPT,
+                                             DEFAULT_BRIDGE_SCRIPT)
 
     for path in (DEFAULT_BRIDGE_SCRIPT, DEFAULT_BG_RUNNER_SCRIPT):
         assert os.path.isabs(path), f"{path} should be absolute"
@@ -2528,7 +2521,6 @@ def test_cli_probe_requires_explicit_model_and_default_bridge_script_is_absolute
     # The probe's argparse default must be the absolute sibling path, not the
     # legacy cwd-relative "scripts/quest_claude_bridge.py".
     import os
-
     import sys
 
     import quest_claude_probe

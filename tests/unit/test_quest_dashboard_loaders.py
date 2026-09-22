@@ -5,20 +5,14 @@ import textwrap
 from datetime import date, datetime
 from pathlib import Path
 
-from quest_dashboard.loaders import (
-    _extract_celebration_data,
-    _extract_iterations,
-    _extract_metadata,
-    _extract_outcome_pitch,
-    _extract_summary_pitch,
-    _friendly_model_name,
-    _normalize_status,
-    _parse_active_quest,
-    _parse_journal_entry,
-    load_active_quests,
-    load_dashboard_data,
-    load_journal_entries,
-)
+from quest_dashboard.loaders import (_extract_celebration_data,
+                                     _extract_iterations, _extract_metadata,
+                                     _extract_outcome_pitch,
+                                     _extract_summary_pitch,
+                                     _friendly_model_name, _normalize_status,
+                                     _parse_active_quest, _parse_journal_entry,
+                                     load_active_quests, load_dashboard_data,
+                                     load_journal_entries)
 
 
 def test_load_journal_entry_extracts_all_fields(tmp_path):
