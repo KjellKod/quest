@@ -1,0 +1,84 @@
+scripts/quest_antigravity_probe.py
+  h_8077d468ef4b79 13-17
+scripts/quest_antigravity_runner.py
+  h_8077d468ef4b79 15-19
+scripts/quest_backfill_journal.py
+  h_8077d468ef4b79 13-18,21-26
+scripts/quest_celebrate/animations.py
+  h_8077d468ef4b79 10-20,22-27
+scripts/quest_celebrate/persist.py
+  h_8077d468ef4b79 11
+scripts/quest_claude_probe.py
+  h_8077d468ef4b79 13-19
+scripts/quest_claude_runner.py
+  h_8077d468ef4b79 23-29
+scripts/quest_codex_runner.py
+  h_8077d468ef4b79 11-16
+scripts/quest_complete.py
+  h_8077d468ef4b79 29-30
+scripts/quest_dashboard/loaders.py
+  h_8077d468ef4b79 17-21
+scripts/quest_parse_overrides.py
+  h_8077d468ef4b79 9
+scripts/quest_plan_iteration.py
+  h_8077d468ef4b79 10-16
+scripts/quest_pr_shepherd_collect_intake.py
+  h_8077d468ef4b79 13-18
+scripts/quest_pr_shepherd_post_reply.py
+  h_8077d468ef4b79 13-20
+scripts/quest_review_intelligence.py
+  h_8077d468ef4b79 11-29
+scripts/quest_runtime/__init__.py
+  h_8077d468ef4b79 3-56
+scripts/quest_runtime/antigravity_runner.py
+  h_8077d468ef4b79 29-42
+scripts/quest_runtime/claude_runner.py
+  h_8077d468ef4b79 22-26
+scripts/quest_runtime/codex_runner.py
+  h_8077d468ef4b79 22-33
+scripts/quest_runtime/pr_review_cycle.py
+  h_8077d468ef4b79 9-21
+scripts/quest_state.py
+  h_8077d468ef4b79 28-35
+tests/integration/test_codex_mcp_overrides.py
+  h_8077d468ef4b79 9-13
+tests/unit/test_antigravity_runner.py
+  h_8077d468ef4b79 12-25
+tests/unit/test_artifacts.py
+  h_8077d468ef4b79 11-26
+tests/unit/test_canonical_role_lockstep.py
+  h_8077d468ef4b79 25-34,151-154
+tests/unit/test_codex_runner.py
+  h_8077d468ef4b79 431-435
+tests/unit/test_plan_iteration_lifecycle.py
+  h_8077d468ef4b79 15-22
+tests/unit/test_pr_review_cycle.py
+  h_8077d468ef4b79 12-18
+tests/unit/test_pr_shepherd.py
+  h_8077d468ef4b79 12-21
+tests/unit/test_quest_celebrate.py
+  h_8077d468ef4b79 14-37,39-67
+tests/unit/test_quest_dashboard_loaders.py
+  h_8077d468ef4b79 8-21
+tests/unit/test_quest_ids.py
+  h_8077d468ef4b79 10-19
+tests/unit/test_quest_runtime.py
+  h_8077d468ef4b79 14-19,21-26,2475,2515-2518
+tests/unit/test_quest_startup_symlink.py
+  h_8077d468ef4b79 12
+tests/unit/test_review_intelligence.py
+  h_8077d468ef4b79 20-23,25-36
+tests/unit/test_ux_findings_schema.py
+  h_8077d468ef4b79 37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "510f204fd38173979a584c1a4c16ca02c36687f6",
+  "prompts": {},
+  "humans": {
+    "h_8077d468ef4b79": {
+      "author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
