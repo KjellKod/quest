@@ -1,0 +1,21 @@
+ideas/2026-09-22-quest-doc-status-before-draft-pr.md
+  s_18aa9a4c952a44::t_ee33d3e331936a 1-118
+ideas/README.md
+  s_18aa9a4c952a44::t_36c6f1c43133b8 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ea1f02b4950e9483f9a636e988ebfdc8e245a992",
+  "prompts": {},
+  "sessions": {
+    "s_18aa9a4c952a44": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "114127b7-d5df-48b7-bb06-0e0e04b971f1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
