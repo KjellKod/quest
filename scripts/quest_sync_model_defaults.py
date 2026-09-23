@@ -115,6 +115,9 @@ def sync(root: Path, *, check: bool) -> bool:
     updates[opencode] = json.dumps(config, indent=2) + "\n"
     # Claude subagent frontmatter: the only effort control on the
     # Claude-led -> Claude path, since native Task() reads the agent file.
+    # Documented but unverified on Claude Code 2.1.280 — an invalid value there
+    # raises no warning and low-vs-max showed no token separation, unlike the
+    # `claude --effort` flag. Emitted anyway: it is free and forward-compatible.
     for filename, role in AGENT_FILE_ROLES.items():
         agent_file = root / ".claude/agents" / filename
         if not agent_file.exists():
