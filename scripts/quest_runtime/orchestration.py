@@ -14,6 +14,7 @@ just encodes the contract that prose describes. Keep this file and SKILL.md
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,14 +38,25 @@ CANONICAL_ROLES: tuple[str, ...] = (
 # BEGIN GENERATED MODEL DEFAULTS (edit .ai/allowlist.json, then run scripts/quest_sync_model_defaults.py)
 DEFAULT_MODELS: dict[str, str] = {
     "planner": "gpt-6-astra",
-    "plan-reviewer-a": "claude-opus-5",
+    "plan-reviewer-a": "claude-opus-5-5",
     "plan-reviewer-b": "gpt-6-astra",
-    "arbiter": "claude-opus-5",
-    "builder": "gpt-6-astra",
-    "code-reviewer-a": "claude-opus-5",
+    "arbiter": "claude-opus-5-5",
+    "builder": "gpt-5.6-sol",
+    "code-reviewer-a": "claude-opus-5-5",
     "code-reviewer-b": "gpt-6-astra",
-    "review-arbiter": "claude-opus-5",
+    "review-arbiter": "claude-opus-5-5",
     "fixer": "gpt-6-astra",
+}
+DEFAULT_EFFORT: dict[str, str] = {
+    "planner": "medium",
+    "plan-reviewer-a": "medium",
+    "plan-reviewer-b": "medium",
+    "arbiter": "medium",
+    "builder": "medium",
+    "code-reviewer-a": "medium",
+    "code-reviewer-b": "medium",
+    "review-arbiter": "medium",
+    "fixer": "medium",
 }
 CODEX_NATIVE_FALLBACK_MODEL = "gpt-6-astra"
 # END GENERATED MODEL DEFAULTS
@@ -59,6 +71,12 @@ SOLO_UNUSED_ROLES: frozenset[str] = frozenset(
 )
 
 ORCHESTRATION_VERSION = 1
+
+# Reasoning-effort levels (.ai/allowlist.json effort). The union is the syntax
+# vocabulary for the per-role map; `ultra` is Codex-only, so the Claude CLI
+# subset excludes it and the Claude runner rejects it at dispatch.
+EFFORT_LEVELS: tuple[str, ...] = ("low", "medium", "high", "xhigh", "max", "ultra")
+CLAUDE_EFFORT_LEVELS: tuple[str, ...] = ("low", "medium", "high", "xhigh", "max")
 
 # Transport for Codex-led Claude roles (.ai/allowlist.json claude_role_transport).
 # "auto" resolves to background-agent when the preflight bg probe succeeds.
@@ -464,16 +482,133 @@ def apply_overrides(
 
 def validate_codex_reasoning_effort(effort: str) -> None:
     """Validate syntax; the dispatch surface must also support the chosen level."""
-    if effort not in (
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max",
-        "ultra",
-    ):
+    if effort not in EFFORT_LEVELS:
         raise ValueError(
             "codex_reasoning_effort must be low|medium|high|xhigh|max|ultra"
+        )
+
+
+def validate_effort(role: str, effort: object) -> None:
+    """Validate one `effort.<role>` entry against the shared level vocabulary.
+
+    Syntax only. Whether a level is reachable depends on the runtime the role's
+    model selects: `ultra` is Codex-only, so the Claude runner rejects it at
+    dispatch rather than here. One role map serves every runtime.
+    """
+    if role not in CANONICAL_ROLES:
+        raise ValueError(f"effort has unknown role {role!r}")
+    if not isinstance(effort, str) or effort not in EFFORT_LEVELS:
+        raise ValueError(
+            f"effort for {role} must be one of {'|'.join(EFFORT_LEVELS)} "
+            f"(got {effort!r})"
+        )
+
+
+def validate_effort_map(effort: object) -> dict[str, str]:
+    """Validate a whole `effort` map and return a copy of it."""
+    if not isinstance(effort, dict):
+        raise ValueError("effort must be an object keyed by role")
+    for role, level in effort.items():
+        validate_effort(role, level)
+    return dict(effort)
+
+
+def build_default_effort(allowlist_effort: object) -> dict[str, str]:
+    """Resolve the per-role effort map, filling gaps from shipped defaults."""
+    merged = dict(DEFAULT_EFFORT)
+    if allowlist_effort is not None:
+        merged.update(validate_effort_map(allowlist_effort))
+    return merged
+
+
+def effort_for_role(saved: dict, role: str) -> str | None:
+    """Effort for one role from a saved orchestration.json.
+
+    Resolution order: the per-role `effort` map, then the legacy scalar
+    `codex_reasoning_effort`, then None (runtime default).
+
+    Two rules keep legacy quests behaving exactly as they did:
+
+    - A present `effort` map is validated, never silently ignored. A malformed
+      map is a configuration error, not a reason to fall back.
+    - The legacy scalar is **Codex-scoped**, as its name says. Before the map
+      existed, Claude roles ran unpinned and the Claude runner never read this
+      key; applying it to them now would both re-tier legacy Claude roles and
+      hard-fail any quest that pinned the Codex-only `ultra`.
+    """
+    effort = saved.get("effort")
+    if "effort" in saved:
+        level = validate_effort_map(effort).get(role)
+        if level:
+            return level
+    legacy = saved.get("codex_reasoning_effort")
+    if not isinstance(legacy, str) or not legacy:
+        return None
+    model = (saved.get("models") or {}).get(role)
+    if not isinstance(model, str) or not model.strip():
+        return None
+    return legacy if runtime_for_model(model) == "codex" else None
+
+
+_EFFORT_KEY_ALIAS = re.compile(r"""^\s*(?:"effort"|'effort')\s*:""")
+_ANY_EFFORT_KEY = re.compile(r"""^\s*(?:"effort"|'effort'|effort)\s*:""")
+
+
+def validate_native_claude_effort(saved: dict, role: str, agent_text: str) -> None:
+    """Guard native dispatch using the generator's flat frontmatter format.
+
+    Reject other YAML forms rather than guessing at aliases or quoted keys.
+    Matching declarations do not prove Claude honors the effort setting.
+    """
+    model = saved.get("models", {}).get(role)
+    if not isinstance(model, str) or runtime_for_model(model) != "claude":
+        raise ValueError(f"{role} is not an active Claude role")
+    requested = effort_for_role(saved, role)
+    if requested is None:
+        # The quest pins nothing for this role, so there is no disagreement to
+        # find: the agent file simply carries the repo-wide default. Blocking
+        # here would wall off every legacy quest on resume, since the generated
+        # frontmatter always names a level and an unpinned role never can.
+        return
+    if requested not in CLAUDE_EFFORT_LEVELS:
+        raise ValueError(f"Unsupported native Claude effort: {requested!r}")
+    lines = agent_text.splitlines()
+    if not lines or lines[0] != "---" or "---" not in lines[1:]:
+        raise ValueError("Agent file has no YAML frontmatter")
+    fields: dict[str, str] = {}
+    for line in lines[1 : lines.index("---", 1)]:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if line[:1].isspace() or line.lstrip().startswith("- "):
+            # Part of the previous key's nested block. `hooks:` and
+            # `mcpServers:` are valid subagent keys; refusing to dispatch
+            # because one is present would be a worse failure than the
+            # ambiguity it guards against. An `effort:` nested somewhere
+            # unexpected is the one thing we will not skip past.
+            if _ANY_EFFORT_KEY.match(line):
+                raise ValueError(
+                    f"Native effort guard found an ambiguous `effort` key: "
+                    f"{line.strip()!r}"
+                )
+            continue
+        match = re.fullmatch(r"([a-zA-Z][a-zA-Z0-9_-]*):[ \t]*(.*)", line)
+        if match is None:
+            # A quoted or otherwise unusual key spelling. Only `effort` matters
+            # here, and an ambiguous one must not be read as agreement.
+            if _EFFORT_KEY_ALIAS.match(line):
+                raise ValueError(
+                    "Native effort guard cannot read an ambiguous `effort` key: "
+                    f"{line.strip()!r}"
+                )
+            continue
+        if match[1] in fields:
+            raise ValueError(f"Duplicate frontmatter key {match[1]!r} in agent file")
+        fields[match[1]] = match[2].strip()
+    actual = fields.get("effort")
+    if actual != requested:
+        raise ValueError(
+            f"Native Claude effort mismatch for {role}: saved={requested!r}, "
+            f"frontmatter={actual!r}. Stop before Task dispatch."
         )
 
 
@@ -493,6 +628,7 @@ def write_orchestration_json(
     claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
     claude_transport_resolved: str | None = None,
     codex_reasoning_effort: str | None = None,
+    effort: dict[str, str] | None = None,
     codex_auth_mode: str = "cached",
 ) -> None:
     """Write the orchestration.json artifact with canonical key order."""
@@ -505,11 +641,16 @@ def write_orchestration_json(
         )
     if codex_reasoning_effort is not None:
         validate_codex_reasoning_effort(codex_reasoning_effort)
+    # `None` means "this caller has no effort policy" — write no key at all, so
+    # a migrated legacy quest keeps resolving through whatever it already had.
+    # Only the new-quest writers below synthesize DEFAULT_EFFORT.
+    resolved_effort = None if effort is None else validate_effort_map(effort)
     validate_codex_auth_mode(codex_auth_mode)
     payload = {
         "version": ORCHESTRATION_VERSION,
         "codex_auth_mode": codex_auth_mode,
         "models": {role: models.get(role) for role in CANONICAL_ROLES},
+        **({} if resolved_effort is None else {"effort": resolved_effort}),
         "claude_role_transport": claude_role_transport,
         "claude_transport_resolved": claude_transport_resolved,
         # Compatibility field for consumers created during the downgrade era.
@@ -541,6 +682,7 @@ def write_default_from_allowlist(
     claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
     claude_transport_resolved: str | None = None,
     codex_reasoning_effort: str | None = None,
+    effort: dict[str, str] | None = None,
     codex_auth_mode: str = "cached",
 ) -> None:
     """Default-path writer: copy allowlist models into orchestration.json.
@@ -569,6 +711,10 @@ def write_default_from_allowlist(
         claude_role_transport=claude_role_transport,
         claude_transport_resolved=claude_transport_resolved,
         codex_reasoning_effort=codex_reasoning_effort,
+        # New quests always get a complete map: an allowlist without an `effort`
+        # block still means "use the shipped defaults", not "pin nothing".
+        # Migration is the opposite case and passes None through deliberately.
+        effort=build_default_effort(effort),
         codex_auth_mode=codex_auth_mode,
     )
 
@@ -598,6 +744,11 @@ def migrate_from_snapshot(
             return False
         if "codex_reasoning_effort" in existing:
             validate_codex_reasoning_effort(existing["codex_reasoning_effort"])
+        # A saved effort map is validated but never backfilled: a quest written
+        # before the map existed keeps resolving through the legacy scalar, so
+        # resume cannot silently re-tier an in-flight quest.
+        if "effort" in existing:
+            validate_effort_map(existing["effort"])
         validate_codex_auth_mode(existing.get("codex_auth_mode", "cached"))
         merged_models, backfilled = _backfill_legacy_compatible_roles(existing_models)
         # Transport keys were introduced after early quests; backfill in place
@@ -628,12 +779,24 @@ def migrate_from_snapshot(
         # Fail closed BEFORE writing: a role missing from the merged models
         # would be written as null and rejected by the very validation this
         # migration feeds — never persist a file we know is invalid.
+        state_path = quest_dir / "state.json"
+        state = json.loads(state_path.read_text()) if state_path.exists() else {}
+        active_roles = active_roles_for_mode(state.get("quest_mode", "workflow"))
         missing_roles = [
-            role for role in CANONICAL_ROLES if not merged_models.get(role)
+            role
+            for role in CANONICAL_ROLES
+            if role not in merged_models
+            or (
+                role in active_roles
+                and (
+                    not isinstance(merged_models[role], str)
+                    or not merged_models[role].strip()
+                )
+            )
         ]
         if missing_roles:
             raise ValueError(
-                "orchestration.json migration would write null model(s) for "
+                "orchestration.json migration would write invalid model(s) for "
                 f"role(s) {missing_roles}; the existing file is malformed — "
                 "fix models.<role> entries before resuming."
             )
@@ -663,10 +826,13 @@ def migrate_from_snapshot(
         )
     if "codex_reasoning_effort" in snapshot:
         validate_codex_reasoning_effort(snapshot["codex_reasoning_effort"])
+    if "effort" in snapshot:
+        validate_effort_map(snapshot["effort"])
     write_orchestration_json(
         orch_path,
         models=build_snapshot_models(models),
         codex_reasoning_effort=snapshot.get("codex_reasoning_effort"),
+        effort=snapshot.get("effort"),
         codex_auth_mode=snapshot.get("codex_auth_mode", "cached"),
         source="default",
         overridden_roles=[],

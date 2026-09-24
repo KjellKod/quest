@@ -31,7 +31,11 @@ from .claude_runner import (
     classify_handoff_file,
     read_handoff_status,
 )
-from .orchestration import runtime_for_model, validate_codex_reasoning_effort
+from .orchestration import (
+    effort_for_role,
+    runtime_for_model,
+    validate_codex_reasoning_effort,
+)
 from .plan_iterations import PlanIterationError, verify_refinement
 from .review_intelligence import validate_findings
 from .state import StateError, load_state
@@ -742,7 +746,7 @@ def run_codex_role(
     try:
         saved = json.loads((quest / "orchestration.json").read_text(encoding="utf-8"))
         model = saved["models"][agent]
-        effort = saved.get("codex_reasoning_effort")
+        effort = effort_for_role(saved, agent)
         auth = saved.get("codex_auth_mode", "cached")
         if (
             not isinstance(model, str)

@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 
 from quest_runtime.artifacts import expected_artifacts_for_role
+from quest_runtime.orchestration import effort_for_role
 from quest_runtime.claude_runner import (
     DEFAULT_BG_RUNNER_SCRIPT,
     DEFAULT_BRIDGE_SCRIPT,
@@ -79,6 +80,14 @@ def parse_args() -> argparse.Namespace:
         default=1800.0,
         help="Command timeout seconds (default: 1800)",
     )
+    parser.add_argument(
+        "--effort",
+        choices=["low", "medium", "high", "xhigh", "max"],
+        help=(
+            "Reasoning effort. Omit to resolve effort.<agent> from the quest's "
+            "orchestration.json (the normal path); pass only to override it."
+        ),
+    )
     parser.add_argument("--permission-mode", default="bypassPermissions")
     parser.add_argument(
         "--transport",
@@ -127,6 +136,31 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
+def _resolve_effort(quest_dir: str, agent: str, override: str | None) -> str | None:
+    """Effort for this dispatch: explicit flag, else the saved per-role map.
+
+    Resolving from orchestration.json here (rather than trusting the
+    orchestrator to pass it) mirrors Codex role mode and keeps the saved quest
+    config authoritative. A quest with no orchestration.json yet resolves to
+    None, which leaves the CLI default in place.
+    """
+    if override:
+        return override
+    try:
+        saved = json.loads(
+            (Path(quest_dir) / "orchestration.json").read_text(encoding="utf-8")
+        )
+    except FileNotFoundError:
+        return None
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("Cannot read saved orchestration.json") from exc
+    if not isinstance(saved, dict):
+        raise ValueError("orchestration.json must be an object")
+    if not isinstance(saved.get("models", {}), dict):
+        raise ValueError("orchestration.json models must be an object")
+    return effort_for_role(saved, agent)
+
+
 def main() -> int:
     args = parse_args()
     transport = resolve_claude_transport(args.transport)
@@ -148,6 +182,9 @@ def main() -> int:
             phase=args.phase,
             agent=args.agent,
             artifact_subset=args.artifact_subset,
+        )
+        effort = _resolve_effort(
+            args.quest_dir, args.agent, getattr(args, "effort", None)
         )
     except ValueError as exc:
         payload = {
@@ -184,6 +221,7 @@ def main() -> int:
         handoff_file=args.handoff_file,
         bridge_script=resolve_path(args.cwd, args.bridge_script),
         model=args.model,
+        effort=effort,
         timeout=args.timeout,
         permission_mode=args.permission_mode,
         artifact_paths=artifact_paths,

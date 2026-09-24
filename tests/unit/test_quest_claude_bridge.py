@@ -54,7 +54,8 @@ def test_whitespace_only_source_is_rejected_before_dispatch(
     assert "Prompt is empty" in capsys.readouterr().err
 
 
-def test_run_claude_places_prompt_unchanged_in_argv(monkeypatch) -> None:
+@pytest.mark.parametrize("effort", [None, "medium"])
+def test_run_claude_places_prompt_and_effort_in_argv(monkeypatch, effort) -> None:
     captured: list[str] = []
 
     def fake_run(cmd, **_kwargs):
@@ -65,6 +66,7 @@ def test_run_claude_places_prompt_unchanged_in_argv(monkeypatch) -> None:
 
     result = bridge.run_claude(
         prompt=EXACT_PROMPT,
+        effort=effort,
         output_format="json",
         timeout=10.0,
         model="",
@@ -79,6 +81,10 @@ def test_run_claude_places_prompt_unchanged_in_argv(monkeypatch) -> None:
 
     assert result["status"] == "ok"
     assert captured[2] == EXACT_PROMPT
+    if effort:
+        assert captured[captured.index("--effort") + 1] == effort
+    else:
+        assert "--effort" not in captured
 
 
 @pytest.mark.parametrize(

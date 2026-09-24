@@ -45,7 +45,18 @@
     "codex_reasoning_effort": {
       "type": "string",
       "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
-      "description": "Reasoning effort pinned for Codex roles in new quests. Must be supported by the selected model and dispatch surface."
+      "description": "Legacy fallback: reasoning effort for Codex roles absent from the per-role `effort` map. New quests should use `effort`."
+    },
+    "effort": {
+      "type": "object",
+      "propertyNames": {
+        "enum": ["planner", "plan-reviewer-a", "plan-reviewer-b", "arbiter", "builder", "code-reviewer-a", "code-reviewer-b", "review-arbiter", "fixer"]
+      },
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["low", "medium", "high", "xhigh", "max", "ultra"]
+      },
+      "description": "Reasoning effort per role, applied on whichever runtime the role's model selects. Partial overrides are supported at quest startup; the source-repository defaults generator requires every canonical role. `ultra` is Codex-only and blocks a Claude-backed role at sync or dispatch."
     },
     "models": {
       "type": "object",

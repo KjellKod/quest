@@ -146,6 +146,7 @@ When a role invocation fails (missing/unparsable handoff), Quest uses a three-ti
 The Creator controls quest permissions via `.ai/allowlist.json`:
 - `auto_approve_phases` — which phases need human approval
 - `models` — default role model map (`planner`, `plan-reviewer-a`, `plan-reviewer-b`, `builder`, `code-reviewer-a`, `code-reviewer-b`, `arbiter`, `fixer`)
+- `effort` — reasoning effort per role, applied on whichever runtime the role's model selects. New quests save these values in `orchestration.json`; runner dispatch reads the saved map. In the Quest source repository, run `scripts/quest_sync_model_defaults.py` after editing `models` or `effort` to update shipped fallbacks and static agent files. The generator requires complete role maps. Installed repositories may use partial overrides for runner-dispatched roles without regenerating shipped defaults. For Claude-led Claude roles, the native effort guard additionally requires the actual subagent file's `effort:` frontmatter to match the saved value; a mismatch blocks `Task(...)` dispatch. Configure matching frontmatter before starting a native quest, and do not regenerate shared agent files to bypass a mismatch on an in-flight quest.
 - `review_mode` — `auto` (default), `fast`, or `full` for Codex reviews
 - `fast_review_thresholds` — file/LOC thresholds for auto fast mode
 

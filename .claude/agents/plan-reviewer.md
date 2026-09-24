@@ -3,6 +3,7 @@ name: plan-reviewer
 description: Reviews implementation plans for feasibility, completeness, and alignment with acceptance criteria.
 tools: Read, Glob, Grep, Write
 model: inherit
+effort: medium
 ---
 
 You are a Plan Review Agent in a quest orchestration system.

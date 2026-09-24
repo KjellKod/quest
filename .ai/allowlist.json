@@ -25,14 +25,25 @@
   "codex_reasoning_effort": "medium",
   "models": {
     "planner": "gpt-6-astra",
-    "plan-reviewer-a": "claude-opus-5",
+    "plan-reviewer-a": "claude-opus-5-5",
     "plan-reviewer-b": "gpt-6-astra",
-    "arbiter": "claude-opus-5",
-    "builder": "gpt-6-astra",
-    "code-reviewer-a": "claude-opus-5",
+    "arbiter": "claude-opus-5-5",
+    "builder": "gpt-5.6-sol",
+    "code-reviewer-a": "claude-opus-5-5",
     "code-reviewer-b": "gpt-6-astra",
-    "review-arbiter": "claude-opus-5",
+    "review-arbiter": "claude-opus-5-5",
     "fixer": "gpt-6-astra"
+  },
+  "effort": {
+    "planner": "medium",
+    "plan-reviewer-a": "medium",
+    "plan-reviewer-b": "medium",
+    "arbiter": "medium",
+    "builder": "medium",
+    "code-reviewer-a": "medium",
+    "code-reviewer-b": "medium",
+    "review-arbiter": "medium",
+    "fixer": "medium"
   },
   "quest_startup": {
     "branch_mode": "branch",
@@ -40,7 +51,7 @@
     "worktree_root": ".worktrees/quest"
   },
   "quest_id_format": "slug-first",
-  "review_mode": "full",
+  "review_mode": "auto",
   "fast_review_thresholds": {
     "max_files": 5,
     "max_loc": 300
@@ -253,7 +264,7 @@
     "require_approval_before_commit": true,
     "require_approval_before_push": true,
     "require_approval_before_delete": true,
-    "max_plan_iterations": 4,
+    "max_plan_iterations": 3,
     "max_fix_iterations": 3
   }
 }

@@ -216,10 +216,10 @@ from quest_runtime.orchestration import build_default_models
 result = build_default_models({"planner": "gpt-5.5", "builder": "claude"})
 assert result["planner"] == "gpt-5.5", result
 assert result["builder"] == "claude", result
-assert result["plan-reviewer-a"] == "claude-opus-5", result
+assert result["plan-reviewer-a"] == "claude-opus-5-5", result
 assert result["plan-reviewer-b"] == "gpt-6-astra", result
-assert result["arbiter"] == "claude-opus-5", result
-assert result["code-reviewer-a"] == "claude-opus-5", result
+assert result["arbiter"] == "claude-opus-5-5", result
+assert result["code-reviewer-a"] == "claude-opus-5-5", result
 assert result["code-reviewer-b"] == "gpt-6-astra", result
 assert result["fixer"] == "gpt-6-astra", result
 PY
@@ -234,13 +234,13 @@ from quest_runtime.orchestration import CODEX_NATIVE_FALLBACK_MODEL, DEFAULT_MOD
 
 expected = {
     "planner": "gpt-6-astra",
-    "plan-reviewer-a": "claude-opus-5",
+    "plan-reviewer-a": "claude-opus-5-5",
     "plan-reviewer-b": "gpt-6-astra",
-    "arbiter": "claude-opus-5",
-    "builder": "gpt-6-astra",
-    "code-reviewer-a": "claude-opus-5",
+    "arbiter": "claude-opus-5-5",
+    "builder": "gpt-5.6-sol",
+    "code-reviewer-a": "claude-opus-5-5",
     "code-reviewer-b": "gpt-6-astra",
-    "review-arbiter": "claude-opus-5",
+    "review-arbiter": "claude-opus-5-5",
     "fixer": "gpt-6-astra",
 }
 allowlist = json.loads(Path(".ai/allowlist.json").read_text())
@@ -791,7 +791,7 @@ from quest_runtime.orchestration import migrate_from_snapshot
 written = migrate_from_snapshot(Path(sys.argv[1]))
 assert written is True, "expected legacy role backfill write"
 orch = json.loads((Path(sys.argv[1]) / "orchestration.json").read_text())
-assert orch["models"]["review-arbiter"] == "claude-opus-5", orch["models"]
+assert orch["models"]["review-arbiter"] == "claude-opus-5-5", orch["models"]
 PY
 
   rm -f "$tmpdir/orchestration.json"
@@ -854,7 +854,7 @@ quest_dir = Path(sys.argv[1])
 written = migrate_from_snapshot(quest_dir)
 assert written is True, "expected legacy backfill write"
 orch = json.loads((quest_dir / "orchestration.json").read_text())
-assert orch["models"]["review-arbiter"] == "claude-opus-5", orch["models"]
+assert orch["models"]["review-arbiter"] == "claude-opus-5-5", orch["models"]
 assert orch["source"] == "overridden", orch
 assert orch["overridden_roles"] == ["planner", "builder"], orch
 PY

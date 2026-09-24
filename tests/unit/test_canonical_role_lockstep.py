@@ -268,6 +268,7 @@ def test_generator_rejects_invalid_policy_before_writing(tmp_path: Path) -> None
     policies.append(
         {**original, "models": {**original["models"], "builder": " codex-fake-model "}}
     )
+    policies.append({**original, "effort": {**original["effort"], "arbiter": "ultra"}})
     for policy in policies:
         allowlist_path.write_text(json.dumps(policy))
         with pytest.raises(ValueError):

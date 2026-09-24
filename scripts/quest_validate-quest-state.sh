@@ -226,6 +226,21 @@ validate_orchestration_json() {
     return
   fi
 
+  # Per-role effort map. Absent on quests written before it existed (those
+  # resolve through the scalar above); when present every value must be valid.
+  if ! jq -e 'if has("effort") then
+      (.effort | type == "object") and
+      (.effort | to_entries | all(
+        (.key as $role | ["planner", "plan-reviewer-a", "plan-reviewer-b",
+          "arbiter", "builder", "code-reviewer-a", "code-reviewer-b",
+          "review-arbiter", "fixer"] | index($role) != null) and
+        (.value as $level | ["low", "medium", "high", "xhigh", "max", "ultra"]
+          | index($level) != null)))
+    else true end' "$orch_file" >/dev/null 2>&1; then
+    fail "orchestration.json effort is invalid"
+    return
+  fi
+
   # Required roles depend on quest_mode.
   # Keep this list in sync with workflow.md dispatch sites
   # (planner, plan-reviewer-a, plan-reviewer-b, arbiter, builder,
