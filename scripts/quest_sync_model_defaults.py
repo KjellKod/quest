@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 from quest_runtime.orchestration import (
@@ -35,13 +36,19 @@ AGENT_FILE_ROLES: dict[str, str] = {
 }
 
 
+_EFFORT_KEY = re.compile(r"""^\s*(?:"effort"|'effort'|effort)\s*:""")
+
+
 def _with_effort(text: str, level: str) -> str:
     """Set `effort:` in a subagent file's YAML frontmatter, preserving the rest."""
     if not text.startswith("---\n"):
         raise ValueError("subagent file has no YAML frontmatter")
     end = text.index("\n---\n", 3)
     lines = text[4:end].split("\n")
-    kept = [line for line in lines if not line.startswith("effort:")]
+    # Drop every spelling of the key, not just the one we emit: a quoted
+    # `"effort": low` left behind would win under YAML's last-key-wins and
+    # silently pin the opposite level.
+    kept = [line for line in lines if not _EFFORT_KEY.match(line)]
     # Keep it adjacent to `model:`, the other generated dispatch control.
     anchor = next(
         (i for i, line in enumerate(kept) if line.startswith("model:")), len(kept) - 1

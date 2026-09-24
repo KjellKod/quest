@@ -524,17 +524,29 @@ def effort_for_role(saved: dict, role: str) -> str | None:
     """Effort for one role from a saved orchestration.json.
 
     Resolution order: the per-role `effort` map, then the legacy scalar
-    `codex_reasoning_effort` (quests written before the map existed), then
-    None, which leaves the runtime to pick its own default.
+    `codex_reasoning_effort`, then None (runtime default).
+
+    Two rules keep legacy quests behaving exactly as they did:
+
+    - A present `effort` map is validated, never silently ignored. A malformed
+      map is a configuration error, not a reason to fall back.
+    - The legacy scalar is **Codex-scoped**, as its name says. Before the map
+      existed, Claude roles ran unpinned and the Claude runner never read this
+      key; applying it to them now would both re-tier legacy Claude roles and
+      hard-fail any quest that pinned the Codex-only `ultra`.
     """
     effort = saved.get("effort")
-    if isinstance(effort, dict):
-        level = effort.get(role)
-        if isinstance(level, str) and level:
-            validate_effort(role, level)
+    if effort is not None:
+        level = validate_effort_map(effort).get(role)
+        if level:
             return level
     legacy = saved.get("codex_reasoning_effort")
-    return legacy if isinstance(legacy, str) and legacy else None
+    if not isinstance(legacy, str) or not legacy:
+        return None
+    model = (saved.get("models") or {}).get(role)
+    if not isinstance(model, str) or not model.strip():
+        return None
+    return legacy if runtime_for_model(model) == "codex" else None
 
 
 def validate_codex_auth_mode(mode: str) -> None:
@@ -566,13 +578,20 @@ def write_orchestration_json(
         )
     if codex_reasoning_effort is not None:
         validate_codex_reasoning_effort(codex_reasoning_effort)
-    resolved_effort = build_default_effort(effort)
+    # `None` means "this caller has no effort policy" — write no key at all, so
+    # a migrated legacy quest keeps resolving through whatever it already had.
+    # Only the new-quest writers below synthesize DEFAULT_EFFORT.
+    resolved_effort = None if effort is None else build_default_effort(effort)
     validate_codex_auth_mode(codex_auth_mode)
     payload = {
         "version": ORCHESTRATION_VERSION,
         "codex_auth_mode": codex_auth_mode,
         "models": {role: models.get(role) for role in CANONICAL_ROLES},
-        "effort": {role: resolved_effort[role] for role in CANONICAL_ROLES},
+        **(
+            {}
+            if resolved_effort is None
+            else {"effort": {r: resolved_effort[r] for r in CANONICAL_ROLES}}
+        ),
         "claude_role_transport": claude_role_transport,
         "claude_transport_resolved": claude_transport_resolved,
         # Compatibility field for consumers created during the downgrade era.
@@ -633,7 +652,10 @@ def write_default_from_allowlist(
         claude_role_transport=claude_role_transport,
         claude_transport_resolved=claude_transport_resolved,
         codex_reasoning_effort=codex_reasoning_effort,
-        effort=effort,
+        # New quests always get a complete map: an allowlist without an `effort`
+        # block still means "use the shipped defaults", not "pin nothing".
+        # Migration is the opposite case and passes None through deliberately.
+        effort=build_default_effort(effort),
         codex_auth_mode=codex_auth_mode,
     )
 

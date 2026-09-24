@@ -69,8 +69,14 @@ def test_effort_map_wins_over_legacy_scalar():
 
 def test_legacy_quests_resolve_through_the_scalar():
     # A quest written before the per-role map keeps its saved effort, so resume
-    # never silently re-tiers work that is already in flight.
-    assert effort_for_role({"codex_reasoning_effort": "medium"}, "builder") == "medium"
+    # never silently re-tiers work that is already in flight. The scalar is
+    # Codex-scoped, so resolving it needs the role's model — see
+    # test_quest_effort_regressions for the full contract.
+    legacy = {
+        "models": {"builder": "gpt-6-astra"},
+        "codex_reasoning_effort": "medium",
+    }
+    assert effort_for_role(legacy, "builder") == "medium"
     assert effort_for_role({}, "builder") is None
 
 

@@ -825,6 +825,7 @@ def run_claude_role(
                     teardown_on_needs_human=teardown_on_needs_human,
                     resume=resume,
                     answer_file=answer_file,
+                    effort=effort,
                 )
                 combined_stderr = retry_note
                 if retry_result.stderr:
@@ -1150,6 +1151,7 @@ def run_claude_role(
                 teardown_on_needs_human=teardown_on_needs_human,
                 resume=resume,
                 answer_file=answer_file,
+                effort=effort,
             )
             combined_stderr = retry_note
             if retry_result.stderr:
