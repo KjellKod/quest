@@ -1,0 +1,43 @@
+.ai/allowlist.json
+  s_fb0c7c931ff87d::t_885396693f6829 41
+  s_fb0c7c931ff87d::t_395e1f9217f552 31
+  s_fb0c7c931ff87d::t_9449e3ea527968 42
+  s_fb0c7c931ff87d::t_744978da0d6a0f 43-44
+  s_fb0c7c931ff87d::t_db47eb7a7a7f7c 38
+  s_fb0c7c931ff87d::t_6c11c6b7f24002 45
+.claude/agents/code-reviewer.md
+  s_fb0c7c931ff87d::t_88a40001a44440 6
+.claude/agents/builder.md
+  s_fb0c7c931ff87d::t_c8631f55091f6b 6
+scripts/quest_runtime/orchestration.py
+  s_fb0c7c931ff87d::t_353c6293d78fb0 50,57
+  s_fb0c7c931ff87d::t_c8631f55091f6b 54
+  s_fb0c7c931ff87d::t_9c1465de2b9a8d 43,53
+  s_fb0c7c931ff87d::t_88a40001a44440 55-56
+.opencode/opencode.json
+  s_fb0c7c931ff87d::t_9c1465de2b9a8d 83
+.claude/agents/planner.md
+  s_fb0c7c931ff87d::t_353c6293d78fb0 6
+.claude/agents/review-arbiter.md
+  s_fb0c7c931ff87d::t_353c6293d78fb0 6
+.claude/agents/arbiter.md
+  s_fb0c7c931ff87d::t_9c1465de2b9a8d 6
+tests/test-quest-orchestration.sh
+  s_fb0c7c931ff87d::t_9a753352adaf1b 240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ab3ef2e2cb4abf72c57329a79803a8267c5b0ec1",
+  "prompts": {},
+  "sessions": {
+    "s_fb0c7c931ff87d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c6965a68-0300-4261-ad83-b3d65e637231",
+        "model": "claude-opus-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
