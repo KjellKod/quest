@@ -1,0 +1,38 @@
+scripts/quest_sync_model_defaults.py
+  s_31af3d75731222::t_957aef36a6e325 16,52-70,98-102
+tests/unit/test_canonical_role_lockstep.py
+  s_31af3d75731222::t_af97a35c4a8502 271
+tests/unit/test_quest_effort_regressions.py
+  s_31af3d75731222::t_af97a35c4a8502 357-373,377-391
+  s_31af3d75731222::t_957aef36a6e325 374-376
+.ai/schemas/allowlist.schema.json
+  s_31af3d75731222::t_957aef36a6e325 59
+scripts/quest_claude_runner.py
+  s_31af3d75731222::t_957aef36a6e325 159-160
+scripts/quest_runtime/orchestration.py
+  s_31af3d75731222::t_957aef36a6e325 789-795,799
+tests/unit/test_quest_effort.py
+  s_31af3d75731222::t_957aef36a6e325 10,106-110
+.ai/quest.md
+  s_31af3d75731222::t_957aef36a6e325 149
+tests/unit/test_quest_claude_bridge.py
+  s_31af3d75731222::t_957aef36a6e325 57-58,69,84-87
+.skills/quest/delegation/workflow.md
+  s_31af3d75731222::t_957aef36a6e325 43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b6cdb9aa80f904f08d9504013d4bfb7f42879811",
+  "prompts": {},
+  "sessions": {
+    "s_31af3d75731222": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
