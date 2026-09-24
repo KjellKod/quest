@@ -80,7 +80,7 @@
     "builder": {
       "description": "Implements approved plans (local subagent)",
       "mode": "subagent",
-      "model": "opencode/gpt-6-astra",
+      "model": "opencode/gpt-5.6-sol",
       "prompt": "{file:agents/builder.md}",
       "permission": {
         "edit": {

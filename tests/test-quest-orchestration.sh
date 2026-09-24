@@ -237,7 +237,7 @@ expected = {
     "plan-reviewer-a": "claude-opus-5-5",
     "plan-reviewer-b": "gpt-6-astra",
     "arbiter": "claude-opus-5-5",
-    "builder": "gpt-6-astra",
+    "builder": "gpt-5.6-sol",
     "code-reviewer-a": "claude-opus-5-5",
     "code-reviewer-b": "gpt-6-astra",
     "review-arbiter": "claude-opus-5-5",

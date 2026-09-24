@@ -40,21 +40,21 @@ DEFAULT_MODELS: dict[str, str] = {
     "plan-reviewer-a": "claude-opus-5-5",
     "plan-reviewer-b": "gpt-6-astra",
     "arbiter": "claude-opus-5-5",
-    "builder": "gpt-6-astra",
+    "builder": "gpt-5.6-sol",
     "code-reviewer-a": "claude-opus-5-5",
     "code-reviewer-b": "gpt-6-astra",
     "review-arbiter": "claude-opus-5-5",
     "fixer": "gpt-6-astra",
 }
 DEFAULT_EFFORT: dict[str, str] = {
-    "planner": "high",
+    "planner": "medium",
     "plan-reviewer-a": "medium",
     "plan-reviewer-b": "medium",
-    "arbiter": "high",
-    "builder": "high",
-    "code-reviewer-a": "high",
-    "code-reviewer-b": "high",
-    "review-arbiter": "high",
+    "arbiter": "medium",
+    "builder": "medium",
+    "code-reviewer-a": "medium",
+    "code-reviewer-b": "medium",
+    "review-arbiter": "medium",
     "fixer": "medium",
 }
 CODEX_NATIVE_FALLBACK_MODEL = "gpt-6-astra"
