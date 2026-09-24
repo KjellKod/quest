@@ -786,11 +786,17 @@ def migrate_from_snapshot(
             role
             for role in CANONICAL_ROLES
             if role not in merged_models
-            or (role in active_roles and not merged_models[role])
+            or (
+                role in active_roles
+                and (
+                    not isinstance(merged_models[role], str)
+                    or not merged_models[role].strip()
+                )
+            )
         ]
         if missing_roles:
             raise ValueError(
-                "orchestration.json migration would write null model(s) for "
+                "orchestration.json migration would write invalid model(s) for "
                 f"role(s) {missing_roles}; the existing file is malformed — "
                 "fix models.<role> entries before resuming."
             )

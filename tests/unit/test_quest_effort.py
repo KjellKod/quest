@@ -7,6 +7,7 @@ resolution rule and the two Claude-side plumbing points.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -102,7 +103,9 @@ def test_orchestration_json_persists_a_complete_effort_map(tmp_path):
 
 
 def test_allowlist_and_generated_defaults_agree():
-    # The generator is the only thing keeping four dispatch surfaces in sync;
-    # drift here means a role silently runs at a different effort than declared.
-    allowlist = json.loads(open(".ai/allowlist.json").read())
+    allowlist = json.loads(
+        (Path(__file__).resolve().parents[2] / ".ai/allowlist.json").read_text(
+            encoding="utf-8"
+        )
+    )
     assert allowlist["effort"] == DEFAULT_EFFORT

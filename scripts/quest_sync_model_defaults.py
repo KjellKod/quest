@@ -13,6 +13,7 @@ from pathlib import Path
 
 from quest_runtime.orchestration import (
     CANONICAL_ROLES,
+    CLAUDE_EFFORT_LEVELS,
     runtime_for_model,
     validate_effort,
 )
@@ -48,7 +49,25 @@ def _with_effort(text: str, level: str) -> str:
     # Drop every spelling of the key, not just the one we emit: a quoted
     # `"effort": low` left behind would win under YAML's last-key-wins and
     # silently pin the opposite level.
-    kept = [line for line in lines if not _EFFORT_KEY.match(line)]
+    kept = []
+    nested_content = False
+    for line in lines:
+        if not line.strip() or line.lstrip().startswith("#"):
+            kept.append(line)
+            continue
+        if line[:1].isspace() and nested_content:
+            kept.append(line)
+            continue
+        if not line[:1].isspace():
+            # A block scalar or nested mapping belongs to the preceding field.
+            # Its indented text is not a top-level dispatch setting.
+            _, separator, value = line.partition(":")
+            value = value.split(" #", 1)[0].strip()
+            nested_content = bool(separator) and (
+                not value or value.startswith(("|", ">"))
+            )
+        if not _EFFORT_KEY.match(line):
+            kept.append(line)
     # Keep it adjacent to `model:`, the other generated dispatch control.
     anchor = next(
         (i for i, line in enumerate(kept) if line.startswith("model:")), len(kept) - 1
@@ -76,6 +95,11 @@ def sync(root: Path, *, check: bool) -> bool:
         raise ValueError("allowlist effort must contain all canonical roles")
     for role, level in effort.items():
         validate_effort(role, level)
+        if (
+            runtime_for_model(models[role]) == "claude"
+            and level not in CLAUDE_EFFORT_LEVELS
+        ):
+            raise ValueError(f"Unsupported Claude effort for {role}: {level!r}")
     fallback = allowlist["codex_fallback_model"]
     if (
         not isinstance(fallback, str)

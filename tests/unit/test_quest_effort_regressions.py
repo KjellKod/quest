@@ -354,3 +354,38 @@ def test_claude_loader_rejects_unreadable_saved_config(tmp_path):
     (tmp_path / "orchestration.json").mkdir()
     with pytest.raises(ValueError, match="Cannot read"):
         _resolve_effort(str(tmp_path), "arbiter", None)
+
+
+@pytest.mark.parametrize("field", ["description: |", "description: >-", "metadata:"])
+def test_generator_preserves_nested_effort_content(field):
+    from quest_sync_model_defaults import _with_effort
+
+    nested = field + "\n  effort: low\n  other: text"
+    text = "---\nmodel: inherit\n" + nested + "\neffort: low\n---\nbody\n"
+    result = _with_effort(text, "medium")
+    assert nested in result
+    assert "\neffort: medium\n" in result
+
+
+@pytest.mark.parametrize("models", [123, "invalid", ["arbiter"], []])
+def test_claude_loader_rejects_non_object_models(tmp_path, models):
+    from quest_claude_runner import _resolve_effort
+
+    (tmp_path / "orchestration.json").write_text(
+        json.dumps({"models": models, "codex_reasoning_effort": "medium"})
+    )
+    with pytest.raises(ValueError, match="models"):
+        _resolve_effort(str(tmp_path), "arbiter", None)
+
+
+@pytest.mark.parametrize("model", [123, ["gpt-6-astra"], True, " "])
+def test_migration_rejects_invalid_active_model_without_writing(tmp_path, model):
+    models = {r: "gpt-6-astra" for r in CANONICAL_ROLES}
+    models["builder"] = model
+    quest = _snapshot(tmp_path, models=models)
+    path = quest / "orchestration.json"
+    path.write_text((quest / "logs/allowlist_snapshot.json").read_text())
+    before = path.read_bytes()
+    with pytest.raises(ValueError, match="model"):
+        migrate_from_snapshot(quest)
+    assert path.read_bytes() == before

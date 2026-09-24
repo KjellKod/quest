@@ -156,6 +156,8 @@ def _resolve_effort(quest_dir: str, agent: str, override: str | None) -> str | N
         raise ValueError("Cannot read saved orchestration.json") from exc
     if not isinstance(saved, dict):
         raise ValueError("orchestration.json must be an object")
+    if not isinstance(saved.get("models", {}), dict):
+        raise ValueError("orchestration.json models must be an object")
     return effort_for_role(saved, agent)
 
 

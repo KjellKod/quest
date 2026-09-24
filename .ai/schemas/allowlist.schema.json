@@ -56,7 +56,7 @@
         "type": "string",
         "enum": ["low", "medium", "high", "xhigh", "max", "ultra"]
       },
-      "description": "Reasoning effort per role, applied on whichever runtime the role's model selects. `ultra` is Codex-only and blocks a Claude-backed role at dispatch."
+      "description": "Reasoning effort per role, applied on whichever runtime the role's model selects. Partial overrides are supported at quest startup; the source-repository defaults generator requires every canonical role. `ultra` is Codex-only and blocks a Claude-backed role at sync or dispatch."
     },
     "models": {
       "type": "object",
