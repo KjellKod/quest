@@ -1,0 +1,19 @@
+.ai/quest.md
+  s_31af3d75731222::t_859e7090913291 149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4e4aa756bcf6f03f650a9ddf845d6f3719e9fbcd",
+  "prompts": {},
+  "sessions": {
+    "s_31af3d75731222": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
