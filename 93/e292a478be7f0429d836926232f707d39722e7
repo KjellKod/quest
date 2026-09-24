@@ -1,0 +1,62 @@
+scripts/quest_runtime/claude_runner.py
+  s_fb0c7c931ff87d::t_c638c641dddb44 742-755
+tests/unit/test_quest_effort_regressions.py
+  s_6618c641e61028::t_bb9ab0f003aecb 290-295,315-323,327,330,333-338,340-348
+  s_fb0c7c931ff87d::t_944111f3645a50 296-314
+  s_6618c641e61028::t_c78015f8c79b7d 201-260,262-273,275-289
+  s_6618c641e61028::t_7cbbfbbffd9ef8 29-30,34-37,349-356
+  s_fb0c7c931ff87d::t_44d46150401bb1 324-326,328-329
+  s_fb0c7c931ff87d::t_8684a3436295d3 111-112,157,161-166,187,261,274,331-332,339
+.skills/quest/delegation/workflow.md
+  s_23ce97baee2c11::t_f904c041126af1 47-59
+  s_fb0c7c931ff87d::t_1f9fc47f6a690e 46
+  s_fb0c7c931ff87d::t_f637fe0982a6eb 43
+tests/unit/test_quest_effort.py
+  s_6618c641e61028::t_b32643a3c1b42e 19,92,94
+scripts/quest_claude_runner.py
+  s_6618c641e61028::t_b32643a3c1b42e 153,155-156,158
+scripts/quest_runtime/orchestration.py
+  s_fb0c7c931ff87d::t_4702c94cd802a5 553,555-556
+  s_fb0c7c931ff87d::t_2f0a3c59c07f39 554
+  s_23ce97baee2c11::t_d56effbb6ad207 17,557-566,574-579,581,594,606-612
+  s_fb0c7c931ff87d::t_785b048bd459f8 567-573,580,582-585,593,595-605
+  s_fb0c7c931ff87d::t_2a5fe5b46825b9 586-592
+  s_6618c641e61028::t_b32643a3c1b42e 540,647,653,782-784,786-789,823-824
+  s_23ce97baee2c11::t_8e876645c5c837 613-614
+.skills/quest/SKILL.md
+  s_23ce97baee2c11::t_1392d83b33c677 275
+tests/unit/test_codex_runner.py
+  s_6618c641e61028::t_68b236e5da32df 914-948
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "93e292a478be7f0429d836926232f707d39722e7",
+  "prompts": {},
+  "sessions": {
+    "s_23ce97baee2c11": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0d18e-c8d7-7b91-aa57-17394a9d2384",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_6618c641e61028": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0d18e-c8d7-7b91-aa57-17394a9d2384",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_fb0c7c931ff87d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c6965a68-0300-4261-ad83-b3d65e637231",
+        "model": "claude-opus-5"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
