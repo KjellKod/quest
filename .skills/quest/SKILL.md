@@ -272,7 +272,7 @@ Before creating the quest folder, present the routing classification to the user
    - `models`: merged block (all 9 keys present; unused-in-mode roles still carry the default value)
    - `claude_role_transport` / `claude_transport_resolved`: same sourcing as the Y path above; `claude_transport_downgraded: false` for compatibility
    - `codex_auth_mode`: same resolved Step 2b mode as the Y path; pass it to `write_orchestration_json`.
-   - `effort` / `codex_reasoning_effort`: same allowlist sourcing as the Y path; pass both to `write_orchestration_json`. Model-only overrides do not change effort; validate model support before dispatch.
+   - `effort` / `codex_reasoning_effort`: same allowlist sourcing as the Y path; resolve the new quest map with `build_default_effort(allowlist_effort)` before passing it and the scalar to `write_orchestration_json`. The low-level writer preserves partial maps for resume. Model-only overrides do not change effort; validate model support before dispatch.
    - `source: "overridden"`
    - `overridden_roles`: list of role names that were actually overridden
    - `preflight_validated_at: <ISO8601 now>`

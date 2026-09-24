@@ -16,7 +16,7 @@ from quest_runtime.orchestration import (
     DEFAULT_EFFORT,
     effort_for_role,
     validate_effort_map,
-    write_orchestration_json,
+    write_default_from_allowlist,
 )
 
 BRIDGE_ARGS = {
@@ -89,11 +89,9 @@ def test_invalid_level_is_rejected():
 
 def test_orchestration_json_persists_a_complete_effort_map(tmp_path):
     path = tmp_path / "orchestration.json"
-    write_orchestration_json(
+    write_default_from_allowlist(
         path,
-        models={role: "claude-opus-5-5" for role in CANONICAL_ROLES},
-        source="default",
-        overridden_roles=[],
+        {role: "claude-opus-5-5" for role in CANONICAL_ROLES},
         effort={"builder": "max"},
     )
     saved = json.loads(path.read_text())

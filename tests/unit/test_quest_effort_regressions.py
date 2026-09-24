@@ -26,10 +26,15 @@ def _snapshot(tmp_path, **extra):
     return quest
 
 
-def test_snapshot_migration_keeps_legacy_scalar(tmp_path):
+@pytest.mark.parametrize("existing", [False, True])
+def test_snapshot_migration_keeps_legacy_scalar(tmp_path, existing):
     # Filling DEFAULT_EFFORT here would override the scalar the quest was
     # started with, re-tiering work already in flight.
     quest = _snapshot(tmp_path, codex_reasoning_effort="high")
+    if existing:
+        (quest / "orchestration.json").write_text(
+            (quest / "logs/allowlist_snapshot.json").read_text()
+        )
     migrate_from_snapshot(quest)
     saved = json.loads((quest / "orchestration.json").read_text())
     assert "effort" not in saved
@@ -103,7 +108,8 @@ def test_write_orchestration_json_omits_effort_when_unset(tmp_path):
     assert "effort" not in json.loads(path.read_text())
 
 
-def test_permission_retry_preserves_effort(tmp_path, monkeypatch):
+@pytest.mark.parametrize("preparation_failure", [False, True])
+def test_permission_retry_preserves_effort(tmp_path, monkeypatch, preparation_failure):
     # A retry that silently drops to the default effort makes the pinned value
     # a lie on exactly the runs that were already going badly. Drives the real
     # Tier B permission retry and inspects both dispatched argvs.
@@ -148,10 +154,16 @@ def test_permission_retry_preserves_effort(tmp_path, monkeypatch):
 
     def fake_popen(cmd, *args, **kwargs):
         argvs.append(list(cmd))
-        if len(argvs) == 1:
+        if len(argvs) == 1 and not preparation_failure:
             return FakeProcess(stderr="Error: Permission denied writing artifact")
         return FakeProcess(on_communicate=succeed)
 
+    if preparation_failure:
+
+        def deny_preparation(*args, **kwargs):
+            raise PermissionError("Permission denied writing artifact")
+
+        monkeypatch.setattr(claude_runner, "prepare_artifact_files", deny_preparation)
     monkeypatch.setattr(claude_runner.subprocess, "Popen", fake_popen)
 
     claude_runner.run_claude_role(
@@ -172,7 +184,7 @@ def test_permission_retry_preserves_effort(tmp_path, monkeypatch):
         exit_grace_seconds=0.01,
     )
 
-    assert len(argvs) == 2, "expected an initial dispatch plus one Tier B retry"
+    assert len(argvs) == (1 if preparation_failure else 2)
     for attempt, argv in enumerate(argvs, start=1):
         assert "--effort" in argv, f"attempt {attempt} dropped --effort"
         assert argv[argv.index("--effort") + 1] == "high"
@@ -186,3 +198,159 @@ def test_generator_replaces_quoted_effort_key():
     )
     assert '"effort"' not in out
     assert "effort: high" in out
+
+
+@pytest.mark.parametrize("effort", [{}, {"arbiter": "low"}])
+@pytest.mark.parametrize("existing", [False, True])
+def test_migration_preserves_partial_effort(tmp_path, effort, existing):
+    quest = _snapshot(tmp_path, effort=effort, codex_reasoning_effort="high")
+    if existing:
+        (quest / "orchestration.json").write_text(
+            (quest / "logs/allowlist_snapshot.json").read_text()
+        )
+    migrate_from_snapshot(quest)
+    saved = json.loads((quest / "orchestration.json").read_text())
+    assert saved["effort"] == effort
+    assert effort_for_role(saved, "builder") == "high"
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_migration_rejects_null_effort(tmp_path, existing):
+    quest = _snapshot(tmp_path, effort=None)
+    if existing:
+        (quest / "orchestration.json").write_text(
+            (quest / "logs/allowlist_snapshot.json").read_text()
+        )
+    with pytest.raises(ValueError, match="effort"):
+        migrate_from_snapshot(quest)
+
+
+def test_null_effort_is_not_absent():
+    with pytest.raises(ValueError, match="effort"):
+        effort_for_role({"effort": None}, "builder")
+
+
+@pytest.mark.parametrize("contents", ["{", "[]", "null"])
+def test_claude_loader_rejects_corrupt_saved_config(tmp_path, contents):
+    from quest_claude_runner import _resolve_effort
+
+    (tmp_path / "orchestration.json").write_text(contents)
+    with pytest.raises(ValueError):
+        _resolve_effort(str(tmp_path), "arbiter", None)
+
+
+def test_existing_solo_migration_preserves_null_unused_models(tmp_path):
+    from quest_runtime.orchestration import SOLO_UNUSED_ROLES
+
+    models = {
+        r: None if r in SOLO_UNUSED_ROLES else "gpt-6-astra" for r in CANONICAL_ROLES
+    }
+    quest = _snapshot(tmp_path, models=models, effort={"builder": "high"})
+    (quest / "orchestration.json").write_text(
+        (quest / "logs/allowlist_snapshot.json").read_text()
+    )
+    (quest / "state.json").write_text('{"quest_mode":"solo"}')
+    migrate_from_snapshot(quest)
+    saved = json.loads((quest / "orchestration.json").read_text())
+    assert saved["models"] == models
+    assert saved["effort"] == {"builder": "high"}
+
+
+@pytest.mark.parametrize("model", [None, "", " ", "opencode/claude-opus-5-5"])
+def test_legacy_scalar_does_not_leak_to_missing_or_claude_models(model):
+    assert (
+        effort_for_role(
+            {"models": {"arbiter": model}, "codex_reasoning_effort": "ultra"}, "arbiter"
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize("prefix", ["\t", "  ", ""])
+def test_generator_strips_indented_quoted_key(prefix):
+    from quest_sync_model_defaults import _with_effort
+
+    out = _with_effort(
+        "---\nmodel: inherit\n" + prefix + '"effort": low\n---\nbody\n', "high"
+    )
+    assert '"effort"' not in out
+    assert out.count("effort:") == 1
+
+
+def test_generator_crlf_file_read_and_invalid_opening(tmp_path):
+    from quest_sync_model_defaults import _with_effort
+
+    path = tmp_path / "agent.md"
+    path.write_bytes(b'---\r\nmodel: inherit\r\n"effort": low\r\n---\r\nbody\r\n')
+    assert "effort: high" in _with_effort(path.read_text(), "high")
+    with pytest.raises(ValueError):
+        _with_effort(path.read_bytes().decode(), "high")
+    with pytest.raises(ValueError):
+        _with_effort('name: x\n---\n"effort": low\n---\n', "high")
+
+
+def test_invalid_claude_effort_does_not_truncate_artifacts(tmp_path):
+    artifact = tmp_path / "plan.md"
+    artifact.write_text("preserve")
+    (tmp_path / "state.json").write_text('{"phase":"plan","plan_iteration":1}')
+    result = claude_runner.run_claude_role(
+        cwd=tmp_path,
+        quest_dir=tmp_path,
+        phase="plan",
+        agent="planner",
+        iteration=1,
+        prompt_file=tmp_path / "prompt",
+        handoff_file=tmp_path / "handoff",
+        bridge_script=tmp_path / "bridge",
+        model="claude",
+        effort="ultra",
+        timeout=1,
+        permission_mode="bypassPermissions",
+        artifact_paths=[artifact],
+    )
+    # Validating early must not cost the JSON envelope: orchestrators parse
+    # this result, and a traceback reaches them as an unreadable failure.
+    assert result.result_kind == "invocation_error"
+    assert "ultra" in result.stderr
+    assert artifact.read_text() == "preserve"
+
+
+@pytest.mark.parametrize(
+    "level,frontmatter,accepted",
+    [
+        ("high", "effort: high", True),
+        ("high", "effort: medium", False),
+        ("ultra", "effort: ultra", False),
+        # An unpinned role must NOT block: the generated frontmatter always
+        # names a level, so blocking here would wall off every legacy quest.
+        (None, "effort: medium", True),
+        (None, "name: arbiter", True),
+        # A valid nested subagent key must not be mistaken for ambiguity.
+        ("high", "effort: high\nhooks:\n  PreToolUse:\n    - matcher: Bash", True),
+        ("high", 'effort: high\n"effort": low', False),
+        ("high", "effort: high\n\teffort: low", False),
+    ],
+)
+def test_native_claude_effort_guard(level, frontmatter, accepted):
+    from quest_runtime.orchestration import validate_native_claude_effort
+
+    saved = {
+        "models": {"arbiter": "opencode/claude-opus-5-5"},
+        "codex_reasoning_effort": "ultra",
+    }
+    if level is not None:
+        saved["effort"] = {"arbiter": level}
+    text = "---\n" + frontmatter + "\n---\nbody"
+    if accepted:
+        validate_native_claude_effort(saved, "arbiter", text)
+    else:
+        with pytest.raises(ValueError):
+            validate_native_claude_effort(saved, "arbiter", text)
+
+
+def test_claude_loader_rejects_unreadable_saved_config(tmp_path):
+    from quest_claude_runner import _resolve_effort
+
+    (tmp_path / "orchestration.json").mkdir()
+    with pytest.raises(ValueError, match="Cannot read"):
+        _resolve_effort(str(tmp_path), "arbiter", None)

@@ -14,6 +14,7 @@ just encodes the contract that prose describes. Keep this file and SKILL.md
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -536,7 +537,7 @@ def effort_for_role(saved: dict, role: str) -> str | None:
       hard-fail any quest that pinned the Codex-only `ultra`.
     """
     effort = saved.get("effort")
-    if effort is not None:
+    if "effort" in saved:
         level = validate_effort_map(effort).get(role)
         if level:
             return level
@@ -547,6 +548,68 @@ def effort_for_role(saved: dict, role: str) -> str | None:
     if not isinstance(model, str) or not model.strip():
         return None
     return legacy if runtime_for_model(model) == "codex" else None
+
+
+_EFFORT_KEY_ALIAS = re.compile(r"""^\s*(?:"effort"|'effort')\s*:""")
+_ANY_EFFORT_KEY = re.compile(r"""^\s*(?:"effort"|'effort'|effort)\s*:""")
+
+
+def validate_native_claude_effort(saved: dict, role: str, agent_text: str) -> None:
+    """Guard native dispatch using the generator's flat frontmatter format.
+
+    Reject other YAML forms rather than guessing at aliases or quoted keys.
+    Matching declarations do not prove Claude honors the effort setting.
+    """
+    model = saved.get("models", {}).get(role)
+    if not isinstance(model, str) or runtime_for_model(model) != "claude":
+        raise ValueError(f"{role} is not an active Claude role")
+    requested = effort_for_role(saved, role)
+    if requested is None:
+        # The quest pins nothing for this role, so there is no disagreement to
+        # find: the agent file simply carries the repo-wide default. Blocking
+        # here would wall off every legacy quest on resume, since the generated
+        # frontmatter always names a level and an unpinned role never can.
+        return
+    if requested not in CLAUDE_EFFORT_LEVELS:
+        raise ValueError(f"Unsupported native Claude effort: {requested!r}")
+    lines = agent_text.splitlines()
+    if not lines or lines[0] != "---" or "---" not in lines[1:]:
+        raise ValueError("Agent file has no YAML frontmatter")
+    fields: dict[str, str] = {}
+    for line in lines[1 : lines.index("---", 1)]:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if line[:1].isspace() or line.lstrip().startswith("- "):
+            # Part of the previous key's nested block. `hooks:` and
+            # `mcpServers:` are valid subagent keys; refusing to dispatch
+            # because one is present would be a worse failure than the
+            # ambiguity it guards against. An `effort:` nested somewhere
+            # unexpected is the one thing we will not skip past.
+            if _ANY_EFFORT_KEY.match(line):
+                raise ValueError(
+                    f"Native effort guard found an ambiguous `effort` key: "
+                    f"{line.strip()!r}"
+                )
+            continue
+        match = re.fullmatch(r"([a-zA-Z][a-zA-Z0-9_-]*):[ \t]*(.*)", line)
+        if match is None:
+            # A quoted or otherwise unusual key spelling. Only `effort` matters
+            # here, and an ambiguous one must not be read as agreement.
+            if _EFFORT_KEY_ALIAS.match(line):
+                raise ValueError(
+                    "Native effort guard cannot read an ambiguous `effort` key: "
+                    f"{line.strip()!r}"
+                )
+            continue
+        if match[1] in fields:
+            raise ValueError(f"Duplicate frontmatter key {match[1]!r} in agent file")
+        fields[match[1]] = match[2].strip()
+    actual = fields.get("effort")
+    if actual != requested:
+        raise ValueError(
+            f"Native Claude effort mismatch for {role}: saved={requested!r}, "
+            f"frontmatter={actual!r}. Stop before Task dispatch."
+        )
 
 
 def validate_codex_auth_mode(mode: str) -> None:
@@ -581,17 +644,13 @@ def write_orchestration_json(
     # `None` means "this caller has no effort policy" — write no key at all, so
     # a migrated legacy quest keeps resolving through whatever it already had.
     # Only the new-quest writers below synthesize DEFAULT_EFFORT.
-    resolved_effort = None if effort is None else build_default_effort(effort)
+    resolved_effort = None if effort is None else validate_effort_map(effort)
     validate_codex_auth_mode(codex_auth_mode)
     payload = {
         "version": ORCHESTRATION_VERSION,
         "codex_auth_mode": codex_auth_mode,
         "models": {role: models.get(role) for role in CANONICAL_ROLES},
-        **(
-            {}
-            if resolved_effort is None
-            else {"effort": {r: resolved_effort[r] for r in CANONICAL_ROLES}}
-        ),
+        **({} if resolved_effort is None else {"effort": resolved_effort}),
         "claude_role_transport": claude_role_transport,
         "claude_transport_resolved": claude_transport_resolved,
         # Compatibility field for consumers created during the downgrade era.
@@ -720,8 +779,14 @@ def migrate_from_snapshot(
         # Fail closed BEFORE writing: a role missing from the merged models
         # would be written as null and rejected by the very validation this
         # migration feeds — never persist a file we know is invalid.
+        state_path = quest_dir / "state.json"
+        state = json.loads(state_path.read_text()) if state_path.exists() else {}
+        active_roles = active_roles_for_mode(state.get("quest_mode", "workflow"))
         missing_roles = [
-            role for role in CANONICAL_ROLES if not merged_models.get(role)
+            role
+            for role in CANONICAL_ROLES
+            if role not in merged_models
+            or (role in active_roles and not merged_models[role])
         ]
         if missing_roles:
             raise ValueError(
@@ -755,6 +820,8 @@ def migrate_from_snapshot(
         )
     if "codex_reasoning_effort" in snapshot:
         validate_codex_reasoning_effort(snapshot["codex_reasoning_effort"])
+    if "effort" in snapshot:
+        validate_effort_map(snapshot["effort"])
     write_orchestration_json(
         orch_path,
         models=build_snapshot_models(models),

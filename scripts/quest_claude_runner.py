@@ -150,10 +150,12 @@ def _resolve_effort(quest_dir: str, agent: str, override: str | None) -> str | N
         saved = json.loads(
             (Path(quest_dir) / "orchestration.json").read_text(encoding="utf-8")
         )
-    except (OSError, json.JSONDecodeError):
+    except FileNotFoundError:
         return None
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("Cannot read saved orchestration.json") from exc
     if not isinstance(saved, dict):
-        return None
+        raise ValueError("orchestration.json must be an object")
     return effort_for_role(saved, agent)
 
 

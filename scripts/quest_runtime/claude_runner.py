@@ -739,6 +739,20 @@ def run_claude_role(
     answer_file: str | Path | None = None,
     effort: str | None = None,
 ) -> RunResult:
+    # Validate before preparing artifacts, so a rejected level cannot truncate
+    # an existing artifact on its way to failing — but keep the structured
+    # contract: callers parse a JSON envelope and must never get a traceback.
+    try:
+        normalize_claude_cli_effort(effort)
+    except ValueError as exc:
+        return RunResult(
+            exit_code=1,
+            handoff_state="missing",
+            result_kind="invocation_error",
+            source=None,
+            stdout="",
+            stderr=str(exc),
+        )
     if transport not in {"bridge", "background-agent"}:
         raise ValueError(
             f"transport must be 'bridge' or 'background-agent' (got {transport!r})"

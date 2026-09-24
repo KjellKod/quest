@@ -911,3 +911,38 @@ def test_reviewer_findings_repair_preserves_prose_and_requires_new_outputs(
     )
     assert result["result_kind"] == "artifact_missing"
     assert prose.read_bytes() == original
+
+
+@pytest.mark.parametrize("effort", [{}, {"arbiter": "low"}, {"builder": "max"}, None])
+def test_role_mode_resolves_partial_effort_and_rejects_null(cli, monkeypatch, effort):
+    quest, _, _ = role_fixture(cli, monkeypatch)
+    path = quest / "orchestration.json"
+    saved = json.loads(path.read_text())
+    saved["effort"] = effort
+    path.write_text(json.dumps(saved))
+    result = run_role(cli, quest)
+    if effort is None:
+        assert result["result_kind"] == "precondition_failed"
+        assert not (cli / "CAPTURE").exists()
+    else:
+        assert result["result_kind"] == "complete"
+        expected = effort.get("builder", "high")
+        assert result["requested_effort"] == expected
+        assert (
+            f'model_reasoning_effort="{expected}"'
+            in json.loads((cli / "CAPTURE").read_text())["args"]
+        )
+
+
+@pytest.mark.parametrize("model", [None, "", " ", "opencode/claude-opus-5-5"])
+def test_role_mode_rejects_missing_or_claude_model_before_dispatch(
+    cli, monkeypatch, model
+):
+    quest, _, _ = role_fixture(cli, monkeypatch)
+    path = quest / "orchestration.json"
+    saved = json.loads(path.read_text())
+    saved["models"]["builder"] = model
+    path.write_text(json.dumps(saved))
+    result = run_role(cli, quest)
+    assert result["result_kind"] == "precondition_failed"
+    assert not (cli / "CAPTURE").exists()
