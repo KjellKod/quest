@@ -675,6 +675,8 @@ def get_movie_credits_lines(
             seen.add(key)
 
             model_label = friendly_model_name(agent.model)
+            if agent.configured_effort:
+                model_label += f", configured effort: {agent.configured_effort}"
             if model_label:
                 name_part = f"{agent.name} [{model_label}]"
             else:

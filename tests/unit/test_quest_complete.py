@@ -8,7 +8,13 @@ from types import SimpleNamespace
 
 import pytest
 import quest_complete
-from quest_celebrate.quest_data import QuestData
+from quest_celebrate.quest_data import (
+    QuestData,
+    load_quest_data,
+    load_quest_data_from_journal,
+)
+from quest_celebrate.persist import render_persisted_celebration
+from quest_celebrate.ascii_art import get_movie_credits_lines
 from quest_complete import build_journal_entry
 
 
@@ -832,3 +838,54 @@ def test_complete_reports_needs_human_rollup(tmp_path, monkeypatch, capsys):
     assert payload["needs_human_stats"]["needs_human"] == 1
     assert payload["needs_human_stats"]["status_instrumented_quests"] == 1
     assert payload["needs_human_stats"]["archived_quests"] == 1
+
+
+def test_configured_effort_survives_archive_and_journal_replay(tmp_path):
+    quest = tmp_path / "sample_2026-10-01__1200"
+    quest.mkdir()
+    saved = {"effort": {"code-reviewer-a": "high", "code-reviewer-b": "medium"}}
+    (quest / "orchestration.json").write_text(json.dumps(saved))
+    for role in saved["effort"]:
+        (quest / f"handoff_{role}.json").write_text(
+            json.dumps({"agent": role, "model": "claude-opus-5"})
+        )
+    archived = quest_complete._archive_quest(quest)
+    assert json.loads((archived / "orchestration.json").read_text()) == saved
+    data = load_quest_data(archived)
+    assert {a.name: a.configured_effort for a in data.agents} == saved["effort"]
+    journal = tmp_path / "journal.md"
+    journal.write_text(build_journal_entry(data, date(2026, 10, 1)))
+    assert "configured effort: high" in journal.read_text()
+    assert "configured effort: medium" in journal.read_text()
+    (archived / "orchestration.json").unlink()
+    replay = load_quest_data_from_journal(journal)
+    assert {a.name: a.configured_effort for a in replay.agents} == saved["effort"]
+    credits = "\n".join(get_movie_credits_lines(replay, safe_mode=True))
+    assert "configured effort: high" in credits
+    assert "configured effort: medium" in credits
+    celebration = render_persisted_celebration(
+        replay, date(2026, 10, 1), Path("journal.md")
+    )
+    assert "configured effort: high" in celebration
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        "{bad",
+        "[]",
+        '{"effort": []}',
+        '{"effort": {"builder": 4}}',
+        '{"effort": {"builder": "invented"}}',
+    ],
+)
+def test_missing_or_invalid_saved_effort_is_not_invented(tmp_path, payload):
+    (tmp_path / "handoff_builder.json").write_text(
+        json.dumps({"agent": "builder", "model": "claude-opus-5"})
+    )
+    if payload is not None:
+        (tmp_path / "orchestration.json").write_text(payload)
+    data = load_quest_data(tmp_path)
+    assert data.agents[0].configured_effort is None
+    assert "configured effort:" not in build_journal_entry(data, date(2026, 10, 1))

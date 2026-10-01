@@ -571,3 +571,5 @@ Before upgrading an existing installation, merge the `effort` map from the selec
 If a framework file was customized and its upstream version changed, the installer refuses before applying a partial upgrade. Back up the named file, replace it from the printed source URL, then retry. Customized files whose upstream version is unchanged remain supported.
 
 Older saved quests without `effort` cannot resume automatically. Explicitly configure each active Claude/Codex role's `effort` in `orchestration.json` and remove the retired saved `codex_reasoning_effort`, or start a new quest after updating the allowlist. Gemini roles have no effort pin.
+
+Journal agent entries, saved celebrations and celebration credits show **configured effort** when recorded. This is the role’s last saved setting from `orchestration.json`, not evidence of effective effort for every invocation. Journal replay preserves that setting without consulting current defaults; historical entries without effort omit it. The full saved configuration remains in the archived quest directory.
