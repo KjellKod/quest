@@ -105,7 +105,7 @@ trap 'cleanup_bg_probes; trap - EXIT; exit 143' TERM
 # Argument Parsing
 ###############################################################################
 
-USAGE="Usage: quest_preflight.sh --orchestrator claude|codex [--codex-auth cached|api-key] | --probe antigravity"
+USAGE="Usage: quest_preflight.sh --orchestrator claude|codex [--codex-auth cached|api-key] | --probe claude|antigravity"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -125,7 +125,7 @@ while [ $# -gt 0 ]; do
       ;;
     --probe)
       # Probe one dispatched runtime directly. Independent of --orchestrator
-      # because Antigravity is never an orchestrator, only ever a target.
+      # so Claude-led sessions can also check their Claude role transport.
       if [ $# -lt 2 ] || [ -z "$2" ]; then
         echo "$USAGE" >&2
         exit 2
@@ -887,12 +887,16 @@ if [ -n "$PROBE_RUNTIME" ]; then
     exit 2
   fi
   case "$PROBE_RUNTIME" in
+    claude)
+      probe_claude_transport
+      exit 0
+      ;;
     antigravity)
       probe_antigravity
       exit 0
       ;;
     *)
-      echo "Unknown probe runtime: $PROBE_RUNTIME (expected: antigravity)" >&2
+      echo "Unknown probe runtime: $PROBE_RUNTIME (expected: claude or antigravity)" >&2
       exit 2
       ;;
   esac

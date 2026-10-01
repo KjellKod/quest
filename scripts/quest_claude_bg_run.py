@@ -40,12 +40,10 @@ Transport facts this encodes (observed across Claude Code 2.1.x):
     (idle, awaiting-input) session ALSO reads `state==blocked`, so resume-mode
     polling must never match the parked parent's row (id/name take precedence
     over sessionId).
-  * Claude CLI 2.1.x background-session management subcommands are not treated
-    as a stable scripting contract here (2.1.201 ships no scriptable
-    `logs`/`stop`). This runner deliberately uses ONLY the portable mechanisms:
-    transcript JSONL for log tails and signalling the `pid` carried in the
-    `agents --json` row. Adopting real subcommands, if the CLI ever ships them,
-    is a contained follow-up: the mechanisms live in `logs_tail`/`stop_session`.
+  * Cleanup requires the supported `claude stop <id>` command (verified on
+    2.1.286) and observes removal from `agents --json`. Killing only a worker
+    PID is insufficient: the supervisor can respawn it after a pid-less gap.
+    Transcript JSONL remains the source for log tails.
   * `claude --bg --resume <sid>` FORKS: the new agent continues the conversation
     under a NEW sessionId (daemon roster: launch.mode=resume, fork=true).
 
@@ -505,49 +503,37 @@ class BgRunner:
         return distill("\n".join(texts[-max_texts:]))
 
     def stop_session(self, short_id: str | None) -> StopResult:
-        """Stop a background agent by signalling its supervisor-reported pid.
-
-        This runner uses the pid-signalling fallback instead of assuming a
-        stable `claude stop <id>` subcommand. The daemon may RESPAWN a parked
-        session once from its spare pool after a kill (the row keeps its id but
-        shows a fresh pid), so keep signalling the row's *current* pid until the
-        row settles — drops its pid ("settled (killed)" in the daemon log) or
-        leaves the listing. Settled rows may linger pid-less in `agents --json`;
-        that is retired enough.
-        """
+        """Stop the supervisor-owned session, then verify roster removal."""
         if not short_id:
             return StopResult(settled=True)
+        try:
+            self._claude("stop", short_id)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass  # The roster must still prove whether our session survived.
         row: dict[str, Any] | None = None
-        signals_sent = 0
-        for _ in range(6):
+        for _ in range(7):
             try:
-                row = self.find_session(short_id=short_id)
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                # Roster unavailability is not proof that the owned session
-                # settled. Consume this bounded observation and keep trying.
-                time.sleep(self.a.poll_interval)
-                continue
-            pid = (row or {}).get("pid")
-            if not isinstance(pid, int):
-                return StopResult(settled=True)
-            sig = signal.SIGTERM if signals_sent < 2 else signal.SIGKILL
-            signals_sent += 1
-            try:
-                os.kill(pid, sig)
-            except (ProcessLookupError, PermissionError):
+                cp = self._claude("agents", "--json")
+                rows = json.loads(cp.stdout) if cp.returncode == 0 else None
+                # Teardown requires a valid roster, not the permissive empty
+                # fallback used by discovery. PID absence can be a respawn gap.
+                if isinstance(rows, list) and all(
+                    isinstance(r, dict)
+                    and (
+                        r.get("kind") == "interactive"
+                        or (isinstance(r.get("id"), str) and bool(r["id"]))
+                    )
+                    for r in rows
+                ):
+                    row = next((r for r in rows if r.get("id") == short_id), None)
+                    if row is None:
+                        return StopResult(settled=True)
+            except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
                 pass
             time.sleep(self.a.poll_interval)
-        try:
-            row = self.find_session(short_id=short_id)
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            # Teardown may only claim success after observing the row absent or
-            # pid-less. Preserve the owned id for structured sweep guidance.
-            return StopResult(settled=False, survivor_id=short_id)
-        if not isinstance((row or {}).get("pid"), int):
-            return StopResult(settled=True)
         return StopResult(
             settled=False,
-            survivor_id=(row or {}).get("id"),
+            survivor_id=short_id,
             survivor_name=(row or {}).get("name"),
             survivor_session_id=(row or {}).get("sessionId"),
         )
@@ -738,6 +724,10 @@ class BgRunner:
             argv += ["--model", self.a.model]
         if self.a.effort:
             argv += ["--effort", self.a.effort]
+        if self.a.agent:
+            argv += ["--agent", self.a.agent]
+        if self.a.append_system_prompt:
+            argv += ["--append-system-prompt", self.a.append_system_prompt]
         argv += ["--permission-mode", self.a.permission_mode]
         if self.a.bg_isolation == "none":
             argv += ["--settings", json.dumps({"worktree": {"bgIsolation": "none"}})]
@@ -1373,6 +1363,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--effort", default="", choices=["", "low", "medium", "high", "xhigh", "max"]
     )
+    p.add_argument(
+        "--agent", help="Optional Claude session persona from installed agents"
+    )
+    p.add_argument("--append-system-prompt", help="Additional session instructions")
     p.add_argument("--permission-mode", default="bypassPermissions")
     p.add_argument("--add-dir", action="append", default=[])
     p.add_argument("--name", default=f"bgrun-{uuid.uuid4().hex[:8]}")

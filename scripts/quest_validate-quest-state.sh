@@ -217,15 +217,6 @@ validate_orchestration_json() {
     return
   fi
 
-  if ! jq -e 'if has("codex_reasoning_effort") then
-      (.codex_reasoning_effort | type == "string") and
-      (.codex_reasoning_effort as $effort |
-      ["low", "medium", "high", "xhigh", "max", "ultra"] | index($effort) != null)
-    else true end' "$orch_file" >/dev/null 2>&1; then
-    fail "orchestration.json codex_reasoning_effort is invalid"
-    return
-  fi
-
   # Required roles depend on quest_mode.
   # Keep this list in sync with workflow.md dispatch sites
   # (planner, plan-reviewer-a, plan-reviewer-b, arbiter, builder,
@@ -245,6 +236,26 @@ validate_orchestration_json() {
 
   if [ "${#missing_roles[@]}" -gt 0 ]; then
     fail "orchestration.json: required model unset for active mode ($QUEST_MODE): ${missing_roles[*]}"
+    return
+  fi
+
+  local effort_error runtime_dir
+  runtime_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  effort_error=$(PYTHONPATH="$runtime_dir${PYTHONPATH:+:$PYTHONPATH}" python3 - "$orch_file" "$QUEST_MODE" <<'PYTHON'
+import json
+import sys
+from quest_runtime.orchestration import validate_effort_config
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        validate_effort_config(json.load(handle), sys.argv[2])
+except (ValueError, TypeError, KeyError) as exc:
+    print(exc)
+    raise SystemExit(1)
+PYTHON
+)
+  if [ "$?" -ne 0 ]; then
+    fail "orchestration.json effort invalid: $effort_error"
     return
   fi
 

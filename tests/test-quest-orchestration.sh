@@ -14,7 +14,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 WORKFLOW_MD="$REPO_ROOT/.skills/quest/delegation/workflow.md"
 OPENCODE_QUEST_MD="$REPO_ROOT/.opencode/agents/quest.md"
 STATE_SCRIPT="$REPO_ROOT/scripts/quest_state.py"
-PY_HELPER='import sys, pathlib; sys.path.insert(0, str(pathlib.Path("'"$REPO_ROOT"'/scripts").resolve()));'
+PY_HELPER='import sys, pathlib; sys.path.insert(0, str(pathlib.Path("'"$REPO_ROOT"'/scripts").resolve())); from quest_runtime.orchestration import CANONICAL_ROLES;'
 
 TESTS_RUN=0
 TESTS_PASSED=0
@@ -38,6 +38,7 @@ write_allowlist_snapshot() {
   # $1 = path to write snapshot json
   cat > "$1" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "review-arbiter": "medium", "fixer": "medium"},
   "version": 2,
   "models": {
     "planner": "gpt-5.5",
@@ -89,6 +90,7 @@ snapshot = json.loads((quest_dir / "logs" / "allowlist_snapshot.json").read_text
 write_default_from_allowlist(
     quest_dir / "orchestration.json",
     snapshot["models"],
+    effort=dict.fromkeys(CANONICAL_ROLES, "medium"),
     preflight_validated_at="2026-05-18T05:42:13Z",
 )
 PY
@@ -144,6 +146,7 @@ write_default_from_allowlist(
     claude_available=False,
     quest_mode="workflow",
     remap_unavailable=True,
+    effort=dict.fromkeys(CANONICAL_ROLES, "medium"),
     preflight_validated_at="2026-05-18T05:42:13Z",
 )
 orch = json.loads(Path(sys.argv[1]).read_text())
@@ -191,6 +194,7 @@ write_orchestration_json(
     models=merged,
     source="overridden",
     overridden_roles=overridden,
+    effort=dict.fromkeys(CANONICAL_ROLES, "medium"),
     preflight_validated_at="2026-05-18T05:42:13Z",
 )
 PY
@@ -538,6 +542,7 @@ for index, submission in enumerate(submissions):
         models=merged,
         source="overridden",
         overridden_roles=overridden,
+        effort=dict.fromkeys(CANONICAL_ROLES, "medium"),
         preflight_validated_at="2026-07-11T00:00:00Z",
     )
     payloads.append(json.loads(path.read_text()))
@@ -770,6 +775,7 @@ PY
 
   cat > "$tmpdir/logs/allowlist_snapshot.json" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "fixer": "medium", "review-arbiter": "medium"},
   "models": {
     "planner": "claude",
     "plan-reviewer-a": "claude",
@@ -797,6 +803,7 @@ PY
   rm -f "$tmpdir/orchestration.json"
   cat > "$tmpdir/logs/allowlist_snapshot.json" <<'EOF'
 {
+  "effort": {"planner": "medium", "review-arbiter": "medium"},
   "models": {
     "planner": "claude"
   }
@@ -827,6 +834,7 @@ test_resume_backfills_existing_legacy_orchestration_json() {
   write_allowlist_snapshot "$tmpdir/logs/allowlist_snapshot.json"
   cat > "$tmpdir/orchestration.json" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "fixer": "medium", "review-arbiter": "medium"},
   "version": 1,
   "models": {
     "planner": "claude",
@@ -872,6 +880,7 @@ test_resume_backfills_transport_keys_on_pre_transport_orchestration_json() {
   write_allowlist_snapshot "$tmpdir/logs/allowlist_snapshot.json"
   cat > "$tmpdir/orchestration.json" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "review-arbiter": "medium", "fixer": "medium"},
   "version": 1,
   "models": {
     "planner": "claude",
@@ -921,6 +930,7 @@ test_resume_rejects_present_but_invalid_claude_role_transport() {
   write_allowlist_snapshot "$tmpdir/logs/allowlist_snapshot.json"
   cat > "$tmpdir/orchestration.json" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "review-arbiter": "medium", "fixer": "medium"},
   "version": 1,
   "models": {
     "planner": "claude",
@@ -966,6 +976,7 @@ test_resume_does_not_modify_existing_complete_orchestration_json() {
   write_allowlist_snapshot "$tmpdir/logs/allowlist_snapshot.json"
   cat > "$tmpdir/orchestration.json" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "review-arbiter": "medium", "fixer": "medium"},
   "version": 1,
   "models": {
     "planner": "claude",
@@ -1138,6 +1149,7 @@ quest = root / "quest"
     json.dumps(
         {
             "version": 1,
+            "effort": dict.fromkeys(("planner", "plan-reviewer-a", "plan-reviewer-b", "arbiter", "builder", "code-reviewer-a", "code-reviewer-b", "review-arbiter", "fixer"), "medium"),
             "models": {
                 "planner": "gpt-6-astra",
                 "plan-reviewer-a": "claude-opus-5",

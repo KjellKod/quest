@@ -233,7 +233,7 @@ Key sections to customize:
 | `role_permissions.*.bash` | Shell commands each role can run (test runners, build tools) |
 | `auto_approve_phases` | Which phases run without human confirmation |
 | `models.<role>` | Set a model ID for each canonical role: `planner`, `plan-reviewer-a`, `plan-reviewer-b`, `arbiter`, `builder`, `code-reviewer-a`, `code-reviewer-b`, `review-arbiter`, and `fixer` |
-| `claude_role_transport` | Codex-led Claude transport policy: `auto` (default), `background-agent`, or `bridge` |
+| `claude_role_transport` | Claude role transport policy: `auto` (default), `background-agent`, or `bridge` |
 | `quest_id_format` | `slug-first` (default) or `date-first`; affects only new Quest folder names |
 | `codex_auth_mode` | Codex runner authentication: `cached` (default, prefer ChatGPT login) or explicitly selected `api-key`; saved per quest, never inferred from key presence |
 | `review_mode` | `auto` (default), `fast`, or `full` for Codex reviews |
@@ -272,7 +272,7 @@ current orchestrator:
 ```
 
 Claude-led preflight checks the installed Codex runner, exec capabilities and selected auth mode; Codex-led
-preflight always probes the configured Claude transport. This second-runtime
+preflight always probes the configured Claude transport. Claude-led sessions also run `scripts/quest_preflight.sh --probe claude` when a selected role uses Claude. This second-runtime
 probe happens before the role-model chooser and is independent of the current
 `models` defaults. The chooser then validates its active role selections against
 the cached preflight result. A failed probe pauses startup for remediation, an
@@ -327,7 +327,7 @@ Quest sends the initial background prompt on stdin, not as a trailing argv argum
 
 `models.<role> = "claude"` is a sentinel for the Claude CLI/account default model. Quest passes the sentinel into its own runner, but the runner omits the CLI `--model` flag. If Claude rejects a concrete model, Quest reports `model_rejected` instead of downgrading or guessing. Because the sentinel does not identify the account-default model, rejection results omit `rejected_model` for it.
 
-To pin a **specific Claude model** for a role, put a supported full `claude-`-prefixed ID in `models.<role>` in `.ai/allowlist.json`, or use the per-quest chooser. The ID passes verbatim to the CLI's `--model`. **Do not use bare CLI aliases like `opus` or `sonnet` in `models.<role>`**: Quest classifies runtime by the `claude`/`claude-*` shape, so bare aliases route to Codex. Bare aliases are only appropriate for direct CLI runner/probe calls. Set `QUEST_CLAUDE_PROBE_MODEL` to your chosen model ID to preflight it. See the root README's model configuration section for generated defaults and Codex effort.
+To pin a **specific Claude model** for a role, put a supported full `claude-`-prefixed ID in `models.<role>` in `.ai/allowlist.json`, or use the per-quest chooser. The ID passes verbatim to the CLI's `--model`. **Do not use bare CLI aliases like `opus` or `sonnet` in `models.<role>`**: Quest classifies runtime by the `claude`/`claude-*` shape, so bare aliases route to Codex. Bare aliases are only appropriate for direct CLI runner/probe calls. Set `QUEST_CLAUDE_PROBE_MODEL` to your chosen model ID to preflight it. See the root README's model configuration section for generated model defaults and saved per-role effort.
 
 The same shape rule applies to Gemini: a `gemini`/`gemini-*` ID routes the role to the Antigravity runtime, and anything else falls through to Codex. Override the runtime's probe model with `QUEST_AGY_PROBE_MODEL=gemini-3.1-pro-high`, or point Quest at a different binary with `QUEST_AGY_BINARY`.
 
@@ -335,7 +335,7 @@ The same shape rule applies to Gemini: a `gemini`/`gemini-*` ID routes the role 
 
 If the preflight says the Claude transport is unavailable, first run `claude auth login` in a normal shell and re-check `claude auth status`. If browser login already succeeded but preflight still reports Claude as unavailable, rerun `./scripts/quest_preflight.sh --orchestrator codex` outside any restricted sandbox before concluding the transport is broken; some sandboxed runners cannot see the host Claude CLI auth state.
 
-Successful Codex-led probes are retained for 12 hours: background-agent at `.quest/cache/claude_bg_codex.json`, bridge at `.quest/cache/claude_bridge_codex.json`. Each cache records the normalized `probe_model` (`claude` for the account default, or the exact trimmed concrete model) and is reusable only for that same identity. A cache written before `probe_model` was added is ignored once and refreshed by the next successful live probe; it cannot validate either a concrete model or the sentinel. This avoids repeating browser-login remediation without letting one model's success validate another, but it does **not** make sandbox-local Claude auth trustworthy. Claude-designated roles still need to run in the same host-visible context that produced the successful probe. Override the retention window with `QUEST_PREFLIGHT_CACHE_TTL_SECONDS=<seconds>` or the cache paths with `QUEST_PREFLIGHT_CACHE_FILE=<path>` (bridge) / `QUEST_PREFLIGHT_BG_CACHE_FILE=<path>` (background-agent).
+Successful Claude transport probes are retained for 12 hours: background-agent at `.quest/cache/claude_bg_codex.json`, bridge at `.quest/cache/claude_bridge_codex.json`. Each cache records the normalized `probe_model` (`claude` for the account default, or the exact trimmed concrete model) and is reusable only for that same identity. A cache written before `probe_model` was added is ignored once and refreshed by the next successful live probe; it cannot validate either a concrete model or the sentinel. This avoids repeating browser-login remediation without letting one model's success validate another, but it does **not** make sandbox-local Claude auth trustworthy. Claude-designated roles still need to run in the same host-visible context that produced the successful probe. Override the retention window with `QUEST_PREFLIGHT_CACHE_TTL_SECONDS=<seconds>` or the cache paths with `QUEST_PREFLIGHT_CACHE_FILE=<path>` (bridge) / `QUEST_PREFLIGHT_BG_CACHE_FILE=<path>` (background-agent).
 
 ### What the bridge does
 
@@ -365,6 +365,10 @@ Quest invokes the bridge in text mode and does not pass `--json-wrap`.
 `--json-wrap` remains an out-of-band interface for direct/external bridge
 callers; its envelope is not part of the Quest runtime protocol.
 
+Claude role dispatch reads saved `models.<role>` and `effort.<role>` from `orchestration.json`. Native agent Markdown supplies instructions and tools only, not effort. Reviewer A/B keep separate saved settings while sharing their instruction file. Missing effort pins block with guidance to start a new quest or explicitly reconfigure the saved quest; there is no silent legacy fallback.
+
+Background dispatch requires a Claude CLI with `claude stop <id>` support (validated on 2.1.286). Cleanup stops the supervisor-owned session and verifies its removal from `claude agents --json`; killing a worker PID alone can leave a respawning session. Upgrade the CLI if stop is unavailable.
+
 ### What Quest handles automatically
 
 - Probes the configured transport once per session and retains recent successful host probes (bg under `auto`; bridge only when explicitly configured/selected)
@@ -372,7 +376,7 @@ callers; its envelope is not part of the Quest runtime protocol.
 - Routes every role whose saved model is Claude-family through `scripts/quest_claude_runner.py --model <models.<role>> --transport <resolved>` in the same host-visible context used for the probe/cache refresh
 - Keeps background-agent `needs_human` sessions parked for same-session resume, then resumes with `--resume <session_id> --answer-file <answer_file>` and updates the chained session id after Claude forks a continuation
 - Records the transport per role in `context_health.log` (`transport=background-agent|bridge`) and reports it in the quest end summary and celebration
-- Claude-family roles in Claude-led quests keep native `Task(...)` execution
+- Loads the existing Claude role persona under either orchestrator, with model and effort read from the saved quest configuration
 
 If the probe fails, Quest pauses startup for the explicit remediation or
 single-model choices described above; it does not silently select the bridge or
@@ -380,7 +384,7 @@ rewrite role models.
 
 ### Optional: manual verification
 
-If you want to test a transport before your first Codex-led quest, you can run the probe yourself:
+If you want to test a transport before your first quest, you can run the probe yourself:
 
 ```bash
 command -v claude
@@ -452,7 +456,7 @@ For every role, Quest reads `models.<role>` from the active quest's
 `orchestration.json`, derives the Claude or Codex runtime family, and then uses
 the entrypoint for the current orchestrator:
 
-- Claude-led + Claude-family: native isolated task
+- Claude-led + Claude-family: `scripts/quest_claude_runner.py` with the resolved transport
 - Claude-led + Codex-backed: `scripts/quest_codex_runner.py role`, using saved model, effort and auth
 - Codex-led + Codex-backed: local Codex subagent
 - Codex-led + Claude-family: `scripts/quest_claude_runner.py` with the resolved
@@ -559,3 +563,11 @@ your-repo/
 ```
 
 **Note:** Source of truth is always in AI-agnostic locations (`.ai/`, `.skills/`). Wrapper folders (`.claude/`, `.agents/`) delegate to the portable definitions.
+
+### Upgrading to saved role effort
+
+Before upgrading an existing installation, merge the `effort` map from the selected upstream `.ai/allowlist.json` into your project allowlist. Preserve your project permissions and other settings. The installer prints the exact source URL and refuses before changing installation files if this prerequisite is missing. The allowlist's `codex_reasoning_effort` remains a standalone `/gpt` setting; Quest roles use the saved per-role map.
+
+If a framework file was customized and its upstream version changed, the installer refuses before applying a partial upgrade. Back up the named file, replace it from the printed source URL, then retry. Customized files whose upstream version is unchanged remain supported.
+
+Older saved quests without `effort` cannot resume automatically. Explicitly configure each active Claude/Codex role's `effort` in `orchestration.json` and remove the retired saved `codex_reasoning_effort`, or start a new quest after updating the allowlist. Gemini roles have no effort pin.

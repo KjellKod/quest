@@ -83,8 +83,8 @@ BRIDGE_RUNNER_COUNT=$(grep -c "scripts/quest_claude_runner.py" .skills/quest/del
 BYPASS_PERMS_COUNT=$(grep -c "bypassPermissions" .skills/quest/delegation/workflow.md || true)
 STATE_HELPER_COUNT=$(grep -c "scripts/quest_state.py" .skills/quest/delegation/workflow.md || true)
 NATIVE_TASK_COUNT=$(grep -c 'native `Task(...)\` is available\|native `Task(...)` when available' .skills/quest/delegation/workflow.md || true)
-CODEX_HOST_COUNT=$(grep -c "orchestrator is Codex" .skills/quest/delegation/workflow.md || true)
-if [ "$BRIDGE_SCRIPT_COUNT" -gt 0 ] && [ "$BG_RUNNER_SCRIPT_COUNT" -gt 0 ] && [ "$TRANSPORT_CONFIG_COUNT" -gt 0 ] && [ "$TRANSPORT_AVAILABLE_COUNT" -gt 0 ] && [ "$TRANSPORT_RESOLVED_COUNT" -gt 0 ] && [ "$TRANSPORT_LOG_FIELD_COUNT" -gt 0 ] && [ "$STATUS_LOG_FIELD_COUNT" -gt 0 ] && [ "$BRIDGE_PROBE_HELPER_COUNT" -gt 0 ] && [ "$RUNTIME_SELECTION_COUNT" -gt 0 ] && [ "$BRIDGE_RUNNER_COUNT" -gt 0 ] && [ "$BYPASS_PERMS_COUNT" -gt 0 ] && [ "$STATE_HELPER_COUNT" -gt 0 ] && [ "$NATIVE_TASK_COUNT" -gt 0 ] && [ "$CODEX_HOST_COUNT" -gt 0 ]; then
+CLAUDE_PROBE_COUNT=$(grep -c -- "--probe claude" .skills/quest/delegation/workflow.md || true)
+if [ "$BRIDGE_SCRIPT_COUNT" -gt 0 ] && [ "$BG_RUNNER_SCRIPT_COUNT" -gt 0 ] && [ "$TRANSPORT_CONFIG_COUNT" -gt 0 ] && [ "$TRANSPORT_AVAILABLE_COUNT" -gt 0 ] && [ "$TRANSPORT_RESOLVED_COUNT" -gt 0 ] && [ "$TRANSPORT_LOG_FIELD_COUNT" -gt 0 ] && [ "$STATUS_LOG_FIELD_COUNT" -gt 0 ] && [ "$BRIDGE_PROBE_HELPER_COUNT" -gt 0 ] && [ "$RUNTIME_SELECTION_COUNT" -gt 0 ] && [ "$BRIDGE_RUNNER_COUNT" -gt 0 ] && [ "$BYPASS_PERMS_COUNT" -gt 0 ] && [ "$STATE_HELPER_COUNT" -gt 0 ] && [ "$NATIVE_TASK_COUNT" -eq 0 ] && [ "$CLAUDE_PROBE_COUNT" -gt 0 ]; then
   echo "   ✅ Workflow documents transport probing (bg preferred, explicit bridge) and runtime-based dispatch"
 else
   echo "   ❌ Workflow is missing transport probing or runtime-selection guidance"
@@ -101,7 +101,7 @@ else
   echo "      bypassPermissions refs: $BYPASS_PERMS_COUNT"
   echo "      scripts/quest_state.py refs: $STATE_HELPER_COUNT"
   echo "      native Task refs: $NATIVE_TASK_COUNT"
-  echo "      orchestrator is Codex refs: $CODEX_HOST_COUNT"
+  echo "      --probe claude refs: $CLAUDE_PROBE_COUNT"
   ERRORS=$((ERRORS + 1))
 fi
 

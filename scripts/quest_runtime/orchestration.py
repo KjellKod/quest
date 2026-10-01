@@ -291,7 +291,7 @@ def is_model_available_for_orchestrator(
         # runtime, so the probe result gates it for either orchestrator.
         return antigravity_available
     if normalized_orchestrator == "claude":
-        return True if model_runtime == "claude" else codex_available
+        return claude_available if model_runtime == "claude" else codex_available
     return claude_available if model_runtime == "claude" else True
 
 
@@ -477,6 +477,69 @@ def validate_codex_reasoning_effort(effort: str) -> None:
         )
 
 
+def effort_for_role(saved: dict[str, object], role: str) -> str | None:
+    """Resolve only saved effort, never current defaults or the standalone scalar."""
+    recovery = "Reconfigure saved effort.<role> explicitly or start a new quest."
+    if "codex_reasoning_effort" in saved:
+        raise ValueError(
+            f"Saved codex_reasoning_effort is no longer supported. {recovery}"
+        )
+    efforts = saved.get("effort")
+    if not isinstance(efforts, dict):
+        raise ValueError(f"Missing required effort object. {recovery}")
+    if any(key not in CANONICAL_ROLES for key in efforts):
+        raise ValueError(f"Unknown role in effort map. {recovery}")
+    models = saved.get("models")
+    if role not in CANONICAL_ROLES or not isinstance(models, dict):
+        raise ValueError(f"Invalid role or models object for {role}. {recovery}")
+    model = models.get(role)
+    if not isinstance(model, str) or not model.strip() or model != model.strip():
+        raise ValueError(f"Missing or invalid model for role {role}. {recovery}")
+    runtime = runtime_for_model(model)
+    level = efforts.get(role)
+    if runtime == "antigravity":
+        if role in efforts:
+            raise ValueError(
+                f"Gemini role {role} does not support an effort pin. Remove effort.{role}."
+            )
+        return None
+    levels = (
+        ("low", "medium", "high", "xhigh", "max")
+        if runtime == "claude"
+        else ("low", "medium", "high", "xhigh", "max", "ultra")
+    )
+    if not isinstance(level, str) or level not in levels:
+        raise ValueError(
+            f"Invalid or missing effort.{role} for {runtime}; expected {'|'.join(levels)}. {recovery}"
+        )
+    return level
+
+
+def validate_effort_config(
+    saved: dict[str, object], quest_mode: str = "workflow"
+) -> None:
+    """Validate active-role completeness plus every explicitly supplied pin."""
+    for role in active_roles_for_mode(quest_mode):
+        effort_for_role(saved, role)
+    efforts = saved["effort"]
+    assert isinstance(efforts, dict)  # Validated by the active-role resolver above.
+    models = saved["models"]
+    assert isinstance(models, dict)
+    for role, level in efforts.items():
+        if role not in active_roles_for_mode(quest_mode) and models.get(role) is None:
+            if not isinstance(level, str) or level not in (
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra",
+            ):
+                raise ValueError(f"Invalid effort.{role} for unused role.")
+            continue
+        effort_for_role(saved, role)
+
+
 def validate_codex_auth_mode(mode: str) -> None:
     """Validate an explicit billing choice; absence defaults to cached."""
     if mode not in ("cached", "api-key"):
@@ -492,8 +555,9 @@ def write_orchestration_json(
     preflight_validated_at: str | None = None,
     claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
     claude_transport_resolved: str | None = None,
-    codex_reasoning_effort: str | None = None,
+    effort: dict[str, str],
     codex_auth_mode: str = "cached",
+    quest_mode: str = "workflow",
 ) -> None:
     """Write the orchestration.json artifact with canonical key order."""
     if source not in {"default", "overridden"}:
@@ -503,8 +567,6 @@ def write_orchestration_json(
             f"claude_role_transport must be one of {CLAUDE_ROLE_TRANSPORTS} "
             f"(got {claude_role_transport!r})"
         )
-    if codex_reasoning_effort is not None:
-        validate_codex_reasoning_effort(codex_reasoning_effort)
     validate_codex_auth_mode(codex_auth_mode)
     payload = {
         "version": ORCHESTRATION_VERSION,
@@ -519,8 +581,8 @@ def write_orchestration_json(
         "overridden_roles": list(overridden_roles),
         "preflight_validated_at": preflight_validated_at or _now_iso(),
     }
-    if codex_reasoning_effort is not None:
-        payload["codex_reasoning_effort"] = codex_reasoning_effort
+    payload["effort"] = effort
+    validate_effort_config(payload, quest_mode)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
@@ -540,7 +602,7 @@ def write_default_from_allowlist(
     remap_unavailable: bool = False,
     claude_role_transport: str = DEFAULT_CLAUDE_ROLE_TRANSPORT,
     claude_transport_resolved: str | None = None,
-    codex_reasoning_effort: str | None = None,
+    effort: dict[str, str],
     codex_auth_mode: str = "cached",
 ) -> None:
     """Default-path writer: copy allowlist models into orchestration.json.
@@ -549,6 +611,10 @@ def write_default_from_allowlist(
     Without it the validation below rejects every Gemini-backed role, so a
     repo that configured one in its allowlist could never persist it.
     """
+    if not isinstance(effort, dict):
+        raise ValueError(
+            "Missing required effort map in .ai/allowlist.json. Configure effort.<role> before starting a quest."
+        )
     defaults = build_default_models(allowlist_models)
     if orchestrator is not None:
         defaults, _ = validate_or_remap_models_for_orchestrator(
@@ -568,7 +634,8 @@ def write_default_from_allowlist(
         preflight_validated_at=preflight_validated_at,
         claude_role_transport=claude_role_transport,
         claude_transport_resolved=claude_transport_resolved,
-        codex_reasoning_effort=codex_reasoning_effort,
+        effort=effort,
+        quest_mode=quest_mode,
         codex_auth_mode=codex_auth_mode,
     )
 
@@ -584,6 +651,12 @@ def migrate_from_snapshot(
     Existing files are preserved unless they are missing known
     legacy-compatible role introductions.
     """
+    state_path = quest_dir / "state.json"
+    quest_mode = (
+        json.loads(state_path.read_text()).get("quest_mode", "workflow")
+        if state_path.exists()
+        else "workflow"
+    )
     orch_path = quest_dir / "orchestration.json"
     if orch_path.exists():
         try:
@@ -596,10 +669,9 @@ def migrate_from_snapshot(
         existing_models = existing.get("models")
         if not isinstance(existing_models, dict):
             return False
-        if "codex_reasoning_effort" in existing:
-            validate_codex_reasoning_effort(existing["codex_reasoning_effort"])
         validate_codex_auth_mode(existing.get("codex_auth_mode", "cached"))
         merged_models, backfilled = _backfill_legacy_compatible_roles(existing_models)
+        validate_effort_config({**existing, "models": merged_models}, quest_mode)
         # Transport keys were introduced after early quests; backfill in place
         # (same legacy-compat contract as newly-introduced roles).
         transport_backfilled = False
@@ -661,12 +733,11 @@ def migrate_from_snapshot(
         raise ValueError(
             f"Snapshot at {snapshot_path} does not contain a 'models' object"
         )
-    if "codex_reasoning_effort" in snapshot:
-        validate_codex_reasoning_effort(snapshot["codex_reasoning_effort"])
     write_orchestration_json(
         orch_path,
         models=build_snapshot_models(models),
-        codex_reasoning_effort=snapshot.get("codex_reasoning_effort"),
+        effort=snapshot.get("effort"),
+        quest_mode=quest_mode,
         codex_auth_mode=snapshot.get("codex_auth_mode", "cached"),
         source="default",
         overridden_roles=[],

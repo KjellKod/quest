@@ -45,7 +45,15 @@
     "codex_reasoning_effort": {
       "type": "string",
       "enum": ["low", "medium", "high", "xhigh", "max", "ultra"],
-      "description": "Reasoning effort pinned for Codex roles in new quests. Must be supported by the selected model and dispatch surface."
+      "description": "Default effort for standalone /gpt only. Quest roles use the per-role effort map."
+    },
+    "effort": {
+      "type": "object",
+      "description": "Saved per Quest role. Required for active Claude/Codex roles; omit for Gemini roles.",
+      "propertyNames": {
+        "enum": ["planner", "plan-reviewer-a", "plan-reviewer-b", "arbiter", "builder", "code-reviewer-a", "code-reviewer-b", "review-arbiter", "fixer"]
+      },
+      "additionalProperties": {"type": "string", "enum": ["low", "medium", "high", "xhigh", "max", "ultra"]}
     },
     "models": {
       "type": "object",

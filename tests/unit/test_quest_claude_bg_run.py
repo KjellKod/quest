@@ -8,8 +8,8 @@ noise-firewall primitive.
 The shim models the runner surface used by these tests: `--bg` (incl.
 `--resume`) and `agents --json`. State is a LIST of session rows (each with a
 pid), so resume scenarios can model the parked parent session sitting next to
-the newly dispatched agent. The current runner tears down via process signals;
-tests intercept `os.kill` and drop the row to simulate exit.
+the newly dispatched agent. The runner tears down through the supervisor stop command; the shim removes
+only the requested session and records the command.
 """
 
 from __future__ import annotations
@@ -88,8 +88,13 @@ if args[:1] == ["--bg"]:
 if args[:2] == ["agents", "--json"]:
     print(json.dumps(rows()))
     sys.exit(0)
-# Older Claude Code builds treated unknown management verbs as a prompt. This
-# shim keeps that historical behavior for tests that exercise pid fallback paths.
+if args[:1] == ["stop"]:
+    log("stop " + args[1])
+    if os.environ.get("FAKE_BG_STOP_FAIL"):
+        sys.exit(1)
+    state.write_text(json.dumps([r for r in rows() if r.get("id") != args[1]]))
+    print("stopped " + args[1])
+    sys.exit(0)
 log("unknown " + " ".join(args[:2]))
 sys.exit(0)
 """
@@ -261,8 +266,7 @@ def test_ok_completes_on_artifact_and_tears_down(shim, tmp_path, monkeypatch, ki
     assert env.status == "ok"
     assert env.exit_code() == bg.EXIT_OK
     assert str(wait) in env.artifacts_found and not env.missing
-    # Current teardown = SIGTERM to the supervisor-reported pid.
-    assert (222, bg.signal.SIGTERM) in kills
+    assert "stop abc12345" in _calls(tmp_path)
 
 
 def test_dispatch_sends_prompt_on_stdin_not_argv(shim, tmp_path, monkeypatch):
@@ -405,8 +409,7 @@ def test_needs_human_teardown_flag_tears_session_down(
     ).run()
     assert env.status == "needs_human"
     assert env.exit_code() == bg.EXIT_NEEDS_HUMAN
-    # Session IS torn down: a SIGTERM was sent to the supervisor-reported pid.
-    assert any(sig == bg.signal.SIGTERM for _, sig in kills)
+    assert "stop abc12345" in _calls(tmp_path)
     assert "session torn down" in env.message
     assert env.session_id  # surfaced so the orchestrator can --resume it
 
@@ -440,8 +443,8 @@ def test_resume_continues_same_session_not_shadowed_by_parked_parent(
     )
     # The parked parent is retired once the conversation moved on; the new agent
     # is torn down at the end as usual.
-    assert (111, bg.signal.SIGTERM) in kills
-    assert (222, bg.signal.SIGTERM) in kills
+    assert "stop parent01" in _calls(tmp_path)
+    assert "stop abc12345" in _calls(tmp_path)
 
 
 def test_resume_by_agent_name_survives_rename(shim, tmp_path, monkeypatch, kills):
@@ -457,7 +460,7 @@ def test_resume_by_agent_name_survives_rename(shim, tmp_path, monkeypatch, kills
     assert env.status == "ok"
     assert env.resumed_from == PARENT_SID
     assert any(f"sid={PARENT_SID}" in c for c in _calls(tmp_path))
-    assert (111, bg.signal.SIGTERM) in kills
+    assert "stop parent01" in _calls(tmp_path)
 
 
 def test_resume_by_short_id(shim, tmp_path, monkeypatch):
@@ -508,7 +511,7 @@ def test_failed_resume_dispatch_preserves_parked_handoff(
     # The parked question survived the failed resume dispatch.
     assert json.loads(hand.read_text())["questions"] == ["A or B?"]
     # And the parked parent was not retired (no signal to its pid).
-    assert (111, bg.signal.SIGTERM) not in kills
+    assert "stop parent01" not in _calls(tmp_path)
 
 
 def test_failed_fallback_dispatch_preserves_parked_handoff(
@@ -545,7 +548,7 @@ def test_failed_fallback_dispatch_preserves_parked_handoff(
     assert json.loads(hand.read_text())["questions"] == ["A or B?"]
     assert out.read_bytes() == b"\xff\xfePARTIAL"
     # And the parked parent was not retired.
-    assert (111, bg.signal.SIGTERM) not in kills
+    assert "stop parent01" not in _calls(tmp_path)
 
 
 def test_failed_fallback_dispatch_preserves_colliding_parked_parent(
@@ -571,7 +574,7 @@ def test_failed_fallback_dispatch_preserves_colliding_parked_parent(
     assert env.status == "dispatch_failed"
     assert env.fell_back is True
     assert json.loads(hand.read_text())["questions"] == ["A or B?"]
-    assert (111, bg.signal.SIGTERM) not in kills
+    assert "stop parent01" not in _calls(tmp_path)
 
 
 def test_resume_falls_back_to_fresh_dispatch(shim, tmp_path, monkeypatch):
@@ -992,7 +995,7 @@ def test_timeout_stops_session(shim, tmp_path, monkeypatch, kills):
     ).run()
     assert env.status == "timeout"
     assert env.exit_code() == bg.EXIT_TIMEOUT
-    assert (222, bg.signal.SIGTERM) in kills
+    assert "stop abc12345" in _calls(tmp_path)
 
 
 def test_runner_exit_paths_leave_no_new_blocked_session_except_intentional_park(
@@ -1132,12 +1135,8 @@ def test_runner_exit_paths_leave_no_new_blocked_session_except_intentional_park(
 
 
 def test_teardown_failure_reported_in_envelope(shim, tmp_path, monkeypatch, kills):
-    recorded: list[tuple[int, int]] = []
 
-    def fake_kill_without_settle(pid: int, sig: int) -> None:
-        recorded.append((pid, sig))
-
-    monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
+    monkeypatch.setenv("FAKE_BG_STOP_FAIL", "1")
     monkeypatch.setenv("FAKE_BG_SCENARIO", "timeout")
 
     env = bg.BgRunner(
@@ -1150,7 +1149,7 @@ def test_teardown_failure_reported_in_envelope(shim, tmp_path, monkeypatch, kill
     assert env.teardown_survivor_id == "abc12345"
     assert env.teardown_survivor_name
     assert env.teardown_survivor_session_id == "abc12345-uuid"
-    assert len(recorded) >= 6
+    assert _calls(tmp_path).count("stop abc12345") == 1
     # A leaked session must never be silent: the message carries the warning
     # and the exact sweep command even though teardown_failed is also set.
     assert "WARNING: session teardown failed" in env.message
@@ -1179,10 +1178,7 @@ def test_needs_human_teardown_warning_keeps_resume_guidance(
 ):
     # When teardown fails on a needs_human (with --teardown-on-needs-human),
     # the WARNING must AUGMENT the needs_human guidance, never replace it.
-    def fake_kill_without_settle(pid: int, sig: int) -> None:
-        return None
-
-    monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
+    monkeypatch.setenv("FAKE_BG_STOP_FAIL", "1")
     hand = tmp_path / "handoff.json"
     monkeypatch.setenv("FAKE_BG_SCENARIO", "needs_human")
     monkeypatch.setenv("FAKE_BG_HANDOFF", str(hand))
@@ -1198,10 +1194,7 @@ def test_needs_human_teardown_warning_keeps_resume_guidance(
 
 def test_teardown_failure_on_success_is_not_silent(shim, tmp_path, monkeypatch):
     # Exit code says ok, so the message is the only guaranteed human surface.
-    def fake_kill_without_settle(pid: int, sig: int) -> None:
-        return None
-
-    monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
+    monkeypatch.setenv("FAKE_BG_STOP_FAIL", "1")
     wait = tmp_path / "out.json"
     monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
     monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
@@ -1218,116 +1211,56 @@ def test_teardown_failure_on_success_is_not_silent(shim, tmp_path, monkeypatch):
         assert env.status == "ok"
 
 
-def test_stop_session_resignals_respawned_pid_until_settled(
-    shim, tmp_path, monkeypatch
-):
-    rows = [{**PARENT, "pid": 111, "id": "respawn1", "name": "quest-q7-builder-i1"}]
-    (tmp_path / "state.json").write_text(json.dumps(rows))
-    recorded: list[tuple[int, int]] = []
-    state = tmp_path / "state.json"
-
-    def fake_kill_respawn(pid: int, sig: int) -> None:
-        recorded.append((pid, sig))
-        current = json.loads(state.read_text())
-        if pid == 111:
-            current[0]["pid"] = 222
-        else:
-            current[0].pop("pid", None)
-        state.write_text(json.dumps(current))
-
-    monkeypatch.setattr(bg.os, "kill", fake_kill_respawn)
-
-    result = bg.BgRunner(_args(shim)).stop_session("respawn1")
-
-    assert result.settled is True
-    assert recorded[:2] == [(111, bg.signal.SIGTERM), (222, bg.signal.SIGTERM)]
-
-
 @pytest.mark.parametrize(
     "roster_error",
     [
-        FileNotFoundError("transient claude lookup failure"),
+        FileNotFoundError("transient lookup"),
         subprocess.TimeoutExpired(["claude", "agents", "--json"], 30),
     ],
 )
 def test_stop_session_retries_transient_roster_failure(shim, monkeypatch, roster_error):
     runner = bg.BgRunner(_args(shim))
-    live = {
-        "pid": 222,
-        "id": "abc12345",
-        "name": runner.a.name,
-        "sessionId": "abc12345-uuid",
-    }
-    observations = iter([roster_error, live, None])
+    observations = iter([roster_error, [{**PARENT, "id": "abc12345"}], []])
 
-    def flaky_find_session(*_args, **_kwargs):
-        observation = next(observations)
-        if isinstance(observation, BaseException):
-            raise observation
-        return observation
+    def fake_cli(*args, **kwargs):
+        if args[0] == "stop":
+            return subprocess.CompletedProcess(args, 0, "stopped", "")
+        value = next(observations)
+        if isinstance(value, BaseException):
+            raise value
+        return subprocess.CompletedProcess(args, 0, json.dumps(value), "")
 
-    monkeypatch.setattr(runner, "find_session", flaky_find_session)
-
-    result = runner.stop_session("abc12345")
-
-    assert result.settled is True
-
-
-def test_stop_session_sends_sigterm_first_after_transient_roster_failures(
-    shim, monkeypatch
-):
-    runner = bg.BgRunner(_args(shim))
-    live = {
-        "pid": 222,
-        "id": "abc12345",
-        "name": runner.a.name,
-        "sessionId": "abc12345-uuid",
-    }
-    observations = iter(
-        [
-            subprocess.TimeoutExpired(["claude", "agents", "--json"], 30),
-            FileNotFoundError("transient claude lookup failure"),
-            live,
-            None,
-        ]
-    )
-    signals: list[tuple[int, int]] = []
-
-    def flaky_find_session(*_args, **_kwargs):
-        observation = next(observations)
-        if isinstance(observation, BaseException):
-            raise observation
-        return observation
-
-    monkeypatch.setattr(runner, "find_session", flaky_find_session)
-    monkeypatch.setattr(bg.os, "kill", lambda pid, sig: signals.append((pid, sig)))
-
-    result = runner.stop_session("abc12345")
-
-    assert result.settled is True
-    assert signals == [(222, bg.signal.SIGTERM)]
+    monkeypatch.setattr(runner, "_claude", fake_cli)
+    assert runner.stop_session("abc12345").settled
 
 
 @pytest.mark.parametrize(
-    "roster_error",
+    "response",
     [
-        FileNotFoundError("persistent claude lookup failure"),
+        subprocess.CompletedProcess([], 1, "[]", "unavailable"),
+        subprocess.CompletedProcess([], 0, "not JSON", ""),
+        subprocess.CompletedProcess([], 0, "{}", ""),
+        subprocess.CompletedProcess([], 0, "[{}]", ""),
+        subprocess.CompletedProcess([], 0, '[{"id":"abc12345"}]', ""),
+        FileNotFoundError("missing CLI"),
         subprocess.TimeoutExpired(["claude", "agents", "--json"], 30),
     ],
 )
-def test_stop_session_reports_owned_survivor_when_final_roster_unavailable(
-    shim, monkeypatch, roster_error
+def test_stop_session_reports_survivor_until_roster_proves_removal(
+    shim, monkeypatch, response
 ):
     runner = bg.BgRunner(_args(shim))
 
-    def unavailable_roster(*_args, **_kwargs):
-        raise roster_error
+    def fake_cli(*args, **kwargs):
+        if args[0] == "stop":
+            return subprocess.CompletedProcess(args, 1, "", "stop failed")
+        if isinstance(response, BaseException):
+            raise response
+        return response
 
-    monkeypatch.setattr(runner, "find_session", unavailable_roster)
-
+    monkeypatch.setattr(runner, "_claude", fake_cli)
     result = runner.stop_session("abc12345")
-
-    assert result.settled is False
+    assert not result.settled
     assert result.survivor_id == "abc12345"
 
 
@@ -1338,19 +1271,23 @@ def test_persistent_teardown_roster_failure_emits_manual_sweep_guidance(
     monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
     monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
     runner = bg.BgRunner(_args(shim, wait_for=str(wait)))
+    original_cli = runner._claude
+    stopped = False
 
-    def unavailable_roster(*_args, **_kwargs):
-        raise subprocess.TimeoutExpired(["claude", "agents", "--json"], 30)
+    def fake_cli(*args, **kwargs):
+        nonlocal stopped
+        if args[0] == "stop":
+            stopped = True
+        elif stopped:
+            return subprocess.CompletedProcess(args, 1, "", "roster unavailable")
+        return original_cli(*args, **kwargs)
 
-    monkeypatch.setattr(runner, "find_session", unavailable_roster)
-
+    monkeypatch.setattr(runner, "_claude", fake_cli)
     env = runner.run()
-
     assert env.status == "ok"
-    assert env.teardown_failed is True
+    assert env.teardown_failed
     assert env.teardown_survivor_id == "abc12345"
     assert "WARNING: session teardown failed" in env.message
-    assert "--sweep" in env.message
     assert "--sweep-include-active" in env.message
 
 
@@ -1368,7 +1305,7 @@ def test_fresh_dispatch_retires_live_same_name_before_launch(
     env = bg.BgRunner(_args(shim, name=name, wait_for=str(wait))).run()
 
     assert env.status == "ok"
-    assert (111, bg.signal.SIGTERM) in kills
+    assert "stop old11111" in _calls(tmp_path)
 
 
 def test_fresh_dispatch_fails_when_same_name_cannot_be_retired(
@@ -1379,10 +1316,7 @@ def test_fresh_dispatch_fails_when_same_name_cannot_be_retired(
         json.dumps([{**PARENT, "pid": 111, "id": "old11111", "name": name}])
     )
 
-    def fake_kill_without_settle(pid: int, sig: int) -> None:
-        return None
-
-    monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
+    monkeypatch.setenv("FAKE_BG_STOP_FAIL", "1")
 
     env = bg.BgRunner(_args(shim, name=name, wait_for=str(tmp_path / "out.json"))).run()
 
@@ -1668,8 +1602,8 @@ def test_sweep_skips_active_rows_unless_included(shim, tmp_path, kills, capsys):
     )
     out = capsys.readouterr().out
     assert rc == bg.EXIT_OK
-    assert all(pid != 111 for pid, _ in kills)  # active row untouched
-    assert any(pid == 222 for pid, _ in kills)  # parked row swept
+    assert "stop activ001" not in _calls(tmp_path)  # active row untouched
+    assert "stop parked01" in _calls(tmp_path)  # parked row swept
     assert "skipped active activ001" in out
 
     # A live-pid row with NEITHER state nor status is unknown — spared too,
@@ -1721,7 +1655,7 @@ def test_sweep_skips_active_rows_unless_included(shim, tmp_path, kills, capsys):
         ]
     )
     assert rc == bg.EXIT_OK
-    assert any(pid == 111 for pid, _ in kills)  # owner opt-in stops it
+    assert "stop activ001" in _calls(tmp_path)  # owner opt-in stops it
 
 
 def test_sweep_stops_only_matching_prefix_sessions(
@@ -1739,8 +1673,8 @@ def test_sweep_stops_only_matching_prefix_sessions(
     )
     out = capsys.readouterr().out
     assert rc == bg.EXIT_OK
-    killed_pids = {pid for pid, _ in kills}
-    assert killed_pids == {111, 112}
+    stopped = {call for call in _calls(tmp_path) if call.startswith("stop ")}
+    assert stopped == {"stop aaa11111", "stop bbb22222"}
     assert "swept aaa11111" in out and "swept bbb22222" in out
     assert "2 session(s)" in out
 
@@ -1751,10 +1685,7 @@ def test_sweep_reports_incomplete_when_teardown_survives(
     rows = [{**PARENT, "pid": 111, "id": "aaa11111", "name": "quest-q7-planner-i1"}]
     (tmp_path / "state.json").write_text(json.dumps(rows))
 
-    def fake_kill_without_settle(pid: int, sig: int) -> None:
-        return None
-
-    monkeypatch.setattr(bg.os, "kill", fake_kill_without_settle)
+    monkeypatch.setenv("FAKE_BG_STOP_FAIL", "1")
 
     rc = bg.main(
         ["--claude-bin", str(shim), "--poll-interval", "0.05", "--sweep", "quest-q7-"]
@@ -1896,3 +1827,41 @@ def test_confirm_name_fallback_prefers_new_row_over_stale(shim, monkeypatch):
     # And when only the stale row exists, nothing confirms.
     monkeypatch.setattr(runner, "agents_json", lambda: [stale])
     assert runner._confirm_row(None, {"old00001", "old-sid"}) is None
+
+
+def test_persona_and_installation_context_reach_claude_argv(
+    shim, tmp_path, monkeypatch
+):
+    wait = tmp_path / "out.json"
+    monkeypatch.setenv("FAKE_BG_SCENARIO", "ok")
+    monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
+    result = bg.BgRunner(
+        _args(
+            shim,
+            prompt="review",
+            wait_for=str(wait),
+            agent="code-reviewer",
+            effort="high",
+            append_system_prompt="Installation root: /installed",
+        )
+    ).run()
+    assert result.status == "ok"
+    argv = _last_bg_argv(tmp_path)
+    assert argv[argv.index("--agent") + 1] == "code-reviewer"
+    assert argv[argv.index("--effort") + 1] == "high"
+    assert (
+        argv[argv.index("--append-system-prompt") + 1]
+        == "Installation root: /installed"
+    )
+
+
+def test_stop_session_stops_supervisor_during_worker_respawn_gap(shim, tmp_path):
+    # Live CLI evidence: a terminated worker briefly drops its PID, then the
+    # supervisor respawns it. PID absence cannot prove session retirement.
+    row = {**PARENT, "id": "respawn1"}
+    row.pop("pid")
+    (tmp_path / "state.json").write_text(json.dumps([row]))
+    result = bg.BgRunner(_args(shim)).stop_session("respawn1")
+    assert result.settled
+    assert "stop respawn1" in _calls(tmp_path)
+    assert json.loads((tmp_path / "state.json").read_text()) == []

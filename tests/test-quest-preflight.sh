@@ -672,7 +672,7 @@ test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds() {
     QUEST_PREFLIGHT_BG_CACHE_FILE="$bg_cache_file" \
     QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
     FAKE_BG_ARGV_LOG="$argv_log" \
-    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+    "$PREFLIGHT_SCRIPT" "${1:---orchestrator}" "${2:-codex}" 2>&1)
   rc=$?
   transport=$(printf '%s' "$output" | jq -r '.transport')
   downgraded=$(printf '%s' "$output" | jq -r '.transport_downgraded')
@@ -708,7 +708,7 @@ test_quest_preflight_auto_blocks_instead_of_downgrading_to_bridge() {
     QUEST_PREFLIGHT_CACHE_FILE="$tmpdir/claude_bridge_cache.json" \
     QUEST_PREFLIGHT_BG_CACHE_FILE="$tmpdir/claude_bg_cache.json" \
     QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
-    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+    "$PREFLIGHT_SCRIPT" "${1:---orchestrator}" "${2:-codex}" 2>&1)
   rc=$?
   transport=$(printf '%s' "$output" | jq -r '.transport')
   downgraded=$(printf '%s' "$output" | jq -r '.transport_downgraded')
@@ -950,6 +950,14 @@ run_test test_quest_preflight_uses_cached_success_when_live_probe_fails
 run_test test_quest_preflight_does_not_use_cached_success_for_non_auth_probe_failure
 run_test test_quest_preflight_bridge_cache_is_model_specific
 run_test test_quest_preflight_background_cache_is_model_specific
+test_quest_preflight_direct_claude_probe_reuses_transport_check() {
+  test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds --probe claude
+}
+test_quest_preflight_direct_claude_probe_blocks_without_fallback() {
+  test_quest_preflight_auto_blocks_instead_of_downgrading_to_bridge --probe claude
+}
+run_test test_quest_preflight_direct_claude_probe_blocks_without_fallback
+run_test test_quest_preflight_direct_claude_probe_reuses_transport_check
 run_test test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds
 run_test test_quest_preflight_auto_blocks_instead_of_downgrading_to_bridge
 run_test test_quest_preflight_reports_bg_prompt_not_consumed
