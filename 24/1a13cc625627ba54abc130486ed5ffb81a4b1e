@@ -1,0 +1,37 @@
+docs/guides/quest_setup.md
+  s_d5fe0f0fdc67be::t_c5e0226e22a89c 574-575
+scripts/quest_celebrate/ascii_art.py
+  s_31af3d75731222::t_5911e450b7ba46 678-679
+scripts/quest_celebrate/persist.py
+  s_31af3d75731222::t_febb461f15ce5a 103-104
+scripts/quest_celebrate/quest_data.py
+  s_31af3d75731222::t_1bf68c8635f076 32-33,205-231,1050-1052,1198,1201
+scripts/quest_complete.py
+  s_31af3d75731222::t_3c23a8b487cb44 60-64,276-277
+tests/unit/test_quest_complete.py
+  s_31af3d75731222::t_8e8ca3edf2a1b3 11-17,841-891
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "241a13cc625627ba54abc130486ed5ffb81a4b1e",
+  "prompts": {},
+  "sessions": {
+    "s_31af3d75731222": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_d5fe0f0fdc67be": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
