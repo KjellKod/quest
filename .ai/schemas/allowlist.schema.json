@@ -3,7 +3,7 @@
   "title": "Quest Allowlist Configuration",
   "description": "Creator-managed permissions for quest orchestration.",
   "type": "object",
-  "required": ["version", "auto_approve_phases", "review_mode", "role_permissions", "gates"],
+  "required": ["version", "auto_approve_phases", "review_mode", "role_permissions", "gates", "effort"],
   "properties": {
     "version": { "type": "integer", "minimum": 1 },
     "description": { "type": "string" },

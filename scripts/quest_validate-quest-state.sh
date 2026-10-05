@@ -12,7 +12,7 @@
 #   - Semantic content checks on handoff JSON files (where required)
 #   - plan_iteration / fix_iteration within bounds (warns, does not fail)
 #
-# Dependencies: bash, jq, standard POSIX utilities
+# Dependencies: bash, jq, python3, installed quest_runtime, standard POSIX utilities
 # No network access required.
 #
 # Design note: This script is intentionally stricter than the workflow's
@@ -239,17 +239,25 @@ validate_orchestration_json() {
     return
   fi
 
+  if ! command -v python3 >/dev/null 2>&1; then
+    fail "python3 is required to validate saved effort; install Python 3 and retry."
+    return
+  fi
+
   local effort_error runtime_dir
   runtime_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  effort_error=$(PYTHONPATH="$runtime_dir${PYTHONPATH:+:$PYTHONPATH}" python3 - "$orch_file" "$QUEST_MODE" <<'PYTHON'
+  effort_error=$(PYTHONPATH="$runtime_dir${PYTHONPATH:+:$PYTHONPATH}" python3 - "$orch_file" "$QUEST_MODE" 2>&1 <<'PYTHON'
 import json
 import sys
-from quest_runtime.orchestration import validate_effort_config
 
 try:
+    from quest_runtime.orchestration import validate_effort_config
     with open(sys.argv[1], encoding="utf-8") as handle:
         validate_effort_config(json.load(handle), sys.argv[2])
-except (ValueError, TypeError, KeyError) as exc:
+except ImportError:
+    print("Quest runtime unavailable; reinstall Quest before retrying.")
+    raise SystemExit(1)
+except (OSError, ValueError, TypeError, KeyError) as exc:
     print(exc)
     raise SystemExit(1)
 PYTHON

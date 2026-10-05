@@ -25,6 +25,7 @@ When run without options, validates:
   - .worktrees/ is in .gitignore
   - .ai/allowlist.json is valid JSON
   - .ai/allowlist.json matches schema (if ajv installed)
+  - Default role effort is complete and supported (requires python3)
   - .skills/quest/agents/*.md and .ai/roles/quest_agent.md have required sections
 EOF
   exit 0
@@ -164,6 +165,42 @@ validate_schema() {
   fi
 }
 
+# Validate startup defaults even when optional JSON Schema tooling is absent.
+validate_effort_defaults() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    fail "python3 is required to validate effort defaults."
+    return
+  fi
+  local output
+  if output=$(python3 - "${BASH_SOURCE[0]}" "$REPO_ROOT/.ai/allowlist.json" 2>&1 <<'PY_EFFORT'
+import json
+import sys
+from pathlib import Path
+
+try:
+    # Resolve installed pre-commit symlinks before locating the runtime.
+    sys.path.insert(0, str(Path(sys.argv[1]).resolve().parent))
+    from quest_runtime.orchestration import build_default_models, validate_effort_config
+    with open(sys.argv[2], encoding="utf-8") as handle:
+        config = json.load(handle)
+    if not isinstance(config, dict) or not isinstance(config.get("models", {}), dict):
+        raise ValueError("Allowlist and models must be objects.")
+    # The standalone /gpt scalar is deliberately not a Quest effort source.
+    validate_effort_config({"models": build_default_models(config.get("models", {})), "effort": config.get("effort")})
+except ImportError:
+    print("Quest runtime unavailable; reinstall Quest before retrying.")
+    raise SystemExit(1)
+except (OSError, ValueError, TypeError, KeyError) as exc:
+    print(exc)
+    raise SystemExit(1)
+PY_EFFORT
+  ); then
+    pass "Default role effort is valid"
+  else
+    fail "Invalid effort defaults in .ai/allowlist.json: $output"
+  fi
+}
+
 validate_quest_id_format() {
   local json_file="$REPO_ROOT/.ai/allowlist.json"
   local allowed="slug-first, date-first"
@@ -286,6 +323,7 @@ echo ""
 check_gitignore
 validate_json "$REPO_ROOT/.ai/allowlist.json"
 validate_schema
+validate_effort_defaults
 validate_quest_id_format
 validate_roles
 

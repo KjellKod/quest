@@ -652,11 +652,17 @@ def migrate_from_snapshot(
     legacy-compatible role introductions.
     """
     state_path = quest_dir / "state.json"
-    quest_mode = (
-        json.loads(state_path.read_text()).get("quest_mode", "workflow")
-        if state_path.exists()
-        else "workflow"
-    )
+    quest_mode = "workflow"
+    if state_path.exists():
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ValueError(
+                "Cannot read state.json; repair it before resuming."
+            ) from exc
+        if not isinstance(state, dict):
+            raise ValueError("state.json must be an object; repair it before resuming.")
+        quest_mode = state.get("quest_mode", "workflow")
     orch_path = quest_dir / "orchestration.json"
     if orch_path.exists():
         try:
@@ -737,6 +743,9 @@ def migrate_from_snapshot(
         orch_path,
         models=build_snapshot_models(models),
         effort=snapshot.get("effort"),
+        claude_role_transport=snapshot.get(
+            "claude_role_transport", DEFAULT_CLAUDE_ROLE_TRANSPORT
+        ),
         quest_mode=quest_mode,
         codex_auth_mode=snapshot.get("codex_auth_mode", "cached"),
         source="default",
