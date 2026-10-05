@@ -1,0 +1,25 @@
+README.md
+  s_d5fe0f0fdc67be::t_f277e7136889b3 128,134,161
+docs/guides/quest_setup.md
+  s_d5fe0f0fdc67be::t_75ad07e3932cf5 330
+docs/implementation/history/quest-effort-dispatch.md
+  s_d5fe0f0fdc67be::t_5eb591477451b0 3
+docs/implementation/history/quest-effort-validation.md
+  s_d5fe0f0fdc67be::t_4cc55896ffc408 3,7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "09aee89a476f18c0187cde11cad6bc1b033625cb",
+  "prompts": {},
+  "sessions": {
+    "s_d5fe0f0fdc67be": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
