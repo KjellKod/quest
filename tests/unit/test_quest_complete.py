@@ -889,3 +889,19 @@ def test_missing_or_invalid_saved_effort_is_not_invented(tmp_path, payload):
     data = load_quest_data(tmp_path)
     assert data.agents[0].configured_effort is None
     assert "configured effort:" not in build_journal_entry(data, date(2026, 10, 1))
+
+
+def test_effort_display_without_model_has_no_leading_separator(tmp_path):
+    (tmp_path / "handoff_builder.json").write_text(json.dumps({"agent": "builder"}))
+    (tmp_path / "orchestration.json").write_text(
+        json.dumps({"effort": {"builder": "high"}})
+    )
+    data = load_quest_data(tmp_path)
+    outputs = [
+        build_journal_entry(data, date(2026, 10, 5)),
+        render_persisted_celebration(data, date(2026, 10, 5), Path("journal.md")),
+        "\n".join(get_movie_credits_lines(data, safe_mode=True)),
+    ]
+    for output in outputs:
+        assert "configured effort: high" in output
+        assert ", configured effort:" not in output

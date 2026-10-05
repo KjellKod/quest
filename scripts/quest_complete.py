@@ -274,7 +274,9 @@ def build_journal_entry(
         for agent in data.agents:
             model_label = friendly_model_name(agent.model)
             if agent.configured_effort:
-                model_label += f", configured effort: {agent.configured_effort}"
+                model_label += (
+                    ", " if model_label else ""
+                ) + f"configured effort: {agent.configured_effort}"
             lines.append(f"- **{agent.role_title}** ({agent.name}): {model_label}")
         lines.append("")
 
