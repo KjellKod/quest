@@ -516,7 +516,7 @@ PY_EFFORT
     return 0
   fi
 
-  log_error "Quest upgrade refused: .ai/allowlist.json requires an effort object. No installation files were changed."
+  log_error "Quest upgrade refused: .ai/allowlist.json requires an effort object. This installer pass stopped before changing files."
   log_error "Merge the effort object from ${RAW_BASE}/${UPSTREAM_SHA}/.ai/allowlist.json into your allowlist, preserving your project settings, then rerun this installer."
   return 1
 }
@@ -731,13 +731,15 @@ check_framework_upgrade_prerequisites() {
     # Bookkeeping already has a backup-and-replace path, never a silent skip.
     [ "$filepath" = ".quest-manifest" ] && continue
     [ -e "$filepath" ] || [ -L "$filepath" ] || continue
-    is_file_pristine "$filepath" && continue
+    if [ ! -L "$filepath" ] && is_file_pristine "$filepath"; then
+      continue
+    fi
 
     local_checksum=$(get_file_checksum "$filepath")
     stored_checksum=$(get_stored_checksum "$filepath" || true)
     if ! upstream_checksum=$(get_upstream_checksum "$filepath"); then
       if ! upstream_checksum=$(set -o pipefail; fetch_file "$filepath" | get_content_checksum); then
-        log_error "Quest upgrade refused: could not verify upstream $filepath. No installation files were changed. Retry when the selected source is available."
+        log_error "Quest upgrade refused: could not verify upstream $filepath. This installer pass stopped before changing files. Retry when the selected source is available."
         return 1
       fi
     fi
@@ -745,7 +747,7 @@ check_framework_upgrade_prerequisites() {
       continue
     fi
 
-    log_error "Quest upgrade refused: modified framework file $filepath differs from the required version. No installation files were changed."
+    log_error "Quest upgrade refused: modified framework file $filepath differs from the required version. This installer pass stopped before changing files."
     log_error "Back up your custom file, replace it from ${RAW_BASE}/${UPSTREAM_SHA}/${filepath}, then rerun this installer."
     return 1
   done

@@ -69,6 +69,18 @@ def run_install(
     )
 
 
+def snapshot_tree(root: Path) -> dict[str, bytes | str | None]:
+    """Include empty directories and link targets without following symlinks."""
+    snapshot: dict[str, bytes | str | None] = {}
+    for path in root.rglob("*"):
+        key = str(path.relative_to(root))
+        if path.is_symlink():
+            snapshot[key] = os.readlink(path)
+        else:
+            snapshot[key] = None if path.is_dir() else path.read_bytes()
+    return snapshot
+
+
 @pytest.mark.parametrize("allowlist", [{}, {"effort": None}, {"effort": "medium"}])
 def test_old_effort_format_refuses_before_any_repository_write(
     tmp_path: Path, allowlist: dict[str, object]
@@ -80,20 +92,12 @@ def test_old_effort_format_refuses_before_any_repository_write(
     (target / ".quest-version").write_text("old-version\n")
     (target / ".quest-checksums").write_text("# old checksums\n")
     (target / "payload.txt").write_text("old runtime payload\n")
-    before = {
-        str(p.relative_to(target)): p.read_bytes()
-        for p in target.rglob("*")
-        if p.is_file()
-    }
+    before = snapshot_tree(target)
 
     result = run_install(tmp_path, target)
 
     assert result.returncode != 0, result.stdout + result.stderr
-    after = {
-        str(p.relative_to(target)): p.read_bytes()
-        for p in target.rglob("*")
-        if p.is_file()
-    }
+    after = snapshot_tree(target)
     assert after == before
     assert "Installation Complete" not in result.stdout
     assert ".ai/allowlist.json" in result.stdout
@@ -102,6 +106,8 @@ def test_old_effort_format_refuses_before_any_repository_write(
         in result.stdout
     )
     assert "effort" in result.stdout
+    assert "This installer pass stopped before changing files." in result.stdout
+    assert "No installation files were changed" not in result.stdout
 
 
 @pytest.mark.parametrize("existing", [False, True])
@@ -129,6 +135,7 @@ def test_fresh_or_current_effort_format_installs(
         "changed_custom",
         "unknown_checksum",
         "pristine",
+        "symlink_pristine",
         "already_current",
         "unchanged_custom",
     ],
@@ -155,27 +162,27 @@ def test_framework_upgrade_never_leaves_changed_custom_dispatch_behind(
         local = upstream
     destination = target / path
     destination.parent.mkdir(parents=True)
-    destination.write_text(local)
+    external = tmp_path / "external-workflow.md"
+    if case == "symlink_pristine":
+        external.write_text(old)
+        destination.symlink_to(external)
+    else:
+        destination.write_text(local)
     checksum = hashlib.sha256(old.encode()).hexdigest()
     (target / ".quest-checksums").write_text(
         "" if case == "unknown_checksum" else f"{checksum}  {path}\n"
     )
-    before = {
-        str(p.relative_to(target)): p.read_bytes()
-        for p in target.rglob("*")
-        if p.is_file()
-    }
+    before = snapshot_tree(target)
 
     result = run_install(tmp_path, target, framework_files={path: upstream})
 
-    if case in {"changed_custom", "unknown_checksum"}:
+    if case in {"changed_custom", "unknown_checksum", "symlink_pristine"}:
         assert result.returncode != 0, result.stdout + result.stderr
-        after = {
-            str(p.relative_to(target)): p.read_bytes()
-            for p in target.rglob("*")
-            if p.is_file()
-        }
+        after = snapshot_tree(target)
         assert after == before
+        if case == "symlink_pristine":
+            assert external.read_text() == old
+            assert destination.is_symlink()
         assert path in result.stdout
         assert (
             f"https://raw.githubusercontent.com/KjellKod/quest/{REVISION}/{path}"

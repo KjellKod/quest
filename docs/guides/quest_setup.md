@@ -566,7 +566,9 @@ your-repo/
 
 ### Upgrading to saved role effort
 
-Before upgrading an existing installation, merge the `effort` map from the selected upstream `.ai/allowlist.json` into your project allowlist. Preserve your project permissions and other settings. The installer prints the exact source URL and refuses before changing installation files if this prerequisite is missing. The allowlist's `codex_reasoning_effort` remains a standalone `/gpt` setting; Quest roles use the saved per-role map.
+Before upgrading an existing installation, merge the `effort` map from the selected upstream `.ai/allowlist.json` into your project allowlist. Preserve your project permissions and other settings. The current installer prints the exact source URL and refuses before changing files in that installer pass if this prerequisite is missing. The allowlist's `codex_reasoning_effort` remains a standalone `/gpt` setting; Quest roles use the saved per-role map.
+
+An older installed script may update itself before restarting into these checks. A refusal after that restart leaves the updated installer in place; it does not mean the preceding pass made no changes. The installer does not automatically merge effort defaults into your project configuration.
 
 If a framework file was customized and its upstream version changed, the installer refuses before applying a partial upgrade. Back up the named file, replace it from the printed source URL, then retry. Customized files whose upstream version is unchanged remain supported.
 
