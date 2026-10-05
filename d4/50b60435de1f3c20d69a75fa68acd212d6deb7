@@ -1,0 +1,25 @@
+scripts/quest_celebrate/ascii_art.py
+  s_d5fe0f0fdc67be::t_74df18c8281453 679-681
+scripts/quest_celebrate/persist.py
+  s_d5fe0f0fdc67be::t_1340c221a3339e 104-106
+scripts/quest_complete.py
+  s_d5fe0f0fdc67be::t_2d356ba3e1dc87 277-279
+tests/unit/test_quest_complete.py
+  s_d5fe0f0fdc67be::t_1c579c260df2b2 892-907
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d450b60435de1f3c20d69a75fa68acd212d6deb7",
+  "prompts": {},
+  "sessions": {
+    "s_d5fe0f0fdc67be": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
