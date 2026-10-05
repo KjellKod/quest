@@ -1,6 +1,6 @@
 # Slice 2: dispatch, installation and acceptance
 
-Status: Implemented, independently reviewed, live acceptance passed. Covers AC2-AC6.
+Status: Implemented and independently reviewed. Role-level live acceptance is recorded in the validation ledger. A dedicated Claude-led review run and a replacement-revision native Codex run remain unverified. Full installed Quest lifecycle checks under both orchestrators remain pending in PR #181.
 
 ## Before editing: prove the integration boundary
 

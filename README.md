@@ -125,13 +125,13 @@ For advanced patterns (phased execution, plan comparison, model mixing), see the
 | **Review Arbiter** | Converts review findings into canonical decisions |
 | **Fixer** | Applies bounded fixes before the next review pass |
 
-See `.ai/allowlist.json` for the current role models and Codex reasoning effort.
+See `.ai/allowlist.json` for the current role models and per-role reasoning effort.
 
 ### Choosing and overriding models
 
 Edit model policy in `.ai/allowlist.json`. In the Quest source repository, run `python3 scripts/quest_sync_model_defaults.py` after changing `models` or `codex_fallback_model`; this generates the compatibility `DEFAULT_MODELS` block in `scripts/quest_runtime/orchestration.py` and the static OpenCode role assignments. CI checks for drift. Do not hand-edit these generated model assignments. Installed projects may customize their allowlist independently; shipped fallbacks still fill omitted roles.
 
-At startup, Quest expands the allowlist, applies per-quest overrides, and saves models, `codex_reasoning_effort` and the selected `codex_auth_mode` in `.quest/<id>/orchestration.json`. That file is the effective source of truth for that quest, so changing the allowlist does not rewrite an in-flight run.
+At startup, Quest expands the allowlist, applies per-quest overrides, and saves models, per-role `effort` and the selected `codex_auth_mode` in `.quest/<id>/orchestration.json`. That file is the effective source of truth for that quest, so changing the allowlist does not rewrite an in-flight run.
 
 Choose **Customize for this quest only** at startup to change one or more roles without editing repo defaults. The chooser accepts either format:
 
@@ -158,7 +158,7 @@ Claude-led Codex dispatch uses `scripts/quest_codex_runner.py`, which reads the 
 
 `codex_fallback_model` supplies standalone `/gpt` defaults and the generated compatibility fallback for explicitly approved single-runtime continuation.
 
-`codex_reasoning_effort` applies to all Codex roles. Set it in the allowlist for new quests, or explicitly edit the saved quest setting to change effort for subsequent dispatches. Supported levels depend on the selected model and runtime. Legacy quests with no setting retain runtime-default effort; resume never imports the current allowlist effort. Claude reasoning remains controlled by its runtime.
+`effort.<role>` configures Claude and Codex roles independently. Set defaults in the allowlist for new quests, or explicitly edit the saved quest setting for subsequent dispatches. Supported levels depend on the selected runtime; Gemini roles have no effort pin. Missing required saved pins block dispatch instead of using runtime defaults. Resume never imports current allowlist effort. `codex_reasoning_effort` remains only for standalone `/gpt`. See [upgrading to saved role effort](docs/guides/quest_setup.md#upgrading-to-saved-role-effort).
 
 OpenCode uses generated static role models with its existing `opencode/` provider prefix. Verify those IDs with your provider before use. Its static configuration does not automatically apply per-quest overrides or Codex effort; reconcile supported runtime settings with the saved quest configuration before dispatch, or stop on a mismatch. The primary orchestrator uses the model selected by the user.
 

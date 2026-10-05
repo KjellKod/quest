@@ -1,10 +1,10 @@
 # Quest effort replacement validation
 
-Status: Complete. Independent reviews addressed, final deterministic and live acceptance passed within the boundaries below. Replacement of closed PR #179, built from main 2cf4d5815fae1af258af52097e851ae86288494e.
+Status: Implementation and role-level validation completed within the boundaries below. Full installed Quest lifecycle acceptance under both orchestrators remains pending in PR #181. Replacement of closed PR #179, built from main 2cf4d5815fae1af258af52097e851ae86288494e.
 
 ## Scope and evidence
 
-The change pins role effort in saved orchestration and routes Claude roles through the existing background runner under either orchestrator. Models, review mode, iteration limits and standalone /gpt effort policy remain unchanged. No generated effort in agent Markdown or native effort synchronization guard.
+The change pins role effort in saved orchestration and routes Claude roles through the existing background runner under either orchestrator. Models, review mode, iteration limits and standalone /gpt effort policy remain unchanged. No generated effort in agent Markdown or Claude native effort synchronization guard. The existing native Codex settings-match safeguard remains.
 
 Native Claude effort was already functional. The reason for background dispatch is one explicit saved-settings path, not a claim that native effort is broken. Actual tests, rather than token-count comparisons or agent self-report, establish the observations below.
 
