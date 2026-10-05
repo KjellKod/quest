@@ -1,0 +1,21 @@
+scripts/quest_preflight.sh
+  s_d5fe0f0fdc67be::t_7b454c4c1612b9 254-259
+tests/test-quest-preflight.sh
+  s_d5fe0f0fdc67be::t_04135d167e5c6b 936-959,981
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "49efd16178ef704af20554d785dbc552319c6bad",
+  "prompts": {},
+  "sessions": {
+    "s_d5fe0f0fdc67be": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
