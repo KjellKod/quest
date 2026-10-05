@@ -1,0 +1,23 @@
+docs/guides/quest_setup.md
+  s_d5fe0f0fdc67be::t_349f83a7bdcf73 569-571
+scripts/quest_installer.sh
+  s_d5fe0f0fdc67be::t_73dc2cddc796fb 519,734-736,742,750
+tests/integration/test_quest_effort_install.py
+  s_d5fe0f0fdc67be::t_5c5fc469532c6b 72-83,95,100,109-110,138,165-170,175,179,181,183-185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4605e43179204f6564ddea18c99f3c045ea27d00",
+  "prompts": {},
+  "sessions": {
+    "s_d5fe0f0fdc67be": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
