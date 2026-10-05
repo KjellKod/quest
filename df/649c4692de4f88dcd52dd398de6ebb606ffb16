@@ -1,0 +1,29 @@
+.ai/schemas/allowlist.schema.json
+  s_d5fe0f0fdc67be::t_1feac6bf84fe16 6
+.skills/quest/SKILL.md
+  s_d5fe0f0fdc67be::t_a278fbe2327bf7 28,237
+scripts/quest_runtime/orchestration.py
+  s_d5fe0f0fdc67be::t_167226bff553f9 655-665,746-748
+scripts/quest_validate-quest-config.sh
+  s_d5fe0f0fdc67be::t_07ac1b6cc07ba4 28,168-203,326
+scripts/quest_validate-quest-state.sh
+  s_d5fe0f0fdc67be::t_1fabeb8260dcab 15,242-246,249,254,257-260
+tests/unit/test_quest_effort.py
+  s_d5fe0f0fdc67be::t_560f278b0f5773 5,166-340
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "df649c4692de4f88dcd52dd398de6ebb606ffb16",
+  "prompts": {},
+  "sessions": {
+    "s_d5fe0f0fdc67be": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
