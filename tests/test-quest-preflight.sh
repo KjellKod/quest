@@ -933,6 +933,30 @@ test_quest_preflight_reports_missing_probe_helper_diagnostic() {
     printf '%s' "$msg" | grep -q "does_not_exist_probe.py"
 }
 
+test_successful_background_probe_survives_unwritable_optional_cache() {
+  local tmpdir transport output rc sweeps ok=true
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_bg_capable_claude "$tmpdir/bin/claude"
+  write_success_bg_runner "$tmpdir/fake_bg_runner.py"
+  # A file used as the parent fails even under privileged test execution.
+  printf 'not a directory' > "$tmpdir/cache-parent"
+  for transport in auto background-agent; do
+    output=$(PATH="$tmpdir/bin:$PATH" \
+      QUEST_CLAUDE_ROLE_TRANSPORT="$transport" \
+      QUEST_CLAUDE_BG_RUNNER_SCRIPT="$tmpdir/fake_bg_runner.py" \
+      QUEST_PREFLIGHT_BG_CACHE_FILE="$tmpdir/cache-parent/cache.json" \
+      FAKE_BG_SWEEP_LOG="$tmpdir/$transport-sweeps.log" \
+      "$PREFLIGHT_SCRIPT" --probe claude 2>"$tmpdir/stderr")
+    rc=$?
+    sweeps=$(wc -l < "$tmpdir/$transport-sweeps.log" | tr -d ' ')
+    [ "$rc" -eq 0 ] && [ "$sweeps" -eq 2 ] &&
+      printf '%s' "$output" | jq -e '.available == true and .transport == "background-agent" and .source == "live_probe"' >/dev/null || ok=false
+  done
+  rm -rf "$tmpdir"
+  [ "$ok" = true ]
+}
+
 test_direct_claude_probe_has_neutral_metadata_and_guidance() {
   local tmpdir output ok=true transport
   tmpdir=$(mktemp -d)
@@ -954,6 +978,7 @@ test_direct_claude_probe_has_neutral_metadata_and_guidance() {
   [ "$ok" = true ]
 }
 
+run_test test_successful_background_probe_survives_unwritable_optional_cache
 run_test test_direct_claude_probe_has_neutral_metadata_and_guidance
 run_test test_quest_preflight_resolves_helpers_by_absolute_path_from_foreign_cwd
 run_test test_quest_preflight_resolves_helpers_through_symlinked_entrypoint

@@ -251,8 +251,12 @@ wrapper = {
     "ttl_seconds": ttl_seconds,
     "payload": payload,
 }
-cache_file.parent.mkdir(parents=True, exist_ok=True)
-cache_file.write_text(json.dumps(wrapper, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+# Caching is optional; a verified live probe remains authoritative.
+try:
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text(json.dumps(wrapper, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+except OSError:
+    print("WARNING: could not save preflight success cache; using live probe result.", file=sys.stderr)
 PY
 }
 
