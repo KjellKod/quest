@@ -364,7 +364,7 @@ def test_keep_skips_teardown(shim, tmp_path, monkeypatch, kills):
     monkeypatch.setenv("FAKE_BG_WAITFOR", str(wait))
     env = bg.BgRunner(_args(shim, wait_for=str(wait), keep=True)).run()
     assert env.status == "ok"
-    assert kills == []
+    assert not any(call.startswith("stop ") for call in _calls(tmp_path))
 
 
 def test_needs_human_bubbles_back(shim, tmp_path, monkeypatch):
@@ -386,8 +386,8 @@ def test_needs_human_keeps_session_alive_for_resume(shim, tmp_path, monkeypatch,
         _args(shim, wait_for=str(tmp_path / "out.json"), handoff_file=str(hand))
     ).run()
     assert env.status == "needs_human"
-    # Session must NOT be torn down: no signals sent, so it can be resumed.
-    assert kills == []
+    # The parked session must remain available for resume.
+    assert not any(call.startswith("stop ") for call in _calls(tmp_path))
 
 
 def test_needs_human_teardown_flag_tears_session_down(
@@ -1259,7 +1259,10 @@ def test_stop_session_reports_survivor_until_roster_proves_removal(
         return response
 
     monkeypatch.setattr(runner, "_claude", fake_cli)
+    sleeps = []
+    monkeypatch.setattr(bg.time, "sleep", sleeps.append)
     result = runner.stop_session("abc12345")
+    assert sleeps == [runner.a.poll_interval] * 6
     assert not result.settled
     assert result.survivor_id == "abc12345"
 

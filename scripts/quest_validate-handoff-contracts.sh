@@ -82,7 +82,7 @@ RUNTIME_SELECTION_COUNT=$(grep -c "selected model/runtime" .skills/quest/delegat
 BRIDGE_RUNNER_COUNT=$(grep -c "scripts/quest_claude_runner.py" .skills/quest/delegation/workflow.md || true)
 BYPASS_PERMS_COUNT=$(grep -c "bypassPermissions" .skills/quest/delegation/workflow.md || true)
 STATE_HELPER_COUNT=$(grep -c "scripts/quest_state.py" .skills/quest/delegation/workflow.md || true)
-NATIVE_TASK_COUNT=$(grep -c 'native `Task(...)\` is available\|native `Task(...)` when available' .skills/quest/delegation/workflow.md || true)
+NATIVE_TASK_COUNT=$(grep -F -c -e 'native `Task(...)` is available' -e 'native `Task(...)` when available' .skills/quest/delegation/workflow.md || true)
 CLAUDE_PROBE_COUNT=$(grep -c -- "--probe claude" .skills/quest/delegation/workflow.md || true)
 if [ "$BRIDGE_SCRIPT_COUNT" -gt 0 ] && [ "$BG_RUNNER_SCRIPT_COUNT" -gt 0 ] && [ "$TRANSPORT_CONFIG_COUNT" -gt 0 ] && [ "$TRANSPORT_AVAILABLE_COUNT" -gt 0 ] && [ "$TRANSPORT_RESOLVED_COUNT" -gt 0 ] && [ "$TRANSPORT_LOG_FIELD_COUNT" -gt 0 ] && [ "$STATUS_LOG_FIELD_COUNT" -gt 0 ] && [ "$BRIDGE_PROBE_HELPER_COUNT" -gt 0 ] && [ "$RUNTIME_SELECTION_COUNT" -gt 0 ] && [ "$BRIDGE_RUNNER_COUNT" -gt 0 ] && [ "$BYPASS_PERMS_COUNT" -gt 0 ] && [ "$STATE_HELPER_COUNT" -gt 0 ] && [ "$NATIVE_TASK_COUNT" -eq 0 ] && [ "$CLAUDE_PROBE_COUNT" -gt 0 ]; then
   echo "   ✅ Workflow documents transport probing (bg preferred, explicit bridge) and runtime-based dispatch"

@@ -371,8 +371,9 @@ emit_invalid_transport_payload() {
   warn2="Fix or remove the key; preflight will not coerce an invalid transport to a default (it could resume under a different billing path)."
   cat <<EOJSON
 {
-  "orchestrator": "codex",
-  "second_model": "claude",
+  "runtime": "claude",
+  "orchestrator": $(json_quote_or_null "$ORCHESTRATOR"),
+  "second_model": $(json_quote_or_null "${ORCHESTRATOR:+claude}"),
   "transport": $(json_quote_or_null "$configured"),
   "transport_downgraded": false,
   "source": "config",
@@ -548,8 +549,9 @@ raise SystemExit(0 if isinstance(data, list) else 1)
   local payload
   payload=$(cat <<EOJSON
 {
-  "orchestrator": "codex",
-  "second_model": "claude",
+  "runtime": "claude",
+  "orchestrator": $(json_quote_or_null "$ORCHESTRATOR"),
+  "second_model": $(json_quote_or_null "${ORCHESTRATOR:+claude}"),
   "transport": "background-agent",
   "probe_model": $(json_quote_or_null "$CLAUDE_PROBE_MODEL"),
   "transport_downgraded": false,
@@ -667,7 +669,7 @@ probe_claude_bridge() {
   # Build warning lines for the explicit bridge path.
   local warning_lines=""
   if [ "$available" = "false" ]; then
-    warning_lines="${warning_lines}    \"Claude bridge not available -- quest will run Codex-only (all roles).\",\n"
+    warning_lines="${warning_lines}    \"Claude bridge not available -- Claude-backed roles cannot run. Fix the transport or explicitly choose different role assignments.\",\n"
     warning_lines="${warning_lines}    \"Ensure Claude CLI is installed and authenticated in a normal shell:\",\n"
     if [ "$claude_cli_installed" = "false" ]; then
       warning_lines="${warning_lines}    \"  npm i -g @anthropic-ai/claude-code  # install Claude CLI\",\n"
@@ -690,8 +692,9 @@ probe_claude_bridge() {
   local payload
   payload=$(cat <<EOJSON
 {
-  "orchestrator": "codex",
-  "second_model": "claude",
+  "runtime": "claude",
+  "orchestrator": $(json_quote_or_null "$ORCHESTRATOR"),
+  "second_model": $(json_quote_or_null "${ORCHESTRATOR:+claude}"),
   "transport": "bridge",
   "probe_model": $(json_quote_or_null "$CLAUDE_PROBE_MODEL"),
   "transport_downgraded": false,
@@ -757,13 +760,7 @@ probe_claude_transport() {
 
   # auto: background-agent first. A failed bg probe is a user-visible decision
   # point, not implicit consent to the API-metered bridge.
-  local bg_payload
-  bg_payload=$(probe_claude_bg)
-  if [ "$(printf '%s' "$bg_payload" | json_get "available" 2>/dev/null || echo "false")" = "true" ]; then
-    printf '%s\n' "$bg_payload"
-    return 0
-  fi
-  printf '%s\n' "$bg_payload"
+  probe_claude_bg
 }
 
 probe_antigravity() {

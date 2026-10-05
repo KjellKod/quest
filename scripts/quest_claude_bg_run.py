@@ -511,7 +511,7 @@ class BgRunner:
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass  # The roster must still prove whether our session survived.
         row: dict[str, Any] | None = None
-        for _ in range(7):
+        for attempt in range(7):
             try:
                 cp = self._claude("agents", "--json")
                 rows = json.loads(cp.stdout) if cp.returncode == 0 else None
@@ -530,7 +530,8 @@ class BgRunner:
                         return StopResult(settled=True)
             except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
                 pass
-            time.sleep(self.a.poll_interval)
+            if attempt < 6:
+                time.sleep(self.a.poll_interval)
         return StopResult(
             settled=False,
             survivor_id=short_id,

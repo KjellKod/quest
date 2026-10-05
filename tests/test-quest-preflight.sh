@@ -527,7 +527,7 @@ test_quest_preflight_does_not_use_cached_success_for_non_auth_probe_failure() {
     [ "$available" = "false" ] &&
     [ "$source" = "live_probe" ] &&
     [ "$cache_hit" = "false" ] &&
-    [ "$warning" = "Claude bridge not available -- quest will run Codex-only (all roles)." ] &&
+    [ "$warning" = "Claude bridge not available -- Claude-backed roles cannot run. Fix the transport or explicitly choose different role assignments." ] &&
     [ "$probe_message" = "bridge transport failed" ]
 }
 
@@ -772,8 +772,8 @@ test_quest_preflight_sweeps_bg_probe_sessions_on_exit() {
   own=$(grep -c '^quest-bg-probe-.' "$sweep_log" || true)
   rm -rf "$tmpdir"
 
-  [ "$count" -ge 1 ] &&
-    [ "$own" -ge 1 ] &&
+  [ "$count" -eq 2 ] &&
+    [ "$own" -eq 2 ] &&
     [ "$broad" -eq 0 ]
 }
 
@@ -933,6 +933,28 @@ test_quest_preflight_reports_missing_probe_helper_diagnostic() {
     printf '%s' "$msg" | grep -q "does_not_exist_probe.py"
 }
 
+test_direct_claude_probe_has_neutral_metadata_and_guidance() {
+  local tmpdir output ok=true transport
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_logged_in_claude "$tmpdir/bin/claude"
+  for transport in background-agent bridge invalid; do
+    output=$(PATH="$tmpdir/bin:$PATH" \
+      QUEST_CLAUDE_ROLE_TRANSPORT="$transport" \
+      QUEST_CLAUDE_PROBE_SCRIPT="$tmpdir/missing_probe.py" \
+      QUEST_PREFLIGHT_CACHE_FILE="$tmpdir/cache.json" \
+      "$PREFLIGHT_SCRIPT" --probe claude 2>/dev/null)
+    printf '%s' "$output" | jq -e '
+      .runtime == "claude" and .orchestrator == null and .second_model == null
+      and .available == false
+      and ((.warning | join(" ") | contains("Codex-only")) | not)
+    ' >/dev/null || ok=false
+  done
+  rm -rf "$tmpdir"
+  [ "$ok" = true ]
+}
+
+run_test test_direct_claude_probe_has_neutral_metadata_and_guidance
 run_test test_quest_preflight_resolves_helpers_by_absolute_path_from_foreign_cwd
 run_test test_quest_preflight_resolves_helpers_through_symlinked_entrypoint
 run_test test_quest_preflight_reports_missing_probe_helper_diagnostic
