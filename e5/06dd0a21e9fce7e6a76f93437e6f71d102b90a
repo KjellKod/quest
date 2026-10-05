@@ -1,0 +1,37 @@
+scripts/quest_claude_bg_run.py
+  s_31af3d75731222::t_0b7249a94f6411 514,533-534
+scripts/quest_preflight.sh
+  s_31af3d75731222::t_ad4076452ef2fb 374-376,552-554,672,695-697,763
+scripts/quest_validate-handoff-contracts.sh
+  s_31af3d75731222::t_60f6aef15f5bb8 85
+tests/test-quest-preflight.sh
+  s_d5fe0f0fdc67be::t_d030e46380f253 530,775-776,936-957
+tests/test-validate-handoff-contracts.sh
+  s_31af3d75731222::t_849da9ab5e84cf 46-63
+tests/unit/test_quest_claude_bg_run.py
+  s_d5fe0f0fdc67be::t_081e95d250e7d9 367,389-390,1262-1263,1265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e506dd0a21e9fce7e6a76f93437e6f71d102b90a",
+  "prompts": {},
+  "sessions": {
+    "s_31af3d75731222": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_d5fe0f0fdc67be": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
