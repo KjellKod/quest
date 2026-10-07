@@ -59,6 +59,6 @@ Passing mechanical checks above do not need human repetition. Human review shoul
 Two reproduced gaps were fixed without adding a configuration layer:
 
 - Missing `orchestration.json` now stops resume with explicit reconfiguration/new-quest guidance. The initial allowlist snapshot cannot recover later selections. This supersedes earlier snapshot-restoration behavior and validation claims; ordinary resume still preserves saved settings.
-- Existing-installation effort checks now reuse the selected upstream revision's canonical validator before repository writes. Empty or invalid maps fail; supported custom settings remain unchanged. The validator is fetched to a temporary directory, so an older installed runtime cannot supply stale validation rules.
+- Existing-installation effort checks now reuse the selected upstream revision's canonical validator before repository writes. Maps missing required active-role pins or containing invalid settings fail; an empty map remains valid for Gemini-only roles. Supported custom settings remain unchanged. The validator is fetched to a temporary directory, so an older installed runtime cannot supply stale validation rules.
 
 Both regressions failed before their fixes and passed afterward. Combined validation: 1,384 Python tests passed, orchestration 35/35, state 72/72, Black, shell syntax, generated defaults, configuration, manifest and whitespace checks passed. Self-review and independent review found no further defects. Full installed Quest lifecycle checks under Claude and Codex remain pending in PR #181.
