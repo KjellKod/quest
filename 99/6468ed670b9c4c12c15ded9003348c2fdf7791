@@ -1,0 +1,45 @@
+.skills/quest/SKILL.md
+  s_d5fe0f0fdc67be::t_fa23ef19442acb 27-28,32
+README.md
+  s_31af3d75731222::t_1ca4bfc182c7e5 161
+docs/guides/quest_setup.md
+  s_31af3d75731222::t_ddef640415a272 569,575-576
+docs/implementation/history/quest-effort-validation.md
+  s_d5fe0f0fdc67be::t_e59f60cafb2c24 56-64
+scripts/quest_installer.sh
+  s_d5fe0f0fdc67be::t_6d2220fb97ef73 505-513,515,518-521,524-531,534-535,539
+scripts/quest_runtime/orchestration.py
+  s_d5fe0f0fdc67be::t_ff221f22986b45 648,650-651,726-728
+tests/integration/test_quest_effort_install.py
+  s_31af3d75731222::t_3d4483695d0de3 8,18-23,30,47-51,96-106,115-116,144,172,229,247-277
+tests/test-quest-orchestration.sh
+  s_d5fe0f0fdc67be::t_3931fad018dd8e 699,710-727,1204
+tests/unit/test_canonical_role_lockstep.py
+  s_d5fe0f0fdc67be::t_4b58a36c2a5f15 167,219,223-226,236-240,242
+tests/unit/test_quest_effort.py
+  s_d5fe0f0fdc67be::t_21e335c1bc9d29 318-339
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "996468ed670b9c4c12c15ded9003348c2fdf7791",
+  "prompts": {},
+  "sessions": {
+    "s_31af3d75731222": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_d5fe0f0fdc67be": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
