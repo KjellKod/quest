@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -14,12 +15,19 @@ ROOT = Path(__file__).resolve().parents[2]
 REVISION = "a" * 40
 
 
+def valid_allowlist(builder_effort: str = "medium") -> dict[str, object]:
+    config = json.loads((ROOT / ".ai/allowlist.json").read_text())
+    config["effort"]["builder"] = builder_effort
+    return config
+
+
 def run_install(
     tmp_path: Path,
     target: Path,
     *,
     framework_files: dict[str, str] | None = None,
     copy_manifest: bool = False,
+    validator_available: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     """Exercise run_install, replacing network reads and optional global setup."""
     source = tmp_path / "upstream"
@@ -36,7 +44,11 @@ def run_install(
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(content)
     (source / ".ai").mkdir()
-    (source / ".ai/allowlist.json").write_text('{"effort": {"builder": "medium"}}\n')
+    (source / ".ai/allowlist.json").write_text(json.dumps(valid_allowlist()))
+    validator = source / "scripts/quest_runtime/orchestration.py"
+    validator.parent.mkdir(parents=True, exist_ok=True)
+    if validator_available:
+        shutil.copy2(ROOT / "scripts/quest_runtime/orchestration.py", validator)
     functions = tmp_path / "installer-functions.sh"
     functions.write_text(
         (ROOT / "scripts/quest_installer.sh")
@@ -81,7 +93,17 @@ def snapshot_tree(root: Path) -> dict[str, bytes | str | None]:
     return snapshot
 
 
-@pytest.mark.parametrize("allowlist", [{}, {"effort": None}, {"effort": "medium"}])
+@pytest.mark.parametrize(
+    "allowlist",
+    [
+        {},
+        {"effort": None},
+        {"effort": "medium"},
+        {"effort": {}},
+        valid_allowlist("unsupported"),
+        {**valid_allowlist(), "models": []},
+    ],
+)
 def test_old_effort_format_refuses_before_any_repository_write(
     tmp_path: Path, allowlist: dict[str, object]
 ) -> None:
@@ -90,7 +112,8 @@ def test_old_effort_format_refuses_before_any_repository_write(
     (target / ".ai").mkdir()
     (target / ".ai/allowlist.json").write_text(json.dumps(allowlist))
     (target / ".quest-version").write_text("old-version\n")
-    (target / ".quest-checksums").write_text("# old checksums\n")
+    old_checksum = hashlib.sha256(b"old runtime payload\n").hexdigest()
+    (target / ".quest-checksums").write_text(f"{old_checksum}  payload.txt\n")
     (target / "payload.txt").write_text("old runtime payload\n")
     before = snapshot_tree(target)
 
@@ -118,7 +141,7 @@ def test_fresh_or_current_effort_format_installs(
     target.mkdir()
     if existing:
         (target / ".ai").mkdir()
-        (target / ".ai/allowlist.json").write_text('{"effort": {"builder": "low"}}\n')
+        (target / ".ai/allowlist.json").write_text(json.dumps(valid_allowlist("low")))
 
     result = run_install(tmp_path, target)
 
@@ -146,7 +169,7 @@ def test_framework_upgrade_never_leaves_changed_custom_dispatch_behind(
     target = tmp_path / "consumer"
     target.mkdir()
     (target / ".ai").mkdir()
-    (target / ".ai/allowlist.json").write_text('{"effort": {"builder": "medium"}}\n')
+    (target / ".ai/allowlist.json").write_text(json.dumps(valid_allowlist()))
     (target / ".quest-version").write_text("old-version\n")
     path = (
         ".claude/agents/arbiter.md"
@@ -203,7 +226,7 @@ def test_modified_manifest_is_backed_up_and_replaced_during_upgrade(
     target = tmp_path / "consumer"
     target.mkdir()
     (target / ".ai").mkdir()
-    (target / ".ai/allowlist.json").write_text('{"effort": {"builder": "medium"}}\n')
+    (target / ".ai/allowlist.json").write_text(json.dumps(valid_allowlist()))
     old_manifest = "[copy-as-is]\nold-runtime.txt\n"
     custom_manifest = old_manifest + "# local bookkeeping customization\n"
     (target / ".quest-manifest").write_text(custom_manifest)
@@ -221,3 +244,34 @@ def test_modified_manifest_is_backed_up_and_replaced_during_upgrade(
     ).read_bytes()
     assert (target / "payload.txt").read_text() == "new runtime payload\n"
     assert (target / ".quest-version").read_text().strip() == REVISION
+
+
+def test_gemini_only_allowlist_needs_no_effort_pins(tmp_path: Path) -> None:
+    target = tmp_path / "consumer"
+    target.mkdir()
+    (target / ".ai").mkdir()
+    config = valid_allowlist()
+    config["models"] = dict.fromkeys(config["models"], "gemini-pro")
+    config["effort"] = {}
+    allowlist = target / ".ai/allowlist.json"
+    allowlist.write_text(json.dumps(config))
+    before = allowlist.read_bytes()
+
+    result = run_install(tmp_path, target)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert allowlist.read_bytes() == before
+
+
+def test_unavailable_upstream_validator_refuses_before_writes(tmp_path: Path) -> None:
+    target = tmp_path / "consumer"
+    target.mkdir()
+    (target / ".ai").mkdir()
+    (target / ".ai/allowlist.json").write_text(json.dumps(valid_allowlist("low")))
+    before = snapshot_tree(target)
+
+    result = run_install(tmp_path, target, validator_available=False)
+
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert snapshot_tree(target) == before
+    assert "validator" in result.stdout.lower()

@@ -502,21 +502,41 @@ check_effort_install_prerequisite() {
     log_error "python3 is required to check .ai/allowlist.json before upgrading Quest."
     return 1
   fi
-  if python3 - <<'PY_EFFORT'
+  local validator_dir validation_status=0
+  validator_dir=$(mktemp -d /tmp/quest-effort-check.XXXXXX) || return 1
+  if ! fetch_file_to_temp "scripts/quest_runtime/orchestration.py" "$validator_dir/orchestration.py"; then
+    rm -rf "$validator_dir"
+    log_error "Quest upgrade refused: could not fetch the pinned effort validator. This installer pass stopped before changing files. Retry when the selected source is available."
+    return 1
+  fi
+  python3 -B - "$validator_dir/orchestration.py" <<'PY_EFFORT' || validation_status=$?
+import importlib.util
 import json
+import sys
 from pathlib import Path
 
+spec = importlib.util.spec_from_file_location("quest_install_orchestration", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
 try:
     config = json.loads(Path(".ai/allowlist.json").read_text())
-except (OSError, ValueError):
+    if not isinstance(config, dict) or not isinstance(config.get("models", {}), dict):
+        raise ValueError("The allowlist and its models field must be objects.")
+    module.validate_effort_config({
+        "models": module.build_default_models(config.get("models", {})),
+        "effort": config.get("effort"),
+    })
+except (OSError, ValueError, TypeError) as exc:
+    print(f"Invalid configured effort: {exc}")
     raise SystemExit(1)
-raise SystemExit(0 if isinstance(config, dict) and isinstance(config.get("effort"), dict) else 1)
 PY_EFFORT
-  then
+  rm -rf "$validator_dir"
+  if [ "$validation_status" -eq 0 ]; then
     return 0
   fi
 
-  log_error "Quest upgrade refused: .ai/allowlist.json requires an effort object. This installer pass stopped before changing files."
+  log_error "Quest upgrade refused: .ai/allowlist.json has invalid role effort settings. This installer pass stopped before changing files."
   log_error "Merge the effort object from ${RAW_BASE}/${UPSTREAM_SHA}/.ai/allowlist.json into your allowlist, preserving your project settings, then rerun this installer."
   return 1
 }

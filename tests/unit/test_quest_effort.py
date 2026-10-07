@@ -182,29 +182,6 @@ def test_resume_rejects_unreadable_or_nonobject_state_without_writes(tmp_path, s
     assert path.read_bytes() == before
 
 
-@pytest.mark.parametrize("transport", ["bridge", "background-agent", "typo"])
-def test_snapshot_restore_preserves_transport_or_rejects_invalid_policy(
-    tmp_path, transport
-):
-    (tmp_path / "logs").mkdir()
-    snapshot = {
-        "models": DEFAULT_MODELS,
-        "effort": dict.fromkeys(DEFAULT_MODELS, "medium"),
-        "claude_role_transport": transport,
-    }
-    (tmp_path / "logs/allowlist_snapshot.json").write_text(json.dumps(snapshot))
-    path = tmp_path / "orchestration.json"
-    if transport == "typo":
-        with pytest.raises(ValueError, match="claude_role_transport"):
-            migrate_from_snapshot(tmp_path)
-        assert not path.exists()
-    else:
-        assert migrate_from_snapshot(tmp_path)
-        saved = json.loads(path.read_text())
-        assert saved["claude_role_transport"] == transport
-        assert saved["claude_transport_resolved"] is None
-
-
 @pytest.mark.parametrize("case", ["missing", "empty", "valid", "gemini", "hook"])
 def test_config_validator_checks_default_effort_without_ajv(tmp_path, case):
     allowlist = json.loads((ROOT / ".ai/allowlist.json").read_text())
@@ -338,3 +315,25 @@ def test_model_remap_requires_explicit_compatible_effort_before_writing(tmp_path
     saved = json.loads(path.read_text())
     assert saved["models"]["builder"] == "claude"
     assert saved["effort"]["builder"] == "high"
+
+
+def test_missing_saved_config_cannot_restore_superseded_snapshot_effort(tmp_path):
+    snapshot = {
+        "models": DEFAULT_MODELS,
+        "effort": dict.fromkeys(DEFAULT_MODELS, "medium"),
+    }
+    (tmp_path / "logs").mkdir()
+    snapshot_path = tmp_path / "logs/allowlist_snapshot.json"
+    snapshot_path.write_text(json.dumps(snapshot))
+    path = tmp_path / "orchestration.json"
+    write_default_from_allowlist(
+        path, DEFAULT_MODELS, effort=dict.fromkeys(DEFAULT_MODELS, "high")
+    )
+    path.unlink()
+    before = snapshot_path.read_bytes()
+    with pytest.raises(
+        ValueError, match="orchestration.json.*(reconfigure|Reconfigure)"
+    ):
+        migrate_from_snapshot(tmp_path)
+    assert not path.exists()
+    assert snapshot_path.read_bytes() == before

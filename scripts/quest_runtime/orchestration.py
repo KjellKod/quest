@@ -645,11 +645,10 @@ def migrate_from_snapshot(
     *,
     preflight_validated_at: str | None = None,
 ) -> bool:
-    """Resume migration: copy snapshot models into orchestration.json.
+    """Validate/backfill an existing saved config; never reconstruct lost settings.
 
-    Returns True if orchestration.json was written or legacy-backfilled.
-    Existing files are preserved unless they are missing known
-    legacy-compatible role introductions.
+    The historical function name is retained for existing resume callers.
+    Returns True only when the existing config needed legacy-compatible backfills.
     """
     state_path = quest_dir / "state.json"
     quest_mode = "workflow"
@@ -724,32 +723,7 @@ def migrate_from_snapshot(
             json.dump(existing, handle, indent=2)
             handle.write("\n")
         return True
-    snapshot_path = quest_dir / "logs" / "allowlist_snapshot.json"
-    try:
-        with snapshot_path.open("r", encoding="utf-8") as handle:
-            snapshot = json.load(handle)
-    except OSError as exc:
-        raise ValueError(f"Snapshot not readable at {snapshot_path}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Snapshot at {snapshot_path} is not valid JSON") from exc
-    if not isinstance(snapshot, dict):
-        raise ValueError(f"Snapshot at {snapshot_path} must be a JSON object")
-    models = snapshot.get("models")
-    if not isinstance(models, dict):
-        raise ValueError(
-            f"Snapshot at {snapshot_path} does not contain a 'models' object"
-        )
-    write_orchestration_json(
-        orch_path,
-        models=build_snapshot_models(models),
-        effort=snapshot.get("effort"),
-        claude_role_transport=snapshot.get(
-            "claude_role_transport", DEFAULT_CLAUDE_ROLE_TRANSPORT
-        ),
-        quest_mode=quest_mode,
-        codex_auth_mode=snapshot.get("codex_auth_mode", "cached"),
-        source="default",
-        overridden_roles=[],
-        preflight_validated_at=preflight_validated_at,
+    raise ValueError(
+        "Missing orchestration.json; explicitly reconfigure this quest or start a new quest. "
+        "The initial allowlist snapshot cannot recover the latest saved settings."
     )
-    return True
