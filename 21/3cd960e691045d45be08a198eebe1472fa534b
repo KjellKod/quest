@@ -1,0 +1,19 @@
+docs/implementation/history/quest-effort-validation.md
+  s_31af3d75731222::t_43fa49420b42c9 62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "213cd960e691045d45be08a198eebe1472fa534b",
+  "prompts": {},
+  "sessions": {
+    "s_31af3d75731222": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
