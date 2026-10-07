@@ -43,6 +43,24 @@ test_validate_handoff_contracts_requires_dynamic_plan_identity() {
     echo "$output" | grep -q "All plan roles derive typed iteration identity from current state"
 }
 
+test_validate_handoff_contracts_rejects_native_task_guidance() {
+  local tmpdir phrase output rc ok=true
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/.skills"
+  cp -R "$REPO_ROOT/.skills/quest" "$tmpdir/.skills/quest"
+  ln -s "$REPO_ROOT/scripts" "$tmpdir/scripts"
+  for phrase in 'native `Task(...)` is available' 'native `Task(...)` when available'; do
+    cp "$REPO_ROOT/.skills/quest/delegation/workflow.md" "$tmpdir/.skills/quest/delegation/workflow.md"
+    printf '\n%s\n' "$phrase" >> "$tmpdir/.skills/quest/delegation/workflow.md"
+    output=$(cd "$tmpdir" && bash "$SCRIPT" 2>&1)
+    rc=$?
+    [ "$rc" -ne 0 ] && printf '%s' "$output" | grep -q 'Workflow is missing transport probing' || ok=false
+  done
+  rm -rf "$tmpdir"
+  [ "$ok" = true ]
+}
+
+run_test test_validate_handoff_contracts_rejects_native_task_guidance
 run_test test_validate_handoff_contracts_passes
 run_test test_validate_handoff_contracts_checks_transport_runtime_dispatch
 run_test test_validate_handoff_contracts_requires_dynamic_plan_identity

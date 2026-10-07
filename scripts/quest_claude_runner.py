@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run a Claude-designated Quest role with handoff polling.
 
-Transport (Codex-led Claude roles):
+Transport (Claude roles under either orchestrator):
   --transport auto (default)   background-agent; startup preflight must prove
                                it or stop for a user decision.
   --transport background-agent forced `claude --bg` via scripts/quest_claude_bg_run.py.
@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 
 from quest_runtime.artifacts import expected_artifacts_for_role
+from quest_runtime.orchestration import effort_for_role, runtime_for_model
 from quest_runtime.claude_runner import (
     DEFAULT_BG_RUNNER_SCRIPT,
     DEFAULT_BRIDGE_SCRIPT,
@@ -70,8 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--handoff-file", required=True)
     parser.add_argument(
         "--model",
-        required=True,
-        help="Claude model value from orchestration.json; exact `claude` omits the CLI --model flag.",
+        help="Optional assertion of the saved role model. Must match orchestration.json; cannot override it.",
     )
     parser.add_argument(
         "--timeout",
@@ -107,7 +107,7 @@ def parse_args() -> argparse.Namespace:
         help="tear down bg needs_human sessions instead of parking them for resume",
     )
     args = parser.parse_args()
-    if not args.model.strip():
+    if args.model is not None and not args.model.strip():
         parser.error(
             "--model must be a model name (e.g. `sonnet`, `claude-opus-5`) "
             "or the literal `claude` for the account-default model"
@@ -149,7 +149,39 @@ def main() -> int:
             agent=args.agent,
             artifact_subset=args.artifact_subset,
         )
-    except ValueError as exc:
+        saved_path = resolve_path(args.cwd, args.quest_dir) / "orchestration.json"
+        saved = json.loads(saved_path.read_text(encoding="utf-8"))
+        if not isinstance(saved, dict):
+            raise ValueError("Saved orchestration.json must be an object.")
+        effort = effort_for_role(saved, args.agent)
+        models = saved.get("models")
+        model = models.get(args.agent) if isinstance(models, dict) else None
+        if not isinstance(model, str) or not model.strip():
+            raise ValueError(
+                f"Missing saved model for {args.agent} in orchestration.json."
+            )
+        if runtime_for_model(model) != "claude":
+            raise ValueError(f"Saved model for {args.agent} does not select Claude.")
+        if args.model is not None and args.model != model:
+            raise ValueError(
+                "--model must match the saved role model in orchestration.json."
+            )
+        installation_root = Path(__file__).resolve().parent.parent
+        persona = args.agent
+        if args.agent.startswith(("plan-reviewer-", "code-reviewer-")):
+            persona = args.agent.rsplit("-", 1)[0]
+        if not (installation_root / ".claude" / "agents" / f"{persona}.md").is_file():
+            raise ValueError(
+                f"Missing installed Claude role {persona}; reinstall Quest."
+            )
+        role_context = (
+            f"Your Quest role is {args.agent}. Quest installation root: {installation_root}. "
+            f"Resolve .skills/ references in your role instructions under that installation root. "
+            f"Source workspace: {resolve_path(args.cwd, '.')}. "
+            f"Quest artifacts: {resolve_path(args.cwd, args.quest_dir)}. "
+            "Use the current phase prompt's slot-specific artifact paths."
+        )
+    except (ValueError, OSError) as exc:
         payload = {
             "exit_code": 1,
             "handoff_state": "missing",
@@ -183,12 +215,15 @@ def main() -> int:
         prompt_file=args.prompt_file,
         handoff_file=args.handoff_file,
         bridge_script=resolve_path(args.cwd, args.bridge_script),
-        model=args.model,
+        model=model,
+        effort=effort,
+        persona=persona,
+        append_system_prompt=role_context,
         timeout=args.timeout,
         permission_mode=args.permission_mode,
         artifact_paths=artifact_paths,
         allow_text_fallback=True,
-        add_dirs=args.add_dir,
+        add_dirs=[*args.add_dir, str(installation_root)],
         transport=transport,
         bg_runner_script=resolve_path(args.cwd, args.bg_runner_script),
         teardown_on_needs_human=getattr(args, "teardown_on_needs_human", False),

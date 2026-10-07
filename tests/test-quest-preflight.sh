@@ -527,7 +527,7 @@ test_quest_preflight_does_not_use_cached_success_for_non_auth_probe_failure() {
     [ "$available" = "false" ] &&
     [ "$source" = "live_probe" ] &&
     [ "$cache_hit" = "false" ] &&
-    [ "$warning" = "Claude bridge not available -- quest will run Codex-only (all roles)." ] &&
+    [ "$warning" = "Claude bridge not available -- Claude-backed roles cannot run. Fix the transport or explicitly choose different role assignments." ] &&
     [ "$probe_message" = "bridge transport failed" ]
 }
 
@@ -672,7 +672,7 @@ test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds() {
     QUEST_PREFLIGHT_BG_CACHE_FILE="$bg_cache_file" \
     QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
     FAKE_BG_ARGV_LOG="$argv_log" \
-    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+    "$PREFLIGHT_SCRIPT" "${1:---orchestrator}" "${2:-codex}" 2>&1)
   rc=$?
   transport=$(printf '%s' "$output" | jq -r '.transport')
   downgraded=$(printf '%s' "$output" | jq -r '.transport_downgraded')
@@ -708,7 +708,7 @@ test_quest_preflight_auto_blocks_instead_of_downgrading_to_bridge() {
     QUEST_PREFLIGHT_CACHE_FILE="$tmpdir/claude_bridge_cache.json" \
     QUEST_PREFLIGHT_BG_CACHE_FILE="$tmpdir/claude_bg_cache.json" \
     QUEST_PREFLIGHT_CACHE_TTL_SECONDS=3600 \
-    "$PREFLIGHT_SCRIPT" --orchestrator codex 2>&1)
+    "$PREFLIGHT_SCRIPT" "${1:---orchestrator}" "${2:-codex}" 2>&1)
   rc=$?
   transport=$(printf '%s' "$output" | jq -r '.transport')
   downgraded=$(printf '%s' "$output" | jq -r '.transport_downgraded')
@@ -772,8 +772,8 @@ test_quest_preflight_sweeps_bg_probe_sessions_on_exit() {
   own=$(grep -c '^quest-bg-probe-.' "$sweep_log" || true)
   rm -rf "$tmpdir"
 
-  [ "$count" -ge 1 ] &&
-    [ "$own" -ge 1 ] &&
+  [ "$count" -eq 2 ] &&
+    [ "$own" -eq 2 ] &&
     [ "$broad" -eq 0 ]
 }
 
@@ -933,6 +933,53 @@ test_quest_preflight_reports_missing_probe_helper_diagnostic() {
     printf '%s' "$msg" | grep -q "does_not_exist_probe.py"
 }
 
+test_successful_background_probe_survives_unwritable_optional_cache() {
+  local tmpdir transport output rc sweeps ok=true
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_bg_capable_claude "$tmpdir/bin/claude"
+  write_success_bg_runner "$tmpdir/fake_bg_runner.py"
+  # A file used as the parent fails even under privileged test execution.
+  printf 'not a directory' > "$tmpdir/cache-parent"
+  for transport in auto background-agent; do
+    output=$(PATH="$tmpdir/bin:$PATH" \
+      QUEST_CLAUDE_ROLE_TRANSPORT="$transport" \
+      QUEST_CLAUDE_BG_RUNNER_SCRIPT="$tmpdir/fake_bg_runner.py" \
+      QUEST_PREFLIGHT_BG_CACHE_FILE="$tmpdir/cache-parent/cache.json" \
+      FAKE_BG_SWEEP_LOG="$tmpdir/$transport-sweeps.log" \
+      "$PREFLIGHT_SCRIPT" --probe claude 2>"$tmpdir/stderr")
+    rc=$?
+    sweeps=$(wc -l < "$tmpdir/$transport-sweeps.log" | tr -d ' ')
+    [ "$rc" -eq 0 ] && [ "$sweeps" -eq 2 ] &&
+      printf '%s' "$output" | jq -e '.available == true and .transport == "background-agent" and .source == "live_probe"' >/dev/null || ok=false
+  done
+  rm -rf "$tmpdir"
+  [ "$ok" = true ]
+}
+
+test_direct_claude_probe_has_neutral_metadata_and_guidance() {
+  local tmpdir output ok=true transport
+  tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  write_logged_in_claude "$tmpdir/bin/claude"
+  for transport in background-agent bridge invalid; do
+    output=$(PATH="$tmpdir/bin:$PATH" \
+      QUEST_CLAUDE_ROLE_TRANSPORT="$transport" \
+      QUEST_CLAUDE_PROBE_SCRIPT="$tmpdir/missing_probe.py" \
+      QUEST_PREFLIGHT_CACHE_FILE="$tmpdir/cache.json" \
+      "$PREFLIGHT_SCRIPT" --probe claude 2>/dev/null)
+    printf '%s' "$output" | jq -e '
+      .runtime == "claude" and .orchestrator == null and .second_model == null
+      and .available == false
+      and ((.warning | join(" ") | contains("Codex-only")) | not)
+    ' >/dev/null || ok=false
+  done
+  rm -rf "$tmpdir"
+  [ "$ok" = true ]
+}
+
+run_test test_successful_background_probe_survives_unwritable_optional_cache
+run_test test_direct_claude_probe_has_neutral_metadata_and_guidance
 run_test test_quest_preflight_resolves_helpers_by_absolute_path_from_foreign_cwd
 run_test test_quest_preflight_resolves_helpers_through_symlinked_entrypoint
 run_test test_quest_preflight_reports_missing_probe_helper_diagnostic
@@ -950,6 +997,14 @@ run_test test_quest_preflight_uses_cached_success_when_live_probe_fails
 run_test test_quest_preflight_does_not_use_cached_success_for_non_auth_probe_failure
 run_test test_quest_preflight_bridge_cache_is_model_specific
 run_test test_quest_preflight_background_cache_is_model_specific
+test_quest_preflight_direct_claude_probe_reuses_transport_check() {
+  test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds --probe claude
+}
+test_quest_preflight_direct_claude_probe_blocks_without_fallback() {
+  test_quest_preflight_auto_blocks_instead_of_downgrading_to_bridge --probe claude
+}
+run_test test_quest_preflight_direct_claude_probe_blocks_without_fallback
+run_test test_quest_preflight_direct_claude_probe_reuses_transport_check
 run_test test_quest_preflight_auto_prefers_background_agent_when_probe_succeeds
 run_test test_quest_preflight_auto_blocks_instead_of_downgrading_to_bridge
 run_test test_quest_preflight_reports_bg_prompt_not_consumed

@@ -440,7 +440,7 @@ ${BOLD}Usage:${NC}
 ${BOLD}Options:${NC}
   --branch <name>  Use a specific upstream branch (default: main)
   --check          Dry-run mode: show what would change without modifying files
-  --force          Non-interactive mode: accept safe defaults, skip modified files
+  --force          Non-interactive mode: preserve compatible custom files; refuse incompatible upgrades
   --help           Show this help message
 
 ${BOLD}Examples:${NC}
@@ -450,7 +450,9 @@ ${BOLD}Examples:${NC}
   $SCRIPT_NAME --force                  # CI/automation mode
 
 ${BOLD}File Categories:${NC}
-  - Copy as-is:      Replaced with upstream (if unmodified)
+  - Copy as-is:      Update pristine files; preserve custom files unchanged upstream.
+                     Refuse changed custom framework files before installation.
+                     .quest-manifest is backed up and replaced automatically.
   - User-customized: Preserve local edits; AGENTS.md auto-updates when still pristine,
                      otherwise create .quest_updated for manual merge
   - Merge carefully: Manual merge offered for settings files
@@ -489,6 +491,54 @@ check_prerequisites() {
   if $missing; then
     exit 1
   fi
+}
+
+# Existing allowlists are user-owned and are not overwritten by the installer.
+# Refuse the old format before updating any part of the installed runtime.
+check_effort_install_prerequisite() {
+  [ -e ".ai/allowlist.json" ] || return 0
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    log_error "python3 is required to check .ai/allowlist.json before upgrading Quest."
+    return 1
+  fi
+  local validator_dir validation_status=0
+  validator_dir=$(mktemp -d /tmp/quest-effort-check.XXXXXX) || return 1
+  if ! fetch_file_to_temp "scripts/quest_runtime/orchestration.py" "$validator_dir/orchestration.py"; then
+    rm -rf "$validator_dir"
+    log_error "Quest upgrade refused: could not fetch the pinned effort validator. This installer pass stopped before changing files. Retry when the selected source is available."
+    return 1
+  fi
+  python3 -B - "$validator_dir/orchestration.py" <<'PY_EFFORT' || validation_status=$?
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location("quest_install_orchestration", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+try:
+    config = json.loads(Path(".ai/allowlist.json").read_text())
+    if not isinstance(config, dict) or not isinstance(config.get("models", {}), dict):
+        raise ValueError("The allowlist and its models field must be objects.")
+    module.validate_effort_config({
+        "models": module.build_default_models(config.get("models", {})),
+        "effort": config.get("effort"),
+    })
+except (OSError, ValueError, TypeError) as exc:
+    print(f"Invalid configured effort: {exc}")
+    raise SystemExit(1)
+PY_EFFORT
+  rm -rf "$validator_dir"
+  if [ "$validation_status" -eq 0 ]; then
+    return 0
+  fi
+
+  log_error "Quest upgrade refused: .ai/allowlist.json has invalid role effort settings. This installer pass stopped before changing files."
+  log_error "Merge the effort object from ${RAW_BASE}/${UPSTREAM_SHA}/.ai/allowlist.json into your allowlist, preserving your project settings, then rerun this installer."
+  return 1
 }
 
 ###############################################################################
@@ -691,6 +741,36 @@ is_registered_renamed_old_path() {
     fi
   done
   return 1
+}
+
+# A customized framework file may remain only when upstream did not change it.
+# Otherwise skipping it would report success with a mixed runtime installation.
+check_framework_upgrade_prerequisites() {
+  local filepath local_checksum stored_checksum upstream_checksum
+  for filepath in "${COPY_AS_IS[@]}"; do
+    # Bookkeeping already has a backup-and-replace path, never a silent skip.
+    [ "$filepath" = ".quest-manifest" ] && continue
+    [ -e "$filepath" ] || [ -L "$filepath" ] || continue
+    if [ ! -L "$filepath" ] && is_file_pristine "$filepath"; then
+      continue
+    fi
+
+    local_checksum=$(get_file_checksum "$filepath")
+    stored_checksum=$(get_stored_checksum "$filepath" || true)
+    if ! upstream_checksum=$(get_upstream_checksum "$filepath"); then
+      if ! upstream_checksum=$(set -o pipefail; fetch_file "$filepath" | get_content_checksum); then
+        log_error "Quest upgrade refused: could not verify upstream $filepath. This installer pass stopped before changing files. Retry when the selected source is available."
+        return 1
+      fi
+    fi
+    if [ "$local_checksum" = "$upstream_checksum" ] || [ "$stored_checksum" = "$upstream_checksum" ]; then
+      continue
+    fi
+
+    log_error "Quest upgrade refused: modified framework file $filepath differs from the required version. This installer pass stopped before changing files."
+    log_error "Back up your custom file, replace it from ${RAW_BASE}/${UPSTREAM_SHA}/${filepath}, then rerun this installer."
+    return 1
+  done
 }
 
 # Initialize updated checksums from local checksums
@@ -1997,6 +2077,9 @@ run_install() {
   # Fetch upstream version (sets UPSTREAM_SHA)
   fetch_upstream_version
 
+  # Check the breaking configuration requirement before self-update or writes.
+  check_effort_install_prerequisite
+
   # Load file manifest from upstream
   load_manifest
 
@@ -2005,6 +2088,9 @@ run_install() {
 
   # Load local checksums
   load_local_checksums
+
+  # Refuse changed customized framework files before self-update or writes.
+  check_framework_upgrade_prerequisites
 
   # Initialize updated checksums from local
   init_updated_checksums

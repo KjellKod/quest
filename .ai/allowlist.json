@@ -23,6 +23,17 @@
   "codex_fallback_model": "gpt-6-astra",
   "codex_auth_mode": "cached",
   "codex_reasoning_effort": "medium",
+  "effort": {
+    "planner": "medium",
+    "plan-reviewer-a": "medium",
+    "plan-reviewer-b": "medium",
+    "arbiter": "medium",
+    "builder": "medium",
+    "code-reviewer-a": "medium",
+    "code-reviewer-b": "medium",
+    "review-arbiter": "medium",
+    "fixer": "medium"
+  },
   "models": {
     "planner": "gpt-6-astra",
     "plan-reviewer-a": "claude-opus-5",
