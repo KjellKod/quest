@@ -1,0 +1,46 @@
+tests/integration/test_quest_effort_install.py
+  s_22e47c7be1eeec::t_2afe3d87f7a448 302-536,538-620,626-627,632-633,635,641,646-647,649,657,663-666,668,674-675,686,688,700-701,706-707,709
+  s_31af3d75731222::t_ad885c52e300f7 5-8,136,282-301,537,621-625,628-631,634,636-640,642-645,648,650-656,658-662,667,669-673,676-685,687,689-699,702-705,708,710-712
+docs/guides/quest_setup.md
+  s_d5fe0f0fdc67be::t_9e32ff76123dff 569,571-583
+docs/implementation/history/quest-effort-validation.md
+  s_31af3d75731222::t_8b6ad2c3a2eb9f 65-72
+scripts/quest_installer.sh
+  s_31af3d75731222::t_80bbf066ba963d 42-43,57,499,502,505-508,511,514-515,517,520-521,525-528,531-605,607-610,613-629,631,633-648,2202,2205-2207,2209,2242-2244,2263-2265
+tests/fixtures/installers/quest_installer_319494ec.sh
+  s_d5fe0f0fdc67be::t_02151f5108f76e 1-2215
+tests/test-quest-runtime.sh
+  s_d5fe0f0fdc67be::t_bed7fd976d3d05 197-199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "254a963501e4ac825f49153e836cb3c21115d7c0",
+  "prompts": {},
+  "sessions": {
+    "s_22e47c7be1eeec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "04d5ba1f-4b85-4688-bcd8-93a95612c007",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_31af3d75731222": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_d5fe0f0fdc67be": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
