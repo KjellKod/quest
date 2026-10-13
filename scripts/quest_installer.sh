@@ -39,6 +39,8 @@ LOCAL_VERSION=""
 UPSTREAM_SHA=""
 LATEST_RELEASE=""
 QUEST_UPDATED_FILES=()
+EFFORT_STAGE=""
+EFFORT_ADDITION_REQUIRED=false
 
 # Dry-run summary counters
 DRY_RUN_WOULD_CREATE=0
@@ -52,6 +54,7 @@ DRY_RUN_MODIFIED=0
 ###############################################################################
 
 cleanup() {
+  [ -z "$EFFORT_STAGE" ] || rm -rf "$EFFORT_STAGE"
   rm -f ".quest-checksums.tmp.$$" ".quest-temp.$$" 2>/dev/null
 }
 trap cleanup EXIT
@@ -493,52 +496,156 @@ check_prerequisites() {
   fi
 }
 
-# Existing allowlists are user-owned and are not overwritten by the installer.
-# Refuse the old format before updating any part of the installed runtime.
+# Stage the selected revision's validator and a missing-key addition outside the project.
 check_effort_install_prerequisite() {
-  [ -e ".ai/allowlist.json" ] || return 0
-
   if ! command -v python3 >/dev/null 2>&1; then
-    log_error "python3 is required to check .ai/allowlist.json before upgrading Quest."
+    log_error "python3 is required to validate Quest effort settings."
     return 1
   fi
-  local validator_dir validation_status=0
-  validator_dir=$(mktemp -d /tmp/quest-effort-check.XXXXXX) || return 1
-  if ! fetch_file_to_temp "scripts/quest_runtime/orchestration.py" "$validator_dir/orchestration.py"; then
-    rm -rf "$validator_dir"
-    log_error "Quest upgrade refused: could not fetch the pinned effort validator. This installer pass stopped before changing files. Retry when the selected source is available."
+  EFFORT_STAGE=$(mktemp -d /tmp/quest-effort-upgrade.XXXXXX) || return 1
+  if ! fetch_file_to_temp "scripts/quest_runtime/orchestration.py" "$EFFORT_STAGE/orchestration.py" ||
+     ! fetch_file_to_temp ".ai/allowlist.json" "$EFFORT_STAGE/defaults.json"; then
+    log_error "Quest upgrade refused: could not fetch the pinned effort validator/defaults. This installer pass stopped before changing project files."
     return 1
   fi
-  python3 -B - "$validator_dir/orchestration.py" <<'PY_EFFORT' || validation_status=$?
+  cat > "$EFFORT_STAGE/effort.py" <<'PY_EFFORT'
 import importlib.util
 import json
+import os
+import stat
 import sys
+import tempfile
 from pathlib import Path
 
-spec = importlib.util.spec_from_file_location("quest_install_orchestration", sys.argv[1])
+stage = Path(__file__).parent
+spec = importlib.util.spec_from_file_location("quest_install_orchestration", stage / "orchestration.py")
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
-try:
-    config = json.loads(Path(".ai/allowlist.json").read_text())
+allowlist = Path(".ai/allowlist.json")
+
+
+def configured_models(config):
     if not isinstance(config, dict) or not isinstance(config.get("models", {}), dict):
         raise ValueError("The allowlist and its models field must be objects.")
-    module.validate_effort_config({
-        "models": module.build_default_models(config.get("models", {})),
-        "effort": config.get("effort"),
-    })
+    models = module.build_default_models(config.get("models", {}))
+    for role, model in models.items():
+        if not isinstance(model, str) or not model.strip() or model != model.strip():
+            raise ValueError(f"models.{role} must be a model name string without surrounding whitespace.")
+    return models
+
+
+def validate(config):
+    module.validate_effort_config({"models": configured_models(config), "effort": config.get("effort")})
+
+
+context = "Project allowlist effort check failed"
+guidance = "Review .ai/allowlist.json and rerun the installer."
+try:
+    action = sys.argv[1]
+    if action == "prepare":
+        context = "Selected upstream defaults are unusable"
+        guidance = "Retry with a source revision containing valid effort defaults."
+        defaults = json.loads((stage / "defaults.json").read_bytes())
+        validate(defaults)
+        context = "Project allowlist effort check failed"
+        guidance = "Review .ai/allowlist.json and rerun the installer."
+        if allowlist.exists() or allowlist.is_symlink():
+            if not allowlist.is_file():
+                raise ValueError(".ai/allowlist.json must be a regular file.")
+            original = allowlist.read_bytes()
+            config = json.loads(original)
+            if not isinstance(config, dict) or not isinstance(config.get("models", {}), dict):
+                raise ValueError("The allowlist and its models field must be objects.")
+            if "effort" not in config:
+                if allowlist.is_symlink():
+                    raise ValueError("Automatic effort addition cannot replace a symlinked allowlist.")
+                models = configured_models(config)
+                pinned_roles = [role for role, model in models.items() if module.runtime_for_model(model) != "antigravity"]
+                context = "Selected upstream effort defaults are incompatible with project models"
+                guidance = "Review the selected upstream role defaults and project model assignments, then rerun the installer."
+                effort = {}
+                for role in pinned_roles:
+                    if role not in defaults.get("effort", {}):
+                        raise ValueError(f"Upstream defaults are missing effort.{role}.")
+                    effort[role] = defaults["effort"][role]
+                config["effort"] = effort
+                validate(config)
+                (stage / "original").write_bytes(original)
+                (stage / "candidate").write_text(json.dumps(config, indent=2) + "\n")
+                print(json.dumps({"effort": effort}, indent=2))
+            else:
+                validate(config)
+    elif action == "apply":
+        context = "Effort addition failed"
+        guidance = ""
+        original = (stage / "original").read_bytes()
+        info = allowlist.lstat()
+        if not stat.S_ISREG(info.st_mode) or allowlist.read_bytes() != original:
+            raise ValueError("The allowlist changed since preview. Rerun the installer.")
+        pending = None
+        try:
+            fd, pending = tempfile.mkstemp(prefix=".quest-effort-", dir=allowlist.parent)
+            with os.fdopen(fd, "wb") as output:
+                output.write((stage / "candidate").read_bytes())
+                os.fchmod(output.fileno(), stat.S_IMODE(info.st_mode))
+            fd, backup = tempfile.mkstemp(prefix=allowlist.name + ".quest_local_backup.", dir=allowlist.parent)
+            with os.fdopen(fd, "wb") as output:
+                output.write(original)
+                os.fchmod(output.fileno(), stat.S_IMODE(info.st_mode))
+            os.replace(pending, allowlist)
+            pending = None
+            print(f"Original allowlist backed up to {backup}")
+        finally:
+            if pending is not None:
+                Path(pending).unlink(missing_ok=True)
+    elif action == "validate":
+        context = "Installed effort validation failed"
+        guidance = ""
+        validate(json.loads(allowlist.read_bytes()))
 except (OSError, ValueError, TypeError) as exc:
-    print(f"Invalid configured effort: {exc}")
+    message = str(exc).split("Reconfigure saved effort.")[0].strip()
+    print(f"{context}: {message}", file=sys.stderr)
+    if guidance:
+        print(guidance, file=sys.stderr)
     raise SystemExit(1)
 PY_EFFORT
-  rm -rf "$validator_dir"
-  if [ "$validation_status" -eq 0 ]; then
-    return 0
+  if ! python3 -B "$EFFORT_STAGE/effort.py" prepare; then
+    log_error "Quest upgrade refused: effort configuration preflight failed. This installer pass stopped before changing project files."
+    log_error "Selected defaults: ${RAW_BASE}/${UPSTREAM_SHA}/.ai/allowlist.json"
+    return 1
   fi
+  if [ -f "$EFFORT_STAGE/candidate" ]; then
+    EFFORT_ADDITION_REQUIRED=true
+    if $DRY_RUN; then
+      log_action "Would request consent to add the displayed effort defaults; no configuration will be changed."
+    elif $FORCE_MODE || [ ! -t 0 ] || [ ! -t 1 ]; then
+      log_error "Missing effort requires consent. Rerun interactively without --force. This installer pass stopped before changing project files."
+      log_error "Selected defaults: ${RAW_BASE}/${UPSTREAM_SHA}/.ai/allowlist.json"
+      return 1
+    elif ! prompt_yn "Add these effort defaults to .ai/allowlist.json and continue?" "n"; then
+      log_error "Effort addition declined. This installer pass stopped before changing project files; an earlier pass may already have updated the installer itself."
+      return 1
+    fi
+  fi
+}
 
-  log_error "Quest upgrade refused: .ai/allowlist.json has invalid role effort settings. This installer pass stopped before changing files."
-  log_error "Merge the effort object from ${RAW_BASE}/${UPSTREAM_SHA}/.ai/allowlist.json into your allowlist, preserving your project settings, then rerun this installer."
-  return 1
+apply_effort_addition() {
+  if $EFFORT_ADDITION_REQUIRED && ! $DRY_RUN; then
+    python3 -B "$EFFORT_STAGE/effort.py" apply || {
+      log_error "Could not apply the approved effort addition. Framework installation has not started. Review the error above and any .ai/allowlist.json.quest_local_backup.* files, then rerun the installer."
+      return 1
+    }
+  fi
+}
+
+validate_installed_effort() {
+  if ! $DRY_RUN; then
+    python3 -B "$EFFORT_STAGE/effort.py" validate || {
+      log_error "Framework files were written, but installed effort validation failed. The version stamp was not recorded. Review .ai/allowlist.json and the error above, then rerun the installer."
+      return 1
+    }
+  fi
 }
 
 ###############################################################################
@@ -2077,9 +2184,6 @@ run_install() {
   # Fetch upstream version (sets UPSTREAM_SHA)
   fetch_upstream_version
 
-  # Check the breaking configuration requirement before self-update or writes.
-  check_effort_install_prerequisite
-
   # Load file manifest from upstream
   load_manifest
 
@@ -2095,11 +2199,14 @@ run_install() {
   # Initialize updated checksums from local
   init_updated_checksums
 
-  # Check for self-update (unless already done)
+  # Complete self-update before preparing configuration for this pass.
   check_self_update
 
+  # Validate and request consent only after framework prerequisites pass.
+  check_effort_install_prerequisite
+
   # Check if already up to date
-  if $HAS_QUEST && [ "$LOCAL_VERSION" = "$UPSTREAM_SHA" ]; then
+  if $HAS_QUEST && [ "$LOCAL_VERSION" = "$UPSTREAM_SHA" ] && ! $EFFORT_ADDITION_REQUIRED; then
     if $FORCE_MODE; then
       log_warn "Quest version stamp matches upstream (${UPSTREAM_SHA:0:8}) — reinstalling anyway (--force)"
     else
@@ -2132,6 +2239,9 @@ run_install() {
 
   echo ""
 
+  # Recheck and back up the approved configuration before framework writes.
+  apply_effort_addition
+
   # Create directories
   create_directories
 
@@ -2149,6 +2259,9 @@ run_install() {
 
   # Update gitignore
   update_gitignore
+
+  # Do not record this version as installed with unusable effort settings.
+  validate_installed_effort
 
   # Save checksums
   save_checksums

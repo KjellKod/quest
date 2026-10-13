@@ -566,9 +566,21 @@ your-repo/
 
 ### Upgrading to saved role effort
 
-Before upgrading an existing installation, merge the `effort` map from the selected upstream `.ai/allowlist.json` into your project allowlist. Preserve your project permissions and other settings. The current installer prints the exact source URL and refuses before changing files in that installer pass if the effort map is missing or invalid for the configured role models. Validation uses the selected upstream revision’s canonical validator. The allowlist's `codex_reasoning_effort` remains a standalone `/gpt` setting; Quest roles use the saved per-role map.
+Run the normal installer with your selected source. Older installers first update themselves and restart. If your project allowlist has no `effort` key, the updated installer previews compatible per-role defaults from that source and asks before adding them. Accepting saves a backup of the original allowlist, adds only `effort`, and continues installation. Models, permissions and other project settings stay unchanged. The allowlist's `codex_reasoning_effort` remains a standalone `/gpt` setting; Quest roles use the per-role map.
 
-An older installed script may update itself before restarting into these checks. A refusal after that restart leaves the updated installer in place; it does not mean the preceding pass made no changes. The installer does not automatically merge effort defaults into your project configuration.
+The prompt defaults to **No**. Declining or reaching end-of-input stops the upgrade. `--force` and unattended execution do not approve this configuration change: rerun interactively without `--force`. `--check` previews the addition without applying it. Existing valid effort settings are preserved without another prompt; invalid existing settings stop with an error instead of being replaced. Gemini roles have no effort pin. Validation uses the selected source revision's canonical validator.
+
+The installer reports the backup path when applying the addition. An older script may already have updated itself before the configuration prompt. Declining then leaves that updated script in place; it does not mean the earlier installer pass changed nothing. This addition applies to project defaults for new quests, not saved quest configurations.
+
+**Earlier builds of this branch:** the installer at `213cd960` checks effort before checking for its own update. If that version was installed during an earlier attempt, download and run the corrected branch installer once from the target directory:
+
+```sh
+installer_path=$(mktemp /tmp/quest-installer.XXXXXX) &&
+curl -fsSL https://raw.githubusercontent.com/KjellKod/quest/feat/quest-effort-dispatch/scripts/quest_installer.sh -o "$installer_path" &&
+bash "$installer_path" --branch feat/quest-effort-dispatch
+```
+
+Afterward, remove the temporary script with `rm -f "$installer_path"`. This uses the normal configuration checks and consent prompt. Ordinary older installers with self-update support do not need this extra download step.
 
 If a framework file was customized and its upstream version changed, the installer refuses before applying a partial upgrade. Back up the named file, replace it from the printed source URL, then retry. Customized files whose upstream version is unchanged remain supported.
 

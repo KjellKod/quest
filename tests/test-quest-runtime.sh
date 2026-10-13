@@ -194,6 +194,9 @@ stub_installer_run_install_steps() {
   load_local_checksums() { :; }
   init_updated_checksums() { :; }
   check_self_update() { :; }
+  check_effort_install_prerequisite() { :; }
+  apply_effort_addition() { :; }
+  validate_installed_effort() { :; }
   create_directories() { :; }
   install_copy_as_is() { :; }
   install_user_customized() { :; }
