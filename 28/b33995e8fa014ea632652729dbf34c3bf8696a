@@ -1,0 +1,31 @@
+docs/guides/quest_setup.md
+  s_d5fe0f0fdc67be::t_adaa7eb1c9a627 569
+docs/implementation/history/quest-effort-validation.md
+  s_31af3d75731222::t_97e59913f5c8a5 73-74
+tests/unit/test_script_prefix_policy.py
+  s_d5fe0f0fdc67be::t_877dcf8877e810 15-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "28b33995e8fa014ea632652729dbf34c3bf8696a",
+  "prompts": {},
+  "sessions": {
+    "s_31af3d75731222": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_d5fe0f0fdc67be": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0d5b2-4b87-72b3-b000-c986599a2484",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
