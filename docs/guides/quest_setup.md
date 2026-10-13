@@ -566,7 +566,7 @@ your-repo/
 
 ### Upgrading to saved role effort
 
-Run the normal installer with your selected source. Older installers first update themselves and restart. If your project allowlist has no `effort` key, the updated installer previews compatible per-role defaults from that source and asks before adding them. Accepting saves a backup of the original allowlist, adds only `effort`, and continues installation. Models, permissions and other project settings stay unchanged. The allowlist's `codex_reasoning_effort` remains a standalone `/gpt` setting; Quest roles use the per-role map.
+Run the normal installer with your selected source. Older installers first update themselves and restart, except the interim `213cd960` installer, which needs the recovery command below. If your project allowlist has no `effort` key, the updated installer previews compatible per-role defaults from that source and asks before adding them. Accepting saves a backup of the original allowlist, adds only `effort`, and continues installation. Models, permissions and other project settings stay unchanged. The allowlist's `codex_reasoning_effort` remains a standalone `/gpt` setting; Quest roles use the per-role map.
 
 The prompt defaults to **No**. Declining or reaching end-of-input stops the upgrade. `--force` and unattended execution do not approve this configuration change: rerun interactively without `--force`. `--check` previews the addition without applying it. Existing valid effort settings are preserved without another prompt; invalid existing settings stop with an error instead of being replaced. Gemini roles have no effort pin. Validation uses the selected source revision's canonical validator.
 
