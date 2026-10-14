@@ -24,14 +24,14 @@
   "codex_auth_mode": "cached",
   "codex_reasoning_effort": "medium",
   "effort": {
-    "planner": "medium",
+    "planner": "high",
     "plan-reviewer-a": "medium",
     "plan-reviewer-b": "medium",
-    "arbiter": "medium",
+    "arbiter": "high",
     "builder": "medium",
     "code-reviewer-a": "medium",
     "code-reviewer-b": "medium",
-    "review-arbiter": "medium",
+    "review-arbiter": "high",
     "fixer": "medium"
   },
   "models": {
