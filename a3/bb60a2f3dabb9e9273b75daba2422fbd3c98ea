@@ -1,0 +1,21 @@
+.ai/allowlist.json
+  s_bfd991a252809c::t_6de7062bb543a9 27,30,34
+docs/implementation/history/quest-effort-replacement.md
+  s_bfd991a252809c::t_bfffb1f3f08011 34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a3bb60a2f3dabb9e9273b75daba2422fbd3c98ea",
+  "prompts": {},
+  "sessions": {
+    "s_bfd991a252809c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e7795186-3fe2-4126-b39c-27d92ad19802",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
