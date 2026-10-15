@@ -130,7 +130,7 @@ def role_fixture(cli, monkeypatch, agent="builder", phase="building"):
         json.dumps(
             {
                 "models": {agent: "gpt-saved"},
-                "codex_reasoning_effort": "high",
+                "effort": {agent: "high"},
                 "codex_auth_mode": "api-key",
             }
         )
@@ -180,6 +180,19 @@ def run_role(cli, quest, agent="builder", phase="building", *extra):
         "1",
         *extra,
     )
+
+
+def test_role_forwards_saved_per_role_effort(cli, monkeypatch):
+    quest, _, _ = role_fixture(cli, monkeypatch)
+    path = quest / "orchestration.json"
+    saved = json.loads(path.read_text())
+    saved.pop("codex_reasoning_effort", None)
+    saved["effort"] = {"builder": "low"}
+    path.write_text(json.dumps(saved))
+    result = run_role(cli, quest)
+    assert result["result_kind"] == "complete"
+    capture = json.loads((cli / "CAPTURE").read_text())
+    assert 'model_reasoning_effort="low"' in capture["args"]
 
 
 def test_role_requires_current_valid_outputs(cli, monkeypatch):
@@ -387,6 +400,7 @@ def test_parallel_review_roles_use_separate_attempts(cli, monkeypatch):
     )
     saved = json.loads((quest / "orchestration.json").read_text())
     saved["models"]["plan-reviewer-a"] = "gpt-saved"
+    saved["effort"]["plan-reviewer-a"] = "high"
     (quest / "orchestration.json").write_text(json.dumps(saved))
     processes = []
     for agent, outputs in (
@@ -457,6 +471,7 @@ def test_api_only_preflight_selection_is_persisted_and_dispatched(cli, monkeypat
     write_default_from_allowlist(
         quest / "orchestration.json",
         DEFAULT_MODELS,
+        effort=dict.fromkeys(DEFAULT_MODELS, "medium"),
         orchestrator="claude",
         codex_available=probe["available"],
         codex_auth_mode=selected,
@@ -911,3 +926,16 @@ def test_reviewer_findings_repair_preserves_prose_and_requires_new_outputs(
     )
     assert result["result_kind"] == "artifact_missing"
     assert prose.read_bytes() == original
+
+
+@pytest.mark.parametrize("effort", [None, {}, {"builder": "typo"}])
+def test_role_invalid_effort_does_not_launch(cli, monkeypatch, effort):
+    quest, _, _ = role_fixture(cli, monkeypatch)
+    path = quest / "orchestration.json"
+    saved = json.loads(path.read_text())
+    saved["effort"] = effort
+    path.write_text(json.dumps(saved))
+    result = run_role(cli, quest)
+    assert result["result_kind"] == "precondition_failed"
+    assert "Reconfigure" in result["message"]
+    assert not (cli / "CAPTURE").exists()

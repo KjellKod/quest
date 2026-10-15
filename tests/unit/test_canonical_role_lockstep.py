@@ -147,24 +147,26 @@ def test_shipped_model_defaults_are_generated_from_allowlist() -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_codex_effort_is_pinned_and_legacy_snapshot_stays_unset(tmp_path: Path) -> None:
+def test_effort_is_pinned_and_legacy_snapshot_rejects(tmp_path: Path) -> None:
     from quest_runtime.orchestration import (
         migrate_from_snapshot,
         write_default_from_allowlist,
     )
 
     path = tmp_path / "new" / "orchestration.json"
-    write_default_from_allowlist(path, DEFAULT_MODELS, codex_reasoning_effort="medium")
-    assert json.loads(path.read_text())["codex_reasoning_effort"] == "medium"
+    effort = dict.fromkeys(DEFAULT_MODELS, "medium")
+    write_default_from_allowlist(path, DEFAULT_MODELS, effort=effort)
+    assert json.loads(path.read_text())["effort"] == effort
     legacy = tmp_path / "legacy"
     (legacy / "logs").mkdir(parents=True)
     (legacy / "logs" / "allowlist_snapshot.json").write_text(
         json.dumps({"models": DEFAULT_MODELS})
     )
-    migrate_from_snapshot(legacy)
-    assert "codex_reasoning_effort" not in json.loads(
-        (legacy / "orchestration.json").read_text()
-    )
+    import pytest
+
+    with pytest.raises(ValueError, match="Missing orchestration.json"):
+        migrate_from_snapshot(legacy)
+    assert not (legacy / "orchestration.json").exists()
 
 
 def test_invalid_codex_effort_does_not_write_orchestration(tmp_path: Path) -> None:
@@ -172,9 +174,9 @@ def test_invalid_codex_effort_does_not_write_orchestration(tmp_path: Path) -> No
     from quest_runtime.orchestration import write_default_from_allowlist
 
     path = tmp_path / "orchestration.json"
-    with pytest.raises(ValueError, match="codex_reasoning_effort"):
+    with pytest.raises(ValueError, match="effort"):
         write_default_from_allowlist(
-            path, DEFAULT_MODELS, codex_reasoning_effort="typo"
+            path, DEFAULT_MODELS, effort=dict.fromkeys(DEFAULT_MODELS, "typo")
         )
     assert not path.exists()
 
@@ -214,24 +216,36 @@ def test_generator_updates_policy_without_changing_permissions(tmp_path: Path) -
     assert sync(tmp_path, check=True)
 
 
-def test_resume_preserves_snapshot_effort_and_rejects_invalid_effort(
+def test_resume_preserves_saved_effort_and_rejects_invalid_effort(
     tmp_path: Path,
 ) -> None:
     import pytest
-    from quest_runtime.orchestration import migrate_from_snapshot
+    from quest_runtime.orchestration import (
+        migrate_from_snapshot,
+        write_default_from_allowlist,
+    )
 
     (tmp_path / "logs").mkdir()
-    snapshot = {"models": DEFAULT_MODELS, "codex_reasoning_effort": "high"}
+    snapshot = {
+        "models": DEFAULT_MODELS,
+        "effort": dict.fromkeys(DEFAULT_MODELS, "high"),
+        "codex_reasoning_effort": "medium",
+    }
     (tmp_path / "logs/allowlist_snapshot.json").write_text(json.dumps(snapshot))
-    assert migrate_from_snapshot(tmp_path)
     path = tmp_path / "orchestration.json"
-    saved = json.loads(path.read_text())
-    assert saved["codex_reasoning_effort"] == "high"
+    effort = dict.fromkeys(DEFAULT_MODELS, "low")
+    write_default_from_allowlist(path, DEFAULT_MODELS, effort=effort)
+    before = path.read_bytes()
     assert not migrate_from_snapshot(tmp_path)
-    saved["codex_reasoning_effort"] = "typo"
+    assert path.read_bytes() == before
+    saved = json.loads(path.read_text())
+    assert saved["effort"] == effort
+    assert "codex_reasoning_effort" not in saved
+    assert not migrate_from_snapshot(tmp_path)
+    saved["effort"]["builder"] = "typo"
     path.write_text(json.dumps(saved))
     before = path.read_bytes()
-    with pytest.raises(ValueError, match="codex_reasoning_effort"):
+    with pytest.raises(ValueError, match="effort"):
         migrate_from_snapshot(tmp_path)
     assert path.read_bytes() == before
 

@@ -23,3 +23,5 @@ claude-bg-transport specs (Step-1 runner, migration rationale, Step-2 wiring)
 findings live on in `scripts/quest_claude_bg_run.py`'s module docstring and the
 transport test suites; the archived specs remain the record of *why* the
 design is shaped the way it is.
+
+Completed: [Quest effort replacement and lessons](history/quest-effort-replacement.md), with [validation evidence](history/quest-effort-validation.md).

@@ -29,6 +29,8 @@ class AgentInfo:
     # Set only for Codex-led Claude roles (from context_health.log transport=):
     # "background-agent" or "bridge". None for every other invocation path.
     transport: Optional[str] = None
+    # Last saved role configuration, not observed per-invocation effort.
+    configured_effort: Optional[str] = None
 
 
 @dataclass
@@ -198,6 +200,33 @@ def _phase_from_path(rel_path: str) -> str:
     if "phase_03" in lower or "review" in lower:
         return "Review"
     return "Unknown"
+
+
+def _configured_effort(value: object) -> Optional[str]:
+    """Accept recorded effort labels without inventing historical defaults."""
+    return (
+        value
+        if isinstance(value, str)
+        and value in ("low", "medium", "high", "xhigh", "max", "ultra")
+        else None
+    )
+
+
+def _read_configured_efforts(quest_dir: Path) -> Dict[str, str]:
+    try:
+        saved = json.loads(
+            (quest_dir / "orchestration.json").read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return {}
+    efforts = saved.get("effort") if isinstance(saved, dict) else None
+    if not isinstance(efforts, dict):
+        return {}
+    return {
+        role: level
+        for role, value in efforts.items()
+        if (level := _configured_effort(value)) is not None
+    }
 
 
 def _read_state_json(quest_dir: Path) -> dict:
@@ -1018,6 +1047,9 @@ def load_quest_data_from_journal(journal_path: Path) -> QuestData:
                     summary="",
                     phase="",
                     transport=agent_dict.get("transport"),
+                    configured_effort=_configured_effort(
+                        agent_dict.get("configured_effort")
+                    ),
                 )
             )
 
@@ -1163,8 +1195,10 @@ def load_quest_data(quest_dir: Path) -> QuestData:
     transport_per_agent, data.claude_transport_counts = _read_claude_transports(
         quest_dir
     )
+    configured_efforts = _read_configured_efforts(quest_dir)
     for agent in data.agents:
         agent.transport = transport_per_agent.get(agent.name)
+        agent.configured_effort = configured_efforts.get(agent.name)
 
     # 5. review*.md
     data.review_findings, data.review_count = _collect_review_findings(quest_dir)

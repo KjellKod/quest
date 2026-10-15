@@ -14,7 +14,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 WORKFLOW_MD="$REPO_ROOT/.skills/quest/delegation/workflow.md"
 OPENCODE_QUEST_MD="$REPO_ROOT/.opencode/agents/quest.md"
 STATE_SCRIPT="$REPO_ROOT/scripts/quest_state.py"
-PY_HELPER='import sys, pathlib; sys.path.insert(0, str(pathlib.Path("'"$REPO_ROOT"'/scripts").resolve()));'
+PY_HELPER='import sys, pathlib; sys.path.insert(0, str(pathlib.Path("'"$REPO_ROOT"'/scripts").resolve())); from quest_runtime.orchestration import CANONICAL_ROLES;'
 
 TESTS_RUN=0
 TESTS_PASSED=0
@@ -38,6 +38,7 @@ write_allowlist_snapshot() {
   # $1 = path to write snapshot json
   cat > "$1" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "review-arbiter": "medium", "fixer": "medium"},
   "version": 2,
   "models": {
     "planner": "gpt-5.5",
@@ -89,6 +90,7 @@ snapshot = json.loads((quest_dir / "logs" / "allowlist_snapshot.json").read_text
 write_default_from_allowlist(
     quest_dir / "orchestration.json",
     snapshot["models"],
+    effort=dict.fromkeys(CANONICAL_ROLES, "medium"),
     preflight_validated_at="2026-05-18T05:42:13Z",
 )
 PY
@@ -144,6 +146,7 @@ write_default_from_allowlist(
     claude_available=False,
     quest_mode="workflow",
     remap_unavailable=True,
+    effort=dict.fromkeys(CANONICAL_ROLES, "medium"),
     preflight_validated_at="2026-05-18T05:42:13Z",
 )
 orch = json.loads(Path(sys.argv[1]).read_text())
@@ -191,6 +194,7 @@ write_orchestration_json(
     models=merged,
     source="overridden",
     overridden_roles=overridden,
+    effort=dict.fromkeys(CANONICAL_ROLES, "medium"),
     preflight_validated_at="2026-05-18T05:42:13Z",
 )
 PY
@@ -538,6 +542,7 @@ for index, submission in enumerate(submissions):
         models=merged,
         source="overridden",
         overridden_roles=overridden,
+        effort=dict.fromkeys(CANONICAL_ROLES, "medium"),
         preflight_validated_at="2026-07-11T00:00:00Z",
     )
     payloads.append(json.loads(path.read_text()))
@@ -691,9 +696,7 @@ assert result == [
 PY
 }
 
-test_resume_migrates_missing_orchestration_json() {
-  # When orchestration.json is absent on resume and the snapshot is present,
-  # the migration produces a default orchestration.json from the snapshot.
+test_resume_refuses_missing_orchestration_json() {
   local tmpdir
   tmpdir=$(mktemp -d)
   mkdir -p "$tmpdir/logs"
@@ -701,120 +704,28 @@ test_resume_migrates_missing_orchestration_json() {
 
   python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
 ${PY_HELPER}
-import sys
 from pathlib import Path
 from quest_runtime.orchestration import migrate_from_snapshot
-written = migrate_from_snapshot(Path(sys.argv[1]))
-assert written is True, "expected a fresh write"
+
+quest = Path(sys.argv[1])
+snapshot = quest / "logs/allowlist_snapshot.json"
+original = snapshot.read_bytes()
+# Initial, malformed and absent snapshots must all refuse reconstruction.
+for contents in (original, b"{invalid", None):
+    if contents is None:
+        snapshot.unlink()
+    else:
+        snapshot.write_bytes(contents)
+    try:
+        migrate_from_snapshot(quest)
+    except ValueError as exc:
+        assert "Missing orchestration.json" in str(exc), exc
+        assert "reconfigure" in str(exc) and "new quest" in str(exc), exc
+    else:
+        raise AssertionError("missing saved configuration must block resume")
+    assert not (quest / "orchestration.json").exists()
+    assert snapshot.read_bytes() == contents if contents is not None else not snapshot.exists()
 PY
-
-  python3 - "$tmpdir/orchestration.json" "$tmpdir/logs/allowlist_snapshot.json" <<'PY' || { rm -rf "$tmpdir"; return 1; }
-import json, sys, re
-orch = json.loads(open(sys.argv[1]).read())
-snap = json.loads(open(sys.argv[2]).read())
-assert orch["version"] == 1
-assert orch["source"] == "default"
-assert orch["overridden_roles"] == []
-assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", orch["preflight_validated_at"]), orch["preflight_validated_at"]
-for k in ["planner","plan-reviewer-a","plan-reviewer-b","arbiter","builder","code-reviewer-a","code-reviewer-b","review-arbiter","fixer"]:
-    assert orch["models"][k] == snap["models"][k], (k, orch["models"][k], snap["models"][k])
-PY
-  rm -rf "$tmpdir"
-}
-
-test_resume_reports_missing_or_invalid_snapshot() {
-  local tmpdir
-  tmpdir=$(mktemp -d)
-  mkdir -p "$tmpdir/logs"
-
-  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
-${PY_HELPER}
-import sys
-from pathlib import Path
-from quest_runtime.orchestration import migrate_from_snapshot
-try:
-    migrate_from_snapshot(Path(sys.argv[1]))
-except ValueError as exc:
-    assert "Snapshot not readable" in str(exc), exc
-else:
-    raise SystemExit("expected missing snapshot to raise ValueError")
-PY
-
-  printf '{ not json\n' > "$tmpdir/logs/allowlist_snapshot.json"
-  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
-${PY_HELPER}
-import sys
-from pathlib import Path
-from quest_runtime.orchestration import migrate_from_snapshot
-try:
-    migrate_from_snapshot(Path(sys.argv[1]))
-except ValueError as exc:
-    assert "is not valid JSON" in str(exc), exc
-else:
-    raise SystemExit("expected invalid snapshot to raise ValueError")
-PY
-
-  printf '[]\n' > "$tmpdir/logs/allowlist_snapshot.json"
-  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
-${PY_HELPER}
-import sys
-from pathlib import Path
-from quest_runtime.orchestration import migrate_from_snapshot
-try:
-    migrate_from_snapshot(Path(sys.argv[1]))
-except ValueError as exc:
-    assert "must be a JSON object" in str(exc), exc
-else:
-    raise SystemExit("expected non-object snapshot to raise ValueError")
-PY
-
-  cat > "$tmpdir/logs/allowlist_snapshot.json" <<'EOF'
-{
-  "models": {
-    "planner": "claude",
-    "plan-reviewer-a": "claude",
-    "plan-reviewer-b": "claude",
-    "arbiter": "claude",
-    "builder": "claude",
-    "code-reviewer-a": "claude",
-    "code-reviewer-b": "claude",
-    "fixer": "claude"
-  }
-}
-EOF
-  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
-${PY_HELPER}
-import json
-import sys
-from pathlib import Path
-from quest_runtime.orchestration import migrate_from_snapshot
-written = migrate_from_snapshot(Path(sys.argv[1]))
-assert written is True, "expected legacy role backfill write"
-orch = json.loads((Path(sys.argv[1]) / "orchestration.json").read_text())
-assert orch["models"]["review-arbiter"] == "claude-opus-5", orch["models"]
-PY
-
-  rm -f "$tmpdir/orchestration.json"
-  cat > "$tmpdir/logs/allowlist_snapshot.json" <<'EOF'
-{
-  "models": {
-    "planner": "claude"
-  }
-}
-EOF
-  python3 - "$tmpdir" <<PY || { rm -rf "$tmpdir"; return 1; }
-${PY_HELPER}
-import sys
-from pathlib import Path
-from quest_runtime.orchestration import migrate_from_snapshot
-try:
-    migrate_from_snapshot(Path(sys.argv[1]))
-except ValueError as exc:
-    assert "Snapshot models missing required role" in str(exc), exc
-else:
-    raise SystemExit("expected incomplete snapshot to raise ValueError")
-PY
-
   rm -rf "$tmpdir"
 }
 
@@ -827,6 +738,7 @@ test_resume_backfills_existing_legacy_orchestration_json() {
   write_allowlist_snapshot "$tmpdir/logs/allowlist_snapshot.json"
   cat > "$tmpdir/orchestration.json" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "fixer": "medium", "review-arbiter": "medium"},
   "version": 1,
   "models": {
     "planner": "claude",
@@ -872,6 +784,7 @@ test_resume_backfills_transport_keys_on_pre_transport_orchestration_json() {
   write_allowlist_snapshot "$tmpdir/logs/allowlist_snapshot.json"
   cat > "$tmpdir/orchestration.json" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "review-arbiter": "medium", "fixer": "medium"},
   "version": 1,
   "models": {
     "planner": "claude",
@@ -921,6 +834,7 @@ test_resume_rejects_present_but_invalid_claude_role_transport() {
   write_allowlist_snapshot "$tmpdir/logs/allowlist_snapshot.json"
   cat > "$tmpdir/orchestration.json" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "review-arbiter": "medium", "fixer": "medium"},
   "version": 1,
   "models": {
     "planner": "claude",
@@ -966,6 +880,7 @@ test_resume_does_not_modify_existing_complete_orchestration_json() {
   write_allowlist_snapshot "$tmpdir/logs/allowlist_snapshot.json"
   cat > "$tmpdir/orchestration.json" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "review-arbiter": "medium", "fixer": "medium"},
   "version": 1,
   "models": {
     "planner": "claude",
@@ -1138,6 +1053,7 @@ quest = root / "quest"
     json.dumps(
         {
             "version": 1,
+            "effort": dict.fromkeys(("planner", "plan-reviewer-a", "plan-reviewer-b", "arbiter", "builder", "code-reviewer-a", "code-reviewer-b", "review-arbiter", "fixer"), "medium"),
             "models": {
                 "planner": "gpt-6-astra",
                 "plan-reviewer-a": "claude-opus-5",
@@ -1285,8 +1201,7 @@ run_test test_chooser_rejects_unknown_role
 run_test test_chooser_rejects_multiple_equals
 run_test test_chooser_skips_empty_pieces
 run_test test_chooser_normalizes_role_case
-run_test test_resume_migrates_missing_orchestration_json
-run_test test_resume_reports_missing_or_invalid_snapshot
+run_test test_resume_refuses_missing_orchestration_json
 run_test test_resume_backfills_existing_legacy_orchestration_json
 run_test test_resume_backfills_transport_keys_on_pre_transport_orchestration_json
 run_test test_resume_rejects_present_but_invalid_claude_role_transport
