@@ -24,6 +24,7 @@ architecture docs.
 | `handoff-validation-and-failure-ux.md` | in-progress | Add actionable diagnostics when handoff fallback occurs. |
 | `2026-05-04-ci-review-allowlist-quality-roadmap.md` | in-progress | Canonical owner for remaining CI review, allowlist, bug-fix discipline, and PR-readiness work. |
 | `2026-07-27-closed-set-totality-and-cheap-review-ordering.md` | proposed | Add a totality review dimension for closed sets, and fix the ordering that hides draft-gated automated reviewers behind the full pipeline. |
+| `2026-09-22-quest-doc-status-before-draft-pr.md` | proposed | Require housekeeping docs a Quest touched to describe the state being delivered before the draft PR is created. A `status:` field is written at authoring time and never updated, so shipped work keeps claiming it is unmerged and agents read it as fact. |
 
 ### Architecture and Workflow Evolution
 | File | Status | Purpose |
