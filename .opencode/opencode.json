@@ -28,7 +28,7 @@
     "planner": {
       "description": "Creates implementation plans from quest briefs",
       "mode": "subagent",
-      "model": "opencode/gpt-6-astra",
+      "model": "opencode/gpt-6.1-sol",
       "prompt": "{file:agents/planner.md}",
       "permission": {
         "edit": {
@@ -54,7 +54,7 @@
     "plan-reviewer-b": {
       "description": "Reviews implementation plans (Reviewer B - Codex)",
       "mode": "subagent",
-      "model": "opencode/gpt-6-astra",
+      "model": "opencode/gpt-6.1-sol",
       "prompt": "{file:agents/plan-reviewer.md}",
       "permission": {
         "edit": {
@@ -80,7 +80,7 @@
     "builder": {
       "description": "Implements approved plans (local subagent)",
       "mode": "subagent",
-      "model": "opencode/gpt-6-astra",
+      "model": "opencode/gpt-6.1-sol",
       "prompt": "{file:agents/builder.md}",
       "permission": {
         "edit": {
@@ -123,7 +123,7 @@
     "code-reviewer-b": {
       "description": "Reviews code changes (Reviewer B - Codex)",
       "mode": "subagent",
-      "model": "opencode/gpt-6-astra",
+      "model": "opencode/gpt-6.1-sol",
       "prompt": "{file:agents/code-reviewer.md}",
       "permission": {
         "edit": {
@@ -154,7 +154,7 @@
     "fixer": {
       "description": "Addresses code review feedback",
       "mode": "subagent",
-      "model": "opencode/gpt-6-astra",
+      "model": "opencode/gpt-6.1-sol",
       "prompt": "{file:agents/fixer.md}",
       "permission": {
         "edit": {
