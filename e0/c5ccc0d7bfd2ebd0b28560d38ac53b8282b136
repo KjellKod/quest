@@ -1,0 +1,33 @@
+tests/test-quest-orchestration.sh
+  s_92203a4e5e4a4e::t_cad3c40ce77da8 153-155,224,227-228,240,242,244,246,248,253
+scripts/quest_runtime/orchestration.py
+  s_342d58df12c9ae::t_6a32645e909ccf 39,41,43,45,47,49
+.ai/allowlist.json
+  s_92203a4e5e4a4e::t_2fc30965540681 23,38,40,42,44,46
+.opencode/opencode.json
+  s_342d58df12c9ae::t_6a32645e909ccf 31,57,83,126,157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e0c5ccc0d7bfd2ebd0b28560d38ac53b8282b136",
+  "prompts": {},
+  "sessions": {
+    "s_342d58df12c9ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01a0594c-d3d0-71e1-b3df-96cf925707e2",
+        "model": "unknown"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    },
+    "s_92203a4e5e4a4e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0594c-d3d0-71e1-b3df-96cf925707e2",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "KjellKod <kjell.hedstrom@gmail.com>"
+    }
+  }
+}
