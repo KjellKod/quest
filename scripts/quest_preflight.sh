@@ -105,7 +105,7 @@ trap 'cleanup_bg_probes; trap - EXIT; exit 143' TERM
 # Argument Parsing
 ###############################################################################
 
-USAGE="Usage: quest_preflight.sh --orchestrator claude|codex [--codex-auth cached|api-key] | --probe antigravity"
+USAGE="Usage: quest_preflight.sh --orchestrator claude|codex [--codex-auth cached|api-key] | --probe claude|antigravity"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -125,7 +125,7 @@ while [ $# -gt 0 ]; do
       ;;
     --probe)
       # Probe one dispatched runtime directly. Independent of --orchestrator
-      # because Antigravity is never an orchestrator, only ever a target.
+      # so Claude-led sessions can also check their Claude role transport.
       if [ $# -lt 2 ] || [ -z "$2" ]; then
         echo "$USAGE" >&2
         exit 2
@@ -251,8 +251,12 @@ wrapper = {
     "ttl_seconds": ttl_seconds,
     "payload": payload,
 }
-cache_file.parent.mkdir(parents=True, exist_ok=True)
-cache_file.write_text(json.dumps(wrapper, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+# Caching is optional; a verified live probe remains authoritative.
+try:
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text(json.dumps(wrapper, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+except OSError:
+    print("WARNING: could not save preflight success cache; using live probe result.", file=sys.stderr)
 PY
 }
 
@@ -371,8 +375,9 @@ emit_invalid_transport_payload() {
   warn2="Fix or remove the key; preflight will not coerce an invalid transport to a default (it could resume under a different billing path)."
   cat <<EOJSON
 {
-  "orchestrator": "codex",
-  "second_model": "claude",
+  "runtime": "claude",
+  "orchestrator": $(json_quote_or_null "$ORCHESTRATOR"),
+  "second_model": $(json_quote_or_null "${ORCHESTRATOR:+claude}"),
   "transport": $(json_quote_or_null "$configured"),
   "transport_downgraded": false,
   "source": "config",
@@ -548,8 +553,9 @@ raise SystemExit(0 if isinstance(data, list) else 1)
   local payload
   payload=$(cat <<EOJSON
 {
-  "orchestrator": "codex",
-  "second_model": "claude",
+  "runtime": "claude",
+  "orchestrator": $(json_quote_or_null "$ORCHESTRATOR"),
+  "second_model": $(json_quote_or_null "${ORCHESTRATOR:+claude}"),
   "transport": "background-agent",
   "probe_model": $(json_quote_or_null "$CLAUDE_PROBE_MODEL"),
   "transport_downgraded": false,
@@ -667,7 +673,7 @@ probe_claude_bridge() {
   # Build warning lines for the explicit bridge path.
   local warning_lines=""
   if [ "$available" = "false" ]; then
-    warning_lines="${warning_lines}    \"Claude bridge not available -- quest will run Codex-only (all roles).\",\n"
+    warning_lines="${warning_lines}    \"Claude bridge not available -- Claude-backed roles cannot run. Fix the transport or explicitly choose different role assignments.\",\n"
     warning_lines="${warning_lines}    \"Ensure Claude CLI is installed and authenticated in a normal shell:\",\n"
     if [ "$claude_cli_installed" = "false" ]; then
       warning_lines="${warning_lines}    \"  npm i -g @anthropic-ai/claude-code  # install Claude CLI\",\n"
@@ -690,8 +696,9 @@ probe_claude_bridge() {
   local payload
   payload=$(cat <<EOJSON
 {
-  "orchestrator": "codex",
-  "second_model": "claude",
+  "runtime": "claude",
+  "orchestrator": $(json_quote_or_null "$ORCHESTRATOR"),
+  "second_model": $(json_quote_or_null "${ORCHESTRATOR:+claude}"),
   "transport": "bridge",
   "probe_model": $(json_quote_or_null "$CLAUDE_PROBE_MODEL"),
   "transport_downgraded": false,
@@ -757,13 +764,7 @@ probe_claude_transport() {
 
   # auto: background-agent first. A failed bg probe is a user-visible decision
   # point, not implicit consent to the API-metered bridge.
-  local bg_payload
-  bg_payload=$(probe_claude_bg)
-  if [ "$(printf '%s' "$bg_payload" | json_get "available" 2>/dev/null || echo "false")" = "true" ]; then
-    printf '%s\n' "$bg_payload"
-    return 0
-  fi
-  printf '%s\n' "$bg_payload"
+  probe_claude_bg
 }
 
 probe_antigravity() {
@@ -887,12 +888,16 @@ if [ -n "$PROBE_RUNTIME" ]; then
     exit 2
   fi
   case "$PROBE_RUNTIME" in
+    claude)
+      probe_claude_transport
+      exit 0
+      ;;
     antigravity)
       probe_antigravity
       exit 0
       ;;
     *)
-      echo "Unknown probe runtime: $PROBE_RUNTIME (expected: antigravity)" >&2
+      echo "Unknown probe runtime: $PROBE_RUNTIME (expected: claude or antigravity)" >&2
       exit 2
       ;;
   esac

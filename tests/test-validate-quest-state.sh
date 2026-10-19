@@ -67,6 +67,7 @@ write_orchestration_json() {
   if [ -z "$body" ]; then
     cat > "$filepath" <<'EOF'
 {
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "review-arbiter": "medium", "fixer": "medium"},
   "version": 1,
   "models": {
     "planner": "gpt-5.5",
@@ -1123,6 +1124,7 @@ test_fix_iteration_exceeded_uses_solo_cap() {
 }
 AEOF
   cp "$SCRIPT" "$fakerepo/scripts/quest_validate-quest-state.sh"
+  cp -R "$REPO_ROOT/scripts/quest_runtime" "$fakerepo/scripts/quest_runtime"
 
   local output stderr_output
   output=$(cd "$fakerepo" && bash scripts/quest_validate-quest-state.sh "$tmpdir" "reviewing" 2>"$stderr_file")
@@ -1288,6 +1290,7 @@ test_non_numeric_allowlist_iterations() {
 AEOF
   mkdir -p "$fakerepo/scripts"
   cp "$SCRIPT" "$fakerepo/scripts/quest_validate-quest-state.sh"
+  cp -R "$REPO_ROOT/scripts/quest_runtime" "$fakerepo/scripts/quest_runtime"
   local output stderr_output
   output=$(cd "$fakerepo" && bash scripts/quest_validate-quest-state.sh "$tmpdir" "plan" 2>"$stderr_file")
   local rc=$?
@@ -1321,6 +1324,7 @@ test_zero_allowlist_iterations_are_rejected() {
 }
 AEOF
   cp "$SCRIPT" "$fakerepo/scripts/quest_validate-quest-state.sh"
+  cp -R "$REPO_ROOT/scripts/quest_runtime" "$fakerepo/scripts/quest_runtime"
 
   local output stderr_output
   output=$(cd "$fakerepo" && bash scripts/quest_validate-quest-state.sh "$tmpdir" "plan" 2>"$stderr_file")
@@ -1401,6 +1405,7 @@ test_validate_rejects_wrong_version_orchestration() {
   write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
   write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
   write_orchestration_json "$tmpdir/orchestration.json" '{
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "fixer": "medium"},
   "version": 2,
   "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":"claude","builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","fixer":"claude"},
   "source": "default",
@@ -1450,6 +1455,7 @@ test_validate_rejects_bad_source_orchestration() {
   write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
   write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
   write_orchestration_json "$tmpdir/orchestration.json" '{
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "fixer": "medium"},
   "version": 1,
   "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":"claude","builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","fixer":"claude"},
   "source": "hacked",
@@ -1476,6 +1482,7 @@ test_validate_rejects_unset_active_role_model() {
   write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
   # arbiter required in workflow mode but null
   write_orchestration_json "$tmpdir/orchestration.json" '{
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "review-arbiter": "medium", "fixer": "medium"},
   "version": 1,
   "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":null,"builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","review-arbiter":"claude","fixer":"claude"},
   "source": "default",
@@ -1501,6 +1508,7 @@ test_validate_rejects_non_string_active_role_model() {
   write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
   write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
   write_orchestration_json "$tmpdir/orchestration.json" '{
+  "effort": {"plan-reviewer-a": "medium", "plan-reviewer-b": "medium", "arbiter": "medium", "builder": "medium", "code-reviewer-a": "medium", "code-reviewer-b": "medium", "review-arbiter": "medium", "fixer": "medium"},
   "version": 1,
   "models": {"planner":true,"plan-reviewer-a":"claude","plan-reviewer-b":"claude","arbiter":"claude","builder":"claude","code-reviewer-a":"claude","code-reviewer-b":"claude","review-arbiter":"claude","fixer":"claude"},
   "source": "default",
@@ -1524,6 +1532,7 @@ test_validate_accepts_null_unused_role_solo() {
   touch "$tmpdir/phase_01_plan/plan.md"
   touch "$tmpdir/phase_01_plan/review_plan-reviewer-a.md"
   write_orchestration_json "$tmpdir/orchestration.json" '{
+  "effort": {"planner": "medium", "plan-reviewer-a": "medium", "builder": "medium", "code-reviewer-a": "medium", "fixer": "medium"},
   "version": 1,
   "models": {"planner":"claude","plan-reviewer-a":"claude","plan-reviewer-b":null,"arbiter":null,"builder":"claude","code-reviewer-a":"claude","code-reviewer-b":null,"fixer":"claude"},
   "source": "default",
@@ -1543,11 +1552,11 @@ test_validate_rejects_invalid_codex_effort() {
   create_state_json "$tmpdir" "plan" 1 0 "workflow" ""
   for effort in '"typo"' 'null' '[]' 'false'; do
     write_orchestration_json "$tmpdir/orchestration.json"
-    jq --argjson effort "$effort" '.codex_reasoning_effort = $effort' "$tmpdir/orchestration.json" > "$tmpdir/updated.json"
+    jq --argjson effort "$effort" '.effort.builder = $effort' "$tmpdir/orchestration.json" > "$tmpdir/updated.json"
     mv "$tmpdir/updated.json" "$tmpdir/orchestration.json"
     output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)
     rc=$?
-    if [ "$rc" -ne 1 ] || ! echo "$output" | grep -q "codex_reasoning_effort is invalid"; then
+    if [ "$rc" -ne 1 ] || ! echo "$output" | grep -q "effort invalid"; then
       rm -rf "$tmpdir"
       return 1
     fi
@@ -1567,7 +1576,7 @@ test_validate_accepts_workflow_default_block() {
   write_valid_review_findings "$tmpdir/phase_01_plan/review_findings.json"
   write_review_backlog "$tmpdir/phase_01_plan/review_backlog.json" "plan_actionable"
   write_orchestration_json "$tmpdir/orchestration.json"
-  jq '.codex_reasoning_effort = "medium"' "$tmpdir/orchestration.json" > "$tmpdir/updated.json"
+  jq '.effort.builder = "medium"' "$tmpdir/orchestration.json" > "$tmpdir/updated.json"
   mv "$tmpdir/updated.json" "$tmpdir/orchestration.json"
   local output
   output=$(bash "$SCRIPT" "$tmpdir" "plan_reviewed" 2>&1)

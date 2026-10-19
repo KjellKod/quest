@@ -100,6 +100,10 @@ def render_persisted_celebration(
         lines.extend(["## Starring Cast", ""])
         for agent in data.agents:
             model = friendly_model_name(agent.model)
+            if agent.configured_effort:
+                model += (
+                    ", " if model else ""
+                ) + f"configured effort: {agent.configured_effort}"
             label = f" [{model}]" if model else ""
             lines.append(f"- **{agent.name}{label}** ........ {agent.role_title}")
         lines.append("")

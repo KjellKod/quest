@@ -28,6 +28,20 @@ run_test() {
   fi
 }
 
+write_runner_orchestration() {
+  local dir="$1" role="$2"
+  python3 - "$dir" "$role" <<'PYTHON'
+import json
+import sys
+from pathlib import Path
+
+Path(sys.argv[1], "orchestration.json").write_text(json.dumps({
+    "models": {sys.argv[2]: "claude"},
+    "effort": {sys.argv[2]: "medium"},
+}))
+PYTHON
+}
+
 init_git_repo() {
   local dir="$1"
   git init -b main "$dir" >/dev/null 2>&1 || {
@@ -180,6 +194,9 @@ stub_installer_run_install_steps() {
   load_local_checksums() { :; }
   init_updated_checksums() { :; }
   check_self_update() { :; }
+  check_effort_install_prerequisite() { :; }
+  apply_effort_addition() { :; }
+  validate_installed_effort() { :; }
   create_directories() { :; }
   install_copy_as_is() { :; }
   install_user_customized() { :; }
@@ -241,6 +258,7 @@ test_quest_claude_runner_polls_handoff_and_logs_runtime() {
   local tmpdir
   tmpdir=$(mktemp -d)
   mkdir -p "$tmpdir/logs"
+  write_runner_orchestration "$tmpdir" plan-reviewer-a
   cat > "$tmpdir/fake_bridge.py" <<'EOF'
 #!/usr/bin/env python3
 import json
@@ -396,6 +414,7 @@ test_quest_state_transition_valid() {
   cat > "$tmpdir/orchestration.json" <<'EOF'
 {
   "version": 1,
+  "effort": {"planner":"medium","plan-reviewer-a":"medium","plan-reviewer-b":"medium","arbiter":"medium","builder":"medium","code-reviewer-a":"medium","code-reviewer-b":"medium","fixer":"medium"},
   "models": {
     "planner": "gpt-5.5",
     "plan-reviewer-a": "claude",
@@ -2556,6 +2575,7 @@ test_plan_review_retry_via_runner_preserves_canonical_artifacts_until_publish() 
   handoff_file="$phase_dir/handoff_arbiter.json"
   retry_handoff="$phase_dir/handoff_arbiter.retry.json"
   mkdir -p "$phase_dir"
+  write_runner_orchestration "$tmpdir" arbiter
 
   echo "old canonical verdict" > "$verdict_file"
 
@@ -3048,6 +3068,18 @@ def seal_iteration(quest_dir):
     )
 
 
+models = {
+    "planner": "claude",
+    "plan-reviewer-a": "claude-opus-5",
+    "plan-reviewer-b": "gpt-6-astra",
+    "arbiter": "claude-opus-5",
+    "builder": "gpt-6-astra",
+    "code-reviewer-a": "claude-opus-5",
+    "code-reviewer-b": "gpt-6-astra",
+    "review-arbiter": "claude-opus-5",
+    "fixer": "gpt-6-astra",
+}
+
 scenarios = (
     ("walkthrough", "presenting"),
     ("sharpen", "presenting"),
@@ -3076,17 +3108,8 @@ for mode in ("workflow", "solo"):
         quest_dir / "orchestration.json",
         {
             "version": 1,
-            "models": {
-                "planner": "gpt-6-astra",
-                "plan-reviewer-a": "claude-opus-5",
-                "plan-reviewer-b": "gpt-6-astra",
-                "arbiter": "claude-opus-5",
-                "builder": "gpt-6-astra",
-                "code-reviewer-a": "claude-opus-5",
-                "code-reviewer-b": "gpt-6-astra",
-                "review-arbiter": "claude-opus-5",
-                "fixer": "gpt-6-astra",
-            },
+            "models": models,
+            "effort": dict.fromkeys(models, "medium"),
             "source": "default",
             "overridden_roles": [],
             "preflight_validated_at": "2026-08-04T00:00:00Z",
