@@ -5,8 +5,11 @@ from __future__ import annotations
 import fnmatch
 import re
 import shutil
+import subprocess
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
+
+import pytest
 
 
 def _repo_root() -> Path:
@@ -205,6 +208,61 @@ def test_manifest_does_not_own_quest_presentation() -> None:
 
     assert "docs/guides/quest_presentation.md" not in entries
     assert "quest_presentation.md" not in entries
+
+
+def test_manifest_does_not_own_consumer_ci() -> None:
+    entries = _manifest_entries()
+    assert ".skills/ci-code-reviewer/SKILL.md" not in entries
+    assert not any(
+        entry == ".github" or entry.startswith(".github/") for entry in entries
+    )
+    assert ".skills/code-reviewer/SKILL.md" in entries
+
+
+@pytest.mark.parametrize("mode", ["--strict", "--installed"])
+@pytest.mark.parametrize(
+    "section", ["copy-as-is", "user-customized", "merge-carefully", "directories"]
+)
+@pytest.mark.parametrize(
+    "entry",
+    [
+        ".github",
+        ".github/workflows",
+        ".github/review.md",
+        ".skills/ci-code-reviewer/SKILL.md",
+    ],
+)
+def test_validator_rejects_consumer_ci_ownership(
+    tmp_path: Path, mode: str, section: str, entry: str
+) -> None:
+    (tmp_path / ".quest-manifest").write_text(f"[{section}]\n{entry}\n")
+    result = subprocess.run(
+        ["bash", str(_repo_root() / "scripts/quest_validate-manifest.sh"), mode],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode != 0, result.stdout
+    assert "Consumer CI" in result.stdout
+
+
+def test_strict_validator_excludes_only_exact_source_ci_skill(tmp_path: Path) -> None:
+    skill_dir = tmp_path / ".skills/ci-code-reviewer"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("Source-only reviewer\n")
+    (tmp_path / ".quest-manifest").write_text("[copy-as-is]\n")
+    command = [
+        "bash",
+        str(_repo_root() / "scripts/quest_validate-manifest.sh"),
+        "--strict",
+    ]
+    result = subprocess.run(command, cwd=tmp_path, text=True, capture_output=True)
+    assert result.returncode == 0, result.stdout
+
+    (skill_dir / "other.md").write_text("Unlisted framework content\n")
+    result = subprocess.run(command, cwd=tmp_path, text=True, capture_output=True)
+    assert result.returncode != 0, result.stdout
+    assert ".skills/ci-code-reviewer/other.md" in result.stdout
 
 
 def test_manifest_validator_does_not_scan_repo_tests() -> None:

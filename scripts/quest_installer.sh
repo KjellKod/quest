@@ -1033,6 +1033,18 @@ cleanup_removed_managed_files() {
   local current_checksum
 
   for filepath in "${LOCAL_CHECKSUM_FILES[@]}"; do
+    # This formerly distributed CI skill is now consumer-owned. Forget the
+    # checksum without inspecting, deleting, or changing the existing path.
+    if [ "$filepath" = ".skills/ci-code-reviewer/SKILL.md" ]; then
+      remove_updated_checksum "$filepath"
+      if $DRY_RUN; then
+        log_action "Would release installer ownership: $filepath"
+      else
+        log_info "Released installer ownership: $filepath (existing files left untouched)"
+      fi
+      continue
+    fi
+
     if is_registered_renamed_old_path "$filepath"; then
       continue
     fi

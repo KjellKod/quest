@@ -143,6 +143,23 @@ The installer:
 - Updates `AGENTS.md` in place only when it still matches the stored Quest-managed checksum
 - Self-updates when a newer version is available
 
+### Consumer CI ownership
+
+Normal Quest installs and updates manage the framework, while your repository
+owns its CI workflows, prompts, validators, configuration, and project-specific
+review policy, wherever those files live. Keep CI policy in your existing
+project-owned prompt and validator; that policy takes precedence over optional
+generic Quest review guidance. No matching wording in framework skills is needed.
+
+The installer no longer distributes `.skills/ci-code-reviewer/SKILL.md`.
+If an earlier install supplied it, the current installer removes its checksum
+ownership and leaves the file, permissions, symlinks, and existing sidecars
+untouched. Later updates leave it alone too. Generic review skills continue to
+receive framework updates. CI setup or migration is a separate project decision.
+
+Use the downloaded current installer above or accept its self-update to get
+this behavior.
+
 ### Option B: Manual Copy
 
 ## What to Copy

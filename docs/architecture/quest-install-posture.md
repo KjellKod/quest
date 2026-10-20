@@ -49,6 +49,18 @@ allowlist for the project's tooling namespaces. Unlisted files under shared
 locations such as `.ai/`, `.skills/`, `.agents/`, and `.claude/` remain
 host-owned. Their location alone never transfers ownership to Quest.
 
+Consumer CI workflows, prompts, validators, configuration, and project-specific
+review policy are outside the default distribution, wherever they live. Keep
+policy in existing consumer-owned prompts and validators; it takes precedence
+over optional generic Quest review guidance. Normal installs and updates do not
+set up or migrate CI integration.
+
+`.skills/ci-code-reviewer/SKILL.md` is retained only in the Quest source repo.
+The current installer releases checksum ownership of previously installed copies
+without touching their contents, permissions, symlinks, or sidecars. Future
+updates leave those copies consumer-owned. Download the current installer or
+accept its self-update when making this transition.
+
 **Strengths**
 - Self-contained: works offline after install; CI can run Quest with no
   external dependency.
