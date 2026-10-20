@@ -25,7 +25,9 @@ ORIGINAL = b"Consumer CI review baseline\n"
 NOTICE = f"Released installer ownership: {REVIEWER}"
 
 
-def seed_consumer(target: Path, state: str) -> dict[str, bytes | str | None]:
+def seed_consumer(
+    target: Path, state: str
+) -> dict[str, tuple[bytes | str | None, int]]:
     """Seed consumer-owned policy independently of framework prose."""
     (target / ".ai/allowlist.json").write_text(json.dumps(valid_allowlist()))
     for name in (
@@ -63,12 +65,27 @@ def seed_consumer(target: Path, state: str) -> dict[str, bytes | str | None]:
     return protected_snapshot(target)
 
 
-def protected_snapshot(target: Path) -> dict[str, bytes | str | None]:
+def protected_snapshot(target: Path) -> dict[str, tuple[bytes | str | None, int]]:
     return {
-        key: value
+        key: (value, (target / key).lstat().st_mode)
         for key, value in snapshot_tree(target).items()
         if key.startswith((".github/", "policy/", ".skills/ci-code-reviewer/"))
     }
+
+
+@pytest.mark.parametrize(
+    "name", [".github/review-prompt.md", REVIEWER + ".quest_updated"]
+)
+def test_protected_snapshot_detects_permission_changes(tmp_path: Path, name: str):
+    path = tmp_path / name
+    path.parent.mkdir(parents=True)
+    path.write_text("Consumer-owned policy\n")
+    path.chmod(0o640)
+    before = protected_snapshot(tmp_path)
+
+    path.chmod(0o600)
+
+    assert protected_snapshot(tmp_path) != before
 
 
 def install(

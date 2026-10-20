@@ -47,13 +47,6 @@ This directory contains specialized skills for AI agents working in this reposit
 
 **Location:** `.skills/pre-commit-review/SKILL.md`
 
-### ci-code-reviewer
-**Purpose:** Quest-repository-local CI review guidance. Not distributed by the installer; consuming repositories own their CI prompts, validators, and review policy.
-
-**Use when:** Running automated code review in GitHub Actions when a PR transitions from draft to ready-for-review.
-
-**Location:** `.skills/ci-code-reviewer/SKILL.md`
-
 ### implementer
 **Purpose:** Implement an approved implementation plan step by step, producing small reviewable changes and mapping code/tests to acceptance criteria.
 

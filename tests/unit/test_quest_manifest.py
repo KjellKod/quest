@@ -219,6 +219,11 @@ def test_manifest_does_not_own_consumer_ci() -> None:
     assert ".skills/code-reviewer/SKILL.md" in entries
 
 
+def test_distributed_catalog_does_not_advertise_source_only_ci_skill() -> None:
+    catalog = (_repo_root() / ".skills/SKILLS.md").read_text()
+    assert "ci-code-reviewer" not in catalog
+
+
 @pytest.mark.parametrize("mode", ["--strict", "--installed"])
 @pytest.mark.parametrize(
     "section", ["copy-as-is", "user-customized", "merge-carefully", "directories"]

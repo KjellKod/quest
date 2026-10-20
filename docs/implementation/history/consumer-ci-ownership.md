@@ -53,3 +53,10 @@ harness; no live consumer repository was modified.
 - `bash tests/test-quest-runtime.sh`: 72 passed.
 - Strict manifest validation, `black --check .`, shell syntax, and
   `git diff --check` passed. Python commands used the local `.venv`.
+
+## PR review follow-up
+
+Cubic identified that protected snapshots omitted permission modes and that
+the distributed catalog still advertised the source-only skill. Added failing
+regressions, extended snapshots with `lstat().st_mode` for every protected path,
+and removed the catalog entry. The source skill remains in the Quest repo.
