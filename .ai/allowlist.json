@@ -20,7 +20,7 @@
     "fix_loop": true
   },
   "claude_role_transport": "auto",
-  "codex_fallback_model": "gpt-6-astra",
+  "codex_fallback_model": "gpt-6.1-sol",
   "codex_auth_mode": "cached",
   "codex_reasoning_effort": "medium",
   "effort": {
@@ -35,15 +35,15 @@
     "fixer": "medium"
   },
   "models": {
-    "planner": "gpt-6-astra",
+    "planner": "gpt-6.1-sol",
     "plan-reviewer-a": "claude-opus-5",
-    "plan-reviewer-b": "gpt-6-astra",
+    "plan-reviewer-b": "gpt-6.1-sol",
     "arbiter": "claude-opus-5",
-    "builder": "gpt-6-astra",
+    "builder": "gpt-6.1-sol",
     "code-reviewer-a": "claude-opus-5",
-    "code-reviewer-b": "gpt-6-astra",
+    "code-reviewer-b": "gpt-6.1-sol",
     "review-arbiter": "claude-opus-5",
-    "fixer": "gpt-6-astra"
+    "fixer": "gpt-6.1-sol"
   },
   "quest_startup": {
     "branch_mode": "branch",
