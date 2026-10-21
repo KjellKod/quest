@@ -65,6 +65,14 @@ get_manifest_files() {
 
 MANIFEST_FILES=$(get_manifest_files | sort)
 
+# CI integration belongs to the consuming repository, not the distribution.
+CONSUMER_CI_FILES=$(echo "$MANIFEST_FILES" | grep -E '^(\.github(/|$)|\.skills/ci-code-reviewer/SKILL\.md$)' || true)
+if [ -n "$CONSUMER_CI_FILES" ]; then
+  log_error "Consumer CI files must not be owned by .quest-manifest:"
+  echo "$CONSUMER_CI_FILES"
+  exit 1
+fi
+
 TEST_MANIFEST_FILES=$(echo "$MANIFEST_FILES" | grep '^tests/' || true)
 if [ -n "$TEST_MANIFEST_FILES" ]; then
   log_error "Repo tests do not belong in .quest-manifest or the Quest installer."
@@ -145,6 +153,8 @@ if [ "$STRICT_MODE" = "1" ]; then
   MISSING_FILES=""
   while IFS= read -r file; do
     [ -z "$file" ] && continue
+    # Retained for Quest-local use only; sibling skills still require inventory.
+    [ "$file" = ".skills/ci-code-reviewer/SKILL.md" ] && continue
 
     if ! echo "$MANIFEST_FILES" | grep -q "^${file}$"; then
       MISSING_FILES="$MISSING_FILES$file"$'\n'

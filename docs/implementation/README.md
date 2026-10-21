@@ -25,3 +25,6 @@ transport test suites; the archived specs remain the record of *why* the
 design is shaped the way it is.
 
 Completed: [Quest effort replacement and lessons](history/quest-effort-replacement.md), with [validation evidence](history/quest-effort-validation.md).
+
+Completed: [Consumer CI ownership](history/consumer-ci-ownership.md) — release
+legacy CI reviewer ownership without modifying consumer integration (#185).
