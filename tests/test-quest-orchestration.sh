@@ -220,10 +220,10 @@ from quest_runtime.orchestration import build_default_models
 result = build_default_models({"planner": "gpt-5.5", "builder": "claude"})
 assert result["planner"] == "gpt-5.5", result
 assert result["builder"] == "claude", result
-assert result["plan-reviewer-a"] == "claude-opus-5", result
+assert result["plan-reviewer-a"] == "claude-opus-5-5", result
 assert result["plan-reviewer-b"] == "gpt-6.1-sol", result
-assert result["arbiter"] == "claude-opus-5", result
-assert result["code-reviewer-a"] == "claude-opus-5", result
+assert result["arbiter"] == "claude-opus-5-5", result
+assert result["code-reviewer-a"] == "claude-opus-5-5", result
 assert result["code-reviewer-b"] == "gpt-6.1-sol", result
 assert result["fixer"] == "gpt-6.1-sol", result
 PY
@@ -238,13 +238,13 @@ from quest_runtime.orchestration import CODEX_NATIVE_FALLBACK_MODEL, DEFAULT_MOD
 
 expected = {
     "planner": "gpt-6.1-sol",
-    "plan-reviewer-a": "claude-opus-5",
+    "plan-reviewer-a": "claude-opus-5-5",
     "plan-reviewer-b": "gpt-6.1-sol",
-    "arbiter": "claude-opus-5",
+    "arbiter": "claude-opus-5-5",
     "builder": "gpt-6.1-sol",
-    "code-reviewer-a": "claude-opus-5",
+    "code-reviewer-a": "claude-opus-5-5",
     "code-reviewer-b": "gpt-6.1-sol",
-    "review-arbiter": "claude-opus-5",
+    "review-arbiter": "claude-opus-5-5",
     "fixer": "gpt-6.1-sol",
 }
 allowlist = json.loads(Path(".ai/allowlist.json").read_text())
@@ -766,7 +766,7 @@ quest_dir = Path(sys.argv[1])
 written = migrate_from_snapshot(quest_dir)
 assert written is True, "expected legacy backfill write"
 orch = json.loads((quest_dir / "orchestration.json").read_text())
-assert orch["models"]["review-arbiter"] == "claude-opus-5", orch["models"]
+assert orch["models"]["review-arbiter"] == "claude-opus-5-5", orch["models"]
 assert orch["source"] == "overridden", orch
 assert orch["overridden_roles"] == ["planner", "builder"], orch
 PY
