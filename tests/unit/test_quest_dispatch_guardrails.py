@@ -219,12 +219,15 @@ def test_claude_led_unavailable_preflight_requires_human_routing_decision() -> N
     assert "do not prompt again" in clause
     assert "using Claude runtime fallback for all roles" not in clause
     assert "| Codex-led | Codex | local Codex subagent" in workflow
-    assert "| Codex-led | Claude | `python3 scripts/quest_claude_runner.py`" in workflow
+    assert (
+        "| Either orchestrator | Claude | `python3 scripts/quest_claude_runner.py`"
+        in workflow
+    )
     assert (
         "| Claude-led | Codex | `python3 <installation-root>/scripts/quest_codex_runner.py role`"
         in workflow
     )
-    assert "| Claude-led | Claude | native `Task(...)`" in workflow
+    assert "native `Task(...)`" not in workflow
     assert "Missing native controls or mismatched parent settings block" in workflow
 
 
@@ -285,7 +288,7 @@ def test_gpt_skill_excludes_codex_led_quest_dispatch() -> None:
     assert "use local Codex subagents" in skill
     assert "using the saved model and effort" in skill
     workflow = _read(".skills/quest/delegation/workflow.md")
-    assert "codex_reasoning_effort" in workflow
+    assert "effort.<role>" in workflow
     assert "inherit only after verifying the parent matches" in workflow
     assert "otherwise stop and report the mismatch" in workflow
     assert "Never substitute MCP or nested `codex exec`" in skill

@@ -38,25 +38,27 @@ def _write_planner_state(quest_dir: Path) -> None:
     )
 
 
-def test_select_role_runtime_keeps_native_claude_for_claude_led_hosts():
-    selection = select_role_runtime(
-        orchestrator="claude",
-        target_runtime="claude",
-        native_claude_available=True,
-        claude_bridge_available=False,
-    )
-
-    assert selection.runtime == "claude"
-    assert selection.entrypoint == "Task(...)"
-    assert selection.requires_probe is False
-    assert "native Claude task execution" in selection.reason
+def test_claude_roles_require_probed_runner_for_either_orchestrator():
+    for orchestrator in ("claude", "codex"):
+        ready = select_role_runtime(
+            orchestrator=orchestrator,
+            target_runtime="claude",
+            claude_bridge_available=True,
+        )
+        assert ready.entrypoint == "scripts/quest_claude_runner.py"
+        assert ready.requires_probe is True
+        blocked = select_role_runtime(
+            orchestrator=orchestrator,
+            target_runtime="claude",
+            claude_bridge_available=False,
+        )
+        assert blocked.runtime == "blocked"
 
 
 def test_select_role_runtime_uses_subagent_for_codex_led_codex_roles():
     selection = select_role_runtime(
         orchestrator="codex",
         target_runtime="codex",
-        native_claude_available=False,
         claude_bridge_available=False,
     )
 
@@ -84,7 +86,6 @@ def test_select_role_runtime_uses_codex_runner_for_claude_led_codex_roles():
     selection = select_role_runtime(
         orchestrator="claude",
         target_runtime="codex",
-        native_claude_available=True,
         claude_bridge_available=False,
         codex_runner_available=True,
     )
@@ -100,14 +101,13 @@ def test_select_role_runtime_uses_bridge_runner_for_codex_led_claude_roles():
     selection = select_role_runtime(
         orchestrator="codex",
         target_runtime="claude",
-        native_claude_available=False,
         claude_bridge_available=True,
     )
 
     assert selection.runtime == "claude"
     assert selection.entrypoint == "scripts/quest_claude_runner.py"
     assert selection.requires_probe is True
-    assert "additive bridge-backed Quest runner" in selection.reason
+    assert "probed Quest runner" in selection.reason
     assert (
         "runtime=claude entrypoint=scripts/quest_claude_runner.py" in selection.reason
     )
@@ -117,14 +117,13 @@ def test_select_role_runtime_blocks_codex_led_claude_role_without_bridge():
     selection = select_role_runtime(
         orchestrator="codex",
         target_runtime="claude",
-        native_claude_available=False,
         claude_bridge_available=False,
     )
 
     assert selection.runtime == "blocked"
     assert selection.entrypoint == ""
     assert selection.requires_probe is True
-    assert "requires the Quest Claude bridge runner" in selection.reason
+    assert "requires the Quest Claude runner" in selection.reason
     assert "runtime=claude entrypoint=blocked" in selection.reason
 
 
@@ -366,7 +365,6 @@ def test_select_role_runtime_accepts_persisted_model_ids():
     codex_selection = select_role_runtime(
         orchestrator="codex",
         target_runtime="gpt-5.5",
-        native_claude_available=False,
         claude_bridge_available=False,
     )
     assert codex_selection.runtime == "codex"
@@ -375,7 +373,6 @@ def test_select_role_runtime_accepts_persisted_model_ids():
     claude_selection = select_role_runtime(
         orchestrator="codex",
         target_runtime="claude-opus-4-6",
-        native_claude_available=False,
         claude_bridge_available=True,
     )
     assert claude_selection.runtime == "claude"
@@ -384,7 +381,6 @@ def test_select_role_runtime_accepts_persisted_model_ids():
     provider_qualified_selection = select_role_runtime(
         orchestrator="codex",
         target_runtime="opencode/claude-opus-4-6",
-        native_claude_available=False,
         claude_bridge_available=True,
     )
     assert provider_qualified_selection.runtime == "claude"
@@ -640,6 +636,10 @@ def test_migration_fails_closed_on_missing_role_instead_of_writing_null(tmp_path
         ),
         encoding="utf-8",
     )
+
+    saved = json.loads(orch.read_text())
+    saved["effort"] = {role: "medium" for role in saved["models"]}
+    orch.write_text(json.dumps(saved))
 
     import pytest as _pytest
 
@@ -987,7 +987,7 @@ def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys
         iter=1,
         prompt_file=str(tmp_path / "prompt.txt"),
         handoff_file=str(tmp_path / "handoff.json"),
-        model="opus",
+        model="claude-opus-5",
         timeout=90.0,
         permission_mode="bypassPermissions",
         transport="bridge",
@@ -996,6 +996,10 @@ def test_quest_claude_runner_enables_text_fallback(monkeypatch, tmp_path, capsys
         cwd=str(tmp_path),
         add_dir=[],
         artifact_subset=None,
+    )
+    Path(args.quest_dir).mkdir(parents=True)
+    (Path(args.quest_dir) / "orchestration.json").write_text(
+        json.dumps({"models": {"planner": args.model}, "effort": {"planner": "medium"}})
     )
     captured: dict[str, object] = {}
 
@@ -1092,7 +1096,7 @@ def test_cli_quest_claude_runner_relative_non_dot_cwd_resolves_bridge_script(
         iter=1,
         prompt_file=str(repo_dir / "prompt.txt"),
         handoff_file=str(repo_dir / "handoff.json"),
-        model="opus",
+        model="claude-opus-5",
         timeout=90.0,
         permission_mode="bypassPermissions",
         transport="bridge",
@@ -1101,6 +1105,10 @@ def test_cli_quest_claude_runner_relative_non_dot_cwd_resolves_bridge_script(
         cwd="repo",
         add_dir=[],
         artifact_subset=None,
+    )
+    Path(args.quest_dir).mkdir(parents=True)
+    (Path(args.quest_dir) / "orchestration.json").write_text(
+        json.dumps({"models": {"planner": args.model}, "effort": {"planner": "medium"}})
     )
     captured: dict[str, object] = {}
 
@@ -1990,6 +1998,9 @@ def test_quest_claude_runner_cli_resolves_and_echoes_transport(
 
     prompt_file = tmp_path / "prompt.txt"
     prompt_file.write_text("transport echo test\n", encoding="utf-8")
+    (tmp_path / "orchestration.json").write_text(
+        json.dumps({"models": {"planner": "claude"}, "effort": {"planner": "medium"}})
+    )
     captured_kwargs = {}
 
     def fake_expected_artifacts_for_role(
@@ -2056,6 +2067,9 @@ def test_quest_claude_runner_cli_auto_uses_bg_without_cache(
 
     prompt_file = tmp_path / "prompt.txt"
     prompt_file.write_text("auto bg test\n", encoding="utf-8")
+    (tmp_path / "orchestration.json").write_text(
+        json.dumps({"models": {"planner": "claude"}, "effort": {"planner": "medium"}})
+    )
     captured_kwargs = {}
 
     def fake_expected_artifacts_for_role(
@@ -2689,7 +2703,9 @@ def test_explicit_antigravity_family_name_routes_to_the_antigravity_runner():
         == "codex"
     )
     assert (
-        select_role_runtime(orchestrator="claude", target_runtime="claude").runtime
+        select_role_runtime(
+            orchestrator="claude", target_runtime="claude", claude_bridge_available=True
+        ).runtime
         == "claude"
     )
 
@@ -2720,6 +2736,11 @@ def test_default_allowlist_write_can_persist_a_gemini_role(tmp_path):
     write_default_from_allowlist(
         target,
         models,
+        effort={
+            role: "medium"
+            for role, model in models.items()
+            if not model.startswith("gemini")
+        },
         orchestrator="claude",
         codex_available=False,
         claude_available=True,
@@ -2735,6 +2756,11 @@ def test_default_allowlist_write_can_persist_a_gemini_role(tmp_path):
         write_default_from_allowlist(
             tmp_path / "second.json",
             models,
+            effort={
+                role: "medium"
+                for role, model in models.items()
+                if not model.startswith("gemini")
+            },
             orchestrator="claude",
             codex_available=False,
             claude_available=True,
@@ -2745,3 +2771,104 @@ def test_default_allowlist_write_can_persist_a_gemini_role(tmp_path):
         assert "code-reviewer-b" in str(exc)
     else:
         raise AssertionError("Expected an unprobed Gemini role to be rejected")
+
+
+def test_background_command_preserves_persona_effort_and_installation_context(tmp_path):
+    cmd = claude_runner_module.build_bg_cmd(
+        cwd=tmp_path,
+        bg_runner_script=tmp_path / "bg.py",
+        prompt_file=tmp_path / "prompt.txt",
+        name="review-b",
+        model="claude-opus-5",
+        effort="high",
+        persona="code-reviewer",
+        append_system_prompt="Installation root: /installed",
+        timeout=30,
+        permission_mode="acceptEdits",
+        handoff_file=tmp_path / "handoff.json",
+        wait_for=[],
+        add_dirs=[tmp_path],
+    )
+    assert cmd[cmd.index("--effort") + 1] == "high"
+    assert cmd[cmd.index("--agent") + 1] == "code-reviewer"
+    assert (
+        cmd[cmd.index("--append-system-prompt") + 1] == "Installation root: /installed"
+    )
+
+
+def test_role_wrapper_uses_saved_reviewer_settings_and_shared_persona(tmp_path):
+    """Real wrapper and runtime; only the external transport process is replaced."""
+    import sys
+
+    quest = tmp_path / ".quest" / "review"
+    quest.mkdir(parents=True)
+    prompt = tmp_path / "prompt.txt"
+    prompt.write_text("Review the synthetic change.")
+    (quest / "orchestration.json").write_text(
+        json.dumps(
+            {
+                "models": {
+                    "code-reviewer-a": "claude-opus-5",
+                    "code-reviewer-b": "claude-sonnet-4-6",
+                },
+                "effort": {"code-reviewer-a": "high", "code-reviewer-b": "low"},
+            }
+        )
+    )
+    (quest / "state.json").write_text(json.dumps({"phase": "reviewing"}))
+    transport = tmp_path / "transport.py"
+    transport.write_text("""import sys,json
+from pathlib import Path
+args=sys.argv[1:]
+Path(__file__).with_suffix('.json').write_text(json.dumps(args))
+outputs=[Path(args[i+1]) for i,a in enumerate(args) if a=='--wait-for']
+for path in outputs:
+ path.parent.mkdir(parents=True,exist_ok=True)
+ path.write_text(json.dumps({'status':'complete','artifacts':[str(p) for p in outputs], 'next':'review-arbiter','summary':'done'}) if path.name.startswith('handoff') else '[]')
+print(json.dumps({'status':'ok','teardown_failed':False}))
+""")
+    runner = Path(quest_claude_runner.__file__).resolve()
+    for slot, effort, model in [
+        ("a", "high", "claude-opus-5"),
+        ("b", "low", "claude-sonnet-4-6"),
+    ]:
+        role = f"code-reviewer-{slot}"
+        argv = [
+            sys.executable,
+            str(runner),
+            "--quest-dir",
+            str(quest),
+            "--phase",
+            "code_review",
+            "--agent",
+            role,
+            "--iter",
+            "1",
+            "--prompt-file",
+            str(prompt),
+            "--handoff-file",
+            str(quest / "phase_03_review" / f"handoff_{role}.json"),
+            "--cwd",
+            str(tmp_path),
+            "--transport",
+            "background-agent",
+            "--bg-runner-script",
+            str(transport),
+        ]
+        result = subprocess.run(argv, capture_output=True, text=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+        actual = json.loads(transport.with_suffix(".json").read_text())
+        assert actual[actual.index("--model") + 1] == model
+        assert actual[actual.index("--effort") + 1] == effort
+        assert actual[actual.index("--agent") + 1] == "code-reviewer"
+        assert role in actual[actual.index("--name") + 1]
+        context = actual[actual.index("--append-system-prompt") + 1]
+        assert str(runner.parent.parent) in context and role in context
+        assert str(runner.parent.parent) in actual
+        transport.with_suffix(".json").unlink()
+        result = subprocess.run(
+            [*argv, "--model", "claude-wrong"], capture_output=True, text=True
+        )
+        assert result.returncode != 0
+        assert "saved" in result.stdout.lower()
+        assert not transport.with_suffix(".json").exists()

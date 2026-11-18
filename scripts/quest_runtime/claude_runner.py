@@ -137,7 +137,6 @@ def select_role_runtime(
     *,
     orchestrator: str,
     target_runtime: str,
-    native_claude_available: bool = True,
     claude_bridge_available: bool = False,
     antigravity_available: bool = False,
     codex_runner_available: bool = False,
@@ -241,47 +240,18 @@ def select_role_runtime(
             requires_probe=True,
         )
 
-    if normalized_orchestrator == "codex":
-        if claude_bridge_available:
-            return RuntimeSelection(
-                runtime="claude",
-                entrypoint="scripts/quest_claude_runner.py",
-                reason=(
-                    "runtime=claude entrypoint=scripts/quest_claude_runner.py: "
-                    "Codex-led Claude role uses the additive bridge-backed "
-                    "Quest runner."
-                ),
-                requires_probe=True,
-            )
-        return RuntimeSelection(
-            runtime="blocked",
-            entrypoint="",
-            reason=(
-                "runtime=claude entrypoint=blocked: Codex-led Claude role "
-                "requires the Quest Claude bridge runner "
-                "(scripts/quest_claude_runner.py), but the bridge probe is "
-                "unavailable. Re-run the host-context Claude bridge probe or "
-                "assign this role to Codex."
-            ),
-            requires_probe=True,
-        )
-
-    if native_claude_available:
+    if claude_bridge_available:
         return RuntimeSelection(
             runtime="claude",
-            entrypoint="Task(...)",
-            reason=(
-                "runtime=claude entrypoint=Task(...): Claude-led or "
-                "native-Claude host keeps native Claude task execution."
-            ),
-            requires_probe=False,
+            entrypoint="scripts/quest_claude_runner.py",
+            reason="runtime=claude entrypoint=scripts/quest_claude_runner.py: Claude roles use the probed Quest runner under either orchestrator.",
+            requires_probe=True,
         )
-
     return RuntimeSelection(
         runtime="blocked",
         entrypoint="",
-        reason="Claude runtime requested but native Claude tasks are unavailable.",
-        requires_probe=False,
+        reason="runtime=claude entrypoint=blocked: Claude role requires the Quest Claude runner and a successful transport probe. Run startup preflight; native tasks are not a fallback.",
+        requires_probe=True,
     )
 
 
@@ -313,6 +283,9 @@ def build_bridge_cmd(
     timeout: float,
     permission_mode: str,
     add_dirs: Iterable[str | Path] | None = None,
+    effort: str | None = None,
+    persona: str | None = None,
+    append_system_prompt: str | None = None,
 ) -> list[str]:
     cli_model = normalize_claude_cli_model(model)
     cmd = [
@@ -329,6 +302,12 @@ def build_bridge_cmd(
     ]
     if cli_model is not None:
         cmd.extend(["--model", cli_model])
+    if effort is not None:
+        cmd.extend(["--effort", effort])
+    if persona:
+        cmd.extend(["--agent", persona])
+    if append_system_prompt:
+        cmd.extend(["--append-system-prompt", append_system_prompt])
     if add_dirs:
         for directory in unique_dirs(add_dirs):
             cmd.extend(["--add-dir", directory])
@@ -350,6 +329,9 @@ def build_bg_cmd(
     teardown_on_needs_human: bool = False,
     resume: str | None = None,
     answer_file: str | Path | None = None,
+    effort: str | None = None,
+    persona: str | None = None,
+    append_system_prompt: str | None = None,
 ) -> list[str]:
     """argv for the background-agent transport (scripts/quest_claude_bg_run.py).
 
@@ -382,6 +364,12 @@ def build_bg_cmd(
         cmd.extend(["--prompt-file", str(prompt_file)])
     if cli_model is not None:
         cmd.extend(["--model", cli_model])
+    if effort is not None:
+        cmd.extend(["--effort", effort])
+    if persona:
+        cmd.extend(["--agent", persona])
+    if append_system_prompt:
+        cmd.extend(["--append-system-prompt", append_system_prompt])
     if teardown_on_needs_human:
         cmd.append("--teardown-on-needs-human")
     for path in wait_for:
@@ -709,6 +697,9 @@ def run_claude_role(
     teardown_on_needs_human: bool = False,
     resume: str | None = None,
     answer_file: str | Path | None = None,
+    effort: str | None = None,
+    persona: str | None = None,
+    append_system_prompt: str | None = None,
 ) -> RunResult:
     if transport not in {"bridge", "background-agent"}:
         raise ValueError(
@@ -783,6 +774,9 @@ def run_claude_role(
                     handoff_file=resolved_handoff_file,
                     bridge_script=bridge_script,
                     model=model,
+                    effort=effort,
+                    persona=persona,
+                    append_system_prompt=append_system_prompt,
                     timeout=timeout,
                     permission_mode=permission_mode,
                     artifact_paths=resolved_artifact_paths,
@@ -826,6 +820,9 @@ def run_claude_role(
                 prompt_file=resolved_prompt_file,
                 name=bg_session_name(resolved_quest_dir.name, agent, iteration),
                 model=model,
+                effort=effort,
+                persona=persona,
+                append_system_prompt=append_system_prompt,
                 timeout=timeout,
                 permission_mode=_effective_permission_mode(
                     permission_mode, permission_escalation
@@ -843,6 +840,9 @@ def run_claude_role(
                 bridge_script=bridge_script,
                 prompt_file=resolved_prompt_file,
                 model=model,
+                effort=effort,
+                persona=persona,
+                append_system_prompt=append_system_prompt,
                 timeout=timeout,
                 permission_mode=_effective_permission_mode(
                     permission_mode, permission_escalation
@@ -1105,6 +1105,9 @@ def run_claude_role(
                 handoff_file=resolved_handoff_file,
                 bridge_script=bridge_script,
                 model=model,
+                effort=effort,
+                persona=persona,
+                append_system_prompt=append_system_prompt,
                 timeout=timeout,
                 permission_mode=permission_mode,
                 artifact_paths=resolved_artifact_paths,

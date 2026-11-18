@@ -12,6 +12,8 @@ LEGACY_REFERENCE_ALLOWED_FILES = {
     PurePosixPath("scripts/quest_installer.sh"),
     PurePosixPath("scripts/quest_validate-quest-config.sh"),
     PurePosixPath("tests/test-quest-runtime.sh"),
+    # Immutable historical installer used to exercise legacy self-update.
+    PurePosixPath("tests/fixtures/installers/quest_installer_319494ec.sh"),
     PurePosixPath("tests/unit/test_script_prefix_policy.py"),
 }
 HISTORICAL_REFERENCE_ROOTS = {

@@ -1197,25 +1197,24 @@ def test_cli_translates_state_mutation_failures(
 
 def test_cli_expected_phase_mismatch_is_distinct_and_does_not_mutate(tmp_path):
     quest_dir = _make_quest_dir(tmp_path)
+    roles = (
+        "planner",
+        "plan-reviewer-a",
+        "plan-reviewer-b",
+        "arbiter",
+        "builder",
+        "code-reviewer-a",
+        "code-reviewer-b",
+        "review-arbiter",
+        "fixer",
+    )
     (quest_dir / "orchestration.json").write_text(
         json.dumps(
             {
                 "version": 1,
                 "source": "default",
-                "models": {
-                    role: "test-model"
-                    for role in (
-                        "planner",
-                        "plan-reviewer-a",
-                        "plan-reviewer-b",
-                        "arbiter",
-                        "builder",
-                        "code-reviewer-a",
-                        "code-reviewer-b",
-                        "review-arbiter",
-                        "fixer",
-                    )
-                },
+                "models": dict.fromkeys(roles, "test-model"),
+                "effort": dict.fromkeys(roles, "medium"),
             }
         ),
         encoding="utf-8",

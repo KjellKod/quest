@@ -57,6 +57,11 @@ def _build_celebration_json(data: QuestData) -> dict:
             (
                 {"name": a.name, "model": a.model, "role": a.role_title}
                 | ({"transport": a.transport} if a.transport else {})
+                | (
+                    {"configured_effort": a.configured_effort}
+                    if a.configured_effort
+                    else {}
+                )
             )
             for a in data.agents
         ],
@@ -268,6 +273,10 @@ def build_journal_entry(
         lines.append("")
         for agent in data.agents:
             model_label = friendly_model_name(agent.model)
+            if agent.configured_effort:
+                model_label += (
+                    ", " if model_label else ""
+                ) + f"configured effort: {agent.configured_effort}"
             lines.append(f"- **{agent.role_title}** ({agent.name}): {model_label}")
         lines.append("")
 
