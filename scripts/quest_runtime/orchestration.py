@@ -37,13 +37,13 @@ CANONICAL_ROLES: tuple[str, ...] = (
 # BEGIN GENERATED MODEL DEFAULTS (edit .ai/allowlist.json, then run scripts/quest_sync_model_defaults.py)
 DEFAULT_MODELS: dict[str, str] = {
     "planner": "gpt-6.1-sol",
-    "plan-reviewer-a": "claude-opus-5",
+    "plan-reviewer-a": "claude-opus-5-5",
     "plan-reviewer-b": "gpt-6.1-sol",
-    "arbiter": "claude-opus-5",
+    "arbiter": "claude-opus-5-5",
     "builder": "gpt-6.1-sol",
-    "code-reviewer-a": "claude-opus-5",
+    "code-reviewer-a": "claude-opus-5-5",
     "code-reviewer-b": "gpt-6.1-sol",
-    "review-arbiter": "claude-opus-5",
+    "review-arbiter": "claude-opus-5-5",
     "fixer": "gpt-6.1-sol",
 }
 CODEX_NATIVE_FALLBACK_MODEL = "gpt-6.1-sol"
